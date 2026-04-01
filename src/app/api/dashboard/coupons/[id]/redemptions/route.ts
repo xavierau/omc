@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRedemptionsForCoupon } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { COUPONS_PAGE_SIZE } from '@/lib/constants'
+import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    await getTenantContext()
     const { id } = await context.params
     const { searchParams } = request.nextUrl
     const page = parseInt(searchParams.get('page') ?? '1', 10)

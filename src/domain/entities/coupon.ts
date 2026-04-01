@@ -13,6 +13,7 @@ export interface Coupon {
   currentUses: number
   isActive: boolean
   description: string | null
+  campaignId: string | null
   createdAt: string
 }
 

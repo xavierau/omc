@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTenant } from '@/hooks/use-tenant'
 
 export interface CouponListItem {
   id: string
@@ -33,11 +34,13 @@ interface UseCouponsParams {
 
 export function useCoupons(params: UseCouponsParams = {}) {
   const { type = '', active = '', page = 1 } = params
+  const { restaurantId } = useTenant()
   const [data, setData] = useState<CouponsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchCoupons = useCallback(async () => {
+    if (!restaurantId) return
     try {
       setIsLoading(true)
       setError(null)
@@ -54,7 +57,7 @@ export function useCoupons(params: UseCouponsParams = {}) {
     } finally {
       setIsLoading(false)
     }
-  }, [page, type, active])
+  }, [page, type, active, restaurantId])
 
   useEffect(() => {
     fetchCoupons()

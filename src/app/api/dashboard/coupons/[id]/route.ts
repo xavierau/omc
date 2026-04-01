@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCouponDetailUseCase } from '@/application/get-coupon-detail'
 import { updateCouponUseCase } from '@/application/update-coupon'
+import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
+    await getTenantContext()
     const { id } = await context.params
     const result = await getCouponDetailUseCase(id)
 
@@ -22,6 +24,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
+    await getTenantContext()
     const { id } = await context.params
     const body = await request.json()
 

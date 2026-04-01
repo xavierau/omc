@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -33,16 +34,22 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
-const columns = ['Code', 'Type', 'Discount', 'Uses', 'Active', 'Expires', 'Actions']
-
 export function CouponTable({
   coupons, search, onSearchChange, typeFilter, onTypeFilterChange, onSelectCoupon, onToggleActive,
 }: CouponTableProps) {
+  const t = useTranslations('coupons')
+  const tc = useTranslations('common')
+
+  const columns = [
+    t('code'), t('type'), t('discount'), t('uses'),
+    tc('active'), t('expires'), t('actions'),
+  ]
+
   return (
     <div className="space-y-4">
       <div className="flex gap-3">
         <Input
-          placeholder="Search by code..."
+          placeholder={t('searchPlaceholder')}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="max-w-sm"
@@ -52,11 +59,11 @@ export function CouponTable({
           onChange={(e) => onTypeFilterChange(e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-3 text-sm"
         >
-          <option value="">All Types</option>
-          <option value="welcome">Welcome</option>
-          <option value="promo">Promo</option>
-          <option value="reward">Reward</option>
-          <option value="shared">Shared</option>
+          <option value="">{t('allTypes')}</option>
+          <option value="welcome">{t('welcome')}</option>
+          <option value="promo">{t('promo')}</option>
+          <option value="reward">{t('reward')}</option>
+          <option value="shared">{t('shared')}</option>
         </select>
       </div>
       <div className="rounded-md border">
@@ -89,6 +96,8 @@ function CouponRow({ coupon, onSelect, onToggle }: {
   onSelect: (id: string) => void
   onToggle: (id: string, isActive: boolean) => void
 }) {
+  const tc = useTranslations('common')
+
   return (
     <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => onSelect(coupon.id)}>
       <TableCell className="font-mono font-medium">{coupon.code}</TableCell>
@@ -97,7 +106,7 @@ function CouponRow({ coupon, onSelect, onToggle }: {
       <TableCell>{formatUses(coupon.currentUses, coupon.maxUses)}</TableCell>
       <TableCell>
         <Badge variant={coupon.isActive ? 'default' : 'secondary'}>
-          {coupon.isActive ? 'Active' : 'Inactive'}
+          {coupon.isActive ? tc('active') : tc('inactive')}
         </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">{formatDate(coupon.expiresAt)}</TableCell>
@@ -107,7 +116,7 @@ function CouponRow({ coupon, onSelect, onToggle }: {
           size="xs"
           onClick={(e) => { e.stopPropagation(); onToggle(coupon.id, !coupon.isActive) }}
         >
-          {coupon.isActive ? 'Deactivate' : 'Activate'}
+          {coupon.isActive ? tc('deactivate') : tc('activate')}
         </Button>
       </TableCell>
     </TableRow>

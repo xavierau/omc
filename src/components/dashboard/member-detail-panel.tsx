@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -30,30 +31,32 @@ function formatDate(d: string | null): string {
 }
 
 function MemberInfo({ member }: { member: MemberDetail }) {
+  const t = useTranslations('members')
+
   return (
     <div className="grid grid-cols-2 gap-4 text-sm">
       <div>
-        <p className="text-muted-foreground">Phone</p>
+        <p className="text-muted-foreground">{t('phone')}</p>
         <p className="font-medium">{'\u2022\u2022\u2022\u2022' + member.phone.slice(-4)}</p>
       </div>
       <div>
-        <p className="text-muted-foreground">Points</p>
+        <p className="text-muted-foreground">{t('points')}</p>
         <p className="font-medium">{member.points_balance}</p>
       </div>
       <div>
-        <p className="text-muted-foreground">Status</p>
+        <p className="text-muted-foreground">{t('status')}</p>
         <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>{member.status}</Badge>
       </div>
       <div>
-        <p className="text-muted-foreground">Joined</p>
+        <p className="text-muted-foreground">{t('joined')}</p>
         <p className="font-medium">{formatDate(member.joined_at)}</p>
       </div>
       <div>
-        <p className="text-muted-foreground">Last Visit</p>
+        <p className="text-muted-foreground">{t('lastVisit')}</p>
         <p className="font-medium">{formatDate(member.last_visit_at)}</p>
       </div>
       <div>
-        <p className="text-muted-foreground">Total Visits</p>
+        <p className="text-muted-foreground">{t('totalVisits')}</p>
         <p className="font-medium">{member.visitCount}</p>
       </div>
     </div>
@@ -61,11 +64,13 @@ function MemberInfo({ member }: { member: MemberDetail }) {
 }
 
 function ReceiptList({ receipts }: { receipts: MemberDetail['receipts'] }) {
+  const t = useTranslations('members')
+
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-3">Recent Receipts</h3>
+      <h3 className="text-sm font-semibold mb-3">{t('recentReceipts')}</h3>
       {receipts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No receipts yet</p>
+        <p className="text-sm text-muted-foreground">{t('noReceipts')}</p>
       ) : (
         <div className="space-y-2">
           {receipts.slice(0, 10).map((r) => (
@@ -80,21 +85,23 @@ function ReceiptList({ receipts }: { receipts: MemberDetail['receipts'] }) {
   )
 }
 
-function formatCouponDiscount(type: string | null, value: number | null): string | null {
+function formatCouponDiscount(type: string | null, value: number | null, t: ReturnType<typeof useTranslations<'members'>>): string | null {
   if (!type || value == null) return null
-  return type === 'percentage' ? `${value}% off` : `HK$${value} off`
+  return type === 'percentage' ? t('percentOff', { value }) : t('fixedOff', { value })
 }
 
 function CouponList({ coupons }: { coupons: MemberDetail['coupons'] }) {
+  const t = useTranslations('members')
+
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-3">Coupons</h3>
+      <h3 className="text-sm font-semibold mb-3">{t('couponsSection')}</h3>
       {coupons.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No coupons</p>
+        <p className="text-sm text-muted-foreground">{t('noCoupons')}</p>
       ) : (
         <div className="space-y-2">
           {coupons.map((c) => {
-            const discount = formatCouponDiscount(c.discount_type, c.discount_value)
+            const discount = formatCouponDiscount(c.discount_type, c.discount_value, t)
             return (
               <div key={c.id} className="flex justify-between items-center text-sm">
                 <div>
@@ -113,6 +120,8 @@ function CouponList({ coupons }: { coupons: MemberDetail['coupons'] }) {
 }
 
 export function MemberDetailPanel({ memberId, open, onClose }: MemberDetailPanelProps) {
+  const t = useTranslations('members')
+  const tc = useTranslations('common')
   const [member, setMember] = useState<MemberDetail | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -130,21 +139,23 @@ export function MemberDetailPanel({ memberId, open, onClose }: MemberDetailPanel
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{member?.name || 'Member Details'}</SheetTitle>
+          <SheetTitle>{member?.name || t('detailTitle')}</SheetTitle>
         </SheetHeader>
-        {loading ? (
-          <div className="py-8 text-center text-muted-foreground">Loading...</div>
-        ) : member ? (
-          <div className="space-y-6 mt-4">
-            <MemberInfo member={member} />
-            <Separator />
-            <ReceiptList receipts={member.receipts} />
-            <Separator />
-            <CouponList coupons={member.coupons} />
-          </div>
-        ) : (
-          <div className="py-8 text-center text-muted-foreground">Member not found</div>
-        )}
+        <div className="px-4 pb-4">
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">{tc('loading')}</div>
+          ) : member ? (
+            <div className="space-y-6 mt-4">
+              <MemberInfo member={member} />
+              <Separator />
+              <ReceiptList receipts={member.receipts} />
+              <Separator />
+              <CouponList coupons={member.coupons} />
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">{t('memberNotFound')}</div>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   )

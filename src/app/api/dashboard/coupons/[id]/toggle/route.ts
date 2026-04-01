@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findCouponById, updateCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
+import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(_request: NextRequest, context: RouteContext) {
   try {
+    await getTenantContext()
     const { id } = await context.params
     const existing = await findCouponById(id)
 

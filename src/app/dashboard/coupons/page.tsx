@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useCoupons } from '@/hooks/use-coupons'
 import { CouponTable } from '@/components/dashboard/coupon-table'
 import { CouponFormDialog } from '@/components/dashboard/coupon-form-dialog'
@@ -10,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import type { CouponListItem } from '@/hooks/use-coupons'
 
 export default function CouponsPage() {
+  const t = useTranslations('coupons')
+  const tc = useTranslations('common')
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState('')
   const [activeFilter, setActiveFilter] = useState('')
@@ -47,8 +50,8 @@ export default function CouponsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <p className="text-muted-foreground">Couldn&apos;t load coupons.</p>
-        <Button variant="outline" onClick={refetch} className="mt-4">Retry</Button>
+        <p className="text-muted-foreground">{t('couldntLoad')}</p>
+        <Button variant="outline" onClick={refetch} className="mt-4">{tc('retry')}</Button>
       </div>
     )
   }
@@ -82,14 +85,16 @@ export default function CouponsPage() {
 function CouponsHeader({ activeFilter, onActiveFilterChange, onCreate }: {
   activeFilter: string; onActiveFilterChange: (v: string) => void; onCreate: () => void
 }) {
+  const t = useTranslations('coupons')
+
   return (
     <div className="flex items-center justify-between">
-      <h1 className="text-2xl font-semibold text-foreground">Coupons</h1>
+      <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
       <div className="flex gap-2">
         <select value={activeFilter} onChange={(e) => onActiveFilterChange(e.target.value)} className="h-8 rounded-md border border-input bg-background px-3 text-sm">
-          <option value="">All Status</option><option value="true">Active Only</option><option value="false">Inactive Only</option>
+          <option value="">{t('allStatus')}</option><option value="true">{t('activeOnly')}</option><option value="false">{t('inactiveOnly')}</option>
         </select>
-        <Button onClick={onCreate}>Create Coupon</Button>
+        <Button onClick={onCreate}>{t('createCoupon')}</Button>
       </div>
     </div>
   )
@@ -105,12 +110,14 @@ function CouponsContent({ coupons, isLoading, search, onSearchChange, typeFilter
   onSelectCoupon: (id: string) => void
   onToggleActive: (id: string, isActive: boolean) => void
 }) {
+  const t = useTranslations('coupons')
+
   if (isLoading) return <LoadingSkeleton />
   if (coupons.length === 0 && !search && !typeFilter) {
-    return <EmptyState title="No coupons yet" description="Create your first coupon to get started." />
+    return <EmptyState title={t('noCouponsTitle')} description={t('noCouponsDescription')} />
   }
   if (coupons.length === 0) {
-    return <div className="text-center py-12 text-muted-foreground">No coupons match your filters</div>
+    return <div className="text-center py-12 text-muted-foreground">{t('noMatch')}</div>
   }
   return (
     <CouponTable
@@ -136,14 +143,20 @@ function LoadingSkeleton() {
 function Pagination({ data, page, onPageChange }: {
   data: { total: number; page: number; pageSize: number; totalPages: number }; page: number; onPageChange: (p: number) => void
 }) {
+  const tc = useTranslations('common')
+
   return (
     <div className="flex items-center justify-between">
       <p className="text-sm text-muted-foreground">
-        Showing {(data.page - 1) * data.pageSize + 1}&ndash;{Math.min(data.page * data.pageSize, data.total)} of {data.total}
+        {tc('showing', {
+          start: (data.page - 1) * data.pageSize + 1,
+          end: Math.min(data.page * data.pageSize, data.total),
+          total: data.total,
+        })}
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</Button>
-        <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => onPageChange(page + 1)}>Next</Button>
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>{tc('previous')}</Button>
+        <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => onPageChange(page + 1)}>{tc('next')}</Button>
       </div>
     </div>
   )

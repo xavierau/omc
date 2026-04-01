@@ -6,6 +6,7 @@ import {
 } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { createRedemption, hasRedeemed } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { incrementCampaignRedeemed } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { isCouponRedeemable, isSharedCoupon } from '@/domain/entities/coupon'
 
 export type RedeemResult =
@@ -43,7 +44,7 @@ function resolveNotRedeemableMessage(coupon: { isActive: boolean; expiresAt: str
 }
 
 async function handleSharedRedemption(
-  coupon: { id: string; restaurantId: string; code: string; type: string; discountType: string | null; discountValue: number | null },
+  coupon: { id: string; restaurantId: string; code: string; type: string; campaignId: string | null; discountType: string | null; discountValue: number | null },
   memberId: string,
   restaurantId?: string
 ): Promise<RedeemResult> {
@@ -68,12 +69,15 @@ async function handleSharedRedemption(
     type: 'redeem',
     dataJson: { coupon_code: coupon.code, coupon_type: coupon.type },
   })
+  if (coupon.campaignId) {
+    await incrementCampaignRedeemed(coupon.campaignId)
+  }
 
   return { success: true, message: buildSuccessMessage(coupon) }
 }
 
 async function handlePersonalRedemption(
-  coupon: { id: string; restaurantId: string; code: string; type: string; discountType: string | null; discountValue: number | null },
+  coupon: { id: string; restaurantId: string; code: string; type: string; campaignId: string | null; discountType: string | null; discountValue: number | null },
   memberId: string,
   restaurantId?: string
 ): Promise<RedeemResult> {
@@ -86,6 +90,9 @@ async function handlePersonalRedemption(
     type: 'redeem',
     dataJson: { coupon_code: coupon.code, coupon_type: coupon.type },
   })
+  if (coupon.campaignId) {
+    await incrementCampaignRedeemed(coupon.campaignId)
+  }
 
   return { success: true, message: buildSuccessMessage(coupon) }
 }

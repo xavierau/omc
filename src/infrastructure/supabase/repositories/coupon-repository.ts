@@ -24,6 +24,7 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
       max_uses: params.maxUses ?? null,
       is_active: true,
       description: params.description ?? null,
+      campaign_id: params.campaignId ?? null,
     })
     .select('*')
     .single()

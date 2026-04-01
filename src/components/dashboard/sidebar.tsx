@@ -3,19 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-
-const navItems = [
-  { label: 'Overview', href: '/dashboard' },
-  { label: 'Members', href: '/dashboard/members' },
-  { label: 'Live Feed', href: '/dashboard/feed' },
-  { label: 'Campaigns', href: '/dashboard/campaigns' },
-  { label: 'Coupons', href: '/dashboard/coupons' },
-]
-
-const secondaryItems = [
-  { label: 'QR Setup', href: '/dashboard/setup' },
-]
+import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
 function NavLink({ href, label, isActive, onClick }: {
   href: string
@@ -57,6 +47,22 @@ export function Sidebar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeMobile = () => setMobileOpen(false)
+  const t = useTranslations('nav')
+
+  const navItems = [
+    { label: t('overview'), href: '/dashboard' },
+    { label: t('members'), href: '/dashboard/members' },
+    { label: t('liveFeed'), href: '/dashboard/feed' },
+    { label: t('campaigns'), href: '/dashboard/campaigns' },
+    { label: t('waTemplates'), href: '/dashboard/wa-templates' },
+    { label: t('coupons'), href: '/dashboard/coupons' },
+    { label: t('scan'), href: '/dashboard/scan' },
+    { label: t('rewards'), href: '/dashboard/rewards' },
+  ]
+
+  const secondaryItems = [
+    { label: t('qrSetup'), href: '/dashboard/setup' },
+  ]
 
   return (
     <>
@@ -74,9 +80,12 @@ export function Sidebar() {
         'hidden lg:flex lg:w-60',
         mobileOpen && 'fixed inset-y-0 left-0 flex w-60'
       )}>
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-white">The Green Kitchen</h2>
-          <p className="text-sm text-sidebar-foreground/60 mt-1">WhatsApp CRM</p>
+        <div className="p-6 space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">{t('brandName')}</h2>
+            <p className="text-sm text-sidebar-foreground/60 mt-1">{t('brandSubtitle')}</p>
+          </div>
+          <TenantSwitcher />
         </div>
         <nav className="flex-1 px-3">
           {navItems.map((item) => (
