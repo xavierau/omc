@@ -20,6 +20,9 @@
 # production
 /build
 
+# claude
+.claude/skills/
+
 # misc
 .DS_Store
 *.pem
