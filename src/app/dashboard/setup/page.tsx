@@ -2,13 +2,33 @@ import { getTranslations } from 'next-intl/server'
 import { QrGenerator } from '@/components/dashboard/qr-generator'
 import { ReceiptTemplateSection } from '@/components/dashboard/receipt-template-section'
 import { FlaggedReceiptsPanel } from '@/components/dashboard/flagged-receipts-panel'
+import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
 import { Separator } from '@/components/ui/separator'
+import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 
 export default async function SetupPage() {
   const t = await getTranslations('qr')
+  const rt = await getTranslations('receiptTemplate')
+  const st = await getTranslations('settings')
+  const { restaurantId } = await getTenantContext()
+  const supabase = createServerSupabaseClient()
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('logo_url')
+    .eq('id', restaurantId)
+    .single()
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">{st('heading')}</h2>
+        <p className="text-muted-foreground mt-1">{st('description')}</p>
+      </div>
+      <TenantLogoSection initialLogoUrl={restaurant?.logo_url ?? null} />
+
+      <Separator />
+
       <div>
         <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
         <p className="text-muted-foreground mt-1">{t('description')}</p>
@@ -18,9 +38,9 @@ export default async function SetupPage() {
       <Separator />
 
       <div>
-        <h2 className="text-xl font-semibold text-foreground">Receipt Layout Template</h2>
+        <h2 className="text-xl font-semibold text-foreground">{rt('heading')}</h2>
         <p className="text-muted-foreground mt-1">
-          Configure how receipt images are verified for layout consistency.
+          {rt('description')}
         </p>
       </div>
       <ReceiptTemplateSection />
@@ -28,9 +48,9 @@ export default async function SetupPage() {
       <Separator />
 
       <div>
-        <h2 className="text-xl font-semibold text-foreground">Flagged Receipts</h2>
+        <h2 className="text-xl font-semibold text-foreground">{rt('flaggedHeading')}</h2>
         <p className="text-muted-foreground mt-1">
-          Review receipts that failed layout verification.
+          {rt('flaggedDescription')}
         </p>
       </div>
       <FlaggedReceiptsPanel />

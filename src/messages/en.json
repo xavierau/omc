@@ -239,6 +239,7 @@
     "fieldsRequired": "Please enter your phone number and name",
     "alreadyMember": "You are already a member!",
     "genericError": "Something went wrong. Please try again.",
+    "promotionUnavailable": "This promotion is no longer available. Please contact us to continue.",
     "successHeading": "Welcome!",
     "successSubtitle": "Your welcome coupon is ready"
   },
@@ -359,6 +360,13 @@
     "updateStatus": "Update Status",
     "trialTenants": "Trial Tenants"
   },
+  "settings": {
+    "heading": "Settings",
+    "description": "Manage your restaurant settings.",
+    "logoTitle": "Restaurant Logo",
+    "logoDescription": "Upload your restaurant logo. It will be shown on the public join page.",
+    "saving": "Saving..."
+  },
   "scan": {
     "heading": "Scan QR Code",
     "subtitle": "Scan a customer's coupon QR code to redeem",
@@ -385,7 +393,41 @@
     "noExpiry": "No expiry",
     "uses": "Uses",
     "usesCount": "{current} / {max}",
-    "usesUnlimited": "{current} (unlimited)"
+    "usesUnlimited": "{current} (unlimited)",
+    "couponAlreadyRedeemed": "This coupon has already been redeemed.",
+    "couponExpired": "This coupon has expired."
+  },
+  "receiptTemplate": {
+    "heading": "Receipt Layout Template",
+    "description": "Configure how receipt images are verified for layout consistency.",
+    "templateTitle": "Receipt Template",
+    "active": "Active",
+    "regionsDetected": "Regions detected:",
+    "threshold": "Threshold:",
+    "rebuildTemplate": "Rebuild Template",
+    "loadingStatus": "Loading template status...",
+    "noTemplate": "No receipt template configured. Upload sample receipts to enable layout verification.",
+    "uploadTitle": "Upload Sample Receipts",
+    "selectImages": "Select {min}-{max} receipt images",
+    "filesSelected": "{count} file(s) selected",
+    "needRange": "(need {min}-{max})",
+    "buildTemplate": "Build Template",
+    "uploading": "Uploading...",
+    "building": "Building...",
+    "clear": "Clear",
+    "templateCreated": "Template created with {count} regions",
+    "flaggedHeading": "Flagged Receipts",
+    "flaggedDescription": "Review receipts that failed layout verification.",
+    "flaggedTitle": "Flagged Receipts",
+    "noFlagged": "No flagged receipts",
+    "loadingFlagged": "Loading flagged receipts...",
+    "colDate": "Date",
+    "colMember": "Member",
+    "colAmount": "Amount",
+    "colLayoutScore": "Layout Score",
+    "colActions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject"
   },
   "auditLogs": {
     "heading": "Audit Logs",

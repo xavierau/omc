@@ -74,7 +74,7 @@ async function sendToMember(
   template: WhatsAppTemplate | null
 ): Promise<void> {
   const code = generateCouponCode()
-  await createCampaignCoupon(campaign, member.id, code)
+  await createCampaignCoupon(campaign, member, code)
 
   if (template) {
     await sendViaTemplate(phoneNumberId, member, campaign, template, code)
@@ -129,7 +129,7 @@ async function sendViaTemplate(
 
 async function createCampaignCoupon(
   campaign: Campaign,
-  memberId: string,
+  member: Member,
   code: string
 ): Promise<void> {
   const config = campaign.couponConfig
@@ -137,16 +137,24 @@ async function createCampaignCoupon(
     ? new Date(Date.now() + config.expiresInDays * 86400000).toISOString()
     : null
 
+  const discount = formatDiscount(config)
+  const description = renderTemplate(campaign.template, {
+    name: member.name ?? '',
+    code,
+    discount,
+  })
   await createCoupon({
     restaurantId: campaign.restaurantId,
     type: 'promo',
     code,
-    memberId,
+    memberId: member.id,
     campaignId: campaign.id,
     expiresAt,
     discountType: config?.discountType ?? null,
     discountValue: config?.discountValue ?? null,
     maxUses: 1,
+    title: campaign.name ?? null,
+    description,
   })
 }
 

@@ -19,7 +19,7 @@ const statusStyles: Record<string, string> = {
 
 export function CouponCard(props: CouponPublicDTO & { children?: React.ReactNode }) {
   const discount = formatDiscount(props.discountType, props.discountValue)
-  const heroText = discount ?? props.description ?? 'Special Offer'
+  const heroText = props.title ?? discount ?? 'Special Offer'
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-lg">
@@ -32,7 +32,11 @@ export function CouponCard(props: CouponPublicDTO & { children?: React.ReactNode
 
       <p className="text-center text-3xl font-extrabold tracking-tight">{heroText}</p>
 
-      {props.description && discount && (
+      {discount && props.title && (
+        <p className="mt-2 text-center text-lg font-semibold text-primary">{discount}</p>
+      )}
+
+      {props.description && (
         <p className="mt-2 text-center text-sm text-muted-foreground">{props.description}</p>
       )}
 

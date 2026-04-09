@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTenant } from '@/hooks/use-tenant'
@@ -11,6 +12,7 @@ const MAX_IMAGES = 5
 export function ReceiptTemplateUploader({ onSuccess }: {
   onSuccess: () => void
 }) {
+  const t = useTranslations('receiptTemplate')
   const { restaurantId } = useTenant()
   const [files, setFiles] = useState<File[]>([])
   const [status, setStatus] = useState<'idle' | 'uploading' | 'building' | 'done' | 'error'>('idle')
@@ -38,11 +40,11 @@ export function ReceiptTemplateUploader({ onSuccess }: {
       if (!res.ok) throw new Error((await res.json()).error ?? 'Build failed')
       const data = await res.json()
       setStatus('done')
-      setResult(`Template created with ${data.regionCount} regions`)
+      setResult(t('templateCreated', { count: data.regionCount }))
       onSuccess()
     } catch (err) {
       setStatus('error')
-      setResult(err instanceof Error ? err.message : 'Something went wrong')
+      setResult(err instanceof Error ? err.message : t('somethingWentWrong'))
     }
   }
 
@@ -59,18 +61,18 @@ export function ReceiptTemplateUploader({ onSuccess }: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upload Sample Receipts</CardTitle>
+        <CardTitle>{t('uploadTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <FileInput inputRef={inputRef} onChange={handleFileChange} disabled={isBuilding} />
         <Thumbnails files={files} />
-        <FileCount count={files.length} />
+        <FileCount count={files.length} t={t} />
         <StatusMessage status={status} result={result} />
         <div className="flex gap-2">
           <Button onClick={handleBuild} disabled={!canBuild}>
-            {isBuilding ? (status === 'uploading' ? 'Uploading...' : 'Building...') : 'Build Template'}
+            {isBuilding ? (status === 'uploading' ? t('uploading') : t('building')) : t('buildTemplate')}
           </Button>
-          {files.length > 0 && <Button variant="outline" onClick={handleReset}>Clear</Button>}
+          {files.length > 0 && <Button variant="outline" onClick={handleReset}>{t('clear')}</Button>}
         </div>
       </CardContent>
     </Card>
@@ -111,12 +113,12 @@ function Thumbnails({ files }: { files: File[] }) {
   )
 }
 
-function FileCount({ count }: { count: number }) {
-  if (count === 0) return <p className="text-sm text-muted-foreground">Select {MIN_IMAGES}-{MAX_IMAGES} receipt images</p>
+function FileCount({ count, t }: { count: number; t: ReturnType<typeof useTranslations> }) {
+  if (count === 0) return <p className="text-sm text-muted-foreground">{t('selectImages', { min: MIN_IMAGES, max: MAX_IMAGES })}</p>
   const valid = count >= MIN_IMAGES && count <= MAX_IMAGES
   return (
     <p className={`text-sm ${valid ? 'text-muted-foreground' : 'text-destructive'}`}>
-      {count} file{count !== 1 ? 's' : ''} selected {!valid && `(need ${MIN_IMAGES}-${MAX_IMAGES})`}
+      {t('filesSelected', { count })} {!valid && t('needRange', { min: MIN_IMAGES, max: MAX_IMAGES })}
     </p>
   )
 }

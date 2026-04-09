@@ -41,7 +41,7 @@ function useJoinSubmit(slug: string) {
   return { error, loading, submit, setError }
 }
 
-export function SlugJoinForm({ slug }: { slug: string }) {
+export function SlugJoinForm({ slug, tenantName, logoUrl }: { slug: string; tenantName: string; logoUrl: string | null }) {
   const t = useTranslations('join')
   const [phone, setPhone] = useState('+852')
   const [name, setName] = useState('')
@@ -60,7 +60,11 @@ export function SlugJoinForm({ slug }: { slug: string }) {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader>
+      <CardHeader className="text-center">
+        {logoUrl && (
+          <img src={logoUrl} alt={tenantName} className="mx-auto h-16 w-16 rounded-lg object-cover" />
+        )}
+        <p className="text-sm font-medium text-muted-foreground">{tenantName}</p>
         <CardTitle>{t('heading')}</CardTitle>
         <CardDescription>{t('subtitle')}</CardDescription>
       </CardHeader>
@@ -107,8 +111,6 @@ function resolveError(error: string, t: (key: string) => string): string {
   if (error === 'fields_required') return t('fieldsRequired')
   if (error === 'already_member') return t('alreadyMember')
   if (error === 'generic_error') return t('genericError')
-  if (error === 'promotion_unavailable') {
-    return 'This promotion is no longer available. Please contact us to continue.'
-  }
+  if (error === 'promotion_unavailable') return t('promotionUnavailable')
   return error
 }

@@ -239,6 +239,7 @@
     "fieldsRequired": "請輸入您的電話號碼及姓名",
     "alreadyMember": "您已經是會員！",
     "genericError": "出了點問題，請重試。",
+    "promotionUnavailable": "此推廣活動已結束，請聯繫我們以繼續。",
     "successHeading": "歡迎！",
     "successSubtitle": "您的迎新優惠券已準備好"
   },
@@ -359,6 +360,13 @@
     "updateStatus": "更新狀態",
     "trialTenants": "試用租戶"
   },
+  "settings": {
+    "heading": "設定",
+    "description": "管理您的餐廳設定。",
+    "logoTitle": "餐廳標誌",
+    "logoDescription": "上傳您的餐廳標誌，將顯示在公開加入頁面上。",
+    "saving": "儲存中..."
+  },
   "scan": {
     "heading": "掃描 QR 碼",
     "subtitle": "掃描顧客的優惠券 QR 碼以兌換",
@@ -385,7 +393,41 @@
     "noExpiry": "無到期日",
     "uses": "使用次數",
     "usesCount": "{current} / {max}",
-    "usesUnlimited": "{current}（無限）"
+    "usesUnlimited": "{current}（無限）",
+    "couponAlreadyRedeemed": "此優惠券已被兌換。",
+    "couponExpired": "此優惠券已過期。"
+  },
+  "receiptTemplate": {
+    "heading": "收據版面範本",
+    "description": "設定收據圖片的版面一致性驗證方式。",
+    "templateTitle": "收據範本",
+    "active": "啟用",
+    "regionsDetected": "偵測到的區域：",
+    "threshold": "閾值：",
+    "rebuildTemplate": "重建範本",
+    "loadingStatus": "載入範本狀態中...",
+    "noTemplate": "尚未設定收據範本。請上傳樣本收據以啟用版面驗證。",
+    "uploadTitle": "上傳樣本收據",
+    "selectImages": "選擇 {min}-{max} 張收據圖片",
+    "filesSelected": "已選擇 {count} 個檔案",
+    "needRange": "（需要 {min}-{max} 張）",
+    "buildTemplate": "建立範本",
+    "uploading": "上傳中...",
+    "building": "建立中...",
+    "clear": "清除",
+    "templateCreated": "已建立範本，包含 {count} 個區域",
+    "flaggedHeading": "異常收據",
+    "flaggedDescription": "審閱未通過版面驗證的收據。",
+    "flaggedTitle": "異常收據",
+    "noFlagged": "沒有異常收據",
+    "loadingFlagged": "載入異常收據中...",
+    "colDate": "日期",
+    "colMember": "會員",
+    "colAmount": "金額",
+    "colLayoutScore": "版面評分",
+    "colActions": "操作",
+    "approve": "批准",
+    "reject": "拒絕"
   },
   "auditLogs": {
     "heading": "審計日誌",

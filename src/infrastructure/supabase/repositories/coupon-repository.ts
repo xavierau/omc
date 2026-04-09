@@ -23,6 +23,7 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
       discount_value: params.discountValue ?? null,
       max_uses: params.maxUses ?? null,
       is_active: true,
+      title: params.title ?? null,
       description: params.description ?? null,
       campaign_id: params.campaignId ?? null,
     })

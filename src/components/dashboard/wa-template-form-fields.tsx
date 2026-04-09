@@ -1,6 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { ImageUploader } from '@/components/dashboard/image-uploader'
 import { WaTemplateButtonsSection } from './wa-template-buttons-section'
 import type { WaTemplateFormState } from './wa-template-form-types'
 
@@ -77,7 +78,12 @@ function HeaderSection({ form, onChange }: { form: WaTemplateFormState; onChange
         <Input value={form.headerText} onChange={(e) => onChange('headerText', e.target.value)} placeholder="Header text with {{param}}" />
       )}
       {form.headerType === 'image' && (
-        <Input value={form.headerImageUrl} onChange={(e) => onChange('headerImageUrl', e.target.value)} placeholder="https://example.com/image.jpg" />
+        <ImageUploader
+          bucket="wa-template-media"
+          currentUrl={form.headerImageUrl}
+          onUploaded={(url) => onChange('headerImageUrl', url)}
+          onRemoved={() => onChange('headerImageUrl', '')}
+        />
       )}
     </fieldset>
   )

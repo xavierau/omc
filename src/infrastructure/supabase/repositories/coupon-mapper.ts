@@ -15,6 +15,7 @@ export function mapRowToCoupon(row: Record<string, unknown>): Coupon {
     maxUses: row.max_uses ? Number(row.max_uses) : null,
     currentUses: Number(row.current_uses ?? 0),
     isActive: row.is_active as boolean,
+    title: (row.title as string) ?? null,
     description: (row.description as string) ?? null,
     campaignId: (row.campaign_id as string) ?? null,
     createdAt: row.created_at as string,
@@ -30,6 +31,7 @@ export interface CreateCouponParams {
   discountType?: Coupon['discountType']
   discountValue?: number | null
   maxUses?: number | null
+  title?: string | null
   description?: string | null
   campaignId?: string | null
 }

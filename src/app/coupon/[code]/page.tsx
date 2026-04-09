@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getCouponByCode } from '@/application/get-coupon-by-code'
 import { CouponCard } from '@/components/coupon/coupon-card'
 import { CouponQrDisplay } from '@/components/coupon/coupon-qr-display'
@@ -10,6 +11,7 @@ export default async function CouponPage({
 }) {
   const { code } = await params
   const coupon = await getCouponByCode(code)
+  const t = await getTranslations('scan')
 
   if (!coupon) {
     notFound()
@@ -25,7 +27,7 @@ export default async function CouponPage({
       </div>
       {isInactive && (
         <p className="mt-4 text-sm text-muted-foreground">
-          {coupon.isRedeemed ? 'This coupon has already been redeemed.' : 'This coupon has expired.'}
+          {coupon.isRedeemed ? t('couponAlreadyRedeemed') : t('couponExpired')}
         </p>
       )}
     </main>

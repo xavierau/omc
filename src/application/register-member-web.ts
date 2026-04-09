@@ -4,6 +4,7 @@ import { createEvent } from '@/infrastructure/supabase/repositories/event-reposi
 import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
+import { renderTemplate } from '@/domain/value-objects/template-vars'
 
 interface WebRegisterInput {
   rawPhone: string
@@ -64,7 +65,7 @@ async function createNewWebMember(
   }
 
   const coupon = campaignId
-    ? await createCampaignCoupon(restaurantId, newMember.id, campaignId)
+    ? await createCampaignCoupon(restaurantId, newMember.id, campaignId, name)
     : await createWelcomeCoupon(restaurantId, newMember.id)
 
   await createEvent({
@@ -80,7 +81,8 @@ async function createNewWebMember(
 async function createCampaignCoupon(
   restaurantId: string,
   memberId: string,
-  campaignId: string
+  campaignId: string,
+  memberName: string
 ): Promise<{ code: string; id: string }> {
   const campaign = await getCampaignById(campaignId)
   if (!campaign?.couponConfig) {
@@ -92,6 +94,12 @@ async function createCampaignCoupon(
   ).toISOString()
 
   const code = generateCouponCode()
+  const discount = formatDiscount(campaign.couponConfig)
+  const description = renderTemplate(campaign.template, {
+    name: memberName,
+    code,
+    discount,
+  })
   const coupon = await createCoupon({
     restaurantId,
     type: 'promo',
@@ -102,7 +110,14 @@ async function createCampaignCoupon(
     discountType: campaign.couponConfig.discountType,
     discountValue: campaign.couponConfig.discountValue,
     campaignId,
+    title: campaign.name ?? null,
+    description,
   })
 
   return { code: coupon.code, id: coupon.id }
+}
+
+function formatDiscount(config: { discountType: string; discountValue: number }): string {
+  if (config.discountType === 'percentage') return `${config.discountValue}%`
+  return `HK$${config.discountValue}`
 }

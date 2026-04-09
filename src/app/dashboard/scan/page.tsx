@@ -71,7 +71,18 @@ export default function ScanPage() {
         body: JSON.stringify({ code: scannedCode }),
       })
       const data = await res.json()
-      setResult({ success: res.ok, message: data.message ?? (res.ok ? 'OK' : 'Error') })
+      if (res.ok) {
+        setResult({ success: true, message: t('redeemSuccess') })
+      } else {
+        const errorMap: Record<string, string> = {
+          not_found: t('couponNotFound'),
+          wrong_restaurant: t('wrongRestaurant'),
+          expired: t('expired'),
+          already_redeemed: t('alreadyRedeemed'),
+          not_redeemable: t('notRedeemable'),
+        }
+        setResult({ success: false, message: errorMap[data.error] ?? data.message ?? t('couponNotFound') })
+      }
     } catch {
       setResult({ success: false, message: t('couponNotFound') })
     }

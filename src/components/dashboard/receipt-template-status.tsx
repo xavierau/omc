@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +15,7 @@ export function ReceiptTemplateStatus({ refreshKey, onRebuild }: {
   refreshKey: number
   onRebuild: () => void
 }) {
+  const t = useTranslations('receiptTemplate')
   const [data, setData] = useState<TemplateData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -34,8 +36,25 @@ export function ReceiptTemplateStatus({ refreshKey, onRebuild }: {
     }
   }
 
-  if (loading) return <StatusSkeleton />
-  if (!data?.template) return <NoTemplate />
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center text-sm text-muted-foreground">
+          {t('loadingStatus')}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!data?.template) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center text-sm text-muted-foreground">
+          {t('noTemplate')}
+        </CardContent>
+      </Card>
+    )
+  }
 
   const regionCount = (data.template as { regions?: unknown[] }).regions?.length ?? 0
 
@@ -43,34 +62,14 @@ export function ReceiptTemplateStatus({ refreshKey, onRebuild }: {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Receipt Template
-          <Badge variant="secondary">Active</Badge>
+          {t('templateTitle')}
+          <Badge variant="secondary">{t('active')}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm text-muted-foreground">
-        <p>Regions detected: <span className="font-medium text-foreground">{regionCount}</span></p>
-        <p>Threshold: <span className="font-medium text-foreground">{data.threshold ?? 'N/A'}</span></p>
-        <Button variant="outline" size="sm" onClick={onRebuild}>Rebuild Template</Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-function StatusSkeleton() {
-  return (
-    <Card>
-      <CardContent className="py-6 text-center text-sm text-muted-foreground">
-        Loading template status...
-      </CardContent>
-    </Card>
-  )
-}
-
-function NoTemplate() {
-  return (
-    <Card>
-      <CardContent className="py-6 text-center text-sm text-muted-foreground">
-        No receipt template configured. Upload sample receipts to enable layout verification.
+        <p>{t('regionsDetected')} <span className="font-medium text-foreground">{regionCount}</span></p>
+        <p>{t('threshold')} <span className="font-medium text-foreground">{data.threshold ?? 'N/A'}</span></p>
+        <Button variant="outline" size="sm" onClick={onRebuild}>{t('rebuildTemplate')}</Button>
       </CardContent>
     </Card>
   )

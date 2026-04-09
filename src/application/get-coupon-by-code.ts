@@ -8,6 +8,7 @@ export interface CouponPublicDTO {
   status: 'active' | 'redeemed' | 'expired'
   isExpired: boolean
   isRedeemed: boolean
+  title: string | null
   description: string | null
 }
 
@@ -31,6 +32,7 @@ export async function getCouponByCode(
     status: coupon.status,
     isExpired,
     isRedeemed,
+    title: coupon.title,
     description: coupon.description,
   }
 }

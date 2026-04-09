@@ -12,6 +12,7 @@ export interface Coupon {
   maxUses: number | null
   currentUses: number
   isActive: boolean
+  title: string | null
   description: string | null
   campaignId: string | null
   createdAt: string

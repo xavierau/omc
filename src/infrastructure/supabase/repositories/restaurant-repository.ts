@@ -81,6 +81,7 @@ export interface RestaurantRow {
   meta_business_account_id: string | null
   status: 'active' | 'inactive' | 'trial'
   trial_expires_at: string | null
+  logo_url: string | null
 }
 
 export async function findBySlug(
@@ -89,7 +90,7 @@ export async function findBySlug(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
     .eq('slug', slug)
     .single()
 
@@ -103,7 +104,7 @@ export async function findByPhoneNumberId(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
     .eq('kapso_phone_number_id', phoneNumberId)
     .single()
 
@@ -115,11 +116,26 @@ export async function listActive(): Promise<RestaurantRow[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
     .in('status', ['active', 'trial'])
 
   if (error) {
     throw new Error(`listActive: ${error.message}`)
   }
   return (data ?? []) as RestaurantRow[]
+}
+
+export async function updateLogoUrl(
+  restaurantId: string,
+  logoUrl: string | null
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ logo_url: logoUrl })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update logo: ${error.message}`)
+  }
 }
