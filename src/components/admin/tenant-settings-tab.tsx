@@ -75,7 +75,7 @@ export function TenantSettingsTab({ tenant, onSaved }: { tenant: TenantDetail; o
       <StatusControl
         currentStatus={tenant.status}
         status={status}
-        onStatusChange={setStatus}
+        onStatusChange={(v: string) => setStatus(v as 'active' | 'inactive' | 'trial')}
         trialExpiresAt={trialExpiresAt}
         onTrialExpiresAtChange={setTrialExpiresAt}
         saving={savingStatus}

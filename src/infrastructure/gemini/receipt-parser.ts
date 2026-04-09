@@ -64,8 +64,11 @@ function extractReceiptJson(text: string): ParsedReceipt {
       items: Array.isArray(parsed.items) ? parsed.items : [],
       confidence: Number(parsed.confidence) || 0,
       currency: parsed.currency || 'HKD',
+      receiptNumber: parsed.receiptNumber ?? null,
+      merchantName: parsed.merchantName ?? null,
+      tamperAssessment: parsed.tamperAssessment ?? null,
     }
   } catch {
-    return { total: 0, items: [], confidence: 0, currency: 'HKD' }
+    return { total: 0, items: [], confidence: 0, currency: 'HKD', receiptNumber: null, merchantName: null, tamperAssessment: null }
   }
 }
