@@ -77,7 +77,10 @@
     "quickActions": "快速操作",
     "scanQrCode": "掃描 QR 碼",
     "generateQrCode": "產生 QR 碼",
-    "viewAllMembers": "查看所有會員"
+    "viewAllMembers": "查看所有會員",
+    "whatsappNotConnected": "WhatsApp 尚未連接",
+    "whatsappNotConnectedHint": "連接您的 Kapso 電話號碼 ID 以啟用 WhatsApp 訊息、推廣活動和 QR 碼掃描。",
+    "connectWhatsApp": "前往設定"
   },
   "members": {
     "heading": "會員",

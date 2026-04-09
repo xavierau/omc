@@ -61,7 +61,6 @@ export function TenantForm({
     if (!form.name.trim()) errs.push(t('nameRequired'))
     if (!form.slug.trim()) errs.push(t('slugRequired'))
     if (!form.whatsappNumber.trim()) errs.push(t('whatsappRequired'))
-    if (!form.kapsoPhoneNumberId.trim()) errs.push(t('kapsoRequired'))
     if (!isEdit && !form.adminEmail.trim()) errs.push(t('emailRequired'))
     if (!isEdit && form.adminPassword.length < 8) errs.push(t('passwordRequired'))
     return errs
@@ -86,7 +85,7 @@ export function TenantForm({
       <FormField label={t('restaurantName')} value={form.name} onChange={v => updateField('name', v)} />
       <FormField label={t('slugField')} value={form.slug} onChange={v => updateField('slug', v)} />
       <FormField label={t('whatsappNumber')} value={form.whatsappNumber} onChange={v => updateField('whatsappNumber', v)} />
-      <FormField label={t('kapsoPhoneNumberId')} value={form.kapsoPhoneNumberId} onChange={v => updateField('kapsoPhoneNumberId', v)} />
+      <FormField label={`${t('kapsoPhoneNumberId')} ${t('metaBusinessAccountIdOptional')}`} value={form.kapsoPhoneNumberId} onChange={v => updateField('kapsoPhoneNumberId', v)} />
       <FormField
         label={`${t('metaBusinessAccountId')} ${t('metaBusinessAccountIdOptional')}`}
         value={form.metaBusinessAccountId}

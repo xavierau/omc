@@ -11,7 +11,9 @@ export function validateCreateTenant(body: Record<string, unknown>): void {
   validateName(body.name)
   validateSlug(body.slug)
   validateStringField(body.whatsappNumber, 'whatsappNumber')
-  validateStringField(body.kapsoPhoneNumberId, 'kapsoPhoneNumberId')
+  if (body.kapsoPhoneNumberId !== undefined && body.kapsoPhoneNumberId !== '') {
+    validateStringField(body.kapsoPhoneNumberId, 'kapsoPhoneNumberId')
+  }
   validateEmail(body.adminEmail)
   validatePassword(body.adminPassword)
 }

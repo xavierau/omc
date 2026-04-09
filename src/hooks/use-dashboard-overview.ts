@@ -18,6 +18,7 @@ export interface DashboardOverview {
   activeCampaigns: number
   redemptionRate: number
   recentEvents: RecentEvent[]
+  kapsoPhoneNumberId: string | null
 }
 
 export function useDashboardOverview() {

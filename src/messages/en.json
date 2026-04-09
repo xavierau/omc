@@ -77,7 +77,10 @@
     "quickActions": "Quick Actions",
     "scanQrCode": "Scan QR Code",
     "generateQrCode": "Generate QR Code",
-    "viewAllMembers": "View All Members"
+    "viewAllMembers": "View All Members",
+    "whatsappNotConnected": "WhatsApp Not Connected",
+    "whatsappNotConnectedHint": "Connect your Kapso Phone Number ID to enable WhatsApp messaging, campaigns, and QR code scanning.",
+    "connectWhatsApp": "Go to Settings"
   },
   "members": {
     "heading": "Members",

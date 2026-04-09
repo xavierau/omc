@@ -9,6 +9,7 @@ import { MiniFeed } from '@/components/dashboard/mini-feed'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 import {
   HeroStatSkeleton,
   StatCardSkeleton,
@@ -34,6 +35,21 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
+
+      {!isLoading && !data?.kapsoPhoneNumberId && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="flex items-start gap-3 py-4">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-amber-800 dark:text-amber-200">{t('whatsappNotConnected')}</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{t('whatsappNotConnectedHint')}</p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/dashboard/settings">{t('connectWhatsApp')}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <HeroStatSkeleton />

@@ -53,7 +53,7 @@ export async function createTenant(
     name: input.name,
     slug: input.slug,
     whatsapp_number: input.whatsappNumber,
-    kapso_phone_number_id: input.kapsoPhoneNumberId,
+    kapso_phone_number_id: input.kapsoPhoneNumberId ?? null,
     meta_business_account_id: input.metaBusinessAccountId,
   })
 
