@@ -26,6 +26,10 @@ export async function merchantRedeemCoupon(
     return { success: false, error: 'wrong_restaurant', message: 'This coupon belongs to another restaurant.' }
   }
 
+  if (!coupon.memberId) {
+    return { success: false, error: 'no_member', message: 'This coupon is not assigned to any member.' }
+  }
+
   if (!isCouponRedeemable(coupon)) {
     return { success: false, error: resolveErrorCode(coupon), message: resolveNotRedeemableMessage(coupon) }
   }
@@ -58,7 +62,7 @@ async function handleSharedRedemption(
   restaurantId: string
 ): Promise<MerchantRedeemResult> {
   await incrementCouponUses(coupon.id)
-  await createRedemption(coupon.id, 'merchant-scan', restaurantId)
+  await createRedemption(coupon.id, coupon.memberId!, restaurantId)
   await createRedemptionEvent(coupon, restaurantId)
   if (coupon.campaignId) {
     await incrementCampaignRedeemed(coupon.campaignId)
@@ -72,7 +76,7 @@ async function handlePersonalRedemption(
 ): Promise<MerchantRedeemResult> {
   await redeemCoupon(coupon.id)
   await incrementCouponUses(coupon.id)
-  await createRedemption(coupon.id, coupon.memberId ?? 'merchant-scan', restaurantId)
+  await createRedemption(coupon.id, coupon.memberId!, restaurantId)
   await createRedemptionEvent(coupon, restaurantId)
   if (coupon.campaignId) {
     await incrementCampaignRedeemed(coupon.campaignId)
