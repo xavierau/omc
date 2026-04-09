@@ -16,8 +16,8 @@ const notoSansHK = Noto_Sans_HK({
 });
 
 export const metadata: Metadata = {
-  title: "WhatsApp CRM",
-  description: "WhatsApp-native CRM & loyalty platform for restaurants",
+  title: "OhMyClient",
+  description: "No App Required — WhatsApp-powered CRM & loyalty platform",
 };
 
 export default async function RootLayout({

@@ -90,11 +90,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <Card className="w-full max-w-[480px]">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">{t('title')}</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
+        <CardHeader className="text-center space-y-2">
+          <div className="text-3xl font-bold tracking-tight text-primary">
+            OhMyClient
+          </div>
+          <p className="text-xs text-muted-foreground">{t('tagline')}</p>
+          <p className="text-sm text-muted-foreground mt-2">{t('subtitle')}</p>
         </CardHeader>
         <CardContent>
           <LoginForm

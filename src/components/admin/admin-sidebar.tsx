@@ -76,7 +76,8 @@ export function AdminSidebar() {
         mobileOpen && 'fixed inset-y-0 left-0 flex w-60'
       )}>
         <div className="p-6">
-          <h2 className="text-lg font-semibold text-white">{t('title')}</h2>
+          <h2 className="text-lg font-bold tracking-tight text-white">OhMyClient</h2>
+          <p className="text-xs text-sidebar-foreground/50 mt-1">{t('title')}</p>
         </div>
         <nav className="flex-1 px-3">
           {navItems.map((item) => (

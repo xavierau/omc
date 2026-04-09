@@ -24,8 +24,8 @@
     "regenerate": "Regenerate"
   },
   "nav": {
-    "brandName": "The Green Kitchen",
-    "brandSubtitle": "WhatsApp CRM",
+    "brandName": "OhMyClient",
+    "brandSubtitle": "Powered by WhatsApp",
     "overview": "Overview",
     "members": "Members",
     "liveFeed": "Live Feed",
@@ -37,10 +37,11 @@
     "scan": "Scan QR"
   },
   "login": {
-    "title": "WhatsApp CRM",
+    "title": "OhMyClient",
+    "tagline": "No App Required — Powered by WhatsApp",
     "subtitle": "Sign in to your dashboard",
     "email": "Email",
-    "emailPlaceholder": "owner@restaurant.com",
+    "emailPlaceholder": "you@business.com",
     "password": "Password",
     "passwordPlaceholder": "********",
     "signIn": "Sign In",
@@ -271,7 +272,7 @@
     "description": "Generate a QR code for your restaurant. Customers scan it to join your loyalty program via WhatsApp.",
     "generateQrCode": "Generate QR Code",
     "generating": "Generating...",
-    "brandName": "The Green Kitchen",
+    "brandName": "OhMyClient",
     "scanToEarn": "Scan to earn rewards",
     "joinMessage": "Join our loyalty program and get a welcome gift!",
     "downloadPng": "Download PNG",
@@ -280,7 +281,7 @@
     "noCampaign": "No campaign"
   },
   "adminNav": {
-    "title": "Platform Admin",
+    "title": "OhMyClient Admin",
     "overview": "Overview",
     "tenants": "Tenants",
     "auditLogs": "Audit Logs",

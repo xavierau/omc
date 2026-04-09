@@ -24,8 +24,8 @@
     "regenerate": "重新產生"
   },
   "nav": {
-    "brandName": "The Green Kitchen",
-    "brandSubtitle": "WhatsApp 客戶管理",
+    "brandName": "OhMyClient",
+    "brandSubtitle": "WhatsApp 智能客戶管理",
     "overview": "總覽",
     "members": "會員",
     "liveFeed": "即時動態",
@@ -37,10 +37,11 @@
     "scan": "掃描 QR"
   },
   "login": {
-    "title": "WhatsApp 客戶管理",
+    "title": "OhMyClient",
+    "tagline": "無需安裝 App — 由 WhatsApp 驅動",
     "subtitle": "登入您的管理介面",
     "email": "電郵地址",
-    "emailPlaceholder": "owner@restaurant.com",
+    "emailPlaceholder": "you@business.com",
     "password": "密碼",
     "passwordPlaceholder": "********",
     "signIn": "登入",
@@ -271,7 +272,7 @@
     "description": "為您的餐廳產生 QR 碼。顧客掃描後即可透過 WhatsApp 加入您的會員計劃。",
     "generateQrCode": "產生 QR 碼",
     "generating": "產生中...",
-    "brandName": "The Green Kitchen",
+    "brandName": "OhMyClient",
     "scanToEarn": "掃描以賺取獎賞",
     "joinMessage": "加入我們的會員計劃，獲取迎新禮物！",
     "downloadPng": "下載 PNG",
@@ -280,7 +281,7 @@
     "noCampaign": "無推廣活動"
   },
   "adminNav": {
-    "title": "平台管理員",
+    "title": "OhMyClient 管理員",
     "overview": "總覽",
     "tenants": "租戶",
     "auditLogs": "審計日誌",

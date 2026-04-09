@@ -82,8 +82,8 @@ export function Sidebar() {
       )}>
         <div className="p-6 space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-white">{t('brandName')}</h2>
-            <p className="text-sm text-sidebar-foreground/60 mt-1">{t('brandSubtitle')}</p>
+            <h2 className="text-lg font-bold tracking-tight text-white">OhMyClient</h2>
+            <p className="text-xs text-sidebar-foreground/50 mt-1">{t('brandSubtitle')}</p>
           </div>
           <TenantSwitcher />
         </div>
