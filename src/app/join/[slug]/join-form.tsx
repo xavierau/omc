@@ -62,10 +62,10 @@ export function SlugJoinForm({ slug, tenantName, logoUrl }: { slug: string; tena
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         {logoUrl && (
-          <img src={logoUrl} alt={tenantName} className="mx-auto h-16 w-16 rounded-lg object-cover" />
+          <img src={logoUrl} alt={tenantName} className="mx-auto h-20 w-20 rounded-lg object-cover" />
         )}
-        <p className="text-sm font-medium text-muted-foreground">{tenantName}</p>
-        <CardTitle>{t('heading')}</CardTitle>
+        <h1 className="text-3xl font-bold tracking-tight">{tenantName}</h1>
+        <CardTitle className="text-lg font-semibold">{t('heading')}</CardTitle>
         <CardDescription>{t('subtitle')}</CardDescription>
       </CardHeader>
       <CardContent>
@@ -101,6 +101,9 @@ export function SlugJoinForm({ slug, tenantName, logoUrl }: { slug: string; tena
             {loading ? t('submitting') : t('submit')}
           </Button>
         </form>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Powered by <span className="font-medium">OhMyClient</span>
+        </p>
       </CardContent>
     </Card>
   )

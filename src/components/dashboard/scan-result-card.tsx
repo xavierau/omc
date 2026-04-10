@@ -32,7 +32,7 @@ function DiscountDisplay({ coupon, t }: { coupon: CouponInfo; t: ReturnType<type
   if (coupon.discountType === 'percentage' && coupon.discountValue) {
     return <span>{t('percentOff', { value: coupon.discountValue })}</span>
   }
-  if (coupon.discountType === 'fixed' && coupon.discountValue) {
+  if (coupon.discountType === 'fixed_amount' && coupon.discountValue) {
     return <span>{t('fixedOff', { value: coupon.discountValue })}</span>
   }
   return <span>{t('noDiscount')}</span>
@@ -44,6 +44,7 @@ function CouponPreview({ coupon, loading, onConfirm, t }: {
   onConfirm: () => void
   t: ReturnType<typeof useTranslations>
 }) {
+  const tc = useTranslations('common')
   return (
     <Card>
       <CardHeader>
@@ -52,8 +53,7 @@ function CouponPreview({ coupon, loading, onConfirm, t }: {
       <CardContent className="space-y-3">
         <p className="text-2xl font-mono font-bold tracking-wider">{coupon.code}</p>
         <div className="flex gap-2">
-          <Badge variant="secondary">{coupon.type}</Badge>
-          {coupon.isActive && <Badge>Active</Badge>}
+          {coupon.isActive && <Badge>{tc('active')}</Badge>}
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
           <p>{t('discount')}: <DiscountDisplay coupon={coupon} t={t} /></p>

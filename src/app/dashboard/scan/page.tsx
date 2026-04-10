@@ -51,15 +51,41 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null)
   const [cameraBlocked, setCameraBlocked] = useState(false)
 
-  const onScan = useCallback((text: string) => {
+  const onScan = useCallback(async (text: string) => {
     if (!text) { setCameraBlocked(true); return }
     const code = parseCode(text)
     if (!code) { setError(t('invalidQr')); setState('preview'); return }
     setScannedCode(code)
-    setCoupon({ code, type: '', discountType: null, discountValue: null, expiresAt: null, currentUses: 0, maxUses: null, description: null, status: 'active', isActive: true })
     setError(null)
     setResult(null)
+    setLoading(true)
     setState('preview')
+    try {
+      const res = await fetch(`/api/coupons/${encodeURIComponent(code)}`)
+      if (!res.ok) {
+        setError(t('couponNotFound'))
+        setCoupon(null)
+        setLoading(false)
+        return
+      }
+      const data = await res.json()
+      setCoupon({
+        code: data.code,
+        type: data.discountType ? (data.discountType === 'percentage' ? 'percentage' : 'fixed_amount') : '',
+        discountType: data.discountType ?? null,
+        discountValue: data.discountValue ?? null,
+        expiresAt: data.expiresAt ?? null,
+        currentUses: 0,
+        maxUses: null,
+        description: data.description ?? null,
+        status: data.status ?? 'active',
+        isActive: data.status === 'active',
+      })
+    } catch {
+      setError(t('couponNotFound'))
+      setCoupon(null)
+    }
+    setLoading(false)
   }, [t])
 
   const onConfirm = useCallback(async () => {
