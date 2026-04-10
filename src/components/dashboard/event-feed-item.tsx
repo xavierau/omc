@@ -34,8 +34,9 @@ export function EventFeedItem({ type, memberName, dataJson, createdAt }: EventFe
     return ''
   }
 
+  const now = Date.now() // eslint-disable-line react-hooks/purity -- server component renders once per request
   function timeAgo(dateStr: string): string {
-    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+    const seconds = Math.floor((now - new Date(dateStr).getTime()) / 1000)
     if (seconds < 60) return tt('justNow')
     const minutes = Math.floor(seconds / 60)
     if (minutes < 60) return tt('minutesAgo', { count: minutes })

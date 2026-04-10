@@ -26,9 +26,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof AuthError) {
+      console.error('[scan/redeem] AuthError:', error.message, 'status:', error.statusCode)
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
-    console.error('Merchant scan redeem API error:', error)
+    console.error('[scan/redeem] Unhandled error:', {
+      name: (error as Error)?.name,
+      message: (error as Error)?.message,
+      stack: (error as Error)?.stack,
+    })
     return NextResponse.json(
       { success: false, error: 'server_error', message: 'Failed to redeem coupon.' },
       { status: 500 }

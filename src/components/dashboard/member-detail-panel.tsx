@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
@@ -125,15 +125,22 @@ export function MemberDetailPanel({ memberId, open, onClose }: MemberDetailPanel
   const [member, setMember] = useState<MemberDetail | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const fetchMember = useCallback(async (id: string) => {
+    setLoading(true)
+    try {
+      const data = await fetch(`/api/dashboard/members?id=${id}`).then((r) => r.json())
+      setMember(data)
+    } catch {
+      setMember(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!memberId || !open) return
-    setLoading(true)
-    fetch(`/api/dashboard/members?id=${memberId}`)
-      .then((r) => r.json())
-      .then((data) => setMember(data))
-      .catch(() => setMember(null))
-      .finally(() => setLoading(false))
-  }, [memberId, open])
+    fetchMember(memberId)
+  }, [memberId, open, fetchMember])
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>

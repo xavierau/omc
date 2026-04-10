@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
@@ -51,20 +51,27 @@ export function CouponDetailPanel({ couponId, open, onClose }: CouponDetailPanel
   const [redemptions, setRedemptions] = useState<Redemption[]>([])
   const [loading, setLoading] = useState(false)
 
+  const fetchCouponData = useCallback(async (id: string) => {
+    setLoading(true)
+    try {
+      const [couponData, redemptionData] = await Promise.all([
+        fetch(`/api/dashboard/coupons/${id}`).then((r) => r.json()),
+        fetch(`/api/dashboard/coupons/${id}/redemptions`).then((r) => r.json()),
+      ])
+      setCoupon(couponData.coupon ?? couponData)
+      setRedemptions(redemptionData.redemptions ?? [])
+    } catch {
+      setCoupon(null)
+      setRedemptions([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!couponId || !open) return
-    setLoading(true)
-    Promise.all([
-      fetch(`/api/dashboard/coupons/${couponId}`).then((r) => r.json()),
-      fetch(`/api/dashboard/coupons/${couponId}/redemptions`).then((r) => r.json()),
-    ])
-      .then(([couponData, redemptionData]) => {
-        setCoupon(couponData.coupon ?? couponData)
-        setRedemptions(redemptionData.redemptions ?? [])
-      })
-      .catch(() => { setCoupon(null); setRedemptions([]) })
-      .finally(() => setLoading(false))
-  }, [couponId, open])
+    fetchCouponData(couponId)
+  }, [couponId, open, fetchCouponData])
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>

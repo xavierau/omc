@@ -32,11 +32,9 @@ const TenantContext = createContext<TenantContextValue>({
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(() => getCookie('x-tenant-id'))
 
   useEffect(() => {
-    const cookieId = getCookie('x-tenant-id')
-    setActiveId(cookieId)
     fetchTenants().then(setRestaurants).catch(() => {})
   }, [])
 
@@ -67,6 +65,7 @@ export function useTenant() {
 }
 
 function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
   const match = document.cookie.match(
     new RegExp(`(?:^|; )${name}=([^;]*)`)
   )

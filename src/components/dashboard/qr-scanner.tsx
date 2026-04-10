@@ -14,7 +14,7 @@ const CONTAINER_ID = 'qr-reader'
 export function QrScanner({ onScan, active }: QrScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const onScanRef = useRef(onScan)
-  onScanRef.current = onScan
+  useEffect(() => { onScanRef.current = onScan })
 
   const stopScanner = useCallback(async () => {
     try {

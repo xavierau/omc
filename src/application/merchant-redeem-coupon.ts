@@ -16,28 +16,47 @@ export async function merchantRedeemCoupon(
   code: string,
   restaurantId: string
 ): Promise<MerchantRedeemResult> {
+  console.log('[merchantRedeem] Looking up coupon:', code, 'restaurant:', restaurantId)
   const coupon = await findCouponByCode(code)
 
   if (!coupon) {
+    console.log('[merchantRedeem] Coupon not found for code:', code)
     return { success: false, error: 'not_found', message: 'Coupon not found.' }
   }
 
+  console.log('[merchantRedeem] Found coupon:', {
+    id: coupon.id,
+    code: coupon.code,
+    type: coupon.type,
+    status: coupon.status,
+    memberId: coupon.memberId,
+    restaurantId: coupon.restaurantId,
+    isActive: coupon.isActive,
+    currentUses: coupon.currentUses,
+    maxUses: coupon.maxUses,
+  })
+
   if (coupon.restaurantId !== restaurantId) {
+    console.log('[merchantRedeem] Wrong restaurant:', coupon.restaurantId, '!==', restaurantId)
     return { success: false, error: 'wrong_restaurant', message: 'This coupon belongs to another restaurant.' }
   }
 
   if (!coupon.memberId) {
+    console.log('[merchantRedeem] No memberId on coupon')
     return { success: false, error: 'no_member', message: 'This coupon is not assigned to any member.' }
   }
 
   if (!isCouponRedeemable(coupon)) {
+    console.log('[merchantRedeem] Coupon not redeemable:', resolveErrorCode(coupon))
     return { success: false, error: resolveErrorCode(coupon), message: resolveNotRedeemableMessage(coupon) }
   }
 
   if (isSharedCoupon(coupon)) {
+    console.log('[merchantRedeem] Handling shared redemption')
     return handleSharedRedemption(coupon, restaurantId)
   }
 
+  console.log('[merchantRedeem] Handling personal redemption')
   return handlePersonalRedemption(coupon, restaurantId)
 }
 

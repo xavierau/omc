@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -45,14 +45,14 @@ export function TenantForm({
   const [slugTouched, setSlugTouched] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
-  useEffect(() => {
-    if (!slugTouched && !isEdit) {
-      setForm(prev => ({ ...prev, slug: generateSlug(prev.name) }))
-    }
-  }, [form.name, slugTouched, isEdit])
-
   function updateField(field: keyof TenantFormData, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
+    setForm(prev => {
+      const next = { ...prev, [field]: value }
+      if (field === 'name' && !slugTouched && !isEdit) {
+        next.slug = generateSlug(value)
+      }
+      return next
+    })
     if (field === 'slug') setSlugTouched(true)
   }
 
