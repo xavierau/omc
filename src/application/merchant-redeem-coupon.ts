@@ -107,7 +107,7 @@ async function createRedemptionEvent(coupon: Coupon, restaurantId: string): Prom
   await createEvent({
     restaurantId,
     memberId: coupon.memberId,
-    type: 'merchant_redeem',
+    type: 'redeem',
     dataJson: { coupon_code: coupon.code, coupon_type: coupon.type },
   })
 }
