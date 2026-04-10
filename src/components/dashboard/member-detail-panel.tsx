@@ -37,7 +37,7 @@ function MemberInfo({ member }: { member: MemberDetail }) {
     <div className="grid grid-cols-2 gap-4 text-sm">
       <div>
         <p className="text-muted-foreground">{t('phone')}</p>
-        <p className="font-medium">{'\u2022\u2022\u2022\u2022' + member.phone.slice(-4)}</p>
+        <p className="font-medium">{member.phone}</p>
       </div>
       <div>
         <p className="text-muted-foreground">{t('points')}</p>

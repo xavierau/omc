@@ -25,10 +25,6 @@ interface MemberTableProps {
   onSelectMember: (id: string) => void
 }
 
-function maskPhone(phone: string): string {
-  return '\u2022\u2022\u2022\u2022' + phone.slice(-4)
-}
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '\u2014'
   return new Date(dateStr).toLocaleDateString('en-HK', {
@@ -96,7 +92,7 @@ export function MemberTable({
                 onClick={() => onSelectMember(member.id)}
               >
                 <TableCell className="font-medium">{member.name || tc('unknown')}</TableCell>
-                <TableCell className="text-muted-foreground">{maskPhone(member.phone)}</TableCell>
+                <TableCell className="text-muted-foreground">{member.phone}</TableCell>
                 <TableCell>{member.points_balance}</TableCell>
                 <TableCell>
                   <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
