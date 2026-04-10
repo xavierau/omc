@@ -75,9 +75,9 @@ export async function PATCH(
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
-    console.error('Campaign PATCH error:', error)
+    console.error('Campaign PATCH error:', (error as Error)?.message, (error as Error)?.stack)
     return NextResponse.json(
-      { error: 'Failed to update campaign' },
+      { error: 'Failed to update campaign', detail: (error as Error)?.message },
       { status: 500 }
     )
   }
