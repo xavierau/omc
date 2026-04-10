@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
 
 function extractPhoneNumberId(body: unknown): string | null {
   const payload = body as Record<string, unknown>
+
+  // Kapso format: conversation.phone_number_id
+  const conversation = payload?.conversation as Record<string, unknown> | undefined
+  if (conversation?.phone_number_id) {
+    return conversation.phone_number_id as string
+  }
+
+  // Meta Cloud API format: entry[].changes[].value.metadata.phone_number_id
   const entry = (payload?.entry as Array<Record<string, unknown>>)?.[0]
   const changes = (entry?.changes as Array<Record<string, unknown>>)?.[0]
   const value = changes?.value as Record<string, unknown> | undefined
@@ -79,7 +87,7 @@ async function resolveRestaurant(body: unknown, log: LogFn): Promise<string | nu
 
 function verifySignature(request: NextRequest, rawBody: string): boolean {
   const secret = process.env.KAPSO_WEBHOOK_SECRET
-  const signature = request.headers.get('x-kapso-signature')
+  const signature = request.headers.get('x-webhook-signature') ?? request.headers.get('x-kapso-signature')
   const isProduction = process.env.NODE_ENV === 'production'
 
   if (!secret) {
