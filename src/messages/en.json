@@ -192,7 +192,14 @@
     "nameRequired": "Name is required",
     "templateRequired": "Template is required",
     "editCampaign": "Edit Campaign",
-    "updateError": "Failed to update campaign"
+    "updateError": "Failed to update campaign",
+    "targetAudience": "Target Audience",
+    "allMembers": "All members",
+    "selectMembers": "Select members",
+    "selectedCount": "{count} selected",
+    "searchMembers": "Search members...",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   },
   "events": {
     "join": "joined",

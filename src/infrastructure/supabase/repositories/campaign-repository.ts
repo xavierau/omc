@@ -10,6 +10,7 @@ export interface CreateCampaignParams {
   schedule?: Record<string, unknown> | null
   scheduledAt?: string | null
   whatsappTemplateId?: string | null
+  targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
 }
 
@@ -20,6 +21,7 @@ export interface UpdateCampaignParams {
   schedule?: Record<string, unknown> | null
   scheduledAt?: string | null
   whatsappTemplateId?: string | null
+  targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
 }
 
@@ -37,6 +39,7 @@ function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     sentCount: Number(row.sent_count ?? 0),
     redeemedCount: Number(row.redeemed_count ?? 0),
     whatsappTemplateId: (row.whatsapp_template_id as string) ?? null,
+    targetAudience: (row.target_audience as Campaign['targetAudience']) ?? 'all',
     createdAt: row.created_at as string,
   }
 }
@@ -56,6 +59,7 @@ export async function createCampaign(
       schedule: params.schedule ?? null,
       scheduled_at: params.scheduledAt ?? null,
       whatsapp_template_id: params.whatsappTemplateId ?? null,
+      target_audience: params.targetAudience ?? 'all',
       status: params.status ?? 'draft',
     })
     .select('*')
@@ -108,6 +112,7 @@ export async function updateCampaign(
   if (changes.schedule !== undefined) update.schedule = changes.schedule
   if (changes.scheduledAt !== undefined) update.scheduled_at = changes.scheduledAt
   if (changes.whatsappTemplateId !== undefined) update.whatsapp_template_id = changes.whatsappTemplateId
+  if (changes.targetAudience !== undefined) update.target_audience = changes.targetAudience
   if (changes.status !== undefined) update.status = changes.status
 
   const { data, error } = await supabase
@@ -173,4 +178,31 @@ export async function getDueCampaigns(): Promise<Campaign[]> {
 
   if (error) throw new Error(`getDueCampaigns: ${error.message}`)
   return (data ?? []).map(mapRowToCampaign)
+}
+
+export async function setCampaignMembers(
+  campaignId: string,
+  memberIds: string[]
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  // Delete existing members for this campaign
+  await supabase.from('campaign_members').delete().eq('campaign_id', campaignId)
+  // Insert new members if any
+  if (memberIds.length > 0) {
+    const rows = memberIds.map((mid) => ({ campaign_id: campaignId, member_id: mid }))
+    const { error } = await supabase.from('campaign_members').insert(rows)
+    if (error) throw new Error(`setCampaignMembers: ${error.message}`)
+  }
+}
+
+export async function getCampaignMemberIds(
+  campaignId: string
+): Promise<string[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaign_members')
+    .select('member_id')
+    .eq('campaign_id', campaignId)
+  if (error) throw new Error(`getCampaignMemberIds: ${error.message}`)
+  return (data ?? []).map((r) => r.member_id as string)
 }

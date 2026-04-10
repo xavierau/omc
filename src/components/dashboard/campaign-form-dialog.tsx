@@ -27,6 +27,8 @@ function campaignToFormState(c: Campaign): CampaignFormState {
     expiresInDays: c.couponConfig?.expiresInDays?.toString() ?? '30',
     execution: c.scheduledAt ? 'schedule' : 'now',
     scheduledAt: c.scheduledAt ? c.scheduledAt.slice(0, 16) : '',
+    targetAudience: c.targetAudience ?? 'all',
+    memberIds: [],
   }
 }
 
@@ -39,14 +41,31 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (campaign) setForm(campaignToFormState(campaign))
-    else setForm(initialCampaignForm)
+    if (campaign) {
+      setForm(campaignToFormState(campaign))
+      if (campaign.targetAudience === 'selected') {
+        fetch(`/api/dashboard/campaigns/${campaign.id}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.memberIds) {
+              setForm((prev) => ({ ...prev, memberIds: data.memberIds }))
+            }
+          })
+          .catch(() => {})
+      }
+    } else {
+      setForm(initialCampaignForm)
+    }
   }, [campaign])
 
   const handleClose = () => { setForm(initialCampaignForm); onOpenChange(false) }
 
   const handleChange = (key: keyof CampaignFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleMemberIdsChange = (ids: string[]) => {
+    setForm((prev) => ({ ...prev, memberIds: ids }))
   }
 
   const handleSubmit = async () => {
@@ -92,7 +111,7 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
           <SheetTitle>{isEdit ? t('editCampaign') : t('createCampaign')}</SheetTitle>
         </SheetHeader>
         <div className="px-4 pb-4">
-          <CampaignFormFields form={form} onChange={handleChange} />
+          <CampaignFormFields form={form} onChange={handleChange} onMemberIdsChange={handleMemberIdsChange} />
           {error && <p className="text-sm text-destructive mt-2">{error}</p>}
           <div className="flex gap-2 mt-6">
             <Button onClick={handleSubmit} disabled={saving}>{submitLabel}</Button>

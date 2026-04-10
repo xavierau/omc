@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   getCampaignById,
   updateCampaign,
+  setCampaignMembers,
+  getCampaignMemberIds,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -20,7 +22,11 @@ export async function GET(
         { status: 404 }
       )
     }
-    return NextResponse.json(campaign)
+    const result: Record<string, unknown> = { ...campaign }
+    if (campaign.targetAudience === 'selected') {
+      result.memberIds = await getCampaignMemberIds(id)
+    }
+    return NextResponse.json(result)
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
@@ -51,7 +57,7 @@ export async function PATCH(
     const body = await request.json()
     const allowed = [
       'name', 'template', 'couponConfig',
-      'schedule', 'scheduledAt', 'whatsappTemplateId', 'status',
+      'schedule', 'scheduledAt', 'whatsappTemplateId', 'status', 'targetAudience',
     ]
     const changes: Record<string, unknown> = {}
     for (const key of allowed) {
@@ -59,6 +65,11 @@ export async function PATCH(
     }
 
     const campaign = await updateCampaign(id, changes)
+
+    if (body.targetAudience !== undefined && body.memberIds) {
+      await setCampaignMembers(id, body.memberIds)
+    }
+
     return NextResponse.json(campaign)
   } catch (error) {
     if (error instanceof AuthError) {

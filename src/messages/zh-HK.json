@@ -192,7 +192,14 @@
     "nameRequired": "名稱為必填",
     "templateRequired": "訊息範本為必填",
     "editCampaign": "編輯推廣活動",
-    "updateError": "更新推廣活動失敗"
+    "updateError": "更新推廣活動失敗",
+    "targetAudience": "目標對象",
+    "allMembers": "所有會員",
+    "selectMembers": "指定會員",
+    "selectedCount": "已選 {count} 位",
+    "searchMembers": "搜尋會員...",
+    "selectAll": "全選",
+    "deselectAll": "取消全選"
   },
   "events": {
     "join": "已加入",

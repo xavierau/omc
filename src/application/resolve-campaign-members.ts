@@ -6,6 +6,9 @@ export async function resolveTargetMembers(
   campaign: Campaign,
   restaurantId: string
 ): Promise<Member[]> {
+  if (campaign.targetAudience === 'selected') {
+    return fetchSelectedMembers(campaign.id, restaurantId)
+  }
   if (campaign.type === 'winback') {
     return fetchWinbackMembers(campaign, restaurantId)
   }
@@ -53,6 +56,27 @@ async function fetchActiveMembers(
 
   if (error) throw new Error(`fetchActiveMembers: ${error.message}`)
   return (data ?? []).map(mapRowToMember)
+}
+
+async function fetchSelectedMembers(
+  campaignId: string,
+  restaurantId: string
+): Promise<Member[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaign_members')
+    .select('member_id')
+    .eq('campaign_id', campaignId)
+  if (error) throw new Error(`fetchSelectedMembers: ${error.message}`)
+  const memberIds = (data ?? []).map((r) => r.member_id as string)
+  if (memberIds.length === 0) return []
+  const { data: members, error: mErr } = await supabase
+    .from('members')
+    .select('id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at')
+    .eq('restaurant_id', restaurantId)
+    .in('id', memberIds)
+  if (mErr) throw new Error(`fetchSelectedMembers: ${mErr.message}`)
+  return (members ?? []).map(mapRowToMember)
 }
 
 function mapRowToMember(row: Record<string, unknown>): Member {

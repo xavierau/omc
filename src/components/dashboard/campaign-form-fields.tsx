@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
+import { CampaignMemberPicker } from './campaign-member-picker'
 
 export interface CampaignFormState {
   name: string
@@ -15,6 +16,8 @@ export interface CampaignFormState {
   expiresInDays: string
   execution: 'now' | 'schedule'
   scheduledAt: string
+  targetAudience: 'all' | 'selected'
+  memberIds: string[]
 }
 
 export const initialCampaignForm: CampaignFormState = {
@@ -22,13 +25,20 @@ export const initialCampaignForm: CampaignFormState = {
   messageType: 'inline', whatsappTemplateId: '',
   discountType: 'percentage', discountValue: '', expiresInDays: '30',
   execution: 'now', scheduledAt: '',
+  targetAudience: 'all', memberIds: [],
 }
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
 
 type OnChange = (key: keyof CampaignFormState, value: string) => void
 
-export function CampaignFormFields({ form, onChange }: { form: CampaignFormState; onChange: OnChange }) {
+interface CampaignFormFieldsProps {
+  form: CampaignFormState
+  onChange: OnChange
+  onMemberIdsChange: (ids: string[]) => void
+}
+
+export function CampaignFormFields({ form, onChange, onMemberIdsChange }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
 
   return (
@@ -42,6 +52,7 @@ export function CampaignFormFields({ form, onChange }: { form: CampaignFormState
           <option value="promo">{t('formPromo')}</option>
         </select>
       </Field>
+      <TargetAudienceFields form={form} onChange={onChange} onMemberIdsChange={onMemberIdsChange} />
       <CampaignMessageTypeField form={form} onChange={onChange} />
       <CouponConfigFields form={form} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
@@ -97,6 +108,29 @@ function ExecutionFields({ form, onChange }: { form: CampaignFormState; onChange
   )
 }
 
+function TargetAudienceFields({ form, onChange, onMemberIdsChange }: { form: CampaignFormState; onChange: OnChange; onMemberIdsChange: (ids: string[]) => void }) {
+  const t = useTranslations('campaigns')
+
+  return (
+    <fieldset className="space-y-3 border border-input rounded-lg p-3">
+      <legend className="text-sm font-medium px-1">{t('targetAudience')}</legend>
+      <div className="flex gap-4">
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="radio" checked={form.targetAudience === 'all'} onChange={() => onChange('targetAudience', 'all')} />
+          {t('allMembers')}
+        </label>
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="radio" checked={form.targetAudience === 'selected'} onChange={() => onChange('targetAudience', 'selected')} />
+          {t('selectMembers')}
+        </label>
+      </div>
+      {form.targetAudience === 'selected' && (
+        <CampaignMemberPicker selectedIds={form.memberIds} onChange={onMemberIdsChange} />
+      )}
+    </fieldset>
+  )
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="text-sm font-medium text-foreground mb-1 block">{label}</label>{children}</div>
 }
@@ -118,5 +152,7 @@ export function buildCampaignRequestBody(form: CampaignFormState) {
       ? new Date(form.scheduledAt).toISOString()
       : null,
     status: 'active',
+    targetAudience: form.targetAudience,
+    ...(form.targetAudience === 'selected' ? { memberIds: form.memberIds } : {}),
   }
 }

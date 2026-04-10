@@ -11,6 +11,7 @@ export interface Campaign {
   sentCount: number
   redeemedCount: number
   whatsappTemplateId: string | null
+  targetAudience: 'all' | 'selected'
   createdAt: string
 }
 

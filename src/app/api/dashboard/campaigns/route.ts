@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   listCampaigns,
   createCampaign,
+  setCampaignMembers,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -65,6 +66,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` }, { status: 400 })
     }
 
+    const targetAudience = body.targetAudience === 'selected' ? 'selected' : 'all'
+    if (targetAudience === 'selected') {
+      if (!Array.isArray(body.memberIds) || body.memberIds.length === 0 || !body.memberIds.every((id: unknown) => typeof id === 'string')) {
+        return NextResponse.json({ error: 'memberIds must be a non-empty array of strings when targeting selected members' }, { status: 400 })
+      }
+    }
+
     const campaign = await createCampaign({
       restaurantId,
       name: body.name,
@@ -75,7 +83,12 @@ export async function POST(request: NextRequest) {
       scheduledAt: body.scheduledAt ?? null,
       schedule: body.schedule ?? null,
       status: body.status ?? 'draft',
+      targetAudience,
     })
+
+    if (targetAudience === 'selected') {
+      await setCampaignMembers(campaign.id, body.memberIds)
+    }
 
     return NextResponse.json(campaign, { status: 201 })
   } catch (error) {
