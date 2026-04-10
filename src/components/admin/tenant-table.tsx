@@ -26,8 +26,8 @@ function TenantRow({ tenant }: { tenant: TenantListItem }) {
       <TableCell className="text-muted-foreground text-xs">{tenant.phoneNumberId ?? '\u2014'}</TableCell>
       <TableCell>{tenant.memberCount}</TableCell>
       <TableCell>
-        <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-          {tenant.status === 'active' ? tc('active') : tc('inactive')}
+        <Badge variant={tenant.status === 'active' ? 'default' : tenant.status === 'trial' ? 'outline' : 'secondary'}>
+          {tenant.status === 'active' ? tc('active') : tenant.status === 'trial' ? tc('trial') : tc('inactive')}
         </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">{formatDate(tenant.createdAt)}</TableCell>

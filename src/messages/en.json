@@ -15,6 +15,7 @@
     "showing": "Showing {start}–{end} of {total}",
     "active": "Active",
     "inactive": "Inactive",
+    "trial": "Trial",
     "activate": "Activate",
     "deactivate": "Deactivate",
     "generate": "Generate",

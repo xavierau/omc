@@ -21,8 +21,19 @@ export async function GET(request: NextRequest) {
       page, limit, action, resourceType,
     })
 
+    const logs = (data ?? []).map((row: Record<string, unknown>) => ({
+      id: row.id,
+      userId: row.user_id,
+      action: row.action,
+      resourceType: row.resource_type,
+      resourceId: row.resource_id,
+      details: row.details,
+      ipAddress: row.ip_address,
+      createdAt: row.created_at,
+    }))
+
     return NextResponse.json({
-      data: data ?? [],
+      logs,
       total: count ?? 0,
       page,
       limit,

@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
 
 function parseStatus(
   value: string | null
-): 'active' | 'inactive' | 'all' | undefined {
-  if (value === 'active' || value === 'inactive' || value === 'all') return value
+): 'active' | 'inactive' | 'trial' | 'all' | undefined {
+  if (value === 'active' || value === 'inactive' || value === 'trial' || value === 'all') return value
   return undefined
 }
 

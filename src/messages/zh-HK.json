@@ -15,6 +15,7 @@
     "showing": "顯示 {start}–{end}，共 {total}",
     "active": "啟用",
     "inactive": "停用",
+    "trial": "試用",
     "activate": "啟用",
     "deactivate": "停用",
     "generate": "產生",
