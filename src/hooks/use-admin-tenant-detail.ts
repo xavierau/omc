@@ -9,6 +9,7 @@ export interface TenantDetail {
   whatsappNumber: string
   kapsoPhoneNumberId: string
   metaBusinessAccountId: string | null
+  plan: 'starter' | 'growth' | 'pro'
   status: 'active' | 'inactive' | 'trial'
   trialExpiresAt: string | null
   createdAt: string

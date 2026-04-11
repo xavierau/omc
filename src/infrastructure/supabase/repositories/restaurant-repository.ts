@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
 
 export async function getRestaurantPhoneNumberId(
   restaurantId: string
@@ -80,6 +81,7 @@ export interface RestaurantRow {
   kapso_phone_number_id: string | null
   meta_business_account_id: string | null
   status: 'active' | 'inactive' | 'trial'
+  plan: string
   trial_expires_at: string | null
   logo_url: string | null
 }
@@ -90,7 +92,7 @@ export async function findBySlug(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
     .eq('slug', slug)
     .single()
 
@@ -104,7 +106,7 @@ export async function findByPhoneNumberId(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
     .eq('kapso_phone_number_id', phoneNumberId)
     .single()
 
@@ -116,13 +118,28 @@ export async function listActive(): Promise<RestaurantRow[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, logo_url')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
     .in('status', ['active', 'trial'])
 
   if (error) {
     throw new Error(`listActive: ${error.message}`)
   }
   return (data ?? []) as RestaurantRow[]
+}
+
+export async function updateRestaurantPlan(
+  restaurantId: string,
+  plan: TenantPlan
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ plan })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update plan: ${error.message}`)
+  }
 }
 
 export async function updateLogoUrl(

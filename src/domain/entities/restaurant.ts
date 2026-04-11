@@ -1,3 +1,5 @@
+import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
+
 export type TenantStatus = 'active' | 'inactive' | 'trial'
 
 export interface Restaurant {
@@ -8,6 +10,7 @@ export interface Restaurant {
   kapsoPhoneNumberId: string | null
   metaBusinessAccountId: string | null
   status: TenantStatus
+  plan: TenantPlan
   trialExpiresAt: string | null
   createdAt: string
 }

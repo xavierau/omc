@@ -13,6 +13,7 @@ function makeRestaurant(
     kapsoPhoneNumberId: null,
     metaBusinessAccountId: null,
     status: 'active',
+    plan: 'starter',
     trialExpiresAt: null,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
