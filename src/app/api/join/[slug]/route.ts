@@ -22,6 +22,7 @@ export async function POST(
       kapsoPhoneNumberId: restaurant.kapso_phone_number_id,
       metaBusinessAccountId: restaurant.meta_business_account_id,
       status: restaurant.status,
+      plan: (restaurant.plan as 'starter' | 'growth' | 'pro') ?? 'starter',
       trialExpiresAt: restaurant.trial_expires_at,
       createdAt: '',
     })

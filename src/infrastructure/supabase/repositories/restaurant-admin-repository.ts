@@ -37,7 +37,7 @@ export async function findById(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, whatsapp_number, created_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at')
     .eq('id', id)
     .single()
 
@@ -52,7 +52,7 @@ export async function createRestaurant(
   const { data, error } = await supabase
     .from('restaurants')
     .insert(input)
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at')
     .single()
 
   if (error || !data) {
@@ -70,7 +70,7 @@ export async function updateRestaurant(
     .from('restaurants')
     .update(input)
     .eq('id', id)
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at')
     .single()
 
   if (error || !data) {
@@ -115,7 +115,7 @@ export async function listAll(
   let query = supabase
     .from('restaurants')
     .select(
-      'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, trial_expires_at, whatsapp_number, created_at, members(count)',
+      'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at, members(count)',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })

@@ -74,6 +74,7 @@ function assertTenantActive(row: TenantStatusRow): void {
     kapsoPhoneNumberId: null,
     metaBusinessAccountId: null,
     status: row.status,
+    plan: 'starter',
     trialExpiresAt: row.trial_expires_at,
     createdAt: '',
   })

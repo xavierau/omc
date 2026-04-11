@@ -9,6 +9,9 @@ import { TenantUsersTab } from '@/components/admin/tenant-users-tab'
 import { TenantMetricsTab } from '@/components/admin/tenant-metrics-tab'
 import { TenantCampaignSettingsTab } from '@/components/admin/tenant-campaign-settings-tab'
 import { CampaignSpendWidget } from '@/components/admin/campaign-spend-widget'
+import { CampaignQuotaUsage } from '@/components/admin/campaign-quota-usage'
+import { TenantPlanBadge } from '@/components/admin/tenant-plan-badge'
+import { TenantPlanSelector } from '@/components/admin/tenant-plan-selector'
 import { Button } from '@/components/ui/button'
 
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +39,11 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">{tenant.name}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-semibold text-foreground">{tenant.name}</h1>
+        <TenantPlanBadge plan={tenant.plan} />
+        <TenantPlanSelector tenantId={id} currentPlan={tenant.plan} onPlanChanged={mutate} />
+      </div>
       <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="settings">{t('settingsTab')}</TabsTrigger>
@@ -54,6 +61,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           {metrics && <TenantMetricsTab metrics={metrics} />}
         </TabsContent>
         <TabsContent value="campaigns" className="mt-4 space-y-6">
+          <CampaignQuotaUsage tenantId={id} plan={tenant.plan} />
           <CampaignSpendWidget tenantId={id} />
           <TenantCampaignSettingsTab tenantId={id} />
         </TabsContent>

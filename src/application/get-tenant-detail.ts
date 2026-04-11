@@ -24,6 +24,7 @@ export interface TenantDetail {
     kapsoPhoneNumberId: string | null
     metaBusinessAccountId: string | null
     status: string
+    plan: string
     trialExpiresAt: string | null
     createdAt: string
   }
@@ -83,12 +84,13 @@ export async function getTenantDetail(
     id: tenant.id,
     slug: tenant.slug,
     name: tenant.name,
-    whatsappNumber: (tenant as unknown as Record<string, unknown>).whatsapp_number as string | null,
+    whatsappNumber: (tenant as Record<string, unknown>).whatsapp_number as string | null ?? null,
     kapsoPhoneNumberId: tenant.kapso_phone_number_id,
     metaBusinessAccountId: tenant.meta_business_account_id,
     status: tenant.status,
+    plan: tenant.plan ?? 'starter',
     trialExpiresAt: tenant.trial_expires_at,
-    createdAt: (tenant as unknown as Record<string, unknown>).created_at as string,
+    createdAt: (tenant as Record<string, unknown>).created_at as string,
   }
 
   return { tenant: mappedTenant, users, metrics }
