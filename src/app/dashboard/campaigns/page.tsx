@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCampaigns } from '@/hooks/use-campaigns'
 import type { Campaign } from '@/hooks/use-campaigns'
+import { useCampaignGuardrails } from '@/hooks/use-campaign-guardrails'
 import { CampaignCard } from '@/components/dashboard/campaign-card'
+import { CampaignGuardrailBanner } from '@/components/dashboard/campaign-guardrail-banner'
 import { CampaignFormDialog } from '@/components/dashboard/campaign-form-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -13,11 +15,13 @@ export default function CampaignsPage() {
   const t = useTranslations('campaigns')
   const tc = useTranslations('common')
   const { campaigns, isLoading, error, refetch } = useCampaigns()
+  const guardrails = useCampaignGuardrails()
   const [formOpen, setFormOpen] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null)
 
   const handleEdit = (campaign: Campaign) => { setEditingCampaign(campaign); setFormOpen(true) }
   const handleFormClose = (open: boolean) => { setFormOpen(open); if (!open) setEditingCampaign(null) }
+  const sendDisabled = guardrails.data ? !guardrails.data.allowed : false
 
   if (error) return <ErrorFallback />
   if (isLoading) return <LoadingSkeleton />
@@ -32,15 +36,16 @@ export default function CampaignsPage() {
         <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
         <Button onClick={() => setFormOpen(true)}>{t('createCampaign')}</Button>
       </div>
-      {active.length > 0 && <CampaignSection title={t('activeSectionTitle')} campaigns={active} onExecute={refetch} onEdit={handleEdit} />}
-      {other.length > 0 && <CampaignSection title={t('scheduledSectionTitle')} campaigns={other} onExecute={refetch} onEdit={handleEdit} />}
+      {guardrails.data && <CampaignGuardrailBanner guardrails={guardrails.data} />}
+      {active.length > 0 && <CampaignSection title={t('activeSectionTitle')} campaigns={active} onExecute={refetch} onEdit={handleEdit} sendDisabled={sendDisabled} />}
+      {other.length > 0 && <CampaignSection title={t('scheduledSectionTitle')} campaigns={other} onExecute={refetch} onEdit={handleEdit} sendDisabled={sendDisabled} />}
       <CampaignFormDialog open={formOpen} onOpenChange={handleFormClose} onSuccess={refetch} campaign={editingCampaign} />
     </div>
   )
 }
 
-function CampaignSection({ title, campaigns, onExecute, onEdit }: {
-  title: string; campaigns: Campaign[]; onExecute: () => void; onEdit: (c: Campaign) => void
+function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: {
+  title: string; campaigns: Campaign[]; onExecute: () => void; onEdit: (c: Campaign) => void; sendDisabled: boolean
 }) {
   return (
     <div>
@@ -58,6 +63,7 @@ function CampaignSection({ title, campaigns, onExecute, onEdit }: {
             scheduledAt={c.scheduledAt}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
+            sendDisabled={sendDisabled}
           />
         ))}
       </div>

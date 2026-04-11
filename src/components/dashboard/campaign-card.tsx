@@ -18,6 +18,7 @@ interface CampaignCardProps {
   scheduledAt?: string | null
   onExecute?: () => void
   onEdit?: () => void
+  sendDisabled?: boolean
 }
 
 function getStatusVariant(status: string): 'default' | 'secondary' | 'outline' {
@@ -39,7 +40,7 @@ function formatDate(iso: string): string {
 }
 
 export function CampaignCard({
-  id, name, type, status, sentCount, redeemedCount, scheduledAt, onExecute, onEdit,
+  id, name, type, status, sentCount, redeemedCount, scheduledAt, onExecute, onEdit, sendDisabled,
 }: CampaignCardProps) {
   const t = useTranslations('campaigns')
   const [executing, setExecuting] = useState(false)
@@ -88,7 +89,7 @@ export function CampaignCard({
           </div>
         </div>
         {canSendNow && (
-          <Button size="sm" variant="outline" onClick={handleExecute} disabled={executing} className="w-full">
+          <Button size="sm" variant="outline" onClick={handleExecute} disabled={executing || sendDisabled} className="w-full">
             {executing ? t('sending') : t('sendNow')}
           </Button>
         )}
