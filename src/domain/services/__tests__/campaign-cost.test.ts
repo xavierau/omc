@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   estimateCampaignCost,
   HK_MARKETING_RATE,
+  USD_TO_HKD,
+  toHKD,
 } from '../campaign-cost'
 
 describe('campaign-cost', () => {
@@ -19,5 +21,17 @@ describe('campaign-cost', () => {
 
   it('returns 0.0732 for a single message', () => {
     expect(estimateCampaignCost(1)).toBe(0.0732)
+  })
+
+  it('USD_TO_HKD equals 7.8', () => {
+    expect(USD_TO_HKD).toBe(7.8)
+  })
+
+  it('converts USD to HKD', () => {
+    expect(toHKD(7.32)).toBe(57.1)
+  })
+
+  it('converts 0 USD to 0 HKD', () => {
+    expect(toHKD(0)).toBe(0)
   })
 })

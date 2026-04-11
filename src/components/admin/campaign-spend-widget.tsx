@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useCampaignUsage } from '@/hooks/use-campaign-usage'
-import type { CampaignUsageSummary } from '@/domain/services/campaign-cost'
+import { toHKD, type CampaignUsageSummary } from '@/domain/services/campaign-cost'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -75,7 +75,7 @@ function SpendSummary({ totalSent, totalCost }: { totalSent: number; totalCost: 
       </div>
       <div>
         <span className="text-muted-foreground">Est. cost:</span>{' '}
-        <strong>{formatHKD(totalCost)}</strong>
+        <strong>{formatHKD(toHKD(totalCost))}</strong>
       </div>
     </div>
   )
@@ -92,7 +92,7 @@ function CampaignTable({ campaigns }: { campaigns: CampaignUsageSummary[] }) {
         <TableRow>
           <TableHead>Name</TableHead>
           <TableHead className="text-right">Messages</TableHead>
-          <TableHead className="text-right">Est. Cost</TableHead>
+          <TableHead className="text-right">Est. Cost (HKD)</TableHead>
           <TableHead>Date</TableHead>
         </TableRow>
       </TableHeader>
@@ -101,7 +101,7 @@ function CampaignTable({ campaigns }: { campaigns: CampaignUsageSummary[] }) {
           <TableRow key={c.campaignId}>
             <TableCell>{c.campaignName}</TableCell>
             <TableCell className="text-right">{c.sentCount.toLocaleString()}</TableCell>
-            <TableCell className="text-right">{formatHKD(c.estimatedCost)}</TableCell>
+            <TableCell className="text-right">{formatHKD(toHKD(c.estimatedCost))}</TableCell>
             <TableCell>{formatDate(c.executedAt)}</TableCell>
           </TableRow>
         ))}
