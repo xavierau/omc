@@ -7,6 +7,8 @@ import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'
 import { resolveTargetMembers } from './resolve-campaign-members'
+import { checkCampaignGuardrails } from './check-campaign-guardrails'
+import { CampaignGuardrailError } from './campaign-guardrail-error'
 import { sendWhatsAppTemplateMessage } from './send-template-message'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
@@ -26,14 +28,16 @@ export async function executeCampaign(
     throw new Error('Welcome campaigns are triggered on member join')
   }
 
+  const members = await resolveTargetMembers(campaign, restaurantId)
+  const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
+  await enforceGuardrails(restaurantId, activeMembers.length)
+
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
 
   try {
     const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
     const template = await resolveWhatsAppTemplate(campaign)
-    const members = await resolveTargetMembers(campaign, restaurantId)
-    const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
     await sendInBatches(activeMembers, campaign, phoneNumberId, template)
     await updateCampaign(campaignId, { status: 'completed' })
   } catch (err) {
@@ -190,6 +194,21 @@ async function sendCouponQr(
   }
 }
 
+async function enforceGuardrails(
+  restaurantId: string,
+  memberCount: number
+): Promise<void> {
+  const result = await checkCampaignGuardrails(restaurantId, memberCount)
+  if (!result.allowed) {
+    throw new CampaignGuardrailError(result.violations)
+  }
+  if (result.warnings.length > 0) {
+    console.warn('[Campaign] Guardrail warnings:', result.warnings)
+  }
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+export { CampaignGuardrailError } from './campaign-guardrail-error'

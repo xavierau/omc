@@ -344,6 +344,7 @@
     "settingsTab": "Settings",
     "usersTab": "Users",
     "metricsTab": "Metrics",
+    "campaignsTab": "Campaigns",
     "tenantNotFound": "Tenant not found",
     "email": "Email",
     "role": "Role",
