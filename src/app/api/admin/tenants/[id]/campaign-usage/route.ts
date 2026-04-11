@@ -24,9 +24,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const month = extractMonth(request)
-    if (month !== undefined && !MONTH_REGEX.test(month)) {
+    if (month !== undefined && !isValidMonth(month)) {
       return NextResponse.json(
-        { error: 'Invalid month format. Use YYYY-MM' },
+        { error: 'Invalid month format. Use YYYY-MM (01-12)' },
         { status: 400 }
       )
     }
@@ -47,6 +47,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 function extractMonth(request: NextRequest): string | undefined {
   const { searchParams } = new URL(request.url)
   return searchParams.get('month') ?? undefined
+}
+
+function isValidMonth(month: string): boolean {
+  if (!MONTH_REGEX.test(month)) return false
+  const m = Number(month.split('-')[1])
+  return m >= 1 && m <= 12
 }
 
 function handleError(error: unknown) {

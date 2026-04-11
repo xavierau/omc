@@ -99,7 +99,7 @@ function CampaignTable({ campaigns }: { campaigns: CampaignUsageSummary[] }) {
       <TableBody>
         {campaigns.map((c) => (
           <TableRow key={c.campaignId}>
-            <TableCell>{c.campaignName}</TableCell>
+            <TableCell>{c.campaignName || 'Untitled Campaign'}</TableCell>
             <TableCell className="text-right">{c.sentCount.toLocaleString()}</TableCell>
             <TableCell className="text-right">{formatHKD(toHKD(c.estimatedCost))}</TableCell>
             <TableCell>{formatDate(c.executedAt)}</TableCell>
