@@ -8,6 +8,7 @@ import { TenantSettingsTab } from '@/components/admin/tenant-settings-tab'
 import { TenantUsersTab } from '@/components/admin/tenant-users-tab'
 import { TenantMetricsTab } from '@/components/admin/tenant-metrics-tab'
 import { TenantCampaignSettingsTab } from '@/components/admin/tenant-campaign-settings-tab'
+import { CampaignSpendWidget } from '@/components/admin/campaign-spend-widget'
 import { Button } from '@/components/ui/button'
 
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,7 +53,8 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
         <TabsContent value="metrics" className="mt-4">
           {metrics && <TenantMetricsTab metrics={metrics} />}
         </TabsContent>
-        <TabsContent value="campaigns" className="mt-4">
+        <TabsContent value="campaigns" className="mt-4 space-y-6">
+          <CampaignSpendWidget tenantId={id} />
           <TenantCampaignSettingsTab tenantId={id} />
         </TabsContent>
       </Tabs>
