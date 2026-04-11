@@ -25,7 +25,7 @@ export interface UpdateCampaignParams {
   status?: Campaign['status']
 }
 
-function mapRowToCampaign(row: Record<string, unknown>): Campaign {
+export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
   return {
     id: row.id as string,
     restaurantId: row.restaurant_id as string,
