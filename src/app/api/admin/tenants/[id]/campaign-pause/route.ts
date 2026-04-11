@@ -29,6 +29,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 400 }
       )
     }
+    if (body.reason.trim().length > 500) {
+      return NextResponse.json(
+        { error: 'Reason too long (max 500 chars)' },
+        { status: 400 }
+      )
+    }
 
     await pauseTenantCampaigns(id, body.reason.trim())
     return NextResponse.json({ status: 'paused' })

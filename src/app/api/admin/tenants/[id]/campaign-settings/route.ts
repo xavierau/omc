@@ -74,18 +74,33 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 function validateSettingsInput(body: Record<string, unknown>): void {
   if (body.monthlySendLimit !== undefined) {
-    if (typeof body.monthlySendLimit !== 'number' || body.monthlySendLimit <= 0) {
-      throw new ValidationError('monthlySendLimit must be a positive number')
+    if (
+      typeof body.monthlySendLimit !== 'number' ||
+      !Number.isInteger(body.monthlySendLimit) ||
+      body.monthlySendLimit <= 0 ||
+      body.monthlySendLimit > 1_000_000
+    ) {
+      throw new ValidationError('monthlySendLimit must be a positive integer (max 1,000,000)')
     }
   }
   if (body.dailyCampaignLimit !== undefined) {
-    if (typeof body.dailyCampaignLimit !== 'number' || body.dailyCampaignLimit <= 0) {
-      throw new ValidationError('dailyCampaignLimit must be a positive number')
+    if (
+      typeof body.dailyCampaignLimit !== 'number' ||
+      !Number.isInteger(body.dailyCampaignLimit) ||
+      body.dailyCampaignLimit <= 0 ||
+      body.dailyCampaignLimit > 100
+    ) {
+      throw new ValidationError('dailyCampaignLimit must be a positive integer (max 100)')
     }
   }
   if (body.maxUnsubscribeRate !== undefined) {
-    if (typeof body.maxUnsubscribeRate !== 'number' || body.maxUnsubscribeRate <= 0 || body.maxUnsubscribeRate > 1) {
-      throw new ValidationError('maxUnsubscribeRate must be between 0 and 1')
+    if (
+      typeof body.maxUnsubscribeRate !== 'number' ||
+      !Number.isFinite(body.maxUnsubscribeRate) ||
+      body.maxUnsubscribeRate <= 0 ||
+      body.maxUnsubscribeRate > 1
+    ) {
+      throw new ValidationError('maxUnsubscribeRate must be a finite number between 0 and 1')
     }
   }
 }

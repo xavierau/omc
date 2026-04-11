@@ -14,8 +14,11 @@ export async function getSettingsForTenant(
     .eq('restaurant_id', restaurantId)
     .single()
 
-  if (error || !data) return null
-  return mapRowToSettings(data)
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`getSettingsForTenant: ${error.message}`)
+  }
+  return data ? mapRowToSettings(data) : null
 }
 
 export async function upsertSettings(
@@ -63,7 +66,7 @@ export async function getTodayCampaignCount(
     .from('campaigns')
     .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurantId)
-    .eq('status', 'completed')
+    .in('status', ['sending', 'completed'])
     .gte('created_at', startOfDay)
 
   if (error) throw new Error(`getTodayCampaignCount: ${error.message}`)
