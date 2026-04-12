@@ -16,6 +16,7 @@ export interface UpdateRestaurantInput {
   meta_business_account_id?: string
   status?: 'active' | 'inactive' | 'trial'
   trial_expires_at?: string | null
+  referrer_id?: string | null
 }
 
 export interface TenantListItem extends RestaurantRow {
@@ -37,7 +38,7 @@ export async function findById(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at, referrer_id')
     .eq('id', id)
     .single()
 
@@ -52,7 +53,7 @@ export async function createRestaurant(
   const { data, error } = await supabase
     .from('restaurants')
     .insert(input)
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, referrer_id')
     .single()
 
   if (error || !data) {
@@ -70,7 +71,7 @@ export async function updateRestaurant(
     .from('restaurants')
     .update(input)
     .eq('id', id)
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at')
+    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, referrer_id')
     .single()
 
   if (error || !data) {
@@ -115,7 +116,7 @@ export async function listAll(
   let query = supabase
     .from('restaurants')
     .select(
-      'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at, members(count)',
+      'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, whatsapp_number, created_at, referrer_id, members(count)',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
@@ -147,13 +148,14 @@ export interface TenantSummary {
   id: string
   name: string
   plan: string
+  referrer_id: string | null
 }
 
 export async function listAllTenantsSummary(): Promise<TenantSummary[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, name, plan')
+    .select('id, name, plan, referrer_id')
     .order('name', { ascending: true })
 
   if (error) throw new Error(`listAllTenantsSummary: ${error.message}`)

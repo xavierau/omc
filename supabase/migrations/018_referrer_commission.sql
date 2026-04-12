@@ -29,7 +29,7 @@ CREATE TABLE referrer_commissions (
   referrer_id UUID NOT NULL REFERENCES referrers(id),
   month VARCHAR(7) NOT NULL,
   tenant_id UUID NOT NULL REFERENCES restaurants(id),
-  tenant_name TEXT NOT NULL, -- snapshot at commission creation time
+  tenant_name TEXT NOT NULL, -- latest name, updated on each upsert
   messages_sent INTEGER NOT NULL DEFAULT 0,
   commission_per_message NUMERIC(10,4) NOT NULL,
   total_commission NUMERIC(12,4) NOT NULL DEFAULT 0,

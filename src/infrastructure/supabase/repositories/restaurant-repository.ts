@@ -1,6 +1,22 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
 
+export interface RestaurantRow {
+  id: string
+  slug: string
+  name: string
+  kapso_phone_number_id: string | null
+  meta_business_account_id: string | null
+  status: 'active' | 'inactive' | 'trial'
+  plan: string
+  trial_expires_at: string | null
+  logo_url: string | null
+  referrer_id: string | null
+}
+
+const RESTAURANT_COLUMNS =
+  'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url, referrer_id'
+
 export async function getRestaurantPhoneNumberId(
   restaurantId: string
 ): Promise<string> {
@@ -21,69 +37,38 @@ export async function getRestaurantPhoneNumberId(
     console.warn(`[Restaurant] No kapso_phone_number_id for ${restaurantId}`)
     return ''
   }
-
   return phoneNumberId
 }
 
-export async function getRestaurantName(
-  restaurantId: string
-): Promise<string> {
+export async function getRestaurantName(restaurantId: string): Promise<string> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
     .select('name')
     .eq('id', restaurantId)
     .single()
-
-  if (error || !data) {
-    throw new Error(`Restaurant not found: ${restaurantId}`)
-  }
-
+  if (error || !data) throw new Error(`Restaurant not found: ${restaurantId}`)
   return data.name ?? ''
 }
 
-export async function getMetaBusinessAccountId(
-  restaurantId: string
-): Promise<string | null> {
+export async function getMetaBusinessAccountId(restaurantId: string): Promise<string | null> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
     .select('meta_business_account_id')
     .eq('id', restaurantId)
     .single()
-
-  if (error || !data) {
-    throw new Error(`Restaurant not found: ${restaurantId}`)
-  }
-
+  if (error || !data) throw new Error(`Restaurant not found: ${restaurantId}`)
   return (data.meta_business_account_id as string) ?? null
 }
 
-export async function updateMetaBusinessAccountId(
-  restaurantId: string,
-  wabaId: string
-): Promise<void> {
+export async function updateMetaBusinessAccountId(restaurantId: string, wabaId: string): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from('restaurants')
     .update({ meta_business_account_id: wabaId })
     .eq('id', restaurantId)
-
-  if (error) {
-    throw new Error(`Failed to update WABA ID: ${error.message}`)
-  }
-}
-
-export interface RestaurantRow {
-  id: string
-  slug: string
-  name: string
-  kapso_phone_number_id: string | null
-  meta_business_account_id: string | null
-  status: 'active' | 'inactive' | 'trial'
-  plan: string
-  trial_expires_at: string | null
-  logo_url: string | null
+  if (error) throw new Error(`Failed to update WABA ID: ${error.message}`)
 }
 
 export async function findBySlug(
@@ -92,7 +77,7 @@ export async function findBySlug(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
+    .select(RESTAURANT_COLUMNS)
     .eq('slug', slug)
     .single()
 
@@ -106,7 +91,7 @@ export async function findByPhoneNumberId(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
+    .select(RESTAURANT_COLUMNS)
     .eq('kapso_phone_number_id', phoneNumberId)
     .single()
 
@@ -118,7 +103,7 @@ export async function listActive(): Promise<RestaurantRow[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url')
+    .select(RESTAURANT_COLUMNS)
     .in('status', ['active', 'trial'])
 
   if (error) {
