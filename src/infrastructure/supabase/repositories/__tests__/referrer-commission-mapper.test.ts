@@ -87,4 +87,19 @@ describe('mapCommissionToUpsert', () => {
       total_commission: 12.0,
     })
   })
+
+  it('handles zero messagesSent and totalCommission', () => {
+    const result = mapCommissionToUpsert({
+      referrerId: 'ref-1',
+      month: '2026-01',
+      tenantId: 'tenant-1',
+      tenantName: 'Test',
+      messagesSent: 0,
+      commissionPerMessage: 0.05,
+      totalCommission: 0,
+    })
+
+    expect(result.messages_sent).toBe(0)
+    expect(result.total_commission).toBe(0)
+  })
 })

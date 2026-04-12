@@ -63,19 +63,20 @@ export async function findReferrerById(
   return data ? mapRowToReferrer(data) : null
 }
 
-export async function listReferrers(): Promise<Referrer[]> {
+export async function listReferrers(limit = 100): Promise<Referrer[]> {
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase
     .from('referrers')
     .select('*')
     .order('name', { ascending: true })
+    .limit(limit)
 
   if (error) throw new Error(`listReferrers: ${error.message}`)
   return (data ?? []).map(mapRowToReferrer)
 }
 
-export async function listActiveReferrers(): Promise<Referrer[]> {
+export async function listActiveReferrers(limit = 100): Promise<Referrer[]> {
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase
@@ -83,6 +84,7 @@ export async function listActiveReferrers(): Promise<Referrer[]> {
     .select('*')
     .eq('status', 'active')
     .order('name', { ascending: true })
+    .limit(limit)
 
   if (error) throw new Error(`listActiveReferrers: ${error.message}`)
   return (data ?? []).map(mapRowToReferrer)
