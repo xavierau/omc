@@ -114,7 +114,7 @@ function BillingTable({ tenants, totalMessages, totalCostHkd }: {
       </TableHeader>
       <TableBody>
         {tenants.map((t) => (
-          <TableRow key={t.tenantId}>
+          <TableRow key={t.tenantName}>
             <TableCell>{t.tenantName}</TableCell>
             <TableCell className="capitalize">{t.plan}</TableCell>
             <TableCell className="text-right">{t.campaignsRun}</TableCell>

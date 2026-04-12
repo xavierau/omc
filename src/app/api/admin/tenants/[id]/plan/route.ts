@@ -48,7 +48,7 @@ export async function PATCH(
       resourceId: id,
       details: { plan: body.plan },
       ipAddress: extractIp(request),
-    }).catch(console.error)
+    })
 
     return NextResponse.json({ plan: body.plan, campaignQuota: planCampaignQuota(body.plan) })
   } catch (error) {

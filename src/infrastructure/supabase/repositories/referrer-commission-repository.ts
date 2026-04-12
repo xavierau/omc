@@ -94,7 +94,8 @@ export async function getReferrerEarnings(
   if (error || !data) {
     throw new Error(`getReferrerEarnings: ${error?.message}`)
   }
-  return { total: Number(data.total), pending: Number(data.pending) }
+  const row = data as unknown as { total: number; pending: number }
+  return { total: Number(row.total), pending: Number(row.pending) }
 }
 
 // --- exported helpers for testability ---

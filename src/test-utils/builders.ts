@@ -88,7 +88,9 @@ export function buildRestaurant(
     kapsoPhoneNumberId: 'phone-number-id-1',
     metaBusinessAccountId: null,
     status: 'active',
+    plan: 'starter',
     trialExpiresAt: null,
+    referrerId: null,
     createdAt: '2025-01-01T00:00:00Z',
     ...overrides,
   }

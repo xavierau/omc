@@ -76,6 +76,7 @@ function assertTenantActive(row: TenantStatusRow): void {
     status: row.status,
     plan: 'starter',
     trialExpiresAt: row.trial_expires_at,
+    referrerId: null,
     createdAt: '',
   })
 

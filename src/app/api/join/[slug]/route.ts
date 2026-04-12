@@ -24,6 +24,7 @@ export async function POST(
       status: restaurant.status,
       plan: (restaurant.plan as 'starter' | 'growth' | 'pro') ?? 'starter',
       trialExpiresAt: restaurant.trial_expires_at,
+      referrerId: restaurant.referrer_id ?? null,
       createdAt: '',
     })
 

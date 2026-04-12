@@ -28,7 +28,7 @@ export default function AdminReferrersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">{t('referrersHeading')}</h1>
-        <Button onClick={() => setFormOpen(true)}>{t('addReferrer')}</Button>
+        <Button onClick={() => setFormOpen(true)}>{t('createReferrer')}</Button>
       </div>
       <StatusFilter status={status} onStatus={setStatus} />
       {isLoading ? (
