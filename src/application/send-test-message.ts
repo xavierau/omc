@@ -25,6 +25,7 @@ export async function sendTestMessage(
     await sendTextMessage(kapsoPhoneNumberId, toNumber, TEST_MESSAGE)
     return { sent: true }
   } catch (err) {
-    return { sent: false, error: (err as Error).message }
+    console.error('sendTestMessage error:', err)
+    return { sent: false, error: 'Failed to send test message' }
   }
 }

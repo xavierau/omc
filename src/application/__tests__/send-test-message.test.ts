@@ -42,6 +42,6 @@ describe('sendTestMessage', () => {
 
     const result = await sendTestMessage('phone-id-1', '+85291234567')
 
-    expect(result).toEqual({ sent: false, error: 'API down' })
+    expect(result).toEqual({ sent: false, error: 'Failed to send test message' })
   })
 })

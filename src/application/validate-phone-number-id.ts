@@ -23,6 +23,7 @@ export async function validatePhoneNumberId(
     }
     return { valid: true, wabaId }
   } catch (err) {
-    return { valid: false, error: (err as Error).message }
+    console.error('validatePhoneNumberId error:', err)
+    return { valid: false, error: 'Failed to validate phone number ID' }
   }
 }

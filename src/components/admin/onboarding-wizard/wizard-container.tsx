@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@/components/ui/card'
@@ -32,7 +32,7 @@ export function WizardContainer() {
     return true
   }
 
-  const creatingRef = { current: false }
+  const creatingRef = useRef(false)
 
   async function handleCreate() {
     if (creatingRef.current) return
@@ -94,9 +94,9 @@ export function WizardContainer() {
         step={step}
         canNext={canNext()}
         isCreating={isCreating}
-        onBack={() => setStep(s => s - 1)}
-        onNext={() => setStep(s => s + 1)}
-        onSkip={() => setStep(s => s + 1)}
+        onBack={() => setStep(s => Math.max(1, s - 1))}
+        onNext={() => setStep(s => Math.min(4, s + 1))}
+        onSkip={() => setStep(s => Math.min(4, s + 1))}
         onCreate={handleCreate}
         labels={navLabels}
       />

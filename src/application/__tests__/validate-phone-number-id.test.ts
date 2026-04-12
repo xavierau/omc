@@ -41,7 +41,7 @@ describe('validatePhoneNumberId', () => {
 
     expect(result).toEqual({
       valid: false,
-      error: 'Network error',
+      error: 'Failed to validate phone number ID',
     })
   })
 
