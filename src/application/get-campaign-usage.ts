@@ -5,6 +5,7 @@ import {
   type CampaignUsageSummary,
 } from '@/domain/services/campaign-cost'
 import type { Campaign } from '@/domain/entities/campaign'
+import { currentMonth, parseMonthRange } from '@/domain/services/month-range'
 
 export async function getCampaignUsage(
   restaurantId: string,
@@ -26,23 +27,6 @@ export async function getCampaignUsage(
     totalSent,
     totalEstimatedCost: Math.round(totalCost * 10000) / 10000,
     campaigns: summaries,
-  }
-}
-
-function currentMonth(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
-}
-
-function parseMonthRange(month: string) {
-  const [year, mon] = month.split('-').map(Number)
-  const start = new Date(Date.UTC(year, mon - 1, 1))
-  const end = new Date(Date.UTC(year, mon, 1))
-  return {
-    monthStart: start.toISOString(),
-    monthEnd: end.toISOString(),
   }
 }
 
