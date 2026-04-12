@@ -1,0 +1,28 @@
+import { resolveWabaId } from '@/infrastructure/kapso/template-client'
+
+interface ValidateResult {
+  valid: boolean
+  wabaId?: string
+  error?: string
+}
+
+export async function validatePhoneNumberId(
+  kapsoPhoneNumberId: string
+): Promise<ValidateResult> {
+  if (!kapsoPhoneNumberId) {
+    return { valid: false, error: 'kapsoPhoneNumberId is required' }
+  }
+
+  try {
+    const wabaId = await resolveWabaId(kapsoPhoneNumberId)
+    if (!wabaId) {
+      return {
+        valid: false,
+        error: 'Could not resolve WABA ID for this phone number',
+      }
+    }
+    return { valid: true, wabaId }
+  } catch (err) {
+    return { valid: false, error: (err as Error).message }
+  }
+}
