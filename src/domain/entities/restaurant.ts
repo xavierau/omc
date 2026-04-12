@@ -12,5 +12,6 @@ export interface Restaurant {
   status: TenantStatus
   plan: TenantPlan
   trialExpiresAt: string | null
+  referrerId: string | null
   createdAt: string
 }
