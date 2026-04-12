@@ -53,6 +53,7 @@ export function AdminSidebar() {
   const navItems = [
     { label: t('overview'), href: '/admin' },
     { label: t('tenants'), href: '/admin/tenants' },
+    { label: t('billing'), href: '/admin/billing' },
     { label: t('auditLogs'), href: '/admin/audit-logs' },
   ]
 

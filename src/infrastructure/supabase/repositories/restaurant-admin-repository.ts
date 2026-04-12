@@ -143,6 +143,23 @@ export async function listAll(
   return { tenants, total: count ?? 0 }
 }
 
+export interface TenantSummary {
+  id: string
+  name: string
+  plan: string
+}
+
+export async function listAllTenantsSummary(): Promise<TenantSummary[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('id, name, plan')
+    .order('name', { ascending: true })
+
+  if (error) throw new Error(`listAllTenantsSummary: ${error.message}`)
+  return (data ?? []) as TenantSummary[]
+}
+
 function extractCount(members: unknown): number {
   if (Array.isArray(members) && members.length > 0) {
     return (members[0] as { count: number }).count ?? 0
