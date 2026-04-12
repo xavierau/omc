@@ -5,7 +5,7 @@ import {
   type CampaignUsageSummary,
 } from '@/domain/services/campaign-cost'
 import type { Campaign } from '@/domain/entities/campaign'
-import { currentMonth, parseMonthRange } from '@/domain/services/month-range'
+import { currentMonth, parseMonthRange } from '@/lib/month-range'
 
 export async function getCampaignUsage(
   restaurantId: string,

@@ -4,12 +4,13 @@ CREATE TABLE referrers (
   name TEXT NOT NULL,
   contact_email TEXT NOT NULL,
   contact_phone TEXT,
-  commission_per_message_hkd NUMERIC(10,4) NOT NULL DEFAULT 0.05,
+  commission_per_message_hkd NUMERIC(10,4) NOT NULL DEFAULT 0.05, -- mirrors DEFAULT_COMMISSION_HKD in commission-rate.ts
   status VARCHAR(10) NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (status IN ('active', 'inactive')),
-  CHECK (commission_per_message_hkd >= 0 AND commission_per_message_hkd <= 1)
+  CHECK (commission_per_message_hkd >= 0 AND commission_per_message_hkd <= 1),
+  UNIQUE(contact_email)
 );
 
 -- 2. Auto-update trigger for updated_at (reuses set_updated_at() from 009)
@@ -35,9 +36,15 @@ CREATE TABLE referrer_commissions (
   status VARCHAR(10) NOT NULL DEFAULT 'pending',
   paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (status IN ('pending', 'paid')),
   UNIQUE(referrer_id, month, tenant_id)
 );
+
+CREATE TRIGGER set_referrer_commissions_updated_at
+  BEFORE UPDATE ON referrer_commissions
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
 
 -- 5. RLS: platform admin full CRUD
 ALTER TABLE referrers ENABLE ROW LEVEL SECURITY;

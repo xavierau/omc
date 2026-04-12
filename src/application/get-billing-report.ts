@@ -1,7 +1,7 @@
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary, type TenantSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { estimateCampaignCost, toHKD } from '@/domain/services/campaign-cost'
-import { currentMonth, parseMonthRange } from '@/domain/services/month-range'
+import { currentMonth, parseMonthRange } from '@/lib/month-range'
 
 export interface TenantBillingRow {
   tenantId: string

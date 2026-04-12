@@ -12,4 +12,5 @@ export interface ReferrerCommission {
   status: CommissionStatus
   paidAt: string | null
   createdAt: string
+  updatedAt: string
 }
