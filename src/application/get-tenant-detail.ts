@@ -27,6 +27,7 @@ export interface TenantDetail {
     plan: string
     trialExpiresAt: string | null
     createdAt: string
+    referrerId: string | null
   }
   users: TenantUser[]
   metrics: TenantMetrics
@@ -91,6 +92,7 @@ export async function getTenantDetail(
     plan: tenant.plan ?? 'starter',
     trialExpiresAt: tenant.trial_expires_at,
     createdAt: (tenant as Record<string, unknown>).created_at as string,
+    referrerId: (tenant as Record<string, unknown>).referrer_id as string | null ?? null,
   }
 
   return { tenant: mappedTenant, users, metrics }

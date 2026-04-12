@@ -22,7 +22,10 @@
     "download": "Download",
     "copied": "Copied!",
     "copyLink": "Copy Link",
-    "regenerate": "Regenerate"
+    "regenerate": "Regenerate",
+    "paid": "Paid",
+    "pending": "Pending",
+    "edit": "Edit"
   },
   "nav": {
     "brandName": "OhMyClient",
@@ -296,6 +299,7 @@
     "billing": "Billing",
     "referrers": "Referrers",
     "auditLogs": "Audit Logs",
+    "commissionReport": "Commission Report",
     "logout": "Log Out"
   },
   "admin": {
@@ -391,7 +395,26 @@
     "referrerUpdated": "Referrer updated successfully",
     "referrerCreateError": "Failed to create referrer",
     "referrerUpdateError": "Failed to update referrer",
-    "referrerNotFound": "Referrer not found"
+    "referrerNotFound": "Referrer not found",
+    "commissionReportHeading": "Commission Report",
+    "generateReport": "Generate Report",
+    "generating": "Generating...",
+    "exportCsv": "Export CSV",
+    "totalCommissionAmount": "Total Commission",
+    "tenantsProcessed": "Tenants Processed",
+    "noCommissionData": "No commission data for this month.",
+    "referrer": "Referrer",
+    "tenant": "Tenant",
+    "messages": "Messages",
+    "rate": "Rate",
+    "commission": "Commission",
+    "backToReferrers": "\u2190 Referrers",
+    "commissionHistory": "Commission History",
+    "noCommissions": "No commissions yet",
+    "assignReferrer": "Referrer",
+    "noReferrer": "None",
+    "referrerAssigned": "Referrer assigned successfully",
+    "referrerAssignError": "Failed to assign referrer"
   },
   "onboarding": {
     "stepTenantInfo": "Tenant Info",

@@ -13,6 +13,7 @@ export interface TenantDetail {
   status: 'active' | 'inactive' | 'trial'
   trialExpiresAt: string | null
   createdAt: string
+  referrerId: string | null
 }
 
 export interface TenantUser {

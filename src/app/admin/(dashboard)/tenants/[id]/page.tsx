@@ -12,6 +12,7 @@ import { CampaignSpendWidget } from '@/components/admin/campaign-spend-widget'
 import { CampaignQuotaUsage } from '@/components/admin/campaign-quota-usage'
 import { TenantPlanBadge } from '@/components/admin/tenant-plan-badge'
 import { TenantPlanSelector } from '@/components/admin/tenant-plan-selector'
+import { TenantReferrerSelector } from '@/components/admin/tenant-referrer-selector'
 import { Button } from '@/components/ui/button'
 
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -51,8 +52,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           <TabsTrigger value="metrics">{t('metricsTab')}</TabsTrigger>
           <TabsTrigger value="campaigns">{t('campaignsTab')}</TabsTrigger>
         </TabsList>
-        <TabsContent value="settings" className="mt-4">
+        <TabsContent value="settings" className="mt-4 space-y-6">
           <TenantSettingsTab tenant={tenant} onSaved={mutate} />
+          <TenantReferrerSelector tenantId={id} currentReferrerId={tenant.referrerId} onChanged={mutate} />
         </TabsContent>
         <TabsContent value="users" className="mt-4">
           <TenantUsersTab tenantId={id} users={users} onMutate={mutate} />

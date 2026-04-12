@@ -55,6 +55,7 @@ export function AdminSidebar() {
     { label: t('tenants'), href: '/admin/tenants' },
     { label: t('billing'), href: '/admin/billing' },
     { label: t('referrers'), href: '/admin/referrers' },
+    { label: t('commissionReport'), href: '/admin/referrers/report' },
     { label: t('auditLogs'), href: '/admin/audit-logs' },
   ]
 
