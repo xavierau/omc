@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -102,11 +103,14 @@ function Thumbnails({ files }: { files: File[] }) {
   return (
     <div className="flex gap-2 flex-wrap">
       {files.map((f, i) => (
-        <img
+        <Image
           key={i}
           src={URL.createObjectURL(f)}
           alt={f.name}
+          width={64}
+          height={64}
           className="w-16 h-16 object-cover rounded-md border"
+          unoptimized
         />
       ))}
     </div>

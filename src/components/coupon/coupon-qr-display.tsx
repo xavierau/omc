@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import QRCode from 'qrcode'
 
 interface CouponQrDisplayProps {
@@ -24,7 +25,7 @@ export function CouponQrDisplay({ code }: CouponQrDisplayProps) {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <img src={dataUrl} alt={`QR code for ${code}`} width={200} height={200} className="rounded-lg" />
+      <Image src={dataUrl} alt={`QR code for ${code}`} width={200} height={200} className="rounded-lg" unoptimized />
       <p className="text-xs text-muted-foreground">Show this QR code to staff</p>
     </div>
   )

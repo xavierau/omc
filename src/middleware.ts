@@ -52,7 +52,7 @@ export async function middleware(request: NextRequest) {
 async function isTenantBlocked(
   request: NextRequest,
   supabase: ReturnType<typeof createServerClient>,
-  userId: string
+  _userId: string
 ): Promise<boolean> {
   const tenantId = request.cookies.get('x-tenant-id')?.value
   if (!tenantId) return false

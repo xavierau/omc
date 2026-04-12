@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -96,7 +97,7 @@ function QrDisplay({ qrDataUrl, t }: { qrDataUrl: string; t: (k: string) => stri
     <Card className="p-8">
       <CardContent className="flex flex-col items-center p-0 space-y-4">
         <p className="text-lg font-semibold text-foreground">{t('brandName')}</p>
-        <img src={qrDataUrl} alt="QR Code" className="w-[300px] h-[300px]" />
+        <Image src={qrDataUrl} alt="QR Code" width={300} height={300} className="w-[300px] h-[300px]" unoptimized />
         <p className="text-sm text-muted-foreground">{t('scanToEarn')}</p>
         <p className="text-xs text-muted-foreground">{t('joinMessage')}</p>
       </CardContent>

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { LoginForm } from '@/components/auth/login-form'
 import { TenantPicker } from '@/components/auth/tenant-picker'
 import { createAuthBrowserClient } from '@/infrastructure/supabase/auth-client'

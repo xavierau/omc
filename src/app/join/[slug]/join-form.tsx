@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ export function SlugJoinForm({ slug, tenantName, logoUrl }: { slug: string; tena
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         {logoUrl && (
-          <img src={logoUrl} alt={tenantName} className="mx-auto h-20 w-20 rounded-lg object-cover" />
+          <Image src={logoUrl} alt={tenantName} width={80} height={80} className="mx-auto h-20 w-20 rounded-lg object-cover" unoptimized />
         )}
         <h1 className="text-3xl font-bold tracking-tight">{tenantName}</h1>
         <CardTitle className="text-lg font-semibold">{t('heading')}</CardTitle>

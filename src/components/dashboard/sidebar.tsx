@@ -29,7 +29,7 @@ function NavLink({ href, label, isActive, onClick }: {
   )
 }
 
-function HamburgerButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+function HamburgerButton({ onToggle }: { onToggle: () => void }) {
   return (
     <button
       className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-sidebar text-sidebar-foreground"
@@ -66,7 +66,7 @@ export function Sidebar() {
 
   return (
     <>
-      <HamburgerButton open={mobileOpen} onToggle={() => setMobileOpen(!mobileOpen)} />
+      <HamburgerButton onToggle={() => setMobileOpen(!mobileOpen)} />
 
       {mobileOpen && (
         <div

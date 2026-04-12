@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Input } from '@/components/ui/input'
 import type { CampaignFormState } from './campaign-form-fields'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
 

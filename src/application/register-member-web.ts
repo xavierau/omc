@@ -6,13 +6,6 @@ import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'
 
-interface WebRegisterInput {
-  rawPhone: string
-  contactName: string
-  restaurantId: string
-  campaignId?: string
-}
-
 interface WebRegisterResult {
   isNew: boolean
   memberId: string

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Upload, X } from 'lucide-react'
@@ -52,7 +53,7 @@ export function ImageUploader({ bucket, currentUrl, onUploaded, onRemoved, class
     <div className={className}>
       {currentUrl ? (
         <div className="relative inline-block">
-          <img src={currentUrl} alt="" className="h-20 w-20 rounded-lg object-cover border" />
+          <Image src={currentUrl} alt="" width={80} height={80} className="h-20 w-20 rounded-lg object-cover border" unoptimized />
           {onRemoved && (
             <button
               type="button"

@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
 // Load .env.local
 const envPath = resolve(process.cwd(), '.env.local')
@@ -20,7 +20,6 @@ import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
 import QRCode from 'qrcode'
 
 const RESTAURANT_ID = '00000000-0000-4000-a000-000000000001'
-const SEEDED_ID_PREFIX = '00000000-0000-4000-b000-'
 const QR_BUCKET = 'coupon-qr'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

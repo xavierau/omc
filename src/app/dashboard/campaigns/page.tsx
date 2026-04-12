@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button'
 
 export default function CampaignsPage() {
   const t = useTranslations('campaigns')
-  const tc = useTranslations('common')
   const { campaigns, isLoading, error, refetch } = useCampaigns()
   const guardrails = useCampaignGuardrails()
   const [formOpen, setFormOpen] = useState(false)
