@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION prevent_paid_commission_update()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF OLD.status = 'paid' AND NEW.status != 'paid' THEN
+  IF OLD.status = 'paid' THEN
     RAISE EXCEPTION 'Cannot modify a paid commission record (id: %)', OLD.id;
   END IF;
   RETURN NEW;
