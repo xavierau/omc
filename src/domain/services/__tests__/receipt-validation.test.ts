@@ -55,6 +55,26 @@ describe('assessTamperRisk', () => {
     const result = assessTamperRisk(receipt)
     expect(result.isSuspicious).toBe(false)
   })
+
+  it('returns not suspicious when divergence is exactly 20%', () => {
+    const receipt = buildReceipt({
+      total: 100,
+      items: [{ name: 'A', price: 80 }],
+    })
+    const result = assessTamperRisk(receipt)
+    expect(result.isSuspicious).toBe(false)
+    expect(result.reasons).toEqual([])
+  })
+
+  it('flags suspicious when divergence is 21%', () => {
+    const receipt = buildReceipt({
+      total: 100,
+      items: [{ name: 'A', price: 79 }],
+    })
+    const result = assessTamperRisk(receipt)
+    expect(result.isSuspicious).toBe(true)
+    expect(result.reasons.length).toBeGreaterThan(0)
+  })
 })
 
 describe('isMerchantMatch', () => {

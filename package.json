@@ -7,8 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "seed:demo": "npx tsx scripts/seed-demo-data.ts",
-    "resend:welcome": "npx tsx scripts/resend-welcome.ts"
+    "resend:welcome": "npx tsx scripts/resend-welcome.ts",
+    "kanban": "tsx scripts/kanban.ts",
+    "kanban:v": "tsx scripts/kanban.ts -v"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -36,6 +41,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "supabase": "^2.84.4",

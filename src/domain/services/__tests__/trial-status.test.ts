@@ -62,4 +62,9 @@ describe('isTenantAccessible', () => {
     const past = new Date(Date.now() - 86400000).toISOString()
     expect(isTenantAccessible(makeRestaurant({ status: 'trial', trialExpiresAt: past }))).toBe(false)
   })
+
+  // All branches are covered by existing tests:
+  // - isTrialExpired: active/inactive return false, trial+null/past/future all tested
+  // - isTenantAccessible: active (true), inactive (false), trial+future (true), trial+past (false)
+  // No additional scenarios needed.
 })
