@@ -10,7 +10,7 @@ vi.mock(
 )
 vi.mock(
   '@/infrastructure/supabase/repositories/referrer-repository',
-  () => ({ listActiveReferrers: vi.fn() })
+  () => ({ listReferrers: vi.fn() })
 )
 vi.mock(
   '@/infrastructure/supabase/repositories/referrer-commission-repository',
@@ -27,7 +27,7 @@ vi.mock('@/lib/month-range', () => ({
 import { generateReferrerReport } from '../generate-referrer-report'
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
-import { listActiveReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
+import { listReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
 import { upsertCommissions } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 import { currentMonth } from '@/lib/month-range'
 import type { TenantSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
@@ -36,7 +36,7 @@ import type { Referrer } from '@/domain/entities/referrer'
 
 const mockUsage = vi.mocked(getAllTenantsUsageForMonth)
 const mockTenants = vi.mocked(listAllTenantsSummary)
-const mockReferrers = vi.mocked(listActiveReferrers)
+const mockReferrers = vi.mocked(listReferrers)
 const mockUpsert = vi.mocked(upsertCommissions)
 
 beforeEach(() => vi.clearAllMocks())
@@ -90,7 +90,7 @@ describe('generateReferrerReport', () => {
     expect(report.commissions).toHaveLength(0)
   })
 
-  it('skips tenants whose referrer is not active', async () => {
+  it('skips tenants whose referrer is not found in map', async () => {
     mockTenants.mockResolvedValue([
       buildTenant({ id: 't1', referrer_id: 'ref-gone' }),
     ])

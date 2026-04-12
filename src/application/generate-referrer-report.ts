@@ -1,6 +1,6 @@
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
-import { listActiveReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
+import { listReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
 import { upsertCommissions } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 import type { UpsertCommissionInput } from '@/infrastructure/supabase/repositories/referrer-commission-mapper'
 import { currentMonth, parseMonthRange } from '@/lib/month-range'
@@ -31,7 +31,7 @@ export async function generateReferrerReport(
   const [usageRows, tenants, referrers] = await Promise.all([
     getAllTenantsUsageForMonth(monthStart, monthEnd),
     listAllTenantsSummary(),
-    listActiveReferrers(),
+    listReferrers(),
   ])
 
   const usageMap = new Map(usageRows.map((r) => [r.restaurantId, r]))
@@ -52,7 +52,7 @@ export async function generateReferrerReport(
 
 function buildCommissions(
   tenants: Awaited<ReturnType<typeof listAllTenantsSummary>>,
-  referrerMap: Map<string, Awaited<ReturnType<typeof listActiveReferrers>>[number]>,
+  referrerMap: Map<string, Awaited<ReturnType<typeof listReferrers>>[number]>,
   usageMap: Map<string, { totalSent: number }>
 ): CommissionRow[] {
   const rows: CommissionRow[] = []

@@ -59,7 +59,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       action: 'referrer.update',
       resourceType: 'referrer',
       resourceId: id,
-      details: body,
+      details: {
+        name: body.name,
+        contactEmail: body.contactEmail,
+        contactPhone: body.contactPhone,
+        commissionPerMessageHkd: body.commissionPerMessageHkd,
+        status: body.status,
+      },
       ipAddress: extractIp(request),
     })
 

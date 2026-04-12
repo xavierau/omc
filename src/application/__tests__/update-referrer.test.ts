@@ -61,6 +61,21 @@ describe('updateReferrerUseCase', () => {
     })
   })
 
+  it('returns failure when repository throws', async () => {
+    vi.mocked(findReferrerById).mockResolvedValue(buildReferrer())
+    vi.mocked(updateReferrer).mockRejectedValue(new Error('DB error'))
+
+    const result = await updateReferrerUseCase({
+      id: 'ref-1',
+      name: 'New Name',
+    })
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Failed to update referrer. Please try again.',
+    })
+  })
+
   it('toggles status to inactive', async () => {
     const existing = buildReferrer()
     const updated = buildReferrer({ status: 'inactive' })

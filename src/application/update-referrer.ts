@@ -23,7 +23,12 @@ export async function updateReferrerUseCase(
   const existing = await findReferrerById(input.id)
   if (!existing) return { success: false, message: 'Referrer not found.' }
 
-  const { id, ...changes } = input
-  const referrer = await updateReferrer(id, changes)
-  return { success: true, referrer }
+  try {
+    const { id, ...changes } = input
+    const referrer = await updateReferrer(id, changes)
+    return { success: true, referrer }
+  } catch (error) {
+    console.error('updateReferrer failed:', error)
+    return { success: false, message: 'Failed to update referrer. Please try again.' }
+  }
 }

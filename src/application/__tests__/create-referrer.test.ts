@@ -71,7 +71,7 @@ describe('createReferrerUseCase', () => {
 
     expect(result).toEqual({
       success: false,
-      message: 'DB connection lost',
+      message: 'Failed to create referrer. Please try again.',
     })
   })
 })

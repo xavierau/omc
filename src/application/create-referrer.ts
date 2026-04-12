@@ -19,7 +19,7 @@ export async function createReferrerUseCase(
     const referrer = await createReferrer(input)
     return { success: true, referrer }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Unknown error'
-    return { success: false, message: msg }
+    console.error('createReferrer failed:', error)
+    return { success: false, message: 'Failed to create referrer. Please try again.' }
   }
 }
