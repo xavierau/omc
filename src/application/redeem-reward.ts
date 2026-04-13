@@ -2,7 +2,7 @@ import { getRewardById } from '@/infrastructure/supabase/repositories/reward-rep
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import { deductMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'

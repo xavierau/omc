@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/infrastructure/kapso/template-client')
+vi.mock('@/infrastructure/whatsapp/templates')
 
-import { sendTemplateMessage } from '@/infrastructure/kapso/template-client'
+import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendWhatsAppTemplateMessage } from '../send-template-message'
 

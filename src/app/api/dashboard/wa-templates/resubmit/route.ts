@@ -3,7 +3,7 @@ import {
   getMetaBusinessAccountId,
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { createMetaTemplate } from '@/infrastructure/kapso/template-client'
+import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
 import {
   listTemplates,
   updateTemplate,

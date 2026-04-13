@@ -4,7 +4,7 @@ import {
   getMetaBusinessAccountId,
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { resolveWabaId } from '@/infrastructure/kapso/template-client'
+import { resolveWabaId } from '@/infrastructure/whatsapp/templates'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 

@@ -6,7 +6,7 @@ vi.mock(
 vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
-vi.mock('@/infrastructure/kapso/template-client')
+vi.mock('@/infrastructure/whatsapp/templates')
 
 import {
   findTemplateById,
@@ -16,7 +16,7 @@ import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories
 import {
   createMetaTemplate,
   deleteMetaTemplate,
-} from '@/infrastructure/kapso/template-client'
+} from '@/infrastructure/whatsapp/templates'
 import { updateWhatsAppTemplate } from '../update-whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 

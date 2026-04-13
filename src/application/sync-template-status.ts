@@ -1,6 +1,6 @@
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { listMetaTemplates } from '@/infrastructure/kapso/template-client'
-import type { MetaTemplateListItem } from '@/infrastructure/kapso/template-client'
+import { listMetaTemplates } from '@/infrastructure/whatsapp/templates'
+import type { MetaTemplateListItem } from '@/infrastructure/whatsapp/templates'
 import {
   listTemplates,
   updateTemplate,

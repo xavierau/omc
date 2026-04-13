@@ -12,7 +12,7 @@ import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories
 import {
   createMetaTemplate,
   deleteMetaTemplate,
-} from '@/infrastructure/kapso/template-client'
+} from '@/infrastructure/whatsapp/templates'
 
 interface UpdateTemplateInput {
   name?: string

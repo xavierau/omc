@@ -1,6 +1,6 @@
 import { updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { POINTS_PER_DOLLAR } from '@/lib/constants'
 

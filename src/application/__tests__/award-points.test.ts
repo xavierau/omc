@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/event-repository')
-vi.mock('@/infrastructure/kapso/client')
+vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/client')
 
 import { updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { awardPoints } from '../award-points'
 
