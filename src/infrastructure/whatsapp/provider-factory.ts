@@ -9,23 +9,29 @@ let messagingInstance: WhatsAppMessagingPort | null = null
 let templateInstance: WhatsAppTemplatePort | null = null
 let webhookInstance: WhatsAppWebhookPort | null = null
 
+const KNOWN_PROVIDERS = new Set(['kapso'])
+
 function getProvider(): string {
-  return process.env.WHATSAPP_PROVIDER ?? 'kapso'
+  const provider = process.env.WHATSAPP_PROVIDER ?? 'kapso'
+  if (!KNOWN_PROVIDERS.has(provider)) {
+    throw new Error(`Unknown WhatsApp provider: "${provider}". Valid: ${[...KNOWN_PROVIDERS].join(', ')}`)
+  }
+  return provider
 }
 
 function createMessaging(provider: string): WhatsAppMessagingPort {
   if (provider === 'kapso') return kapsoMessagingAdapter
-  throw new Error(`Unknown WhatsApp provider: ${provider}`)
+  throw new Error(`No messaging adapter for provider: ${provider}`)
 }
 
 function createTemplates(provider: string): WhatsAppTemplatePort {
   if (provider === 'kapso') return kapsoTemplateAdapter
-  throw new Error(`Unknown WhatsApp provider: ${provider}`)
+  throw new Error(`No template adapter for provider: ${provider}`)
 }
 
 function createWebhooks(provider: string): WhatsAppWebhookPort {
   if (provider === 'kapso') return kapsoWebhookAdapter
-  throw new Error(`Unknown WhatsApp provider: ${provider}`)
+  throw new Error(`No webhook adapter for provider: ${provider}`)
 }
 
 export function getMessagingProvider(): WhatsAppMessagingPort {

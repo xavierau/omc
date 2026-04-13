@@ -44,7 +44,7 @@ describe('provider-factory', () => {
     _resetProviders()
     process.env.WHATSAPP_PROVIDER = 'unknown'
     try {
-      expect(() => getMessagingProvider()).toThrow('Unknown WhatsApp provider')
+      expect(() => getMessagingProvider()).toThrow('Unknown WhatsApp provider:')
     } finally {
       delete process.env.WHATSAPP_PROVIDER
     }
@@ -54,7 +54,7 @@ describe('provider-factory', () => {
     const original = process.env.WHATSAPP_PROVIDER
     process.env.WHATSAPP_PROVIDER = 'unknown'
     try {
-      expect(() => getMessagingProvider()).toThrow('Unknown WhatsApp provider: unknown')
+      expect(() => getMessagingProvider()).toThrow('Unknown WhatsApp provider: "unknown"')
     } finally {
       if (original === undefined) delete process.env.WHATSAPP_PROVIDER
       else process.env.WHATSAPP_PROVIDER = original
