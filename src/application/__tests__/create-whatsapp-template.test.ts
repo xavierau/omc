@@ -6,7 +6,7 @@ vi.mock(
 vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
-vi.mock('@/infrastructure/kapso/template-client')
+vi.mock('@/infrastructure/whatsapp/templates')
 
 import {
   createTemplate,
@@ -21,7 +21,7 @@ import {
 import {
   createMetaTemplate,
   resolveWabaId,
-} from '@/infrastructure/kapso/template-client'
+} from '@/infrastructure/whatsapp/templates'
 import { createWhatsAppTemplate } from '../create-whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 

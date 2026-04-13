@@ -1,4 +1,4 @@
-import { resolveWabaId } from '@/infrastructure/kapso/template-client'
+import { resolveWabaId } from '@/infrastructure/whatsapp/templates'
 
 interface ValidateResult {
   valid: boolean

@@ -3,7 +3,7 @@ import {
   softDeleteTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { deleteMetaTemplate } from '@/infrastructure/kapso/template-client'
+import { deleteMetaTemplate } from '@/infrastructure/whatsapp/templates'
 
 interface DeleteResult {
   success: boolean

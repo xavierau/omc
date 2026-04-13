@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/infrastructure/flowforge/client')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
-vi.mock('@/infrastructure/kapso/client')
+vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/client')
 vi.mock('@/application/award-points')
 vi.mock('@/application/validate-receipt')
@@ -12,7 +12,7 @@ vi.mock('@/application/verify-receipt-layout')
 import { submitReceiptExtraction } from '@/infrastructure/flowforge/client'
 import { createReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { awardPoints } from '@/application/award-points'
 import { validateReceipt } from '@/application/validate-receipt'
 import { verifyReceiptLayout } from '@/application/verify-receipt-layout'

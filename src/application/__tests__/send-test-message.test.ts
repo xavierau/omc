@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { sendTestMessage } from '../send-test-message'
 
-vi.mock('@/infrastructure/kapso/client', () => ({
+vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
 }))
 
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 
 const mockSendTextMessage = vi.mocked(sendTextMessage)
 

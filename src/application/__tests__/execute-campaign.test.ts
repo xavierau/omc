@@ -21,7 +21,7 @@ vi.mock('@/infrastructure/supabase/repositories/event-repository', () => ({
   createEvent: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/kapso/client', () => ({
+vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
   sendImageMessage: vi.fn(),
 }))
@@ -60,7 +60,7 @@ import {
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'

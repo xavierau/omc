@@ -5,7 +5,7 @@ vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
 vi.mock('@/infrastructure/supabase/repositories/event-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
-vi.mock('@/infrastructure/kapso/client')
+vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/storage')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
@@ -13,7 +13,7 @@ import { createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coup
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { registerMember } from '../register-member'
 

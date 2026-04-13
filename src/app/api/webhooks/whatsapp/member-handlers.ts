@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { redeemRewardUseCase } from '@/application/redeem-reward'

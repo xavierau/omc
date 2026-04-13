@@ -3,7 +3,7 @@ import {
   extractParameters,
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { sendTemplateMessage } from '@/infrastructure/kapso/template-client'
+import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
 
 interface SendParams {
   phoneNumberId: string

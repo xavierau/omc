@@ -1,4 +1,4 @@
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 
 const TEST_MESSAGE =
   'Hello from OhMyClient! Your WhatsApp number is connected.'

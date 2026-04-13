@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { parseKapsoWebhook, verifyKapsoSignature } from '@/infrastructure/kapso/webhook-parser'
+import { parseKapsoWebhook, verifyKapsoSignature } from '@/infrastructure/whatsapp/webhooks'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createWebhookLogger } from '@/infrastructure/logging/logger'
 import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'

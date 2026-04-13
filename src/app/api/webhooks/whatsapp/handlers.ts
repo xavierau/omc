@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { registerMember } from '@/application/register-member'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
@@ -8,7 +8,7 @@ import { confirmReceipt } from '@/application/process-receipt'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
-import type { KapsoMessage } from '@/infrastructure/kapso/webhook-parser'
+import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 const noop: LogFn = () => {}

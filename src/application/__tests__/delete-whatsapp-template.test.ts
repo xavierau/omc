@@ -6,14 +6,14 @@ vi.mock(
 vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
-vi.mock('@/infrastructure/kapso/template-client')
+vi.mock('@/infrastructure/whatsapp/templates')
 
 import {
   findTemplateById,
   softDeleteTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { deleteMetaTemplate } from '@/infrastructure/kapso/template-client'
+import { deleteMetaTemplate } from '@/infrastructure/whatsapp/templates'
 import { deleteWhatsAppTemplate } from '../delete-whatsapp-template'
 
 const TEMPLATE_BASE = {

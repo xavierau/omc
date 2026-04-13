@@ -2,7 +2,7 @@ import { getCampaignById, incrementCampaignSent, updateCampaign, transitionCampa
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'

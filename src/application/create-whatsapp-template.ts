@@ -16,7 +16,7 @@ import {
   getRestaurantPhoneNumberId,
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { createMetaTemplate, resolveWabaId } from '@/infrastructure/kapso/template-client'
+import { createMetaTemplate, resolveWabaId } from '@/infrastructure/whatsapp/templates'
 
 interface CreateTemplateParams {
   restaurantId: string
