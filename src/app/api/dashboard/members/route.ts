@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getMembers, getMemberById } from '@/infrastructure/supabase/repositories/member-repository'
+import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
+import { getMemberById } from '@/infrastructure/supabase/repositories/member-detail-repository'
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'

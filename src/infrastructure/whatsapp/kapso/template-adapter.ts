@@ -22,7 +22,7 @@ export const kapsoTemplateAdapter: WhatsAppTemplatePort = {
   async listTemplates(wabaId): Promise<TemplateListItem[] | null> {
     const list = await listMetaTemplates(wabaId)
     if (!list) return null
-    return list.map((t) => ({ id: t.id, name: t.name, status: t.status, ...t }))
+    return list.map((t) => ({ ...t, id: t.id, name: t.name, status: t.status ?? 'UNKNOWN' }))
   },
 
   async getTemplate(wabaId, templateId) {

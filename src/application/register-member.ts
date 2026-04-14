@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
@@ -89,7 +89,7 @@ async function createNewMember(
     await incrementCampaignSent(campaignId)
   }
 
-  await createEvent({
+  await emitEvent({
     restaurantId,
     memberId: newMember.id,
     type: 'join',

@@ -55,63 +55,68 @@ export async function getMembers(params: MemberListParams): Promise<MemberListRe
   }
 }
 
-export interface MemberDetail extends MemberRow {
-  receipts: { id: string; total_amount: number; points_awarded: number; created_at: string; status: string }[]
-  coupons: { id: string; code: string; type: string; status: string; redeemed_at: string | null }[]
-  visitCount: number
-}
-
-export async function deductMemberPoints(
+export async function adjustMemberPoints(
   memberId: string,
-  points: number
+  delta: number,
+  options?: { rejectNegative?: boolean }
 ): Promise<number> {
   const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('adjust_member_points', {
+    p_member_id: memberId,
+    p_delta: delta,
+    p_reject_negative: options?.rejectNegative ?? false,
+  })
 
-  const { data: member } = await supabase
-    .from('members')
-    .select('points_balance')
-    .eq('id', memberId)
-    .single()
+  if (error) {
+    if (error.message.includes('Insufficient points')) {
+      throw new Error('Insufficient points balance')
+    }
+    if (error.message.includes('Member not found')) {
+      throw new Error('Member not found')
+    }
+    throw new Error(`adjustMemberPoints: ${error.message}`)
+  }
 
-  if (!member) throw new Error('Member not found')
+  return data as number
+}
 
-  const newBalance = member.points_balance - points
-  if (newBalance < 0) throw new Error('Insufficient points balance')
-
+export async function updateMemberLastVisit(memberId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from('members')
-    .update({ points_balance: newBalance })
+    .update({ last_visit_at: new Date().toISOString() })
     .eq('id', memberId)
-
-  if (error) throw new Error(`deductMemberPoints: ${error.message}`)
-
-  return newBalance
+  if (error) throw new Error(`updateMemberLastVisit: ${error.message}`)
 }
 
-export async function getMemberById(memberId: string): Promise<MemberDetail | null> {
+export async function findMemberByIdAndRestaurant(
+  restaurantId: string,
+  memberId: string
+): Promise<{ id: string; pointsBalance: number } | null> {
   const supabase = createServerSupabaseClient()
-
-  const [memberRes, receiptsRes, couponsRes] = await Promise.all([
-    supabase.from('members').select('*').eq('id', memberId).single(),
-    supabase
-      .from('receipts')
-      .select('id, total_amount, points_awarded, created_at, status')
-      .eq('member_id', memberId)
-      .order('created_at', { ascending: false })
-      .limit(20),
-    supabase
-      .from('coupons')
-      .select('id, code, type, status, redeemed_at')
-      .eq('member_id', memberId)
-      .order('created_at', { ascending: false }),
-  ])
-
-  if (memberRes.error || !memberRes.data) return null
-
-  return {
-    ...(memberRes.data as MemberRow),
-    receipts: (receiptsRes.data ?? []) as MemberDetail['receipts'],
-    coupons: (couponsRes.data ?? []) as MemberDetail['coupons'],
-    visitCount: receiptsRes.data?.length ?? 0,
-  }
+  const { data, error } = await supabase
+    .from('members')
+    .select('id, points_balance')
+    .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
+    .single()
+  if (error || !data) return null
+  return { id: data.id, pointsBalance: data.points_balance }
 }
+
+export async function findMemberByPhone(
+  restaurantId: string,
+  phone: string
+): Promise<{ id: string; pointsBalance: number } | null> {
+  const supabase = createServerSupabaseClient()
+  const { data } = await supabase
+    .from('members')
+    .select('id, points_balance')
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', phone)
+    .single()
+
+  if (!data) return null
+  return { id: data.id, pointsBalance: data.points_balance }
+}
+

@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/client')
 vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
-vi.mock('@/infrastructure/supabase/repositories/event-repository')
+vi.mock('@/application/emit-event')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createCoupon, createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { registerMemberWeb } from '../register-member-web'
 
@@ -30,7 +30,7 @@ describe('registerMemberWeb', () => {
     vi.mocked(createServerSupabaseClient).mockReturnValue(mockSupabase as never)
     vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WLCM01', id: 'c-1' } as never)
     vi.mocked(createCoupon).mockResolvedValue({ code: 'PROMO1', id: 'c-2' } as never)
-    vi.mocked(createEvent).mockResolvedValue(undefined as never)
+    vi.mocked(emitEvent).mockResolvedValue(undefined as never)
     vi.mocked(getCampaignById).mockResolvedValue(null as never)
   })
 
@@ -41,7 +41,7 @@ describe('registerMemberWeb', () => {
 
     expect(result).toEqual({ isNew: false, memberId: 'm-1' })
     expect(createWelcomeCoupon).not.toHaveBeenCalled()
-    expect(createEvent).not.toHaveBeenCalled()
+    expect(emitEvent).not.toHaveBeenCalled()
   })
 
   it('creates welcome coupon for new member without campaignId', async () => {
@@ -52,7 +52,7 @@ describe('registerMemberWeb', () => {
 
     expect(result).toEqual({ isNew: true, memberId: 'm-new', couponCode: 'WLCM01' })
     expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: RESTAURANT_ID,
         memberId: 'm-new',
@@ -91,7 +91,7 @@ describe('registerMemberWeb', () => {
         title: 'Summer Promo',
       })
     )
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         dataJson: expect.objectContaining({ campaign_id: 'camp-1' }),
       })

@@ -4,7 +4,7 @@ import {
   incrementCouponUses,
 } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { createRedemption } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { incrementCampaignRedeemed } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { Coupon, isCouponRedeemable, isSharedCoupon } from '@/domain/entities/coupon'
 
@@ -104,7 +104,7 @@ async function handlePersonalRedemption(
 }
 
 async function createRedemptionEvent(coupon: Coupon, restaurantId: string): Promise<void> {
-  await createEvent({
+  await emitEvent({
     restaurantId,
     memberId: coupon.memberId,
     type: 'redeem',

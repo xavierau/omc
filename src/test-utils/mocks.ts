@@ -20,7 +20,7 @@ export function mockCouponRedemptionRepository() {
 
 export function mockEventRepository() {
   return {
-    createEvent: vi.fn().mockResolvedValue(undefined),
+    createEvent: vi.fn().mockResolvedValue('event-1'),
   }
 }
 
@@ -61,8 +61,9 @@ export function mockRewardRepository() {
 
 export function mockMemberRepository() {
   return {
-    deductMemberPoints: vi.fn().mockResolvedValue(0),
     getMemberById: vi.fn().mockResolvedValue(null),
+    adjustMemberPoints: vi.fn().mockResolvedValue(100),
+    findMemberByPhone: vi.fn().mockResolvedValue(null),
   }
 }
 
@@ -82,5 +83,25 @@ export function mockSupabaseStorage() {
 export function mockWhatsAppTemplateRepository() {
   return {
     findTemplateById: vi.fn().mockResolvedValue(null),
+  }
+}
+
+export function mockPosIntegrationRepository() {
+  return {
+    findPosIntegrationById: vi.fn().mockResolvedValue(null),
+    findPosIntegrationsByRestaurant: vi.fn().mockResolvedValue([]),
+    createPosIntegration: vi.fn().mockResolvedValue('pos-integration-1'),
+    updatePosIntegration: vi.fn().mockResolvedValue(undefined),
+    deletePosIntegration: vi.fn().mockResolvedValue(undefined),
+  }
+}
+
+export function mockPosTransactionRepository() {
+  return {
+    createPosTransaction: vi.fn().mockResolvedValue('pos-tx-1'),
+    findPosTransactionByExternalId: vi.fn().mockResolvedValue(null),
+    findPosTransactionsByRestaurant: vi.fn().mockResolvedValue([]),
+    updatePosTransactionMember: vi.fn().mockResolvedValue(undefined),
+    findUnlinkedTransactionsByPhone: vi.fn().mockResolvedValue([]),
   }
 }
