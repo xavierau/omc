@@ -57,9 +57,17 @@ async function createNewWebMember(
     throw new Error(`registerMemberWeb: ${error?.message}`)
   }
 
-  const coupon = campaignId
-    ? await createCampaignCoupon(restaurantId, newMember.id, campaignId, name)
-    : await createWelcomeCoupon(restaurantId, newMember.id)
+  let coupon: { code: string; id: string }
+  if (campaignId) {
+    try {
+      coupon = await createCampaignCoupon(restaurantId, newMember.id, campaignId, name)
+    } catch {
+      // Campaign missing or has no coupon config — fall back to welcome coupon
+      coupon = await createWelcomeCoupon(restaurantId, newMember.id)
+    }
+  } else {
+    coupon = await createWelcomeCoupon(restaurantId, newMember.id)
+  }
 
   await createEvent({
     restaurantId,

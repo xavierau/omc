@@ -82,29 +82,44 @@ async function createNewMember(
 
   if (error || !newMember) throw new Error(`registerMember: ${error?.message}`)
 
-  const coupon = await createWelcomeCoupon(restaurantId, newMember.id)
-  const { template, campaignId } = await getWelcomeCampaignInfo(supabase, restaurantId)
+  let couponCode: string | undefined
+  try {
+    const coupon = await createWelcomeCoupon(restaurantId, newMember.id)
+    couponCode = coupon.code
 
-  if (campaignId) {
-    await incrementCampaignSent(campaignId)
+    const { template, campaignId } = await getWelcomeCampaignInfo(supabase, restaurantId)
+
+    if (campaignId) {
+      await incrementCampaignSent(campaignId).catch(() => {})
+    }
+
+    await createEvent({
+      restaurantId,
+      memberId: newMember.id,
+      type: 'join',
+      dataJson: { source: 'whatsapp', coupon_code: coupon.code },
+    })
+
+    await sendTextMessage(
+      phoneNumberId,
+      phone.value,
+      `Welcome to our loyalty program${contactName ? `, ${contactName}` : ''}!\n\nYou've received a welcome gift!\nUse code: ${coupon.code}\n\nReply POINTS to check balance, or send a receipt photo to earn points.`
+    )
+
+    await sendCouponQrImage(phoneNumberId, phone.value, coupon.code, template)
+  } catch (err) {
+    console.warn('[register] Post-insert step failed:', (err as Error).message)
+    // Member was created — send a basic welcome so they aren't left hanging
+    if (!couponCode) {
+      await sendTextMessage(
+        phoneNumberId,
+        phone.value,
+        `Welcome to our loyalty program${contactName ? `, ${contactName}` : ''}!\n\nReply POINTS to check balance, or send a receipt photo to earn points.`
+      ).catch(() => {})
+    }
   }
 
-  await createEvent({
-    restaurantId,
-    memberId: newMember.id,
-    type: 'join',
-    dataJson: { source: 'whatsapp', coupon_code: coupon.code },
-  })
-
-  await sendTextMessage(
-    phoneNumberId,
-    phone.value,
-    `Welcome to our loyalty program${contactName ? `, ${contactName}` : ''}!\n\nYou've received a welcome gift!\nUse code: ${coupon.code}\n\nReply POINTS to check balance, or send a receipt photo to earn points.`
-  )
-
-  await sendCouponQrImage(phoneNumberId, phone.value, coupon.code, template)
-
-  return { isNew: true, memberId: newMember.id, pointsBalance: 0, couponCode: coupon.code }
+  return { isNew: true, memberId: newMember.id, pointsBalance: 0, couponCode }
 }
 
 interface WelcomeCampaignInfo {
