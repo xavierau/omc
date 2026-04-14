@@ -2,9 +2,9 @@ import { getRewardById } from '@/infrastructure/supabase/repositories/reward-rep
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { deductMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
+import { emitEvent } from '@/application/emit-event'
+import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 
 export type RedeemRewardResult =
@@ -33,7 +33,7 @@ export async function redeemRewardUseCase(params: {
     }
   }
 
-  const newBalance = await deductMemberPoints(params.memberId, reward.pointsCost)
+  const newBalance = await adjustMemberPoints(params.memberId, -reward.pointsCost, { rejectNegative: true })
   const code = await createRewardCoupon(reward, params)
 
   await notifyMember(params, reward, code, newBalance)
@@ -115,7 +115,7 @@ async function logRewardEvent(
   reward: { name: string; pointsCost: number },
   code: string
 ): Promise<void> {
-  await createEvent({
+  await emitEvent({
     restaurantId: params.restaurantId,
     memberId: params.memberId,
     type: 'reward_redeem',

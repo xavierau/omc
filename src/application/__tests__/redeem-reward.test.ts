@@ -16,17 +16,17 @@ vi.mock('@/infrastructure/supabase/storage', () => ({
   uploadCouponQr: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/kapso/client', () => ({
+vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
   sendImageMessage: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/supabase/repositories/event-repository', () => ({
-  createEvent: vi.fn(),
+vi.mock('@/application/emit-event', () => ({
+  emitEvent: vi.fn(),
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
-  deductMemberPoints: vi.fn(),
+  adjustMemberPoints: vi.fn(),
 }))
 
 const mockSingle = vi.fn()
@@ -43,9 +43,9 @@ import { getRewardById } from '@/infrastructure/supabase/repositories/reward-rep
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { deductMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
+import { emitEvent } from '@/application/emit-event'
+import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
 
 function buildReward(overrides = {}) {
   return {
@@ -83,7 +83,7 @@ describe('redeemRewardUseCase', () => {
     vi.clearAllMocks()
     vi.mocked(generateCouponCode).mockReturnValue('RWD-CODE01')
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
-    vi.mocked(deductMemberPoints).mockResolvedValue(50)
+    vi.mocked(adjustMemberPoints).mockResolvedValue(50)
   })
 
   it('returns failure when reward is not found', async () => {
@@ -123,7 +123,7 @@ describe('redeemRewardUseCase', () => {
     const result = await redeemRewardUseCase(defaultParams)
 
     expect(result).toEqual({ success: true, couponCode: 'RWD-CODE01' })
-    expect(deductMemberPoints).toHaveBeenCalledWith('m-1', 50)
+    expect(adjustMemberPoints).toHaveBeenCalledWith('m-1', -50, { rejectNegative: true })
     expect(createCoupon).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: 'r-1',
@@ -146,7 +146,7 @@ describe('redeemRewardUseCase', () => {
       'https://qr.example.com/img.png',
       expect.stringContaining('RWD-CODE01')
     )
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: 'r-1',
         memberId: 'm-1',

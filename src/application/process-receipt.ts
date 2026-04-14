@@ -1,7 +1,7 @@
 import { submitReceiptExtraction } from '@/infrastructure/flowforge/client'
 import { createReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { RECEIPT_CONFIDENCE_THRESHOLD } from '@/lib/constants'
 import { awardPoints } from './award-points'
 import { validateReceipt } from './validate-receipt'

@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createCoupon, createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
@@ -69,7 +69,7 @@ async function createNewWebMember(
     coupon = await createWelcomeCoupon(restaurantId, newMember.id)
   }
 
-  await createEvent({
+  await emitEvent({
     restaurantId,
     memberId: newMember.id,
     type: 'join',

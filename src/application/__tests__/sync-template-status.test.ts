@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
-vi.mock('@/infrastructure/kapso/template-client')
+vi.mock('@/infrastructure/whatsapp/templates')
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository')
 
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { listMetaTemplates } from '@/infrastructure/kapso/template-client'
+import { listMetaTemplates } from '@/infrastructure/whatsapp/templates'
 import { listTemplates, updateTemplate } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { syncTemplateStatus } from '../sync-template-status'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'

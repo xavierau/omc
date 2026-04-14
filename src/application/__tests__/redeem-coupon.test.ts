@@ -13,8 +13,8 @@ vi.mock('@/infrastructure/supabase/repositories/coupon-redemption-repository', (
   hasRedeemed: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/supabase/repositories/event-repository', () => ({
-  createEvent: vi.fn(),
+vi.mock('@/application/emit-event', () => ({
+  emitEvent: vi.fn(),
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
@@ -32,7 +32,7 @@ import {
   createRedemption,
   hasRedeemed,
 } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { incrementCampaignRedeemed } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 function buildCoupon(overrides: Partial<Coupon> = {}): Coupon {
@@ -119,7 +119,7 @@ describe('redeemCouponUseCase', () => {
     expect(result.message).toContain('10% off')
     expect(incrementCouponUses).toHaveBeenCalledWith('c-1')
     expect(createRedemption).toHaveBeenCalledWith('c-1', 'm-1', 'r-1')
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({ memberId: 'm-1', type: 'redeem' })
     )
   })
@@ -152,7 +152,7 @@ describe('redeemCouponUseCase', () => {
     expect(redeemCoupon).toHaveBeenCalledWith('c-1')
     expect(incrementCouponUses).toHaveBeenCalledWith('c-1')
     expect(createRedemption).toHaveBeenCalledWith('c-1', 'm-1', 'r-1')
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({ memberId: 'm-1', type: 'redeem' })
     )
   })

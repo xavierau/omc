@@ -2,18 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/client')
 vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
-vi.mock('@/infrastructure/supabase/repositories/event-repository')
+vi.mock('@/application/emit-event')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
-vi.mock('@/infrastructure/kapso/client')
+vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/storage')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { emitEvent } from '@/application/emit-event'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { registerMember } from '../register-member'
 
@@ -41,7 +41,7 @@ describe('registerMember', () => {
     vi.mocked(sendImageMessage).mockResolvedValue(undefined)
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
     vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WELCOME1', id: 'c-1' } as never)
-    vi.mocked(createEvent).mockResolvedValue(undefined as never)
+    vi.mocked(emitEvent).mockResolvedValue(undefined as never)
     vi.mocked(incrementCampaignSent).mockResolvedValue(undefined as never)
   })
 
@@ -93,7 +93,7 @@ describe('registerMember', () => {
       couponCode: 'WELCOME1',
     })
     expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
-    expect(createEvent).toHaveBeenCalledWith(
+    expect(emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: RESTAURANT_ID,
         memberId: 'm-new',

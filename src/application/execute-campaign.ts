@@ -1,8 +1,8 @@
 import { getCampaignById, incrementCampaignSent, updateCampaign, transitionCampaignStatus } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/kapso/client'
+import { emitEvent } from '@/application/emit-event'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'
@@ -88,7 +88,7 @@ async function sendToMember(
   }
   await sendCouponQr(phoneNumberId, member.phone, code)
   await incrementCampaignSent(campaign.id)
-  await createEvent({
+  await emitEvent({
     restaurantId: campaign.restaurantId,
     memberId: member.id,
     type: 'campaign',

@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/kapso/client'
+import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
@@ -24,7 +24,7 @@ export async function handleUnsubscribe(
   phone: string,
   restaurantId: string
 ) {
-  const { createEvent } = await import('@/infrastructure/supabase/repositories/event-repository')
+  const { emitEvent } = await import('@/application/emit-event')
   const supabase = createServerSupabaseClient()
 
   const { data: member } = await supabase
@@ -37,7 +37,7 @@ export async function handleUnsubscribe(
 
   await supabase.from('members').update({ status: 'unsubscribed' }).eq('id', member.id)
 
-  await createEvent({
+  await emitEvent({
     restaurantId,
     memberId: member.id,
     type: 'unsubscribe',

@@ -17,11 +17,11 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantPhoneNumberId: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/supabase/repositories/event-repository', () => ({
-  createEvent: vi.fn(),
+vi.mock('@/application/emit-event', () => ({
+  emitEvent: vi.fn(),
 }))
 
-vi.mock('@/infrastructure/kapso/client', () => ({
+vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
   sendImageMessage: vi.fn(),
 }))
@@ -59,8 +59,8 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
-import { sendTextMessage } from '@/infrastructure/kapso/client'
+import { emitEvent } from '@/application/emit-event'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/value-objects/template-vars'
@@ -149,7 +149,7 @@ describe('executeCampaign', () => {
     expect(sendTextMessage).toHaveBeenCalledTimes(2)
     expect(createCoupon).toHaveBeenCalledTimes(2)
     expect(incrementCampaignSent).toHaveBeenCalledTimes(2)
-    expect(createEvent).toHaveBeenCalledTimes(2)
+    expect(emitEvent).toHaveBeenCalledTimes(2)
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
   })
 
@@ -267,7 +267,7 @@ describe('executeCampaign', () => {
     expect(sendTextMessage).toHaveBeenCalledTimes(25)
     expect(createCoupon).toHaveBeenCalledTimes(25)
     expect(incrementCampaignSent).toHaveBeenCalledTimes(25)
-    expect(createEvent).toHaveBeenCalledTimes(25)
+    expect(emitEvent).toHaveBeenCalledTimes(25)
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
   })
 

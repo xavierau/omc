@@ -57,16 +57,22 @@ export async function createEvent(params: {
   memberId: string | null
   type: string
   dataJson?: Record<string, unknown>
-}): Promise<void> {
+  source?: string
+}): Promise<string> {
   const supabase = createServerSupabaseClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('events')
     .insert({
       restaurant_id: params.restaurantId,
       member_id: params.memberId,
       type: params.type,
       data_json: params.dataJson ?? {},
+      source: params.source ?? null,
     })
+    .select('id')
+    .single()
 
   if (error) throw new Error(`createEvent: ${error.message}`)
+  if (!data) throw new Error('createEvent: no data returned')
+  return data.id as string
 }

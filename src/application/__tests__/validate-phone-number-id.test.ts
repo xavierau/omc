@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { validatePhoneNumberId } from '../validate-phone-number-id'
 
-vi.mock('@/infrastructure/kapso/template-client', () => ({
+vi.mock('@/infrastructure/whatsapp/templates', () => ({
   resolveWabaId: vi.fn(),
 }))
 
-import { resolveWabaId } from '@/infrastructure/kapso/template-client'
+import { resolveWabaId } from '@/infrastructure/whatsapp/templates'
 
 const mockResolveWabaId = vi.mocked(resolveWabaId)
 

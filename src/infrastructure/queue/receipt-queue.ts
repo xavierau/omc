@@ -15,6 +15,9 @@ function parseRedisUrl(url: string) {
   return {
     host: parsed.hostname || 'localhost',
     port: parseInt(parsed.port || '6379', 10),
+    ...(parsed.password ? { password: decodeURIComponent(parsed.password) } : {}),
+    ...(parsed.username ? { username: decodeURIComponent(parsed.username) } : {}),
+    ...(parsed.pathname && parsed.pathname !== '/' ? { db: parseInt(parsed.pathname.slice(1), 10) } : {}),
     maxRetriesPerRequest: null as null,
   }
 }
