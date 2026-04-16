@@ -60,6 +60,27 @@ describe('createReferrerUseCase', () => {
     })
   })
 
+  it('accepts null rate fields (blank inputs) and forwards them', async () => {
+    // UI may send null when the user leaves a rate input blank on create.
+    // The use case must accept this — the mapper treats null as "omit → DB default".
+    vi.mocked(createReferrer).mockResolvedValue(buildReferrer())
+
+    const result = await createReferrerUseCase({
+      name: 'Blank Rates',
+      contactEmail: 'blank@example.com',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
+    })
+
+    expect(result.success).toBe(true)
+    expect(createReferrer).toHaveBeenCalledWith({
+      name: 'Blank Rates',
+      contactEmail: 'blank@example.com',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
+    })
+  })
+
   it('returns failure when repository throws', async () => {
     vi.mocked(createReferrer).mockRejectedValue(
       new Error('DB connection lost')

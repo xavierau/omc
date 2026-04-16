@@ -3,8 +3,8 @@ import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/re
 import { listReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
 import { getRedemptionCountsByTenantForMonth } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { upsertCommissions } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
-import type { UpsertCommissionInput } from '@/infrastructure/supabase/repositories/referrer-commission-mapper'
 import { currentMonth, parseMonthRange } from '@/lib/month-range'
+import { roundTwo, sumBy, toUpsertInputs } from './referrer-report-helpers'
 
 export interface CommissionRow {
   referrerId: string
@@ -132,35 +132,4 @@ function composeRow(input: RowInput): CommissionRow {
     redemptionCommission,
     totalCommission: roundTwo(broadcastCommission + redemptionCommission),
   }
-}
-
-function toUpsertInputs(
-  commissions: CommissionRow[],
-  month: string
-): UpsertCommissionInput[] {
-  return commissions.map((c) => toUpsertInput(c, month))
-}
-
-function toUpsertInput(c: CommissionRow, month: string): UpsertCommissionInput {
-  return {
-    referrerId: c.referrerId,
-    month,
-    tenantId: c.tenantId,
-    tenantName: c.tenantName,
-    messagesSent: c.messagesSent,
-    redemptionsCount: c.redemptionsCount,
-    commissionPerMessage: c.commissionPerMessage,
-    commissionPerRedemption: c.commissionPerRedemption,
-    broadcastCommission: c.broadcastCommission,
-    redemptionCommission: c.redemptionCommission,
-    totalCommission: c.totalCommission,
-  }
-}
-
-function sumBy<T>(items: T[], fn: (item: T) => number): number {
-  return roundTwo(items.reduce((s, item) => s + fn(item), 0))
-}
-
-function roundTwo(n: number): number {
-  return Math.round(n * 100) / 100
 }

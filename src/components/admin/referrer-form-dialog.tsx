@@ -6,6 +6,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { ReferrerListItem } from '@/hooks/use-admin-referrers'
+import {
+  type ReferrerFormState,
+  DEFAULT_COMMISSION_PER_REDEMPTION,
+  buildRequestBody,
+  initialReferrerForm,
+  validateForm,
+} from './referrer-form-helpers'
 
 interface ReferrerFormDialogProps {
   open: boolean
@@ -14,32 +21,12 @@ interface ReferrerFormDialogProps {
   referrer?: ReferrerListItem | null
 }
 
-interface FormState {
-  name: string
-  contactEmail: string
-  contactPhone: string
-  commissionPerMessageHkd: string
-  commissionPerRedemptionHkd: string
-  status: string
-}
-
-const DEFAULT_COMMISSION_PER_REDEMPTION = '0.10'
-
-const initialForm: FormState = {
-  name: '',
-  contactEmail: '',
-  contactPhone: '',
-  commissionPerMessageHkd: '',
-  commissionPerRedemptionHkd: DEFAULT_COMMISSION_PER_REDEMPTION,
-  status: 'active',
-}
-
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
 
 export function ReferrerFormDialog({ open, onClose, onSaved, referrer }: ReferrerFormDialogProps) {
   const t = useTranslations('admin')
   const tc = useTranslations('common')
-  const [form, setForm] = useState<FormState>(initialForm)
+  const [form, setForm] = useState<ReferrerFormState>(initialReferrerForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isEdit = !!referrer
@@ -51,11 +38,13 @@ export function ReferrerFormDialog({ open, onClose, onSaved, referrer }: Referre
         contactEmail: referrer.contactEmail,
         contactPhone: referrer.contactPhone ?? '',
         commissionPerMessageHkd: referrer.commissionPerMessageHkd.toString(),
-        commissionPerRedemptionHkd: referrer.commissionPerRedemptionHkd?.toString() ?? DEFAULT_COMMISSION_PER_REDEMPTION,
+        commissionPerRedemptionHkd:
+          referrer.commissionPerRedemptionHkd?.toString() ??
+          DEFAULT_COMMISSION_PER_REDEMPTION,
         status: referrer.status,
       })
     } else {
-      setForm(initialForm)
+      setForm(initialReferrerForm)
     }
   }, [referrer, open])
 
@@ -99,11 +88,11 @@ export function ReferrerFormDialog({ open, onClose, onSaved, referrer }: Referre
 }
 
 function ReferrerFormFields({ form, setForm, isEdit }: {
-  form: FormState; setForm: (f: FormState) => void; isEdit: boolean
+  form: ReferrerFormState; setForm: (f: ReferrerFormState) => void; isEdit: boolean
 }) {
   const t = useTranslations('admin')
   const tc = useTranslations('common')
-  const u = (key: keyof FormState, value: string) => setForm({ ...form, [key]: value })
+  const u = (key: keyof ReferrerFormState, value: string) => setForm({ ...form, [key]: value })
 
   return (
     <div className="space-y-4 mt-4">
@@ -117,26 +106,12 @@ function ReferrerFormFields({ form, setForm, isEdit }: {
         <Input value={form.contactPhone} onChange={(e) => u('contactPhone', e.target.value)} placeholder="+852 1234 5678" />
       </Field>
       <Field label={t('commissionRate')}>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          max="1"
-          value={form.commissionPerMessageHkd}
-          onChange={(e) => u('commissionPerMessageHkd', e.target.value)}
-          placeholder="0.05"
-        />
+        <Input type="number" step="0.01" min="0" max="1" value={form.commissionPerMessageHkd}
+          onChange={(e) => u('commissionPerMessageHkd', e.target.value)} placeholder="0.05" />
       </Field>
       <Field label={t('commissionPerRedemption')}>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          max="1"
-          value={form.commissionPerRedemptionHkd}
-          onChange={(e) => u('commissionPerRedemptionHkd', e.target.value)}
-          placeholder={t('commissionPerRedemptionPlaceholder')}
-        />
+        <Input type="number" step="0.01" min="0" max="1" value={form.commissionPerRedemptionHkd}
+          onChange={(e) => u('commissionPerRedemptionHkd', e.target.value)} placeholder={t('commissionPerRedemptionPlaceholder')} />
       </Field>
       {isEdit && (
         <Field label={tc('status')}>
@@ -152,34 +127,4 @@ function ReferrerFormFields({ form, setForm, isEdit }: {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="text-sm font-medium text-foreground mb-1 block">{label}</label>{children}</div>
-}
-
-function validateForm(
-  form: FormState,
-  t: ReturnType<typeof useTranslations<'admin'>>
-): string | null {
-  if (!form.name.trim()) return t('referrerNameRequired')
-  if (!form.contactEmail.trim()) return t('referrerEmailRequired')
-  if (!isCommissionRateValid(form.commissionPerMessageHkd)) return t('commissionMessageInvalid')
-  if (!isCommissionRateValid(form.commissionPerRedemptionHkd)) return t('commissionRedemptionInvalid')
-  return null
-}
-
-function isCommissionRateValid(raw: string): boolean {
-  if (raw === '') return true
-  const value = Number(raw)
-  if (Number.isNaN(value)) return false
-  return value >= 0 && value <= 1
-}
-
-function buildRequestBody(form: FormState, isEdit: boolean) {
-  const body: Record<string, unknown> = {
-    name: form.name,
-    contactEmail: form.contactEmail,
-    contactPhone: form.contactPhone || null,
-    commissionPerMessageHkd: form.commissionPerMessageHkd ? Number(form.commissionPerMessageHkd) : null,
-    commissionPerRedemptionHkd: form.commissionPerRedemptionHkd ? Number(form.commissionPerRedemptionHkd) : null,
-  }
-  if (isEdit) body.status = form.status
-  return body
 }

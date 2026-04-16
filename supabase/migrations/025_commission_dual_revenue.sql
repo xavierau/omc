@@ -36,20 +36,9 @@ ALTER TABLE referrer_commissions ENABLE TRIGGER guard_paid_commissions;
 -- 4. Index on coupon_redemptions(redeemed_at)
 -- Already exists from migration 011 (idx_coupon_redemptions_redeemed_at). Skipped.
 
--- 5. Update trigger to explicitly protect new columns on paid records
--- The existing trigger blocks ALL updates when status = 'paid'.
--- Re-creating with CREATE OR REPLACE to document coverage of new columns.
-CREATE OR REPLACE FUNCTION prevent_paid_commission_update()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF OLD.status = 'paid' THEN
-    RAISE EXCEPTION 'Cannot modify a paid commission record (id: %)', OLD.id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger already exists on referrer_commissions from migration 019.
--- CREATE OR REPLACE FUNCTION above is sufficient; no need to recreate the trigger.
+-- 5. Paid-record protection: no schema change needed.
+-- Note: The prevent_paid_commission_update trigger from migration 019
+-- continues to protect all columns on referrer_commissions — including the
+-- 4 new columns added above — because it blocks ANY UPDATE when status='paid'.
 
 COMMIT;

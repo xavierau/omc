@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCommissionCsv } from '../csv-export'
 import type { CommissionRow } from '@/application/generate-referrer-report'
 
+const BOM = '\ufeff'
 const HEADER =
   'Referrer,Tenant,Messages Sent,Rate (HK$/msg),Broadcast Commission (HK$),Redemptions,Rate (HK$/redemption),Redemption Commission (HK$),Total Commission (HK$)'
 
@@ -23,15 +24,21 @@ function buildRow(overrides: Partial<CommissionRow> = {}): CommissionRow {
 }
 
 describe('generateCommissionCsv', () => {
-  it('returns only the header for empty input', () => {
-    expect(generateCommissionCsv([])).toBe(HEADER)
+  it('returns BOM + header only for empty input', () => {
+    expect(generateCommissionCsv([])).toBe(BOM + HEADER)
+  })
+
+  it('prepends UTF-8 BOM so Excel renders HK$ and Chinese correctly', () => {
+    const csv = generateCommissionCsv([buildRow()])
+    expect(csv.charCodeAt(0)).toBe(0xfeff)
+    expect(csv.startsWith(BOM)).toBe(true)
   })
 
   it('emits dual-stream columns in broadcast-then-redemption order', () => {
     const csv = generateCommissionCsv([buildRow()])
     const lines = csv.split('\n')
 
-    expect(lines[0]).toBe(HEADER)
+    expect(lines[0]).toBe(BOM + HEADER)
     expect(lines[1]).toBe('Acme,Happy Cafe,150,0.05,7.50,40,0.10,4.00,11.50')
   })
 

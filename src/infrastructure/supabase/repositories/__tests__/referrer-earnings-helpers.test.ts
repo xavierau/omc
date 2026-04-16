@@ -79,6 +79,32 @@ describe('aggregateEarnings', () => {
     expect(result.totalBroadcast).toBe(3)
     expect(result.totalRedemption).toBe(2)
   })
+
+  it('computes total from split columns, ignoring divergent total_commission (belt-and-braces)', () => {
+    // Migration 026 guarantees total_commission === broadcast + redemption via
+    // a GENERATED column. This test asserts we do not trust total_commission
+    // independently — if a (hypothetically) stale row has the wrong value,
+    // total still reflects broadcast + redemption.
+    const result = aggregateEarnings([
+      row({
+        status: 'pending',
+        total_commission: 999, // divergent / stale / wrong
+        broadcast_commission: 7,
+        redemption_commission: 3,
+      }),
+      row({
+        status: 'paid',
+        total_commission: 12345, // divergent / stale / wrong
+        broadcast_commission: 12,
+        redemption_commission: 8,
+      }),
+    ])
+
+    expect(result.total).toBe(30) // 7 + 3 + 12 + 8, NOT 999 + 12345
+    expect(result.pending).toBe(10) // 7 + 3
+    expect(result.totalBroadcast).toBe(19)
+    expect(result.totalRedemption).toBe(11)
+  })
 })
 
 describe('groupEarningsByReferrer', () => {

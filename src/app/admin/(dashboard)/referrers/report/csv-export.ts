@@ -1,5 +1,6 @@
 import type { CommissionRow } from '@/application/generate-referrer-report'
 
+const BOM = '\ufeff'
 const HEADER = [
   'Referrer',
   'Tenant',
@@ -32,8 +33,8 @@ function formatRow(row: CommissionRow): string {
 }
 
 export function generateCommissionCsv(rows: CommissionRow[]): string {
-  if (rows.length === 0) return HEADER
-  return [HEADER, ...rows.map(formatRow)].join('\n')
+  if (rows.length === 0) return BOM + HEADER
+  return BOM + [HEADER, ...rows.map(formatRow)].join('\n')
 }
 
 export function downloadCsv(csv: string, filename: string): void {

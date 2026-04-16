@@ -29,9 +29,17 @@ export function mapRowToReferrer(row: ReferrerRow): Referrer {
 export interface CreateReferrerInput {
   name: string
   contactEmail: string
-  contactPhone?: string
-  commissionPerMessageHkd?: number
-  commissionPerRedemptionHkd?: number
+  contactPhone?: string | null
+  commissionPerMessageHkd?: number | null
+  commissionPerRedemptionHkd?: number | null
+}
+
+// Treat both undefined and null as "field not provided" for numeric rate
+// fields — callers may pass null when the UI left the input blank. Omitting
+// the column from the insert payload lets the DB default apply (e.g. 0.05 for
+// commission_per_message_hkd, 0.10 for commission_per_redemption_hkd).
+function isProvided<T>(value: T | null | undefined): value is T {
+  return value !== undefined && value !== null
 }
 
 export function mapReferrerToInsert(
@@ -41,13 +49,13 @@ export function mapReferrerToInsert(
     name: input.name,
     contact_email: input.contactEmail,
   }
-  if (input.contactPhone !== undefined) {
+  if (isProvided(input.contactPhone)) {
     row.contact_phone = input.contactPhone
   }
-  if (input.commissionPerMessageHkd !== undefined) {
+  if (isProvided(input.commissionPerMessageHkd)) {
     row.commission_per_message_hkd = input.commissionPerMessageHkd
   }
-  if (input.commissionPerRedemptionHkd !== undefined) {
+  if (isProvided(input.commissionPerRedemptionHkd)) {
     row.commission_per_redemption_hkd = input.commissionPerRedemptionHkd
   }
   return row
@@ -65,13 +73,17 @@ export function mapReferrerToUpdate(
   if (input.contactEmail !== undefined) {
     row.contact_email = input.contactEmail
   }
+  // contact_phone: pass through null explicitly (admin may want to clear it)
   if (input.contactPhone !== undefined) {
     row.contact_phone = input.contactPhone
   }
-  if (input.commissionPerMessageHkd !== undefined) {
+  // Commission rates: treat null same as undefined (omit → keep existing value).
+  // Rates must be non-null in the DB (NOT NULL), so null is never a valid
+  // update payload — drop it to avoid sending a DB-rejected value.
+  if (isProvided(input.commissionPerMessageHkd)) {
     row.commission_per_message_hkd = input.commissionPerMessageHkd
   }
-  if (input.commissionPerRedemptionHkd !== undefined) {
+  if (isProvided(input.commissionPerRedemptionHkd)) {
     row.commission_per_redemption_hkd = input.commissionPerRedemptionHkd
   }
   if (input.status !== undefined) row.status = input.status

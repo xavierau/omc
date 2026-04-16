@@ -8,9 +8,9 @@ export interface UpdateReferrerInput {
   id: string
   name?: string
   contactEmail?: string
-  contactPhone?: string
-  commissionPerMessageHkd?: number
-  commissionPerRedemptionHkd?: number
+  contactPhone?: string | null
+  commissionPerMessageHkd?: number | null
+  commissionPerRedemptionHkd?: number | null
   status?: ReferrerStatus
 }
 

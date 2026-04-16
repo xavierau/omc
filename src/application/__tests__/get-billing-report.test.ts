@@ -15,16 +15,28 @@ vi.mock(
   })
 )
 
+vi.mock(
+  '@/infrastructure/supabase/repositories/coupon-redemption-repository',
+  () => ({
+    getRedemptionCountsByTenantForMonth: vi.fn(),
+  })
+)
+
 import { getBillingReport } from '../get-billing-report'
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
+import { getRedemptionCountsByTenantForMonth } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { estimateCampaignCost, toHKD } from '@/domain/services/campaign-cost'
-import { calculateBroadcastFee } from '@/domain/services/platform-fee'
+import { calculateBroadcastFee, calculateRedemptionFee } from '@/domain/services/platform-fee'
 
 const mockGetAllUsage = vi.mocked(getAllTenantsUsageForMonth)
 const mockListAll = vi.mocked(listAllTenantsSummary)
+const mockGetRedemptions = vi.mocked(getRedemptionCountsByTenantForMonth)
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetRedemptions.mockResolvedValue([])
+})
 
 function makeTenant(id: string, name: string, plan: string) {
   return { id, name, plan, referrer_id: null }
@@ -184,5 +196,30 @@ describe('getBillingReport', () => {
     expect(row.redemptionsCount).toBe(0)
     expect(row.redemptionFeeHkd).toBe(0)
     expect(row.totalChargeHkd).toBe(0)
+  })
+
+  it('includes redemption counts and fees when redemptions exist', async () => {
+    mockListAll.mockResolvedValue([makeTenant('t1', 'Tenant A', 'starter')])
+    mockGetAllUsage.mockResolvedValue([
+      { restaurantId: 't1', campaignCount: 1, totalSent: 100 },
+    ])
+    mockGetRedemptions.mockResolvedValue([
+      { restaurantId: 't1', redemptionCount: 40 },
+    ])
+
+    const report = await getBillingReport('2026-04')
+    const row = report.tenants[0]
+
+    expect(row.redemptionsCount).toBe(40)
+    expect(row.redemptionFeeHkd).toBe(calculateRedemptionFee(40))
+    expect(report.totalRedemptions).toBe(40)
+  })
+
+  it('propagates errors from the redemption repository (no silent fallback)', async () => {
+    mockListAll.mockResolvedValue([makeTenant('t1', 'Tenant A', 'starter')])
+    mockGetAllUsage.mockResolvedValue([])
+    mockGetRedemptions.mockRejectedValue(new Error('supabase down'))
+
+    await expect(getBillingReport('2026-04')).rejects.toThrow('supabase down')
   })
 })

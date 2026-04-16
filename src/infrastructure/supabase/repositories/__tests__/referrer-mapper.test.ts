@@ -95,6 +95,31 @@ describe('mapReferrerToInsert', () => {
     expect(result).not.toHaveProperty('commission_per_message_hkd')
     expect(result).not.toHaveProperty('commission_per_redemption_hkd')
   })
+
+  it('treats null rate fields same as undefined (omits so DB default applies)', () => {
+    // The UI may send null when the user leaves a rate input blank. We must
+    // NOT forward null to the DB — the column is NOT NULL; omit so default
+    // (0.05 / 0.10) applies.
+    const result = mapReferrerToInsert({
+      name: 'Blank Rates',
+      contactEmail: 'blank@test.com',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
+    })
+
+    expect(result).not.toHaveProperty('commission_per_message_hkd')
+    expect(result).not.toHaveProperty('commission_per_redemption_hkd')
+  })
+
+  it('treats null contact_phone same as undefined (omits)', () => {
+    const result = mapReferrerToInsert({
+      name: 'Blank Phone',
+      contactEmail: 'bp@test.com',
+      contactPhone: null,
+    })
+
+    expect(result).not.toHaveProperty('contact_phone')
+  })
 })
 
 describe('mapReferrerToUpdate', () => {
@@ -127,5 +152,23 @@ describe('mapReferrerToUpdate', () => {
     const result = mapReferrerToUpdate({ commissionPerRedemptionHkd: 0.25 })
 
     expect(result).toEqual({ commission_per_redemption_hkd: 0.25 })
+  })
+
+  it('drops null rate values so we never send a NOT-NULL violation', () => {
+    const result = mapReferrerToUpdate({
+      name: 'Keep this',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
+    })
+
+    expect(result).toEqual({ name: 'Keep this' })
+    expect(result).not.toHaveProperty('commission_per_message_hkd')
+    expect(result).not.toHaveProperty('commission_per_redemption_hkd')
+  })
+
+  it('allows explicit null contact_phone (admin clearing the field)', () => {
+    const result = mapReferrerToUpdate({ contactPhone: null })
+
+    expect(result).toEqual({ contact_phone: null })
   })
 })

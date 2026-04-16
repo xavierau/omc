@@ -12,17 +12,13 @@ import {
   aggregateEarnings,
   groupEarningsByReferrer,
 } from './referrer-earnings-helpers'
-import {
-  fetchPaidKeys,
-  filterOutPaid,
-} from './referrer-commission-upsert-helpers'
+import { upsertFilteringPaid } from './referrer-commission-upsert-helpers'
 
 export type { ReferrerEarnings } from './referrer-earnings-helpers'
 
 // Re-exported so existing tests can import from the repository.
 export { buildKey, filterOutPaid } from './referrer-commission-upsert-helpers'
 
-const COMMISSION_UPSERT_CONFLICT = 'referrer_id,month,tenant_id'
 const EARNINGS_COLUMNS =
   'status, total_commission, broadcast_commission, redemption_commission'
 
@@ -34,15 +30,7 @@ export async function upsertCommissions(
   const supabase = createServerSupabaseClient()
   const rows = inputs.map(mapCommissionToUpsert)
 
-  const paidKeys = await fetchPaidKeys(supabase, rows)
-  const filtered = filterOutPaid(rows, paidKeys)
-  if (filtered.length === 0) return
-
-  const { error } = await supabase
-    .from('referrer_commissions')
-    .upsert(filtered, { onConflict: COMMISSION_UPSERT_CONFLICT })
-
-  if (error) throw new Error(`upsertCommissions: ${error.message}`)
+  await upsertFilteringPaid(supabase, rows)
 }
 
 export async function listByReferrer(

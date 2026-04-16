@@ -56,9 +56,12 @@ export interface UpsertCommissionInput {
   commissionPerRedemption: number
   broadcastCommission: number
   redemptionCommission: number
-  totalCommission: number
 }
 
+// Note: total_commission is a GENERATED STORED column (migration 026).
+// The DB computes it from broadcast_commission + redemption_commission.
+// Never include it in the upsert payload — Postgres rejects writes to
+// generated columns.
 export function mapCommissionToUpsert(
   input: UpsertCommissionInput
 ): Record<string, unknown> {
@@ -73,6 +76,5 @@ export function mapCommissionToUpsert(
     commission_per_redemption: input.commissionPerRedemption,
     broadcast_commission: input.broadcastCommission,
     redemption_commission: input.redemptionCommission,
-    total_commission: input.totalCommission,
   }
 }

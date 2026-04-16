@@ -259,7 +259,7 @@ describe('generateReferrerReport', () => {
       commissionPerRedemption: 0.2,
       broadcastCommission: 5,
       redemptionCommission: 1,
-      totalCommission: 6,
     })
+    expect(inputs[0]).not.toHaveProperty('totalCommission')
   })
 })

@@ -105,7 +105,6 @@ describe('mapCommissionToUpsert', () => {
       commissionPerRedemption: 0.2,
       broadcastCommission: 12.0,
       redemptionCommission: 10.0,
-      totalCommission: 22.0,
     })
 
     expect(result).toEqual({
@@ -119,8 +118,24 @@ describe('mapCommissionToUpsert', () => {
       commission_per_redemption: 0.2,
       broadcast_commission: 12.0,
       redemption_commission: 10.0,
-      total_commission: 22.0,
     })
+  })
+
+  it('never includes total_commission (DB computes it as GENERATED column)', () => {
+    const result = mapCommissionToUpsert({
+      referrerId: 'ref-2',
+      month: '2026-04',
+      tenantId: 'tenant-2',
+      tenantName: 'Sushi Bar',
+      messagesSent: 200,
+      redemptionsCount: 50,
+      commissionPerMessage: 0.06,
+      commissionPerRedemption: 0.2,
+      broadcastCommission: 12.0,
+      redemptionCommission: 10.0,
+    })
+
+    expect(result).not.toHaveProperty('total_commission')
   })
 
   it('handles zero counts and commissions', () => {
@@ -135,13 +150,12 @@ describe('mapCommissionToUpsert', () => {
       commissionPerRedemption: 0.1,
       broadcastCommission: 0,
       redemptionCommission: 0,
-      totalCommission: 0,
     })
 
     expect(result.messages_sent).toBe(0)
     expect(result.redemptions_count).toBe(0)
     expect(result.broadcast_commission).toBe(0)
     expect(result.redemption_commission).toBe(0)
-    expect(result.total_commission).toBe(0)
+    expect(result).not.toHaveProperty('total_commission')
   })
 })

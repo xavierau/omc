@@ -19,8 +19,12 @@ export type EarningsRowWithId = EarningsRow & { referrer_id: string }
 
 export function aggregateEarnings(rows: EarningsRow[]): ReferrerEarnings {
   const totals = rows.reduce(addRow, emptyTotals())
+  // Belt-and-braces: compute total from the split columns rather than
+  // trusting total_commission. Migration 026 makes total_commission a
+  // GENERATED STORED column, but if anyone ever queries/aggregates
+  // broadcast_commission + redemption_commission directly, they must match.
   return {
-    total: round2(totals.total),
+    total: round2(totals.totalBroadcast + totals.totalRedemption),
     pending: round2(totals.pending),
     totalBroadcast: round2(totals.totalBroadcast),
     totalRedemption: round2(totals.totalRedemption),
@@ -44,11 +48,16 @@ export function groupEarningsByReferrer(
 }
 
 function addRow(acc: ReferrerEarnings, r: EarningsRow): ReferrerEarnings {
-  const total = Number(r.total_commission)
-  acc.total += total
-  if (r.status === 'pending') acc.pending += total
-  acc.totalBroadcast += Number(r.broadcast_commission)
-  acc.totalRedemption += Number(r.redemption_commission)
+  const broadcast = Number(r.broadcast_commission)
+  const redemption = Number(r.redemption_commission)
+  const rowTotal = broadcast + redemption
+  // total is accumulated in `total` field, but overridden by the final
+  // aggregateEarnings return from totalBroadcast + totalRedemption.
+  // This field is kept only for `pending` derivation below.
+  acc.total += rowTotal
+  if (r.status === 'pending') acc.pending += rowTotal
+  acc.totalBroadcast += broadcast
+  acc.totalRedemption += redemption
   return acc
 }
 

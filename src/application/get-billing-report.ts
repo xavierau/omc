@@ -1,4 +1,5 @@
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
+import { getRedemptionCountsByTenantForMonth } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { listAllTenantsSummary, type TenantSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { estimateCampaignCost, toHKD } from '@/domain/services/campaign-cost'
 import { calculateBroadcastFee, calculateRedemptionFee } from '@/domain/services/platform-fee'
@@ -43,7 +44,7 @@ export async function getBillingReport(
   const [tenants, usageRows, redemptionRows] = await Promise.all([
     listAllTenantsSummary(),
     getAllTenantsUsageForMonth(monthStart, monthEnd),
-    fetchRedemptionCounts(monthStart, monthEnd),
+    getRedemptionCountsByTenantForMonth(monthStart, monthEnd),
   ])
 
   const usageMap = new Map(usageRows.map((r) => [r.restaurantId, r]))
@@ -56,28 +57,6 @@ export async function getBillingReport(
   )
 
   return buildReport(targetMonth, billingRows)
-}
-
-async function fetchRedemptionCounts(
-  monthStart: string,
-  monthEnd: string
-): Promise<{ restaurantId: string; redemptionCount: number }[]> {
-  try {
-    const mod = await import(
-      '@/infrastructure/supabase/repositories/coupon-redemption-repository'
-    )
-    const fn = (mod as Record<string, unknown>).getRedemptionCountsByTenantForMonth
-    if (typeof fn !== 'function') return []
-    return await (fn as (
-      s: string,
-      e: string
-    ) => Promise<{ restaurantId: string; redemptionCount: number }[]>)(
-      monthStart,
-      monthEnd
-    )
-  } catch {
-    return []
-  }
 }
 
 function toBillingRow(
