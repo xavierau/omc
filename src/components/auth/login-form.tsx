@@ -15,6 +15,7 @@ interface LoginFormProps {
     passwordPlaceholder: string
     signIn: string
     signingIn: string
+    forgotPassword?: string
   }
   onEmailChange: (v: string) => void
   onPasswordChange: (v: string) => void
@@ -43,6 +44,17 @@ export function LoginForm({
           value={password} onChange={(e) => onPasswordChange(e.target.value)}
           autoComplete="current-password" />
       </div>
+      {labels.forgotPassword && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            onClick={() => alert('Please contact your administrator to reset your password.')}
+          >
+            {labels.forgotPassword}
+          </button>
+        </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? labels.signingIn : labels.signIn}

@@ -47,6 +47,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       contactEmail: body.contactEmail,
       contactPhone: body.contactPhone,
       commissionPerMessageHkd: body.commissionPerMessageHkd,
+      commissionPerRedemptionHkd: body.commissionPerRedemptionHkd,
       status: body.status,
     })
 
@@ -64,6 +65,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         contactEmail: body.contactEmail,
         contactPhone: body.contactPhone,
         commissionPerMessageHkd: body.commissionPerMessageHkd,
+        commissionPerRedemptionHkd: body.commissionPerRedemptionHkd,
         status: body.status,
       },
       ipAddress: extractIp(request),

@@ -12,6 +12,30 @@ function formatDate(dateStr: string): string {
   })
 }
 
+function formatHKD(amount: number): string {
+  return `HK$${amount.toFixed(2)}`
+}
+
+function EarningsCell({ referrer }: { referrer: ReferrerListItem }) {
+  const t = useTranslations('admin')
+  const earnings = referrer.earnings
+  if (!earnings) {
+    return <span className="text-muted-foreground">{formatHKD(0)}</span>
+  }
+
+  return (
+    <div className="flex flex-col">
+      <span className="font-medium text-foreground">{formatHKD(earnings.total)}</span>
+      <span className="text-xs text-muted-foreground">
+        {t('earningsBreakdown', {
+          broadcast: formatHKD(earnings.totalBroadcast),
+          redemption: formatHKD(earnings.totalRedemption),
+        })}
+      </span>
+    </div>
+  )
+}
+
 function ReferrerRow({ referrer }: { referrer: ReferrerListItem }) {
   const router = useRouter()
   const tc = useTranslations('common')
@@ -23,7 +47,10 @@ function ReferrerRow({ referrer }: { referrer: ReferrerListItem }) {
     >
       <TableCell className="font-medium">{referrer.name}</TableCell>
       <TableCell className="text-muted-foreground text-xs">{referrer.contactEmail}</TableCell>
-      <TableCell className="text-muted-foreground">{`HK$${referrer.commissionPerMessageHkd.toFixed(2)}`}</TableCell>
+      <TableCell className="text-muted-foreground">{formatHKD(referrer.commissionPerMessageHkd)}</TableCell>
+      <TableCell>
+        <EarningsCell referrer={referrer} />
+      </TableCell>
       <TableCell>
         <Badge variant={referrer.status === 'active' ? 'default' : 'secondary'}>
           {referrer.status === 'active' ? tc('active') : tc('inactive')}
@@ -43,7 +70,7 @@ export function ReferrerTable({ referrers }: ReferrerTableProps) {
 
   const columns = [
     t('referrerName'), t('contactEmail'), t('commissionRate'),
-    t('status'), t('createdAt'),
+    t('earnings'), t('status'), t('createdAt'),
   ]
 
   return (

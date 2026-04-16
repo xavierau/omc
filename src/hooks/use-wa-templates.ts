@@ -10,7 +10,7 @@ export interface WaTemplate {
   category: string
   status: string
   components: Record<string, unknown>[]
-  created_at: string
+  createdAt: string
 }
 
 interface Filters {

@@ -4,8 +4,9 @@ import { createReferrer } from '@/infrastructure/supabase/repositories/referrer-
 export interface CreateReferrerInput {
   name: string
   contactEmail: string
-  contactPhone?: string
-  commissionPerMessageHkd?: number
+  contactPhone?: string | null
+  commissionPerMessageHkd?: number | null
+  commissionPerRedemptionHkd?: number | null
 }
 
 export type CreateReferrerResult =

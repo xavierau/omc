@@ -22,7 +22,7 @@ export default function CampaignsPage() {
   const handleFormClose = (open: boolean) => { setFormOpen(open); if (!open) setEditingCampaign(null) }
   const sendDisabled = guardrails.data ? !guardrails.data.allowed : false
 
-  if (error) return <ErrorFallback />
+  if (error) return <ErrorFallback onRetry={refetch} />
   if (isLoading) return <LoadingSkeleton />
   if (campaigns.length === 0) return <EmptyCampaigns onCreate={() => setFormOpen(true)} formOpen={formOpen} setFormOpen={setFormOpen} refetch={refetch} />
 
@@ -87,14 +87,14 @@ function EmptyCampaigns({ onCreate, formOpen, setFormOpen, refetch }: {
   )
 }
 
-function ErrorFallback() {
+function ErrorFallback({ onRetry }: { onRetry: () => void }) {
   const t = useTranslations('campaigns')
   const tc = useTranslations('common')
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
       <p className="text-muted-foreground">{t('couldntLoad')}</p>
-      <Button variant="outline" onClick={() => window.location.reload()} className="mt-4">{tc('retry')}</Button>
+      <Button variant="outline" onClick={onRetry} className="mt-4">{tc('retry')}</Button>
     </div>
   )
 }

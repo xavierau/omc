@@ -5,8 +5,22 @@ import {
   mapRowToCommission,
   mapCommissionToUpsert,
 } from './referrer-commission-mapper'
+import {
+  type EarningsRow,
+  type EarningsRowWithId,
+  type ReferrerEarnings,
+  aggregateEarnings,
+  groupEarningsByReferrer,
+} from './referrer-earnings-helpers'
+import { upsertFilteringPaid } from './referrer-commission-upsert-helpers'
 
-const COMMISSION_UPSERT_CONFLICT = 'referrer_id,month,tenant_id'
+export type { ReferrerEarnings } from './referrer-earnings-helpers'
+
+// Re-exported so existing tests can import from the repository.
+export { buildKey, filterOutPaid } from './referrer-commission-upsert-helpers'
+
+const EARNINGS_COLUMNS =
+  'status, total_commission, broadcast_commission, redemption_commission'
 
 export async function upsertCommissions(
   inputs: UpsertCommissionInput[]
@@ -16,15 +30,7 @@ export async function upsertCommissions(
   const supabase = createServerSupabaseClient()
   const rows = inputs.map(mapCommissionToUpsert)
 
-  const paidKeys = await fetchPaidKeys(supabase, rows)
-  const filtered = filterOutPaid(rows, paidKeys)
-  if (filtered.length === 0) return
-
-  const { error } = await supabase
-    .from('referrer_commissions')
-    .upsert(filtered, { onConflict: COMMISSION_UPSERT_CONFLICT })
-
-  if (error) throw new Error(`upsertCommissions: ${error.message}`)
+  await upsertFilteringPaid(supabase, rows)
 }
 
 export async function listByReferrer(
@@ -64,9 +70,7 @@ export async function listByMonth(
   return (data ?? []).map(mapRowToCommission)
 }
 
-export async function markPaid(
-  id: string
-): Promise<ReferrerCommission> {
+export async function markPaid(id: string): Promise<ReferrerCommission> {
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase
@@ -84,53 +88,29 @@ export async function markPaid(
 
 export async function getReferrerEarnings(
   referrerId: string
-): Promise<{ total: number; pending: number }> {
+): Promise<ReferrerEarnings> {
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase
-    .rpc('get_referrer_earnings', { p_referrer_id: referrerId })
-    .single()
+    .from('referrer_commissions')
+    .select(EARNINGS_COLUMNS)
+    .eq('referrer_id', referrerId)
 
-  if (error || !data) {
-    throw new Error(`getReferrerEarnings: ${error?.message}`)
-  }
-  const row = data as unknown as { total: number; pending: number }
-  return { total: Number(row.total), pending: Number(row.pending) }
+  if (error) throw new Error(`getReferrerEarnings: ${error.message}`)
+  return aggregateEarnings((data ?? []) as EarningsRow[])
 }
 
-// --- exported helpers for testability ---
-
-type Row = Record<string, unknown>
-
-export function buildKey(r: Row): string {
-  return `${r.referrer_id}|${r.month}|${r.tenant_id}`
-}
-
-export function filterOutPaid(rows: Row[], paidKeys: Set<string>): Row[] {
-  return rows.filter((r) => !paidKeys.has(buildKey(r)))
-}
-
-async function fetchPaidKeys(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  rows: Row[]
-): Promise<Set<string>> {
-  const keySet = new Set(rows.map(buildKey))
-  const referrerIds = [...new Set(rows.map((r) => r.referrer_id as string))]
-  const months = [...new Set(rows.map((r) => r.month as string))]
+export async function listEarningsByReferrer(
+  referrerIds: string[]
+): Promise<Map<string, ReferrerEarnings>> {
+  if (referrerIds.length === 0) return new Map()
+  const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase
     .from('referrer_commissions')
-    .select('referrer_id, month, tenant_id')
-    .eq('status', 'paid')
+    .select(`referrer_id, ${EARNINGS_COLUMNS}`)
     .in('referrer_id', referrerIds)
-    .in('month', months)
 
-  if (error) throw new Error(`upsertCommissions: ${error.message}`)
-
-  const paidKeys = new Set<string>()
-  for (const row of data ?? []) {
-    const key = `${row.referrer_id}|${row.month}|${row.tenant_id}`
-    if (keySet.has(key)) paidKeys.add(key)
-  }
-  return paidKeys
+  if (error) throw new Error(`listEarningsByReferrer: ${error.message}`)
+  return groupEarningsByReferrer((data ?? []) as EarningsRowWithId[])
 }

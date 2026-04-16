@@ -1,23 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type { ReferrerReport } from '@/application/generate-referrer-report'
 
-export interface CommissionRow {
-  referrerId: string
-  referrerName: string
-  tenantId: string
-  tenantName: string
-  messagesSent: number
-  commissionPerMessage: number
-  totalCommission: number
-}
-
-export interface ReferrerReport {
-  month: string
-  commissions: CommissionRow[]
-  totalCommission: number
-  tenantsProcessed: number
-}
+export type {
+  CommissionRow,
+  ReferrerReport,
+} from '@/application/generate-referrer-report'
 
 export function useReferrerReport(month?: string) {
   const [data, setData] = useState<ReferrerReport | null>(null)
@@ -31,7 +20,7 @@ export function useReferrerReport(month?: string) {
       const params = month ? `?month=${month}` : ''
       const res = await fetch(`/api/admin/referrers/report${params}`)
       if (!res.ok) throw new Error('Failed to fetch referrer report')
-      const json = await res.json()
+      const json: ReferrerReport = await res.json()
       setData(json)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')

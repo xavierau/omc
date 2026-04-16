@@ -18,6 +18,7 @@ describe('validateCreateReferrer', () => {
         ...valid,
         contactPhone: '+852 1234 5678',
         commissionPerMessageHkd: 0.05,
+        commissionPerRedemptionHkd: 0.10,
       })
     ).not.toThrow()
   })
@@ -57,6 +58,18 @@ describe('validateCreateReferrer', () => {
       validateCreateReferrer({ ...valid, commissionPerMessageHkd: -0.1 })
     ).toThrow('commissionPerMessageHkd must be between 0 and 1')
   })
+
+  it('throws when commissionPerRedemptionHkd is invalid', () => {
+    expect(() =>
+      validateCreateReferrer({ ...valid, commissionPerRedemptionHkd: 2 })
+    ).toThrow('commissionPerRedemptionHkd must be between 0 and 1')
+  })
+
+  it('throws when commissionPerRedemptionHkd is negative', () => {
+    expect(() =>
+      validateCreateReferrer({ ...valid, commissionPerRedemptionHkd: -0.1 })
+    ).toThrow('commissionPerRedemptionHkd must be between 0 and 1')
+  })
 })
 
 describe('validateUpdateReferrer', () => {
@@ -72,6 +85,7 @@ describe('validateUpdateReferrer', () => {
         name: 'New Name',
         contactEmail: 'new@example.com',
         commissionPerMessageHkd: 0.1,
+        commissionPerRedemptionHkd: 0.15,
         status: 'inactive',
       })
     ).not.toThrow()
@@ -105,5 +119,11 @@ describe('validateUpdateReferrer', () => {
     expect(() =>
       validateUpdateReferrer(validId, { commissionPerMessageHkd: 5 })
     ).toThrow('commissionPerMessageHkd must be between 0 and 1')
+  })
+
+  it('throws for invalid redemption commission rate', () => {
+    expect(() =>
+      validateUpdateReferrer(validId, { commissionPerRedemptionHkd: 5 })
+    ).toThrow('commissionPerRedemptionHkd must be between 0 and 1')
   })
 })

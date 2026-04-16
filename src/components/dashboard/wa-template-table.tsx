@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -21,8 +22,11 @@ const statusClass: Record<string, string> = {
   paused: 'bg-orange-100 text-orange-800 border-orange-200',
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-HK', {
+function formatDate(iso: string | undefined): string {
+  if (!iso) return '\u2014'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '\u2014'
+  return d.toLocaleDateString('en-HK', {
     month: 'short', day: 'numeric', year: 'numeric',
   })
 }
@@ -33,40 +37,42 @@ interface Props {
 }
 
 export function WaTemplateTable({ templates, onEdit }: Props) {
+  const t = useTranslations('waTemplates')
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Language</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Created</TableHead>
-          {onEdit && <TableHead className="w-[80px]">Actions</TableHead>}
+          <TableHead>{t('name')}</TableHead>
+          <TableHead>{t('language')}</TableHead>
+          <TableHead>{t('category')}</TableHead>
+          <TableHead>{t('status')}</TableHead>
+          <TableHead>{t('created')}</TableHead>
+          {onEdit && <TableHead className="w-[80px]">{t('actions')}</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {templates.map((t) => (
-          <TableRow key={t.id}>
-            <TableCell className="font-medium">{t.name}</TableCell>
-            <TableCell>{t.language}</TableCell>
-            <TableCell>{t.category}</TableCell>
+        {templates.map((tmpl) => (
+          <TableRow key={tmpl.id}>
+            <TableCell className="font-medium">{tmpl.name}</TableCell>
+            <TableCell>{tmpl.language}</TableCell>
+            <TableCell>{tmpl.category}</TableCell>
             <TableCell>
               <Badge
-                variant={statusVariant[t.status] ?? 'secondary'}
-                className={statusClass[t.status] ?? ''}
+                variant={statusVariant[tmpl.status] ?? 'secondary'}
+                className={statusClass[tmpl.status] ?? ''}
               >
-                {t.status}
+                {tmpl.status}
               </Badge>
             </TableCell>
-            <TableCell>{formatDate(t.created_at)}</TableCell>
+            <TableCell>{formatDate(tmpl.createdAt)}</TableCell>
             {onEdit && (
               <TableCell>
                 <button
-                  onClick={() => onEdit(t)}
+                  onClick={() => onEdit(tmpl)}
                   className="text-sm text-primary hover:underline"
                 >
-                  Edit
+                  {t('edit')}
                 </button>
               </TableCell>
             )}

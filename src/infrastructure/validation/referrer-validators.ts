@@ -17,7 +17,13 @@ export function validateCreateReferrer(
     validateContactPhone(body.contactPhone)
   }
   if (body.commissionPerMessageHkd != null) {
-    validateCommission(body.commissionPerMessageHkd)
+    validateCommission(body.commissionPerMessageHkd, 'commissionPerMessageHkd')
+  }
+  if (body.commissionPerRedemptionHkd != null) {
+    validateCommission(
+      body.commissionPerRedemptionHkd,
+      'commissionPerRedemptionHkd'
+    )
   }
 }
 
@@ -34,7 +40,13 @@ export function validateUpdateReferrer(
     validateContactPhone(body.contactPhone)
   }
   if (body.commissionPerMessageHkd != null) {
-    validateCommission(body.commissionPerMessageHkd)
+    validateCommission(body.commissionPerMessageHkd, 'commissionPerMessageHkd')
+  }
+  if (body.commissionPerRedemptionHkd != null) {
+    validateCommission(
+      body.commissionPerRedemptionHkd,
+      'commissionPerRedemptionHkd'
+    )
   }
   if (body.status !== undefined) {
     const valid = ['active', 'inactive']
@@ -71,10 +83,10 @@ function validateContactPhone(value: unknown): void {
   }
 }
 
-function validateCommission(value: unknown): void {
+function validateCommission(value: unknown, field: string): void {
   if (typeof value !== 'number' || !isValidCommissionRate(value)) {
     throw new ReferrerValidationError(
-      'commissionPerMessageHkd must be between 0 and 1'
+      `${field} must be between 0 and 1`
     )
   }
 }

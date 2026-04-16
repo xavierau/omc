@@ -5,6 +5,11 @@ export interface RedemptionWithMember extends CouponRedemption {
   memberName: string | null
 }
 
+export interface TenantRedemptionRow {
+  restaurantId: string
+  redemptionCount: number
+}
+
 export async function createRedemption(
   couponId: string,
   memberId: string,
@@ -88,6 +93,36 @@ export async function getRedemptionCount(couponId: string): Promise<number> {
 
   if (error) throw new Error(`getRedemptionCount: ${error.message}`)
   return count ?? 0
+}
+
+export async function getRedemptionCountsByTenantForMonth(
+  monthStart: string,
+  monthEnd: string
+): Promise<TenantRedemptionRow[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupon_redemptions')
+    .select('restaurant_id')
+    .gte('redeemed_at', monthStart)
+    .lt('redeemed_at', monthEnd)
+
+  if (error) {
+    throw new Error(`getRedemptionCountsByTenantForMonth: ${error.message}`)
+  }
+  return aggregateRedemptionsByTenant(data ?? [])
+}
+
+export function aggregateRedemptionsByTenant(
+  rows: Array<{ restaurant_id: string }>
+): TenantRedemptionRow[] {
+  const map = new Map<string, number>()
+  for (const row of rows) {
+    map.set(row.restaurant_id, (map.get(row.restaurant_id) ?? 0) + 1)
+  }
+  return Array.from(map.entries()).map(([id, count]) => ({
+    restaurantId: id,
+    redemptionCount: count,
+  }))
 }
 
 function mapRowToRedemption(row: Record<string, unknown>): CouponRedemption {

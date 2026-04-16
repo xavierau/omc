@@ -13,6 +13,7 @@ function buildReferrer(overrides: Partial<Referrer> = {}): Referrer {
     contactEmail: 'acme@example.com',
     contactPhone: null,
     commissionPerMessageHkd: 0.05,
+    commissionPerRedemptionHkd: 0.10,
     status: 'active',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
@@ -56,6 +57,27 @@ describe('createReferrerUseCase', () => {
       contactEmail: 'test@example.com',
       contactPhone: '+852 1234',
       commissionPerMessageHkd: 0.1,
+    })
+  })
+
+  it('accepts null rate fields (blank inputs) and forwards them', async () => {
+    // UI may send null when the user leaves a rate input blank on create.
+    // The use case must accept this — the mapper treats null as "omit → DB default".
+    vi.mocked(createReferrer).mockResolvedValue(buildReferrer())
+
+    const result = await createReferrerUseCase({
+      name: 'Blank Rates',
+      contactEmail: 'blank@example.com',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
+    })
+
+    expect(result.success).toBe(true)
+    expect(createReferrer).toHaveBeenCalledWith({
+      name: 'Blank Rates',
+      contactEmail: 'blank@example.com',
+      commissionPerMessageHkd: null,
+      commissionPerRedemptionHkd: null,
     })
   })
 

@@ -38,7 +38,10 @@ export default function CouponsPage() {
       })
       if (!res.ok) throw new Error('Failed to toggle')
       refetch()
-    } catch { /* swallow */ }
+    } catch (err) {
+      console.error('[CouponToggle] Failed:', err)
+      alert('Failed to update coupon status. Please try again.')
+    }
   }, [refetch])
 
   const handleCreate = () => { setEditCoupon(null); setFormOpen(true) }

@@ -22,6 +22,13 @@ function formatHKD(amount: number): string {
   return `HK$${amount.toFixed(2)}`
 }
 
+interface SummaryTotals {
+  totalCommission: number
+  totalBroadcastCommission: number
+  totalRedemptionCommission: number
+  tenantsProcessed: number
+}
+
 export default function CommissionReportPage() {
   const t = useTranslations('admin')
   const [month, setMonth] = useState(() => formatMonth(new Date()))
@@ -52,8 +59,28 @@ export default function CommissionReportPage() {
       <MonthNav month={month} onPrev={() => setMonth(shiftMonth(month, -1))} onNext={() => setMonth(shiftMonth(month, 1))} />
       {loading && <p className="text-muted-foreground">{t('generating')}</p>}
       {error && <ErrorState error={error} onRetry={refetch} />}
-      {data && <SummaryCards t={t} totalCommission={data.totalCommission} tenantsProcessed={data.tenantsProcessed} />}
-      {data && <CommissionTable t={t} commissions={data.commissions} totalCommission={data.totalCommission} />}
+      {data && (
+        <SummaryCards
+          t={t}
+          totals={{
+            totalCommission: data.totalCommission,
+            totalBroadcastCommission: data.totalBroadcastCommission,
+            totalRedemptionCommission: data.totalRedemptionCommission,
+            tenantsProcessed: data.tenantsProcessed,
+          }}
+        />
+      )}
+      {data && (
+        <CommissionTable
+          t={t}
+          commissions={data.commissions}
+          totals={{
+            totalCommission: data.totalCommission,
+            totalBroadcastCommission: data.totalBroadcastCommission,
+            totalRedemptionCommission: data.totalRedemptionCommission,
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -97,20 +124,23 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   )
 }
 
-function SummaryCards({ t, totalCommission, tenantsProcessed }: {
-  t: ReturnType<typeof useTranslations<'admin'>>; totalCommission: number; tenantsProcessed: number
+function SummaryCards({ t, totals }: {
+  t: ReturnType<typeof useTranslations<'admin'>>; totals: SummaryTotals
 }) {
+  const cards = [
+    { title: t('totalCommissionAmount'), value: formatHKD(totals.totalCommission) },
+    { title: t('totalBroadcastCommission'), value: formatHKD(totals.totalBroadcastCommission) },
+    { title: t('totalRedemptionCommission'), value: formatHKD(totals.totalRedemptionCommission) },
+    { title: t('tenantsProcessed'), value: totals.tenantsProcessed.toString() },
+  ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <Card size="sm">
-        <CardHeader><CardTitle>{t('totalCommissionAmount')}</CardTitle></CardHeader>
-        <CardContent><p className="text-2xl font-bold">{formatHKD(totalCommission)}</p></CardContent>
-      </Card>
-      <Card size="sm">
-        <CardHeader><CardTitle>{t('tenantsProcessed')}</CardTitle></CardHeader>
-        <CardContent><p className="text-2xl font-bold">{tenantsProcessed}</p></CardContent>
-      </Card>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {cards.map((card) => (
+        <Card key={card.title} size="sm">
+          <CardHeader><CardTitle>{card.title}</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{card.value}</p></CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
-

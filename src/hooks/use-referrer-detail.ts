@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { ReferrerListItem } from './use-admin-referrers'
+import type { ReferrerEarnings } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
+
+export type { ReferrerEarnings } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 
 export interface ReferrerCommissionItem {
   id: string
@@ -11,15 +14,14 @@ export interface ReferrerCommissionItem {
   tenantName: string
   messagesSent: number
   commissionPerMessage: number
+  redemptionsCount: number
+  commissionPerRedemption: number
+  broadcastCommission: number
+  redemptionCommission: number
   totalCommission: number
   status: string
   paidAt: string | null
   createdAt: string
-}
-
-export interface ReferrerEarnings {
-  total: number
-  pending: number
 }
 
 export function useReferrerDetail(id: string) {

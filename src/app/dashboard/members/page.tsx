@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
 import { MemberTable } from '@/components/dashboard/member-table'
@@ -19,9 +19,12 @@ export default function MembersPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
-    setTimeout(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
       setDebouncedSearch(value)
       setPage(1)
     }, 300)
@@ -108,6 +111,7 @@ function MembersContent({
   data, isLoading, search, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange,
 }: MembersContentProps) {
   const t = useTranslations('members')
+  const tc = useTranslations('common')
 
   if (isLoading) return <LoadingSkeleton />
 
@@ -123,7 +127,14 @@ function MembersContent({
   }
 
   if (data && data.members.length === 0 && search) {
-    return <div className="text-center py-12 text-muted-foreground">{t('noMatch', { search })}</div>
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">{t('noMatch', { search })}</p>
+        <Button variant="outline" size="sm" onClick={() => onSearchChange('')} className="mt-3">
+          {tc('retry')}
+        </Button>
+      </div>
+    )
   }
 
   if (!data) return null

@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type { ReferrerWithEarnings } from '@/application/list-referrers'
+
+export type { ReferrerWithEarnings } from '@/application/list-referrers'
 
 export interface ReferrerListItem {
   id: string
@@ -8,8 +11,10 @@ export interface ReferrerListItem {
   contactEmail: string
   contactPhone: string | null
   commissionPerMessageHkd: number
+  commissionPerRedemptionHkd: number
   status: string
   createdAt: string
+  earnings?: ReferrerWithEarnings['earnings']
 }
 
 interface UseAdminReferrersParams {

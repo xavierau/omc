@@ -21,6 +21,7 @@ function buildReferrer(overrides: Partial<Referrer> = {}): Referrer {
     contactEmail: 'acme@example.com',
     contactPhone: null,
     commissionPerMessageHkd: 0.05,
+    commissionPerRedemptionHkd: 0.10,
     status: 'active',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
@@ -39,6 +40,10 @@ function buildCommission(
     tenantName: 'Restaurant A',
     messagesSent: 500,
     commissionPerMessage: 0.05,
+    redemptionsCount: 0,
+    commissionPerRedemption: 0.10,
+    broadcastCommission: 25,
+    redemptionCommission: 0,
     totalCommission: 25,
     status: 'pending',
     paidAt: null,
@@ -63,9 +68,14 @@ describe('getReferrerDetailUseCase', () => {
     expect(listByReferrer).not.toHaveBeenCalled()
   })
 
-  it('returns detail with earnings and commissions', async () => {
+  it('returns detail with dual-stream earnings and commissions', async () => {
     const referrer = buildReferrer()
-    const earnings = { total: 100, pending: 25 }
+    const earnings = {
+      total: 100,
+      pending: 25,
+      totalBroadcast: 70,
+      totalRedemption: 30,
+    }
     const commissions = [buildCommission()]
 
     vi.mocked(findReferrerById).mockResolvedValue(referrer)

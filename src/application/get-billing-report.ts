@@ -1,6 +1,8 @@
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
+import { getRedemptionCountsByTenantForMonth } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { listAllTenantsSummary, type TenantSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { estimateCampaignCost, toHKD } from '@/domain/services/campaign-cost'
+import { calculateBroadcastFee, calculateRedemptionFee } from '@/domain/services/platform-fee'
 import { currentMonth, parseMonthRange } from '@/lib/month-range'
 
 export interface TenantBillingRow {
@@ -11,6 +13,11 @@ export interface TenantBillingRow {
   messagesSent: number
   estimatedCostUsd: number
   estimatedCostHkd: number
+  metaCostHkd: number
+  broadcastFeeHkd: number
+  redemptionsCount: number
+  redemptionFeeHkd: number
+  totalChargeHkd: number
 }
 
 export interface BillingReport {
@@ -18,6 +25,14 @@ export interface BillingReport {
   tenants: TenantBillingRow[]
   totalMessages: number
   totalCostHkd: number
+  totalRedemptions: number
+  totalPlatformFeeHkd: number
+  totalChargeHkd: number
+}
+
+interface UsageInfo {
+  campaignCount: number
+  totalSent: number
 }
 
 export async function getBillingReport(
@@ -26,32 +41,39 @@ export async function getBillingReport(
   const targetMonth = month ?? currentMonth()
   const { monthStart, monthEnd } = parseMonthRange(targetMonth)
 
-  const [tenants, usageRows] = await Promise.all([
+  const [tenants, usageRows, redemptionRows] = await Promise.all([
     listAllTenantsSummary(),
     getAllTenantsUsageForMonth(monthStart, monthEnd),
+    getRedemptionCountsByTenantForMonth(monthStart, monthEnd),
   ])
 
   const usageMap = new Map(usageRows.map((r) => [r.restaurantId, r]))
-  const billingRows = tenants.map((t) => toBillingRow(t, usageMap))
-  const totalMessages = billingRows.reduce((s, r) => s + r.messagesSent, 0)
-  const totalCostHkd = sumHkdCost(billingRows)
+  const redemptionMap = new Map(
+    redemptionRows.map((r) => [r.restaurantId, r.redemptionCount])
+  )
 
-  return { month: targetMonth, tenants: billingRows, totalMessages, totalCostHkd }
-}
+  const billingRows = tenants.map((t) =>
+    toBillingRow(t, usageMap, redemptionMap)
+  )
 
-interface UsageInfo {
-  campaignCount: number
-  totalSent: number
+  return buildReport(targetMonth, billingRows)
 }
 
 function toBillingRow(
   tenant: TenantSummary,
-  usageMap: Map<string, UsageInfo>
+  usageMap: Map<string, UsageInfo>,
+  redemptionMap: Map<string, number>
 ): TenantBillingRow {
   const usage = usageMap.get(tenant.id)
   const sent = usage?.totalSent ?? 0
+  const redemptions = redemptionMap.get(tenant.id) ?? 0
   const costUsd = sent > 0 ? estimateCampaignCost(sent) : 0
-  const costHkd = sent > 0 ? toHKD(costUsd) : 0
+  const metaCostHkd = sent > 0 ? toHKD(costUsd) : 0
+  const broadcastFeeHkd = calculateBroadcastFee(sent)
+  const redemptionFeeHkd = calculateRedemptionFee(redemptions)
+  const totalChargeHkd = round2(
+    metaCostHkd + broadcastFeeHkd + redemptionFeeHkd
+  )
 
   return {
     tenantId: tenant.id,
@@ -60,11 +82,38 @@ function toBillingRow(
     campaignsRun: usage?.campaignCount ?? 0,
     messagesSent: sent,
     estimatedCostUsd: costUsd,
-    estimatedCostHkd: costHkd,
+    estimatedCostHkd: metaCostHkd,
+    metaCostHkd,
+    broadcastFeeHkd,
+    redemptionsCount: redemptions,
+    redemptionFeeHkd,
+    totalChargeHkd,
   }
 }
 
-function sumHkdCost(rows: TenantBillingRow[]): number {
-  const total = rows.reduce((s, r) => s + r.estimatedCostHkd, 0)
-  return Math.round(total * 100) / 100
+function buildReport(
+  month: string,
+  rows: TenantBillingRow[]
+): BillingReport {
+  const totalMessages = rows.reduce((s, r) => s + r.messagesSent, 0)
+  const totalRedemptions = rows.reduce((s, r) => s + r.redemptionsCount, 0)
+  const totalCostHkd = round2(rows.reduce((s, r) => s + r.metaCostHkd, 0))
+  const totalPlatformFeeHkd = round2(
+    rows.reduce((s, r) => s + r.broadcastFeeHkd + r.redemptionFeeHkd, 0)
+  )
+  const totalChargeHkd = round2(totalCostHkd + totalPlatformFeeHkd)
+
+  return {
+    month,
+    tenants: rows,
+    totalMessages,
+    totalCostHkd,
+    totalRedemptions,
+    totalPlatformFeeHkd,
+    totalChargeHkd,
+  }
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100
 }

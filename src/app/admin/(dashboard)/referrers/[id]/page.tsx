@@ -29,8 +29,6 @@ export default function ReferrerDetailPage({ params }: { params: Promise<{ id: s
 
   if (!referrer) return <p className="text-muted-foreground">{t('referrerNotFound')}</p>
 
-  const totalPaid = earnings ? earnings.total - earnings.pending : 0
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -43,7 +41,12 @@ export default function ReferrerDetailPage({ params }: { params: Promise<{ id: s
         </div>
         <Button onClick={() => setEditOpen(true)}>{tc('edit')}</Button>
       </div>
-      <EarningsCards totalEarned={earnings?.total ?? 0} totalPaid={totalPaid} pending={earnings?.pending ?? 0} />
+      <EarningsCards
+        totalEarned={earnings?.total ?? 0}
+        pending={earnings?.pending ?? 0}
+        totalBroadcast={earnings?.totalBroadcast ?? 0}
+        totalRedemption={earnings?.totalRedemption ?? 0}
+      />
       <div>
         <h2 className="text-lg font-semibold mb-3">{t('commissionHistory')}</h2>
         {commissions.length === 0 ? (
@@ -57,18 +60,24 @@ export default function ReferrerDetailPage({ params }: { params: Promise<{ id: s
   )
 }
 
-function EarningsCards({ totalEarned, totalPaid, pending }: {
-  totalEarned: number; totalPaid: number; pending: number
-}) {
+interface EarningsCardsProps {
+  totalEarned: number
+  pending: number
+  totalBroadcast: number
+  totalRedemption: number
+}
+
+function EarningsCards({ totalEarned, pending, totalBroadcast, totalRedemption }: EarningsCardsProps) {
   const t = useTranslations('admin')
   const cards = [
     { title: t('totalEarned'), value: totalEarned },
-    { title: t('totalPaid'), value: totalPaid },
     { title: t('pendingAmount'), value: pending },
+    { title: t('broadcastEarnings'), value: totalBroadcast },
+    { title: t('redemptionEarnings'), value: totalRedemption },
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((card) => (
         <Card key={card.title}>
           <CardHeader className="pb-2">

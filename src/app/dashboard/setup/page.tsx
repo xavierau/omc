@@ -22,7 +22,7 @@ export default async function SetupPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-foreground">{st('heading')}</h2>
+        <h1 className="text-2xl font-semibold text-foreground">{st('heading')}</h1>
         <p className="text-muted-foreground mt-1">{st('description')}</p>
       </div>
       <TenantLogoSection initialLogoUrl={restaurant?.logo_url ?? null} />
@@ -30,7 +30,7 @@ export default async function SetupPage() {
       <Separator />
 
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
+        <h2 className="text-xl font-semibold text-foreground">{t('heading')}</h2>
         <p className="text-muted-foreground mt-1">{t('description')}</p>
       </div>
       <QrGenerator />

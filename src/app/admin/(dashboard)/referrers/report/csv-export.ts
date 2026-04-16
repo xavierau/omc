@@ -1,6 +1,17 @@
-import type { CommissionRow } from '@/hooks/use-referrer-report'
+import type { CommissionRow } from '@/application/generate-referrer-report'
 
-const HEADER = 'Referrer,Tenant,Messages Sent,Rate (HK$/msg),Commission (HK$)'
+const BOM = '\ufeff'
+const HEADER = [
+  'Referrer',
+  'Tenant',
+  'Messages Sent',
+  'Rate (HK$/msg)',
+  'Broadcast Commission (HK$)',
+  'Redemptions',
+  'Rate (HK$/redemption)',
+  'Redemption Commission (HK$)',
+  'Total Commission (HK$)',
+].join(',')
 
 function escapeCsvField(value: string): string {
   if (/[,"\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
@@ -13,13 +24,17 @@ function formatRow(row: CommissionRow): string {
     escapeCsvField(row.tenantName),
     row.messagesSent,
     row.commissionPerMessage.toFixed(2),
+    row.broadcastCommission.toFixed(2),
+    row.redemptionsCount,
+    row.commissionPerRedemption.toFixed(2),
+    row.redemptionCommission.toFixed(2),
     row.totalCommission.toFixed(2),
   ].join(',')
 }
 
 export function generateCommissionCsv(rows: CommissionRow[]): string {
-  if (rows.length === 0) return HEADER
-  return [HEADER, ...rows.map(formatRow)].join('\n')
+  if (rows.length === 0) return BOM + HEADER
+  return BOM + [HEADER, ...rows.map(formatRow)].join('\n')
 }
 
 export function downloadCsv(csv: string, filename: string): void {

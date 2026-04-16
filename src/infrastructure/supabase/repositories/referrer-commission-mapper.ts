@@ -11,6 +11,10 @@ export interface ReferrerCommissionRow {
   tenant_name: string
   messages_sent: number
   commission_per_message: number
+  redemptions_count: number
+  commission_per_redemption: number
+  broadcast_commission: number
+  redemption_commission: number
   total_commission: number
   status: CommissionStatus
   paid_at: string | null
@@ -29,6 +33,10 @@ export function mapRowToCommission(
     tenantName: row.tenant_name,
     messagesSent: row.messages_sent,
     commissionPerMessage: row.commission_per_message,
+    redemptionsCount: row.redemptions_count,
+    commissionPerRedemption: row.commission_per_redemption,
+    broadcastCommission: row.broadcast_commission,
+    redemptionCommission: row.redemption_commission,
     totalCommission: row.total_commission,
     status: row.status,
     paidAt: row.paid_at,
@@ -43,10 +51,17 @@ export interface UpsertCommissionInput {
   tenantId: string
   tenantName: string
   messagesSent: number
+  redemptionsCount: number
   commissionPerMessage: number
-  totalCommission: number
+  commissionPerRedemption: number
+  broadcastCommission: number
+  redemptionCommission: number
 }
 
+// Note: total_commission is a GENERATED STORED column (migration 026).
+// The DB computes it from broadcast_commission + redemption_commission.
+// Never include it in the upsert payload — Postgres rejects writes to
+// generated columns.
 export function mapCommissionToUpsert(
   input: UpsertCommissionInput
 ): Record<string, unknown> {
@@ -56,7 +71,10 @@ export function mapCommissionToUpsert(
     tenant_id: input.tenantId,
     tenant_name: input.tenantName,
     messages_sent: input.messagesSent,
+    redemptions_count: input.redemptionsCount,
     commission_per_message: input.commissionPerMessage,
-    total_commission: input.totalCommission,
+    commission_per_redemption: input.commissionPerRedemption,
+    broadcast_commission: input.broadcastCommission,
+    redemption_commission: input.redemptionCommission,
   }
 }
