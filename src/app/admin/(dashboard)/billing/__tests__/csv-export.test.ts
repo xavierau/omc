@@ -13,6 +13,11 @@ describe('generateBillingCsv', () => {
         messagesSent: 450,
         estimatedCostUsd: 32.94,
         estimatedCostHkd: 256.93,
+        metaCostHkd: 256.93,
+        broadcastFeeHkd: 135,
+        redemptionsCount: 0,
+        redemptionFeeHkd: 0,
+        totalChargeHkd: 391.93,
       },
       {
         tenantId: 'uuid-2',
@@ -22,6 +27,11 @@ describe('generateBillingCsv', () => {
         messagesSent: 1200,
         estimatedCostUsd: 87.6,
         estimatedCostHkd: 683.28,
+        metaCostHkd: 683.28,
+        broadcastFeeHkd: 360,
+        redemptionsCount: 0,
+        redemptionFeeHkd: 0,
+        totalChargeHkd: 1043.28,
       },
     ]
 
@@ -52,6 +62,11 @@ describe('generateBillingCsv', () => {
         messagesSent: 50,
         estimatedCostUsd: 3.65,
         estimatedCostHkd: 28.47,
+        metaCostHkd: 28.47,
+        broadcastFeeHkd: 15,
+        redemptionsCount: 0,
+        redemptionFeeHkd: 0,
+        totalChargeHkd: 43.47,
       },
     ]
 

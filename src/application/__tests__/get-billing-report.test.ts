@@ -19,6 +19,7 @@ import { getBillingReport } from '../get-billing-report'
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { estimateCampaignCost, toHKD } from '@/domain/services/campaign-cost'
+import { calculateBroadcastFee } from '@/domain/services/platform-fee'
 
 const mockGetAllUsage = vi.mocked(getAllTenantsUsageForMonth)
 const mockListAll = vi.mocked(listAllTenantsSummary)
@@ -26,7 +27,7 @@ const mockListAll = vi.mocked(listAllTenantsSummary)
 beforeEach(() => vi.clearAllMocks())
 
 function makeTenant(id: string, name: string, plan: string) {
-  return { id, name, plan }
+  return { id, name, plan, referrer_id: null }
 }
 
 describe('getBillingReport', () => {
@@ -98,6 +99,9 @@ describe('getBillingReport', () => {
     expect(report.tenants).toEqual([])
     expect(report.totalMessages).toBe(0)
     expect(report.totalCostHkd).toBe(0)
+    expect(report.totalRedemptions).toBe(0)
+    expect(report.totalPlatformFeeHkd).toBe(0)
+    expect(report.totalChargeHkd).toBe(0)
   })
 
   it('sums totals across all tenants', async () => {
@@ -118,5 +122,67 @@ describe('getBillingReport', () => {
     expect(report.totalCostHkd).toBe(
       Math.round((costT1 + costT2) * 100) / 100
     )
+  })
+
+  it('includes platform fee fields on each tenant row', async () => {
+    mockListAll.mockResolvedValue([
+      makeTenant('t1', 'Tenant A', 'starter'),
+    ])
+    mockGetAllUsage.mockResolvedValue([
+      { restaurantId: 't1', campaignCount: 1, totalSent: 100 },
+    ])
+
+    const report = await getBillingReport('2026-04')
+    const row = report.tenants[0]
+
+    const metaCost = toHKD(estimateCampaignCost(100))
+    const broadcastFee = calculateBroadcastFee(100)
+
+    expect(row.metaCostHkd).toBe(metaCost)
+    expect(row.broadcastFeeHkd).toBe(broadcastFee)
+    expect(row.redemptionsCount).toBe(0)
+    expect(row.redemptionFeeHkd).toBe(0)
+    expect(row.totalChargeHkd).toBe(
+      Math.round((metaCost + broadcastFee) * 100) / 100
+    )
+  })
+
+  it('computes report-level platform fee totals', async () => {
+    mockListAll.mockResolvedValue([
+      makeTenant('t1', 'A', 'starter'),
+      makeTenant('t2', 'B', 'growth'),
+    ])
+    mockGetAllUsage.mockResolvedValue([
+      { restaurantId: 't1', campaignCount: 1, totalSent: 100 },
+      { restaurantId: 't2', campaignCount: 2, totalSent: 200 },
+    ])
+
+    const report = await getBillingReport('2026-04')
+
+    expect(report.totalRedemptions).toBe(0)
+
+    const expectedPlatformFee = calculateBroadcastFee(300)
+    expect(report.totalPlatformFeeHkd).toBe(expectedPlatformFee)
+
+    const metaTotal = report.totalCostHkd
+    expect(report.totalChargeHkd).toBe(
+      Math.round((metaTotal + expectedPlatformFee) * 100) / 100
+    )
+  })
+
+  it('zero-usage tenant has zero platform fees', async () => {
+    mockListAll.mockResolvedValue([
+      makeTenant('t1', 'Tenant A', 'starter'),
+    ])
+    mockGetAllUsage.mockResolvedValue([])
+
+    const report = await getBillingReport('2026-04')
+    const row = report.tenants[0]
+
+    expect(row.metaCostHkd).toBe(0)
+    expect(row.broadcastFeeHkd).toBe(0)
+    expect(row.redemptionsCount).toBe(0)
+    expect(row.redemptionFeeHkd).toBe(0)
+    expect(row.totalChargeHkd).toBe(0)
   })
 })
