@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       contactEmail: body.contactEmail,
       contactPhone: body.contactPhone,
       commissionPerMessageHkd: body.commissionPerMessageHkd,
+      commissionPerRedemptionHkd: body.commissionPerRedemptionHkd,
     })
 
     if (!result.success) {

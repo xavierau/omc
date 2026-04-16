@@ -4,11 +4,12 @@ import { findReferrerById } from '@/infrastructure/supabase/repositories/referre
 import {
   getReferrerEarnings,
   listByReferrer,
+  type ReferrerEarnings,
 } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 
 export interface ReferrerDetail {
   referrer: Referrer
-  earnings: { total: number; pending: number }
+  earnings: ReferrerEarnings
   recentCommissions: ReferrerCommission[]
 }
 

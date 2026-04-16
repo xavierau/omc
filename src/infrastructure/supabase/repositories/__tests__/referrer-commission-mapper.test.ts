@@ -16,6 +16,10 @@ function buildRow(
     tenant_name: 'Happy Cafe',
     messages_sent: 150,
     commission_per_message: 0.05,
+    redemptions_count: 0,
+    commission_per_redemption: 0,
+    broadcast_commission: 7.5,
+    redemption_commission: 0,
     total_commission: 7.5,
     status: 'pending',
     paid_at: null,
@@ -66,6 +70,25 @@ describe('mapRowToCommission', () => {
     const result = mapRowToCommission(row)
 
     expect(result.paidAt).toBeNull()
+  })
+
+  it('maps dual-stream columns from DB row without fallbacks', () => {
+    const row = buildRow({
+      messages_sent: 200,
+      redemptions_count: 40,
+      commission_per_message: 0.06,
+      commission_per_redemption: 0.2,
+      broadcast_commission: 12,
+      redemption_commission: 8,
+      total_commission: 20,
+    })
+    const result = mapRowToCommission(row)
+
+    expect(result.redemptionsCount).toBe(40)
+    expect(result.commissionPerRedemption).toBe(0.2)
+    expect(result.broadcastCommission).toBe(12)
+    expect(result.redemptionCommission).toBe(8)
+    expect(result.totalCommission).toBe(20)
   })
 })
 

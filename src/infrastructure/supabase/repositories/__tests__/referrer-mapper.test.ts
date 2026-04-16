@@ -13,6 +13,7 @@ function buildRow(overrides: Partial<ReferrerRow> = {}): ReferrerRow {
     contact_email: 'partner@acme.com',
     contact_phone: '+85212345678',
     commission_per_message_hkd: 0.05,
+    commission_per_redemption_hkd: 0.10,
     status: 'active',
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-02T00:00:00Z',
@@ -36,6 +37,13 @@ describe('mapRowToReferrer', () => {
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-02T00:00:00Z',
     })
+  })
+
+  it('trusts the DB value for commission_per_redemption_hkd', () => {
+    const row = buildRow({ commission_per_redemption_hkd: 0.25 })
+    const result = mapRowToReferrer(row)
+
+    expect(result.commissionPerRedemptionHkd).toBe(0.25)
   })
 
   it('maps null contact_phone to null', () => {
@@ -65,6 +73,7 @@ describe('mapReferrerToInsert', () => {
       contactEmail: 'new@partner.com',
       contactPhone: '+85298765432',
       commissionPerMessageHkd: 0.08,
+      commissionPerRedemptionHkd: 0.15,
     })
 
     expect(result).toEqual({
@@ -72,6 +81,7 @@ describe('mapReferrerToInsert', () => {
       contact_email: 'new@partner.com',
       contact_phone: '+85298765432',
       commission_per_message_hkd: 0.08,
+      commission_per_redemption_hkd: 0.15,
     })
   })
 
@@ -83,6 +93,7 @@ describe('mapReferrerToInsert', () => {
 
     expect(result).not.toHaveProperty('contact_phone')
     expect(result).not.toHaveProperty('commission_per_message_hkd')
+    expect(result).not.toHaveProperty('commission_per_redemption_hkd')
   })
 })
 
@@ -108,6 +119,13 @@ describe('mapReferrerToUpdate', () => {
     expect(result).not.toHaveProperty('name')
     expect(result).not.toHaveProperty('contact_phone')
     expect(result).not.toHaveProperty('commission_per_message_hkd')
+    expect(result).not.toHaveProperty('commission_per_redemption_hkd')
     expect(result).not.toHaveProperty('status')
+  })
+
+  it('includes commission_per_redemption_hkd when provided', () => {
+    const result = mapReferrerToUpdate({ commissionPerRedemptionHkd: 0.25 })
+
+    expect(result).toEqual({ commission_per_redemption_hkd: 0.25 })
   })
 })

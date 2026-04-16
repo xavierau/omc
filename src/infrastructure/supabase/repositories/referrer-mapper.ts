@@ -1,5 +1,4 @@
 import type { Referrer, ReferrerStatus } from '@/domain/entities/referrer'
-import { DEFAULT_REDEMPTION_COMMISSION_HKD } from '@/domain/value-objects/commission-rate'
 
 export interface ReferrerRow {
   id: string
@@ -7,7 +6,7 @@ export interface ReferrerRow {
   contact_email: string
   contact_phone: string | null
   commission_per_message_hkd: number
-  commission_per_redemption_hkd?: number
+  commission_per_redemption_hkd: number
   status: ReferrerStatus
   created_at: string
   updated_at: string
@@ -20,8 +19,7 @@ export function mapRowToReferrer(row: ReferrerRow): Referrer {
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone,
     commissionPerMessageHkd: row.commission_per_message_hkd,
-    commissionPerRedemptionHkd:
-      row.commission_per_redemption_hkd ?? DEFAULT_REDEMPTION_COMMISSION_HKD,
+    commissionPerRedemptionHkd: row.commission_per_redemption_hkd,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -33,6 +31,7 @@ export interface CreateReferrerInput {
   contactEmail: string
   contactPhone?: string
   commissionPerMessageHkd?: number
+  commissionPerRedemptionHkd?: number
 }
 
 export function mapReferrerToInsert(
@@ -47,6 +46,9 @@ export function mapReferrerToInsert(
   }
   if (input.commissionPerMessageHkd !== undefined) {
     row.commission_per_message_hkd = input.commissionPerMessageHkd
+  }
+  if (input.commissionPerRedemptionHkd !== undefined) {
+    row.commission_per_redemption_hkd = input.commissionPerRedemptionHkd
   }
   return row
 }
@@ -68,6 +70,9 @@ export function mapReferrerToUpdate(
   }
   if (input.commissionPerMessageHkd !== undefined) {
     row.commission_per_message_hkd = input.commissionPerMessageHkd
+  }
+  if (input.commissionPerRedemptionHkd !== undefined) {
+    row.commission_per_redemption_hkd = input.commissionPerRedemptionHkd
   }
   if (input.status !== undefined) row.status = input.status
   return row

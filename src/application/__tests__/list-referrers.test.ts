@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/repositories/referrer-repository')
+vi.mock(
+  '@/infrastructure/supabase/repositories/referrer-commission-repository'
+)
 
 import {
   listReferrers,
   listActiveReferrers,
 } from '@/infrastructure/supabase/repositories/referrer-repository'
+import { listEarningsByReferrer } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 import { listReferrersUseCase } from '../list-referrers'
 import type { Referrer } from '@/domain/entities/referrer'
 
@@ -24,18 +28,26 @@ function buildReferrer(overrides: Partial<Referrer> = {}): Referrer {
   }
 }
 
+function zeroEarnings() {
+  return { total: 0, pending: 0, totalBroadcast: 0, totalRedemption: 0 }
+}
+
 describe('listReferrersUseCase', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(listEarningsByReferrer).mockResolvedValue(new Map())
   })
 
-  it('returns all referrers when no status filter', async () => {
+  it('returns all referrers with empty earnings when none recorded', async () => {
     const referrers = [buildReferrer(), buildReferrer({ id: 'ref-2' })]
     vi.mocked(listReferrers).mockResolvedValue(referrers)
 
     const result = await listReferrersUseCase()
 
-    expect(result).toEqual(referrers)
+    expect(result).toEqual([
+      { ...referrers[0], earnings: zeroEarnings() },
+      { ...referrers[1], earnings: zeroEarnings() },
+    ])
     expect(listReferrers).toHaveBeenCalled()
     expect(listActiveReferrers).not.toHaveBeenCalled()
   })
@@ -46,7 +58,7 @@ describe('listReferrersUseCase', () => {
 
     const result = await listReferrersUseCase({ status: 'active' })
 
-    expect(result).toEqual(active)
+    expect(result).toEqual([{ ...active[0], earnings: zeroEarnings() }])
     expect(listActiveReferrers).toHaveBeenCalled()
     expect(listReferrers).not.toHaveBeenCalled()
   })
@@ -60,7 +72,33 @@ describe('listReferrersUseCase', () => {
 
     const result = await listReferrersUseCase({ status: 'inactive' })
 
-    expect(result).toEqual([all[1]])
+    expect(result).toEqual([{ ...all[1], earnings: zeroEarnings() }])
     expect(listReferrers).toHaveBeenCalled()
+  })
+
+  it('attaches per-referrer dual-stream earnings', async () => {
+    const referrers = [
+      buildReferrer({ id: 'ref-1' }),
+      buildReferrer({ id: 'ref-2' }),
+    ]
+    vi.mocked(listReferrers).mockResolvedValue(referrers)
+    vi.mocked(listEarningsByReferrer).mockResolvedValue(
+      new Map([
+        [
+          'ref-1',
+          { total: 50, pending: 20, totalBroadcast: 30, totalRedemption: 20 },
+        ],
+      ])
+    )
+
+    const result = await listReferrersUseCase()
+
+    expect(result[0].earnings).toEqual({
+      total: 50,
+      pending: 20,
+      totalBroadcast: 30,
+      totalRedemption: 20,
+    })
+    expect(result[1].earnings).toEqual(zeroEarnings())
   })
 })

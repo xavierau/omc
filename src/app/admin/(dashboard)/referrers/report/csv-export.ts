@@ -1,6 +1,16 @@
-import type { CommissionRow } from '@/hooks/use-referrer-report'
+import type { CommissionRow } from '@/application/generate-referrer-report'
 
-const HEADER = 'Referrer,Tenant,Messages Sent,Rate (HK$/msg),Commission (HK$)'
+const HEADER = [
+  'Referrer',
+  'Tenant',
+  'Messages Sent',
+  'Rate (HK$/msg)',
+  'Broadcast Commission (HK$)',
+  'Redemptions',
+  'Rate (HK$/redemption)',
+  'Redemption Commission (HK$)',
+  'Total Commission (HK$)',
+].join(',')
 
 function escapeCsvField(value: string): string {
   if (/[,"\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
@@ -13,6 +23,10 @@ function formatRow(row: CommissionRow): string {
     escapeCsvField(row.tenantName),
     row.messagesSent,
     row.commissionPerMessage.toFixed(2),
+    row.broadcastCommission.toFixed(2),
+    row.redemptionsCount,
+    row.commissionPerRedemption.toFixed(2),
+    row.redemptionCommission.toFixed(2),
     row.totalCommission.toFixed(2),
   ].join(',')
 }

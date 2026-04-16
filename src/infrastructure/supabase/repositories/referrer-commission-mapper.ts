@@ -11,10 +11,10 @@ export interface ReferrerCommissionRow {
   tenant_name: string
   messages_sent: number
   commission_per_message: number
-  redemptions_count?: number
-  commission_per_redemption?: number
-  broadcast_commission?: number
-  redemption_commission?: number
+  redemptions_count: number
+  commission_per_redemption: number
+  broadcast_commission: number
+  redemption_commission: number
   total_commission: number
   status: CommissionStatus
   paid_at: string | null
@@ -33,10 +33,10 @@ export function mapRowToCommission(
     tenantName: row.tenant_name,
     messagesSent: row.messages_sent,
     commissionPerMessage: row.commission_per_message,
-    redemptionsCount: row.redemptions_count ?? 0,
-    commissionPerRedemption: row.commission_per_redemption ?? 0,
-    broadcastCommission: row.broadcast_commission ?? row.total_commission,
-    redemptionCommission: row.redemption_commission ?? 0,
+    redemptionsCount: row.redemptions_count,
+    commissionPerRedemption: row.commission_per_redemption,
+    broadcastCommission: row.broadcast_commission,
+    redemptionCommission: row.redemption_commission,
     totalCommission: row.total_commission,
     status: row.status,
     paidAt: row.paid_at,

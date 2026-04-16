@@ -68,9 +68,14 @@ describe('getReferrerDetailUseCase', () => {
     expect(listByReferrer).not.toHaveBeenCalled()
   })
 
-  it('returns detail with earnings and commissions', async () => {
+  it('returns detail with dual-stream earnings and commissions', async () => {
     const referrer = buildReferrer()
-    const earnings = { total: 100, pending: 25 }
+    const earnings = {
+      total: 100,
+      pending: 25,
+      totalBroadcast: 70,
+      totalRedemption: 30,
+    }
     const commissions = [buildCommission()]
 
     vi.mocked(findReferrerById).mockResolvedValue(referrer)
