@@ -51,7 +51,11 @@ export interface UpsertCommissionInput {
   tenantId: string
   tenantName: string
   messagesSent: number
+  redemptionsCount: number
   commissionPerMessage: number
+  commissionPerRedemption: number
+  broadcastCommission: number
+  redemptionCommission: number
   totalCommission: number
 }
 
@@ -64,7 +68,11 @@ export function mapCommissionToUpsert(
     tenant_id: input.tenantId,
     tenant_name: input.tenantName,
     messages_sent: input.messagesSent,
+    redemptions_count: input.redemptionsCount,
     commission_per_message: input.commissionPerMessage,
+    commission_per_redemption: input.commissionPerRedemption,
+    broadcast_commission: input.broadcastCommission,
+    redemption_commission: input.redemptionCommission,
     total_commission: input.totalCommission,
   }
 }

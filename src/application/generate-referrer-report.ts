@@ -1,6 +1,7 @@
 import { getAllTenantsUsageForMonth } from '@/infrastructure/supabase/repositories/campaign-usage-repository'
 import { listAllTenantsSummary } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { listReferrers } from '@/infrastructure/supabase/repositories/referrer-repository'
+import { getRedemptionCountsByTenantForMonth } from '@/infrastructure/supabase/repositories/coupon-redemption-repository'
 import { upsertCommissions } from '@/infrastructure/supabase/repositories/referrer-commission-repository'
 import type { UpsertCommissionInput } from '@/infrastructure/supabase/repositories/referrer-commission-mapper'
 import { currentMonth, parseMonthRange } from '@/lib/month-range'
@@ -11,7 +12,11 @@ export interface CommissionRow {
   tenantId: string
   tenantName: string
   messagesSent: number
+  redemptionsCount: number
   commissionPerMessage: number
+  commissionPerRedemption: number
+  broadcastCommission: number
+  redemptionCommission: number
   totalCommission: number
 }
 
@@ -19,7 +24,19 @@ export interface ReferrerReport {
   month: string
   commissions: CommissionRow[]
   totalCommission: number
+  totalBroadcastCommission: number
+  totalRedemptionCommission: number
   tenantsProcessed: number
+}
+
+type TenantSummary = Awaited<ReturnType<typeof listAllTenantsSummary>>[number]
+type ReferrerEntity = Awaited<ReturnType<typeof listReferrers>>[number]
+
+interface BuildContext {
+  tenants: TenantSummary[]
+  referrerMap: Map<string, ReferrerEntity>
+  usageMap: Map<string, number>
+  redemptionMap: Map<string, number>
 }
 
 export async function generateReferrerReport(
@@ -28,61 +45,92 @@ export async function generateReferrerReport(
   const targetMonth = month ?? currentMonth()
   const { monthStart, monthEnd } = parseMonthRange(targetMonth)
 
-  const [usageRows, tenants, referrers] = await Promise.all([
+  const [usageRows, redemptionRows, tenants, referrers] = await Promise.all([
     getAllTenantsUsageForMonth(monthStart, monthEnd),
+    getRedemptionCountsByTenantForMonth(monthStart, monthEnd),
     listAllTenantsSummary(),
     listReferrers(),
   ])
 
-  const usageMap = new Map(usageRows.map((r) => [r.restaurantId, r]))
-  const referrerMap = new Map(referrers.map((r) => [r.id, r]))
+  const context: BuildContext = {
+    tenants,
+    referrerMap: new Map(referrers.map((r) => [r.id, r])),
+    usageMap: new Map(usageRows.map((r) => [r.restaurantId, r.totalSent])),
+    redemptionMap: new Map(
+      redemptionRows.map((r) => [r.restaurantId, r.redemptionCount])
+    ),
+  }
 
-  const commissions = buildCommissions(tenants, referrerMap, usageMap)
-
+  const commissions = buildCommissions(context)
   if (commissions.length > 0) {
     await upsertCommissions(toUpsertInputs(commissions, targetMonth))
   }
-
-  const totalCommission = roundTwo(
-    commissions.reduce((s, c) => s + c.totalCommission, 0)
-  )
-
-  return { month: targetMonth, commissions, totalCommission, tenantsProcessed: commissions.length }
+  return buildReport(targetMonth, commissions)
 }
 
-function buildCommissions(
-  tenants: Awaited<ReturnType<typeof listAllTenantsSummary>>,
-  referrerMap: Map<string, Awaited<ReturnType<typeof listReferrers>>[number]>,
-  usageMap: Map<string, { totalSent: number }>
-): CommissionRow[] {
+function buildReport(
+  month: string,
+  commissions: CommissionRow[]
+): ReferrerReport {
+  const totalBroadcastCommission = sumBy(commissions, (c) => c.broadcastCommission)
+  const totalRedemptionCommission = sumBy(commissions, (c) => c.redemptionCommission)
+  return {
+    month,
+    commissions,
+    totalCommission: roundTwo(totalBroadcastCommission + totalRedemptionCommission),
+    totalBroadcastCommission,
+    totalRedemptionCommission,
+    tenantsProcessed: commissions.length,
+  }
+}
+
+function buildCommissions(ctx: BuildContext): CommissionRow[] {
   const rows: CommissionRow[] = []
-  for (const tenant of tenants) {
-    const row = toCommissionRow(tenant, referrerMap, usageMap)
+  for (const tenant of ctx.tenants) {
+    const row = toCommissionRow(tenant, ctx)
     if (row) rows.push(row)
   }
   return rows
 }
 
+interface RowInput {
+  tenant: TenantSummary
+  referrer: ReferrerEntity
+  messagesSent: number
+  redemptionsCount: number
+}
+
 function toCommissionRow(
-  tenant: { id: string; name: string; referrer_id: string | null },
-  referrerMap: Map<string, { id: string; name: string; commissionPerMessageHkd: number }>,
-  usageMap: Map<string, { totalSent: number }>
+  tenant: TenantSummary,
+  ctx: BuildContext
 ): CommissionRow | null {
   if (!tenant.referrer_id) return null
-  const referrer = referrerMap.get(tenant.referrer_id)
+  const referrer = ctx.referrerMap.get(tenant.referrer_id)
   if (!referrer) return null
-  const usage = usageMap.get(tenant.id)
-  if (!usage || usage.totalSent === 0) return null
 
-  const rate = referrer.commissionPerMessageHkd
+  const messagesSent = ctx.usageMap.get(tenant.id) ?? 0
+  const redemptionsCount = ctx.redemptionMap.get(tenant.id) ?? 0
+  if (messagesSent === 0 && redemptionsCount === 0) return null
+
+  return composeRow({ tenant, referrer, messagesSent, redemptionsCount })
+}
+
+function composeRow(input: RowInput): CommissionRow {
+  const { tenant, referrer, messagesSent, redemptionsCount } = input
+  const broadcastCommission = roundTwo(messagesSent * referrer.commissionPerMessageHkd)
+  const redemptionCommission = roundTwo(redemptionsCount * referrer.commissionPerRedemptionHkd)
   return {
     referrerId: referrer.id,
     referrerName: referrer.name,
     tenantId: tenant.id,
     tenantName: tenant.name,
-    messagesSent: usage.totalSent,
-    commissionPerMessage: rate,
-    totalCommission: roundTwo(usage.totalSent * rate),
+    messagesSent,
+    redemptionsCount,
+    commissionPerMessage: referrer.commissionPerMessageHkd,
+    commissionPerRedemption: referrer.commissionPerRedemptionHkd,
+    broadcastCommission,
+    redemptionCommission,
+    totalCommission: roundTwo(broadcastCommission + redemptionCommission),
   }
 }
 
@@ -90,15 +138,27 @@ function toUpsertInputs(
   commissions: CommissionRow[],
   month: string
 ): UpsertCommissionInput[] {
-  return commissions.map((c) => ({
+  return commissions.map((c) => toUpsertInput(c, month))
+}
+
+function toUpsertInput(c: CommissionRow, month: string): UpsertCommissionInput {
+  return {
     referrerId: c.referrerId,
     month,
     tenantId: c.tenantId,
     tenantName: c.tenantName,
     messagesSent: c.messagesSent,
+    redemptionsCount: c.redemptionsCount,
     commissionPerMessage: c.commissionPerMessage,
+    commissionPerRedemption: c.commissionPerRedemption,
+    broadcastCommission: c.broadcastCommission,
+    redemptionCommission: c.redemptionCommission,
     totalCommission: c.totalCommission,
-  }))
+  }
+}
+
+function sumBy<T>(items: T[], fn: (item: T) => number): number {
+  return roundTwo(items.reduce((s, item) => s + fn(item), 0))
 }
 
 function roundTwo(n: number): number {
