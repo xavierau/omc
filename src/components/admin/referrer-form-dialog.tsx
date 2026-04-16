@@ -19,11 +19,19 @@ interface FormState {
   contactEmail: string
   contactPhone: string
   commissionPerMessageHkd: string
+  commissionPerRedemptionHkd: string
   status: string
 }
 
+const DEFAULT_COMMISSION_PER_REDEMPTION = '0.10'
+
 const initialForm: FormState = {
-  name: '', contactEmail: '', contactPhone: '', commissionPerMessageHkd: '', status: 'active',
+  name: '',
+  contactEmail: '',
+  contactPhone: '',
+  commissionPerMessageHkd: '',
+  commissionPerRedemptionHkd: DEFAULT_COMMISSION_PER_REDEMPTION,
+  status: 'active',
 }
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -43,6 +51,7 @@ export function ReferrerFormDialog({ open, onClose, onSaved, referrer }: Referre
         contactEmail: referrer.contactEmail,
         contactPhone: referrer.contactPhone ?? '',
         commissionPerMessageHkd: referrer.commissionPerMessageHkd.toString(),
+        commissionPerRedemptionHkd: referrer.commissionPerRedemptionHkd?.toString() ?? DEFAULT_COMMISSION_PER_REDEMPTION,
         status: referrer.status,
       })
     } else {
@@ -51,8 +60,8 @@ export function ReferrerFormDialog({ open, onClose, onSaved, referrer }: Referre
   }, [referrer, open])
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) { setError(t('referrerNameRequired')); return }
-    if (!form.contactEmail.trim()) { setError(t('referrerEmailRequired')); return }
+    const validationError = validateForm(form, t)
+    if (validationError) { setError(validationError); return }
     setSaving(true)
     setError(null)
     try {
@@ -108,7 +117,26 @@ function ReferrerFormFields({ form, setForm, isEdit }: {
         <Input value={form.contactPhone} onChange={(e) => u('contactPhone', e.target.value)} placeholder="+852 1234 5678" />
       </Field>
       <Field label={t('commissionRate')}>
-        <Input type="number" step="0.01" value={form.commissionPerMessageHkd} onChange={(e) => u('commissionPerMessageHkd', e.target.value)} placeholder="0.05" />
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          max="1"
+          value={form.commissionPerMessageHkd}
+          onChange={(e) => u('commissionPerMessageHkd', e.target.value)}
+          placeholder="0.05"
+        />
+      </Field>
+      <Field label={t('commissionPerRedemption')}>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          max="1"
+          value={form.commissionPerRedemptionHkd}
+          onChange={(e) => u('commissionPerRedemptionHkd', e.target.value)}
+          placeholder={t('commissionPerRedemptionPlaceholder')}
+        />
       </Field>
       {isEdit && (
         <Field label={tc('status')}>
@@ -126,12 +154,31 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="text-sm font-medium text-foreground mb-1 block">{label}</label>{children}</div>
 }
 
+function validateForm(
+  form: FormState,
+  t: ReturnType<typeof useTranslations<'admin'>>
+): string | null {
+  if (!form.name.trim()) return t('referrerNameRequired')
+  if (!form.contactEmail.trim()) return t('referrerEmailRequired')
+  if (!isCommissionRateValid(form.commissionPerMessageHkd)) return t('commissionMessageInvalid')
+  if (!isCommissionRateValid(form.commissionPerRedemptionHkd)) return t('commissionRedemptionInvalid')
+  return null
+}
+
+function isCommissionRateValid(raw: string): boolean {
+  if (raw === '') return true
+  const value = Number(raw)
+  if (Number.isNaN(value)) return false
+  return value >= 0 && value <= 1
+}
+
 function buildRequestBody(form: FormState, isEdit: boolean) {
   const body: Record<string, unknown> = {
     name: form.name,
     contactEmail: form.contactEmail,
     contactPhone: form.contactPhone || null,
     commissionPerMessageHkd: form.commissionPerMessageHkd ? Number(form.commissionPerMessageHkd) : null,
+    commissionPerRedemptionHkd: form.commissionPerRedemptionHkd ? Number(form.commissionPerRedemptionHkd) : null,
   }
   if (isEdit) body.status = form.status
   return body
