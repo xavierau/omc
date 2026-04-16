@@ -13,6 +13,7 @@ function buildReferrer(overrides: Partial<Referrer> = {}): Referrer {
     contactEmail: 'acme@example.com',
     contactPhone: null,
     commissionPerMessageHkd: 0.05,
+    commissionPerRedemptionHkd: 0.10,
     status: 'active',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',

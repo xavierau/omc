@@ -1,4 +1,5 @@
 import type { Referrer, ReferrerStatus } from '@/domain/entities/referrer'
+import { DEFAULT_REDEMPTION_COMMISSION_HKD } from '@/domain/value-objects/commission-rate'
 
 export interface ReferrerRow {
   id: string
@@ -6,6 +7,7 @@ export interface ReferrerRow {
   contact_email: string
   contact_phone: string | null
   commission_per_message_hkd: number
+  commission_per_redemption_hkd?: number
   status: ReferrerStatus
   created_at: string
   updated_at: string
@@ -18,6 +20,8 @@ export function mapRowToReferrer(row: ReferrerRow): Referrer {
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone,
     commissionPerMessageHkd: row.commission_per_message_hkd,
+    commissionPerRedemptionHkd:
+      row.commission_per_redemption_hkd ?? DEFAULT_REDEMPTION_COMMISSION_HKD,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

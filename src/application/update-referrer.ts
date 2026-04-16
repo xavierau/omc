@@ -10,6 +10,7 @@ export interface UpdateReferrerInput {
   contactEmail?: string
   contactPhone?: string
   commissionPerMessageHkd?: number
+  commissionPerRedemptionHkd?: number
   status?: ReferrerStatus
 }
 

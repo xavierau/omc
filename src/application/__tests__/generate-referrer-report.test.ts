@@ -49,6 +49,7 @@ function buildReferrer(o: Partial<Referrer> = {}): Referrer {
   return {
     id: 'ref-1', name: 'Referrer A', contactEmail: 'a@e.com',
     contactPhone: null, commissionPerMessageHkd: 0.05,
+    commissionPerRedemptionHkd: 0.10,
     status: 'active', createdAt: '2026-01-01', updatedAt: '2026-01-01', ...o,
   }
 }

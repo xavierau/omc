@@ -6,6 +6,7 @@ export interface CreateReferrerInput {
   contactEmail: string
   contactPhone?: string
   commissionPerMessageHkd?: number
+  commissionPerRedemptionHkd?: number
 }
 
 export type CreateReferrerResult =

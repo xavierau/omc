@@ -6,6 +6,7 @@ export interface Referrer {
   contactEmail: string
   contactPhone: string | null
   commissionPerMessageHkd: number
+  commissionPerRedemptionHkd: number
   status: ReferrerStatus
   createdAt: string
   updatedAt: string
