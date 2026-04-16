@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 const selectClass = 'h-8 rounded-md border border-input bg-background px-3 text-sm'
 
 interface WaTemplateFiltersProps {
@@ -12,6 +14,8 @@ interface WaTemplateFiltersProps {
 export function WaTemplateFilters({
   status, category, onStatusChange, onCategoryChange,
 }: WaTemplateFiltersProps) {
+  const t = useTranslations('waTemplates')
+
   return (
     <div className="flex gap-3">
       <select
@@ -19,22 +23,22 @@ export function WaTemplateFilters({
         onChange={(e) => onStatusChange(e.target.value)}
         className={selectClass}
       >
-        <option value="">All Statuses</option>
-        <option value="draft">Draft</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="paused">Paused</option>
-        <option value="disabled">Disabled</option>
+        <option value="">{t('allStatuses')}</option>
+        <option value="draft">{t('draft')}</option>
+        <option value="pending">{t('pending')}</option>
+        <option value="approved">{t('approved')}</option>
+        <option value="rejected">{t('rejected')}</option>
+        <option value="paused">{t('paused')}</option>
+        <option value="disabled">{t('disabled')}</option>
       </select>
       <select
         value={category}
         onChange={(e) => onCategoryChange(e.target.value)}
         className={selectClass}
       >
-        <option value="">All Categories</option>
-        <option value="MARKETING">Marketing</option>
-        <option value="UTILITY">Utility</option>
+        <option value="">{t('allCategories')}</option>
+        <option value="MARKETING">{t('marketing')}</option>
+        <option value="UTILITY">{t('utility')}</option>
       </select>
     </div>
   )

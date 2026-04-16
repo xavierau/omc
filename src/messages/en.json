@@ -36,7 +36,8 @@
     "campaigns": "Campaigns",
     "coupons": "Coupons",
     "waTemplates": "WA Templates",
-    "qrSetup": "QR Setup",
+    "qrSetup": "Settings",
+    "logout": "Log Out",
     "rewards": "Rewards",
     "scan": "Scan QR"
   },
@@ -53,6 +54,7 @@
     "errorRequired": "Please enter email and password",
     "errorInvalid": "Invalid email or password",
     "errorGeneric": "Something went wrong. Please try again.",
+    "forgotPassword": "Forgot password?",
     "noAccess": "Your account does not have access to any restaurant.",
     "selectTenant": "Select a restaurant",
     "continue": "Continue"
@@ -277,7 +279,11 @@
     "percentage": "Percentage",
     "fixedAmount": "Fixed Amount (HK$)",
     "nameRequired": "Name is required",
-    "pointsCostRequired": "Points cost is required"
+    "pointsCostRequired": "Points cost is required",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate"
   },
   "qr": {
     "heading": "QR Setup",
@@ -533,5 +539,31 @@
     "tenant_delete": "Deleted Tenant",
     "user_create": "Created User",
     "user_delete": "Deleted User"
+  },
+  "waTemplates": {
+    "heading": "WhatsApp Templates",
+    "syncStatus": "Sync from Meta",
+    "syncing": "Syncing...",
+    "createTemplate": "Create Template",
+    "noTemplatesTitle": "No templates",
+    "noTemplatesDescription": "Create your first WhatsApp template or sync from Meta.",
+    "couldntLoad": "Couldn't load templates.",
+    "allStatuses": "All Statuses",
+    "draft": "Draft",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "paused": "Paused",
+    "disabled": "Disabled",
+    "allCategories": "All Categories",
+    "marketing": "Marketing",
+    "utility": "Utility",
+    "name": "Name",
+    "language": "Language",
+    "category": "Category",
+    "status": "Status",
+    "created": "Created",
+    "actions": "Actions",
+    "edit": "Edit"
   }
 }

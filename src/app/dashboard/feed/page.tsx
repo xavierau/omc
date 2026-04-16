@@ -65,6 +65,7 @@ export default function FeedPage() {
           <button
             key={opt.value}
             onClick={() => setFilter(opt.value)}
+            aria-pressed={filter === opt.value}
             className={cn(
               'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
               filter === opt.value

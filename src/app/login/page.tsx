@@ -93,10 +93,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <Card className="w-full max-w-[480px]">
         <CardHeader className="text-center space-y-2">
-          <div className="text-3xl font-bold tracking-tight text-primary">
+          <h1 className="text-3xl font-bold tracking-tight text-primary">
             OhMyClient
-          </div>
-          <p className="text-xs text-muted-foreground">{t('tagline')}</p>
+          </h1>
+          <p className="text-sm text-muted-foreground/80">{t('tagline')}</p>
           <p className="text-sm text-muted-foreground mt-2">{t('subtitle')}</p>
         </CardHeader>
         <CardContent>
@@ -112,6 +112,7 @@ export default function LoginPage() {
               passwordPlaceholder: t('passwordPlaceholder'),
               signIn: t('signIn'),
               signingIn: t('signingIn'),
+              forgotPassword: t('forgotPassword'),
             }}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}

@@ -36,7 +36,10 @@ export default function RewardsPage() {
         body: JSON.stringify({ id: r.id, isActive: !r.isActive }),
       })
       refetch()
-    } catch { /* swallow */ }
+    } catch (err) {
+      console.error('[RewardToggle] Failed:', err)
+      alert('Failed to update reward status. Please try again.')
+    }
   }, [refetch])
 
   if (error) {
@@ -86,10 +89,10 @@ function RewardsContent({ rewards, isLoading, onEdit, onToggle }: {
               <td className={TD}>{r.pointsCost}</td>
               <td className={TD}>{fmtDiscount(r)}</td>
               <td className={TD}>{r.couponExpiryDays}d</td>
-              <td className={TD}><span className={statusCls(r.isActive)}>{r.isActive ? 'Active' : 'Inactive'}</span></td>
+              <td className={TD}><span className={statusCls(r.isActive)}>{r.isActive ? t('active') : t('inactive')}</span></td>
               <td className={`${TD} flex gap-1`}>
                 <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>{t('editReward')}</Button>
-                <Button variant="ghost" size="sm" onClick={() => onToggle(r)}>{r.isActive ? 'Deactivate' : 'Activate'}</Button>
+                <Button variant="ghost" size="sm" onClick={() => onToggle(r)}>{r.isActive ? t('deactivate') : t('activate')}</Button>
               </td>
             </tr>
           ))}
