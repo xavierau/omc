@@ -37,15 +37,42 @@ export async function updateWhatsAppTemplate(
     throw new Error('Invalid template name: must be lowercase alphanumeric and underscores only')
   }
 
+  // Delete old Meta template first — Meta requires delete before re-create
+  // for templates with the same name
+  await deleteOldMetaTemplate(existing)
+
+  // Attempt to create the new template on Meta before updating local DB
+  const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
+  let metaTemplateId: string | null = null
+  let metaError: string | undefined
+
+  if (businessAccountId) {
+    const merged = { ...existing, ...input }
+    const metaResult = await createMetaTemplate(businessAccountId, {
+      name: merged.name,
+      language: merged.language,
+      category: merged.category,
+      components: merged.components as Array<{ type: string; [k: string]: unknown }>,
+      parameterFormat: 'NAMED',
+    })
+
+    if (metaResult) {
+      metaTemplateId = metaResult.id
+    } else {
+      metaError = 'Updated locally but failed to re-submit to Meta'
+    }
+  }
+
+  // Now persist locally — metaTemplateId is only cleared if we got a new one
+  // or if we genuinely couldn't recreate it
   const updated = await updateTemplate(templateId, {
     ...input,
-    status: 'draft',
-    metaTemplateId: null,
+    status: metaTemplateId ? 'pending' : 'draft',
+    metaTemplateId,
     rejectionReason: null,
   })
 
-  await deleteOldMetaTemplate(existing)
-  return resubmitToMeta(updated)
+  return { template: updated, ...(metaError && { error: metaError }) }
 }
 
 async function deleteOldMetaTemplate(
@@ -57,30 +84,4 @@ async function deleteOldMetaTemplate(
   if (!businessAccountId) return
 
   await deleteMetaTemplate(businessAccountId, template.name)
-}
-
-async function resubmitToMeta(
-  template: WhatsAppTemplate
-): Promise<UpdateTemplateResult> {
-  const businessAccountId = await getMetaBusinessAccountId(template.restaurantId)
-  if (!businessAccountId) return { template }
-
-  const metaResult = await createMetaTemplate(businessAccountId, {
-    name: template.name,
-    language: template.language,
-    category: template.category,
-    components: template.components as Array<{ type: string; [k: string]: unknown }>,
-    parameterFormat: 'NAMED',
-  })
-
-  if (!metaResult) {
-    return { template, error: 'Updated locally but failed to re-submit to Meta' }
-  }
-
-  const resubmitted = await updateTemplate(template.id, {
-    metaTemplateId: metaResult.id,
-    status: 'pending',
-  })
-
-  return { template: resubmitted }
 }

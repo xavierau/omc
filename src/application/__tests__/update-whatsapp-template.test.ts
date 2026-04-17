@@ -90,20 +90,14 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
     vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'new-meta-id' })
 
-    const draftTemplate = {
+    const pendingTemplate = {
       ...TEMPLATE_BASE,
-      status: 'draft' as const,
-      metaTemplateId: null,
-      rejectionReason: null,
-    }
-    const resubmittedTemplate = {
-      ...draftTemplate,
+      category: 'UTILITY' as const,
       metaTemplateId: 'new-meta-id',
       status: 'pending' as const,
+      rejectionReason: null,
     }
-    vi.mocked(updateTemplate)
-      .mockResolvedValueOnce(draftTemplate)
-      .mockResolvedValueOnce(resubmittedTemplate)
+    vi.mocked(updateTemplate).mockResolvedValue(pendingTemplate)
 
     const result = await updateWhatsAppTemplate('tpl-1', {
       category: 'UTILITY',
@@ -116,10 +110,50 @@ describe('updateWhatsAppTemplate', () => {
     expect(createMetaTemplate).toHaveBeenCalledWith('biz-1', {
       name: 'welcome_msg',
       language: 'en',
-      category: 'MARKETING',
+      category: 'UTILITY',
       components: [],
       parameterFormat: 'NAMED',
     })
-    expect(result).toEqual({ template: resubmittedTemplate })
+    // Single updateTemplate call with final state
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      category: 'UTILITY',
+      status: 'pending',
+      metaTemplateId: 'new-meta-id',
+      rejectionReason: null,
+    })
+    expect(result).toEqual({ template: pendingTemplate })
+  })
+
+  it('returns error when Meta create fails after delete', async () => {
+    const existingWithMeta = {
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    }
+    vi.mocked(findTemplateById).mockResolvedValue(existingWithMeta)
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
+    vi.mocked(createMetaTemplate).mockResolvedValue(null)
+
+    const draftTemplate = {
+      ...TEMPLATE_BASE,
+      category: 'UTILITY' as const,
+      status: 'draft' as const,
+      metaTemplateId: null,
+      rejectionReason: null,
+    }
+    vi.mocked(updateTemplate).mockResolvedValue(draftTemplate)
+
+    const result = await updateWhatsAppTemplate('tpl-1', {
+      category: 'UTILITY',
+    })
+
+    expect(result.error).toBe('Updated locally but failed to re-submit to Meta')
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      category: 'UTILITY',
+      status: 'draft',
+      metaTemplateId: null,
+      rejectionReason: null,
+    })
   })
 })
