@@ -36,11 +36,18 @@ export async function executeCampaign(
   const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
   await enforceGuardrails(restaurantId, activeMembers.length)
 
+  // Resolve the WhatsApp template (if any) up-front so we can also validate
+  // that the campaign has SOMETHING sendable BEFORE we flip status to
+  // 'sending'. A misconfigured campaign should fail fast with its status
+  // unchanged — no state churn, no revert required.
+  const template = await resolveWhatsAppTemplate(campaign)
+  assertHasAnyInlineTemplate(campaign, template)
+
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
 
   try {
-    const ctx = await buildSendContext(campaign, restaurantId)
+    const ctx = await buildSendContext(campaign, restaurantId, template)
     await sendInBatches(activeMembers, ctx)
     await updateCampaign(campaignId, { status: 'completed' })
   } catch (err) {
@@ -51,17 +58,24 @@ export async function executeCampaign(
 
 async function buildSendContext(
   campaign: Campaign,
-  restaurantId: string
+  restaurantId: string,
+  template: WhatsAppTemplate | null
 ): Promise<SendContext> {
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
-  const template = await resolveWhatsAppTemplate(campaign)
-  const languageCode = await getRestaurantDefaultLanguage(restaurantId)
-  const language = Language.fromCodeOrDefault(languageCode, Language.default())
-  const resolvedTemplate = resolveCampaignTemplate(campaign, language)
-  if (!template && resolvedTemplate === null) {
-    throw new NoTemplateError(campaign.id)
-  }
-  return { campaign, phoneNumberId, template, language, resolvedTemplate }
+  const restaurantDefaultLanguage = await getRestaurantDefaultLanguage(
+    restaurantId
+  )
+  return { campaign, phoneNumberId, template, restaurantDefaultLanguage }
+}
+
+function assertHasAnyInlineTemplate(
+  campaign: Campaign,
+  template: WhatsAppTemplate | null
+): void {
+  if (template) return
+  const hasEn = resolveCampaignTemplate(campaign, Language.EN) !== null
+  const hasZh = resolveCampaignTemplate(campaign, Language.ZH_HK) !== null
+  if (!hasEn && !hasZh) throw new NoTemplateError(campaign.id)
 }
 
 async function resolveWhatsAppTemplate(

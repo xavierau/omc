@@ -4,8 +4,9 @@ import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/mes
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
-import { Language } from '@/domain/value-objects/language'
+import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { sendWhatsAppTemplateMessage } from './send-template-message'
+import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
@@ -18,8 +19,7 @@ export interface SendContext {
   campaign: Campaign
   phoneNumberId: string
   template: WhatsAppTemplate | null
-  language: Language
-  resolvedTemplate: string | null
+  restaurantDefaultLanguage: string | null
 }
 
 export async function sendInBatches(
@@ -45,7 +45,11 @@ export async function sendInBatches(
 
 async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
   const code = generateCouponCode()
-  const rendered = renderInline(ctx.resolvedTemplate ?? '', ctx.campaign, member, code)
+  const language = resolvePreferredLanguage(member, {
+    defaultLanguage: ctx.restaurantDefaultLanguage,
+  })
+  const resolvedTemplate = resolveCampaignTemplate(ctx.campaign, language)
+  const rendered = renderInline(resolvedTemplate ?? '', ctx.campaign, member, code)
   // Coupon description is what admin dashboards show; avoid empty labels by
   // falling back to the campaign name when the rendered template is blank.
   const couponDescription =

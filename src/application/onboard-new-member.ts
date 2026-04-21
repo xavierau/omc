@@ -12,6 +12,7 @@ import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/mes
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { Language } from '@/domain/value-objects/language'
 import { renderTemplate } from '@/domain/services/template-renderer'
+import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { emitEvent } from '@/application/emit-event'
 import type { Campaign } from '@/domain/entities/campaign'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
@@ -27,6 +28,7 @@ export interface OnboardContext {
   phoneNumberId: string
   phone: string
   contactName?: string
+  memberPreferredLanguage: string | null
 }
 
 interface OnboardOutput {
@@ -43,9 +45,9 @@ interface OnboardOutput {
  */
 export async function onboardNewMember(ctx: OnboardContext): Promise<string> {
   const settings = await loadSettings(ctx.restaurantId)
-  const language = Language.fromCodeOrDefault(
-    settings?.defaultLanguage ?? null,
-    Language.default()
+  const language = resolvePreferredLanguage(
+    { preferredLanguage: ctx.memberPreferredLanguage },
+    { defaultLanguage: settings?.defaultLanguage ?? null }
   )
   const campaign = await loadWelcomeCampaign(settings)
   const output = campaign

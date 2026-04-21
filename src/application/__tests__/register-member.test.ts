@@ -265,4 +265,116 @@ describe('registerMember', () => {
     await expect(registerMember(RESTAURANT_ID, '123')).rejects.toThrow('Invalid phone number')
     expect(mockFrom).not.toHaveBeenCalled()
   })
+
+  describe('language detection on JOIN', () => {
+    it('persists preferred_language=zh_hk when JOIN arrives with Chinese text', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'en',
+      })
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-zh' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Carol', '你好 JOIN')
+
+      // insert was called with preferred_language='zh_hk'
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ preferred_language: 'zh_hk' })
+      )
+      // Welcome sent in ZH even though restaurant default is EN
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        expect.stringContaining('歡迎加入')
+      )
+    })
+
+    it('persists preferred_language=en when JOIN arrives with English-only text', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-en' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Dan', 'JOIN')
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ preferred_language: 'en' })
+      )
+      // Welcome sent in EN even though restaurant default is ZH
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        expect.stringContaining('Welcome to our loyalty program')
+      )
+    })
+
+    it('does NOT persist preferred_language when inbound is emoji-only (welcome uses restaurant default)', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-emoji' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Eve', '😀👍')
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ preferred_language: null })
+      )
+      // Welcome falls back to restaurant default (zh_hk)
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        expect.stringContaining('歡迎加入')
+      )
+    })
+
+    it('returning member with preferred_language=en overrides restaurant default zh_hk', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      mockSingle.mockResolvedValueOnce({
+        data: {
+          id: 'm-r',
+          points_balance: 77,
+          name: 'Frank',
+          preferred_language: 'en',
+        },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+      // English Welcome back wins over zh_hk restaurant default
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        expect.stringContaining('Welcome back, Frank!')
+      )
+    })
+  })
 })

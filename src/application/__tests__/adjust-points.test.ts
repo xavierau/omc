@@ -95,6 +95,7 @@ describe('addPoints', () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'found-member',
       pointsBalance: 80,
+      preferredLanguage: null,
     })
 
     await addPoints({
@@ -197,6 +198,7 @@ describe('deductPoints', () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'member-phone',
       pointsBalance: 100,
+      preferredLanguage: null,
     })
 
     await deductPoints({

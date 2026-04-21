@@ -8,12 +8,45 @@ import { confirmReceipt } from '@/application/process-receipt'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
+import {
+  maybeHandleLanguageCommand,
+  maybeDetectLanguageForExistingMember,
+} from './language-handler'
+import { resolveRoute } from './route-resolver'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 const noop: LogFn = () => {}
 
 export async function routeMessage(message: KapsoMessage, restaurantId: string, log: LogFn = noop) {
+  if (await maybeHandleLanguageCommand(message, restaurantId)) return
+
+  // Preload the member ONCE for text messages so silent script-based
+  // detection below reuses the row instead of issuing a second query.
+  // Non-text messages never trigger silent-detect, so skip the lookup.
+  const preloadedMember = message.type === 'text'
+    ? await findMemberByPhone(restaurantId, PhoneNumber.create(message.from).value)
+    : null
+
+  const result = await dispatchRoute(message, restaurantId, log)
+
+  // Silent script-based detection runs AFTER routing so it can never block
+  // the primary flow. Only persists when the pre-loaded member exists and
+  // has no preferred_language set.
+  try {
+    await maybeDetectLanguageForExistingMember(
+      preloadedMember,
+      restaurantId,
+      message.type === 'text' ? message.text : null
+    )
+  } catch (err) {
+    log('warn', 'handler.language_detection_failed', { error: String(err) })
+  }
+
+  return result
+}
+
+async function dispatchRoute(message: KapsoMessage, restaurantId: string, log: LogFn) {
   const text = message.text?.trim().toUpperCase() ?? ''
   const phone = PhoneNumber.create(message.from).value
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
@@ -22,7 +55,12 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
 
   if (text === 'JOIN' || text.startsWith('JOIN-')) {
     try {
-      return await registerMember(restaurantId, phone, message.contactName)
+      // QR deep-link `JOIN-{restaurantId}` is always ASCII and would always
+      // detect as EN, persisting the wrong language for zh-menu QR scans.
+      // Only pass the inbound text for detection when the user actually
+      // typed something — not when the text came from a QR-seeded link.
+      const inboundForDetection = text.startsWith('JOIN-') ? undefined : message.text
+      return await registerMember(restaurantId, phone, message.contactName, inboundForDetection)
     } catch (error) {
       log('error', 'handler.error', { route: 'JOIN', error: String(error) })
       return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
@@ -122,13 +160,3 @@ async function handleUnknown(phoneNumberId: string, phone: string, restaurantId:
   )
 }
 
-function resolveRoute(text: string, type: string): string {
-  if (text === 'JOIN' || text.startsWith('JOIN-')) return 'JOIN'
-  if (text === 'POINTS') return 'POINTS'
-  if (text.startsWith('REDEEM ')) return 'REDEEM'
-  if (text === 'REWARD' || text === 'REWARDS') return 'REWARDS'
-  if (text.startsWith('REWARD_')) return 'REWARD_REDEEM'
-  if (text === 'STOP') return 'STOP'
-  if (type === 'image') return 'receipt-image'
-  return 'unknown'
-}

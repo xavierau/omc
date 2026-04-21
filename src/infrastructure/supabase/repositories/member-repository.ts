@@ -8,7 +8,10 @@ export interface MemberRow {
   status: string
   joined_at: string
   last_visit_at: string | null
+  preferred_language: string | null
 }
+
+export type PreferredLanguageCode = 'en' | 'zh_hk'
 
 export interface MemberListParams {
   restaurantId: string
@@ -30,7 +33,10 @@ export async function getMembers(params: MemberListParams): Promise<MemberListRe
 
   let query = supabase
     .from('members')
-    .select('id, phone, name, points_balance, status, joined_at, last_visit_at', { count: 'exact' })
+    .select(
+      'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language',
+      { count: 'exact' }
+    )
     .eq('restaurant_id', restaurantId)
 
   if (search) {
@@ -107,16 +113,64 @@ export async function findMemberByIdAndRestaurant(
 export async function findMemberByPhone(
   restaurantId: string,
   phone: string
-): Promise<{ id: string; pointsBalance: number } | null> {
+): Promise<{
+  id: string
+  pointsBalance: number
+  preferredLanguage: string | null
+} | null> {
   const supabase = createServerSupabaseClient()
   const { data } = await supabase
     .from('members')
-    .select('id, points_balance')
+    .select('id, points_balance, preferred_language')
     .eq('restaurant_id', restaurantId)
     .eq('phone', phone)
     .single()
 
   if (!data) return null
-  return { id: data.id, pointsBalance: data.points_balance }
+  return {
+    id: data.id,
+    pointsBalance: data.points_balance,
+    preferredLanguage: (data.preferred_language as string | null) ?? null,
+  }
+}
+
+export async function updateMemberPreferredLanguage(
+  memberId: string,
+  restaurantId: string,
+  code: PreferredLanguageCode
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('members')
+    .update({ preferred_language: code })
+    .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
+  if (error) {
+    throw new Error(`updateMemberPreferredLanguage: ${error.message}`)
+  }
+}
+
+/**
+ * Silent-detection variant. Only writes when preferred_language is still null
+ * — guards against TOCTOU races where two concurrent inbounds from the same
+ * new member both try to persist a detected script. The `restaurant_id`
+ * clause is defense-in-depth against a mismatched `memberId` crossing
+ * tenants.
+ */
+export async function setMemberPreferredLanguageIfUnset(
+  memberId: string,
+  restaurantId: string,
+  code: PreferredLanguageCode
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('members')
+    .update({ preferred_language: code })
+    .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
+    .is('preferred_language', null)
+  if (error) {
+    throw new Error(`setMemberPreferredLanguageIfUnset: ${error.message}`)
+  }
 }
 

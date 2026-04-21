@@ -2,6 +2,9 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 
+const MEMBER_COLUMNS =
+  'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language'
+
 export async function resolveTargetMembers(
   campaign: Campaign,
   restaurantId: string
@@ -35,7 +38,7 @@ async function fetchWinbackMembers(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('members')
-    .select('id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at')
+    .select(MEMBER_COLUMNS)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'active')
     .lt('last_visit_at', cutoff)
@@ -50,7 +53,7 @@ async function fetchActiveMembers(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('members')
-    .select('id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at')
+    .select(MEMBER_COLUMNS)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'active')
 
@@ -72,7 +75,7 @@ async function fetchSelectedMembers(
   if (memberIds.length === 0) return []
   const { data: members, error: mErr } = await supabase
     .from('members')
-    .select('id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at')
+    .select(MEMBER_COLUMNS)
     .eq('restaurant_id', restaurantId)
     .in('id', memberIds)
   if (mErr) throw new Error(`fetchSelectedMembers: ${mErr.message}`)
@@ -89,5 +92,6 @@ function mapRowToMember(row: Record<string, unknown>): Member {
     status: row.status as Member['status'],
     joinedAt: row.joined_at as string,
     lastVisitAt: (row.last_visit_at as string) ?? null,
+    preferredLanguage: (row.preferred_language as string) ?? null,
   }
 }
