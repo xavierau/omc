@@ -3,18 +3,22 @@ import {
   createCampaignCoupon,
 } from '@/infrastructure/supabase/repositories/coupon-factory'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import type { OnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
   getCampaignById,
   incrementCampaignSent,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
+import { Language } from '@/domain/value-objects/language'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { emitEvent } from '@/application/emit-event'
 import type { Campaign } from '@/domain/entities/campaign'
+import { resolveCampaignTemplate } from './resolve-campaign-template'
 import {
   defaultWelcomeText,
-  defaultCouponCaption,
+  defaultCouponCaptionSuffix,
+  minimalWelcomeText,
 } from './onboarding-defaults'
 
 export interface OnboardContext {
@@ -32,16 +36,21 @@ interface OnboardOutput {
 }
 
 /**
- * Run the post-insert welcome flow for a just-created member: pick the
- * restaurant's welcome campaign (or the hardcoded fallback), mint the
- * coupon, increment the (non-)chargeable counter, emit the join event,
- * and send the welcome text + coupon QR image. Returns the coupon code.
+ * Run the post-insert welcome flow for a just-created member. Chooses a
+ * language from the restaurant's `default_language`, picks a bilingual
+ * welcome campaign template (with legacy fallback), mints the coupon,
+ * increments counters, emits the join event, and sends the welcome + QR.
  */
 export async function onboardNewMember(ctx: OnboardContext): Promise<string> {
-  const campaign = await resolveWelcomeCampaign(ctx.restaurantId)
+  const settings = await loadSettings(ctx.restaurantId)
+  const language = Language.fromCodeOrDefault(
+    settings?.defaultLanguage ?? null,
+    Language.default()
+  )
+  const campaign = await loadWelcomeCampaign(settings)
   const output = campaign
-    ? await onboardViaCampaign(ctx, campaign)
-    : await onboardViaFallback(ctx)
+    ? await onboardViaCampaign(ctx, campaign, language)
+    : await onboardViaFallback(ctx, language)
 
   await emitEvent({
     restaurantId: ctx.restaurantId,
@@ -55,13 +64,18 @@ export async function onboardNewMember(ctx: OnboardContext): Promise<string> {
   return output.code
 }
 
-async function resolveWelcomeCampaign(
+async function loadSettings(
   restaurantId: string
-): Promise<Campaign | null> {
-  const settings = await getOnboardingSettings(restaurantId).catch((err) => {
+): Promise<OnboardingSettings | null> {
+  return getOnboardingSettings(restaurantId).catch((err) => {
     console.warn('[onboarding] welcome settings load failed:', err)
     return null
   })
+}
+
+async function loadWelcomeCampaign(
+  settings: OnboardingSettings | null
+): Promise<Campaign | null> {
   if (!settings?.welcomeCampaignId) return null
   return getCampaignById(settings.welcomeCampaignId).catch((err) => {
     console.warn('[onboarding] welcome campaign lookup failed:', err)
@@ -71,7 +85,8 @@ async function resolveWelcomeCampaign(
 
 async function onboardViaCampaign(
   ctx: OnboardContext,
-  campaign: Campaign
+  campaign: Campaign,
+  language: Language
 ): Promise<OnboardOutput> {
   const coupon = await createCampaignCoupon(
     ctx.restaurantId,
@@ -82,28 +97,29 @@ async function onboardViaCampaign(
   await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
     console.warn('[onboarding] welcome campaign counter increment failed:', err)
   })
-  // {{name}}/{{code}} aliases support existing campaign-builder templates;
-  // {{contactName}}/{{couponCode}} are the onboarding-explicit names.
   const vars = {
     contactName: ctx.contactName ?? '',
     couponCode: coupon.code,
     name: ctx.contactName ?? '',
     code: coupon.code,
   }
-  const welcomeText = renderTemplate(campaign.template, vars)
-  const caption =
-    `${welcomeText}\n\nYour code: ${coupon.code}\n` +
-    `Show this QR to our staff to redeem.`
-  return { code: coupon.code, welcomeText, caption }
+  const resolved = resolveCampaignTemplate(campaign, language)
+  const welcomeText =
+    resolved !== null
+      ? renderTemplate(resolved, vars)
+      : minimalWelcomeText(language, coupon.code)
+  const suffix = defaultCouponCaptionSuffix(language, coupon.code)
+  return { code: coupon.code, welcomeText, caption: `${welcomeText}\n\n${suffix}` }
 }
 
-async function onboardViaFallback(ctx: OnboardContext): Promise<OnboardOutput> {
+async function onboardViaFallback(
+  ctx: OnboardContext,
+  language: Language
+): Promise<OnboardOutput> {
   const coupon = await createWelcomeCoupon(ctx.restaurantId, ctx.memberId)
-  return {
-    code: coupon.code,
-    welcomeText: defaultWelcomeText(ctx.contactName, coupon.code),
-    caption: defaultCouponCaption(coupon.code),
-  }
+  const welcomeText = defaultWelcomeText(language, ctx.contactName, coupon.code)
+  const suffix = defaultCouponCaptionSuffix(language, coupon.code)
+  return { code: coupon.code, welcomeText, caption: `${welcomeText}\n\n${suffix}` }
 }
 
 async function sendCouponQrImage(

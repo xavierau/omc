@@ -60,6 +60,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Welcome A',
     type: 'welcome',
     template: 'Hi {{name}}, use {{code}}',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 30 },
     schedule: null,
     scheduledAt: null,
@@ -117,6 +119,9 @@ describe('remap welcome campaign: preserves history', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-a',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(campaignA)
     vi.mocked(createCampaignCoupon).mockResolvedValueOnce({ code: 'A-COUPON', id: 'coupon-a' })
@@ -142,6 +147,9 @@ describe('remap welcome campaign: preserves history', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-a',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, { welcomeCampaignId: 'camp-b' })
@@ -156,6 +164,9 @@ describe('remap welcome campaign: preserves history', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-b',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(campaignB)
     vi.mocked(createCampaignCoupon).mockResolvedValueOnce({ code: 'B-COUPON', id: 'coupon-b' })
@@ -193,6 +204,9 @@ describe('remap welcome campaign: preserves history', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-a',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, { welcomeCampaignId: 'camp-b' })

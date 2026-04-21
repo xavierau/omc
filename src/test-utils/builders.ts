@@ -41,6 +41,8 @@ export function buildCampaign(
     name: 'Test Campaign',
     type: 'promo',
     template: 'Hi {{name}}, use code {{code}}!',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,

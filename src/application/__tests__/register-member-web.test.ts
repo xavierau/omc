@@ -40,6 +40,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Welcome Campaign',
     type: 'welcome',
     template: 'Hi {{name}}, use {{code}}',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 30 },
     schedule: null,
     scheduledAt: null,
@@ -67,6 +69,9 @@ describe('registerMemberWeb', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValue({
       welcomeCampaignId: null,
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
   })
 
@@ -102,6 +107,9 @@ describe('registerMemberWeb', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign({ isChargeable: false }))
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
@@ -128,6 +136,9 @@ describe('registerMemberWeb', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign())
     vi.mocked(createCampaignCoupon).mockRejectedValueOnce(new Error('no coupon_config'))

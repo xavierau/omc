@@ -6,70 +6,174 @@ import {
   MAX_TEMPLATE_LENGTH,
   CHAR_WARN_THRESHOLD,
   shouldWarnCharCount,
+  toDraft,
+  missingCampaignLanguages,
 } from '@/domain/onboarding/onboarding-settings'
-import type { OnboardingSettings } from '@/domain/onboarding/onboarding-settings'
+import type {
+  OnboardingSettings,
+  OnboardingDraft,
+  CampaignLike,
+} from '@/domain/onboarding/onboarding-settings'
 
 const baseline: OnboardingSettings = {
   welcomeCampaignId: null,
   returningMemberTemplate: null,
+  returningMemberTemplateEn: null,
+  returningMemberTemplateZhHk: null,
+  defaultLanguage: 'zh_hk',
+}
+
+function emptyDraft(): OnboardingDraft {
+  return {
+    welcomeCampaignId: '',
+    returningMemberTemplateEn: '',
+    returningMemberTemplateZhHk: '',
+    defaultLanguage: 'zh_hk',
+  }
 }
 
 describe('onboarding-settings domain', () => {
+  describe('toDraft', () => {
+    it('defaults bilingual fields and language when settings are blank', () => {
+      expect(toDraft(baseline)).toEqual(emptyDraft())
+    })
+
+    it('preserves existing values and ignores the legacy template', () => {
+      const settings: OnboardingSettings = {
+        welcomeCampaignId: 'uuid-x',
+        returningMemberTemplate: 'legacy-should-be-ignored',
+        returningMemberTemplateEn: 'Hi',
+        returningMemberTemplateZhHk: '你好',
+        defaultLanguage: 'en',
+      }
+      expect(toDraft(settings)).toEqual({
+        welcomeCampaignId: 'uuid-x',
+        returningMemberTemplateEn: 'Hi',
+        returningMemberTemplateZhHk: '你好',
+        defaultLanguage: 'en',
+      })
+    })
+
+    it('falls back to zh_hk when defaultLanguage is missing', () => {
+      const settings = {
+        ...baseline,
+        defaultLanguage: undefined as unknown as 'en',
+      }
+      expect(toDraft(settings).defaultLanguage).toBe('zh_hk')
+    })
+  })
+
   describe('isDirty', () => {
     it('returns false when draft matches settings', () => {
-      expect(isDirty(baseline, { welcomeCampaignId: '', returningMemberTemplate: '' })).toBe(false)
+      expect(isDirty(baseline, emptyDraft())).toBe(false)
     })
 
     it('returns true when welcomeCampaignId changed', () => {
-      expect(isDirty(baseline, { welcomeCampaignId: 'uuid-1', returningMemberTemplate: '' })).toBe(true)
+      expect(
+        isDirty(baseline, { ...emptyDraft(), welcomeCampaignId: 'uuid-1' })
+      ).toBe(true)
     })
 
-    it('returns true when returningMemberTemplate changed', () => {
-      expect(isDirty(baseline, { welcomeCampaignId: '', returningMemberTemplate: 'hi' })).toBe(true)
+    it('returns true when EN template changed', () => {
+      expect(
+        isDirty(baseline, { ...emptyDraft(), returningMemberTemplateEn: 'hi' })
+      ).toBe(true)
     })
 
-    it('treats empty string as null-equivalent for template', () => {
-      const settings: OnboardingSettings = { welcomeCampaignId: null, returningMemberTemplate: null }
-      expect(isDirty(settings, { welcomeCampaignId: '', returningMemberTemplate: '' })).toBe(false)
+    it('returns true when zh-HK template changed', () => {
+      expect(
+        isDirty(baseline, { ...emptyDraft(), returningMemberTemplateZhHk: '你好' })
+      ).toBe(true)
     })
 
-    it('treats whitespace-only template as null-equivalent', () => {
-      const settings: OnboardingSettings = { welcomeCampaignId: null, returningMemberTemplate: null }
-      expect(isDirty(settings, { welcomeCampaignId: '', returningMemberTemplate: '   ' })).toBe(false)
+    it('returns true when defaultLanguage changed', () => {
+      expect(
+        isDirty(baseline, { ...emptyDraft(), defaultLanguage: 'en' })
+      ).toBe(true)
+    })
+
+    it('treats whitespace-only bilingual drafts as null-equivalent', () => {
+      expect(
+        isDirty(baseline, {
+          ...emptyDraft(),
+          returningMemberTemplateEn: '   ',
+          returningMemberTemplateZhHk: '\t',
+        })
+      ).toBe(false)
     })
   })
 
   describe('computePatch', () => {
     it('returns empty object when nothing changed', () => {
-      expect(computePatch(baseline, { welcomeCampaignId: '', returningMemberTemplate: '' })).toEqual({})
+      expect(computePatch(baseline, emptyDraft())).toEqual({})
+    })
+
+    it('never emits the legacy returningMemberTemplate field', () => {
+      const settings: OnboardingSettings = {
+        ...baseline,
+        returningMemberTemplate: 'old',
+      }
+      const patch = computePatch(settings, {
+        ...emptyDraft(),
+        returningMemberTemplateEn: 'new',
+      })
+      expect(patch).not.toHaveProperty('returningMemberTemplate')
+      expect(patch).toEqual({ returningMemberTemplateEn: 'new' })
     })
 
     it('includes only changed campaign id', () => {
       expect(
-        computePatch(baseline, { welcomeCampaignId: 'uuid-1', returningMemberTemplate: '' }),
+        computePatch(baseline, { ...emptyDraft(), welcomeCampaignId: 'uuid-1' })
       ).toEqual({ welcomeCampaignId: 'uuid-1' })
     })
 
-    it('includes only changed template', () => {
+    it('includes only changed EN template', () => {
       expect(
-        computePatch(baseline, { welcomeCampaignId: '', returningMemberTemplate: 'hello' }),
-      ).toEqual({ returningMemberTemplate: 'hello' })
+        computePatch(baseline, { ...emptyDraft(), returningMemberTemplateEn: 'hello' })
+      ).toEqual({ returningMemberTemplateEn: 'hello' })
+    })
+
+    it('includes only changed zh-HK template', () => {
+      expect(
+        computePatch(baseline, { ...emptyDraft(), returningMemberTemplateZhHk: '你好' })
+      ).toEqual({ returningMemberTemplateZhHk: '你好' })
+    })
+
+    it('includes changed defaultLanguage', () => {
+      expect(
+        computePatch(baseline, { ...emptyDraft(), defaultLanguage: 'en' })
+      ).toEqual({ defaultLanguage: 'en' })
     })
 
     it('converts empty string draft values to null in patch', () => {
       const settings: OnboardingSettings = {
         welcomeCampaignId: 'uuid-1',
         returningMemberTemplate: 'hi',
+        returningMemberTemplateEn: 'hi',
+        returningMemberTemplateZhHk: '你好',
+        defaultLanguage: 'zh_hk',
       }
-      expect(
-        computePatch(settings, { welcomeCampaignId: '', returningMemberTemplate: '' }),
-      ).toEqual({ welcomeCampaignId: null, returningMemberTemplate: null })
+      expect(computePatch(settings, emptyDraft())).toEqual({
+        welcomeCampaignId: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+      })
     })
 
-    it('includes both when both changed', () => {
+    it('includes multiple bilingual changes together', () => {
       expect(
-        computePatch(baseline, { welcomeCampaignId: 'uuid-1', returningMemberTemplate: 'welcome' }),
-      ).toEqual({ welcomeCampaignId: 'uuid-1', returningMemberTemplate: 'welcome' })
+        computePatch(baseline, {
+          welcomeCampaignId: 'uuid-1',
+          returningMemberTemplateEn: 'welcome',
+          returningMemberTemplateZhHk: '歡迎',
+          defaultLanguage: 'en',
+        })
+      ).toEqual({
+        welcomeCampaignId: 'uuid-1',
+        returningMemberTemplateEn: 'welcome',
+        returningMemberTemplateZhHk: '歡迎',
+        defaultLanguage: 'en',
+      })
     })
   })
 
@@ -110,15 +214,42 @@ describe('onboarding-settings domain', () => {
       expect(MAX_TEMPLATE_LENGTH).toBe(1024)
     })
 
-    it('exports a warn threshold greater than 900', () => {
+    it('exports a warn threshold in the 900-1023 range', () => {
       expect(CHAR_WARN_THRESHOLD).toBeGreaterThanOrEqual(900)
       expect(CHAR_WARN_THRESHOLD).toBeLessThan(MAX_TEMPLATE_LENGTH)
     })
 
-    it('warns when count exceeds threshold', () => {
+    it('warns only when count strictly exceeds threshold', () => {
       expect(shouldWarnCharCount(CHAR_WARN_THRESHOLD)).toBe(false)
       expect(shouldWarnCharCount(CHAR_WARN_THRESHOLD + 1)).toBe(true)
       expect(shouldWarnCharCount(0)).toBe(false)
+    })
+  })
+
+  describe('missingCampaignLanguages', () => {
+    it('returns [] when both translations are present', () => {
+      const c: CampaignLike = { templateEn: 'hi', templateZhHk: '你好' }
+      expect(missingCampaignLanguages(c)).toEqual([])
+    })
+
+    it('returns [en] when EN is missing', () => {
+      const c: CampaignLike = { templateEn: '', templateZhHk: '你好' }
+      expect(missingCampaignLanguages(c)).toEqual(['en'])
+    })
+
+    it('returns [zh_hk] when zh-HK is missing', () => {
+      const c: CampaignLike = { templateEn: 'hi', templateZhHk: null }
+      expect(missingCampaignLanguages(c)).toEqual(['zh_hk'])
+    })
+
+    it('returns both when both are missing', () => {
+      const c: CampaignLike = { templateEn: null, templateZhHk: '' }
+      expect(missingCampaignLanguages(c)).toEqual(['en', 'zh_hk'])
+    })
+
+    it('treats whitespace-only as missing', () => {
+      const c: CampaignLike = { templateEn: '   ', templateZhHk: '\t\n' }
+      expect(missingCampaignLanguages(c)).toEqual(['en', 'zh_hk'])
     })
   })
 })

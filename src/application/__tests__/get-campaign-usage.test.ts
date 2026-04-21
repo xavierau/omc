@@ -22,6 +22,8 @@ function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Test Campaign',
     type: 'promo',
     template: 'tpl',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,

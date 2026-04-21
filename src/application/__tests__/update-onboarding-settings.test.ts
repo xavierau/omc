@@ -26,6 +26,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Welcome',
     type: 'welcome',
     template: 'Hi',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,
@@ -87,6 +89,9 @@ describe('updateOnboardingSettingsForTenant', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-old',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
@@ -108,6 +113,9 @@ describe('updateOnboardingSettingsForTenant', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-old',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
@@ -127,11 +135,14 @@ describe('updateOnboardingSettingsForTenant', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-old',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
       welcomeCampaignId: 'camp-new',
-      returningMemberTemplate: 'Hello back {{name}}',
+      returningMemberTemplateEn: 'Hello back {{name}}',
     })
 
     expect(remapWelcomeCampaign).toHaveBeenCalledWith(
@@ -140,7 +151,8 @@ describe('updateOnboardingSettingsForTenant', () => {
       'camp-new'
     )
     expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
-      returningMemberTemplate: 'Hello back {{name}}',
+      returningMemberTemplateEn: 'Hello back {{name}}',
+      legacyReturningTemplate: 'Hello back {{name}}',
     })
   })
 
@@ -148,15 +160,19 @@ describe('updateOnboardingSettingsForTenant', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-old',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
-      returningMemberTemplate: 'Hello back {{name}}',
+      returningMemberTemplateEn: 'Hello back {{name}}',
     })
 
     expect(remapWelcomeCampaign).not.toHaveBeenCalled()
     expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
-      returningMemberTemplate: 'Hello back {{name}}',
+      returningMemberTemplateEn: 'Hello back {{name}}',
+      legacyReturningTemplate: 'Hello back {{name}}',
     })
   })
 
@@ -164,17 +180,124 @@ describe('updateOnboardingSettingsForTenant', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: null,
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
 
     const result = await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
-      returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplateEn: 'Hi {{name}}',
     })
 
     expect(result).toEqual({
       welcomeCampaignId: null,
       returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplateEn: 'Hi {{name}}',
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
     })
     // Only the initial "before" fetch; no post-write re-fetch.
     expect(getOnboardingSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards bilingual and default_language changes together', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+      returningMemberTemplateEn: 'EN',
+      returningMemberTemplateZhHk: 'ZH',
+      defaultLanguage: 'en',
+    })
+
+    expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
+      returningMemberTemplateEn: 'EN',
+      returningMemberTemplateZhHk: 'ZH',
+      defaultLanguage: 'en',
+      legacyReturningTemplate: 'EN',
+    })
+  })
+
+  describe('legacy dual-write with sparse patches', () => {
+    it('keeps zh_hk content in legacy when admin edits only EN (default_language=zh_hk)', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: '舊中文',
+        returningMemberTemplateEn: 'Old EN',
+        returningMemberTemplateZhHk: '舊中文',
+        defaultLanguage: 'zh_hk',
+      })
+
+      await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+        returningMemberTemplateEn: 'New EN',
+      })
+
+      expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
+        returningMemberTemplateEn: 'New EN',
+        legacyReturningTemplate: '舊中文',
+      })
+    })
+
+    it('keeps en content in legacy when admin edits only zh_hk (default_language=en)', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: 'Old EN',
+        returningMemberTemplateEn: 'Old EN',
+        returningMemberTemplateZhHk: '舊中文',
+        defaultLanguage: 'en',
+      })
+
+      await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+        returningMemberTemplateZhHk: '新中文',
+      })
+
+      expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
+        returningMemberTemplateZhHk: '新中文',
+        legacyReturningTemplate: 'Old EN',
+      })
+    })
+
+    it('switches legacy to EN content when default_language flips from zh_hk to en', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: null,
+        returningMemberTemplate: '舊中文',
+        returningMemberTemplateEn: 'Old EN',
+        returningMemberTemplateZhHk: '舊中文',
+        defaultLanguage: 'zh_hk',
+      })
+
+      await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+        defaultLanguage: 'en',
+      })
+
+      expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
+        defaultLanguage: 'en',
+        legacyReturningTemplate: 'Old EN',
+      })
+    })
+
+    it('does not touch the legacy column when only welcomeCampaignId changes', async () => {
+      vi.mocked(getCampaignById).mockResolvedValueOnce(
+        buildCampaign({ id: 'camp-new' })
+      )
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-old',
+        returningMemberTemplate: '舊中文',
+        returningMemberTemplateEn: 'Old EN',
+        returningMemberTemplateZhHk: '舊中文',
+        defaultLanguage: 'zh_hk',
+      })
+
+      await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+        welcomeCampaignId: 'camp-new',
+      })
+
+      expect(updateOnboardingSettings).not.toHaveBeenCalled()
+    })
   })
 })

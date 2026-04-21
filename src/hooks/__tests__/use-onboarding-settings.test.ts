@@ -76,7 +76,7 @@ describe('onboarding-settings-api', () => {
         json: async () => ({ error: 'Template too long' }),
       })
 
-      await expect(patchOnboardingSettings({ returningMemberTemplate: 'x' })).rejects.toThrow(/400/)
+      await expect(patchOnboardingSettings({ returningMemberTemplateEn: 'x' })).rejects.toThrow(/400/)
     })
 
     it('handles PATCH responses without a JSON body gracefully on error', async () => {
