@@ -1,165 +1,118 @@
 # Onboard New WhatsApp Number
 
-Guide the user through connecting a brand new WhatsApp phone number to a tenant via Kapso. This is an interactive, step-by-step wizard.
+Connect a new WhatsApp phone number to a tenant using the `kapso` CLI and our
+one-shot onboarding script. CLI-first; the script handles the webhook step so
+it never gets forgotten (the failure mode that silently drops inbound messages).
 
-## Step 0: Determine the Scenario
+## 1. Prereqs (one-time, per operator machine)
 
-Ask the user:
-
-> Which scenario applies?
->
-> 1. **New tenant** — I need to create a new tenant AND connect a WhatsApp number
-> 2. **Existing tenant** — I have a tenant already, just need to connect a number
-> 3. **I don't have a number yet** — I need Kapso to provision one for me
-
-## Step 1: Choose Connection Method
-
-Explain the 3 options and ask the user to pick one:
-
-### Option A: Instant Setup (fastest — Kapso provisions a US number)
-- No SIM card needed, no SMS verification
-- Kapso gives you a pre-verified US phone number
-- Requires a small deposit (applied to Kapso project credits)
-- Steps:
-  1. Go to Kapso dashboard → **Connected numbers** → **Connect WhatsApp Business**
-  2. Select **Instant setup**
-  3. Authenticate via Facebook
-  4. Copy the `phoneNumberId` and `businessAccountId` from the Kapso dashboard
-
-### Option B: Bring Your Own SIM (use your own phone number)
-- You provide a dedicated phone number you control
-- Kapso handles Meta registration automatically
-- Steps:
-  1. Go to Kapso dashboard → **Connected numbers** → **Connect WhatsApp Business**
-  2. Select **Bring your own SIM**
-  3. Log in with Facebook
-  4. Enter your phone number
-  5. Complete SMS verification
-  6. Copy the `phoneNumberId` and `businessAccountId` from the Kapso dashboard
-
-### Option C: Programmatic via Kapso Platform API (for automation)
-- Use when onboarding tenants programmatically (e.g., setup links)
-- Kapso Setup Links let tenants self-serve the WhatsApp connection
-- API: `POST https://api.kapso.ai/platform/v1/customers/{customer_id}/setup_links`
-- After the tenant completes the flow, use the Connect Phone Number API:
+- Kapso CLI installed and logged in:
+  ```bash
+  npm i -g @kapso/cli
+  kapso login
+  kapso status   # confirm project = "OhMyClient"
   ```
-  POST /customers/{customer_id}/whatsapp/phone_numbers
-  Body: {
-    "whatsapp_phone_number": {
-      "name": "<label>",
-      "phone_number_id": "<from Meta>",
-      "business_account_id": "<WABA ID>",
-      "access_token": "<permanent token>"
-    }
-  }
-  ```
+- `.env.local` in the repo root contains:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `KAPSO_WEBHOOK_SECRET`  (the one shared secret for ALL per-number webhooks)
+- Deeper CLI reference: `.agents/skills/integrate-whatsapp/SKILL.md`.
 
-## Step 2: Collect Credentials
+## 2. Decision
 
-After the user completes the Kapso connection, ask for these values:
+Ask once:
 
-1. **Phone Number ID** (`kapsoPhoneNumberId`) — from Kapso dashboard or API response
-2. **Meta Business Account ID** (`metaBusinessAccountId`) — the WABA ID
-3. **WhatsApp display number** (`whatsappNumber`) — e.g., `+85212345678`
+> Do you already have Meta credentials (`phone_number_id` + `business_account_id`)
+> for this number?
 
-Validate:
-- `phoneNumberId` should be a numeric string
-- `whatsappNumber` should start with `+` and contain only digits after that
-- `metaBusinessAccountId` should be a numeric string
+- **No** → §A (CLI setup-link — the path for BYOS HK SIMs).
+- **Yes** → skip to §C.
 
-## Step 3: Verify Kapso Connectivity
+## §A. CLI setup-link path (most tenants)
 
-Run a quick test to confirm the number is working:
+Used when the tenant brings their own HK SIM and completes Meta's embedded signup.
 
-```typescript
-// Use the existing Kapso client to resolve the WABA ID
-import { resolveWabaId } from '@/infrastructure/kapso/template-client'
+```bash
+# 1. Create the Kapso customer record
+kapso customers new \
+  --name "<TENANT_NAME>" \
+  --external-id <slug> \
+  --output json
+# → capture customer_id
 
-const wabaId = await resolveWabaId(phoneNumberId)
+# 2. Generate a setup link (dedicated connection, no Kapso provisioning)
+kapso setup \
+  --customer <customer_id> \
+  --connection-type dedicated \
+  --no-provision-phone-number \
+  --output json
+# → returns setup URL
+
+# 3. Send the setup URL to the tenant owner. They complete:
+#    Facebook login → embedded signup → SMS verification on their HK number.
+
+# 4. Once they finish, retrieve the IDs:
+kapso whatsapp numbers list --output json
+# → capture phone_number_id, business_account_id, display_phone_number
 ```
 
-If this returns `null`, the number is not properly connected in Kapso. Ask the user to:
-- Verify the `KAPSO_API_KEY` in `.env` is correct
-- Confirm the number shows as "Connected" in the Kapso dashboard
-- Check if ad blockers interfered with the Meta embedded signup popup
+## §B. Instant Setup alternative (Kapso-provisioned US number)
 
-## Step 4: Create or Update Tenant
+Not applicable to HK tenants. If the use case is a US number owned by Kapso,
+drop `--no-provision-phone-number` (i.e. use the default `--provision-phone-number`)
+and the tenant gets a pre-verified US number without any SIM or SMS step.
 
-### If creating a new tenant (Scenario 1):
+## §C. Create tenant + register webhook (one command)
 
-Ask for additional info:
-- **Tenant name** (e.g., "My Restaurant")
-- **Slug** (URL-friendly, e.g., "my-restaurant")
-- **Admin email**
-- **Admin password**
+This runs `createTenant` AND creates the per-number Kapso webhook signed with
+the shared `KAPSO_WEBHOOK_SECRET`. If either step is skipped manually, inbound
+messages will silently fail signature verification.
 
-Then use the existing `createTenant` use case:
-
-```typescript
-import { createTenant } from '@/application/create-tenant'
-
-await createTenant({
-  name: tenantName,
-  slug: tenantSlug,
-  whatsappNumber: whatsappNumber,
-  kapsoPhoneNumberId: phoneNumberId,
-  metaBusinessAccountId: businessAccountId,
-  adminEmail: adminEmail,
-  adminPassword: adminPassword,
-})
+```bash
+./node_modules/.bin/tsx scripts/onboard-tenant.ts \
+  --name "<TENANT_NAME>" \
+  --slug <slug> \
+  --email <admin_email> \
+  --password <admin_password> \
+  --whatsapp-number "<+E.164>" \
+  --phone-number-id <phone_number_id> \
+  --business-account-id <business_account_id>
 ```
 
-### If updating an existing tenant (Scenario 2):
+Optional flags:
+- `--webhook-url <url>` (default `https://app.ohmyclient.io/api/webhooks/whatsapp`)
+- `--dry-run` (print the plan, no mutation)
 
-Update the restaurant record in Supabase with the new WhatsApp credentials:
-- `kapso_phone_number_id`
-- `meta_business_account_id`
-- `whatsapp_number`
+On success, the script prints `tenant_id`, `slug`, `phone_number_id`, `webhook_id`,
+and `webhook_url`. If `createTenant` succeeds but the webhook step fails, the
+script prints the tenant ids so you can re-run only `kapso whatsapp webhooks new`
+without creating a duplicate tenant.
 
-## Step 5: Configure Webhook
+## 3. Smoke test
 
-Ensure the Kapso webhook is pointing to this app's webhook endpoint:
+1. Send a WhatsApp DM from a personal phone TO the new number.
+2. Tail app logs (or check `whatsapp_events` / inbox in the admin UI).
+3. Sign in to the app with the admin email/password — the message should appear
+   in the inbox for that tenant.
 
-- **Webhook URL**: `{APP_URL}/api/webhooks/whatsapp`
-- **Webhook secret**: should match `KAPSO_WEBHOOK_SECRET` in `.env`
+## 4. Rollback
 
-Tell the user to verify this in the Kapso dashboard under the connected number's settings.
+If something is wrong and you need to undo:
 
-## Step 6: Test End-to-End
-
-Guide the user through a quick smoke test:
-
-1. Send a test message TO the new WhatsApp number from a personal phone
-2. Check the app logs for the incoming webhook
-3. Verify the webhook parser processes the message correctly
-4. Optionally send a test outbound message:
-
-```typescript
-import { sendTextMessage } from '@/infrastructure/kapso/client'
-
-await sendTextMessage(phoneNumberId, testPhoneNumber, 'Hello from OhMyClient!')
+```bash
+# Delete the webhook
+kapso whatsapp webhooks list --phone-number-id <phone_number_id> --output json
+kapso whatsapp webhooks delete <webhook_id>
 ```
 
-## Step 7: Summary
+- Kapso number itself: remove via the Kapso dashboard (Connected numbers).
+- Supabase admin user + `restaurants` + `user_tenants` rows: delete via the
+  Supabase dashboard or a SQL console (no automated rollback — we intentionally
+  avoid destructive auto-cleanup).
 
-Print a summary of what was configured:
+## 5. References
 
-```
---- WhatsApp Number Onboarded ---
-Tenant:              {name} ({slug})
-WhatsApp Number:     {whatsappNumber}
-Phone Number ID:     {phoneNumberId}
-Business Account ID: {businessAccountId}
-Webhook URL:         {APP_URL}/api/webhooks/whatsapp
-Status:              Connected
-```
-
-## Reference Links
-
-- Kapso Dashboard: https://kapso.ai
-- Kapso Docs — Connect WhatsApp: https://docs.kapso.ai/docs/how-to/whatsapp/connect-whatsapp
-- Kapso Docs — Setup Links: https://docs.kapso.ai/docs/platform/setup-links
-- Kapso Docs — Connect Phone Number API: https://docs.kapso.ai/api/platform/v1/phone-numbers/connect-phone-number
-- Project webhook handler: `src/app/api/webhooks/whatsapp/route.ts`
-- Project Kapso client: `src/infrastructure/kapso/client.ts`
-- Project tenant creation: `src/application/create-tenant.ts`
+- `.agents/skills/integrate-whatsapp/SKILL.md` — full CLI playbook
+- `src/application/create-tenant.ts` — tenant creation use case
+- `src/app/api/webhooks/whatsapp/route.ts` — inbound webhook handler
+- `scripts/onboard-tenant.ts` — this workflow's one-shot script
