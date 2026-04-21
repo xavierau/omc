@@ -3,15 +3,11 @@ import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositori
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { Language } from '@/domain/value-objects/language'
-import { renderTemplate } from '@/domain/services/template-renderer'
-import { resolveReturningMemberTemplate } from './resolve-campaign-template'
-import {
-  buildReturningGreeting,
-  defaultReturningText,
-  minimalWelcomeText,
-} from './onboarding-defaults'
+import { detectLanguageFromText } from '@/domain/services/detect-language'
+import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
+import { minimalWelcomeText } from './onboarding-defaults'
 import { onboardNewMember } from './onboard-new-member'
+import { sendReturningWelcome } from './send-returning-welcome'
 
 interface RegisterResult {
   isNew: boolean
@@ -23,7 +19,8 @@ interface RegisterResult {
 export async function registerMember(
   restaurantId: string,
   rawPhone: string,
-  contactName?: string
+  contactName?: string,
+  inboundText?: string
 ): Promise<RegisterResult> {
   const phone = PhoneNumber.create(rawPhone)
   const supabase = createServerSupabaseClient()
@@ -32,11 +29,25 @@ export async function registerMember(
   const existing = await findExistingMember(supabase, restaurantId, phone.value)
   if (existing) {
     const name = existing.name ?? contactName
-    await sendReturning(restaurantId, phoneNumberId, phone.value, existing.points_balance, name)
+    await sendReturningWelcome({
+      restaurantId,
+      phoneNumberId,
+      phone: phone.value,
+      points: existing.points_balance,
+      memberPreferredLanguage: existing.preferred_language ?? null,
+      name,
+    })
     return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance }
   }
 
-  return createNewMember(supabase, restaurantId, phoneNumberId, phone, contactName)
+  return createNewMember(
+    supabase,
+    restaurantId,
+    phoneNumberId,
+    phone,
+    contactName,
+    inboundText
+  )
 }
 
 async function findExistingMember(
@@ -46,7 +57,7 @@ async function findExistingMember(
 ) {
   const { data } = await supabase
     .from('members')
-    .select('id, points_balance, name')
+    .select('id, points_balance, name, preferred_language')
     .eq('restaurant_id', restaurantId)
     .eq('phone', phone)
     .single()
@@ -54,38 +65,16 @@ async function findExistingMember(
   return data
 }
 
-async function sendReturning(
-  restaurantId: string,
-  phoneNumberId: string,
-  phone: string,
-  points: number,
-  name?: string
-): Promise<void> {
-  const settings = await getOnboardingSettings(restaurantId).catch((err) => {
-    console.warn('[onboarding] returning-member settings load failed:', err)
-    return null
-  })
-  const language = Language.fromCodeOrDefault(
-    settings?.defaultLanguage ?? null,
-    Language.default()
-  )
-  const greeting = buildReturningGreeting(language, name)
-  const tpl = settings
-    ? resolveReturningMemberTemplate(settings, language)
-    : null
-  const text = tpl
-    ? renderTemplate(tpl, { greeting, points, name: name ?? '' })
-    : defaultReturningText(language, greeting, points)
-  await sendTextMessage(phoneNumberId, phone, text)
-}
-
 async function createNewMember(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   restaurantId: string,
   phoneNumberId: string,
   phone: PhoneNumber,
-  contactName?: string
+  contactName?: string,
+  inboundText?: string
 ): Promise<RegisterResult> {
+  const detectedLang = detectLanguageFromText(inboundText)
+  const memberPreferredLanguage = detectedLang?.code ?? null
   const { data: newMember, error } = await supabase
     .from('members')
     .insert({
@@ -93,6 +82,7 @@ async function createNewMember(
       phone: phone.value,
       status: 'active',
       name: contactName ?? null,
+      preferred_language: memberPreferredLanguage,
     })
     .select('id')
     .single()
@@ -107,10 +97,16 @@ async function createNewMember(
       phoneNumberId,
       phone: phone.value,
       contactName,
+      memberPreferredLanguage,
     })
   } catch (err) {
     console.warn('[register] Post-insert step failed:', (err as Error).message)
-    await sendFallbackMinimalWelcome(restaurantId, phoneNumberId, phone.value)
+    await sendFallbackMinimalWelcome(
+      restaurantId,
+      phoneNumberId,
+      phone.value,
+      memberPreferredLanguage
+    )
   }
 
   return { isNew: true, memberId: newMember.id, pointsBalance: 0, couponCode }
@@ -119,9 +115,14 @@ async function createNewMember(
 async function sendFallbackMinimalWelcome(
   restaurantId: string,
   phoneNumberId: string,
-  phone: string
+  phone: string,
+  memberPreferredLanguage: string | null
 ): Promise<void> {
-  const language = await resolveFallbackLanguage(restaurantId)
+  const settings = await getOnboardingSettings(restaurantId).catch(() => null)
+  const language = resolvePreferredLanguage(
+    { preferredLanguage: memberPreferredLanguage },
+    { defaultLanguage: settings?.defaultLanguage ?? null }
+  )
   await sendTextMessage(
     phoneNumberId,
     phone,
@@ -129,12 +130,4 @@ async function sendFallbackMinimalWelcome(
   ).catch((sendErr) => {
     console.warn('[onboarding] welcome message fallback send failed:', sendErr)
   })
-}
-
-async function resolveFallbackLanguage(restaurantId: string): Promise<Language> {
-  const settings = await getOnboardingSettings(restaurantId).catch(() => null)
-  return Language.fromCodeOrDefault(
-    settings?.defaultLanguage ?? null,
-    Language.default()
-  )
 }

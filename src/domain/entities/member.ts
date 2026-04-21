@@ -7,4 +7,5 @@ export interface Member {
   status: 'active' | 'unsubscribed'
   joinedAt: string
   lastVisitAt: string | null
+  preferredLanguage: string | null
 }

@@ -81,6 +81,7 @@ export function buildMember(
     status: 'active',
     joinedAt: '2025-01-01T00:00:00Z',
     lastVisitAt: null,
+    preferredLanguage: null,
     ...overrides,
   }
 }

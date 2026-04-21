@@ -46,6 +46,7 @@ const memberRow = {
   status: 'active',
   joined_at: '2024-01-01T00:00:00Z',
   last_visit_at: null,
+  preferred_language: null,
 }
 
 function setupChain(result: { data: unknown[]; error: null }) {
@@ -109,6 +110,19 @@ describe('resolveTargetMembers', () => {
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('m-1')
     expect(mockFrom).toHaveBeenCalledWith('members')
+  })
+
+  it('maps preferred_language onto the Member shape', async () => {
+    const campaign = buildCampaign({ type: 'promo', targetAudience: 'all' })
+
+    setupChain({
+      data: [{ ...memberRow, preferred_language: 'en' }],
+      error: null,
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result[0].preferredLanguage).toBe('en')
   })
 
   it('fetches winback members with last_visit_at before cutoff', async () => {

@@ -115,6 +115,7 @@ function buildMember(overrides: Partial<Member> = {}): Member {
     status: 'active',
     joinedAt: '2024-01-01T00:00:00Z',
     lastVisitAt: null,
+    preferredLanguage: null,
     ...overrides,
   }
 }
@@ -230,7 +231,7 @@ describe('executeCampaign', () => {
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'active' })
   })
 
-  it('throws when WhatsApp template is not found', async () => {
+  it('throws when WhatsApp template is not found — BEFORE status transition (no revert)', async () => {
     const campaign = buildCampaign({ whatsappTemplateId: 'tpl-missing' })
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
@@ -240,10 +241,11 @@ describe('executeCampaign', () => {
     await expect(executeCampaign('camp-1', 'r-1'))
       .rejects.toThrow('WhatsApp template tpl-missing not found')
 
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'active' })
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+    expect(updateCampaign).not.toHaveBeenCalled()
   })
 
-  it('throws when WhatsApp template is not approved', async () => {
+  it('throws when WhatsApp template is not approved — BEFORE status transition (no revert)', async () => {
     const campaign = buildCampaign({ whatsappTemplateId: 'tpl-pending' })
     const pendingTemplate = {
       id: 'tpl-pending',
@@ -268,7 +270,8 @@ describe('executeCampaign', () => {
     await expect(executeCampaign('camp-1', 'r-1'))
       .rejects.toThrow('WhatsApp template pending_template is not approved')
 
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'active' })
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+    expect(updateCampaign).not.toHaveBeenCalled()
   })
 
   it('processes all members across multiple batches', async () => {
@@ -289,7 +292,7 @@ describe('executeCampaign', () => {
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
   })
 
-  it('throws NoTemplateError when inline send has no resolvable text in any language', async () => {
+  it('throws NoTemplateError BEFORE transitioning status — no revert needed', async () => {
     const campaign = buildCampaign({
       template: '',
       templateEn: null,
@@ -305,7 +308,11 @@ describe('executeCampaign', () => {
     await expect(executeCampaign('camp-1', 'r-1')).rejects.toBeInstanceOf(
       NoTemplateError
     )
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'active' })
+    // The guard runs BEFORE the transition, so:
+    //   - status transition must never be attempted
+    //   - no revert updateCampaign call is needed
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+    expect(updateCampaign).not.toHaveBeenCalled()
   })
 
   it('picks bilingual template by restaurant default_language', async () => {
@@ -326,6 +333,74 @@ describe('executeCampaign', () => {
     // The resolved EN template should be what we pass to renderTemplate
     expect(renderTemplate).toHaveBeenCalledWith(
       'EN {{name}} {{code}}',
+      expect.any(Object)
+    )
+  })
+
+  it('per-member language overrides the restaurant default', async () => {
+    // Restaurant default is zh_hk, but two members have different preferences.
+    const campaign = buildCampaign({
+      template: '',
+      templateEn: 'EN {{name}} {{code}}',
+      templateZhHk: 'ZH {{name}} {{code}}',
+    })
+    const enMember = buildMember({ id: 'm-en', preferredLanguage: 'en' })
+    const zhMember = buildMember({ id: 'm-zh', preferredLanguage: 'zh_hk' })
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([enMember, zhMember])
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(renderTemplate).mockImplementation((tpl: string) => tpl)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const calls = vi.mocked(renderTemplate).mock.calls
+    const templates = calls.map((c) => c[0])
+    expect(templates).toContain('EN {{name}} {{code}}')
+    expect(templates).toContain('ZH {{name}} {{code}}')
+  })
+
+  it('member with null preferred_language falls back to restaurant default', async () => {
+    const campaign = buildCampaign({
+      template: '',
+      templateEn: 'EN {{name}} {{code}}',
+      templateZhHk: 'ZH {{name}} {{code}}',
+    })
+    const m = buildMember({ preferredLanguage: null })
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([m])
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(renderTemplate).mockImplementation((tpl: string) => tpl)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(renderTemplate).toHaveBeenCalledWith(
+      'EN {{name}} {{code}}',
+      expect.any(Object)
+    )
+  })
+
+  it('only templateEn populated: zh_hk-preferring member falls through to EN via bilingual resolver', async () => {
+    const campaign = buildCampaign({
+      template: '',
+      templateEn: 'EN only {{code}}',
+      templateZhHk: null,
+    })
+    const zhMember = buildMember({ preferredLanguage: 'zh_hk' })
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([zhMember])
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(renderTemplate).mockImplementation((tpl: string) => tpl)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(renderTemplate).toHaveBeenCalledWith(
+      'EN only {{code}}',
       expect.any(Object)
     )
   })

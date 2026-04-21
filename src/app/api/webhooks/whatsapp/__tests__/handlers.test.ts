@@ -63,7 +63,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       // Simulate: the same phone is a member of RESTAURANT_A but not RESTAURANT_B.
       // The lookup must be scoped, so calling for RESTAURANT_B returns null.
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'Hey' }), RESTAURANT_B)
@@ -80,7 +80,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('POINTS: replies "not a member yet" to tenant B, even if phone is a member of tenant A', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
@@ -95,7 +95,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REDEEM: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REDEEM ABC123' }), RESTAURANT_B)
@@ -111,7 +111,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REWARDS: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REWARDS' }), RESTAURANT_B)
@@ -127,7 +127,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REWARD_<id>: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REWARD_xyz' }), RESTAURANT_B)
@@ -143,7 +143,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('STOP: silently ignores when the phone is only a member of another tenant (no unsubscribe of other tenant)', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
@@ -154,7 +154,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('receipt image: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(
@@ -173,7 +173,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('receipt confirmation (YES / numeric): ignored when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0 } : null
+        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'YES' }), RESTAURANT_B)
@@ -186,7 +186,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
   describe('positive paths (member belongs to the current tenant)', () => {
     it('unknown text: shows member menu when the phone is a member of the current tenant', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 10 })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 10, preferredLanguage: null })
 
       await routeMessage(makeMessage({ text: 'Hey' }), RESTAURANT_B)
 
@@ -203,7 +203,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
 
     it('POINTS: returns the member balance', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 123 })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 123, preferredLanguage: null })
 
       await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
 
@@ -215,7 +215,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
 
     it('receipt image: enqueues processing with the current tenant id', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 0 })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 0, preferredLanguage: null })
       vi.mocked(enqueueReceiptProcessing).mockResolvedValue(undefined as never)
 
       await routeMessage(
@@ -230,7 +230,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   })
 
   describe('JOIN is delegated to registerMember and is scoped by restaurantId', () => {
-    it('passes the current tenant into registerMember', async () => {
+    it('passes the current tenant into registerMember with the inbound text', async () => {
       vi.mocked(registerMember).mockResolvedValue({
         isNew: true,
         memberId: 'm-new',
@@ -239,7 +239,32 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
       await routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
 
-      expect(registerMember).toHaveBeenCalledWith(RESTAURANT_B, PHONE, 'Tester')
+      expect(registerMember).toHaveBeenCalledWith(
+        RESTAURANT_B,
+        PHONE,
+        'Tester',
+        'JOIN'
+      )
+    })
+
+    it('QR deep-link JOIN-{restaurantId}: passes inboundText=undefined to skip language detection (would always be EN otherwise)', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+
+      await routeMessage(
+        makeMessage({ text: 'JOIN-rest-b-uuid' }),
+        RESTAURANT_B
+      )
+
+      expect(registerMember).toHaveBeenCalledWith(
+        RESTAURANT_B,
+        PHONE,
+        'Tester',
+        undefined
+      )
     })
   })
 
