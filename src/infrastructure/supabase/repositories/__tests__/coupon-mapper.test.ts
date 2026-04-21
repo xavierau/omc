@@ -18,6 +18,7 @@ function buildRow(
     max_uses: 5,
     current_uses: 2,
     is_active: true,
+    is_chargeable: true,
     title: 'Welcome Discount',
     description: '10% off your first order',
     campaign_id: 'camp-1',
@@ -45,6 +46,7 @@ describe('mapRowToCoupon', () => {
       maxUses: 5,
       currentUses: 2,
       isActive: true,
+      isChargeable: true,
       title: 'Welcome Discount',
       description: '10% off your first order',
       campaignId: 'camp-1',
@@ -77,6 +79,16 @@ describe('mapRowToCoupon', () => {
     expect(result.title).toBeNull()
     expect(result.description).toBeNull()
     expect(result.campaignId).toBeNull()
+  })
+
+  it('maps is_chargeable=false from welcome coupons', () => {
+    const row = buildRow({ is_chargeable: false })
+    expect(mapRowToCoupon(row).isChargeable).toBe(false)
+  })
+
+  it('defaults isChargeable to true when column is missing (legacy rows)', () => {
+    const row = buildRow({ is_chargeable: undefined })
+    expect(mapRowToCoupon(row).isChargeable).toBe(true)
   })
 
   it('maps all discount types correctly', () => {

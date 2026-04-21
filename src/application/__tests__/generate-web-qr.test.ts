@@ -12,18 +12,10 @@ describe('generateWebQr', () => {
     delete process.env.NEXT_PUBLIC_APP_URL
   })
 
-  it('builds URL without campaign param', async () => {
+  it('builds a plain /join/{slug} URL (no campaign query param)', async () => {
     const result = await generateWebQr('test-slug')
 
     expect(result.joinUrl).toBe('http://localhost:3000/join/test-slug')
-  })
-
-  it('builds URL with campaign param when provided', async () => {
-    const result = await generateWebQr('test-slug', 'camp-1')
-
-    expect(result.joinUrl).toBe(
-      'http://localhost:3000/join/test-slug?campaign=camp-1'
-    )
   })
 
   it('uses NEXT_PUBLIC_APP_URL env var when set', async () => {
@@ -31,8 +23,12 @@ describe('generateWebQr', () => {
 
     const result = await generateWebQr('my-restaurant')
 
-    expect(result.joinUrl).toBe(
-      'https://app.example.com/join/my-restaurant'
-    )
+    expect(result.joinUrl).toBe('https://app.example.com/join/my-restaurant')
+  })
+
+  it('returns the generated QR data URL', async () => {
+    const result = await generateWebQr('test-slug')
+
+    expect(result.qrDataUrl).toBe('data:image/png;base64,mock')
   })
 })

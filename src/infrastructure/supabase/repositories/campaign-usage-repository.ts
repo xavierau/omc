@@ -32,9 +32,11 @@ export async function getAllTenantsUsageForMonth(
   monthEnd: string
 ): Promise<TenantUsageRow[]> {
   const supabase = createServerSupabaseClient()
+  // Only chargeable sends contribute to billing; non-chargeable sends
+  // (welcome campaigns) are tracked separately and excluded here.
   const { data, error } = await supabase
     .from('campaigns')
-    .select('restaurant_id, sent_count')
+    .select('restaurant_id, chargeable_sent_count')
     .in('status', ['sending', 'completed'])
     .gte('created_at', monthStart)
     .lt('created_at', monthEnd)
@@ -43,20 +45,20 @@ export async function getAllTenantsUsageForMonth(
   return aggregateByTenant(data ?? [])
 }
 
-function aggregateByTenant(
-  rows: Array<{ restaurant_id: string; sent_count: number }>
+export function aggregateByTenant(
+  rows: Array<{ restaurant_id: string; chargeable_sent_count: number }>
 ): TenantUsageRow[] {
   const map = new Map<string, TenantUsageRow>()
   for (const row of rows) {
     const existing = map.get(row.restaurant_id)
     if (existing) {
       existing.campaignCount += 1
-      existing.totalSent += (row.sent_count ?? 0)
+      existing.totalSent += (row.chargeable_sent_count ?? 0)
     } else {
       map.set(row.restaurant_id, {
         restaurantId: row.restaurant_id,
         campaignCount: 1,
-        totalSent: row.sent_count ?? 0,
+        totalSent: row.chargeable_sent_count ?? 0,
       })
     }
   }

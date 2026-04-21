@@ -5,18 +5,15 @@ export interface GenerateWebQrResult {
   joinUrl: string
 }
 
-function buildJoinUrl(slug: string, campaignId?: string): string {
+function buildJoinUrl(slug: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const path = `/join/${slug}`
-  const query = campaignId ? `?campaign=${campaignId}` : ''
-  return `${base}${path}${query}`
+  return `${base}/join/${slug}`
 }
 
 export async function generateWebQr(
-  slug: string,
-  campaignId?: string
+  slug: string
 ): Promise<GenerateWebQrResult> {
-  const joinUrl = buildJoinUrl(slug, campaignId)
+  const joinUrl = buildJoinUrl(slug)
 
   const qrDataUrl = await QRCode.toDataURL(joinUrl, {
     width: 300,

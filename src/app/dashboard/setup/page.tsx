@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { QrGenerator } from '@/components/dashboard/qr-generator'
+import { WelcomeSetupForm } from '@/components/dashboard/welcome-setup-form'
 import { ReceiptTemplateSection } from '@/components/dashboard/receipt-template-section'
 import { FlaggedReceiptsPanel } from '@/components/dashboard/flagged-receipts-panel'
 import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
@@ -33,6 +34,7 @@ export default async function SetupPage() {
         <h2 className="text-xl font-semibold text-foreground">{t('heading')}</h2>
         <p className="text-muted-foreground mt-1">{t('description')}</p>
       </div>
+      <WelcomeSetupForm />
       <QrGenerator />
 
       <Separator />

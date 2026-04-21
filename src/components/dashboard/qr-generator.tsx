@@ -5,30 +5,25 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { useCampaigns } from '@/hooks/use-campaigns'
 
 interface QrData { qrDataUrl: string; deepLink?: string; joinUrl?: string }
 
 export function QrGenerator() {
   const t = useTranslations('qr')
   const tc = useTranslations('common')
-  const { campaigns } = useCampaigns()
   const [qrData, setQrData] = useState<QrData | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState<'whatsapp' | 'web'>('whatsapp')
-  const [campaignId, setCampaignId] = useState('')
 
   async function handleGenerate() {
     setLoading(true)
     try {
       if (mode === 'web') {
-        const body: Record<string, string> = {}
-        if (campaignId) body.campaignId = campaignId
         const res = await fetch('/api/dashboard/qr/web', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({}),
         })
         if (!res.ok) throw new Error('Failed')
         const data = await res.json()
@@ -60,15 +55,10 @@ export function QrGenerator() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const activeCampaigns = campaigns.filter(c => c.status === 'active')
   const displayUrl = qrData?.joinUrl ?? qrData?.deepLink
 
   if (!qrData) {
-    return (
-      <GenerateForm mode={mode} onModeChange={setMode} campaignId={campaignId}
-        onCampaignChange={setCampaignId} campaigns={activeCampaigns}
-        loading={loading} onGenerate={handleGenerate} t={t} />
-    )
+    return <GenerateForm mode={mode} onModeChange={setMode} loading={loading} onGenerate={handleGenerate} t={t} />
   }
 
   return (
@@ -105,12 +95,15 @@ function QrDisplay({ qrDataUrl, t }: { qrDataUrl: string; t: (k: string) => stri
   )
 }
 
-function GenerateForm({ mode, onModeChange, campaignId, onCampaignChange, campaigns, loading, onGenerate, t }: {
-  mode: string; onModeChange: (v: 'whatsapp' | 'web') => void
-  campaignId: string; onCampaignChange: (v: string) => void
-  campaigns: { id: string; name: string | null }[]
-  loading: boolean; onGenerate: () => void; t: (k: string) => string
-}) {
+interface GenerateFormProps {
+  mode: 'whatsapp' | 'web'
+  onModeChange: (v: 'whatsapp' | 'web') => void
+  loading: boolean
+  onGenerate: () => void
+  t: (k: string) => string
+}
+
+function GenerateForm({ mode, onModeChange, loading, onGenerate, t }: GenerateFormProps) {
   return (
     <div className="flex flex-col items-center space-y-4 py-12">
       <div className="flex gap-3 items-center">
@@ -121,16 +114,6 @@ function GenerateForm({ mode, onModeChange, campaignId, onCampaignChange, campai
           <option value="web">Web</option>
         </select>
       </div>
-      {campaigns.length > 0 && (
-        <div className="flex gap-3 items-center">
-          <label className="text-sm font-medium">{t('campaign')}</label>
-          <select value={campaignId} onChange={e => onCampaignChange(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">{t('noCampaign')}</option>
-            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name ?? c.id}</option>)}
-          </select>
-        </div>
-      )}
       <Button onClick={onGenerate} disabled={loading} size="lg">
         {loading ? t('generating') : t('generateQrCode')}
       </Button>

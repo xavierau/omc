@@ -57,7 +57,7 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             name={c.name}
             type={c.type}
             status={c.status}
-            sentCount={c.sentCount}
+            sentCount={c.chargeableSentCount + c.nonChargeableSentCount}
             redeemedCount={c.redeemedCount}
             scheduledAt={c.scheduledAt}
             onExecute={onExecute}

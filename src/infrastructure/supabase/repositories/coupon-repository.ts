@@ -1,12 +1,12 @@
 import { createServerSupabaseClient } from '../client'
-import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { Coupon } from '@/domain/entities/coupon'
 import { mapRowToCoupon, CreateCouponParams, ListCouponsParams, ListCouponsResult } from './coupon-mapper'
 
 export type { CreateCouponParams, ListCouponsParams, ListCouponsResult }
 
-const MAX_CODE_ATTEMPTS = 3
-const WELCOME_EXPIRY_DAYS = 30
+// Re-export coupon factories for ergonomic imports — implementation lives in
+// coupon-factory.ts to keep this file under the 150-line limit.
+export { createWelcomeCoupon, createCampaignCoupon } from './coupon-factory'
 
 export async function createCoupon(params: CreateCouponParams): Promise<Coupon> {
   const supabase = createServerSupabaseClient()
@@ -23,6 +23,7 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
       discount_value: params.discountValue ?? null,
       max_uses: params.maxUses ?? null,
       is_active: true,
+      is_chargeable: params.isChargeable ?? true,
       title: params.title ?? null,
       description: params.description ?? null,
       campaign_id: params.campaignId ?? null,
@@ -32,29 +33,6 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
 
   if (error || !data) throw new Error(`createCoupon: ${error?.message}`)
   return mapRowToCoupon(data)
-}
-
-export async function createWelcomeCoupon(
-  restaurantId: string,
-  memberId: string
-): Promise<{ code: string; id: string }> {
-  const expiresAt = new Date(
-    Date.now() + WELCOME_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-  ).toISOString()
-
-  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
-    const code = generateCouponCode()
-    try {
-      const coupon = await createCoupon({
-        restaurantId, type: 'welcome', code, memberId, expiresAt, maxUses: 1,
-      })
-      return { code: coupon.code, id: coupon.id }
-    } catch (err) {
-      if (!(err as Error).message.includes('unique')) throw err
-    }
-  }
-
-  throw new Error('Failed to generate unique coupon code after 3 attempts')
 }
 
 export async function findCouponById(id: string): Promise<Coupon | null> {

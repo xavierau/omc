@@ -100,9 +100,12 @@ export async function getRedemptionCountsByTenantForMonth(
   monthEnd: string
 ): Promise<TenantRedemptionRow[]> {
   const supabase = createServerSupabaseClient()
+  // Inner join to coupons filters out welcome-coupon redemptions (stamped
+  // non-chargeable) so they never contribute to billing.
   const { data, error } = await supabase
     .from('coupon_redemptions')
-    .select('restaurant_id')
+    .select('restaurant_id, coupons!inner(is_chargeable)')
+    .eq('coupons.is_chargeable', true)
     .gte('redeemed_at', monthStart)
     .lt('redeemed_at', monthEnd)
 

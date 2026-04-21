@@ -1,18 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { generateWebQr } from '@/application/generate-web-qr'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const ctx = await getTenantContext()
     const slug = await fetchRestaurantSlug(ctx.restaurantId)
 
-    const body = await request.json().catch(() => ({}))
-    const campaignId = body.campaignId as string | undefined
-
-    const result = await generateWebQr(slug, campaignId)
+    const result = await generateWebQr(slug)
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof AuthError) {

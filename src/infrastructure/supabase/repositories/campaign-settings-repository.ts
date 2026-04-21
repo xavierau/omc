@@ -48,12 +48,18 @@ export async function getMonthlyTenantSends(
 
   const { data, error } = await supabase
     .from('campaigns')
-    .select('sent_count')
+    .select('chargeable_sent_count, non_chargeable_sent_count')
     .eq('restaurant_id', restaurantId)
     .gte('created_at', startOfMonth)
 
   if (error) throw new Error(`getMonthlyTenantSends: ${error.message}`)
-  return (data ?? []).reduce((sum, r) => sum + (r.sent_count ?? 0), 0)
+  // Guardrails measure TOTAL send volume against the monthly limit —
+  // non-chargeable (welcome) sends count toward the limit too so a tenant
+  // can't evade the cap by flipping a campaign to non-chargeable.
+  return (data ?? []).reduce(
+    (sum, r) => sum + (r.chargeable_sent_count ?? 0) + (r.non_chargeable_sent_count ?? 0),
+    0
+  )
 }
 
 export async function getTodayCampaignCount(

@@ -8,7 +8,9 @@ export interface Campaign {
   schedule: Record<string, unknown> | null
   scheduledAt: string | null
   status: 'draft' | 'active' | 'sending' | 'paused' | 'completed'
-  sentCount: number
+  isChargeable: boolean
+  chargeableSentCount: number
+  nonChargeableSentCount: number
   redeemedCount: number
   whatsappTemplateId: string | null
   targetAudience: 'all' | 'selected'

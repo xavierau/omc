@@ -34,7 +34,7 @@ vi.mock('@/domain/value-objects/coupon-code', () => ({
   generateCouponCode: vi.fn(),
 }))
 
-vi.mock('@/domain/value-objects/template-vars', () => ({
+vi.mock('@/domain/services/template-renderer', () => ({
   renderTemplate: vi.fn(),
 }))
 
@@ -50,6 +50,14 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', (
   findTemplateById: vi.fn(),
 }))
 
+vi.mock('@/application/check-campaign-guardrails', () => ({
+  checkCampaignGuardrails: vi.fn().mockResolvedValue({
+    allowed: true,
+    violations: [],
+    warnings: [],
+  }),
+}))
+
 import { executeCampaign } from '@/application/execute-campaign'
 import {
   getCampaignById,
@@ -63,7 +71,7 @@ import { emitEvent } from '@/application/emit-event'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
-import { renderTemplate } from '@/domain/value-objects/template-vars'
+import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolveTargetMembers } from '@/application/resolve-campaign-members'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
@@ -79,7 +87,9 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'active',
-    sentCount: 0,
+    isChargeable: true,
+    chargeableSentCount: 0,
+    nonChargeableSentCount: 0,
     redeemedCount: 0,
     whatsappTemplateId: null,
     targetAudience: 'all',
@@ -108,6 +118,7 @@ describe('executeCampaign', () => {
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
     vi.mocked(renderTemplate).mockReturnValue('rendered text')
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([])
   })
 
   it('throws when campaign is not found', async () => {

@@ -31,12 +31,15 @@ export async function getCampaignUsage(
 }
 
 function toCampaignSummary(c: Campaign): CampaignUsageSummary {
+  // The usage report reflects all sends regardless of chargeability —
+  // non-chargeable sends still exist, they just don't bill.
+  const sent = c.chargeableSentCount + c.nonChargeableSentCount
   return {
     campaignId: c.id,
     campaignName: c.name ?? '',
     category: 'marketing' as const,
-    sentCount: c.sentCount,
-    estimatedCost: estimateCampaignCost(c.sentCount),
+    sentCount: sent,
+    estimatedCost: estimateCampaignCost(sent),
     executedAt: c.createdAt,
   }
 }
