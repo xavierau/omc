@@ -4,6 +4,7 @@ import {
   updateCampaign,
   setCampaignMembers,
   getCampaignMemberIds,
+  CrossTenantMemberError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -83,12 +84,15 @@ export async function PATCH(
     const campaign = await updateCampaign(id, changes)
 
     if (body.targetAudience !== undefined && body.memberIds) {
-      await setCampaignMembers(id, body.memberIds)
+      await setCampaignMembers(id, body.memberIds, restaurantId)
     }
 
     return NextResponse.json(campaign)
   } catch (error) {
     if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (error instanceof CrossTenantMemberError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     console.error('Campaign PATCH error:', (error as Error)?.message, (error as Error)?.stack)
@@ -124,14 +128,20 @@ async function attachLegacyTemplateIfNeeded(
   const zhTouched = changes.templateZhHk !== undefined
   if (!enTouched && !zhTouched) return
 
-  const effectiveEn = enTouched ? changes.templateEn ?? null : existing.templateEn
+  const effectiveEn = enTouched
+    ? normalize(changes.templateEn)
+    : normalize(existing.templateEn)
   const effectiveZhHk = zhTouched
-    ? changes.templateZhHk ?? null
-    : existing.templateZhHk
+    ? normalize(changes.templateZhHk)
+    : normalize(existing.templateZhHk)
   const lang: LanguageCode = await getRestaurantDefaultLanguage(restaurantId)
   const primary = lang === 'en' ? effectiveEn : effectiveZhHk
   const fallback = lang === 'en' ? effectiveZhHk : effectiveEn
-  changes.legacyTemplate = primary ?? fallback ?? existing.template ?? ''
+  changes.legacyTemplate = primary ?? fallback ?? normalize(existing.template) ?? ''
+}
+
+function normalize(value: string | null | undefined): string | null {
+  return value && value.trim() !== '' ? value : null
 }
 
 function validateTemplateLengths(body: Record<string, unknown>): string | null {

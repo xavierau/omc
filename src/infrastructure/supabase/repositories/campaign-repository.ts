@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from '../client'
 import { Campaign } from '@/domain/entities/campaign'
 import {
   mapRowToCampaign,
-  legacyTemplateFromBilingual,
   buildCampaignUpdateRow,
   type CreateCampaignParams,
   type UpdateCampaignParams,
@@ -15,18 +14,13 @@ export async function createCampaign(
   params: CreateCampaignParams
 ): Promise<Campaign> {
   const supabase = createServerSupabaseClient()
-  const legacy = legacyTemplateFromBilingual(
-    params.template,
-    params.templateEn,
-    params.templateZhHk
-  )
   const { data, error } = await supabase
     .from('campaigns')
     .insert({
       restaurant_id: params.restaurantId,
       name: params.name,
       type: params.type,
-      template: legacy,
+      template: params.legacyTemplate,
       template_en: params.templateEn ?? null,
       template_zh_hk: params.templateZhHk ?? null,
       coupon_config: params.couponConfig ?? null,
@@ -133,4 +127,5 @@ export async function getDueCampaigns(): Promise<Campaign[]> {
 export {
   setCampaignMembers,
   getCampaignMemberIds,
+  CrossTenantMemberError,
 } from './campaign-members-repository'

@@ -4,8 +4,13 @@ export interface CreateCampaignParams {
   restaurantId: string
   name: string
   type: Campaign['type']
-  /** Legacy single-value template (optional). If omitted, repo dual-writes it. */
-  template?: string
+  /**
+   * Explicit value for the legacy `template` column. Callers (e.g. the POST
+   * route) compute this from the bilingual fields + restaurant default
+   * language and pass it in so sparse bilingual creates don't populate the
+   * legacy column with the wrong language's content.
+   */
+  legacyTemplate: string
   templateEn?: string | null
   templateZhHk?: string | null
   couponConfig?: CouponConfig | null
@@ -58,20 +63,6 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
       (row.target_audience as Campaign['targetAudience']) ?? 'all',
     createdAt: row.created_at as string,
   }
-}
-
-/**
- * Legacy `template` column stays populated during the rolling-deploy window.
- * Prefer Traditional Chinese (HK default) then English. Explicit caller input
- * wins over the derived value.
- */
-export function legacyTemplateFromBilingual(
-  explicit: string | undefined,
-  en: string | null | undefined,
-  zhHk: string | null | undefined
-): string {
-  if (explicit !== undefined) return explicit
-  return zhHk ?? en ?? ''
 }
 
 /**

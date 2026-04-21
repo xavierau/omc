@@ -169,4 +169,17 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     expect(call).not.toHaveProperty('legacyTemplate')
     expect(call).not.toHaveProperty('template')
   })
+
+  it('passes restaurantId to setCampaignMembers for cross-tenant validation', async () => {
+    await PATCH(
+      patchRequest({ targetAudience: 'selected', memberIds: ['m-1'] }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(setCampaignMembers).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      ['m-1'],
+      RESTAURANT_ID
+    )
+  })
 })

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -10,6 +11,7 @@ import {
   listCampaigns,
   setCampaignMembers,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { POST, GET } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -57,6 +59,7 @@ describe('POST /api/dashboard/campaigns', () => {
     })
     vi.mocked(createCampaign).mockResolvedValue(buildCampaign())
     vi.mocked(setCampaignMembers).mockResolvedValue(undefined)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
   })
 
   it('rejects when name is missing', async () => {
@@ -116,7 +119,7 @@ describe('POST /api/dashboard/campaigns', () => {
     expect(r.status).toBe(201)
     expect(createCampaign).toHaveBeenCalledWith(
       expect.objectContaining({
-        template: 'LegacyOnly',
+        legacyTemplate: 'LegacyOnly',
         templateEn: null,
         templateZhHk: 'LegacyOnly',
       })
@@ -146,6 +149,78 @@ describe('POST /api/dashboard/campaigns', () => {
       postRequest({ name: 'n', type: 'promo', templateEn: big })
     )
     expect(r.status).toBe(400)
+  })
+
+  it('derives legacy template from EN when default_language=en and only EN is sent', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('en')
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+        templateEn: 'Hi',
+        templateZhHk: null,
+      })
+    )
+  })
+
+  it('cross-language fallback: default_language=zh_hk but only EN sent uses EN for legacy', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('zh_hk')
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+      })
+    )
+  })
+
+  it('picks default_language value for legacy when both languages are sent', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('en')
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'promo',
+        templateEn: 'Hi',
+        templateZhHk: '你好',
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+      })
+    )
+  })
+
+  it('leaves legacy as empty string when only whatsappTemplateId is used', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', whatsappTemplateId: 'tpl-1' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: '',
+      })
+    )
+  })
+
+  it('passes restaurantId to setCampaignMembers for cross-tenant validation', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'promo',
+        templateEn: 'Hi',
+        targetAudience: 'selected',
+        memberIds: ['m-1', 'm-2'],
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(setCampaignMembers).toHaveBeenCalledWith('c-1', ['m-1', 'm-2'], RESTAURANT_ID)
   })
 })
 
