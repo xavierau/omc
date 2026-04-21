@@ -1,33 +1,14 @@
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
-
-// Load .env.local BEFORE imports that read env (e.g. @/application/create-tenant → supabase client).
-const envPath = resolve(process.cwd(), '.env.local')
-try {
-  const envContent = readFileSync(envPath, 'utf-8')
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eqIdx = trimmed.indexOf('=')
-    if (eqIdx === -1) continue
-    const key = trimmed.slice(0, eqIdx)
-    const val = trimmed.slice(eqIdx + 1)
-    if (!process.env[key]) process.env[key] = val
-  }
-} catch { /* .env.local is optional */ }
-
+import './load-env'
 import { parseArgs } from 'node:util'
 import { execFileSync } from 'node:child_process'
 import { createTenant } from '@/application/create-tenant'
 
 const DEFAULT_WEBHOOK_URL = 'https://app.ohmyclient.io/api/webhooks/whatsapp'
 const WEBHOOK_EVENTS = [
-  'whatsapp.message.received', 'whatsapp.message.sent',
-  'whatsapp.message.delivered', 'whatsapp.message.read',
-  'whatsapp.message.failed', 'whatsapp.conversation.created',
+  'whatsapp.message.received', 'whatsapp.message.sent', 'whatsapp.message.delivered',
+  'whatsapp.message.read', 'whatsapp.message.failed', 'whatsapp.conversation.created',
   'whatsapp.conversation.ended', 'whatsapp.conversation.inactive',
 ]
-
 const USAGE = `Usage: tsx scripts/onboard-tenant.ts --name <n> --slug <s> --email <e> \\
   --password <p> --whatsapp-number <+E164> --phone-number-id <id> \\
   --business-account-id <waba_id> [--webhook-url <url>] [--dry-run]
@@ -36,9 +17,8 @@ Creates the tenant (restaurant + admin) and registers a Kapso phone-number
 webhook signed with KAPSO_WEBHOOK_SECRET. Requires the kapso CLI logged in.`
 
 interface Options {
-  name: string; slug: string; email: string; password: string
-  whatsappNumber: string; phoneNumberId: string; businessAccountId: string
-  webhookUrl: string; dryRun: boolean
+  name: string; slug: string; email: string; password: string; whatsappNumber: string
+  phoneNumberId: string; businessAccountId: string; webhookUrl: string; dryRun: boolean
 }
 
 function exitUsage(code: number, message?: string): never {
@@ -47,13 +27,18 @@ function exitUsage(code: number, message?: string): never {
   process.exit(code)
 }
 
+function redactSecret(text: string): string {
+  const secret = process.env.KAPSO_WEBHOOK_SECRET
+  if (!secret || !text) return text
+  return text.split(secret).join('***')
+}
+
 const PARSE_CONFIG = {
   options: {
-    name: { type: 'string' }, slug: { type: 'string' },
-    email: { type: 'string' }, password: { type: 'string' },
-    'whatsapp-number': { type: 'string' }, 'phone-number-id': { type: 'string' },
-    'business-account-id': { type: 'string' }, 'webhook-url': { type: 'string' },
-    'dry-run': { type: 'boolean', default: false },
+    name: { type: 'string' }, slug: { type: 'string' }, email: { type: 'string' },
+    password: { type: 'string' }, 'whatsapp-number': { type: 'string' },
+    'phone-number-id': { type: 'string' }, 'business-account-id': { type: 'string' },
+    'webhook-url': { type: 'string' }, 'dry-run': { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
   allowPositionals: false,
@@ -77,6 +62,8 @@ function parseOptions(): Options {
 }
 
 function validate(opts: Options): void {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(opts.email)) exitUsage(1, '--email is not a valid email')
+  if (!/^[a-z0-9-]+$/.test(opts.slug)) exitUsage(1, '--slug must be lowercase alphanumeric + hyphens')
   if (!/^\d+$/.test(opts.phoneNumberId)) exitUsage(1, '--phone-number-id must be numeric')
   if (!/^\d+$/.test(opts.businessAccountId)) exitUsage(1, '--business-account-id must be numeric')
   if (!opts.whatsappNumber.startsWith('+')) exitUsage(1, '--whatsapp-number must start with "+"')
@@ -88,24 +75,25 @@ function validate(opts: Options): void {
 
 function buildWebhookArgs(phoneNumberId: string, webhookUrl: string, secret: string): string[] {
   const base = [
-    'whatsapp', 'webhooks', 'new',
-    '--phone-number-id', phoneNumberId, '--url', webhookUrl,
-    '--secret-key', secret, '--kind', 'kapso',
+    'whatsapp', 'webhooks', 'new', '--phone-number-id', phoneNumberId,
+    '--url', webhookUrl, '--secret-key', secret, '--kind', 'kapso',
     '--payload-version', 'v2', '--active',
   ]
   const events = WEBHOOK_EVENTS.flatMap((e) => ['--event', e])
   return [...base, ...events, '--output', 'json']
 }
 
-function registerWebhook(args: string[]): { id?: string } {
+function registerWebhook(args: string[]): { id?: string; url?: string } {
   try {
-    const raw = execFileSync('kapso', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'inherit'] })
-    return JSON.parse(raw) as { id?: string }
+    const raw = execFileSync('kapso', args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const parsed = JSON.parse(raw) as { data?: { id?: string; url?: string } }
+    return { id: parsed.data?.id, url: parsed.data?.url }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error('kapso CLI not found on PATH. Install: npm i -g @kapso/cli && kapso login')
-    }
-    throw err
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') throw new Error('kapso CLI not found on PATH. Install: npm i -g @kapso/cli && kapso login')
+    const e = err as Error & { stderr?: Buffer | string }
+    const stderrText = e.stderr ? (typeof e.stderr === 'string' ? e.stderr : e.stderr.toString('utf-8')) : ''
+    if (stderrText) process.stderr.write(redactSecret(stderrText))
+    throw new Error(redactSecret(e.message ?? String(err)))
   }
 }
 
@@ -116,13 +104,22 @@ function printDryRun(opts: Options): void {
   process.stdout.write(`[dry-run] invoke: kapso ${args.join(' ')}\n`)
 }
 
-function printSummary(ctx: { tenantId: string; opts: Options; webhookId?: string }): void {
+function printSummary(ctx: { tenantId: string; opts: Options; webhookId?: string; webhookUrl?: string }): void {
   process.stdout.write('\nOnboarding complete.\n')
   process.stdout.write(`  tenant_id:       ${ctx.tenantId}\n`)
   process.stdout.write(`  slug:            ${ctx.opts.slug}\n`)
   process.stdout.write(`  phone_number_id: ${ctx.opts.phoneNumberId}\n`)
   process.stdout.write(`  webhook_id:      ${ctx.webhookId ?? '(see kapso output)'}\n`)
-  process.stdout.write(`  webhook_url:     ${ctx.opts.webhookUrl}\n`)
+  process.stdout.write(`  webhook_url:     ${ctx.webhookUrl ?? ctx.opts.webhookUrl}\n`)
+}
+
+function printWebhookRecovery(opts: Options, tenantId: string): void {
+  const args = buildWebhookArgs(opts.phoneNumberId, opts.webhookUrl, '$KAPSO_WEBHOOK_SECRET')
+  process.stderr.write(`Re-run webhook step manually:\n  kapso ${args.join(' ')}\n\n`)
+  process.stderr.write('Or clean up and retry from scratch by removing:\n')
+  process.stderr.write(`  - Supabase: delete from restaurants where id='${tenantId}';\n`)
+  process.stderr.write(`  - Supabase Auth: delete the user with email=${opts.email};\n`)
+  process.stderr.write(`  - Supabase: delete from user_tenants where tenant_id='${tenantId}';\n`)
 }
 
 async function run(opts: Options): Promise<void> {
@@ -134,15 +131,20 @@ async function run(opts: Options): Promise<void> {
   })
   try {
     const args = buildWebhookArgs(opts.phoneNumberId, opts.webhookUrl, process.env.KAPSO_WEBHOOK_SECRET!)
-    const { id: webhookId } = registerWebhook(args)
-    printSummary({ tenantId, opts, webhookId })
+    const { id: webhookId, url: webhookUrl } = registerWebhook(args)
+    printSummary({ tenantId, opts, webhookId, webhookUrl })
   } catch (err) {
     process.stderr.write(`\nTenant created (tenant_id=${tenantId} slug=${slug}) but webhook FAILED.\n`)
-    process.stderr.write(`Re-run webhook step manually: kapso whatsapp webhooks new --phone-number-id ${opts.phoneNumberId} ...\n`)
+    printWebhookRecovery(opts, tenantId)
     throw err
   }
 }
 
 const opts = parseOptions()
 validate(opts)
-run(opts).catch((err) => { process.stderr.write(`${(err as Error).message}\n`); process.exit(1) })
+run(opts).catch((err) => {
+  const msg = err instanceof Error ? err.message : String(err)
+  process.stderr.write(`${redactSecret(msg)}\n`)
+  if (!(err instanceof Error)) console.error(err)
+  process.exit(1)
+})
