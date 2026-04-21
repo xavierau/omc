@@ -8,7 +8,6 @@ import { createServerSupabaseClient } from '../../client'
 import {
   mapRowToCampaign,
   incrementCampaignSent,
-  setCampaignChargeable,
 } from '../campaign-repository'
 
 function buildRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -99,38 +98,3 @@ describe('incrementCampaignSent (atomic RPC)', () => {
   })
 })
 
-describe('setCampaignChargeable', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('sets is_chargeable=true on the campaign row', async () => {
-    const updateEq = vi.fn().mockResolvedValue({ error: null })
-    const update = vi.fn().mockReturnValue({ eq: updateEq })
-    const from = vi.fn().mockReturnValue({ update })
-    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
-
-    await setCampaignChargeable('camp-1', true)
-
-    expect(update).toHaveBeenCalledWith({ is_chargeable: true })
-    expect(updateEq).toHaveBeenCalledWith('id', 'camp-1')
-  })
-
-  it('sets is_chargeable=false on the campaign row', async () => {
-    const updateEq = vi.fn().mockResolvedValue({ error: null })
-    const update = vi.fn().mockReturnValue({ eq: updateEq })
-    const from = vi.fn().mockReturnValue({ update })
-    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
-
-    await setCampaignChargeable('camp-1', false)
-
-    expect(update).toHaveBeenCalledWith({ is_chargeable: false })
-  })
-
-  it('throws when the update fails', async () => {
-    const updateEq = vi.fn().mockResolvedValue({ error: { message: 'denied' } })
-    const update = vi.fn().mockReturnValue({ eq: updateEq })
-    const from = vi.fn().mockReturnValue({ update })
-    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
-
-    await expect(setCampaignChargeable('camp-1', true)).rejects.toThrow('setCampaignChargeable')
-  })
-})

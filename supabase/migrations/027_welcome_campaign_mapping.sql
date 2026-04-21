@@ -116,11 +116,18 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   UPDATE restaurants SET welcome_campaign_id = p_next_campaign_id WHERE id = p_restaurant_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'restaurant % not found', p_restaurant_id USING ERRCODE = 'P0002';
+  END IF;
   IF p_previous_campaign_id IS NOT NULL THEN
-    UPDATE campaigns SET is_chargeable = true WHERE id = p_previous_campaign_id;
+    UPDATE campaigns
+      SET is_chargeable = true
+      WHERE id = p_previous_campaign_id AND restaurant_id = p_restaurant_id;
   END IF;
   IF p_next_campaign_id IS NOT NULL THEN
-    UPDATE campaigns SET is_chargeable = false WHERE id = p_next_campaign_id;
+    UPDATE campaigns
+      SET is_chargeable = false
+      WHERE id = p_next_campaign_id AND restaurant_id = p_restaurant_id;
   END IF;
 END;
 $$;

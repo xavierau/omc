@@ -93,12 +93,12 @@ export async function updateCampaign(
   return mapRowToCampaign(data)
 }
 
-// Counter mutations (chargeable/non-chargeable sent, redeemed, set-chargeable)
-// live in campaign-counters.ts to keep this file under 150 lines.
+// Counter mutations (chargeable/non-chargeable sent, redeemed) and the
+// welcome-campaign remap RPC live in campaign-counters.ts to keep this
+// file under 150 lines.
 export {
   incrementCampaignSent,
   incrementCampaignRedeemed,
-  setCampaignChargeable,
   remapWelcomeCampaign,
 } from './campaign-counters'
 

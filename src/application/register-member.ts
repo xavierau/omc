@@ -102,7 +102,9 @@ async function createNewMember(
   } catch (err) {
     console.warn('[register] Post-insert step failed:', (err as Error).message)
     if (!couponCode) {
-      await sendTextMessage(phoneNumberId, phone.value, minimalWelcomeText(contactName)).catch(() => {})
+      await sendTextMessage(phoneNumberId, phone.value, minimalWelcomeText(contactName)).catch((sendErr) => {
+        console.warn('[onboarding] welcome message fallback send failed:', sendErr)
+      })
     }
   }
 

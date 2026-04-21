@@ -27,20 +27,6 @@ export async function incrementCampaignSent(
   }
 }
 
-export async function setCampaignChargeable(
-  id: string,
-  isChargeable: boolean
-): Promise<void> {
-  const supabase = createServerSupabaseClient()
-  const { error } = await supabase
-    .from('campaigns')
-    .update({ is_chargeable: isChargeable })
-    .eq('id', id)
-  if (error) {
-    throw new Error(`setCampaignChargeable: ${error.message}`)
-  }
-}
-
 /**
  * Atomically remap the welcome-campaign mapping for a restaurant:
  * - Set restaurants.welcome_campaign_id to the next campaign id
