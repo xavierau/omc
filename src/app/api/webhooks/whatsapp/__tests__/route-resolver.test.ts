@@ -40,6 +40,23 @@ describe('resolveRoute', () => {
       expect(r.route).toBe('REDEEM_CODE')
       expect(r.argument).toBe('ABC123')
     })
+    it('兌換 ABC123 (Chinese) → REDEEM_CODE with trimmed arg', () => {
+      const r = resolveRoute('兌換 ABC123', 'text')
+      expect(r.route).toBe('REDEEM_CODE')
+      expect(r.argument).toBe('ABC123')
+    })
+    it('兌換  ABC123 (Chinese, double space) → REDEEM_CODE', () => {
+      const r = resolveRoute('兌換  ABC123', 'text')
+      expect(r.route).toBe('REDEEM_CODE')
+      expect(r.argument).toBe('ABC123')
+    })
+    it('"兌換 " (Chinese, trailing space, no arg) → falls through to REWARDS', () => {
+      // Bare 兌換 with only trailing whitespace must not be treated as a
+      // REDEEM_CODE with empty argument. It should fall through to matchCommand
+      // which maps 兌換 → REDEEM (REWARDS list).
+      const r = resolveRoute('兌換 ', 'text')
+      expect(r.route).toBe('REDEEM')
+    })
   })
 
   describe('priority 5: command keyword', () => {

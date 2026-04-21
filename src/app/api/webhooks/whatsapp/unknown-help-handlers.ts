@@ -17,7 +17,7 @@ const HELP_ZH =
   '• POINTS / 積分 — 查詢餘額\n' +
   '• REWARDS / 獎賞 — 查看獎賞\n' +
   '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券\n' +
-  '• STOP / 退訂 — 退訂\n' +
+  '• STOP / 退訂 — 停止接收訊息\n' +
   '• LANG EN / 語言 中文 — 切換語言'
 
 const UNKNOWN_EN =

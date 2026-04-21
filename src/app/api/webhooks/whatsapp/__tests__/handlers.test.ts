@@ -582,6 +582,22 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       expect(redeemCouponUseCase).toHaveBeenCalledWith('CODE123', 'm-b', RESTAURANT_B)
     })
 
+    it('"兌換 ABC123" (Chinese member) → triggers handleRedeem with the coupon code', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(redeemCouponUseCase).mockResolvedValue({
+        success: true,
+        message: 'Coupon redeemed!',
+      } as unknown as ReturnType<typeof redeemCouponUseCase> extends Promise<infer R> ? R : never)
+
+      await routeMessage(makeMessage({ text: '兌換 ABC123' }), RESTAURANT_B)
+
+      expect(redeemCouponUseCase).toHaveBeenCalledWith('ABC123', 'm-b', RESTAURANT_B)
+    })
+
     it('ZH "退訂" → routes to handleUnsubscribe (regression)', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',

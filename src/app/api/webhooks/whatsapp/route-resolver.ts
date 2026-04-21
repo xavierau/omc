@@ -30,14 +30,20 @@ export interface RouteResult {
 export function resolveRoute(text: string, type: string): RouteResult {
   if (type === 'image') return { route: 'receipt-image' }
 
-  const upper = text.trim().toUpperCase()
+  const trimmed = text.trim()
+  const upper = trimmed.toUpperCase()
 
   if (upper === 'JOIN' || upper.startsWith('JOIN-')) return { route: 'JOIN' }
   if (upper.startsWith('REWARD_')) return { route: 'REWARD_REDEEM' }
 
-  if (upper.startsWith('REDEEM ')) {
-    const argument = upper.replace(/^REDEEM\s+/, '').trim()
-    if (argument.length > 0) return { route: 'REDEEM_CODE', argument }
+  // Accept both English "REDEEM <code>" and Chinese "兌換 <代碼>" prefixes.
+  // English path uses the uppercased form (existing behavior: code returned
+  // uppercase). Chinese path uses the trimmed form — 兌換 is CJK, so
+  // uppercasing is a no-op, but operating on `trimmed` keeps intent explicit.
+  const redeemMatch =
+    upper.match(/^REDEEM\s+(.+)$/) ?? trimmed.match(/^兌換\s+(.+)$/)
+  if (redeemMatch && redeemMatch[1]?.trim()) {
+    return { route: 'REDEEM_CODE', argument: redeemMatch[1].trim() }
   }
 
   const command = matchCommand(text)
