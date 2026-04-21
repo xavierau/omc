@@ -3,6 +3,7 @@ import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsa
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 
 export async function handleRedeem(
   phoneNumberId: string,
@@ -10,7 +11,7 @@ export async function handleRedeem(
   code: string,
   restaurantId: string
 ) {
-  const member = await findMemberByPhone(phone)
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
     return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
   }
@@ -25,16 +26,10 @@ export async function handleUnsubscribe(
   restaurantId: string
 ) {
   const { emitEvent } = await import('@/application/emit-event')
-  const supabase = createServerSupabaseClient()
-
-  const { data: member } = await supabase
-    .from('members')
-    .select('id')
-    .eq('phone', phone)
-    .single()
-
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) return
 
+  const supabase = createServerSupabaseClient()
   await supabase.from('members').update({ status: 'unsubscribed' }).eq('id', member.id)
 
   await emitEvent({
@@ -52,13 +47,7 @@ export async function handleRewards(
   phone: string,
   restaurantId: string
 ) {
-  const supabase = createServerSupabaseClient()
-  const { data: member } = await supabase
-    .from('members')
-    .select('id, points_balance')
-    .eq('phone', phone)
-    .single()
-
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
     return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
   }
@@ -69,14 +58,14 @@ export async function handleRewards(
     return sendTextMessage(phoneNumberId, phone, 'No rewards available yet. Stay tuned!')
   }
 
-  const affordable = rewards.filter((r) => member.points_balance >= r.pointsCost)
+  const affordable = rewards.filter((r) => member.pointsBalance >= r.pointsCost)
 
   if (affordable.length === 0) {
     const cheapest = rewards.reduce((min, r) => r.pointsCost < min.pointsCost ? r : min, rewards[0])
     return sendTextMessage(
       phoneNumberId,
       phone,
-      `You have ${member.points_balance} points. Keep earning to unlock rewards! Next reward: ${cheapest.name} (${cheapest.pointsCost} pts)`
+      `You have ${member.pointsBalance} points. Keep earning to unlock rewards! Next reward: ${cheapest.name} (${cheapest.pointsCost} pts)`
     )
   }
 
@@ -88,7 +77,7 @@ export async function handleRewards(
   return sendInteractiveButtons(
     phoneNumberId,
     phone,
-    `🎁 You have ${member.points_balance} points! Choose a reward:`,
+    `🎁 You have ${member.pointsBalance} points! Choose a reward:`,
     buttons
   )
 }
@@ -99,13 +88,7 @@ export async function handleRewardRedeem(
   rewardId: string,
   restaurantId: string
 ) {
-  const supabase = createServerSupabaseClient()
-  const { data: member } = await supabase
-    .from('members')
-    .select('id')
-    .eq('phone', phone)
-    .single()
-
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
     return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
   }
@@ -126,14 +109,4 @@ export async function handleRewardRedeem(
     console.error('Reward redeem error:', error)
     return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
   }
-}
-
-async function findMemberByPhone(phone: string) {
-  const supabase = createServerSupabaseClient()
-  const { data } = await supabase
-    .from('members')
-    .select('id')
-    .eq('phone', phone)
-    .single()
-  return data
 }

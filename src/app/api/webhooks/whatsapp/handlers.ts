@@ -1,6 +1,6 @@
-import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { registerMember } from '@/application/register-member'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { findPendingReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
@@ -28,7 +28,7 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
       return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
     }
   }
-  if (text === 'POINTS') return handlePoints(phoneNumberId, phone)
+  if (text === 'POINTS') return handlePoints(phoneNumberId, phone, restaurantId)
   if (text.startsWith('REDEEM ')) {
     return handleRedeem(phoneNumberId, phone, text.replace('REDEEM ', '').trim(), restaurantId)
   }
@@ -47,17 +47,15 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
   const handled = await handleReceiptConfirmation(phoneNumberId, phone, text, restaurantId)
   if (handled) return
 
-  return handleUnknown(phoneNumberId, phone)
+  return handleUnknown(phoneNumberId, phone, restaurantId)
 }
 
-async function handlePoints(phoneNumberId: string, phone: string) {
-  const supabase = createServerSupabaseClient()
-  const { data } = await supabase
-    .from('members').select('points_balance, name').eq('phone', phone).single()
-  if (!data) {
+async function handlePoints(phoneNumberId: string, phone: string, restaurantId: string) {
+  const member = await findMemberByPhone(restaurantId, phone)
+  if (!member) {
     return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
   }
-  return sendTextMessage(phoneNumberId, phone, `Your balance: ${data.points_balance} points. Send a receipt photo to earn more!`)
+  return sendTextMessage(phoneNumberId, phone, `Your balance: ${member.pointsBalance} points. Send a receipt photo to earn more!`)
 }
 
 async function handleReceiptImage(
@@ -71,7 +69,7 @@ async function handleReceiptImage(
     return sendTextMessage(phoneNumberId, phone, 'Sorry, I could not retrieve that image. Please try again.')
   }
 
-  const member = await findMemberByPhone(phone)
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
     return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
   }
@@ -99,7 +97,7 @@ async function handleReceiptConfirmation(
 
   if (!isYes && !isNumber) return false
 
-  const member = await findMemberByPhone(phone)
+  const member = await findMemberByPhone(restaurantId, phone)
   if (!member) return false
 
   const pending = await findPendingReceipt(member.id)
@@ -110,8 +108,8 @@ async function handleReceiptConfirmation(
   return true
 }
 
-async function handleUnknown(phoneNumberId: string, phone: string) {
-  const member = await findMemberByPhone(phone)
+async function handleUnknown(phoneNumberId: string, phone: string, restaurantId: string) {
+  const member = await findMemberByPhone(restaurantId, phone)
   if (member) {
     return sendInteractiveButtons(phoneNumberId, phone,
       'How can I help? To redeem a coupon, reply REDEEM <code>. To earn points, send a receipt photo.',
@@ -122,16 +120,6 @@ async function handleUnknown(phoneNumberId: string, phone: string) {
     'Welcome! Join our rewards program to earn points on every visit, unlock exclusive coupons, and get special member-only offers.',
     [{ id: 'JOIN', title: 'Join Rewards' }]
   )
-}
-
-async function findMemberByPhone(phone: string) {
-  const supabase = createServerSupabaseClient()
-  const { data } = await supabase
-    .from('members')
-    .select('id')
-    .eq('phone', phone)
-    .single()
-  return data
 }
 
 function resolveRoute(text: string, type: string): string {
