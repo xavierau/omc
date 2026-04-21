@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/repositories/member-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/reward-repository')
 vi.mock('@/application/register-member')
@@ -22,7 +23,8 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { findPendingReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
+import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { registerMember } from '@/application/register-member'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
@@ -53,9 +55,11 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(undefined)
     vi.mocked(sendInteractiveButtons).mockResolvedValue(undefined)
     vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(updateReceipt).mockResolvedValue(undefined)
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -185,7 +189,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   })
 
   describe('positive paths (member belongs to the current tenant)', () => {
-    it('unknown text: shows member menu when the phone is a member of the current tenant', async () => {
+    it('unknown text: shows localized member menu (EN default) when the phone is a member of the current tenant', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 10, preferredLanguage: null })
 
       await routeMessage(makeMessage({ text: 'Hey' }), RESTAURANT_B)
@@ -194,10 +198,11 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       expect(sendInteractiveButtons).toHaveBeenCalledWith(
         PHONE_NUMBER_ID,
         PHONE,
-        expect.stringContaining('How can I help?'),
+        expect.stringContaining("didn't understand"),
         [
           { id: 'POINTS', title: 'Check Points' },
           { id: 'REWARDS', title: 'View Rewards' },
+          { id: 'HELP', title: 'Help' },
         ]
       )
     })
@@ -296,5 +301,302 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         }
       })
     }
+  })
+
+  // ONBOARD-007: bilingual inbound keywords
+  describe('bilingual inbound keywords (ONBOARD-007)', () => {
+    it('ZH "積分" from member → routes to POINTS (balance reply)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 77,
+        preferredLanguage: 'zh_hk',
+      })
+
+      await routeMessage(makeMessage({ text: '積分' }), RESTAURANT_B)
+
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('77')
+      )
+    })
+
+    it('ZH "幫助" from ZH member → routes to handleHelp with ZH copy', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+
+      await routeMessage(makeMessage({ text: '幫助' }), RESTAURANT_B)
+
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('可用指令')
+      )
+    })
+
+    it('EN "HELP" from EN member → handleHelp with EN copy', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+
+      await routeMessage(makeMessage({ text: 'HELP' }), RESTAURANT_B)
+
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Available commands')
+      )
+    })
+
+    it('ZH "是" with pending receipt → confirm path', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(findPendingReceipt).mockResolvedValue({
+        id: 'rec-1',
+        pending_amount: 99,
+      } as unknown as Record<string, unknown>)
+      vi.mocked(confirmReceipt).mockResolvedValue(undefined)
+
+      await routeMessage(makeMessage({ text: '是' }), RESTAURANT_B)
+
+      expect(confirmReceipt).toHaveBeenCalledWith(
+        'm-b',
+        RESTAURANT_B,
+        PHONE,
+        'rec-1',
+        99
+      )
+    })
+
+    it('ZH "否" with pending receipt → reject path (clears + localized ZH reply)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(findPendingReceipt).mockResolvedValue({
+        id: 'rec-1',
+        pending_amount: 99,
+      } as unknown as Record<string, unknown>)
+
+      await routeMessage(makeMessage({ text: '否' }), RESTAURANT_B)
+
+      expect(updateReceipt).toHaveBeenCalledWith('rec-1', { status: 'rejected' })
+      expect(confirmReceipt).not.toHaveBeenCalled()
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('已取消')
+      )
+    })
+
+    it('EN "NO" with pending receipt → reject path + EN reply', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+      vi.mocked(findPendingReceipt).mockResolvedValue({
+        id: 'rec-2',
+        pending_amount: 50,
+      } as unknown as Record<string, unknown>)
+
+      await routeMessage(makeMessage({ text: 'NO' }), RESTAURANT_B)
+
+      expect(updateReceipt).toHaveBeenCalledWith('rec-2', { status: 'rejected' })
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Receipt cancelled')
+      )
+    })
+
+    it('unknown text from ZH member → ZH reply with both-language hint', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+
+      await routeMessage(makeMessage({ text: 'xyz random' }), RESTAURANT_B)
+
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('不明白'),
+        [
+          { id: 'POINTS', title: '查詢積分' },
+          { id: 'REWARDS', title: '查看獎賞' },
+          { id: 'HELP', title: '幫助' },
+        ]
+      )
+      // Both-language hint present
+      const call = vi.mocked(sendInteractiveButtons).mock.calls[0]
+      expect(call[2]).toContain('POINTS')
+      expect(call[2]).toContain('積分')
+    })
+
+    it('unknown text from EN member → EN reply with both-language hint', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+
+      await routeMessage(makeMessage({ text: 'xyz random' }), RESTAURANT_B)
+
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining("didn't understand"),
+        [
+          { id: 'POINTS', title: 'Check Points' },
+          { id: 'REWARDS', title: 'View Rewards' },
+          { id: 'HELP', title: 'Help' },
+        ]
+      )
+      const call = vi.mocked(sendInteractiveButtons).mock.calls[0]
+      expect(call[2]).toContain('POINTS')
+      expect(call[2]).toContain('積分')
+    })
+
+    it('unknown text from non-member → existing English welcome (regression)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+
+      await routeMessage(makeMessage({ text: 'xyz' }), RESTAURANT_B)
+
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Welcome!'),
+        [{ id: 'JOIN', title: 'Join Rewards' }]
+      )
+    })
+
+    it('unknown text from non-member (restaurant default=zh_hk) → ZH JOIN invite', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+      vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+
+      await routeMessage(makeMessage({ text: 'xyz' }), RESTAURANT_B)
+
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('歡迎'),
+        [{ id: 'JOIN', title: '加入會員' }]
+      )
+    })
+
+    it('HELP from non-member → JOIN invite (not the command list)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+
+      await routeMessage(makeMessage({ text: 'HELP' }), RESTAURANT_B)
+
+      // Must not leak the member-only command list to a non-member.
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Welcome!'),
+        [{ id: 'JOIN', title: 'Join Rewards' }]
+      )
+    })
+
+    it('HELP from non-member (restaurant default=zh_hk) → ZH JOIN invite', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+      vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+
+      await routeMessage(makeMessage({ text: 'HELP' }), RESTAURANT_B)
+
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('歡迎'),
+        [{ id: 'JOIN', title: '加入會員' }]
+      )
+    })
+
+    it('bare "兌換" → routes to handleRewards (not coupon redemption)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 500,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(listActiveRewards).mockResolvedValue([])
+
+      await routeMessage(makeMessage({ text: '兌換' }), RESTAURANT_B)
+
+      expect(listActiveRewards).toHaveBeenCalledWith(RESTAURANT_B)
+      expect(redeemCouponUseCase).not.toHaveBeenCalled()
+    })
+
+    it('"兌換項目" → routes to handleRewards', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 500,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(listActiveRewards).mockResolvedValue([])
+
+      await routeMessage(makeMessage({ text: '兌換項目' }), RESTAURANT_B)
+
+      expect(listActiveRewards).toHaveBeenCalledWith(RESTAURANT_B)
+    })
+
+    it('bare "REDEEM" (uppercase, no argument) → routes to handleRewards', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 500,
+        preferredLanguage: 'en',
+      })
+      vi.mocked(listActiveRewards).mockResolvedValue([])
+
+      await routeMessage(makeMessage({ text: 'REDEEM' }), RESTAURANT_B)
+
+      expect(listActiveRewards).toHaveBeenCalledWith(RESTAURANT_B)
+      expect(redeemCouponUseCase).not.toHaveBeenCalled()
+    })
+
+    it('"REDEEM CODE123" (with code) → still routes to coupon redemption (regression)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+      vi.mocked(redeemCouponUseCase).mockResolvedValue({
+        success: true,
+        message: 'Coupon redeemed!',
+      } as unknown as ReturnType<typeof redeemCouponUseCase> extends Promise<infer R> ? R : never)
+
+      await routeMessage(makeMessage({ text: 'REDEEM CODE123' }), RESTAURANT_B)
+
+      expect(redeemCouponUseCase).toHaveBeenCalledWith('CODE123', 'm-b', RESTAURANT_B)
+    })
+
+    it('ZH "退訂" → routes to handleUnsubscribe (regression)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+
+      await routeMessage(makeMessage({ text: '退訂' }), RESTAURANT_B)
+
+      // Unsubscribe sends an English reply today (out of scope to localize).
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('unsubscribed')
+      )
+    })
   })
 })

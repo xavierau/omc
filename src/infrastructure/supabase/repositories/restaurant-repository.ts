@@ -142,8 +142,3 @@ export async function updateLogoUrl(
   }
 }
 
-export type { OnboardingSettings } from './restaurant-onboarding-repository'
-export {
-  getOnboardingSettings,
-  updateOnboardingSettings,
-} from './restaurant-onboarding-repository'
