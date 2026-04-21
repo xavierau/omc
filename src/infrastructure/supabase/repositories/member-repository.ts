@@ -136,6 +136,7 @@ export async function findMemberByPhone(
 
 export async function updateMemberPreferredLanguage(
   memberId: string,
+  restaurantId: string,
   code: PreferredLanguageCode
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -143,6 +144,7 @@ export async function updateMemberPreferredLanguage(
     .from('members')
     .update({ preferred_language: code })
     .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
   if (error) {
     throw new Error(`updateMemberPreferredLanguage: ${error.message}`)
   }
@@ -151,10 +153,13 @@ export async function updateMemberPreferredLanguage(
 /**
  * Silent-detection variant. Only writes when preferred_language is still null
  * — guards against TOCTOU races where two concurrent inbounds from the same
- * new member both try to persist a detected script.
+ * new member both try to persist a detected script. The `restaurant_id`
+ * clause is defense-in-depth against a mismatched `memberId` crossing
+ * tenants.
  */
 export async function setMemberPreferredLanguageIfUnset(
   memberId: string,
+  restaurantId: string,
   code: PreferredLanguageCode
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -162,6 +167,7 @@ export async function setMemberPreferredLanguageIfUnset(
     .from('members')
     .update({ preferred_language: code })
     .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
     .is('preferred_language', null)
   if (error) {
     throw new Error(`setMemberPreferredLanguageIfUnset: ${error.message}`)

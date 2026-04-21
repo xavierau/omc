@@ -18,12 +18,14 @@ interface Stub {
 }
 
 function buildStub(error: { message: string } | null = null): Stub {
-  const resolved = { error }
+  const resolved = { error, count: error ? 0 : 1 }
   const isFn: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue(resolved)
-  // eq() returns a thenable AND something with .is() for the guarded path.
+  // eq() is chained multiple times (id + restaurant_id) and must itself be
+  // thenable AND expose another .eq() for the next chain step AND expose
+  // .is() for the guarded path.
   const eq: ReturnType<typeof vi.fn> = vi.fn()
-  // Default: a thenable (awaited directly).
   eq.mockImplementation(() => ({
+    eq,
     is: isFn,
     then: (onFulfilled: (v: typeof resolved) => unknown) =>
       Promise.resolve(resolved).then(onFulfilled),
@@ -33,20 +35,23 @@ function buildStub(error: { message: string } | null = null): Stub {
   return { from, update, eq, is: isFn }
 }
 
+const RESTAURANT_ID = 'rest-uuid'
+
 describe('setMemberPreferredLanguageIfUnset', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('includes .is(preferred_language, null) in the WHERE clause to guard TOCTOU', async () => {
+  it('includes .eq(id, ...), .eq(restaurant_id, ...), .is(preferred_language, null) in the WHERE clause', async () => {
     const stub = buildStub()
     vi.mocked(createServerSupabaseClient).mockReturnValue({
       from: stub.from,
     } as never)
 
-    await setMemberPreferredLanguageIfUnset('m-1', 'en')
+    await setMemberPreferredLanguageIfUnset('m-1', RESTAURANT_ID, 'en')
 
     expect(stub.from).toHaveBeenCalledWith('members')
     expect(stub.update).toHaveBeenCalledWith({ preferred_language: 'en' })
     expect(stub.eq).toHaveBeenCalledWith('id', 'm-1')
+    expect(stub.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID)
     expect(stub.is).toHaveBeenCalledWith('preferred_language', null)
   })
 
@@ -57,7 +62,7 @@ describe('setMemberPreferredLanguageIfUnset', () => {
     } as never)
 
     await expect(
-      setMemberPreferredLanguageIfUnset('m-1', 'zh_hk')
+      setMemberPreferredLanguageIfUnset('m-1', RESTAURANT_ID, 'zh_hk')
     ).rejects.toThrow('db down')
   })
 })
@@ -65,15 +70,34 @@ describe('setMemberPreferredLanguageIfUnset', () => {
 describe('updateMemberPreferredLanguage (unconditional, used by explicit LANG command)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('does NOT add a preferred_language=null guard (explicit overwrite)', async () => {
+  it('includes .eq(id, ...) and .eq(restaurant_id, ...) tenant guard without null guard', async () => {
     const stub = buildStub()
     vi.mocked(createServerSupabaseClient).mockReturnValue({
       from: stub.from,
     } as never)
 
-    await updateMemberPreferredLanguage('m-1', 'en')
+    await updateMemberPreferredLanguage('m-1', RESTAURANT_ID, 'en')
 
     expect(stub.update).toHaveBeenCalledWith({ preferred_language: 'en' })
+    expect(stub.eq).toHaveBeenCalledWith('id', 'm-1')
+    expect(stub.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID)
     expect(stub.is).not.toHaveBeenCalled()
+  })
+
+  it('mismatched restaurantId results in 0 rows updated (no-op, no throw)', async () => {
+    // Supabase's .eq('restaurant_id', ...) on a mismatched value returns
+    // `{ error: null, count: 0 }` — the UPDATE affects zero rows. We verify
+    // the query does not throw; the tenant mismatch is silently a no-op,
+    // which is the correct defense-in-depth behavior.
+    const stub = buildStub()
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from: stub.from,
+    } as never)
+
+    await expect(
+      updateMemberPreferredLanguage('m-1', 'wrong-restaurant', 'en')
+    ).resolves.toBeUndefined()
+
+    expect(stub.eq).toHaveBeenCalledWith('restaurant_id', 'wrong-restaurant')
   })
 })

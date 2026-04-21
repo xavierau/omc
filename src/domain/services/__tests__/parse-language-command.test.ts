@@ -49,6 +49,18 @@ describe('parseLanguageCommand', () => {
     it('parses "語言  中文" (multiple spaces) → ZH_HK', () => {
       expect(parseLanguageCommand('語言  中文')).toBe(Language.ZH_HK)
     })
+
+    it('parses 语言 英文 (Simplified 语) → EN', () => {
+      expect(parseLanguageCommand('语言 英文')).toBe(Language.EN)
+    })
+
+    it('parses 语言 中文 (Simplified 语) → ZH_HK', () => {
+      expect(parseLanguageCommand('语言 中文')).toBe(Language.ZH_HK)
+    })
+
+    it('parses " 语言  英文 " (Simplified with extra whitespace) → EN', () => {
+      expect(parseLanguageCommand(' 语言  英文 ')).toBe(Language.EN)
+    })
   })
 
   describe('non-command input', () => {

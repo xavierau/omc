@@ -49,7 +49,7 @@ export async function maybeHandleLanguageCommand(
     return true
   }
 
-  await updateMemberPreferredLanguage(member.id, target.code)
+  await updateMemberPreferredLanguage(member.id, restaurantId, target.code)
   await sendTextMessage(phoneNumberId, phone, confirmationText(target))
   return true
 }
@@ -68,13 +68,14 @@ export async function maybeHandleLanguageCommand(
  */
 export async function maybeDetectLanguageForExistingMember(
   member: PreloadedMember | null,
+  restaurantId: string,
   text: string | null | undefined
 ): Promise<void> {
   if (member === null) return
   if (member.preferredLanguage !== null) return
   const detected = detectLanguageFromText(text)
   if (!detected) return
-  await setMemberPreferredLanguageIfUnset(member.id, detected.code)
+  await setMemberPreferredLanguageIfUnset(member.id, restaurantId, detected.code)
 }
 
 function confirmationText(target: Language): string {

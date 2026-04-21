@@ -5,6 +5,9 @@ import { Language } from '@/domain/value-objects/language'
  *
  *   - ASCII (case-insensitive):  `LANG EN`, `LANG ZH`
  *   - Traditional Chinese:       `語言 英文`, `語言 中文`
+ *   - Simplified Chinese:        `语言 英文`, `语言 中文`
+ *     (HK users occasionally type Simplified `语` due to IME habits;
+ *     `中文`/`英文` are identical in both scripts so only `語`/`语` varies.)
  *
  * Whitespace is trimmed and collapsed before matching. Anything else
  * (empty, null, `LANG FR`, `LANG` alone, arbitrary text) returns null so
@@ -25,8 +28,8 @@ export function parseLanguageCommand(
   if (upper === 'LANG ZH') return Language.ZH_HK
 
   // CJK branch: compare against trimmed (non-uppercased) input — case-insensitivity doesn't apply to CJK characters
-  if (normalized === '語言 英文') return Language.EN
-  if (normalized === '語言 中文') return Language.ZH_HK
+  if (normalized === '語言 英文' || normalized === '语言 英文') return Language.EN
+  if (normalized === '語言 中文' || normalized === '语言 中文') return Language.ZH_HK
 
   return null
 }

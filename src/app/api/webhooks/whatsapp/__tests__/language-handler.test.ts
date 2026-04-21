@@ -64,7 +64,7 @@ describe('maybeHandleLanguageCommand', () => {
     )
 
     expect(handled).toBe(true)
-    expect(updateMemberPreferredLanguage).toHaveBeenCalledWith('m-1', 'en')
+    expect(updateMemberPreferredLanguage).toHaveBeenCalledWith('m-1', RESTAURANT_ID, 'en')
     expect(sendTextMessage).toHaveBeenCalledWith(
       PHONE_NUMBER_ID,
       PHONE,
@@ -85,7 +85,7 @@ describe('maybeHandleLanguageCommand', () => {
     )
 
     expect(handled).toBe(true)
-    expect(updateMemberPreferredLanguage).toHaveBeenCalledWith('m-2', 'zh_hk')
+    expect(updateMemberPreferredLanguage).toHaveBeenCalledWith('m-2', RESTAURANT_ID, 'zh_hk')
     expect(sendTextMessage).toHaveBeenCalledWith(
       PHONE_NUMBER_ID,
       PHONE,
@@ -153,10 +153,11 @@ describe('maybeDetectLanguageForExistingMember', () => {
   it('persists detected Chinese via guarded UPDATE when member.preferredLanguage is null', async () => {
     await maybeDetectLanguageForExistingMember(
       { id: 'm-1', preferredLanguage: null },
+      RESTAURANT_ID,
       '你好 POINTS'
     )
 
-    expect(setMemberPreferredLanguageIfUnset).toHaveBeenCalledWith('m-1', 'zh_hk')
+    expect(setMemberPreferredLanguageIfUnset).toHaveBeenCalledWith('m-1', RESTAURANT_ID, 'zh_hk')
     // Silent-detect must NEVER touch the unguarded update function.
     expect(updateMemberPreferredLanguage).not.toHaveBeenCalled()
   })
@@ -164,15 +165,17 @@ describe('maybeDetectLanguageForExistingMember', () => {
   it('persists detected English via guarded UPDATE when member.preferredLanguage is null', async () => {
     await maybeDetectLanguageForExistingMember(
       { id: 'm-2', preferredLanguage: null },
+      RESTAURANT_ID,
       'POINTS'
     )
 
-    expect(setMemberPreferredLanguageIfUnset).toHaveBeenCalledWith('m-2', 'en')
+    expect(setMemberPreferredLanguageIfUnset).toHaveBeenCalledWith('m-2', RESTAURANT_ID, 'en')
   })
 
   it('no-op when member already has preferred_language set (no DB writes)', async () => {
     await maybeDetectLanguageForExistingMember(
       { id: 'm-3', preferredLanguage: 'en' },
+      RESTAURANT_ID,
       '你好'
     )
 
@@ -183,6 +186,7 @@ describe('maybeDetectLanguageForExistingMember', () => {
   it('no-op when text has no script signal (emoji/symbols)', async () => {
     await maybeDetectLanguageForExistingMember(
       { id: 'm-4', preferredLanguage: null },
+      RESTAURANT_ID,
       '😀👍!!!'
     )
 
@@ -190,7 +194,7 @@ describe('maybeDetectLanguageForExistingMember', () => {
   })
 
   it('no-op when member is null — zero DB access for unknown senders', async () => {
-    await maybeDetectLanguageForExistingMember(null, 'hello')
+    await maybeDetectLanguageForExistingMember(null, RESTAURANT_ID, 'hello')
 
     expect(findMemberByPhone).not.toHaveBeenCalled()
     expect(setMemberPreferredLanguageIfUnset).not.toHaveBeenCalled()
@@ -199,6 +203,7 @@ describe('maybeDetectLanguageForExistingMember', () => {
   it('no-op when text is null (e.g. non-text message)', async () => {
     await maybeDetectLanguageForExistingMember(
       { id: 'm-5', preferredLanguage: null },
+      RESTAURANT_ID,
       null
     )
 

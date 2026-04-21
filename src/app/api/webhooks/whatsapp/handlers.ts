@@ -36,6 +36,7 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
   try {
     await maybeDetectLanguageForExistingMember(
       preloadedMember,
+      restaurantId,
       message.type === 'text' ? message.text : null
     )
   } catch (err) {
