@@ -103,7 +103,7 @@ async function mintCampaignCoupon(
   try {
     const coupon = await createCampaignCoupon(restaurantId, memberId, campaign, name)
     await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
-      console.warn('[onboarding/web] incrementCampaignSent failed:', err)
+      console.warn('[onboarding] welcome campaign counter increment failed:', err)
     })
     return coupon
   } catch {

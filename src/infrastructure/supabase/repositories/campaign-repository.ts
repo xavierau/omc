@@ -99,6 +99,7 @@ export {
   incrementCampaignSent,
   incrementCampaignRedeemed,
   setCampaignChargeable,
+  remapWelcomeCampaign,
 } from './campaign-counters'
 
 export async function transitionCampaignStatus(

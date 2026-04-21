@@ -41,6 +41,31 @@ export async function setCampaignChargeable(
   }
 }
 
+/**
+ * Atomically remap the welcome-campaign mapping for a restaurant:
+ * - Set restaurants.welcome_campaign_id to the next campaign id
+ * - Flip the previous campaign (if any) back to is_chargeable=true
+ * - Flip the next campaign (if any) to is_chargeable=false
+ *
+ * Runs inside a single Postgres function so a mid-sequence failure cannot
+ * leave the tables in an inconsistent state (see migration 027).
+ */
+export async function remapWelcomeCampaign(
+  restaurantId: string,
+  previousCampaignId: string | null,
+  nextCampaignId: string | null
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase.rpc('remap_welcome_campaign', {
+    p_restaurant_id: restaurantId,
+    p_previous_campaign_id: previousCampaignId,
+    p_next_campaign_id: nextCampaignId,
+  })
+  if (error) {
+    throw new Error(`remapWelcomeCampaign: ${error.message}`)
+  }
+}
+
 export async function incrementCampaignRedeemed(id: string): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase.rpc('increment_campaign_redeemed', {

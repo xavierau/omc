@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/button'
 
 function useJoinSubmit(slug: string) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const campaignId = searchParams.get('campaign')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -19,12 +17,10 @@ function useJoinSubmit(slug: string) {
     setError('')
     setLoading(true)
     try {
-      const body: Record<string, string> = { phone, name }
-      if (campaignId) body.campaignId = campaignId
       const res = await fetch(`/api/join/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ phone, name }),
       })
       const data = await res.json()
 

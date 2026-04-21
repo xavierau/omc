@@ -5,7 +5,7 @@ import {
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
   getCampaignById,
-  setCampaignChargeable,
+  remapWelcomeCampaign,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 export class OnboardingSettingsError extends Error {
@@ -26,9 +26,14 @@ export interface UpdateOnboardingInput {
 /**
  * Orchestrates an admin update to a restaurant's onboarding settings.
  *
- * Side effects when welcomeCampaignId changes:
- *   - The OLD welcome campaign (if any) is flipped back to is_chargeable=true.
- *   - The NEW welcome campaign is flipped to is_chargeable=false.
+ * When welcomeCampaignId changes, the mapping write and both
+ * is_chargeable flips are executed in a single server-side Postgres
+ * function (`remap_welcome_campaign`, migration 027) so a mid-sequence
+ * failure cannot leave the mapping and the campaign flags inconsistent.
+ *
+ * When the returning-member template changes in the same PATCH, that
+ * update is still a separate round-trip. The window is small, the caller
+ * is an admin, and template drift has no billing impact — acceptable.
  *
  * Validates that the incoming welcomeCampaignId (when non-null) belongs
  * to the given restaurant — preventing cross-tenant mapping.
@@ -44,13 +49,31 @@ export async function updateOnboardingSettingsForTenant(
     input.welcomeCampaignId !== undefined &&
     input.welcomeCampaignId !== before.welcomeCampaignId
 
-  await updateOnboardingSettings(restaurantId, input)
-
   if (campaignChanged) {
-    await flipChargeabilityFlags(before.welcomeCampaignId, input.welcomeCampaignId ?? null)
+    await remapWelcomeCampaign(
+      restaurantId,
+      before.welcomeCampaignId,
+      input.welcomeCampaignId ?? null
+    )
+    if (input.returningMemberTemplate !== undefined) {
+      await updateOnboardingSettings(restaurantId, {
+        returningMemberTemplate: input.returningMemberTemplate,
+      })
+    }
+  } else {
+    await updateOnboardingSettings(restaurantId, input)
   }
 
-  return getOnboardingSettings(restaurantId)
+  return {
+    welcomeCampaignId:
+      input.welcomeCampaignId !== undefined
+        ? input.welcomeCampaignId
+        : before.welcomeCampaignId,
+    returningMemberTemplate:
+      input.returningMemberTemplate !== undefined
+        ? input.returningMemberTemplate
+        : before.returningMemberTemplate,
+  }
 }
 
 async function validateWelcomeCampaignOwnership(
@@ -75,17 +98,5 @@ async function validateWelcomeCampaignOwnership(
       'only welcome-type campaigns may be mapped',
       400
     )
-  }
-}
-
-async function flipChargeabilityFlags(
-  previousId: string | null,
-  nextId: string | null
-): Promise<void> {
-  if (previousId) {
-    await setCampaignChargeable(previousId, true)
-  }
-  if (nextId) {
-    await setCampaignChargeable(nextId, false)
   }
 }

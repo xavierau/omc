@@ -20,6 +20,9 @@ export function toDraft(settings: OnboardingSettings): OnboardingDraft {
   }
 }
 
+// Trim is used only to detect "effectively empty" input and collapse it to
+// null; the returned value is the ORIGINAL (untrimmed) so intentional leading
+// or trailing whitespace entered by the admin is preserved on save.
 function normalizeNullable(value: string): string | null {
   const trimmed = value.trim()
   return trimmed === '' ? null : value

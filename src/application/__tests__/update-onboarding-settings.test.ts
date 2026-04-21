@@ -10,7 +10,7 @@ import {
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
   getCampaignById,
-  setCampaignChargeable,
+  remapWelcomeCampaign,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import {
   updateOnboardingSettingsForTenant,
@@ -45,7 +45,7 @@ describe('updateOnboardingSettingsForTenant', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(updateOnboardingSettings).mockResolvedValue(undefined)
-    vi.mocked(setCampaignChargeable).mockResolvedValue(undefined)
+    vi.mocked(remapWelcomeCampaign).mockResolvedValue(undefined)
   })
 
   it('rejects cross-tenant welcome campaigns with 403', async () => {
@@ -82,48 +82,70 @@ describe('updateOnboardingSettingsForTenant', () => {
     })
   })
 
-  it('flips is_chargeable on both old and new when welcome campaign changes', async () => {
+  it('remaps atomically via RPC when the welcome campaign changes', async () => {
     vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign({ id: 'camp-new' }))
-    vi.mocked(getOnboardingSettings)
-      .mockResolvedValueOnce({
-        welcomeCampaignId: 'camp-old',
-        returningMemberTemplate: null,
-      })
-      .mockResolvedValueOnce({
-        welcomeCampaignId: 'camp-new',
-        returningMemberTemplate: null,
-      })
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-old',
+      returningMemberTemplate: null,
+    })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
       welcomeCampaignId: 'camp-new',
     })
 
-    expect(setCampaignChargeable).toHaveBeenCalledWith('camp-old', true)
-    expect(setCampaignChargeable).toHaveBeenCalledWith('camp-new', false)
+    expect(remapWelcomeCampaign).toHaveBeenCalledTimes(1)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'camp-old',
+      'camp-new'
+    )
+    // When only the campaign changed, no separate onboarding-settings write
+    // (the RPC handled welcome_campaign_id).
+    expect(updateOnboardingSettings).not.toHaveBeenCalled()
   })
 
-  it('flips the old campaign back to chargeable when clearing the mapping', async () => {
-    vi.mocked(getOnboardingSettings)
-      .mockResolvedValueOnce({
-        welcomeCampaignId: 'camp-old',
-        returningMemberTemplate: null,
-      })
-      .mockResolvedValueOnce({
-        welcomeCampaignId: null,
-        returningMemberTemplate: null,
-      })
+  it('remaps and clears chargeability via RPC when clearing the mapping', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-old',
+      returningMemberTemplate: null,
+    })
 
     await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
       welcomeCampaignId: null,
     })
 
-    expect(setCampaignChargeable).toHaveBeenCalledWith('camp-old', true)
-    // No "new" flip when the mapping is cleared
-    expect(setCampaignChargeable).toHaveBeenCalledTimes(1)
+    expect(remapWelcomeCampaign).toHaveBeenCalledTimes(1)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'camp-old',
+      null
+    )
+  })
+
+  it('writes the template separately when both campaign and template change', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign({ id: 'camp-new' }))
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-old',
+      returningMemberTemplate: null,
+    })
+
+    await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
+      welcomeCampaignId: 'camp-new',
+      returningMemberTemplate: 'Hello back {{name}}',
+    })
+
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'camp-old',
+      'camp-new'
+    )
+    expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
+      returningMemberTemplate: 'Hello back {{name}}',
+    })
   })
 
   it('does not touch chargeability when only the returning template changes', async () => {
-    vi.mocked(getOnboardingSettings).mockResolvedValue({
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-old',
       returningMemberTemplate: null,
     })
@@ -132,16 +154,16 @@ describe('updateOnboardingSettingsForTenant', () => {
       returningMemberTemplate: 'Hello back {{name}}',
     })
 
-    expect(setCampaignChargeable).not.toHaveBeenCalled()
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
     expect(updateOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID, {
       returningMemberTemplate: 'Hello back {{name}}',
     })
   })
 
-  it('returns the latest settings from the repository', async () => {
-    vi.mocked(getOnboardingSettings).mockResolvedValue({
+  it('returns the merged settings without re-fetching from the repository', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: null,
-      returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplate: null,
     })
 
     const result = await updateOnboardingSettingsForTenant(RESTAURANT_ID, {
@@ -152,5 +174,7 @@ describe('updateOnboardingSettingsForTenant', () => {
       welcomeCampaignId: null,
       returningMemberTemplate: 'Hi {{name}}',
     })
+    // Only the initial "before" fetch; no post-write re-fetch.
+    expect(getOnboardingSettings).toHaveBeenCalledTimes(1)
   })
 })

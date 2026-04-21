@@ -80,7 +80,7 @@ async function onboardViaCampaign(
     ctx.contactName ?? ''
   )
   await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
-    console.warn('[onboarding] incrementCampaignSent failed (via campaign):', err)
+    console.warn('[onboarding] welcome campaign counter increment failed:', err)
   })
   // {{name}}/{{code}} aliases support existing campaign-builder templates;
   // {{contactName}}/{{couponCode}} are the onboarding-explicit names.
