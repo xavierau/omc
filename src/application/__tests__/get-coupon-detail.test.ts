@@ -18,7 +18,7 @@ function buildCoupon(overrides: Partial<Coupon> = {}): Coupon {
     id: 'c-1', restaurantId: 'r-1', type: 'promo', code: 'SAVE10',
     status: 'active', memberId: null, expiresAt: null, redeemedAt: null,
     discountType: 'percentage', discountValue: 10, maxUses: null,
-    currentUses: 0, isActive: true, title: null, description: null,
+    currentUses: 0, isActive: true, isChargeable: true, title: null, description: null,
     campaignId: null, createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   }

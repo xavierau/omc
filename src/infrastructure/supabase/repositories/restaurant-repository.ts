@@ -141,3 +141,9 @@ export async function updateLogoUrl(
     throw new Error(`Failed to update logo: ${error.message}`)
   }
 }
+
+export type { OnboardingSettings } from './restaurant-onboarding-repository'
+export {
+  getOnboardingSettings,
+  updateOnboardingSettings,
+} from './restaurant-onboarding-repository'

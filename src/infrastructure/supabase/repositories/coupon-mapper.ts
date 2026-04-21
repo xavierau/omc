@@ -15,6 +15,7 @@ export function mapRowToCoupon(row: Record<string, unknown>): Coupon {
     maxUses: row.max_uses ? Number(row.max_uses) : null,
     currentUses: Number(row.current_uses ?? 0),
     isActive: row.is_active as boolean,
+    isChargeable: (row.is_chargeable as boolean | undefined) ?? true,
     title: (row.title as string) ?? null,
     description: (row.description as string) ?? null,
     campaignId: (row.campaign_id as string) ?? null,
@@ -34,6 +35,13 @@ export interface CreateCouponParams {
   title?: string | null
   description?: string | null
   campaignId?: string | null
+  /**
+   * Stamped chargeability. Defaults to true (billable). Caller passes false
+   * for coupons created under the welcome campaign or any other non-chargeable
+   * flow. The value is STAMPED on the coupon row so that future remaps of
+   * the welcome campaign don't retroactively rewrite billing history.
+   */
+  isChargeable?: boolean
 }
 
 export interface ListCouponsParams {

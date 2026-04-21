@@ -298,6 +298,21 @@
     "campaign": "推廣活動",
     "noCampaign": "無推廣活動"
   },
+  "welcomeSetup": {
+    "title": "歡迎設定",
+    "description": "選擇客戶透過 QR 碼加入時接收的活動，並設定老客戶再次掃描時的訊息。",
+    "campaignLabel": "歡迎活動",
+    "campaignHelper": "當客戶透過 QR 碼加入時，會發送此活動的訊息及優惠券。不會計算為廣播費用。",
+    "noneOption": "— 無（使用預設訊息）—",
+    "returningLabel": "老客戶訊息",
+    "returningHelper": "當現有會員再次掃描 QR 碼時發送。留空以使用預設訊息。",
+    "returningPlaceholder": "例如：歡迎回來 '{{'greeting'}}'！您有 '{{'points'}}' 分。",
+    "insertPlaceholder": "插入",
+    "saveButton": "儲存",
+    "savedToast": "設定已儲存",
+    "saveFailedToast": "儲存失敗",
+    "charCount": "{count} / 1024"
+  },
   "adminNav": {
     "title": "OhMyClient 管理員",
     "overview": "總覽",

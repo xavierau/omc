@@ -1,48 +1,13 @@
 import { createServerSupabaseClient } from '../client'
-import { Campaign, CouponConfig } from '@/domain/entities/campaign'
+import { Campaign } from '@/domain/entities/campaign'
+import {
+  mapRowToCampaign,
+  type CreateCampaignParams,
+  type UpdateCampaignParams,
+} from './campaign-mapper'
 
-export interface CreateCampaignParams {
-  restaurantId: string
-  name: string
-  type: Campaign['type']
-  template: string
-  couponConfig?: CouponConfig | null
-  schedule?: Record<string, unknown> | null
-  scheduledAt?: string | null
-  whatsappTemplateId?: string | null
-  targetAudience?: Campaign['targetAudience']
-  status?: Campaign['status']
-}
-
-export interface UpdateCampaignParams {
-  name?: string
-  template?: string
-  couponConfig?: CouponConfig | null
-  schedule?: Record<string, unknown> | null
-  scheduledAt?: string | null
-  whatsappTemplateId?: string | null
-  targetAudience?: Campaign['targetAudience']
-  status?: Campaign['status']
-}
-
-export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
-  return {
-    id: row.id as string,
-    restaurantId: row.restaurant_id as string,
-    name: (row.name as string) ?? null,
-    type: row.type as Campaign['type'],
-    template: row.template as string,
-    couponConfig: (row.coupon_config as CouponConfig) ?? null,
-    schedule: (row.schedule as Record<string, unknown>) ?? null,
-    scheduledAt: (row.scheduled_at as string) ?? null,
-    status: row.status as Campaign['status'],
-    sentCount: Number(row.sent_count ?? 0),
-    redeemedCount: Number(row.redeemed_count ?? 0),
-    whatsappTemplateId: (row.whatsapp_template_id as string) ?? null,
-    targetAudience: (row.target_audience as Campaign['targetAudience']) ?? 'all',
-    createdAt: row.created_at as string,
-  }
-}
+export type { CreateCampaignParams, UpdateCampaignParams }
+export { mapRowToCampaign }
 
 export async function createCampaign(
   params: CreateCampaignParams
@@ -128,29 +93,13 @@ export async function updateCampaign(
   return mapRowToCampaign(data)
 }
 
-export async function incrementCampaignSent(
-  id: string
-): Promise<void> {
-  const supabase = createServerSupabaseClient()
-  const { error } = await supabase.rpc('increment_campaign_sent', {
-    campaign_id_param: id,
-  })
-  if (error) {
-    throw new Error(`incrementCampaignSent: ${error.message}`)
-  }
-}
-
-export async function incrementCampaignRedeemed(
-  id: string
-): Promise<void> {
-  const supabase = createServerSupabaseClient()
-  const { error } = await supabase.rpc('increment_campaign_redeemed', {
-    campaign_id_param: id,
-  })
-  if (error) {
-    throw new Error(`incrementCampaignRedeemed: ${error.message}`)
-  }
-}
+// Counter mutations (chargeable/non-chargeable sent, redeemed, set-chargeable)
+// live in campaign-counters.ts to keep this file under 150 lines.
+export {
+  incrementCampaignSent,
+  incrementCampaignRedeemed,
+  setCampaignChargeable,
+} from './campaign-counters'
 
 export async function transitionCampaignStatus(
   id: string,
@@ -180,29 +129,8 @@ export async function getDueCampaigns(): Promise<Campaign[]> {
   return (data ?? []).map(mapRowToCampaign)
 }
 
-export async function setCampaignMembers(
-  campaignId: string,
-  memberIds: string[]
-): Promise<void> {
-  const supabase = createServerSupabaseClient()
-  // Delete existing members for this campaign
-  await supabase.from('campaign_members').delete().eq('campaign_id', campaignId)
-  // Insert new members if any
-  if (memberIds.length > 0) {
-    const rows = memberIds.map((mid) => ({ campaign_id: campaignId, member_id: mid }))
-    const { error } = await supabase.from('campaign_members').insert(rows)
-    if (error) throw new Error(`setCampaignMembers: ${error.message}`)
-  }
-}
-
-export async function getCampaignMemberIds(
-  campaignId: string
-): Promise<string[]> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('campaign_members')
-    .select('member_id')
-    .eq('campaign_id', campaignId)
-  if (error) throw new Error(`getCampaignMemberIds: ${error.message}`)
-  return (data ?? []).map((r) => r.member_id as string)
-}
+// Campaign-members operations live in campaign-members-repository.ts.
+export {
+  setCampaignMembers,
+  getCampaignMemberIds,
+} from './campaign-members-repository'

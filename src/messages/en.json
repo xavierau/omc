@@ -298,6 +298,21 @@
     "campaign": "Campaign",
     "noCampaign": "No campaign"
   },
+  "welcomeSetup": {
+    "title": "Welcome Setup",
+    "description": "Pick the campaign that greets customers when they join via the QR code, and set a message for returning members.",
+    "campaignLabel": "Welcome campaign",
+    "campaignHelper": "This campaign's message + coupon will be sent when a customer joins via the QR code. Not billed as a broadcast.",
+    "noneOption": "— None (use default message) —",
+    "returningLabel": "Returning member message",
+    "returningHelper": "Sent when an existing member scans the QR again. Leave blank to use the default.",
+    "returningPlaceholder": "e.g. Welcome back, '{{'greeting'}}'! You have '{{'points'}}' points.",
+    "insertPlaceholder": "Insert",
+    "saveButton": "Save",
+    "savedToast": "Settings saved",
+    "saveFailedToast": "Failed to save settings",
+    "charCount": "{count} / 1024"
+  },
   "adminNav": {
     "title": "OhMyClient Admin",
     "overview": "Overview",

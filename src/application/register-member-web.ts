@@ -1,10 +1,16 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { createCoupon, createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
+import {
+  createWelcomeCoupon,
+  createCampaignCoupon,
+} from '@/infrastructure/supabase/repositories/coupon-factory'
 import { emitEvent } from '@/application/emit-event'
-import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
+import {
+  getCampaignById,
+  incrementCampaignSent,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { generateCouponCode } from '@/domain/value-objects/coupon-code'
-import { renderTemplate } from '@/domain/value-objects/template-vars'
+import type { Campaign } from '@/domain/entities/campaign'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -15,8 +21,7 @@ interface WebRegisterResult {
 export async function registerMemberWeb(
   rawPhone: string,
   contactName: string,
-  restaurantId: string,
-  campaignId?: string
+  restaurantId: string
 ): Promise<WebRegisterResult> {
   const phone = PhoneNumber.create(rawPhone)
   const supabase = createServerSupabaseClient()
@@ -32,15 +37,14 @@ export async function registerMemberWeb(
     return { isNew: false, memberId: existing.id }
   }
 
-  return createNewWebMember(supabase, phone, contactName, restaurantId, campaignId)
+  return createNewWebMember(supabase, phone, contactName, restaurantId)
 }
 
 async function createNewWebMember(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   phone: PhoneNumber,
   name: string,
-  restaurantId: string,
-  campaignId?: string
+  restaurantId: string
 ): Promise<WebRegisterResult> {
   const { data: newMember, error } = await supabase
     .from('members')
@@ -57,68 +61,53 @@ async function createNewWebMember(
     throw new Error(`registerMemberWeb: ${error?.message}`)
   }
 
-  let coupon: { code: string; id: string }
-  if (campaignId) {
-    try {
-      coupon = await createCampaignCoupon(restaurantId, newMember.id, campaignId, name)
-    } catch {
-      // Campaign missing or has no coupon config — fall back to welcome coupon
-      coupon = await createWelcomeCoupon(restaurantId, newMember.id)
-    }
-  } else {
-    coupon = await createWelcomeCoupon(restaurantId, newMember.id)
-  }
+  const campaign = await resolveWelcomeCampaign(restaurantId)
+  const coupon = campaign
+    ? await mintCampaignCoupon(restaurantId, newMember.id, campaign, name)
+    : await createWelcomeCoupon(restaurantId, newMember.id)
 
   await emitEvent({
     restaurantId,
     memberId: newMember.id,
     type: 'join',
-    dataJson: { source: 'web', coupon_code: coupon.code, campaign_id: campaignId ?? null },
+    dataJson: {
+      source: 'web',
+      coupon_code: coupon.code,
+      campaign_id: campaign?.id ?? null,
+    },
   })
 
   return { isNew: true, memberId: newMember.id, couponCode: coupon.code }
 }
 
-async function createCampaignCoupon(
-  restaurantId: string,
-  memberId: string,
-  campaignId: string,
-  memberName: string
-): Promise<{ code: string; id: string }> {
-  const campaign = await getCampaignById(campaignId)
-  if (!campaign?.couponConfig) {
-    throw new Error('Campaign not found or has no coupon config')
-  }
-
-  const expiresAt = new Date(
-    Date.now() + campaign.couponConfig.expiresInDays * 24 * 60 * 60 * 1000
-  ).toISOString()
-
-  const code = generateCouponCode()
-  const discount = formatDiscount(campaign.couponConfig)
-  const description = renderTemplate(campaign.template, {
-    name: memberName,
-    code,
-    discount,
+async function resolveWelcomeCampaign(
+  restaurantId: string
+): Promise<Campaign | null> {
+  const settings = await getOnboardingSettings(restaurantId).catch((err) => {
+    console.warn('[onboarding/web] welcome settings load failed:', err)
+    return null
   })
-  const coupon = await createCoupon({
-    restaurantId,
-    type: 'promo',
-    code,
-    memberId,
-    expiresAt,
-    maxUses: 1,
-    discountType: campaign.couponConfig.discountType,
-    discountValue: campaign.couponConfig.discountValue,
-    campaignId,
-    title: campaign.name ?? null,
-    description,
+  if (!settings?.welcomeCampaignId) return null
+  return getCampaignById(settings.welcomeCampaignId).catch((err) => {
+    console.warn('[onboarding/web] welcome campaign lookup failed:', err)
+    return null
   })
-
-  return { code: coupon.code, id: coupon.id }
 }
 
-function formatDiscount(config: { discountType: string; discountValue: number }): string {
-  if (config.discountType === 'percentage') return `${config.discountValue}%`
-  return `HK$${config.discountValue}`
+async function mintCampaignCoupon(
+  restaurantId: string,
+  memberId: string,
+  campaign: Campaign,
+  name: string
+): Promise<{ code: string; id: string }> {
+  try {
+    const coupon = await createCampaignCoupon(restaurantId, memberId, campaign, name)
+    await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
+      console.warn('[onboarding/web] incrementCampaignSent failed:', err)
+    })
+    return coupon
+  } catch {
+    // Campaign mapping exists but is broken (no coupon_config). Fall back.
+    return createWelcomeCoupon(restaurantId, memberId)
+  }
 }

@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { aggregateRedemptionsByTenant } from '../coupon-redemption-repository'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  aggregateRedemptionsByTenant,
+  getRedemptionCountsByTenantForMonth,
+} from '../coupon-redemption-repository'
+
+vi.mock('../../client', () => ({
+  createServerSupabaseClient: vi.fn(),
+}))
+
+import { createServerSupabaseClient } from '../../client'
 
 describe('aggregateRedemptionsByTenant', () => {
   it('returns correct counts grouped by restaurant', () => {
@@ -53,5 +62,46 @@ describe('aggregateRedemptionsByTenant', () => {
     expect(result).toEqual([
       { restaurantId: 'r1', redemptionCount: 2 },
     ])
+  })
+})
+
+describe('getRedemptionCountsByTenantForMonth', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function buildMock(rows: Array<{ restaurant_id: string }>, error: { message: string } | null = null) {
+    const lt = vi.fn().mockResolvedValue({ data: rows, error })
+    const gte = vi.fn().mockReturnValue({ lt })
+    const eq = vi.fn().mockReturnValue({ gte })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    return { from, select, eq, gte, lt }
+  }
+
+  it('filters redemptions to chargeable coupons only (welcome coupons excluded)', async () => {
+    // Only the chargeable rows come back — the welcome-coupon redemption is
+    // filtered out at the DB level by the is_chargeable=true predicate.
+    const m = buildMock([{ restaurant_id: 'r1' }, { restaurant_id: 'r2' }])
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: m.from } as never)
+
+    const result = await getRedemptionCountsByTenantForMonth(
+      '2026-04-01T00:00:00Z',
+      '2026-05-01T00:00:00Z'
+    )
+
+    expect(m.select).toHaveBeenCalledWith('restaurant_id, coupons!inner(is_chargeable)')
+    expect(m.eq).toHaveBeenCalledWith('coupons.is_chargeable', true)
+    expect(result).toEqual([
+      { restaurantId: 'r1', redemptionCount: 1 },
+      { restaurantId: 'r2', redemptionCount: 1 },
+    ])
+  })
+
+  it('throws with a descriptive message when the query fails', async () => {
+    const m = buildMock([], { message: 'boom' })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: m.from } as never)
+
+    await expect(
+      getRedemptionCountsByTenantForMonth('2026-04-01T00:00:00Z', '2026-05-01T00:00:00Z')
+    ).rejects.toThrow('getRedemptionCountsByTenantForMonth: boom')
   })
 })

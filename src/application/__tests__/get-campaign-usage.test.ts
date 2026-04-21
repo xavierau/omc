@@ -26,7 +26,9 @@ function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'completed',
-    sentCount: 100,
+    isChargeable: true,
+    chargeableSentCount: 100,
+    nonChargeableSentCount: 0,
     redeemedCount: 10,
     whatsappTemplateId: null,
     targetAudience: 'all',
@@ -40,7 +42,7 @@ beforeEach(() => vi.clearAllMocks())
 describe('getCampaignUsage', () => {
   it('returns campaigns mapped with correct cost calculations', async () => {
     mockGetCampaigns.mockResolvedValue([
-      makeCampaign({ id: 'c1', name: 'Promo A', sentCount: 100 }),
+      makeCampaign({ id: 'c1', name: 'Promo A', chargeableSentCount: 100 }),
     ])
 
     const result = await getCampaignUsage(RESTAURANT_ID, '2026-04')
@@ -56,10 +58,14 @@ describe('getCampaignUsage', () => {
     })
   })
 
-  it('sums totalSent and totalEstimatedCost correctly', async () => {
+  it('sums totalSent across chargeable+non-chargeable and computes total cost', async () => {
     mockGetCampaigns.mockResolvedValue([
-      makeCampaign({ id: 'c1', sentCount: 100 }),
-      makeCampaign({ id: 'c2', sentCount: 200 }),
+      makeCampaign({ id: 'c1', chargeableSentCount: 100 }),
+      makeCampaign({
+        id: 'c2',
+        chargeableSentCount: 150,
+        nonChargeableSentCount: 50,
+      }),
     ])
 
     const result = await getCampaignUsage(RESTAURANT_ID, '2026-04')

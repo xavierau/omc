@@ -45,8 +45,9 @@ export async function POST(
       return NextResponse.json({ error: 'Missing or invalid name' }, { status: 400 })
     }
 
-    const campaignId = body.campaignId ?? request.nextUrl.searchParams.get('campaign') ?? undefined
-    const result = await registerMemberWeb(phone, name, restaurant.id, campaignId)
+    // The welcome campaign is now resolved from the restaurant's mapping
+    // (see restaurants.welcome_campaign_id), NOT from the QR's query string.
+    const result = await registerMemberWeb(phone, name, restaurant.id)
 
     if (result.isNew) {
       return NextResponse.json({ couponCode: result.couponCode })

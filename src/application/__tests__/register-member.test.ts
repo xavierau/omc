@@ -2,24 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/client')
 vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
+vi.mock('@/infrastructure/supabase/repositories/coupon-factory')
 vi.mock('@/application/emit-event')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/storage')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
+import {
+  createWelcomeCoupon,
+  createCampaignCoupon,
+} from '@/infrastructure/supabase/repositories/coupon-factory'
 import { emitEvent } from '@/application/emit-event'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import {
+  getCampaignById,
+  incrementCampaignSent,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { registerMember } from '../register-member'
+import type { Campaign } from '@/domain/entities/campaign'
 
 const mockSingle = vi.fn()
-const mockEq3 = vi.fn().mockReturnValue({ single: mockSingle })
-const mockEq2 = vi.fn().mockReturnValue({ eq: mockEq3, single: mockSingle })
+const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle })
 const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 })
 const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 })
 const mockInsertSingle = vi.fn()
@@ -32,6 +41,32 @@ const RESTAURANT_ID = 'rest-1'
 const PHONE_NUMBER_ID = 'pn-1'
 const VALID_PHONE = '+85291234567'
 
+function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
+  return {
+    id: 'camp-welcome',
+    restaurantId: RESTAURANT_ID,
+    name: 'Welcome',
+    type: 'welcome',
+    template: 'Hi {{contactName}}, here is your code: {{couponCode}}',
+    couponConfig: {
+      discountType: 'percentage',
+      discountValue: 10,
+      expiresInDays: 30,
+    },
+    schedule: null,
+    scheduledAt: null,
+    status: 'active',
+    isChargeable: false,
+    chargeableSentCount: 0,
+    nonChargeableSentCount: 0,
+    redeemedCount: 0,
+    whatsappTemplateId: null,
+    targetAudience: 'all',
+    createdAt: '2026-04-20T00:00:00Z',
+    ...overrides,
+  }
+}
+
 describe('registerMember', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -40,12 +75,18 @@ describe('registerMember', () => {
     vi.mocked(sendTextMessage).mockResolvedValue(undefined)
     vi.mocked(sendImageMessage).mockResolvedValue(undefined)
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
-    vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WELCOME1', id: 'c-1' } as never)
+    vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WELCOME1', id: 'c-1' })
+    vi.mocked(createCampaignCoupon).mockResolvedValue({ code: 'MAPPED1', id: 'c-2' })
     vi.mocked(emitEvent).mockResolvedValue(undefined as never)
-    vi.mocked(incrementCampaignSent).mockResolvedValue(undefined as never)
+    vi.mocked(incrementCampaignSent).mockResolvedValue(undefined)
+    vi.mocked(getOnboardingSettings).mockResolvedValue({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+    })
+    vi.mocked(getCampaignById).mockResolvedValue(null)
   })
 
-  it('returns isNew false for existing member', async () => {
+  it('returns isNew=false and sends default greeting for existing unnamed member', async () => {
     mockSingle.mockResolvedValueOnce({
       data: { id: 'm-1', points_balance: 50, name: null },
       error: null,
@@ -59,9 +100,33 @@ describe('registerMember', () => {
       VALID_PHONE,
       expect.stringContaining('Welcome back!')
     )
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      expect.stringContaining('50 points')
+    )
   })
 
-  it('includes name in greeting for existing member with name', async () => {
+  it('uses returning_member_template when configured', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: null,
+      returningMemberTemplate: 'Welcome home {{greeting}} — {{points}} pts',
+    })
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'm-2', points_balance: 100, name: 'Alice' },
+      error: null,
+    })
+
+    await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      'Welcome home Welcome back, Alice! — 100 pts'
+    )
+  })
+
+  it('includes name in default greeting for existing named member', async () => {
     mockSingle.mockResolvedValueOnce({
       data: { id: 'm-2', points_balance: 100, name: 'Alice' },
       error: null,
@@ -76,13 +141,9 @@ describe('registerMember', () => {
     )
   })
 
-  it('creates new member with coupon and events', async () => {
-    // First call: member lookup returns null
+  it('creates new member with hardcoded welcome when no welcome campaign is mapped', async () => {
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
-    // Second call: insert returns new member
     mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
-    // Third call: campaign lookup returns null
-    mockSingle.mockResolvedValueOnce({ data: null, error: null })
 
     const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
 
@@ -93,37 +154,64 @@ describe('registerMember', () => {
       couponCode: 'WELCOME1',
     })
     expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+    expect(createCampaignCoupon).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
     expect(emitEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        restaurantId: RESTAURANT_ID,
-        memberId: 'm-new',
-        type: 'join',
-      })
+      expect.objectContaining({ restaurantId: RESTAURANT_ID, memberId: 'm-new', type: 'join' })
     )
     expect(sendTextMessage).toHaveBeenCalledWith(
       PHONE_NUMBER_ID,
       VALID_PHONE,
-      expect.stringContaining('Bob')
+      'Welcome to our loyalty program, Bob!\n\nYou\'ve received a welcome gift!\nUse code: WELCOME1\n\nReply POINTS to check balance, or send a receipt photo to earn points.'
     )
   })
 
-  it('increments campaign sent for active welcome campaign', async () => {
+  it('uses mapped welcome campaign: renders template, creates campaign coupon, increments non-chargeable counter', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-welcome',
+      returningMemberTemplate: null,
+    })
+    vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign())
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
     mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'camp-1', template: 'Hello {{name}}' },
-      error: null,
-    })
 
-    await registerMember(RESTAURANT_ID, VALID_PHONE)
+    const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Carol')
 
-    expect(incrementCampaignSent).toHaveBeenCalledWith('camp-1')
+    expect(result.couponCode).toBe('MAPPED1')
+    expect(createCampaignCoupon).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'm-new',
+      expect.objectContaining({ id: 'camp-welcome', isChargeable: false }),
+      'Carol'
+    )
+    expect(createWelcomeCoupon).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).toHaveBeenCalledWith('camp-welcome', false)
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      'Hi Carol, here is your code: MAPPED1'
+    )
   })
 
-  it('catches QR send failure gracefully', async () => {
+  it('falls back to hardcoded text when mapped welcome campaign is missing', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-missing',
+      returningMemberTemplate: null,
+    })
+    vi.mocked(getCampaignById).mockResolvedValueOnce(null)
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
     mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+    const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+    expect(result.couponCode).toBe('WELCOME1')
+    expect(createWelcomeCoupon).toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+  })
+
+  it('catches coupon QR upload failure gracefully', async () => {
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
+    mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
     vi.mocked(uploadCouponQr).mockRejectedValueOnce(new Error('upload failed'))
 
     const result = await registerMember(RESTAURANT_ID, VALID_PHONE)

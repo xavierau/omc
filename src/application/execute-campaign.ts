@@ -5,7 +5,7 @@ import { emitEvent } from '@/application/emit-event'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
-import { renderTemplate } from '@/domain/value-objects/template-vars'
+import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { checkCampaignGuardrails } from './check-campaign-guardrails'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
@@ -87,7 +87,7 @@ async function sendToMember(
     await sendTextMessage(phoneNumberId, member.phone, text)
   }
   await sendCouponQr(phoneNumberId, member.phone, code)
-  await incrementCampaignSent(campaign.id)
+  await incrementCampaignSent(campaign.id, campaign.isChargeable)
   await emitEvent({
     restaurantId: campaign.restaurantId,
     memberId: member.id,
@@ -157,6 +157,7 @@ async function createCampaignCoupon(
     discountType: config?.discountType ?? null,
     discountValue: config?.discountValue ?? null,
     maxUses: 1,
+    isChargeable: campaign.isChargeable,
     title: campaign.name ?? null,
     description,
   })
