@@ -6,6 +6,9 @@ import { RECEIPT_CONFIDENCE_THRESHOLD } from '@/lib/constants'
 import { awardPoints } from './award-points'
 import { validateReceipt } from './validate-receipt'
 import { verifyReceiptLayout } from './verify-receipt-layout'
+import { resolveLanguageForReceipt } from './resolve-receipt-language'
+import { confirmTotalPrompt, receiptUnreadableMessage, receiptProcessingErrorMessage, rejectionMessage } from './messages/confirm-receipt-messages'
+import { Language } from '@/domain/value-objects/language'
 import type { ParsedReceipt } from '@/domain/interfaces/parsed-receipt'
 
 export async function processReceipt(
@@ -16,23 +19,14 @@ export async function processReceipt(
   imageId?: string,
   phoneNumberId?: string
 ): Promise<void> {
-  const receiptId = await createReceipt({
-    memberId,
-    restaurantId,
-    imageUrl,
-    status: 'processing',
-  })
-
+  const receiptId = await createReceipt({ memberId, restaurantId, imageUrl, status: 'processing' })
   try {
     const callbackUrl = buildCallbackUrl(receiptId)
-    console.log('[processReceipt] submitting to FlowForge', { receiptId, callbackUrl, imageId, phoneNumberId })
     const jobId = await submitReceiptExtraction({ imageUrl, imageId, phoneNumberId, callbackUrl })
-    console.log('[processReceipt] FlowForge job created', { receiptId, jobId })
     await updateReceipt(receiptId, { flowforge_job_id: jobId })
-    console.log('[processReceipt] job_id saved to receipt')
   } catch (error) {
     console.error('[processReceipt] submission error:', error)
-    await markRejectedAndNotify(receiptId, restaurantId, phone)
+    await markRejectedAndNotify(receiptId, memberId, restaurantId, phone)
   }
 }
 
@@ -46,43 +40,48 @@ export async function handleParseResult(params: {
   imageUrl?: string
 }): Promise<void> {
   const { receiptId, memberId, restaurantId, phoneNumberId, phone, parsed, imageUrl } = params
+  const language = await resolveLanguageForReceipt(memberId, restaurantId)
 
   if (parsed.confidence === 0 || parsed.total === 0) {
     await updateReceipt(receiptId, { status: 'rejected', confidence: parsed.confidence })
-    await sendTextMessage(phoneNumberId, phone, "Sorry, I couldn't read that receipt. Could you take a clearer photo?")
+    await sendTextMessage(phoneNumberId, phone, receiptUnreadableMessage(language))
     return
   }
 
   const validation = await validateReceipt({ parsed, restaurantId })
   if (!validation.valid) {
-    await updateReceipt(receiptId, {
-      status: 'rejected',
-      receipt_number: parsed.receiptNumber ?? undefined,
-      merchant_name: parsed.merchantName ?? undefined,
-      tamper_flags: parsed.tamperAssessment
-        ? { isSuspicious: parsed.tamperAssessment.isSuspicious, reasons: parsed.tamperAssessment.reasons }
-        : undefined,
-    })
-    await sendTextMessage(phoneNumberId, phone, validation.rejectionReason!)
+    await rejectValidationFailure(receiptId, parsed)
+    await sendTextMessage(phoneNumberId, phone, rejectionMessage(validation.reason!, language))
     return
   }
 
   if (parsed.confidence >= RECEIPT_CONFIDENCE_THRESHOLD) {
-    await awardPoints({ receiptId, memberId, restaurantId, phoneNumberId, amount: parsed.total, parsed, phone })
-    triggerLayoutVerification(receiptId, restaurantId, imageUrl)
-    return
+    await awardPoints({ receiptId, memberId, restaurantId, phoneNumberId, amount: parsed.total, parsed, phone, language })
+  } else {
+    await requestConfirmation({ receiptId, parsed, phoneNumberId, phone, language })
   }
-
-  await requestConfirmation(receiptId, parsed, phoneNumberId, phone)
   triggerLayoutVerification(receiptId, restaurantId, imageUrl)
 }
 
-async function requestConfirmation(
-  receiptId: string,
-  parsed: ParsedReceipt,
-  phoneNumberId: string,
+async function rejectValidationFailure(receiptId: string, parsed: ParsedReceipt): Promise<void> {
+  await updateReceipt(receiptId, {
+    status: 'rejected',
+    receipt_number: parsed.receiptNumber ?? undefined,
+    merchant_name: parsed.merchantName ?? undefined,
+    tamper_flags: parsed.tamperAssessment
+      ? { isSuspicious: parsed.tamperAssessment.isSuspicious, reasons: parsed.tamperAssessment.reasons }
+      : undefined,
+  })
+}
+
+async function requestConfirmation(params: {
+  receiptId: string
+  parsed: ParsedReceipt
+  phoneNumberId: string
   phone: string
-): Promise<void> {
+  language: Language
+}): Promise<void> {
+  const { receiptId, parsed, phoneNumberId, phone, language } = params
   await updateReceipt(receiptId, {
     status: 'pending_confirmation',
     pending_amount: parsed.total,
@@ -92,8 +91,7 @@ async function requestConfirmation(
     receipt_number: parsed.receiptNumber ?? undefined,
     merchant_name: parsed.merchantName ?? undefined,
   })
-  await sendTextMessage(phoneNumberId, phone,
-    `I read your total as $${parsed.total.toFixed(0)}. Is that right?\nReply YES to confirm, or type the correct amount.`)
+  await sendTextMessage(phoneNumberId, phone, confirmTotalPrompt(language, { total: parsed.total }))
 }
 
 export async function confirmReceipt(
@@ -105,14 +103,20 @@ export async function confirmReceipt(
 ): Promise<void> {
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
   const receipt = await getReceiptData(receiptId)
-  await awardPoints({ receiptId, memberId, restaurantId, phoneNumberId, amount: confirmedAmount, parsed: receipt, phone })
+  const language = await resolveLanguageForReceipt(memberId, restaurantId)
+  await awardPoints({
+    receiptId,
+    memberId,
+    restaurantId,
+    phoneNumberId,
+    amount: confirmedAmount,
+    parsed: receipt,
+    phone,
+    language,
+  })
 }
 
-function triggerLayoutVerification(
-  receiptId: string,
-  restaurantId: string,
-  imageUrl?: string
-): void {
+function triggerLayoutVerification(receiptId: string, restaurantId: string, imageUrl?: string): void {
   if (!imageUrl) return
   verifyReceiptLayout({ receiptId, restaurantId, imageUrl }).catch((err) => {
     console.error('[Layout] verification failed:', err)
@@ -126,21 +130,19 @@ function buildCallbackUrl(receiptId: string): string {
 
 async function markRejectedAndNotify(
   receiptId: string,
+  memberId: string,
   restaurantId: string,
   phone: string
 ): Promise<void> {
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
+  const language = await resolveLanguageForReceipt(memberId, restaurantId)
   await updateReceipt(receiptId, { status: 'rejected' })
-  await sendTextMessage(phoneNumberId, phone, 'Sorry, there was an error processing your receipt. Please try again.')
+  await sendTextMessage(phoneNumberId, phone, receiptProcessingErrorMessage(language))
 }
 
 async function getReceiptData(receiptId: string) {
   const { createServerSupabaseClient } = await import('@/infrastructure/supabase/client')
   const supabase = createServerSupabaseClient()
-  const { data } = await supabase
-    .from('receipts')
-    .select('items_json, confidence')
-    .eq('id', receiptId)
-    .single()
+  const { data } = await supabase.from('receipts').select('items_json, confidence').eq('id', receiptId).single()
   return { items: data?.items_json, confidence: data?.confidence }
 }

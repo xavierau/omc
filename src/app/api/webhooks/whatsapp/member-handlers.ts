@@ -4,6 +4,8 @@ import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import { resolveLanguageForMember } from './resolve-language'
+import { getSystemReply } from './system-replies'
 
 export async function handleRedeem(
   phoneNumberId: string,
@@ -13,10 +15,12 @@ export async function handleRedeem(
 ) {
   const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
-    return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
+    const lang = await resolveLanguageForMember(null, restaurantId)
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('nonMember', lang))
   }
 
-  const result = await redeemCouponUseCase(code, member.id, restaurantId)
+  const language = await resolveLanguageForMember(member, restaurantId)
+  const result = await redeemCouponUseCase(code, member.id, restaurantId, language)
   return sendTextMessage(phoneNumberId, phone, result.message)
 }
 
@@ -29,6 +33,7 @@ export async function handleUnsubscribe(
   const member = await findMemberByPhone(restaurantId, phone)
   if (!member) return
 
+  const language = await resolveLanguageForMember(member, restaurantId)
   const supabase = createServerSupabaseClient()
   await supabase.from('members').update({ status: 'unsubscribed' }).eq('id', member.id)
 
@@ -39,7 +44,7 @@ export async function handleUnsubscribe(
     dataJson: {},
   })
 
-  return sendTextMessage(phoneNumberId, phone, "You've been unsubscribed. Reply JOIN anytime to re-join.")
+  return sendTextMessage(phoneNumberId, phone, getSystemReply('unsubscribed', language))
 }
 
 export async function handleRewards(
@@ -49,13 +54,15 @@ export async function handleRewards(
 ) {
   const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
-    return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
+    const lang = await resolveLanguageForMember(null, restaurantId)
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('nonMember', lang))
   }
 
+  const language = await resolveLanguageForMember(member, restaurantId)
   const rewards = await listActiveRewards(restaurantId)
 
   if (rewards.length === 0) {
-    return sendTextMessage(phoneNumberId, phone, 'No rewards available yet. Stay tuned!')
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('rewardsEmpty', language))
   }
 
   const affordable = rewards.filter((r) => member.pointsBalance >= r.pointsCost)
@@ -65,19 +72,26 @@ export async function handleRewards(
     return sendTextMessage(
       phoneNumberId,
       phone,
-      `You have ${member.pointsBalance} points. Keep earning to unlock rewards! Next reward: ${cheapest.name} (${cheapest.pointsCost} pts)`
+      getSystemReply('cantAfford', language, {
+        points: member.pointsBalance,
+        name: cheapest.name,
+        cost: cheapest.pointsCost,
+      })
     )
   }
 
   const buttons = affordable.slice(0, 3).map((r) => ({
     id: `REWARD_${r.id}`,
-    title: `${r.name} (${r.pointsCost}pts)`.slice(0, 20),
+    title: getSystemReply('rewardButton', language, {
+      name: r.name,
+      cost: r.pointsCost,
+    }).slice(0, 20),
   }))
 
   return sendInteractiveButtons(
     phoneNumberId,
     phone,
-    `🎁 You have ${member.pointsBalance} points! Choose a reward:`,
+    getSystemReply('rewardsHeader', language, { points: member.pointsBalance }),
     buttons
   )
 }
@@ -90,8 +104,11 @@ export async function handleRewardRedeem(
 ) {
   const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
-    return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
+    const lang = await resolveLanguageForMember(null, restaurantId)
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('nonMember', lang))
   }
+
+  const language = await resolveLanguageForMember(member, restaurantId)
 
   try {
     const result = await redeemRewardUseCase({
@@ -100,6 +117,7 @@ export async function handleRewardRedeem(
       restaurantId,
       phone,
       phoneNumberId,
+      language,
     })
 
     if (!result.success) {
@@ -107,6 +125,11 @@ export async function handleRewardRedeem(
     }
   } catch (error) {
     console.error('Reward redeem error:', error)
-    return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
+    // Catch-all error text stays English per ONBOARD-008 scope lock.
+    return sendTextMessage(
+      phoneNumberId,
+      phone,
+      'Sorry, something went wrong. Please try again later.'
+    )
   }
 }

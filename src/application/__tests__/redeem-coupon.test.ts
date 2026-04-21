@@ -22,6 +22,7 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
 }))
 
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
+import { Language } from '@/domain/value-objects/language'
 import {
   findCouponByCode,
   redeemCoupon,
@@ -53,7 +54,7 @@ describe('redeemCouponUseCase', () => {
   it('returns failure when coupon is not found', async () => {
     vi.mocked(findCouponByCode).mockResolvedValue(null)
 
-    const result = await redeemCouponUseCase('BAD', 'm-1')
+    const result = await redeemCouponUseCase('BAD', 'm-1', undefined, Language.EN)
 
     expect(result).toEqual({
       success: false,
@@ -66,7 +67,7 @@ describe('redeemCouponUseCase', () => {
       buildCoupon({ isActive: false })
     )
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(false)
     expect(result.message).toContain('no longer active')
@@ -77,7 +78,7 @@ describe('redeemCouponUseCase', () => {
       buildCoupon({ expiresAt: '2020-01-01T00:00:00Z' })
     )
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(false)
     expect(result.message).toContain('expired')
@@ -88,7 +89,7 @@ describe('redeemCouponUseCase', () => {
       buildCoupon({ maxUses: 5, currentUses: 5 })
     )
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(false)
     expect(result.message).toContain('maximum uses')
@@ -100,7 +101,7 @@ describe('redeemCouponUseCase', () => {
     )
     vi.mocked(hasRedeemed).mockResolvedValue(true)
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result).toEqual({
       success: false,
@@ -113,7 +114,7 @@ describe('redeemCouponUseCase', () => {
     vi.mocked(findCouponByCode).mockResolvedValue(coupon)
     vi.mocked(hasRedeemed).mockResolvedValue(false)
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(true)
     expect(result.message).toContain('10% off')
@@ -133,7 +134,7 @@ describe('redeemCouponUseCase', () => {
       new Error('duplicate key value violates unique constraint')
     )
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(decrementCouponUses).toHaveBeenCalledWith('c-1')
     expect(result).toEqual({
@@ -146,7 +147,7 @@ describe('redeemCouponUseCase', () => {
     const coupon = buildCoupon({ type: 'promo' })
     vi.mocked(findCouponByCode).mockResolvedValue(coupon)
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(true)
     expect(redeemCoupon).toHaveBeenCalledWith('c-1')
@@ -162,7 +163,7 @@ describe('redeemCouponUseCase', () => {
       buildCoupon({ campaignId: 'camp-1' })
     )
 
-    await redeemCouponUseCase('TEST01', 'm-1')
+    await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(incrementCampaignRedeemed).toHaveBeenCalledWith('camp-1')
   })
@@ -172,9 +173,76 @@ describe('redeemCouponUseCase', () => {
       buildCoupon({ discountType: 'fixed_amount', discountValue: 20 })
     )
 
-    const result = await redeemCouponUseCase('TEST01', 'm-1')
+    const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.EN)
 
     expect(result.success).toBe(true)
     expect(result.message).toContain('$20')
+  })
+
+  // ONBOARD-008: localized copy
+  describe('localized copy (ONBOARD-008)', () => {
+    it('ZH: returns ZH failure message when coupon is not found', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(null)
+
+      const result = await redeemCouponUseCase('BAD', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.success).toBe(false)
+      expect(result.message).toContain('代碼')
+    })
+
+    it('ZH: returns ZH failure for inactive coupon', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(
+        buildCoupon({ isActive: false })
+      )
+
+      const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.message).toContain('失效')
+    })
+
+    it('ZH: returns ZH failure for expired coupon', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(
+        buildCoupon({ expiresAt: '2020-01-01T00:00:00Z' })
+      )
+
+      const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.message).toContain('過期')
+    })
+
+    it('ZH: returns ZH failure when shared coupon already redeemed', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(
+        buildCoupon({ type: 'shared' })
+      )
+      vi.mocked(hasRedeemed).mockResolvedValue(true)
+
+      const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.success).toBe(false)
+      expect(result.message).toContain('已使用')
+    })
+
+    it('ZH: success message for percentage discount uses 折扣', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(
+        buildCoupon({ discountType: 'percentage', discountValue: 15 })
+      )
+
+      const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.success).toBe(true)
+      expect(result.message).toContain('15%')
+      expect(result.message).toMatch(/折扣|優惠/)
+    })
+
+    it('ZH: success message for fixed discount includes $ amount', async () => {
+      vi.mocked(findCouponByCode).mockResolvedValue(
+        buildCoupon({ discountType: 'fixed_amount', discountValue: 20 })
+      )
+
+      const result = await redeemCouponUseCase('TEST01', 'm-1', undefined, Language.ZH_HK)
+
+      expect(result.success).toBe(true)
+      expect(result.message).toContain('$20')
+    })
   })
 })

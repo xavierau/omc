@@ -1,10 +1,9 @@
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { confirmReceipt } from '@/application/process-receipt'
-import { Language } from '@/domain/value-objects/language'
-import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
+import { receiptCancelledMessage } from '@/application/messages/confirm-receipt-messages'
+import { resolveLanguageForMember } from './resolve-language'
 
 export interface ConfirmationParams {
   phoneNumberId: string
@@ -55,13 +54,6 @@ async function rejectPending(
   restaurantId: string
 ): Promise<void> {
   await updateReceipt(receiptId, { status: 'rejected' })
-  const defaultLanguage = await getRestaurantDefaultLanguage(restaurantId)
-  const lang = resolvePreferredLanguage(member, { defaultLanguage })
-  await sendTextMessage(phoneNumberId, phone, rejectedText(lang))
-}
-
-function rejectedText(lang: Language): string {
-  return lang.equals(Language.EN)
-    ? 'Receipt cancelled. Send a new photo anytime.'
-    : '已取消收據。您可隨時傳送新相片。'
+  const lang = await resolveLanguageForMember(member, restaurantId)
+  await sendTextMessage(phoneNumberId, phone, receiptCancelledMessage(lang))
 }

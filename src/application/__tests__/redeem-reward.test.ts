@@ -39,6 +39,7 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 }))
 
 import { redeemRewardUseCase } from '@/application/redeem-reward'
+import { Language } from '@/domain/value-objects/language'
 import { getRewardById } from '@/infrastructure/supabase/repositories/reward-repository'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
@@ -50,12 +51,14 @@ import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/membe
 function buildReward(overrides = {}) {
   return {
     id: 'rw-1',
+    restaurantId: 'r-1',
     name: 'Free Coffee',
     pointsCost: 50,
     isActive: true,
     discountType: 'percentage' as const,
     discountValue: 100,
     couponExpiryDays: 30,
+    sortOrder: 0,
     ...overrides,
   }
 }
@@ -66,6 +69,7 @@ const defaultParams = {
   restaurantId: 'r-1',
   phone: '85291234567',
   phoneNumberId: 'phone-id-1',
+  language: Language.EN,
 }
 
 function setupMemberBalance(balance: number) {
@@ -153,6 +157,58 @@ describe('redeemRewardUseCase', () => {
         type: 'reward_redeem',
       })
     )
+  })
+
+  // ONBOARD-008: localized copy
+  describe('localized copy (ONBOARD-008)', () => {
+    it('ZH: returns ZH message when reward is not found', async () => {
+      vi.mocked(getRewardById).mockResolvedValue(null)
+
+      const result = await redeemRewardUseCase({
+        ...defaultParams,
+        language: Language.ZH_HK,
+      })
+
+      expect(result).toEqual({ success: false, message: '找不到此獎賞。' })
+    })
+
+    it('ZH: insufficient-points message uses 積分不足', async () => {
+      vi.mocked(getRewardById).mockResolvedValue(buildReward({ pointsCost: 200 }))
+      setupMemberBalance(100)
+
+      const result = await redeemRewardUseCase({
+        ...defaultParams,
+        language: Language.ZH_HK,
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.message).toContain('積分不足')
+      expect(result.message).toContain('100')
+      expect(result.message).toContain('200')
+    })
+
+    it('ZH: celebration message uses 兌換 and 積分', async () => {
+      vi.mocked(getRewardById).mockResolvedValue(buildReward())
+      setupMemberBalance(100)
+
+      await redeemRewardUseCase({ ...defaultParams, language: Language.ZH_HK })
+
+      const call = vi.mocked(sendTextMessage).mock.calls[0]
+      expect(call[2]).toContain('Free Coffee')
+      expect(call[2]).toContain('兌換')
+      expect(call[2]).toContain('積分')
+    })
+
+    it('ZH: QR caption uses 您的代碼', async () => {
+      vi.mocked(getRewardById).mockResolvedValue(buildReward())
+      setupMemberBalance(100)
+
+      await redeemRewardUseCase({ ...defaultParams, language: Language.ZH_HK })
+
+      const call = vi.mocked(sendImageMessage).mock.calls[0]
+      expect(call[3]).toContain('您的代碼')
+      expect(call[3]).toContain('RWD-CODE01')
+    })
   })
 
   it('retries coupon code generation on unique constraint error', async () => {
