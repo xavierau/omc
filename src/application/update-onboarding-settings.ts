@@ -2,11 +2,16 @@ import {
   getOnboardingSettings,
   updateOnboardingSettings,
   type OnboardingSettings,
+  type UpdateOnboardingSettingsChanges,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
   getCampaignById,
   remapWelcomeCampaign,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import type { UpdateOnboardingInput } from './update-onboarding-settings-types'
+import { computeLegacyReturningTemplate } from './update-onboarding-settings-legacy'
+
+export type { UpdateOnboardingInput } from './update-onboarding-settings-types'
 
 export class OnboardingSettingsError extends Error {
   constructor(
@@ -18,25 +23,14 @@ export class OnboardingSettingsError extends Error {
   }
 }
 
-export interface UpdateOnboardingInput {
-  welcomeCampaignId?: string | null
-  returningMemberTemplate?: string | null
-}
-
 /**
  * Orchestrates an admin update to a restaurant's onboarding settings.
  *
- * When welcomeCampaignId changes, the mapping write and both
- * is_chargeable flips are executed in a single server-side Postgres
- * function (`remap_welcome_campaign`, migration 027) so a mid-sequence
- * failure cannot leave the mapping and the campaign flags inconsistent.
- *
- * When the returning-member template changes in the same PATCH, that
- * update is still a separate round-trip. The window is small, the caller
- * is an admin, and template drift has no billing impact — acceptable.
- *
- * Validates that the incoming welcomeCampaignId (when non-null) belongs
- * to the given restaurant — preventing cross-tenant mapping.
+ * The legacy single-value `returningMemberTemplate` field is no longer
+ * accepted as input — the UI writes the bilingual pair. This use case
+ * computes the correct legacy dual-write value from the merged before+patch
+ * state (using the effective `defaultLanguage`) and passes it explicitly to
+ * the repository so sparse patches can't silently corrupt the legacy column.
  */
 export async function updateOnboardingSettingsForTenant(
   restaurantId: string,
@@ -55,24 +49,67 @@ export async function updateOnboardingSettingsForTenant(
       before.welcomeCampaignId,
       input.welcomeCampaignId ?? null
     )
-    if (input.returningMemberTemplate !== undefined) {
-      await updateOnboardingSettings(restaurantId, {
-        returningMemberTemplate: input.returningMemberTemplate,
-      })
+    const nonCampaign = extractNonCampaign(before, input)
+    if (nonCampaign) {
+      await updateOnboardingSettings(restaurantId, nonCampaign)
     }
   } else {
-    await updateOnboardingSettings(restaurantId, input)
+    await updateOnboardingSettings(
+      restaurantId,
+      buildRepoChanges(before, input)
+    )
   }
 
+  return mergeResult(before, input)
+}
+
+function extractNonCampaign(
+  before: OnboardingSettings,
+  input: UpdateOnboardingInput
+): UpdateOnboardingSettingsChanges | null {
+  const changes: UpdateOnboardingSettingsChanges = {}
+  if (input.returningMemberTemplateEn !== undefined) {
+    changes.returningMemberTemplateEn = input.returningMemberTemplateEn
+  }
+  if (input.returningMemberTemplateZhHk !== undefined) {
+    changes.returningMemberTemplateZhHk = input.returningMemberTemplateZhHk
+  }
+  if (input.defaultLanguage !== undefined) {
+    changes.defaultLanguage = input.defaultLanguage
+  }
+  const legacy = computeLegacyReturningTemplate(before, input)
+  if (legacy !== undefined) changes.legacyReturningTemplate = legacy
+  return Object.keys(changes).length > 0 ? changes : null
+}
+
+function buildRepoChanges(
+  before: OnboardingSettings,
+  input: UpdateOnboardingInput
+): UpdateOnboardingSettingsChanges {
+  const changes: UpdateOnboardingSettingsChanges = { ...input }
+  const legacy = computeLegacyReturningTemplate(before, input)
+  if (legacy !== undefined) changes.legacyReturningTemplate = legacy
+  return changes
+}
+
+function mergeResult(
+  before: OnboardingSettings,
+  input: UpdateOnboardingInput
+): OnboardingSettings {
+  const en = input.returningMemberTemplateEn ?? before.returningMemberTemplateEn
+  const zh =
+    input.returningMemberTemplateZhHk ?? before.returningMemberTemplateZhHk
+  const legacy = computeLegacyReturningTemplate(before, input)
   return {
     welcomeCampaignId:
       input.welcomeCampaignId !== undefined
         ? input.welcomeCampaignId
         : before.welcomeCampaignId,
     returningMemberTemplate:
-      input.returningMemberTemplate !== undefined
-        ? input.returningMemberTemplate
-        : before.returningMemberTemplate,
+      legacy !== undefined ? legacy : before.returningMemberTemplate,
+    returningMemberTemplateEn: en,
+    returningMemberTemplateZhHk: zh,
+    defaultLanguage: input.defaultLanguage ?? before.defaultLanguage,
   }
 }
 
@@ -91,8 +128,6 @@ async function validateWelcomeCampaignOwnership(
       403
     )
   }
-  // Mapping a non-welcome (promo/winback) campaign would flip it to
-  // is_chargeable=false and leak billing — reject it.
   if (campaign.type !== 'welcome') {
     throw new OnboardingSettingsError(
       'only welcome-type campaigns may be mapped',

@@ -31,6 +31,16 @@ function patchRequest(body: unknown): NextRequest {
   })
 }
 
+function defaultSettings() {
+  return {
+    welcomeCampaignId: null,
+    returningMemberTemplate: null,
+    returningMemberTemplateEn: null,
+    returningMemberTemplateZhHk: null,
+    defaultLanguage: 'zh_hk' as const,
+  }
+}
+
 describe('GET /api/admin/onboarding-settings', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -42,7 +52,7 @@ describe('GET /api/admin/onboarding-settings', () => {
     expect(response.status).toBe(401)
   })
 
-  it('returns the tenant onboarding settings as JSON', async () => {
+  it('returns the full bilingual settings payload as JSON', async () => {
     vi.mocked(getTenantContext).mockResolvedValueOnce({
       userId: 'u-1',
       restaurantId: RESTAURANT_ID,
@@ -52,6 +62,9 @@ describe('GET /api/admin/onboarding-settings', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: 'Hi',
+      returningMemberTemplateEn: 'Hi',
+      returningMemberTemplateZhHk: '你好',
+      defaultLanguage: 'en',
     })
 
     const response = await GET()
@@ -61,6 +74,9 @@ describe('GET /api/admin/onboarding-settings', () => {
     expect(body).toEqual({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: 'Hi',
+      returningMemberTemplateEn: 'Hi',
+      returningMemberTemplateZhHk: '你好',
+      defaultLanguage: 'en',
     })
   })
 
@@ -71,15 +87,12 @@ describe('GET /api/admin/onboarding-settings', () => {
       role: 'admin',
       tenantStatus: 'active',
     })
-    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
-      welcomeCampaignId: null,
-      returningMemberTemplate: null,
-    })
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce(defaultSettings())
 
     const response = await GET()
     const body = await response.json()
 
-    expect(body).toEqual({ welcomeCampaignId: null, returningMemberTemplate: null })
+    expect(body).toEqual(defaultSettings())
   })
 })
 
@@ -92,10 +105,7 @@ describe('PATCH /api/admin/onboarding-settings', () => {
       role: 'admin',
       tenantStatus: 'active',
     })
-    vi.mocked(updateOnboardingSettingsForTenant).mockResolvedValue({
-      welcomeCampaignId: null,
-      returningMemberTemplate: null,
-    })
+    vi.mocked(updateOnboardingSettingsForTenant).mockResolvedValue(defaultSettings())
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -116,12 +126,54 @@ describe('PATCH /api/admin/onboarding-settings', () => {
     expect(response.status).toBe(400)
   })
 
-  it('returns 400 when returningMemberTemplate exceeds MAX_TEMPLATE_LENGTH (1024)', async () => {
+  it('returns 400 when returningMemberTemplateEn exceeds MAX_TEMPLATE_LENGTH (1024)', async () => {
     const oversize = 'a'.repeat(1025)
-    const response = await PATCH(patchRequest({ returningMemberTemplate: oversize }))
+    const response = await PATCH(
+      patchRequest({ returningMemberTemplateEn: oversize })
+    )
     expect(response.status).toBe(400)
     const body = await response.json()
     expect(body.error).toContain('1024')
+  })
+
+  it('returns 400 when returningMemberTemplateZhHk exceeds MAX_TEMPLATE_LENGTH (1024)', async () => {
+    const oversize = 'a'.repeat(1025)
+    const response = await PATCH(
+      patchRequest({ returningMemberTemplateZhHk: oversize })
+    )
+    expect(response.status).toBe(400)
+  })
+
+  it('rejects the legacy returningMemberTemplate field with 400', async () => {
+    const response = await PATCH(
+      patchRequest({ returningMemberTemplate: 'hi' })
+    )
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toContain('returningMemberTemplate')
+  })
+
+  it('returns 400 for invalid defaultLanguage', async () => {
+    const response = await PATCH(patchRequest({ defaultLanguage: 'fr' }))
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toContain('defaultLanguage')
+  })
+
+  it('accepts valid defaultLanguage "en"', async () => {
+    const response = await PATCH(patchRequest({ defaultLanguage: 'en' }))
+    expect(response.status).toBe(200)
+    expect(updateOnboardingSettingsForTenant).toHaveBeenCalledWith(RESTAURANT_ID, {
+      defaultLanguage: 'en',
+    })
+  })
+
+  it('accepts valid defaultLanguage "zh_hk"', async () => {
+    const response = await PATCH(patchRequest({ defaultLanguage: 'zh_hk' }))
+    expect(response.status).toBe(200)
+    expect(updateOnboardingSettingsForTenant).toHaveBeenCalledWith(RESTAURANT_ID, {
+      defaultLanguage: 'zh_hk',
+    })
   })
 
   it('returns 403 when the application rejects cross-tenant mapping', async () => {
@@ -135,10 +187,7 @@ describe('PATCH /api/admin/onboarding-settings', () => {
   })
 
   it('forwards welcomeCampaignId=null (clear mapping) to the service', async () => {
-    vi.mocked(updateOnboardingSettingsForTenant).mockResolvedValueOnce({
-      welcomeCampaignId: null,
-      returningMemberTemplate: null,
-    })
+    vi.mocked(updateOnboardingSettingsForTenant).mockResolvedValueOnce(defaultSettings())
 
     const response = await PATCH(patchRequest({ welcomeCampaignId: null }))
 
@@ -148,14 +197,20 @@ describe('PATCH /api/admin/onboarding-settings', () => {
     })
   })
 
-  it('forwards returningMemberTemplate changes and returns latest settings', async () => {
+  it('forwards bilingual changes and returns latest settings', async () => {
     vi.mocked(updateOnboardingSettingsForTenant).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplateEn: 'Hi {{name}}',
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
 
     const response = await PATCH(
-      patchRequest({ returningMemberTemplate: 'Hi {{name}}' })
+      patchRequest({
+        returningMemberTemplateEn: 'Hi {{name}}',
+        defaultLanguage: 'en',
+      })
     )
     const body = await response.json()
 
@@ -163,9 +218,13 @@ describe('PATCH /api/admin/onboarding-settings', () => {
     expect(body).toEqual({
       welcomeCampaignId: 'camp-1',
       returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplateEn: 'Hi {{name}}',
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
     expect(updateOnboardingSettingsForTenant).toHaveBeenCalledWith(RESTAURANT_ID, {
-      returningMemberTemplate: 'Hi {{name}}',
+      returningMemberTemplateEn: 'Hi {{name}}',
+      defaultLanguage: 'en',
     })
   })
 })

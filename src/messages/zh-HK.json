@@ -197,6 +197,12 @@
     "selectTemplate": "選擇範本...",
     "nameRequired": "名稱為必填",
     "templateRequired": "訊息範本為必填",
+    "templateAtLeastOneRequired": "請填寫至少一種語言",
+    "templateTabEn": "英文",
+    "templateTabZhHk": "繁體中文",
+    "tabEn": "EN",
+    "tabZhHk": "繁中",
+    "insertPlaceholder": "插入",
     "editCampaign": "編輯推廣活動",
     "updateError": "更新推廣活動失敗",
     "targetAudience": "目標對象",
@@ -311,7 +317,14 @@
     "saveButton": "儲存",
     "savedToast": "設定已儲存",
     "saveFailedToast": "儲存失敗",
-    "charCount": "{count} / 1024"
+    "charCount": "{count} / 1024",
+    "defaultLanguageLabel": "預設語言",
+    "defaultLanguageHelper": "用於決定傳送給會員的訊息版本。",
+    "languageEn": "英文",
+    "languageZhHk": "繁體中文",
+    "tabEn": "EN",
+    "tabZhHk": "繁中",
+    "missingTranslationWarning": "缺少{language}翻譯"
   },
   "adminNav": {
     "title": "OhMyClient 管理員",

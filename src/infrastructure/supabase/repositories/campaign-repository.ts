@@ -2,6 +2,8 @@ import { createServerSupabaseClient } from '../client'
 import { Campaign } from '@/domain/entities/campaign'
 import {
   mapRowToCampaign,
+  legacyTemplateFromBilingual,
+  buildCampaignUpdateRow,
   type CreateCampaignParams,
   type UpdateCampaignParams,
 } from './campaign-mapper'
@@ -13,13 +15,20 @@ export async function createCampaign(
   params: CreateCampaignParams
 ): Promise<Campaign> {
   const supabase = createServerSupabaseClient()
+  const legacy = legacyTemplateFromBilingual(
+    params.template,
+    params.templateEn,
+    params.templateZhHk
+  )
   const { data, error } = await supabase
     .from('campaigns')
     .insert({
       restaurant_id: params.restaurantId,
       name: params.name,
       type: params.type,
-      template: params.template,
+      template: legacy,
+      template_en: params.templateEn ?? null,
+      template_zh_hk: params.templateZhHk ?? null,
       coupon_config: params.couponConfig ?? null,
       schedule: params.schedule ?? null,
       scheduled_at: params.scheduledAt ?? null,
@@ -69,16 +78,7 @@ export async function updateCampaign(
   changes: UpdateCampaignParams
 ): Promise<Campaign> {
   const supabase = createServerSupabaseClient()
-  const update: Record<string, unknown> = {}
-
-  if (changes.name !== undefined) update.name = changes.name
-  if (changes.template !== undefined) update.template = changes.template
-  if (changes.couponConfig !== undefined) update.coupon_config = changes.couponConfig
-  if (changes.schedule !== undefined) update.schedule = changes.schedule
-  if (changes.scheduledAt !== undefined) update.scheduled_at = changes.scheduledAt
-  if (changes.whatsappTemplateId !== undefined) update.whatsapp_template_id = changes.whatsappTemplateId
-  if (changes.targetAudience !== undefined) update.target_audience = changes.targetAudience
-  if (changes.status !== undefined) update.status = changes.status
+  const update = buildCampaignUpdateRow(changes)
 
   const { data, error } = await supabase
     .from('campaigns')
@@ -93,9 +93,8 @@ export async function updateCampaign(
   return mapRowToCampaign(data)
 }
 
-// Counter mutations (chargeable/non-chargeable sent, redeemed) and the
-// welcome-campaign remap RPC live in campaign-counters.ts to keep this
-// file under 150 lines.
+// Counter mutations and the welcome-campaign remap RPC live in
+// campaign-counters.ts to keep this file under 150 lines.
 export {
   incrementCampaignSent,
   incrementCampaignRedeemed,

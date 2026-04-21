@@ -19,6 +19,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Welcome Campaign',
     type: 'welcome',
     template: 'Hi {{name}}, use {{code}} for {{discount}} off!',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: {
       discountType: 'percentage',
       discountValue: 10,

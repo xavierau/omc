@@ -3,8 +3,11 @@ import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositori
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import { Language } from '@/domain/value-objects/language'
 import { renderTemplate } from '@/domain/services/template-renderer'
+import { resolveReturningMemberTemplate } from './resolve-campaign-template'
 import {
+  buildReturningGreeting,
   defaultReturningText,
   minimalWelcomeText,
 } from './onboarding-defaults'
@@ -58,15 +61,21 @@ async function sendReturning(
   points: number,
   name?: string
 ): Promise<void> {
-  const greeting = name ? `Welcome back, ${name}!` : 'Welcome back!'
   const settings = await getOnboardingSettings(restaurantId).catch((err) => {
     console.warn('[onboarding] returning-member settings load failed:', err)
     return null
   })
-  const tpl = settings?.returningMemberTemplate?.trim()
+  const language = Language.fromCodeOrDefault(
+    settings?.defaultLanguage ?? null,
+    Language.default()
+  )
+  const greeting = buildReturningGreeting(language, name)
+  const tpl = settings
+    ? resolveReturningMemberTemplate(settings, language)
+    : null
   const text = tpl
     ? renderTemplate(tpl, { greeting, points, name: name ?? '' })
-    : defaultReturningText(greeting, points)
+    : defaultReturningText(language, greeting, points)
   await sendTextMessage(phoneNumberId, phone, text)
 }
 
@@ -101,12 +110,31 @@ async function createNewMember(
     })
   } catch (err) {
     console.warn('[register] Post-insert step failed:', (err as Error).message)
-    if (!couponCode) {
-      await sendTextMessage(phoneNumberId, phone.value, minimalWelcomeText(contactName)).catch((sendErr) => {
-        console.warn('[onboarding] welcome message fallback send failed:', sendErr)
-      })
-    }
+    await sendFallbackMinimalWelcome(restaurantId, phoneNumberId, phone.value)
   }
 
   return { isNew: true, memberId: newMember.id, pointsBalance: 0, couponCode }
+}
+
+async function sendFallbackMinimalWelcome(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: string
+): Promise<void> {
+  const language = await resolveFallbackLanguage(restaurantId)
+  await sendTextMessage(
+    phoneNumberId,
+    phone,
+    minimalWelcomeText(language, '')
+  ).catch((sendErr) => {
+    console.warn('[onboarding] welcome message fallback send failed:', sendErr)
+  })
+}
+
+async function resolveFallbackLanguage(restaurantId: string): Promise<Language> {
+  const settings = await getOnboardingSettings(restaurantId).catch(() => null)
+  return Language.fromCodeOrDefault(
+    settings?.defaultLanguage ?? null,
+    Language.default()
+  )
 }

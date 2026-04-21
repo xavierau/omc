@@ -20,6 +20,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Test Campaign',
     type: 'promo',
     template: 'Hello {{name}}',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,

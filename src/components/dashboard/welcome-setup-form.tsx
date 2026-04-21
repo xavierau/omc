@@ -1,21 +1,25 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCampaigns, type Campaign } from '@/hooks/use-campaigns'
 import { useOnboardingSettings } from '@/hooks/use-onboarding-settings'
 import {
-  MAX_TEMPLATE_LENGTH,
   computePatch,
-  insertAtCursor,
   isDirty,
   toDraft,
   type OnboardingDraft,
   type OnboardingPatch,
   type OnboardingSettings,
 } from '@/domain/onboarding/onboarding-settings'
-import { CampaignPicker, ReturningMemberField } from './welcome-setup-fields'
+import type { LanguageCode } from '@/domain/value-objects/language'
+import { BilingualTemplateEditor } from './bilingual-template-editor'
+import {
+  CampaignPicker,
+  DefaultLanguageSelect,
+  PLACEHOLDERS,
+} from './welcome-setup-fields'
 import { SaveRow, type SaveStatus } from './welcome-setup-save-row'
 
 export function WelcomeSetupForm() {
@@ -48,7 +52,6 @@ function WelcomeSetupCard({ settings, campaigns, saving, onSave }: CardProps) {
   const t = useTranslations('welcomeSetup')
   const [draft, setDraft] = useState<OnboardingDraft>(() => toDraft(settings))
   const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' })
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     setDraft(toDraft(settings))
@@ -65,20 +68,6 @@ function WelcomeSetupCard({ settings, campaigns, saving, onSave }: CardProps) {
     }
   }
 
-  function handleInsert(token: string) {
-    const el = textareaRef.current
-    const cursor = el?.selectionStart ?? draft.returningMemberTemplate.length
-    const result = insertAtCursor(draft.returningMemberTemplate, cursor, token)
-    if (result.value.length > MAX_TEMPLATE_LENGTH) return
-    setDraft((d) => ({ ...d, returningMemberTemplate: result.value }))
-    queueMicrotask(() => {
-      const next = textareaRef.current
-      if (!next) return
-      next.focus()
-      next.setSelectionRange(result.cursor, result.cursor)
-    })
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -91,15 +80,47 @@ function WelcomeSetupCard({ settings, campaigns, saving, onSave }: CardProps) {
           onChange={(v) => setDraft((d) => ({ ...d, welcomeCampaignId: v }))}
           campaigns={campaigns}
         />
-        <ReturningMemberField
-          textareaRef={textareaRef}
-          value={draft.returningMemberTemplate}
-          onChange={(v) => setDraft((d) => ({ ...d, returningMemberTemplate: v }))}
-          onInsert={handleInsert}
+        <DefaultLanguageSelect
+          value={draft.defaultLanguage}
+          onChange={(v: LanguageCode) => setDraft((d) => ({ ...d, defaultLanguage: v }))}
         />
+        <ReturningTemplateSection draft={draft} setDraft={setDraft} />
         <SaveRow dirty={dirty} saving={saving} status={status} onSave={handleSave} />
       </CardContent>
     </Card>
+  )
+}
+
+function ReturningTemplateSection({
+  draft,
+  setDraft,
+}: {
+  draft: OnboardingDraft
+  setDraft: React.Dispatch<React.SetStateAction<OnboardingDraft>>
+}) {
+  const t = useTranslations('welcomeSetup')
+  return (
+    <div>
+      <label className="text-sm font-medium text-foreground mb-1 block">
+        {t('returningLabel')}
+      </label>
+      <BilingualTemplateEditor
+        idPrefix="returning-member-template"
+        placeholders={PLACEHOLDERS}
+        value={{
+          en: draft.returningMemberTemplateEn,
+          zhHk: draft.returningMemberTemplateZhHk,
+        }}
+        onChange={(next) =>
+          setDraft((d) => ({
+            ...d,
+            returningMemberTemplateEn: next.en,
+            returningMemberTemplateZhHk: next.zhHk,
+          }))
+        }
+      />
+      <p className="text-xs text-muted-foreground mt-1">{t('returningHelper')}</p>
+    </div>
   )
 }
 

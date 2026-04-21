@@ -197,6 +197,12 @@
     "selectTemplate": "Select a template...",
     "nameRequired": "Name is required",
     "templateRequired": "Template is required",
+    "templateAtLeastOneRequired": "Provide at least one language",
+    "templateTabEn": "English",
+    "templateTabZhHk": "繁體中文",
+    "tabEn": "EN",
+    "tabZhHk": "繁中",
+    "insertPlaceholder": "Insert",
     "editCampaign": "Edit Campaign",
     "updateError": "Failed to update campaign",
     "targetAudience": "Target Audience",
@@ -311,7 +317,14 @@
     "saveButton": "Save",
     "savedToast": "Settings saved",
     "saveFailedToast": "Failed to save settings",
-    "charCount": "{count} / 1024"
+    "charCount": "{count} / 1024",
+    "defaultLanguageLabel": "Default language",
+    "defaultLanguageHelper": "Used to pick which template translation is sent to members.",
+    "languageEn": "English",
+    "languageZhHk": "繁體中文",
+    "tabEn": "EN",
+    "tabZhHk": "繁中",
+    "missingTranslationWarning": "Missing {language} translation"
   },
   "adminNav": {
     "title": "OhMyClient Admin",

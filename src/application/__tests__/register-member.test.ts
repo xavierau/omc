@@ -48,6 +48,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Welcome',
     type: 'welcome',
     template: 'Hi {{contactName}}, here is your code: {{couponCode}}',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: {
       discountType: 'percentage',
       discountValue: 10,
@@ -82,6 +84,9 @@ describe('registerMember', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValue({
       welcomeCampaignId: null,
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
     vi.mocked(getCampaignById).mockResolvedValue(null)
   })
@@ -107,10 +112,40 @@ describe('registerMember', () => {
     )
   })
 
+  it('uses localized zh_hk greeting when default_language is zh_hk', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: '{{greeting}}，您有 {{points}} 積分',
+      defaultLanguage: 'zh_hk',
+    })
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'm-3', points_balance: 42, name: '大文' },
+      error: null,
+    })
+
+    await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      '歡迎回來，大文！，您有 42 積分'
+    )
+    expect(sendTextMessage).not.toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      expect.stringContaining('Welcome back,')
+    )
+  })
+
   it('uses returning_member_template when configured', async () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: null,
-      returningMemberTemplate: 'Welcome home {{greeting}} — {{points}} pts',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: 'Welcome home {{greeting}} — {{points}} pts',
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
     mockSingle.mockResolvedValueOnce({
       data: { id: 'm-2', points_balance: 100, name: 'Alice' },
@@ -170,6 +205,9 @@ describe('registerMember', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-welcome',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign())
     mockSingle.mockResolvedValueOnce({ data: null, error: null })
@@ -197,6 +235,9 @@ describe('registerMember', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-missing',
       returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
     })
     vi.mocked(getCampaignById).mockResolvedValueOnce(null)
     mockSingle.mockResolvedValueOnce({ data: null, error: null })

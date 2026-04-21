@@ -3,7 +3,14 @@ export interface Campaign {
   restaurantId: string
   name: string | null
   type: 'welcome' | 'winback' | 'birthday' | 'promo'
+  /**
+   * Legacy single-value template. Kept during the rolling-deploy window for
+   * read-path compatibility; ONBOARD-005b will drop the column. New code
+   * should prefer `templateEn` / `templateZhHk` via `resolveLocalizedTemplate`.
+   */
   template: string
+  templateEn: string | null
+  templateZhHk: string | null
   couponConfig: CouponConfig | null
   schedule: Record<string, unknown> | null
   scheduledAt: string | null

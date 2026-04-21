@@ -17,6 +17,10 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantPhoneNumberId: vi.fn(),
 }))
 
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository', () => ({
+  getRestaurantDefaultLanguage: vi.fn().mockResolvedValue('zh_hk'),
+}))
+
 vi.mock('@/application/emit-event', () => ({
   emitEvent: vi.fn(),
 }))
@@ -58,7 +62,8 @@ vi.mock('@/application/check-campaign-guardrails', () => ({
   }),
 }))
 
-import { executeCampaign } from '@/application/execute-campaign'
+import { executeCampaign, NoTemplateError } from '@/application/execute-campaign'
+import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
   getCampaignById,
   incrementCampaignSent,
@@ -83,6 +88,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     name: 'Test Campaign',
     type: 'promo',
     template: 'Hi {{name}}, use {{code}} for {{discount}} off!',
+    templateEn: null,
+    templateZhHk: null,
     couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 7 },
     schedule: null,
     scheduledAt: null,
@@ -280,6 +287,47 @@ describe('executeCampaign', () => {
     expect(incrementCampaignSent).toHaveBeenCalledTimes(25)
     expect(emitEvent).toHaveBeenCalledTimes(25)
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+  })
+
+  it('throws NoTemplateError when inline send has no resolvable text in any language', async () => {
+    const campaign = buildCampaign({
+      template: '',
+      templateEn: null,
+      templateZhHk: null,
+      whatsappTemplateId: null,
+    })
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([buildMember()])
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+
+    await expect(executeCampaign('camp-1', 'r-1')).rejects.toBeInstanceOf(
+      NoTemplateError
+    )
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'active' })
+  })
+
+  it('picks bilingual template by restaurant default_language', async () => {
+    const campaign = buildCampaign({
+      template: 'LEGACY',
+      templateEn: 'EN {{name}} {{code}}',
+      templateZhHk: 'ZH {{name}} {{code}}',
+    })
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([buildMember()])
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(renderTemplate).mockImplementation((tpl: string) => tpl)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // The resolved EN template should be what we pass to renderTemplate
+    expect(renderTemplate).toHaveBeenCalledWith(
+      'EN {{name}} {{code}}',
+      expect.any(Object)
+    )
   })
 
   it('uses WhatsApp template when whatsappTemplateId is set', async () => {
