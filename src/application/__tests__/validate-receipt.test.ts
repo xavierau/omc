@@ -28,25 +28,23 @@ describe('validateReceipt', () => {
     vi.mocked(getRestaurantName).mockResolvedValue('Test Restaurant')
   })
 
-  it('rejects tampered receipt', async () => {
+  it('rejects tampered receipt with reason=tamper', async () => {
     const parsed = makeParsed({
       tamperAssessment: { isSuspicious: true, reasons: ['edited'] },
     })
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.rejectionReason).toContain('modified')
+    expect(result).toEqual({ valid: false, reason: 'tamper' })
   })
 
-  it('rejects duplicate receipt number', async () => {
+  it('rejects duplicate receipt number with reason=duplicate', async () => {
     vi.mocked(isReceiptNumberUsed).mockResolvedValue(true)
     const parsed = makeParsed()
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.rejectionReason).toContain('already been submitted')
+    expect(result).toEqual({ valid: false, reason: 'duplicate' })
   })
 
   it('skips duplicate check when receiptNumber is null', async () => {
@@ -58,14 +56,13 @@ describe('validateReceipt', () => {
     expect(result.valid).toBe(true)
   })
 
-  it('rejects merchant mismatch', async () => {
+  it('rejects merchant mismatch with reason=wrong_merchant', async () => {
     vi.mocked(getRestaurantName).mockResolvedValue('Fancy Sushi')
     const parsed = makeParsed({ merchantName: 'Totally Different Place' })
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.rejectionReason).toContain("doesn't appear to be from our restaurant")
+    expect(result).toEqual({ valid: false, reason: 'wrong_merchant' })
   })
 
   it('returns valid for a clean receipt', async () => {

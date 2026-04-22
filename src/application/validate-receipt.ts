@@ -2,11 +2,19 @@ import type { ParsedReceipt } from '@/domain/interfaces/parsed-receipt'
 import { assessTamperRisk, isMerchantMatch } from '@/domain/services/receipt-validation'
 import { isReceiptNumberUsed } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { getRestaurantName } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import type { RejectionReason } from './messages/confirm-receipt-messages'
 
-export interface ValidationResult {
-  valid: boolean
-  rejectionReason?: string
-}
+export type { RejectionReason }
+
+/**
+ * Discriminated union on `valid` so TypeScript can narrow `reason` without a
+ * non-null assertion at the call site. When `valid` is `false`, `reason` is
+ * guaranteed to be present; the adapter maps each code to bilingual copy via
+ * `confirm-receipt-messages.ts`.
+ */
+export type ValidationResult =
+  | { valid: true }
+  | { valid: false; reason: RejectionReason }
 
 export async function validateReceipt(params: {
   parsed: ParsedReceipt
@@ -14,48 +22,35 @@ export async function validateReceipt(params: {
 }): Promise<ValidationResult> {
   const { parsed, restaurantId } = params
 
-  const tamperCheck = checkTamper(parsed)
-  if (tamperCheck) return tamperCheck
+  if (checkTamper(parsed)) return { valid: false, reason: 'tamper' }
 
-  const duplicateCheck = await checkDuplicate(parsed, restaurantId)
-  if (duplicateCheck) return duplicateCheck
+  if (await checkDuplicate(parsed, restaurantId)) {
+    return { valid: false, reason: 'duplicate' }
+  }
 
-  const merchantCheck = await checkMerchant(parsed, restaurantId)
-  if (merchantCheck) return merchantCheck
+  if (await checkWrongMerchant(parsed, restaurantId)) {
+    return { valid: false, reason: 'wrong_merchant' }
+  }
 
   return { valid: true }
 }
 
-function checkTamper(parsed: ParsedReceipt): ValidationResult | null {
-  const tamper = assessTamperRisk(parsed)
-  if (!tamper.isSuspicious) return null
-  return {
-    valid: false,
-    rejectionReason: 'This receipt appears to have been modified. Please submit an original receipt photo.',
-  }
+function checkTamper(parsed: ParsedReceipt): boolean {
+  return assessTamperRisk(parsed).isSuspicious
 }
 
 async function checkDuplicate(
   parsed: ParsedReceipt,
   restaurantId: string
-): Promise<ValidationResult | null> {
-  if (!parsed.receiptNumber) return null
-  const used = await isReceiptNumberUsed(restaurantId, parsed.receiptNumber)
-  if (!used) return null
-  return {
-    valid: false,
-    rejectionReason: 'This receipt has already been submitted. Each receipt can only be used once.',
-  }
+): Promise<boolean> {
+  if (!parsed.receiptNumber) return false
+  return isReceiptNumberUsed(restaurantId, parsed.receiptNumber)
 }
 
-async function checkMerchant(
+async function checkWrongMerchant(
   parsed: ParsedReceipt,
   restaurantId: string
-): Promise<ValidationResult | null> {
+): Promise<boolean> {
   const restaurantName = await getRestaurantName(restaurantId)
-  if (isMerchantMatch(parsed.merchantName, [restaurantName])) return null
-  return {
-    valid: false,
-    rejectionReason: "This receipt doesn't appear to be from our restaurant. Please submit a receipt from our establishment.",
-  }
+  return !isMerchantMatch(parsed.merchantName, [restaurantName])
 }

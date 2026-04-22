@@ -1,8 +1,7 @@
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { Language } from '@/domain/value-objects/language'
-import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
+import { resolveLanguageForMember } from './resolve-language'
 
 const HELP_EN =
   'Available commands:\n' +
@@ -86,10 +85,3 @@ async function sendJoinInvite(
   return sendInteractiveButtons(phoneNumberId, phone, body, [button])
 }
 
-async function resolveLanguageForMember(
-  member: { preferredLanguage: string | null } | null,
-  restaurantId: string
-): Promise<Language> {
-  const defaultLanguage = await getRestaurantDefaultLanguage(restaurantId)
-  return resolvePreferredLanguage(member, { defaultLanguage })
-}

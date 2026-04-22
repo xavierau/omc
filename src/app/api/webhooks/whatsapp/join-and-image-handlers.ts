@@ -3,6 +3,8 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import { registerMember } from '@/application/register-member'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
+import { resolveLanguageForMember } from './resolve-language'
+import { getSystemReply } from './system-replies'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 
@@ -26,6 +28,7 @@ export async function handleJoin(params: JoinParams) {
     return await registerMember(restaurantId, phone, message.contactName, inboundForDetection)
   } catch (error) {
     log('error', 'handler.error', { route: 'JOIN', error: String(error) })
+    // Catch-all error text stays English per ONBOARD-008 scope lock.
     return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
   }
 }
@@ -37,16 +40,18 @@ export async function handleReceiptImage(
   imageUrl?: string,
   imageId?: string
 ) {
-  if (!imageUrl && !imageId) {
-    return sendTextMessage(phoneNumberId, phone, 'Sorry, I could not retrieve that image. Please try again.')
-  }
-
   const member = await findMemberByPhone(restaurantId, phone)
-  if (!member) {
-    return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
+  const language = await resolveLanguageForMember(member, restaurantId)
+
+  if (!imageUrl && !imageId) {
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('receiptImageMissing', language))
   }
 
-  await sendTextMessage(phoneNumberId, phone, 'Got your receipt! Scanning now... this takes about 10 seconds.')
+  if (!member) {
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('nonMember', language))
+  }
+
+  await sendTextMessage(phoneNumberId, phone, getSystemReply('receiptAck', language))
   await enqueueReceiptProcessing({
     restaurantId,
     memberId: member.id,
@@ -64,11 +69,14 @@ export async function handlePoints(
 ) {
   const member = await findMemberByPhone(restaurantId, phone)
   if (!member) {
-    return sendTextMessage(phoneNumberId, phone, "You're not a member yet. Reply JOIN to sign up!")
+    const lang = await resolveLanguageForMember(null, restaurantId)
+    return sendTextMessage(phoneNumberId, phone, getSystemReply('nonMember', lang))
   }
+
+  const language = await resolveLanguageForMember(member, restaurantId)
   return sendTextMessage(
     phoneNumberId,
     phone,
-    `Your balance: ${member.pointsBalance} points. Send a receipt photo to earn more!`
+    getSystemReply('balance', language, { points: member.pointsBalance })
   )
 }

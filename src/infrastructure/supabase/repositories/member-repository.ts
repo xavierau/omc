@@ -134,6 +134,29 @@ export async function findMemberByPhone(
   }
 }
 
+/**
+ * Tenant-scoped lookup of a single member's preferred-language code. Used by
+ * the receipt-processing flow (which only has the memberId in context) to
+ * localize the confirmation prompt and rejection reasons.
+ *
+ * Returns `null` when the member does not exist, the restaurant scope does
+ * not match, or the member has not expressed a language preference.
+ */
+export async function getMemberPreferredLanguage(
+  memberId: string,
+  restaurantId: string
+): Promise<string | null> {
+  const supabase = createServerSupabaseClient()
+  const { data } = await supabase
+    .from('members')
+    .select('preferred_language')
+    .eq('id', memberId)
+    .eq('restaurant_id', restaurantId)
+    .single()
+  if (!data) return null
+  return (data.preferred_language as string | null) ?? null
+}
+
 export async function updateMemberPreferredLanguage(
   memberId: string,
   restaurantId: string,

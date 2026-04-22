@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/infrastructure/flowforge/client')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
+vi.mock('@/infrastructure/supabase/repositories/member-repository')
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/client')
 vi.mock('@/application/award-points')
@@ -12,6 +14,8 @@ vi.mock('@/application/verify-receipt-layout')
 import { submitReceiptExtraction } from '@/infrastructure/flowforge/client'
 import { createReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getMemberPreferredLanguage } from '@/infrastructure/supabase/repositories/member-repository'
+import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { awardPoints } from '@/application/award-points'
 import { validateReceipt } from '@/application/validate-receipt'
@@ -49,6 +53,8 @@ describe('handleParseResult', () => {
     vi.mocked(awardPoints).mockResolvedValue(undefined)
     vi.mocked(validateReceipt).mockResolvedValue({ valid: true })
     vi.mocked(verifyReceiptLayout).mockResolvedValue(undefined)
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue(null)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
   })
 
   it('rejects when confidence is 0', async () => {
@@ -70,17 +76,88 @@ describe('handleParseResult', () => {
     expect(awardPoints).not.toHaveBeenCalled()
   })
 
-  it('rejects when validation fails', async () => {
-    vi.mocked(validateReceipt).mockResolvedValue({
-      valid: false,
-      rejectionReason: 'This receipt appears to have been modified.',
-    })
+  it('rejects when validation fails with reason=tamper (EN)', async () => {
+    vi.mocked(validateReceipt).mockResolvedValue({ valid: false, reason: 'tamper' })
 
     await handleParseResult(BASE_PARAMS)
 
     expect(updateReceipt).toHaveBeenCalledWith('rec-1', expect.objectContaining({ status: 'rejected' }))
-    expect(sendTextMessage).toHaveBeenCalledWith('pn-1', '+85291234567', 'This receipt appears to have been modified.')
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('modified')
+    )
     expect(awardPoints).not.toHaveBeenCalled()
+  })
+
+  it('ZH member: rejects with ZH tamper message', async () => {
+    vi.mocked(validateReceipt).mockResolvedValue({ valid: false, reason: 'tamper' })
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+
+    await handleParseResult(BASE_PARAMS)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('修改')
+    )
+  })
+
+  it('ZH member: rejects with ZH duplicate message', async () => {
+    vi.mocked(validateReceipt).mockResolvedValue({ valid: false, reason: 'duplicate' })
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+
+    await handleParseResult(BASE_PARAMS)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('已提交')
+    )
+  })
+
+  it('ZH member: rejects with ZH wrong-merchant message', async () => {
+    vi.mocked(validateReceipt).mockResolvedValue({ valid: false, reason: 'wrong_merchant' })
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+
+    await handleParseResult(BASE_PARAMS)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringMatching(/非本店|非.*收據/)
+    )
+  })
+
+  it('ZH member: confirmation prompt uses ZH copy', async () => {
+    const parsed = makeParsed({ confidence: 0.5, total: 150 })
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+
+    await handleParseResult({ ...BASE_PARAMS, parsed })
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('$150')
+    )
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('金額')
+    )
+  })
+
+  it('ZH member: unreadable-receipt reply uses ZH copy', async () => {
+    const parsed = makeParsed({ confidence: 0 })
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+
+    await handleParseResult({ ...BASE_PARAMS, parsed })
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'pn-1',
+      '+85291234567',
+      expect.stringContaining('無法讀取')
+    )
   })
 
   it('awards points when confidence >= 0.8', async () => {
@@ -121,6 +198,8 @@ describe('processReceipt', () => {
     vi.mocked(submitReceiptExtraction).mockResolvedValue('job-123')
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('pn-1')
     vi.mocked(sendTextMessage).mockResolvedValue(undefined)
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue(null)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
   })
 
   it('creates receipt and submits to FlowForge', async () => {
@@ -148,6 +227,8 @@ describe('confirmReceipt', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('pn-1')
     vi.mocked(awardPoints).mockResolvedValue(undefined)
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue(null)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
   })
 
   it('fetches phoneNumberId and awards points with confirmed amount', async () => {
@@ -172,5 +253,28 @@ describe('confirmReceipt', () => {
     expect(awardPoints).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 250, receiptId: 'rec-1' })
     )
+  })
+
+  it('ZH member: forwards Language.ZH_HK to awardPoints', async () => {
+    vi.mocked(getMemberPreferredLanguage).mockResolvedValue('zh_hk')
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { items_json: [], confidence: 0.5 },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    }
+    const { createServerSupabaseClient } = await import('@/infrastructure/supabase/client')
+    vi.mocked(createServerSupabaseClient).mockReturnValue(mockSupabase as never)
+
+    await confirmReceipt('m-1', 'rest-1', '+852912', 'rec-1', 100)
+
+    const call = vi.mocked(awardPoints).mock.calls[0][0] as unknown as { language: { code: string } }
+    expect(call.language.code).toBe('zh_hk')
   })
 })

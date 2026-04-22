@@ -10,6 +10,7 @@ import { emitEvent } from '@/application/emit-event'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
 import { awardPoints } from '../award-points'
+import { Language } from '@/domain/value-objects/language'
 
 const BASE_PARAMS = {
   receiptId: 'r-1',
@@ -19,6 +20,7 @@ const BASE_PARAMS = {
   amount: 100,
   parsed: { confidence: 0.95, receiptNumber: 'RN-001', merchantName: 'Test' },
   phone: '+85291234567',
+  language: Language.EN,
 }
 
 describe('awardPoints', () => {
@@ -85,5 +87,16 @@ describe('awardPoints', () => {
         dataJson: expect.objectContaining({ amount: 10, reason: 'receipt' }),
       })
     )
+  })
+
+  // ONBOARD-008: localized copy
+  it('ZH: sends ZH points-earned message with 積分 and 繼續努力', async () => {
+    await awardPoints({ ...BASE_PARAMS, language: Language.ZH_HK })
+
+    const call = vi.mocked(sendTextMessage).mock.calls[0]
+    expect(call[2]).toContain('積分')
+    expect(call[2]).toContain('10')
+    expect(call[2]).toContain('60')
+    expect(call[2]).toMatch(/繼續|加油/)
   })
 })
