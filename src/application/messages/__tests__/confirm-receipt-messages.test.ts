@@ -8,6 +8,7 @@ import {
   receiptTamperedMessage,
   receiptProcessingErrorMessage,
   receiptCancelledMessage,
+  rejectionMessage,
 } from '../confirm-receipt-messages'
 
 describe('confirm-receipt-messages', () => {
@@ -106,6 +107,44 @@ describe('confirm-receipt-messages', () => {
       const text = receiptProcessingErrorMessage(Language.ZH_HK)
       // Error/catch-all text stays English per scope lock.
       expect(text.toLowerCase()).toContain('error')
+    })
+  })
+
+  describe('rejectionMessage', () => {
+    it('tamper × EN — maps to tampered English message', () => {
+      expect(rejectionMessage('tamper', Language.EN)).toBe(
+        receiptTamperedMessage(Language.EN)
+      )
+    })
+
+    it('tamper × ZH_HK — maps to tampered zh-HK message', () => {
+      expect(rejectionMessage('tamper', Language.ZH_HK)).toBe(
+        receiptTamperedMessage(Language.ZH_HK)
+      )
+    })
+
+    it('duplicate × EN — maps to duplicate English message', () => {
+      expect(rejectionMessage('duplicate', Language.EN)).toBe(
+        receiptDuplicateMessage(Language.EN)
+      )
+    })
+
+    it('duplicate × ZH_HK — maps to duplicate zh-HK message', () => {
+      expect(rejectionMessage('duplicate', Language.ZH_HK)).toBe(
+        receiptDuplicateMessage(Language.ZH_HK)
+      )
+    })
+
+    it('wrong_merchant × EN — maps to wrong-merchant English message', () => {
+      expect(rejectionMessage('wrong_merchant', Language.EN)).toBe(
+        receiptWrongMerchantMessage(Language.EN)
+      )
+    })
+
+    it('wrong_merchant × ZH_HK — maps to wrong-merchant zh-HK message', () => {
+      expect(rejectionMessage('wrong_merchant', Language.ZH_HK)).toBe(
+        receiptWrongMerchantMessage(Language.ZH_HK)
+      )
     })
   })
 })

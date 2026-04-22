@@ -6,14 +6,15 @@ import type { RejectionReason } from './messages/confirm-receipt-messages'
 
 export type { RejectionReason }
 
-export interface ValidationResult {
-  valid: boolean
-  /**
-   * Structured rejection code so the caller can localize. The adapter maps
-   * each code to bilingual copy via `confirm-receipt-messages.ts`.
-   */
-  reason?: RejectionReason
-}
+/**
+ * Discriminated union on `valid` so TypeScript can narrow `reason` without a
+ * non-null assertion at the call site. When `valid` is `false`, `reason` is
+ * guaranteed to be present; the adapter maps each code to bilingual copy via
+ * `confirm-receipt-messages.ts`.
+ */
+export type ValidationResult =
+  | { valid: true }
+  | { valid: false; reason: RejectionReason }
 
 export async function validateReceipt(params: {
   parsed: ParsedReceipt

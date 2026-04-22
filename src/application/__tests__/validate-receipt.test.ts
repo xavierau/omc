@@ -35,8 +35,7 @@ describe('validateReceipt', () => {
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.reason).toBe('tamper')
+    expect(result).toEqual({ valid: false, reason: 'tamper' })
   })
 
   it('rejects duplicate receipt number with reason=duplicate', async () => {
@@ -45,8 +44,7 @@ describe('validateReceipt', () => {
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.reason).toBe('duplicate')
+    expect(result).toEqual({ valid: false, reason: 'duplicate' })
   })
 
   it('skips duplicate check when receiptNumber is null', async () => {
@@ -64,8 +62,7 @@ describe('validateReceipt', () => {
 
     const result = await validateReceipt({ parsed, restaurantId: 'r-1' })
 
-    expect(result.valid).toBe(false)
-    expect(result.reason).toBe('wrong_merchant')
+    expect(result).toEqual({ valid: false, reason: 'wrong_merchant' })
   })
 
   it('returns valid for a clean receipt', async () => {

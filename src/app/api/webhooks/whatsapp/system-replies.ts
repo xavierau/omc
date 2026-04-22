@@ -49,13 +49,13 @@ type Replies = {
 const REPLIES: Replies = {
   nonMember: {
     en: "You're not a member yet. Reply JOIN to sign up!",
-    zhHk: '您尚未成為會員。回覆 JOIN 即可加入！',
+    zhHk: '您尚未成為會員。回覆 JOIN 就可以加入！',
   },
   balance: {
     en: ({ points }) =>
       `Your balance: ${points} points. Send a receipt photo to earn more!`,
     zhHk: ({ points }) =>
-      `您目前有 ${points} 積分。傳送收據相片即可賺取更多！`,
+      `您目前有 ${points} 積分。傳送收據相片就可以賺取更多！`,
   },
   unsubscribed: {
     en: "You've been unsubscribed. Reply JOIN anytime to re-join.",

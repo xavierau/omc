@@ -51,7 +51,7 @@ export async function handleParseResult(params: {
   const validation = await validateReceipt({ parsed, restaurantId })
   if (!validation.valid) {
     await rejectValidationFailure(receiptId, parsed)
-    await sendTextMessage(phoneNumberId, phone, rejectionMessage(validation.reason!, language))
+    await sendTextMessage(phoneNumberId, phone, rejectionMessage(validation.reason, language))
     return
   }
 
