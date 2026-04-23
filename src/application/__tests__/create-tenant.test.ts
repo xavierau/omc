@@ -4,11 +4,13 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-admin-repository')
 vi.mock('@/infrastructure/supabase/repositories/user-tenant-repository')
 vi.mock('@/infrastructure/supabase/client')
+vi.mock('../seed-default-welcome-campaign')
 
 import { findBySlug } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createRestaurant } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { createUserTenant } from '@/infrastructure/supabase/repositories/user-tenant-repository'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { seedDefaultWelcomeCampaign } from '../seed-default-welcome-campaign'
 import { createTenant, TenantValidationError } from '../create-tenant'
 import type { CreateTenantInput } from '../create-tenant'
 
@@ -43,6 +45,7 @@ describe('createTenant', () => {
     vi.mocked(createRestaurant).mockResolvedValue({ id: 'rest-1', slug: 'my-restaurant' } as never)
     vi.mocked(createUserTenant).mockResolvedValue(undefined as never)
     vi.mocked(createServerSupabaseClient).mockReturnValue(mockSupabase as never)
+    vi.mocked(seedDefaultWelcomeCampaign).mockResolvedValue({ campaignId: 'camp-1' })
     mockCreateUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -77,5 +80,31 @@ describe('createTenant', () => {
 
     await expect(createTenant(VALID_INPUT)).rejects.toThrow('Failed to create user')
     await expect(createTenant(VALID_INPUT)).rejects.toThrow('Email already registered')
+  })
+
+  it('seeds a default welcome campaign for the new tenant', async () => {
+    await createTenant(VALID_INPUT)
+
+    expect(seedDefaultWelcomeCampaign).toHaveBeenCalledWith('rest-1')
+  })
+
+  it('does not fail tenant creation when welcome-campaign seeding throws', async () => {
+    vi.mocked(seedDefaultWelcomeCampaign).mockRejectedValue(
+      new Error('campaigns table unavailable')
+    )
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await createTenant(VALID_INPUT)
+
+    expect(result).toEqual({ id: 'rest-1', slug: 'my-restaurant' })
+    expect(createUserTenant).toHaveBeenCalledWith('user-1', 'rest-1', 'admin')
+    expect(warnSpy).toHaveBeenCalledOnce()
+    const warnMessage = warnSpy.mock.calls[0][0] as string
+    expect(warnMessage).toContain('seed welcome campaign failed')
+    expect(warnMessage).toContain('rest-1')
+    expect(warnMessage).toContain('my-restaurant')
+    expect(warnMessage).toContain('campaigns table unavailable')
+
+    warnSpy.mockRestore()
   })
 })

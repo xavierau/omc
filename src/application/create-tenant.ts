@@ -4,6 +4,7 @@ import {
   createRestaurant,
 } from '@/infrastructure/supabase/repositories/restaurant-admin-repository'
 import { createUserTenant } from '@/infrastructure/supabase/repositories/user-tenant-repository'
+import { seedDefaultWelcomeCampaign } from './seed-default-welcome-campaign'
 
 export interface CreateTenantInput {
   name: string
@@ -60,7 +61,27 @@ export async function createTenant(
   const userId = await createAdminUser(input.adminEmail, input.adminPassword)
   await createUserTenant(userId, restaurant.id, 'admin')
 
+  await trySeedWelcomeCampaign(restaurant.id, restaurant.slug)
+
   return { id: restaurant.id, slug: restaurant.slug }
+}
+
+/**
+ * Best-effort seed: tenant creation MUST NOT hard-fail if welcome-campaign
+ * setup hits a transient DB error. Admins can always retry via the UI.
+ */
+async function trySeedWelcomeCampaign(
+  restaurantId: string,
+  slug: string
+): Promise<void> {
+  try {
+    await seedDefaultWelcomeCampaign(restaurantId)
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn(
+      `createTenant: seed welcome campaign failed for tenant ${restaurantId} (${slug}): ${reason}`
+    )
+  }
 }
 
 export class TenantValidationError extends Error {

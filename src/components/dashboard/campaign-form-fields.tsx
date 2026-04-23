@@ -43,6 +43,7 @@ export function CampaignFormFields({
       </Field>
       <Field label={t('formType')}>
         <select value={form.type} onChange={(e) => onChange('type', e.target.value)} className={selectClass}>
+          <option value="welcome">{t('formWelcome')}</option>
           <option value="winback">{t('formWinback')}</option>
           <option value="promo">{t('formPromo')}</option>
         </select>
