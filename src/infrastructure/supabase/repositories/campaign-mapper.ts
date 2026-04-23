@@ -95,3 +95,14 @@ export function buildCampaignUpdateRow(
   }
   return update
 }
+
+// PostgREST doesn't always populate `constraint`, so fall back to scanning
+// the error message/details for the quoted index name.
+export function extractConstraintName(
+  error: { constraint?: string; message?: string; details?: string }
+): string | null {
+  if (error.constraint) return error.constraint
+  const haystack = `${error.message ?? ''} ${error.details ?? ''}`
+  const match = haystack.match(/"([a-z0-9_]+)"/i)
+  return match ? match[1] : null
+}

@@ -3,13 +3,19 @@ import {
   listCampaigns,
   createCampaign,
   setCampaignMembers,
+  remapWelcomeCampaign,
   CrossTenantMemberError,
+  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import {
+  getOnboardingSettings,
+  getRestaurantDefaultLanguage,
+} from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { parseCreateBody, CampaignBodyError } from './parse-create-body'
 import type { LanguageCode } from '@/domain/value-objects/language'
+import type { Campaign } from '@/domain/entities/campaign'
 
 export async function GET() {
   try {
@@ -51,9 +57,39 @@ export async function POST(request: NextRequest) {
       await setCampaignMembers(campaign.id, parsed.memberIds, restaurantId)
     }
 
+    if (campaign.type === 'welcome') {
+      await tryAutoMapWelcome(restaurantId, campaign)
+    }
+
     return NextResponse.json(campaign, { status: 201 })
   } catch (error) {
     return handleError(error, 'Campaign create API error', 'Failed to create campaign')
+  }
+}
+
+/**
+ * Best-effort: creating a type='welcome' campaign signals admin intent to
+ * make it THE welcome campaign. Route through remapWelcomeCampaign so the
+ * atomic RPC flips is_chargeable=false (welcome sends must never bill).
+ * A failure here logs but does not block the 201 response — the admin can
+ * retry via the onboarding picker.
+ */
+async function tryAutoMapWelcome(
+  restaurantId: string,
+  campaign: Campaign
+): Promise<void> {
+  try {
+    const settings = await getOnboardingSettings(restaurantId)
+    await remapWelcomeCampaign(
+      restaurantId,
+      settings.welcomeCampaignId,
+      campaign.id
+    )
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn(
+      `Campaign create: auto-map welcome failed for restaurant ${restaurantId}, campaign ${campaign.id}: ${reason}`
+    )
   }
 }
 
@@ -90,6 +126,18 @@ function handleError(error: unknown, logLabel: string, defaultMsg: string) {
   }
   if (error instanceof CrossTenantMemberError) {
     return NextResponse.json({ error: error.message }, { status: error.statusCode })
+  }
+  if (
+    error instanceof CampaignUniqueViolationError &&
+    error.constraint === 'idx_campaigns_one_active_welcome_per_restaurant'
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'An active welcome campaign already exists for this restaurant. Edit it instead of creating a new one.',
+      },
+      { status: 409 }
+    )
   }
   console.error(`${logLabel}:`, error)
   return NextResponse.json({ error: defaultMsg }, { status: 500 })

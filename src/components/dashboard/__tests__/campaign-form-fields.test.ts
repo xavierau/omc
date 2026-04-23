@@ -75,6 +75,11 @@ describe('campaign-form-fields', () => {
       })
     })
 
+    it('passes through the welcome campaign type', () => {
+      const body = buildCampaignRequestBody(inlineForm({ type: 'welcome' }))
+      expect(body.type).toBe('welcome')
+    })
+
     it('emits null couponConfig when discountValue is empty', () => {
       const body = buildCampaignRequestBody(inlineForm({ discountValue: '' }))
       expect(body.couponConfig).toBeNull()
