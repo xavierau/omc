@@ -9,7 +9,7 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { cascadeWelcomeType } from './cascade-welcome-type'
+import { cascadeCampaignTypeChange } from '@/application/cascade-campaign-type-change'
 import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
@@ -90,11 +90,13 @@ export async function PATCH(
       await setCampaignMembers(id, body.memberIds, restaurantId)
     }
 
-    await cascadeWelcomeType({
+    await cascadeCampaignTypeChange({
       restaurantId,
       campaignId: id,
       previousType: existing.type,
+      previousStatus: existing.status,
       nextType: changes.type,
+      nextStatus: changes.status,
     })
 
     return NextResponse.json(campaign)
