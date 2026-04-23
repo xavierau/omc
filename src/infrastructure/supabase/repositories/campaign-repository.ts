@@ -98,18 +98,20 @@ export async function updateCampaign(
     .single()
 
   if (error || !data) {
+    if (error?.code === '23505') {
+      throw new CampaignUniqueViolationError(
+        extractConstraintName(error),
+        error.message
+      )
+    }
     throw new Error(`updateCampaign: ${error?.message}`)
   }
   return mapRowToCampaign(data)
 }
 
-// Counter mutations and the welcome-campaign remap RPC live in
-// campaign-counters.ts to keep this file under 150 lines.
-export {
-  incrementCampaignSent,
-  incrementCampaignRedeemed,
-  remapWelcomeCampaign,
-} from './campaign-counters'
+// Counter mutations + welcome-campaign remap RPC live in campaign-counters.ts;
+// campaign-members operations live in campaign-members-repository.ts.
+export { incrementCampaignSent, incrementCampaignRedeemed, remapWelcomeCampaign } from './campaign-counters'
 
 export async function transitionCampaignStatus(
   id: string,
@@ -139,9 +141,4 @@ export async function getDueCampaigns(): Promise<Campaign[]> {
   return (data ?? []).map(mapRowToCampaign)
 }
 
-// Campaign-members operations live in campaign-members-repository.ts.
-export {
-  setCampaignMembers,
-  getCampaignMemberIds,
-  CrossTenantMemberError,
-} from './campaign-members-repository'
+export { setCampaignMembers, getCampaignMemberIds, CrossTenantMemberError } from './campaign-members-repository'

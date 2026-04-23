@@ -2,7 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
-vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
+vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
+  // Keep the real error class so `instanceof` checks in route.ts match
+  // when tests simulate repository failures (mirrors POST test setup).
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/campaign-repository')
+  >('@/infrastructure/supabase/repositories/campaign-repository')
+  return {
+    ...actual,
+    getCampaignById: vi.fn(),
+    updateCampaign: vi.fn(),
+    setCampaignMembers: vi.fn(),
+    getCampaignMemberIds: vi.fn(),
+    remapWelcomeCampaign: vi.fn(),
+  }
+})
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -10,8 +24,13 @@ import {
   getCampaignById,
   updateCampaign,
   setCampaignMembers,
+  remapWelcomeCampaign,
+  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import {
+  getRestaurantDefaultLanguage,
+  getOnboardingSettings,
+} from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PATCH } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -51,7 +70,16 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
 
 describe('PATCH /api/dashboard/campaigns/[id]', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    // mockReset() clears both recorded calls AND queued `mockResolvedValueOnce`
+    // values — critical because unconsumed `…Once` queues leak across tests
+    // and silently feed the wrong value to the next test's cascade.
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(updateCampaign).mockReset()
+    vi.mocked(setCampaignMembers).mockReset()
+    vi.mocked(remapWelcomeCampaign).mockReset()
+    vi.mocked(getOnboardingSettings).mockReset()
+    vi.mocked(getRestaurantDefaultLanguage).mockReset()
+    vi.mocked(getTenantContext).mockReset()
     vi.mocked(getTenantContext).mockResolvedValue({
       userId: 'u-1',
       restaurantId: RESTAURANT_ID,
@@ -62,6 +90,14 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     vi.mocked(updateCampaign).mockResolvedValue(buildCampaign())
     vi.mocked(setCampaignMembers).mockResolvedValue(undefined)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(remapWelcomeCampaign).mockResolvedValue(undefined as never)
+    vi.mocked(getOnboardingSettings).mockResolvedValue({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
   })
 
   it('accepts templateEn and templateZhHk changes', async () => {
@@ -181,5 +217,255 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
       ['m-1'],
       RESTAURANT_ID
     )
+  })
+
+  // Regression: the ALLOWED set dropped `type`, so the form's "welcome"
+  // selection never reached the DB. Updating the type must now pass
+  // through AND trigger the same auto-map cascade as POST. Status must
+  // be active for the guard to permit the auto-map.
+  it('allows changing campaign type via PATCH (type: promo → welcome)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'active' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'active' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'prev-welcome-9',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(patchRequest({ type: 'welcome' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ type: 'welcome' })
+    )
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'prev-welcome-9',
+      CAMPAIGN_ID
+    )
+  })
+
+  it('clears welcome mapping when the currently mapped welcome flips to another type', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: CAMPAIGN_ID,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(patchRequest({ type: 'promo' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(getOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      CAMPAIGN_ID,
+      null
+    )
+  })
+
+  it('skips cascade when an un-mapped welcome campaign flips to another type', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'other-campaign-id',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(patchRequest({ type: 'promo' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(getOnboardingSettings).toHaveBeenCalledWith(RESTAURANT_ID)
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  // Guard: when PATCH sets type=welcome but the patch body itself
+  // pauses the campaign (or it was already paused/draft), we must NOT
+  // auto-map it as the active welcome — otherwise new members route to
+  // a paused campaign. The type change still persists.
+  it('skips auto-map when PATCH flips type → welcome AND sets status=paused', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'active' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'paused' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'prev-welcome-9',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(
+      patchRequest({ type: 'welcome', status: 'paused' }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ type: 'welcome', status: 'paused' })
+    )
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('still auto-maps when PATCH flips type → welcome AND sets status=active', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'draft' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'active' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'prev-welcome-9',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(
+      patchRequest({ type: 'welcome', status: 'active' }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(r.status).toBe(200)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'prev-welcome-9',
+      CAMPAIGN_ID
+    )
+  })
+
+  it('skips auto-map when PATCH flips type → welcome on an existing paused campaign (no status change)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'paused' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'paused' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'prev-welcome-9',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(patchRequest({ type: 'welcome' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ type: 'welcome' })
+    )
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('auto-maps when PATCH flips type → welcome on an existing active campaign (no status change)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'active' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'active' })
+    )
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'prev-welcome-9',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+
+    const r = await PATCH(patchRequest({ type: 'welcome' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'prev-welcome-9',
+      CAMPAIGN_ID
+    )
+  })
+
+  it('returns 409 when changing type to welcome violates the partial unique index', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo' })
+    )
+    vi.mocked(updateCampaign).mockRejectedValueOnce(
+      new CampaignUniqueViolationError(
+        'idx_campaigns_one_active_welcome_per_restaurant',
+        'duplicate key value violates unique constraint'
+      )
+    )
+
+    const r = await PATCH(patchRequest({ type: 'welcome' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('welcome campaign already exists')
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('does not block the 200 response when remapWelcomeCampaign fails (best-effort cascade)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo', status: 'active' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome', status: 'active' })
+    )
+    vi.mocked(remapWelcomeCampaign).mockRejectedValueOnce(new Error('rpc down'))
+
+    const r = await PATCH(patchRequest({ type: 'welcome' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+  })
+
+  it('does not call remapWelcomeCampaign when the type is unchanged', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo' })
+    )
+
+    await PATCH(patchRequest({ name: 'Rename only' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
   })
 })
