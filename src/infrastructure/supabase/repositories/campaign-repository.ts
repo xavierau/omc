@@ -3,12 +3,22 @@ import { Campaign } from '@/domain/entities/campaign'
 import {
   mapRowToCampaign,
   buildCampaignUpdateRow,
+  extractConstraintName,
   type CreateCampaignParams,
   type UpdateCampaignParams,
 } from './campaign-mapper'
 
 export type { CreateCampaignParams, UpdateCampaignParams }
 export { mapRowToCampaign }
+
+/** Thrown when Postgres rejects a campaigns insert with 23505. */
+export class CampaignUniqueViolationError extends Error {
+  readonly code = '23505'
+  constructor(readonly constraint: string | null, message: string) {
+    super(message)
+    this.name = 'CampaignUniqueViolationError'
+  }
+}
 
 export async function createCampaign(
   params: CreateCampaignParams
@@ -34,6 +44,12 @@ export async function createCampaign(
     .single()
 
   if (error || !data) {
+    if (error?.code === '23505') {
+      throw new CampaignUniqueViolationError(
+        extractConstraintName(error),
+        error.message
+      )
+    }
     throw new Error(`createCampaign: ${error?.message}`)
   }
   return mapRowToCampaign(data)

@@ -2,7 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
-vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
+vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
+  // Keep the real error class so `instanceof` checks in route.ts match
+  // when tests simulate repository failures.
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/campaign-repository')
+  >('@/infrastructure/supabase/repositories/campaign-repository')
+  return {
+    ...actual,
+    createCampaign: vi.fn(),
+    listCampaigns: vi.fn(),
+    setCampaignMembers: vi.fn(),
+    remapWelcomeCampaign: vi.fn(),
+  }
+})
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -10,8 +23,13 @@ import {
   createCampaign,
   listCampaigns,
   setCampaignMembers,
+  remapWelcomeCampaign,
+  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import {
+  getRestaurantDefaultLanguage,
+  getOnboardingSettings,
+} from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { POST, GET } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -60,6 +78,14 @@ describe('POST /api/dashboard/campaigns', () => {
     vi.mocked(createCampaign).mockResolvedValue(buildCampaign())
     vi.mocked(setCampaignMembers).mockResolvedValue(undefined)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(remapWelcomeCampaign).mockResolvedValue(undefined as never)
+    vi.mocked(getOnboardingSettings).mockResolvedValue({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
   })
 
   it('rejects when name is missing', async () => {
@@ -221,6 +247,88 @@ describe('POST /api/dashboard/campaigns', () => {
     )
     expect(r.status).toBe(201)
     expect(setCampaignMembers).toHaveBeenCalledWith('c-1', ['m-1', 'm-2'], RESTAURANT_ID)
+  })
+
+  // FIX 2: partial unique index forbids two active welcome campaigns per
+  // restaurant. When the DB rejects the insert with 23505, surface a 409
+  // with a friendly message instead of a generic 500.
+  it('returns 409 when a second active welcome campaign violates the unique index', async () => {
+    vi.mocked(createCampaign).mockRejectedValueOnce(
+      new CampaignUniqueViolationError(
+        'idx_campaigns_one_active_welcome_per_restaurant',
+        'duplicate key value violates unique constraint'
+      )
+    )
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        status: 'active',
+      })
+    )
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('welcome campaign already exists')
+  })
+
+  // FIX 3: creating a welcome campaign via the form should auto-map it
+  // as THE welcome campaign so the RPC flips is_chargeable=false (intent:
+  // admins who create type='welcome' mean it to be the one).
+  it('auto-maps newly created welcome campaigns via remapWelcomeCampaign', async () => {
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-1', type: 'welcome' })
+    )
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      null,
+      'new-welcome-1'
+    )
+  })
+
+  it('auto-map passes previous welcome campaign id when one already mapped', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'old-welcome-7',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-2', type: 'welcome' })
+    )
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'old-welcome-7',
+      'new-welcome-2'
+    )
+  })
+
+  it('does not call remapWelcomeCampaign for non-welcome campaign types', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('does not block the response when remapWelcomeCampaign fails (best-effort)', async () => {
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-3', type: 'welcome' })
+    )
+    vi.mocked(remapWelcomeCampaign).mockRejectedValueOnce(new Error('rpc down'))
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
   })
 })
 

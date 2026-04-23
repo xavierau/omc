@@ -38,6 +38,10 @@ describe('seedDefaultWelcomeCampaign', () => {
     expect(args.templateEn).toContain('{{couponCode}}')
     expect(args.templateZhHk).toContain('{{couponCode}}')
     expect(args.templateEn).not.toContain('{{contactName}}')
+    // legacyTemplate populates the legacy `template` column for
+    // rolling-deploy readers — must stay in sync with zh-HK content.
+    expect(args.legacyTemplate).toContain('{{couponCode}}')
+    expect(args.legacyTemplate).toContain('歡迎')
 
     expect(remapWelcomeCampaign).toHaveBeenCalledWith('rest-1', null, 'camp-1')
     expect(result).toEqual({ campaignId: 'camp-1' })

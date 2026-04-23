@@ -14,15 +14,29 @@
 -- variant of `onboarding-defaults.ts` + `build-default-welcome-campaign.ts`
 -- so admins see the same copy whether the row was seeded or the fallback
 -- fires at runtime.
+--
+-- Adversarial-safe: also guard on NOT EXISTS an active welcome campaign
+-- for the restaurant. Scenario — admin creates an active welcome campaign
+-- via the new UI AFTER the ONBOARD-009 code deploy but BEFORE this
+-- migration lands. Without this guard the backfill would insert a second
+-- active welcome campaign, and the CREATE UNIQUE INDEX below would then
+-- fail with 23505 and abort the whole migration for every tenant.
 
 BEGIN;
 
--- 1. Insert one welcome campaign per restaurant that has none mapped.
+-- 1. Insert one welcome campaign per restaurant that has none mapped AND
+--    no existing active welcome campaign (see adversarial-safe note above).
 --    RETURNING rows so step 2 can map them without a second scan.
 WITH needs_seed AS (
   SELECT id AS restaurant_id
   FROM restaurants
   WHERE welcome_campaign_id IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM campaigns c
+      WHERE c.restaurant_id = restaurants.id
+        AND c.type = 'welcome'
+        AND c.status = 'active'
+    )
 ),
 inserted AS (
   INSERT INTO campaigns (
