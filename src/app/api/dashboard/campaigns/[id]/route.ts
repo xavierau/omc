@@ -5,17 +5,20 @@ import {
   setCampaignMembers,
   getCampaignMemberIds,
   CrossTenantMemberError,
+  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { MAX_TEMPLATE_LENGTH } from '@/domain/onboarding/onboarding-settings'
+import { cascadeWelcomeType } from './cascade-welcome-type'
+import {
+  attachLegacyTemplateIfNeeded,
+  validateTemplateLengths,
+} from './template-helpers'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
-import type { Campaign } from '@/domain/entities/campaign'
-import type { LanguageCode } from '@/domain/value-objects/language'
 
 const ALLOWED = new Set([
   'name',
+  'type',
   'template',
   'templateEn',
   'templateZhHk',
@@ -87,6 +90,13 @@ export async function PATCH(
       await setCampaignMembers(id, body.memberIds, restaurantId)
     }
 
+    await cascadeWelcomeType({
+      restaurantId,
+      campaignId: id,
+      previousType: existing.type,
+      nextType: changes.type,
+    })
+
     return NextResponse.json(campaign)
   } catch (error) {
     if (error instanceof AuthError) {
@@ -94,6 +104,18 @@ export async function PATCH(
     }
     if (error instanceof CrossTenantMemberError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (
+      error instanceof CampaignUniqueViolationError &&
+      error.constraint === 'idx_campaigns_one_active_welcome_per_restaurant'
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'An active welcome campaign already exists for this restaurant. Edit the existing one instead of changing another campaign to welcome.',
+        },
+        { status: 409 }
+      )
     }
     console.error('Campaign PATCH error:', (error as Error)?.message, (error as Error)?.stack)
     return NextResponse.json(
@@ -109,47 +131,4 @@ function pickAllowed(body: Record<string, unknown>): UpdateCampaignParams {
     if (body[key] !== undefined) changes[key] = body[key]
   }
   return changes as UpdateCampaignParams
-}
-
-/**
- * Dual-write the legacy `template` column when the caller touches either
- * bilingual field. Resolve the chosen language from the restaurant's
- * `default_language`, falling back to the other language, then to the
- * existing legacy value. An explicit `template` in the patch takes
- * precedence and bypasses this derivation.
- */
-async function attachLegacyTemplateIfNeeded(
-  changes: UpdateCampaignParams,
-  existing: Campaign,
-  restaurantId: string
-): Promise<void> {
-  if (changes.template !== undefined) return
-  const enTouched = changes.templateEn !== undefined
-  const zhTouched = changes.templateZhHk !== undefined
-  if (!enTouched && !zhTouched) return
-
-  const effectiveEn = enTouched
-    ? normalize(changes.templateEn)
-    : normalize(existing.templateEn)
-  const effectiveZhHk = zhTouched
-    ? normalize(changes.templateZhHk)
-    : normalize(existing.templateZhHk)
-  const lang: LanguageCode = await getRestaurantDefaultLanguage(restaurantId)
-  const primary = lang === 'en' ? effectiveEn : effectiveZhHk
-  const fallback = lang === 'en' ? effectiveZhHk : effectiveEn
-  changes.legacyTemplate = primary ?? fallback ?? normalize(existing.template) ?? ''
-}
-
-function normalize(value: string | null | undefined): string | null {
-  return value && value.trim() !== '' ? value : null
-}
-
-function validateTemplateLengths(body: Record<string, unknown>): string | null {
-  for (const key of ['template', 'templateEn', 'templateZhHk'] as const) {
-    const value = body[key]
-    if (typeof value === 'string' && value.length > MAX_TEMPLATE_LENGTH) {
-      return `${key} must be ${MAX_TEMPLATE_LENGTH} characters or fewer`
-    }
-  }
-  return null
 }

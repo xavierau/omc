@@ -98,6 +98,12 @@ export async function updateCampaign(
     .single()
 
   if (error || !data) {
+    if (error?.code === '23505') {
+      throw new CampaignUniqueViolationError(
+        extractConstraintName(error),
+        error.message
+      )
+    }
     throw new Error(`updateCampaign: ${error?.message}`)
   }
   return mapRowToCampaign(data)

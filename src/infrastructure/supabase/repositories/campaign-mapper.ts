@@ -23,6 +23,7 @@ export interface CreateCampaignParams {
 
 export interface UpdateCampaignParams {
   name?: string
+  type?: Campaign['type']
   template?: string
   templateEn?: string | null
   templateZhHk?: string | null
@@ -79,6 +80,7 @@ export function buildCampaignUpdateRow(
   const update: Record<string, unknown> = {}
 
   if (changes.name !== undefined) update.name = changes.name
+  if (changes.type !== undefined) update.type = changes.type
   if (changes.templateEn !== undefined) update.template_en = changes.templateEn
   if (changes.templateZhHk !== undefined) update.template_zh_hk = changes.templateZhHk
   if (changes.couponConfig !== undefined) update.coupon_config = changes.couponConfig
