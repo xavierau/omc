@@ -18,8 +18,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { restaurantId } = await getTenantContext()
+    const { restaurantId, role } = await getTenantContext()
     const { id } = await params
+
+    // Explicit allowlist: guard against silent permission widening if a
+    // future role (e.g. 'viewer') is added to user_tenants.role without
+    // updating this endpoint.
+    if (!['admin', 'staff'].includes(role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const member = await getMemberById(id)
     if (!member) {

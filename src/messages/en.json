@@ -112,14 +112,7 @@
     "noCoupons": "No coupons",
     "percentOff": "{value}% off",
     "fixedOff": "HK${value} off",
-    "memberNotFound": "Member not found",
-    "deleteMember": "Delete member",
-    "deleteConfirmTitle": "Delete member?",
-    "deleteConfirmBody": "Permanently delete {name} ({phone})? This removes all their data including coupons, receipts, points, and events. The same phone can rejoin afterward.",
-    "deleteConfirmButton": "Delete permanently",
-    "deleteCancelButton": "Cancel",
-    "deleting": "Deleting…",
-    "deleteFailed": "Failed to delete member"
+    "memberNotFound": "Member not found"
   },
   "coupons": {
     "heading": "Coupons",

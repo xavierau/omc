@@ -112,14 +112,7 @@
     "noCoupons": "沒有優惠券",
     "percentOff": "{value}% 折扣",
     "fixedOff": "HK${value} 折扣",
-    "memberNotFound": "找不到會員",
-    "deleteMember": "刪除會員",
-    "deleteConfirmTitle": "刪除會員？",
-    "deleteConfirmBody": "確定永久刪除 {name}（{phone}）嗎？所有相關資料包括優惠券、收據、積分及活動紀錄都會一併移除。該電話號碼之後仍可重新加入。",
-    "deleteConfirmButton": "永久刪除",
-    "deleteCancelButton": "取消",
-    "deleting": "刪除中…",
-    "deleteFailed": "刪除會員失敗"
+    "memberNotFound": "找不到會員"
   },
   "coupons": {
     "heading": "優惠券",

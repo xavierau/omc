@@ -55,8 +55,18 @@ BEGIN
   -- member row itself. Order matters only where FK actions would
   -- otherwise block (pos_transactions NO ACTION); the rest are listed
   -- explicitly so behavior does not depend on FK cascade semantics.
+
+  -- pos_transactions has NO ON DELETE clause (default NO ACTION), so this
+  -- is required to avoid FK violation. If a concurrent inbound webhook
+  -- inserts a pos_transaction for this member between the earlier deletes
+  -- and this one, the transaction rolls back cleanly and the route returns
+  -- 500 — acceptable for demo-reset scope.
   DELETE FROM pos_transactions WHERE member_id = p_member_id;
   DELETE FROM events           WHERE member_id = p_member_id;
+  -- coupons.member_id is always the OWNING member for welcome/reward
+  -- coupons (not a random redeemer). Deleting these CASCADEs to
+  -- coupon_redemptions; no risk of nuking unrelated members' redemption
+  -- history because the coupon's member_id identifies the owner.
   DELETE FROM coupons          WHERE member_id = p_member_id;
   DELETE FROM receipts         WHERE member_id = p_member_id;
   DELETE FROM members
@@ -65,9 +75,16 @@ BEGIN
 END;
 $$;
 
--- Lock down execution: SECURITY DEFINER combined with PUBLIC EXECUTE
--- would let anonymous callers bypass RLS. Only authenticated sessions
--- (which still go through the Next.js route that enforces tenant
--- scope) may invoke the RPC.
+-- Lock down execution: SECURITY DEFINER combined with a broad grant
+-- (PUBLIC or `authenticated`) would let any logged-in browser session
+-- call the RPC directly with attacker-controlled args. The internal
+-- tenant-ownership check only validates (member_id, restaurant_id)
+-- consistency — it does NOT verify the caller has access to that
+-- restaurant. So we restrict the grant to service_role.
+--
+-- Server-side only — browser clients must go through
+-- DELETE /api/dashboard/members/[id] which re-validates tenant
+-- membership via getTenantContext() before invoking the RPC.
 REVOKE EXECUTE ON FUNCTION public.delete_member_cascade(UUID, UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.delete_member_cascade(UUID, UUID) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_member_cascade(UUID, UUID) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_member_cascade(UUID, UUID) TO service_role;

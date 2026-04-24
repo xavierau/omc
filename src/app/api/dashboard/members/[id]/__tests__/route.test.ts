@@ -109,6 +109,22 @@ describe('DELETE /api/dashboard/members/[id]', () => {
     expect(deleteMemberAndCascade).toHaveBeenCalledWith(MEMBER_ID, RESTAURANT_ID)
   })
 
+  it('returns 403 when the role is not admin or staff', async () => {
+    vi.mocked(getTenantContext).mockResolvedValueOnce({
+      userId: 'u-viewer',
+      restaurantId: RESTAURANT_ID,
+      role: 'viewer',
+      tenantStatus: 'active',
+    })
+
+    const r = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: MEMBER_ID }),
+    })
+
+    expect(r.status).toBe(403)
+    expect(deleteMemberAndCascade).not.toHaveBeenCalled()
+  })
+
   it('returns 204 on successful delete and invokes the cascade RPC', async () => {
     const r = await DELETE(deleteRequest(), {
       params: Promise.resolve({ id: MEMBER_ID }),
