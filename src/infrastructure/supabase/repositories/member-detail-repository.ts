@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '../client'
 import type { MemberRow } from './member-repository'
 
 export interface MemberDetail extends MemberRow {
+  restaurant_id: string
   receipts: { id: string; total_amount: number; points_awarded: number; created_at: string; status: string }[]
   coupons: { id: string; code: string; type: string; status: string; redeemed_at: string | null }[]
   visitCount: number
@@ -28,7 +29,7 @@ export async function getMemberById(memberId: string): Promise<MemberDetail | nu
   if (memberRes.error || !memberRes.data) return null
 
   return {
-    ...(memberRes.data as MemberRow),
+    ...(memberRes.data as MemberRow & { restaurant_id: string }),
     receipts: (receiptsRes.data ?? []) as MemberDetail['receipts'],
     coupons: (couponsRes.data ?? []) as MemberDetail['coupons'],
     visitCount: receiptsRes.data?.length ?? 0,
