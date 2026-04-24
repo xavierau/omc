@@ -14,21 +14,9 @@ import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
 } from './template-helpers'
+import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
+import { CampaignBodyError } from '../parse-create-body-errors'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
-
-const ALLOWED = new Set([
-  'name',
-  'type',
-  'template',
-  'templateEn',
-  'templateZhHk',
-  'couponConfig',
-  'schedule',
-  'scheduledAt',
-  'whatsappTemplateId',
-  'status',
-  'targetAudience',
-])
 
 export async function GET(
   _request: NextRequest,
@@ -82,6 +70,7 @@ export async function PATCH(
       return NextResponse.json({ error: templateError }, { status: 400 })
     }
     const changes: UpdateCampaignParams = pickAllowed(body)
+    applyImageScopeGuard(changes, existing, restaurantId)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
 
     const campaign = await updateCampaign(id, changes)
@@ -102,6 +91,9 @@ export async function PATCH(
     return NextResponse.json(campaign)
   } catch (error) {
     if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (error instanceof CampaignBodyError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     if (error instanceof CrossTenantMemberError) {
@@ -125,12 +117,4 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
-
-function pickAllowed(body: Record<string, unknown>): UpdateCampaignParams {
-  const changes: Record<string, unknown> = {}
-  for (const key of ALLOWED) {
-    if (body[key] !== undefined) changes[key] = body[key]
-  }
-  return changes as UpdateCampaignParams
 }

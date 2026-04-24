@@ -8,14 +8,14 @@ import {
   getCampaignById,
   incrementCampaignSent,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
-import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { Language } from '@/domain/value-objects/language'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
+import { resolveLocalizedImageUrl } from '@/domain/services/resolve-localized-image-url'
 import { emitEvent } from '@/application/emit-event'
 import type { Campaign } from '@/domain/entities/campaign'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
+import { sendWelcomeBody, sendCouponQrImage } from './onboard-send-helpers'
 import {
   defaultWelcomeText,
   defaultCouponCaptionSuffix,
@@ -35,13 +35,16 @@ interface OnboardOutput {
   code: string
   welcomeText: string
   caption: string
+  welcomeImageUrl: string | null
 }
 
 /**
  * Run the post-insert welcome flow for a just-created member. Chooses a
- * language from the restaurant's `default_language`, picks a bilingual
- * welcome campaign template (with legacy fallback), mints the coupon,
- * increments counters, emits the join event, and sends the welcome + QR.
+ * language, picks a bilingual welcome campaign template + optional image
+ * (strict per-language match), mints the coupon, increments counters,
+ * emits the join event, and sends one welcome message (image+caption when
+ * an image is attached, else text-only) plus the QR coupon as a second
+ * message.
  */
 export async function onboardNewMember(ctx: OnboardContext): Promise<string> {
   const settings = await loadSettings(ctx.restaurantId)
@@ -61,8 +64,9 @@ export async function onboardNewMember(ctx: OnboardContext): Promise<string> {
     dataJson: { source: 'whatsapp', coupon_code: output.code },
   })
 
-  await sendTextMessage(ctx.phoneNumberId, ctx.phone, output.welcomeText)
-  await sendCouponQrImage(ctx.phoneNumberId, ctx.phone, output.code, output.caption)
+  const target = { phoneNumberId: ctx.phoneNumberId, phone: ctx.phone }
+  await sendWelcomeBody(target, output.welcomeText, output.welcomeImageUrl)
+  await sendCouponQrImage(target, output.code, output.caption)
   return output.code
 }
 
@@ -111,7 +115,17 @@ async function onboardViaCampaign(
       ? renderTemplate(resolved, vars)
       : minimalWelcomeText(language, coupon.code)
   const suffix = defaultCouponCaptionSuffix(language, coupon.code)
-  return { code: coupon.code, welcomeText, caption: `${welcomeText}\n\n${suffix}` }
+  const welcomeImageUrl = resolveLocalizedImageUrl({
+    en: campaign.imageUrlEn,
+    zhHk: campaign.imageUrlZhHk,
+    preferred: language,
+  })
+  return {
+    code: coupon.code,
+    welcomeText,
+    caption: `${welcomeText}\n\n${suffix}`,
+    welcomeImageUrl,
+  }
 }
 
 async function onboardViaFallback(
@@ -121,19 +135,10 @@ async function onboardViaFallback(
   const coupon = await createWelcomeCoupon(ctx.restaurantId, ctx.memberId)
   const welcomeText = defaultWelcomeText(language, ctx.contactName, coupon.code)
   const suffix = defaultCouponCaptionSuffix(language, coupon.code)
-  return { code: coupon.code, welcomeText, caption: `${welcomeText}\n\n${suffix}` }
-}
-
-async function sendCouponQrImage(
-  phoneNumberId: string,
-  phone: string,
-  couponCode: string,
-  caption: string
-): Promise<void> {
-  try {
-    const qrUrl = await uploadCouponQr(couponCode)
-    await sendImageMessage(phoneNumberId, phone, qrUrl, caption)
-  } catch (err) {
-    console.warn('[QR] Failed to send coupon QR:', (err as Error).message)
+  return {
+    code: coupon.code,
+    welcomeText,
+    caption: `${welcomeText}\n\n${suffix}`,
+    welcomeImageUrl: null,
   }
 }

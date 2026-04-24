@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const { restaurantId } = await getTenantContext()
     const body = (await request.json()) as Record<string, unknown>
-    const parsed = parseCreateBody(body)
+    const parsed = parseCreateBody(body, restaurantId)
     const defaultLang = await getRestaurantDefaultLanguage(restaurantId)
     const legacyTemplate = resolveLegacyTemplate(parsed, defaultLang)
 
@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       legacyTemplate,
       templateEn: parsed.templateEn,
       templateZhHk: parsed.templateZhHk,
+      imageUrlEn: parsed.imageUrlEn,
+      imageUrlZhHk: parsed.imageUrlZhHk,
       whatsappTemplateId: parsed.whatsappTemplateId,
       couponConfig:
         parsed.couponConfig as unknown as Parameters<

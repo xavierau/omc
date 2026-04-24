@@ -50,6 +50,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'Hi {{contactName}}, here is your code: {{couponCode}}',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: {
       discountType: 'percentage',
       discountValue: 10,
@@ -346,6 +348,158 @@ describe('registerMember', () => {
         PHONE_NUMBER_ID,
         VALID_PHONE,
         expect.stringContaining('歡迎加入')
+      )
+    })
+
+  })
+
+  describe('welcome campaign image attachment (ONBOARD-010)', () => {
+    it('sends image+caption as ONE message when EN image present and member EN', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-welcome',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'en',
+      })
+      vi.mocked(getCampaignById).mockResolvedValueOnce(
+        buildCampaign({
+          templateEn: 'Hi {{contactName}}, code {{couponCode}}',
+          imageUrlEn: 'https://cdn.test/welcome-en.jpg',
+          imageUrlZhHk: null,
+        })
+      )
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-img-en' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Ivy', 'JOIN')
+
+      // Image send: welcome text as the caption (one unified message).
+      expect(sendImageMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'https://cdn.test/welcome-en.jpg',
+        'Hi Ivy, code MAPPED1'
+      )
+      // Text welcome should NOT have been sent separately.
+      expect(sendTextMessage).not.toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'Hi Ivy, code MAPPED1'
+      )
+      // QR coupon still sent (second message with caption).
+      expect(sendImageMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'https://qr.example.com/img.png',
+        expect.stringContaining('MAPPED1')
+      )
+    })
+
+    it('STRICT: member EN but only ZH image → text-only welcome, no image substitution', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-welcome',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'en',
+      })
+      vi.mocked(getCampaignById).mockResolvedValueOnce(
+        buildCampaign({
+          templateEn: 'Hi {{contactName}}, code {{couponCode}}',
+          imageUrlEn: null,
+          imageUrlZhHk: 'https://cdn.test/welcome-zh.jpg',
+        })
+      )
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-strict' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Jack', 'JOIN')
+
+      // No welcome-image-as-caption send (only QR image send exists).
+      expect(sendImageMessage).not.toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'https://cdn.test/welcome-zh.jpg',
+        expect.anything()
+      )
+      // Text welcome IS sent as-is.
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'Hi Jack, code MAPPED1'
+      )
+    })
+
+    it('sends ZH image+caption when member ZH and ZH image present', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-welcome',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      vi.mocked(getCampaignById).mockResolvedValueOnce(
+        buildCampaign({
+          templateZhHk: '你好 {{contactName}}，代碼 {{couponCode}}',
+          imageUrlEn: null,
+          imageUrlZhHk: 'https://cdn.test/welcome-zh.jpg',
+        })
+      )
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-zh-img' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, '大文', '你好 JOIN')
+
+      expect(sendImageMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'https://cdn.test/welcome-zh.jpg',
+        '你好 大文，代碼 MAPPED1'
+      )
+      expect(sendTextMessage).not.toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        '你好 大文，代碼 MAPPED1'
+      )
+    })
+
+    it('campaign has no images → text welcome + QR (regression of existing behavior)', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-welcome',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'en',
+      })
+      vi.mocked(getCampaignById).mockResolvedValueOnce(
+        buildCampaign({
+          templateEn: 'Hi {{contactName}}, code {{couponCode}}',
+          imageUrlEn: null,
+          imageUrlZhHk: null,
+        })
+      )
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: { id: 'm-no-img' },
+        error: null,
+      })
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE, 'Kim', 'JOIN')
+
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        VALID_PHONE,
+        'Hi Kim, code MAPPED1'
       )
     })
 

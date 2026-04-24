@@ -130,4 +130,43 @@ describe('campaign-form-fields', () => {
       ).toBeNull()
     })
   })
+
+  describe('image attachments (ONBOARD-010)', () => {
+    it('initialCampaignForm starts with empty image URLs', () => {
+      expect(initialCampaignForm.imageUrlEn).toBe('')
+      expect(initialCampaignForm.imageUrlZhHk).toBe('')
+    })
+
+    it('buildCampaignRequestBody emits null image URLs when empty', () => {
+      const body = buildCampaignRequestBody(
+        inlineForm({ type: 'welcome', imageUrlEn: '', imageUrlZhHk: '' })
+      )
+      expect(body.imageUrlEn).toBeNull()
+      expect(body.imageUrlZhHk).toBeNull()
+    })
+
+    it('buildCampaignRequestBody emits populated image URLs verbatim', () => {
+      const body = buildCampaignRequestBody(
+        inlineForm({
+          type: 'welcome',
+          imageUrlEn: 'https://cdn.test/en.jpg',
+          imageUrlZhHk: 'https://cdn.test/zh.jpg',
+        })
+      )
+      expect(body.imageUrlEn).toBe('https://cdn.test/en.jpg')
+      expect(body.imageUrlZhHk).toBe('https://cdn.test/zh.jpg')
+    })
+
+    it('buildCampaignRequestBody drops image URLs for non-welcome types (scope-locked)', () => {
+      const body = buildCampaignRequestBody(
+        inlineForm({
+          type: 'winback',
+          imageUrlEn: 'https://cdn.test/en.jpg',
+          imageUrlZhHk: 'https://cdn.test/zh.jpg',
+        })
+      )
+      expect(body.imageUrlEn).toBeNull()
+      expect(body.imageUrlZhHk).toBeNull()
+    })
+  })
 })

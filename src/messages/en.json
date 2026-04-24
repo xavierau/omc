@@ -212,7 +212,15 @@
     "selectedCount": "{count} selected",
     "searchMembers": "Search members...",
     "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+    "deselectAll": "Deselect all",
+    "imageUploadLabel": "Welcome image",
+    "imageUploadHelper": "Sent with the welcome text as a single message (optional)",
+    "imageDragDropHint": "Drag and drop or click to upload",
+    "imageFormatHint": "JPG/PNG/WebP, up to 5MB",
+    "imageRemove": "Remove",
+    "imageUploadError": "Upload failed",
+    "imageTooLarge": "File too large (max 5MB)",
+    "imageUploading": "Uploading…"
   },
   "events": {
     "join": "joined",

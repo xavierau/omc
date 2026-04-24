@@ -1,14 +1,13 @@
 import { MAX_TEMPLATE_LENGTH } from '@/domain/onboarding/onboarding-settings'
+import { CampaignBodyError } from './parse-create-body-errors'
+import { parseImageUrl } from './parse-image-url'
+
+export { CampaignBodyError } from './parse-create-body-errors'
+export { parseImageUrl } from './parse-image-url'
 
 const ALLOWED_TYPES = ['welcome', 'winback', 'birthday', 'promo'] as const
 const ALLOWED_STATUSES = ['draft', 'active'] as const
 const DISCOUNT_TYPES = ['percentage', 'fixed_amount'] as const
-
-export class CampaignBodyError extends Error {
-  constructor(public readonly statusCode: number, message: string) {
-    super(message)
-  }
-}
 
 export interface ParsedCampaignBody {
   name: string
@@ -16,6 +15,8 @@ export interface ParsedCampaignBody {
   template: string
   templateEn: string | null
   templateZhHk: string | null
+  imageUrlEn: string | null
+  imageUrlZhHk: string | null
   whatsappTemplateId: string | null
   couponConfig: Record<string, unknown> | null
   scheduledAt: string | null
@@ -25,7 +26,10 @@ export interface ParsedCampaignBody {
   memberIds: string[]
 }
 
-export function parseCreateBody(body: Record<string, unknown>): ParsedCampaignBody {
+export function parseCreateBody(
+  body: Record<string, unknown>,
+  restaurantId: string
+): ParsedCampaignBody {
   if (!body.name || typeof body.name !== 'string') {
     throw new CampaignBodyError(400, 'name is required')
   }
@@ -50,12 +54,17 @@ export function parseCreateBody(body: Record<string, unknown>): ParsedCampaignBo
   const targetAudience: 'all' | 'selected' =
     body.targetAudience === 'selected' ? 'selected' : 'all'
   const memberIds = validateMemberIds(body.memberIds, targetAudience)
+  const type = body.type as (typeof ALLOWED_TYPES)[number]
+  // Welcome-only image scope guard (non-welcome campaigns never persist images).
+  const allowImages = type === 'welcome'
   return {
     name: body.name,
-    type: body.type as (typeof ALLOWED_TYPES)[number],
+    type,
     template,
     templateEn,
     templateZhHk,
+    imageUrlEn: allowImages ? parseImageUrl(body.imageUrlEn, restaurantId) : null,
+    imageUrlZhHk: allowImages ? parseImageUrl(body.imageUrlZhHk, restaurantId) : null,
     whatsappTemplateId: hasWaTemplate ? (body.whatsappTemplateId as string) : null,
     couponConfig: (body.couponConfig as Record<string, unknown>) ?? null,
     scheduledAt: (body.scheduledAt as string) ?? null,
@@ -110,11 +119,8 @@ function validateCouponConfig(config: unknown): void {
   if (typeof c.discountValue !== 'number' || c.discountValue <= 0) {
     throw new CampaignBodyError(400, 'discountValue must be a positive number')
   }
-  if (
-    typeof c.expiresInDays !== 'number' ||
-    c.expiresInDays < 1 ||
-    !Number.isInteger(c.expiresInDays)
-  ) {
+  const exp = c.expiresInDays
+  if (typeof exp !== 'number' || exp < 1 || !Number.isInteger(exp)) {
     throw new CampaignBodyError(400, 'expiresInDays must be a positive integer')
   }
 }
@@ -122,10 +128,7 @@ function validateCouponConfig(config: unknown): void {
 function validateStatus(status: unknown): void {
   if (status === undefined || status === null) return
   if (!ALLOWED_STATUSES.includes(status as (typeof ALLOWED_STATUSES)[number])) {
-    throw new CampaignBodyError(
-      400,
-      `status must be one of: ${ALLOWED_STATUSES.join(', ')}`
-    )
+    throw new CampaignBodyError(400, `status must be one of: ${ALLOWED_STATUSES.join(', ')}`)
   }
 }
 
@@ -134,11 +137,9 @@ function validateMemberIds(
   targetAudience: 'all' | 'selected'
 ): string[] {
   if (targetAudience !== 'selected') return []
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every((id) => typeof id === 'string')
-  ) {
+  const ok =
+    Array.isArray(value) && value.length > 0 && value.every((id) => typeof id === 'string')
+  if (!ok) {
     throw new CampaignBodyError(
       400,
       'memberIds must be a non-empty array of strings when targeting selected members'

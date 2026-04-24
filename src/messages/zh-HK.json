@@ -212,7 +212,15 @@
     "selectedCount": "已選 {count} 位",
     "searchMembers": "搜尋會員...",
     "selectAll": "全選",
-    "deselectAll": "取消全選"
+    "deselectAll": "取消全選",
+    "imageUploadLabel": "歡迎圖片",
+    "imageUploadHelper": "將與歡迎訊息一同傳送（選填）",
+    "imageDragDropHint": "拖放或點擊上傳",
+    "imageFormatHint": "JPG/PNG/WebP，最大 5MB",
+    "imageRemove": "移除",
+    "imageUploadError": "上傳失敗",
+    "imageTooLarge": "檔案過大（最多 5MB）",
+    "imageUploading": "上傳中…"
   },
   "events": {
     "join": "已加入",

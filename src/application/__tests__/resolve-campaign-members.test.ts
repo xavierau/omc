@@ -22,6 +22,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'Hello {{name}}',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,

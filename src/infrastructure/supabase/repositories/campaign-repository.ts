@@ -33,6 +33,8 @@ export async function createCampaign(
       template: params.legacyTemplate,
       template_en: params.templateEn ?? null,
       template_zh_hk: params.templateZhHk ?? null,
+      image_url_en: params.imageUrlEn ?? null,
+      image_url_zh_hk: params.imageUrlZhHk ?? null,
       coupon_config: params.couponConfig ?? null,
       schedule: params.schedule ?? null,
       scheduled_at: params.scheduledAt ?? null,

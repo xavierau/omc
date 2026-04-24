@@ -51,6 +51,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'LEG',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,
@@ -329,6 +331,110 @@ describe('POST /api/dashboard/campaigns', () => {
       postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
     )
     expect(r.status).toBe(201)
+  })
+
+  // FIX 3: image URL validation — reject non-https, non-bucket, or cross-tenant URLs.
+  it('rejects imageUrlEn with javascript: scheme', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'javascript:alert(1)',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn served over http:// (non-https)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'http://evil.com/x.png',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn pointing at another tenant prefix', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          'https://host/storage/v1/object/public/campaign-images/other-tenant-9/c/en.png',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('accepts imageUrlEn with the correct https + bucket + tenant prefix', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/draft-xyz/en.png`,
+      })
+    )
+    expect(r.status).toBe(201)
+  })
+
+  // FIX 1: hardened URL host validation via WHATWG URL parser. Attackers
+  // who embed the campaign-images path after an attacker-controlled host,
+  // userinfo (credential smuggling), or an unparseable URL must be rejected
+  // even before the tenant-prefix check.
+  it('rejects imageUrlEn with an unparseable URL (not a valid URL at all)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'not a url at all',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn containing userinfo (credential smuggling)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          `https://user:pass@host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/c/en.png`,
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+
+  // FIX 2: image URLs are welcome-only. A non-welcome type must have both
+  // image URLs coerced to null server-side even if the caller includes them.
+  it('forces image URLs to null when type !== welcome (POST scope guard)', async () => {
+    const validUrl =
+      `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/draft-abc/en.png`
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'winback',
+        templateEn: 'Hi',
+        imageUrlEn: validUrl,
+        imageUrlZhHk: validUrl,
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageUrlEn: null,
+        imageUrlZhHk: null,
+      })
+    )
   })
 })
 

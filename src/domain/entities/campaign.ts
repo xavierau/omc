@@ -11,6 +11,13 @@ export interface Campaign {
   template: string
   templateEn: string | null
   templateZhHk: string | null
+  /**
+   * Optional bilingual image attachments for welcome campaigns only.
+   * Strict per-language match at send time (no cross-language fallback).
+   * Public Supabase Storage URLs; nullable because image is optional.
+   */
+  imageUrlEn: string | null
+  imageUrlZhHk: string | null
   couponConfig: CouponConfig | null
   schedule: Record<string, unknown> | null
   scheduledAt: string | null
