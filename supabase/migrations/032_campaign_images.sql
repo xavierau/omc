@@ -23,7 +23,7 @@ DO $$ BEGIN
     WITH CHECK (
       bucket_id = 'campaign-images'
       AND (
-        (storage.foldername(name))[1] IN (SELECT user_restaurant_ids())
+        (storage.foldername(name))[1]::uuid IN (SELECT user_restaurant_ids())
         OR is_platform_admin()
       )
     );
@@ -35,7 +35,7 @@ DO $$ BEGIN
     USING (
       bucket_id = 'campaign-images'
       AND (
-        (storage.foldername(name))[1] IN (SELECT user_restaurant_ids())
+        (storage.foldername(name))[1]::uuid IN (SELECT user_restaurant_ids())
         OR is_platform_admin()
       )
     );
@@ -47,7 +47,7 @@ DO $$ BEGIN
     USING (
       bucket_id = 'campaign-images'
       AND (
-        (storage.foldername(name))[1] IN (SELECT user_restaurant_ids())
+        (storage.foldername(name))[1]::uuid IN (SELECT user_restaurant_ids())
         OR is_platform_admin()
       )
     );
