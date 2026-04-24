@@ -20,6 +20,18 @@ describe('resolveRoute', () => {
     it('text "JOIN-rest-abc" → JOIN', () => {
       expect(resolveRoute('JOIN-rest-abc', 'text').route).toBe('JOIN')
     })
+    it('Chinese alias 加入 → JOIN', () => {
+      expect(resolveRoute('加入', 'text').route).toBe('JOIN')
+    })
+    it('Chinese alias 入會 → JOIN', () => {
+      expect(resolveRoute('入會', 'text').route).toBe('JOIN')
+    })
+    it('Chinese alias 註冊 → JOIN', () => {
+      expect(resolveRoute('註冊', 'text').route).toBe('JOIN')
+    })
+    it('Chinese alias with surrounding whitespace → JOIN (trimmed match)', () => {
+      expect(resolveRoute('  加入  ', 'text').route).toBe('JOIN')
+    })
   })
 
   describe('priority 3: REWARD_<id>', () => {

@@ -1,5 +1,7 @@
 import { matchCommand, type CommandRoute } from '@/domain/services/command-keywords'
 
+const CHINESE_JOIN_ALIASES = ['加入', '入會', '註冊'] as const
+
 export type ResolvedRoute =
   | CommandRoute
   | 'JOIN'
@@ -34,6 +36,9 @@ export function resolveRoute(text: string, type: string): RouteResult {
   const upper = trimmed.toUpperCase()
 
   if (upper === 'JOIN' || upper.startsWith('JOIN-')) return { route: 'JOIN' }
+  if ((CHINESE_JOIN_ALIASES as readonly string[]).includes(trimmed)) {
+    return { route: 'JOIN' }
+  }
   if (upper.startsWith('REWARD_')) return { route: 'REWARD_REDEEM' }
 
   // Accept both English "REDEEM <code>" and Chinese "兌換 <代碼>" prefixes.

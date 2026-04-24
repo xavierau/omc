@@ -235,7 +235,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   })
 
   describe('JOIN is delegated to registerMember and is scoped by restaurantId', () => {
-    it('passes the current tenant into registerMember with the inbound text', async () => {
+    it('bare "JOIN": passes inboundText=undefined to skip language detection (would always be EN otherwise)', async () => {
       vi.mocked(registerMember).mockResolvedValue({
         isNew: true,
         memberId: 'm-new',
@@ -248,7 +248,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         RESTAURANT_B,
         PHONE,
         'Tester',
-        'JOIN'
+        undefined
       )
     })
 
@@ -269,6 +269,23 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         PHONE,
         'Tester',
         undefined
+      )
+    })
+
+    it('Chinese alias 加入: passes the Chinese text through so detection sets zh_hk', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+
+      await routeMessage(makeMessage({ text: '加入' }), RESTAURANT_B)
+
+      expect(registerMember).toHaveBeenCalledWith(
+        RESTAURANT_B,
+        PHONE,
+        'Tester',
+        '加入'
       )
     })
   })

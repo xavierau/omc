@@ -19,12 +19,14 @@ export interface JoinParams {
 export async function handleJoin(params: JoinParams) {
   const { message, restaurantId, phone, phoneNumberId, log } = params
   try {
-    // QR deep-link `JOIN-{restaurantId}` is always ASCII and would always
-    // detect as EN, persisting the wrong language for zh-menu QR scans.
-    // Only pass the inbound text for detection when the user actually
-    // typed something — not when the text came from a QR-seeded link.
+    // Bare `JOIN` and QR-deep-link `JOIN-{restaurantId}` are both ASCII
+    // and would always detect as EN, falsely pinning member language to
+    // English regardless of their actual preference. Skip detection for
+    // JOIN-family ASCII inputs — the restaurant default wins. Chinese
+    // aliases (加入/入會/註冊) pass through and are detected as zh_hk.
     const upper = (message.text ?? '').trim().toUpperCase()
-    const inboundForDetection = upper.startsWith('JOIN-') ? undefined : message.text
+    const isAsciiJoin = upper === 'JOIN' || upper.startsWith('JOIN-')
+    const inboundForDetection = isAsciiJoin ? undefined : message.text
     return await registerMember(restaurantId, phone, message.contactName, inboundForDetection)
   } catch (error) {
     log('error', 'handler.error', { route: 'JOIN', error: String(error) })
