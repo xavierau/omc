@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
+import { buildUploadPath, TenantPrefixError } from './upload-path'
 
-const ALLOWED_BUCKETS = ['tenant-assets', 'wa-template-media'] as const
+const ALLOWED_BUCKETS = [
+  'tenant-assets',
+  'wa-template-media',
+  'campaign-images',
+] as const
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -37,8 +42,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1]
-    const path = `${restaurantId}/${Date.now()}.${ext}`
+    const explicitPath = formData.get('path')
+    const path = buildUploadPath({
+      restaurantId,
+      explicitPath: typeof explicitPath === 'string' ? explicitPath : null,
+      mime: file.type,
+    })
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const supabase = createServerSupabaseClient()
@@ -57,6 +66,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (error instanceof TenantPrefixError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     console.error('Upload error:', error)
     return NextResponse.json(

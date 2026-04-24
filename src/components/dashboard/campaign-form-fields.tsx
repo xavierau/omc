@@ -3,7 +3,8 @@
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
-import { CampaignMemberPicker } from './campaign-member-picker'
+import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
+import { WelcomeImageFields } from './welcome-image-fields'
 import type { CampaignFormState } from './campaign-form-types'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
@@ -20,6 +21,8 @@ type OnChange = (key: keyof CampaignFormState, value: string) => void
 
 interface CampaignFormFieldsProps {
   form: CampaignFormState
+  campaignId?: string | null
+  draftNonce: string
   onChange: OnChange
   onMemberIdsChange: (ids: string[]) => void
   onTemplateChange: (next: { en: string; zhHk: string }) => void
@@ -27,6 +30,8 @@ interface CampaignFormFieldsProps {
 
 export function CampaignFormFields({
   form,
+  campaignId,
+  draftNonce,
   onChange,
   onMemberIdsChange,
   onTemplateChange,
@@ -48,8 +53,16 @@ export function CampaignFormFields({
           <option value="promo">{t('formPromo')}</option>
         </select>
       </Field>
-      <TargetAudienceFields form={form} onChange={onChange} onMemberIdsChange={onMemberIdsChange} />
+      <CampaignTargetAudienceFields form={form} onChange={onChange} onMemberIdsChange={onMemberIdsChange} />
       <CampaignMessageTypeField form={form} onChange={onChange} onTemplateChange={onTemplateChange} />
+      {form.type === 'welcome' && (
+        <WelcomeImageFields
+          form={form}
+          campaignId={campaignId ?? null}
+          draftNonce={draftNonce}
+          onChange={onChange}
+        />
+      )}
       <CouponConfigFields form={form} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
     </div>
@@ -101,36 +114,6 @@ function ExecutionFields({ form, onChange }: { form: CampaignFormState; onChange
         <Field label={t('scheduledAt')}>
           <Input type="datetime-local" value={form.scheduledAt} onChange={(e) => onChange('scheduledAt', e.target.value)} />
         </Field>
-      )}
-    </fieldset>
-  )
-}
-
-function TargetAudienceFields({
-  form,
-  onChange,
-  onMemberIdsChange,
-}: {
-  form: CampaignFormState
-  onChange: OnChange
-  onMemberIdsChange: (ids: string[]) => void
-}) {
-  const t = useTranslations('campaigns')
-  return (
-    <fieldset className="space-y-3 border border-input rounded-lg p-3">
-      <legend className="text-sm font-medium px-1">{t('targetAudience')}</legend>
-      <div className="flex gap-4">
-        <label className="flex items-center gap-1.5 text-sm">
-          <input type="radio" checked={form.targetAudience === 'all'} onChange={() => onChange('targetAudience', 'all')} />
-          {t('allMembers')}
-        </label>
-        <label className="flex items-center gap-1.5 text-sm">
-          <input type="radio" checked={form.targetAudience === 'selected'} onChange={() => onChange('targetAudience', 'selected')} />
-          {t('selectMembers')}
-        </label>
-      </div>
-      {form.targetAudience === 'selected' && (
-        <CampaignMemberPicker selectedIds={form.memberIds} onChange={onMemberIdsChange} />
       )}
     </fieldset>
   )

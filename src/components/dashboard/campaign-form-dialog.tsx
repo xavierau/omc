@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,8 @@ function campaignToFormState(c: Campaign): CampaignFormState {
     type: c.type,
     templateEn: c.templateEn ?? '',
     templateZhHk: c.templateZhHk ?? '',
+    imageUrlEn: c.imageUrlEn ?? '',
+    imageUrlZhHk: c.imageUrlZhHk ?? '',
     messageType: c.whatsappTemplateId ? 'wa_template' : 'inline',
     whatsappTemplateId: c.whatsappTemplateId ?? '',
     discountType: c.couponConfig?.discountType ?? 'percentage',
@@ -65,6 +67,13 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
   const [form, setForm] = useState<CampaignFormState>(initialCampaignForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Per-form-session nonce: stabilises the draft upload path so two admins
+  // creating campaigns concurrently don't overwrite each other's blobs at
+  // the shared `{restaurantId}/draft/` prefix. Recomputed per dialog mount.
+  const draftNonce = useMemo(
+    () => (typeof crypto !== 'undefined' ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36).slice(0, 8)),
+    []
+  )
 
   useEffect(() => {
     if (!campaign) { setForm(initialCampaignForm); return }
@@ -110,6 +119,8 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
         <div className="px-4 pb-4">
           <CampaignFormFields
             form={form}
+            campaignId={campaign?.id ?? null}
+            draftNonce={draftNonce}
             onChange={handleChange}
             onMemberIdsChange={(ids) => setForm((p) => ({ ...p, memberIds: ids }))}
             onTemplateChange={handleTemplateChange}

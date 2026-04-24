@@ -13,6 +13,8 @@ export interface CreateCampaignParams {
   legacyTemplate: string
   templateEn?: string | null
   templateZhHk?: string | null
+  imageUrlEn?: string | null
+  imageUrlZhHk?: string | null
   couponConfig?: CouponConfig | null
   schedule?: Record<string, unknown> | null
   scheduledAt?: string | null
@@ -27,6 +29,8 @@ export interface UpdateCampaignParams {
   template?: string
   templateEn?: string | null
   templateZhHk?: string | null
+  imageUrlEn?: string | null
+  imageUrlZhHk?: string | null
   /**
    * Explicit value for the legacy `template` column. Callers (e.g. the PATCH
    * route) compute this from the current row + patch + restaurant default
@@ -51,6 +55,8 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     template: (row.template as string) ?? '',
     templateEn: (row.template_en as string | null) ?? null,
     templateZhHk: (row.template_zh_hk as string | null) ?? null,
+    imageUrlEn: (row.image_url_en as string | null) ?? null,
+    imageUrlZhHk: (row.image_url_zh_hk as string | null) ?? null,
     couponConfig: (row.coupon_config as CouponConfig) ?? null,
     schedule: (row.schedule as Record<string, unknown>) ?? null,
     scheduledAt: (row.scheduled_at as string) ?? null,
@@ -83,6 +89,8 @@ export function buildCampaignUpdateRow(
   if (changes.type !== undefined) update.type = changes.type
   if (changes.templateEn !== undefined) update.template_en = changes.templateEn
   if (changes.templateZhHk !== undefined) update.template_zh_hk = changes.templateZhHk
+  if (changes.imageUrlEn !== undefined) update.image_url_en = changes.imageUrlEn
+  if (changes.imageUrlZhHk !== undefined) update.image_url_zh_hk = changes.imageUrlZhHk
   if (changes.couponConfig !== undefined) update.coupon_config = changes.couponConfig
   if (changes.schedule !== undefined) update.schedule = changes.schedule
   if (changes.scheduledAt !== undefined) update.scheduled_at = changes.scheduledAt

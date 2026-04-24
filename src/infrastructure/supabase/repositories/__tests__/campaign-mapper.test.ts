@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCampaignUpdateRow } from '../campaign-mapper'
+import { buildCampaignUpdateRow, mapRowToCampaign } from '../campaign-mapper'
 
 describe('buildCampaignUpdateRow', () => {
   it('writes bilingual fields without touching the legacy column by default', () => {
@@ -34,5 +34,71 @@ describe('buildCampaignUpdateRow', () => {
   it('omits the legacy column when only name changes', () => {
     const row = buildCampaignUpdateRow({ name: 'Rename' })
     expect(row).toEqual({ name: 'Rename' })
+  })
+
+  it('writes bilingual image URL columns when provided', () => {
+    const row = buildCampaignUpdateRow({
+      imageUrlEn: 'https://cdn.test/en.jpg',
+      imageUrlZhHk: 'https://cdn.test/zh.jpg',
+    })
+    expect(row).toEqual({
+      image_url_en: 'https://cdn.test/en.jpg',
+      image_url_zh_hk: 'https://cdn.test/zh.jpg',
+    })
+  })
+
+  it('writes null image URLs when caller clears them', () => {
+    const row = buildCampaignUpdateRow({ imageUrlEn: null, imageUrlZhHk: null })
+    expect(row).toEqual({ image_url_en: null, image_url_zh_hk: null })
+  })
+
+  it('does not touch image columns when fields are undefined', () => {
+    const row = buildCampaignUpdateRow({ name: 'x' })
+    expect('image_url_en' in row).toBe(false)
+    expect('image_url_zh_hk' in row).toBe(false)
+  })
+})
+
+describe('mapRowToCampaign image fields', () => {
+  it('maps image_url_en and image_url_zh_hk into camelCase', () => {
+    const campaign = mapRowToCampaign({
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'n',
+      type: 'welcome',
+      template: '',
+      template_en: null,
+      template_zh_hk: null,
+      image_url_en: 'https://cdn.test/en.jpg',
+      image_url_zh_hk: 'https://cdn.test/zh.jpg',
+      coupon_config: null,
+      schedule: null,
+      scheduled_at: null,
+      status: 'active',
+      is_chargeable: false,
+      chargeable_sent_count: 0,
+      non_chargeable_sent_count: 0,
+      redeemed_count: 0,
+      whatsapp_template_id: null,
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    })
+    expect(campaign.imageUrlEn).toBe('https://cdn.test/en.jpg')
+    expect(campaign.imageUrlZhHk).toBe('https://cdn.test/zh.jpg')
+  })
+
+  it('defaults missing image columns to null', () => {
+    const campaign = mapRowToCampaign({
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'n',
+      type: 'welcome',
+      template: '',
+      status: 'active',
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    })
+    expect(campaign.imageUrlEn).toBeNull()
+    expect(campaign.imageUrlZhHk).toBeNull()
   })
 })

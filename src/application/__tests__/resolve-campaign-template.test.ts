@@ -16,6 +16,8 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'LEG',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,

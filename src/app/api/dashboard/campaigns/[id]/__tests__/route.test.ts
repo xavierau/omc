@@ -53,6 +53,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'LEG',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,
@@ -467,5 +469,55 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     })
 
     expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  // FIX 2: welcome-only scope guard. When the effective (next) type is
+  // not 'welcome', the PATCH must clear any image URLs so a direct API
+  // caller can't leave stale welcome images attached to a winback/promo.
+  it('clears image URLs when PATCH flips type welcome → promo', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({
+        type: 'welcome',
+        imageUrlEn: 'https://host/storage/v1/object/public/campaign-images/rest-1/c/en.png',
+        imageUrlZhHk: 'https://host/storage/v1/object/public/campaign-images/rest-1/c/zh.png',
+      })
+    )
+
+    await PATCH(patchRequest({ type: 'promo' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({
+        type: 'promo',
+        imageUrlEn: null,
+        imageUrlZhHk: null,
+      })
+    )
+  })
+
+  it('clears image URLs when PATCHing a non-welcome row (existing promo)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'promo' })
+    )
+
+    await PATCH(
+      patchRequest({
+        imageUrlEn:
+          `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/c/en.png`,
+        imageUrlZhHk:
+          `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/c/zh.png`,
+      }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({
+        imageUrlEn: null,
+        imageUrlZhHk: null,
+      })
+    )
   })
 })

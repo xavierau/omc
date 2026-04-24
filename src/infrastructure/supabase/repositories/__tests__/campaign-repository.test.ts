@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from '../../client'
 import {
   mapRowToCampaign,
   incrementCampaignSent,
+  createCampaign,
 } from '../campaign-repository'
 
 function buildRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -94,6 +95,83 @@ describe('incrementCampaignSent (atomic RPC)', () => {
 
     await expect(incrementCampaignSent('camp-1', true)).rejects.toThrow(
       'incrementCampaignSent: rpc denied'
+    )
+  })
+})
+
+// FIX 9: assert that `createCampaign` writes `image_url_en` / `image_url_zh_hk`
+// onto the INSERT row. Regression guard: the POST route relies on these
+// being persisted; a mapper drift would silently lose the attachment.
+function buildInsertSpyClient(returnRow: Record<string, unknown>) {
+  const single = vi.fn().mockResolvedValue({ data: returnRow, error: null })
+  const select = vi.fn().mockReturnValue({ single })
+  const insert = vi.fn().mockReturnValue({ select })
+  const from = vi.fn().mockReturnValue({ insert })
+  return { from, insert, select, single }
+}
+
+describe('createCampaign — INSERT row payload (FIX 9)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('includes image_url_en and image_url_zh_hk when both are provided', async () => {
+    const row = {
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'W',
+      type: 'welcome',
+      template: '',
+      image_url_en: 'https://cdn/en.png',
+      image_url_zh_hk: 'https://cdn/zh.png',
+      status: 'active',
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    }
+    const spy = buildInsertSpyClient(row)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    await createCampaign({
+      restaurantId: 'r-1',
+      name: 'W',
+      type: 'welcome',
+      legacyTemplate: '',
+      imageUrlEn: 'https://cdn/en.png',
+      imageUrlZhHk: 'https://cdn/zh.png',
+    })
+
+    expect(spy.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url_en: 'https://cdn/en.png',
+        image_url_zh_hk: 'https://cdn/zh.png',
+      })
+    )
+  })
+
+  it('writes null image columns when caller omits the fields', async () => {
+    const row = {
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'P',
+      type: 'promo',
+      template: '',
+      status: 'draft',
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    }
+    const spy = buildInsertSpyClient(row)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    await createCampaign({
+      restaurantId: 'r-1',
+      name: 'P',
+      type: 'promo',
+      legacyTemplate: '',
+    })
+
+    expect(spy.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url_en: null,
+        image_url_zh_hk: null,
+      })
     )
   })
 })

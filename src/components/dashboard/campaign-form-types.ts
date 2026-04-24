@@ -3,6 +3,8 @@ export interface CampaignFormState {
   type: string
   templateEn: string
   templateZhHk: string
+  imageUrlEn: string
+  imageUrlZhHk: string
   messageType: 'inline' | 'wa_template'
   whatsappTemplateId: string
   discountType: string
@@ -26,6 +28,8 @@ export const initialCampaignForm: CampaignFormState = {
   type: 'winback',
   templateEn: '',
   templateZhHk: '',
+  imageUrlEn: '',
+  imageUrlZhHk: '',
   messageType: 'inline',
   whatsappTemplateId: '',
   discountType: 'percentage',
@@ -42,6 +46,8 @@ export interface CampaignRequestBody {
   type: string
   templateEn: string
   templateZhHk: string
+  imageUrlEn: string | null
+  imageUrlZhHk: string | null
   whatsappTemplateId: string | null
   couponConfig: { discountType: string; discountValue: number; expiresInDays: number } | null
   scheduledAt: string | null
@@ -53,11 +59,15 @@ export interface CampaignRequestBody {
 export function buildCampaignRequestBody(form: CampaignFormState): CampaignRequestBody {
   const useWaTemplate = form.messageType === 'wa_template'
   const discountValue = Number(form.discountValue)
+  // Image attachments are locked to welcome campaigns only (ONBOARD-010).
+  const isWelcome = form.type === 'welcome'
   const body: CampaignRequestBody = {
     name: form.name,
     type: form.type,
     templateEn: useWaTemplate ? '' : form.templateEn,
     templateZhHk: useWaTemplate ? '' : form.templateZhHk,
+    imageUrlEn: isWelcome ? nullIfBlank(form.imageUrlEn) : null,
+    imageUrlZhHk: isWelcome ? nullIfBlank(form.imageUrlZhHk) : null,
     whatsappTemplateId: useWaTemplate ? form.whatsappTemplateId : null,
     couponConfig:
       discountValue > 0
@@ -76,6 +86,11 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds
   return body
+}
+
+function nullIfBlank(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
 }
 
 export type CampaignValidationKey =

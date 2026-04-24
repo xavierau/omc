@@ -28,6 +28,8 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     template: 'Hi',
     templateEn: null,
     templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
     couponConfig: null,
     schedule: null,
     scheduledAt: null,
