@@ -233,6 +233,38 @@ describe('registerMember', () => {
     )
   })
 
+  it('falls back to hardcoded welcome coupon when campaign mint fails (e.g. missing coupon_config)', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'camp-welcome',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'en',
+    })
+    vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign())
+    vi.mocked(createCampaignCoupon).mockRejectedValueOnce(
+      new Error('Campaign has no coupon_config')
+    )
+    mockSingle.mockResolvedValueOnce({ data: null, error: null })
+    mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+    const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Carol')
+
+    expect(result.couponCode).toBe('WELCOME1')
+    expect(createCampaignCoupon).toHaveBeenCalled()
+    expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ restaurantId: RESTAURANT_ID, memberId: 'm-new', type: 'join' })
+    )
+    // Campaign text still used (with fallback coupon code substituted)
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      VALID_PHONE,
+      'Hi Carol, here is your code: WELCOME1'
+    )
+  })
+
   it('falls back to hardcoded text when mapped welcome campaign is missing', async () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-missing',

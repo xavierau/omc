@@ -94,15 +94,24 @@ async function onboardViaCampaign(
   campaign: Campaign,
   language: Language
 ): Promise<OnboardOutput> {
-  const coupon = await createCampaignCoupon(
-    ctx.restaurantId,
-    ctx.memberId,
-    campaign,
-    ctx.contactName ?? ''
-  )
-  await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
-    console.warn('[onboarding] welcome campaign counter increment failed:', err)
-  })
+  let coupon: { code: string; id: string }
+  try {
+    coupon = await createCampaignCoupon(
+      ctx.restaurantId,
+      ctx.memberId,
+      campaign,
+      ctx.contactName ?? ''
+    )
+    await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
+      console.warn('[onboarding] welcome campaign counter increment failed:', err)
+    })
+  } catch (err) {
+    // Campaign mapping exists but is broken (e.g. missing coupon_config).
+    // Mirror register-member-web.ts: keep the campaign's text/image, but
+    // mint a hardcoded welcome coupon so onboarding still succeeds.
+    console.warn('[onboarding] campaign coupon mint failed, using welcome fallback:', (err as Error).message)
+    coupon = await createWelcomeCoupon(ctx.restaurantId, ctx.memberId)
+  }
   const vars = {
     contactName: ctx.contactName ?? '',
     couponCode: coupon.code,
