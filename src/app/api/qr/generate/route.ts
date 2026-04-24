@@ -29,7 +29,7 @@ export async function POST() {
       )
     }
 
-    const result = await generateQr({ restaurantId, whatsappNumber })
+    const result = await generateQr({ whatsappNumber })
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof AuthError) {

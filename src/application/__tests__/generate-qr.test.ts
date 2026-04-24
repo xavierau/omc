@@ -13,18 +13,16 @@ describe('generateQr', () => {
 
   it('builds deep link with + stripped from number', async () => {
     const result = await generateQr({
-      restaurantId: 'rest-1',
       whatsappNumber: '+85291234567',
     })
 
     expect(result.deepLink).toBe(
-      'https://wa.me/85291234567?text=JOIN-rest-1'
+      'https://wa.me/85291234567?text=JOIN'
     )
   })
 
   it('returns qrDataUrl from QRCode.toDataURL', async () => {
     const result = await generateQr({
-      restaurantId: 'rest-1',
       whatsappNumber: '+85291234567',
     })
 
@@ -33,12 +31,11 @@ describe('generateQr', () => {
 
   it('calls QRCode.toDataURL with correct options', async () => {
     await generateQr({
-      restaurantId: 'rest-1',
       whatsappNumber: '+85291234567',
     })
 
     expect(QRCode.toDataURL).toHaveBeenCalledWith(
-      'https://wa.me/85291234567?text=JOIN-rest-1',
+      'https://wa.me/85291234567?text=JOIN',
       expect.objectContaining({
         width: 300,
         errorCorrectionLevel: 'H',

@@ -1,7 +1,6 @@
 import QRCode from 'qrcode'
 
 export interface GenerateQrParams {
-  restaurantId: string
   whatsappNumber: string
 }
 
@@ -10,19 +9,16 @@ export interface GenerateQrResult {
   deepLink: string
 }
 
-function buildDeepLink(
-  whatsappNumber: string,
-  restaurantId: string
-): string {
+function buildDeepLink(whatsappNumber: string): string {
   const cleanNumber = whatsappNumber.replace('+', '')
-  return `https://wa.me/${cleanNumber}?text=JOIN-${restaurantId}`
+  return `https://wa.me/${cleanNumber}?text=JOIN`
 }
 
 export async function generateQr(
   params: GenerateQrParams
 ): Promise<GenerateQrResult> {
-  const { restaurantId, whatsappNumber } = params
-  const deepLink = buildDeepLink(whatsappNumber, restaurantId)
+  const { whatsappNumber } = params
+  const deepLink = buildDeepLink(whatsappNumber)
 
   const qrDataUrl = await QRCode.toDataURL(deepLink, {
     width: 300,
