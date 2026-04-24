@@ -1,14 +1,13 @@
 import { MAX_TEMPLATE_LENGTH } from '@/domain/onboarding/onboarding-settings'
+import { CampaignBodyError } from './parse-create-body-errors'
+import { parseImageUrl } from './parse-image-url'
+
+export { CampaignBodyError } from './parse-create-body-errors'
+export { parseImageUrl } from './parse-image-url'
 
 const ALLOWED_TYPES = ['welcome', 'winback', 'birthday', 'promo'] as const
 const ALLOWED_STATUSES = ['draft', 'active'] as const
 const DISCOUNT_TYPES = ['percentage', 'fixed_amount'] as const
-
-export class CampaignBodyError extends Error {
-  constructor(public readonly statusCode: number, message: string) {
-    super(message)
-  }
-}
 
 export interface ParsedCampaignBody {
   name: string
@@ -56,8 +55,7 @@ export function parseCreateBody(
     body.targetAudience === 'selected' ? 'selected' : 'all'
   const memberIds = validateMemberIds(body.memberIds, targetAudience)
   const type = body.type as (typeof ALLOWED_TYPES)[number]
-  // Welcome-only scope guard: non-welcome campaigns never persist images,
-  // even when a direct API caller tries to include them.
+  // Welcome-only image scope guard (non-welcome campaigns never persist images).
   const allowImages = type === 'welcome'
   return {
     name: body.name,
@@ -107,45 +105,6 @@ function parseTemplateField(
     )
   }
   return value
-}
-
-/**
- * Validate and normalise a campaign image URL. Callers must pass the
- * authenticated restaurantId so cross-tenant URLs can be rejected.
- *
- * Accepted shape: `https://{host}/storage/v1/object/public/campaign-images/{restaurantId}/...`
- *
- * Rejects: non-https schemes (blocks `javascript:`, `http://`, `file:`…),
- * URLs outside the `campaign-images` bucket, and URLs pointing at a
- * different tenant's prefix.
- */
-const CAMPAIGN_IMAGE_PATH_RE =
-  /\/storage\/v1\/object\/public\/campaign-images\/([^/]+)\//
-
-export function parseImageUrl(v: unknown, restaurantId: string): string | null {
-  if (typeof v !== 'string') return null
-  const trimmed = v.trim()
-  if (trimmed === '') return null
-  if (!trimmed.startsWith('https://')) {
-    throw new CampaignBodyError(
-      400,
-      'image URL must use https:// scheme'
-    )
-  }
-  const match = trimmed.match(CAMPAIGN_IMAGE_PATH_RE)
-  if (!match) {
-    throw new CampaignBodyError(
-      400,
-      'image URL must point at /storage/v1/object/public/campaign-images/'
-    )
-  }
-  if (match[1] !== restaurantId) {
-    throw new CampaignBodyError(
-      400,
-      'image URL tenant prefix does not match the authenticated tenant'
-    )
-  }
-  return trimmed
 }
 
 function validateCouponConfig(config: unknown): void {

@@ -497,6 +497,60 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     )
   })
 
+  // FIX 1: hardened URL validation via WHATWG URL parser. The PATCH path
+  // must reject attacker-host/userinfo/non-URL inputs before the image
+  // URLs hit the DB.
+  it('rejects imageUrlEn with http:// scheme on a welcome PATCH', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    const r = await PATCH(
+      patchRequest({
+        imageUrlEn: `http://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/x.png`,
+      }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn containing userinfo on a welcome PATCH', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    const r = await PATCH(
+      patchRequest({
+        imageUrlEn: `https://u:p@host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/x.png`,
+      }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects a non-URL imageUrlEn on a welcome PATCH', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    const r = await PATCH(
+      patchRequest({ imageUrlEn: 'definitely not a url' }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn targeting a different tenant on a welcome PATCH', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ type: 'welcome' })
+    )
+    const r = await PATCH(
+      patchRequest({
+        imageUrlEn:
+          'https://host/storage/v1/object/public/campaign-images/other-tenant/x.png',
+      }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+    expect(r.status).toBe(400)
+  })
+
   it('clears image URLs when PATCHing a non-welcome row (existing promo)', async () => {
     vi.mocked(getCampaignById).mockResolvedValueOnce(
       buildCampaign({ type: 'promo' })

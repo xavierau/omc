@@ -219,7 +219,8 @@
     "imageFormatHint": "JPG/PNG/WebP, up to 5MB",
     "imageRemove": "Remove",
     "imageUploadError": "Upload failed",
-    "imageTooLarge": "File too large (max 5MB)"
+    "imageTooLarge": "File too large (max 5MB)",
+    "imageUploading": "Uploading…"
   },
   "events": {
     "join": "joined",

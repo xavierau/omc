@@ -68,6 +68,9 @@ export function assertTenantPrefix(path: string, restaurantId: string): void {
 }
 
 function normalizeExt(mime: string): string {
-  const tail = mime.split('/')[1] ?? 'bin'
+  // Safe default: an unknown/unsupported mime must not leak a `.bin`
+  // blob into the bucket — mirrors the client helper's `png` default.
+  const tail = mime.split('/')[1]
+  if (!tail) return 'png'
   return tail === 'jpeg' ? 'jpg' : tail
 }

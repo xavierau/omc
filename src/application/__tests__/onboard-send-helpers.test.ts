@@ -48,6 +48,15 @@ describe('sendWelcomeBody (best-effort per FIX 8)', () => {
     ).resolves.toBeUndefined()
   })
 
+  // FIX 2: image failure must fall back to a plain text send so the
+  // welcome copy still reaches the member.
+  it('falls back to text when the image send fails', async () => {
+    vi.mocked(sendImageMessage).mockRejectedValueOnce(new Error('wa image down'))
+    vi.mocked(sendTextMessage).mockResolvedValueOnce(undefined as never)
+    await sendWelcomeBody(TARGET, 'Hi', 'https://cdn/x.png')
+    expect(sendTextMessage).toHaveBeenCalledWith('pn-1', '+852999', 'Hi')
+  })
+
   it('DOES NOT throw when the text fallback fails', async () => {
     vi.mocked(sendTextMessage).mockRejectedValueOnce(new Error('wa text down'))
     await expect(

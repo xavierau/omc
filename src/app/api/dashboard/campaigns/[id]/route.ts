@@ -14,24 +14,9 @@ import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
 } from './template-helpers'
-import { parseImageUrl, CampaignBodyError } from '../parse-create-body'
+import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
+import { CampaignBodyError } from '../parse-create-body-errors'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
-
-const ALLOWED = new Set([
-  'name',
-  'type',
-  'template',
-  'templateEn',
-  'templateZhHk',
-  'imageUrlEn',
-  'imageUrlZhHk',
-  'couponConfig',
-  'schedule',
-  'scheduledAt',
-  'whatsappTemplateId',
-  'status',
-  'targetAudience',
-])
 
 export async function GET(
   _request: NextRequest,
@@ -85,23 +70,7 @@ export async function PATCH(
       return NextResponse.json({ error: templateError }, { status: 400 })
     }
     const changes: UpdateCampaignParams = pickAllowed(body)
-    // FIX 2: welcome-only scope guard. If the effective next type is not
-    // 'welcome', coerce both image URLs to null so a direct API caller
-    // can't leave stale welcome images attached to a winback/promo row.
-    // Effective type = new type if caller is changing it, else the existing.
-    const effectiveType = changes.type ?? existing.type
-    if (effectiveType !== 'welcome') {
-      changes.imageUrlEn = null
-      changes.imageUrlZhHk = null
-    } else {
-      // FIX 3: validate URLs for welcome campaigns (tenant scope + https).
-      if (changes.imageUrlEn !== undefined && changes.imageUrlEn !== null) {
-        changes.imageUrlEn = parseImageUrl(changes.imageUrlEn, restaurantId)
-      }
-      if (changes.imageUrlZhHk !== undefined && changes.imageUrlZhHk !== null) {
-        changes.imageUrlZhHk = parseImageUrl(changes.imageUrlZhHk, restaurantId)
-      }
-    }
+    applyImageScopeGuard(changes, existing, restaurantId)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
 
     const campaign = await updateCampaign(id, changes)
@@ -148,12 +117,4 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
-
-function pickAllowed(body: Record<string, unknown>): UpdateCampaignParams {
-  const changes: Record<string, unknown> = {}
-  for (const key of ALLOWED) {
-    if (body[key] !== undefined) changes[key] = body[key]
-  }
-  return changes as UpdateCampaignParams
 }

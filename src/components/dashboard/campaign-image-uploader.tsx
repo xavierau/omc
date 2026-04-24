@@ -116,7 +116,7 @@ export function CampaignImageUploader({
         >
           <Upload className="size-5 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
-            {uploading ? t('sending') : t('imageDragDropHint')}
+            {uploading ? t('imageUploading') : t('imageDragDropHint')}
           </p>
           <p className="text-[10px] text-muted-foreground">{t('imageFormatHint')}</p>
         </div>
@@ -131,6 +131,13 @@ export function CampaignImageUploader({
         }}
         className="hidden"
       />
+      {/*
+        Inline <p className="text-destructive"> is the canonical form-scoped
+        error pattern in this app (see welcome-setup-save-row.tsx,
+        campaign-form-dialog.tsx). There is no toast library wired up yet,
+        so keep the inline surface consistent rather than introducing a
+        one-off pattern here.
+      */}
       {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   )

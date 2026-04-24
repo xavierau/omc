@@ -70,6 +70,12 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
   // Per-form-session nonce: stabilises the draft upload path so two admins
   // creating campaigns concurrently don't overwrite each other's blobs at
   // the shared `{restaurantId}/draft/` prefix. Recomputed per dialog mount.
+  //
+  // Phase-1 trade-off (FIX 8): because the nonce is regenerated on each
+  // mount, reopening the dialog after closing it without saving strands
+  // the previously uploaded blob under the old `draft-{nonce}/` prefix.
+  // Orphan cleanup is out of scope for ONBOARD-010 (see welcome-image PRD
+  // "phase-1 accepts the storage cost"); a later GC sweep reclaims them.
   const draftNonce = useMemo(
     () => (typeof crypto !== 'undefined' ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36).slice(0, 8)),
     []

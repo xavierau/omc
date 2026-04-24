@@ -8,21 +8,21 @@ interface SendTarget {
 
 /**
  * Send the welcome message. If a per-language welcome image is attached to
- * the campaign, send ONE image message with the welcome text as caption.
- * Otherwise, fall through to a text-only message. Either way the QR coupon
- * still ships as a separate second message (see `sendCouponQrImage`).
+ * the campaign, try the image-with-caption send first; on failure, fall
+ * back to a plain text send so the member never loses the welcome copy.
+ * Either way the QR coupon still ships as a separate second message (see
+ * `sendCouponQrImage`).
  *
- * Best-effort: a WhatsApp outage (image or text send failure) must NEVER
- * block the QR coupon second message, which is the point of the whole
- * flow. Warn-log with context and swallow.
+ * Best-effort: any WhatsApp outage must NEVER block the QR coupon second
+ * message. Errors are warn-logged and swallowed at each step.
  */
 export async function sendWelcomeBody(
   target: SendTarget,
   welcomeText: string,
   welcomeImageUrl: string | null
 ): Promise<void> {
-  try {
-    if (welcomeImageUrl) {
+  if (welcomeImageUrl) {
+    try {
       await sendImageMessage(
         target.phoneNumberId,
         target.phone,
@@ -30,12 +30,19 @@ export async function sendWelcomeBody(
         welcomeText
       )
       return
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      console.warn(
+        `[Welcome] image send failed for phone ${target.phone} (pnid ${target.phoneNumberId}), falling back to text: ${reason}`
+      )
     }
+  }
+  try {
     await sendTextMessage(target.phoneNumberId, target.phone, welcomeText)
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
     console.warn(
-      `[Welcome] sendWelcomeBody failed for phone ${target.phone} (pnid ${target.phoneNumberId}, hasImage=${welcomeImageUrl !== null}): ${reason}`
+      `[Welcome] text send failed for phone ${target.phone} (pnid ${target.phoneNumberId}): ${reason}`
     )
   }
 }

@@ -219,7 +219,8 @@
     "imageFormatHint": "JPG/PNG/WebP，最大 5MB",
     "imageRemove": "移除",
     "imageUploadError": "上傳失敗",
-    "imageTooLarge": "檔案過大（最多 5MB）"
+    "imageTooLarge": "檔案過大（最多 5MB）",
+    "imageUploading": "上傳中…"
   },
   "events": {
     "join": "已加入",

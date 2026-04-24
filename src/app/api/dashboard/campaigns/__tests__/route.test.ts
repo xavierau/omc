@@ -384,6 +384,36 @@ describe('POST /api/dashboard/campaigns', () => {
     expect(r.status).toBe(201)
   })
 
+  // FIX 1: hardened URL host validation via WHATWG URL parser. Attackers
+  // who embed the campaign-images path after an attacker-controlled host,
+  // userinfo (credential smuggling), or an unparseable URL must be rejected
+  // even before the tenant-prefix check.
+  it('rejects imageUrlEn with an unparseable URL (not a valid URL at all)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'not a url at all',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn containing userinfo (credential smuggling)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          `https://user:pass@host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/c/en.png`,
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+
   // FIX 2: image URLs are welcome-only. A non-welcome type must have both
   // image URLs coerced to null server-side even if the caller includes them.
   it('forces image URLs to null when type !== welcome (POST scope guard)', async () => {
