@@ -65,8 +65,16 @@ export function CampaignImageUploader({
         method: 'POST',
         body: formData,
       })
+      // Check status BEFORE parsing JSON: a 5xx may return non-JSON HTML,
+      // which would otherwise throw inside `res.json()` and mask the real
+      // upstream error. Read body as text on failure for diagnostics.
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(
+          `Upload failed (${res.status}): ${text || res.statusText}`
+        )
+      }
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Upload failed')
       onUploaded(data.url)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('imageUploadError'))
@@ -108,18 +116,21 @@ export function CampaignImageUploader({
           </button>
         </div>
       ) : (
-        <div
+        <button
+          type="button"
           onClick={() => inputRef.current?.click()}
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
-          className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-input rounded-lg p-4 cursor-pointer hover:bg-muted"
+          aria-label={t('imageUploadLabel')}
+          disabled={uploading}
+          className="flex w-full flex-col items-center justify-center gap-1 border-2 border-dashed border-input rounded-lg p-4 cursor-pointer hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Upload className="size-5 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
             {uploading ? t('imageUploading') : t('imageDragDropHint')}
           </p>
           <p className="text-[10px] text-muted-foreground">{t('imageFormatHint')}</p>
-        </div>
+        </button>
       )}
       <input
         ref={inputRef}
