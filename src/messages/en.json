@@ -112,7 +112,14 @@
     "noCoupons": "No coupons",
     "percentOff": "{value}% off",
     "fixedOff": "HK${value} off",
-    "memberNotFound": "Member not found"
+    "memberNotFound": "Member not found",
+    "deleteMember": "Delete Member",
+    "deleteConfirmTitle": "Delete this member?",
+    "deleteConfirmBody": "Permanently remove {name} ({phone}) and all related receipts, coupons, and points history. This cannot be undone.",
+    "deleteConfirmButton": "Yes, delete",
+    "deleteCancelButton": "Cancel",
+    "deleting": "Deleting…",
+    "deleteFailed": "Couldn't delete member. Please try again."
   },
   "coupons": {
     "heading": "Coupons",
