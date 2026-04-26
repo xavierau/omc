@@ -102,11 +102,23 @@ function ExecutionFields({ form, onChange }: { form: CampaignFormState; onChange
       <legend className="text-sm font-medium px-1">{t('execution')}</legend>
       <div className="flex gap-4">
         <label className="flex items-center gap-1.5 text-sm">
-          <input type="radio" checked={form.execution === 'now'} onChange={() => onChange('execution', 'now')} />
+          <input
+            type="radio"
+            name="execution"
+            value="now"
+            checked={form.execution === 'now'}
+            onChange={() => onChange('execution', 'now')}
+          />
           {t('executionNow')}
         </label>
         <label className="flex items-center gap-1.5 text-sm">
-          <input type="radio" checked={form.execution === 'schedule'} onChange={() => onChange('execution', 'schedule')} />
+          <input
+            type="radio"
+            name="execution"
+            value="schedule"
+            checked={form.execution === 'schedule'}
+            onChange={() => onChange('execution', 'schedule')}
+          />
           {t('executionSchedule')}
         </label>
       </div>

@@ -25,6 +25,8 @@ export function CampaignTargetAudienceFields({
         <label className="flex items-center gap-1.5 text-sm">
           <input
             type="radio"
+            name="targetAudience"
+            value="all"
             checked={form.targetAudience === 'all'}
             onChange={() => onChange('targetAudience', 'all')}
           />
@@ -33,6 +35,8 @@ export function CampaignTargetAudienceFields({
         <label className="flex items-center gap-1.5 text-sm">
           <input
             type="radio"
+            name="targetAudience"
+            value="selected"
             checked={form.targetAudience === 'selected'}
             onChange={() => onChange('targetAudience', 'selected')}
           />

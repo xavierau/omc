@@ -7,6 +7,17 @@ interface SendTarget {
 }
 
 /**
+ * Mask all but the last 4 digits of a phone number for log output.
+ * PII safety: never write a member's full phone number to logs/telemetry.
+ *
+ * "85291234567" -> "*******4567"
+ */
+function maskPhone(phone: string): string {
+  if (phone.length <= 4) return phone
+  return phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4)
+}
+
+/**
  * Send the welcome message. If a per-language welcome image is attached to
  * the campaign, try the image-with-caption send first; on failure, fall
  * back to a plain text send so the member never loses the welcome copy.
@@ -33,7 +44,7 @@ export async function sendWelcomeBody(
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err)
       console.warn(
-        `[Welcome] image send failed for phone ${target.phone} (pnid ${target.phoneNumberId}), falling back to text: ${reason}`
+        `[Welcome] image send failed for phone ${maskPhone(target.phone)} (pnid ${target.phoneNumberId}), falling back to text: ${reason}`
       )
     }
   }
@@ -42,7 +53,7 @@ export async function sendWelcomeBody(
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
     console.warn(
-      `[Welcome] text send failed for phone ${target.phone} (pnid ${target.phoneNumberId}): ${reason}`
+      `[Welcome] text send failed for phone ${maskPhone(target.phone)} (pnid ${target.phoneNumberId}): ${reason}`
     )
   }
 }
@@ -61,6 +72,7 @@ export async function sendCouponQrImage(
     const qrUrl = await uploadCouponQr(couponCode)
     await sendImageMessage(target.phoneNumberId, target.phone, qrUrl, caption)
   } catch (err) {
-    console.warn('[QR] Failed to send coupon QR:', (err as Error).message)
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn('[QR] Failed to send coupon QR:', reason)
   }
 }

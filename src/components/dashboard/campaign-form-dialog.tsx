@@ -20,6 +20,24 @@ interface CampaignFormDialogProps {
   campaign?: Campaign | null
 }
 
+/**
+ * 8-char nonce used to namespace draft uploads. `crypto.randomUUID()`
+ * throws on insecure contexts (HTTP, some embedded webviews), so we guard
+ * its availability and fall back to a time+random suffix.
+ */
+function safeRandomNonce(): string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID().slice(0, 8)
+  }
+  return (
+    Date.now().toString(36).slice(-4) +
+    Math.random().toString(36).slice(2, 6)
+  )
+}
+
 function campaignToFormState(c: Campaign): CampaignFormState {
   return {
     name: c.name ?? '',
@@ -76,10 +94,7 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
   // the previously uploaded blob under the old `draft-{nonce}/` prefix.
   // Orphan cleanup is out of scope for ONBOARD-010 (see welcome-image PRD
   // "phase-1 accepts the storage cost"); a later GC sweep reclaims them.
-  const draftNonce = useMemo(
-    () => (typeof crypto !== 'undefined' ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36).slice(0, 8)),
-    []
-  )
+  const draftNonce = useMemo(() => safeRandomNonce(), [])
 
   useEffect(() => {
     if (!campaign) { setForm(initialCampaignForm); return }

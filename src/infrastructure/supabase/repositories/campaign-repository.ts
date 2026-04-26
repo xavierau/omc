@@ -85,6 +85,32 @@ export async function listCampaigns(
   return (data ?? []).map(mapRowToCampaign)
 }
 
+/**
+ * Returns the most recent PAUSED welcome campaign for a restaurant, if any.
+ *
+ * Used by `seedDefaultWelcomeCampaign` to reuse a leftover seed row from a
+ * previous failed remap attempt, instead of creating a fresh paused row on
+ * every retry (which would accumulate orphans because the idempotency
+ * guard in the seeder only checks `welcomeCampaignId`).
+ */
+export async function findExistingPausedWelcome(
+  restaurantId: string
+): Promise<{ id: string } | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('type', 'welcome')
+    .eq('status', 'paused')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(`findExistingPausedWelcome: ${error.message}`)
+  return data ? { id: data.id } : null
+}
+
 export async function updateCampaign(
   id: string,
   changes: UpdateCampaignParams
