@@ -1,80 +1,10 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-04-15T14:00",
+  "updated_at": "2026-04-26T12:00",
   "columns": {
     "backlog": {
       "label": "Backlog",
       "tasks": [
-        {
-          "id": "COMM-001",
-          "title": "DB migration — extend referrer + commission schema for dual revenue",
-          "description": "Migration 021: Add commission_per_redemption_hkd (NUMERIC(10,4) DEFAULT 0.10) to referrers. Add redemptions_count (INTEGER DEFAULT 0), commission_per_redemption (NUMERIC(10,4)), broadcast_commission (NUMERIC(12,4)), redemption_commission (NUMERIC(12,4)) to referrer_commissions. Backfill: SET broadcast_commission = total_commission, redemption_commission = 0 for existing rows. Update total_commission CHECK: total_commission = broadcast_commission + redemption_commission. Update prevent_paid_commission_update trigger to cover new columns.",
-          "priority": "highest",
-          "labels": ["commission", "database", "backend"],
-          "estimate": "1d",
-          "sprint": "commission_v2",
-          "prd_ref": "Referrer commission dual revenue streams"
-        },
-        {
-          "id": "COMM-002",
-          "title": "Domain model updates — dual commission rates",
-          "description": "Update Referrer entity: add commissionPerRedemptionHkd field. Update ReferrerCommission entity: add redemptionsCount, commissionPerRedemption, broadcastCommission, redemptionCommission. Update CommissionRate value object to support per-type rates. Update validators for new fields. Ensure backward compatibility (redemption fields default to 0).",
-          "priority": "highest",
-          "labels": ["commission", "domain", "backend"],
-          "estimate": "1d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-001"]
-        },
-        {
-          "id": "COMM-003",
-          "title": "Platform fee service — HK$0.3 broadcast + HK$0.3 redemption markup",
-          "description": "Create platform-fee.ts in domain/services: BROADCAST_PLATFORM_FEE_HKD = 0.3, REDEMPTION_PLATFORM_FEE_HKD = 0.3. Functions: calculateBroadcastFee(count) → count * 0.3, calculateRedemptionFee(count) → count * 0.3, calculateTenantCharge(broadcasts, redemptions) → total. Update get-billing-report to show: Meta API cost (passthrough) + platform broadcast fee + platform redemption fee = total charge. BillingReport interface gains: redemptionsCount, broadcastFeeHkd, redemptionFeeHkd, totalChargeHkd.",
-          "priority": "highest",
-          "labels": ["commission", "billing", "domain", "backend"],
-          "estimate": "1d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-001"]
-        },
-        {
-          "id": "COMM-004",
-          "title": "Redemption count aggregation — per-tenant monthly query",
-          "description": "Add getRedemptionCountsByTenantForMonth(monthStart, monthEnd) to coupon-redemption-repository. Query: SELECT restaurant_id, COUNT(*) as redemption_count FROM coupon_redemptions WHERE redeemed_at BETWEEN monthStart AND monthEnd GROUP BY restaurant_id. Returns Map<tenantId, redemptionCount>. Add index on coupon_redemptions(redeemed_at) if missing. Unit test with mock data.",
-          "priority": "highest",
-          "labels": ["commission", "infrastructure", "backend"],
-          "estimate": "0.5d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-001"]
-        },
-        {
-          "id": "COMM-005",
-          "title": "Update generate-referrer-report for dual revenue streams",
-          "description": "Fetch redemption counts alongside broadcast counts (parallel Promise.all). buildCommissions now produces: messagesSent, redemptionsCount, commissionPerMessage, commissionPerRedemption, broadcastCommission, redemptionCommission, totalCommission. toCommissionRow calculates: broadcastCommission = messagesSent * commissionPerMessage, redemptionCommission = redemptionsCount * commissionPerRedemption. totalCommission = broadcastCommission + redemptionCommission. Commission row with 0 broadcasts AND 0 redemptions is skipped. Upsert maps new fields to DB columns.",
-          "priority": "highest",
-          "labels": ["commission", "application", "backend"],
-          "estimate": "1d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-002", "COMM-004"]
-        },
-        {
-          "id": "COMM-006",
-          "title": "Update commission repositories, mappers, and API responses",
-          "description": "Update referrer-commission-mapper: map new DB columns to/from domain entity. Update upsertCommissions for new fields. Update referrer-commission-repository queries. Update getReferrerEarnings RPC to sum broadcast_commission + redemption_commission. Update API responses: GET /referrers (list stats include redemption earnings), GET /referrers/[id] (detail shows breakdown), GET /referrers/report (JSON includes new fields), GET /referrers/report/csv (add redemptions_count, broadcast_commission, redemption_commission columns).",
-          "priority": "highest",
-          "labels": ["commission", "infrastructure", "api", "backend"],
-          "estimate": "1.5d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-002", "COMM-005"]
-        },
-        {
-          "id": "COMM-007",
-          "title": "Update commission report UI — broadcast vs. redemption breakdown",
-          "description": "Commission report page: add summary cards for broadcast commission total + redemption commission total (alongside existing total). Commission table: add Redemptions, Broadcast Commission, Redemption Commission columns. Referrer detail page: show per-type breakdown in commission history. Referrer form: add commission_per_redemption_hkd field (default HK$0.10). CSV export: include new columns. i18n: add en + zh-HK keys for all new labels.",
-          "priority": "highest",
-          "labels": ["commission", "frontend"],
-          "estimate": "1.5d",
-          "sprint": "commission_v2",
-          "depends_on": ["COMM-006"]
-        },
         {
           "id": "WABA-001",
           "title": "WABA pooling strategy",
@@ -433,6 +363,132 @@
       "label": "Done",
       "tasks": [
         {
+          "id": "PROD-001",
+          "title": "Production deployment scaffolding",
+          "description": "Dockerfile, docker-compose.yml, .dockerignore, Next.js output: 'standalone', /api/health endpoint, receipt-layout-service Dockerfile updates. Production WhatsApp Commerce MVP PRD + architecture notes captured.",
+          "labels": ["deployment", "infrastructure"],
+          "completed_at": "2026-04-26"
+        },
+        {
+          "id": "OPS-001",
+          "title": "Delete-member button for demo reset",
+          "description": "Hard-delete RPC (delete_member_cascade, SECURITY DEFINER, service_role only). DELETE API route with role allowlist. MemberDeleteSection component with Sheet-scoped inline confirm. Wired into MemberDetailPanel with refetch callback. Migration 033 + 034 (RLS WITH CHECK fix). PR #22.",
+          "labels": ["ops", "members", "fullstack"],
+          "completed_at": "2026-04-24"
+        },
+        {
+          "id": "ONBOARD-010",
+          "title": "Bilingual welcome campaign images",
+          "description": "Per-language image attached to welcome campaign (image_url_en, image_url_zh_hk). Image-with-caption send first; nested try/catch falls back to text on image failure. Strict per-language image match (no cross-language fallback). campaign-images Storage bucket with RLS. Migration 032 + 034. PR #20.",
+          "labels": ["onboarding", "i18n", "fullstack"],
+          "completed_at": "2026-04-24"
+        },
+        {
+          "id": "ONBOARD-009",
+          "title": "Welcome campaign creation + auto-seed default per tenant",
+          "description": "Added 'welcome' to campaign type dropdown. Auto-seed default welcome campaign per tenant (paused → remap → activate flow for atomicity). Partial unique index on (restaurant_id, type) WHERE status='active'. Cascade welcome-mapping when campaign is set to type=welcome and active. PR #18.",
+          "labels": ["onboarding", "campaigns", "fullstack"],
+          "completed_at": "2026-04-23"
+        },
+        {
+          "id": "ONBOARD-008",
+          "title": "Localize handler reply text",
+          "description": "Handler reply messages (redeem-coupon, redeem-reward, award-points, confirm-receipt) honor member preferred_language. Per-use-case message modules. PR #16.",
+          "labels": ["onboarding", "i18n", "backend"],
+          "completed_at": "2026-04-22"
+        },
+        {
+          "id": "ONBOARD-007",
+          "title": "Bilingual inbound keyword commands",
+          "description": "Inbound keyword resolver supports English (REDEEM, POINTS, REWARDS) and Chinese (兌換, 查詢積分, 獎賞). LANG EN / 語言 中文 / 语言 中文 (Simplified) language switch commands. Chinese JOIN aliases. Routes inbound keywords by language. PR #15.",
+          "labels": ["onboarding", "i18n", "backend"],
+          "completed_at": "2026-04-21"
+        },
+        {
+          "id": "ONBOARD-006",
+          "title": "Member-level language preference",
+          "description": "members.preferred_language column with CHECK constraint. Language detection from inbound message script (Latin vs. Han/Hiragana/Katakana). resolvePreferredLanguage chain: member → restaurant → default. Migration 030. PR #14.",
+          "labels": ["onboarding", "i18n", "domain"],
+          "completed_at": "2026-04-21"
+        },
+        {
+          "id": "ONBOARD-005",
+          "title": "Bilingual templates",
+          "description": "Campaigns store template_en and template_zh_hk alongside legacy single template column. resolveLocalizedTemplate chain: preferred → other → legacy → null. Migration 029. PR #13.",
+          "labels": ["onboarding", "i18n", "domain"],
+          "completed_at": "2026-04-21"
+        },
+        {
+          "id": "ONBOARD-004",
+          "title": "Welcome campaign mapping with non-chargeable billing",
+          "description": "welcome_campaign_id FK on restaurants, atomic remap_welcome_campaign RPC (auto-flips is_chargeable=false on welcome). Per-coupon is_chargeable stamped at creation. Split campaign counters (chargeable_sent_count + non_chargeable_sent_count). Backfill migration 031 with NOT EXISTS race-guard. Migrations 027 + 028. PR #11.",
+          "labels": ["onboarding", "campaigns", "billing", "fullstack"],
+          "completed_at": "2026-04-21"
+        },
+        {
+          "id": "WA-FIX-001",
+          "title": "Prevent template loss during update",
+          "description": "WhatsApp template update silently lost data when partial update fields collided with stored values. Hardened with allowlist + tenant scoping. PR #10.",
+          "labels": ["whatsapp", "fix"],
+          "completed_at": "2026-04-17"
+        },
+        {
+          "id": "COMM-007",
+          "title": "Update commission report UI — broadcast vs. redemption breakdown",
+          "description": "Summary cards for broadcast + redemption commission totals. Commission table columns: Redemptions, Broadcast Commission, Redemption Commission. Referrer detail per-type breakdown. Referrer form: commission_per_redemption_hkd field (default HK$0.10). CSV columns + i18n. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "frontend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-006",
+          "title": "Commission repositories, mappers, and API responses for dual revenue",
+          "description": "referrer-commission-mapper maps new DB columns. upsertCommissions for new fields. getReferrerEarnings RPC sums broadcast + redemption. API responses (list, detail, report JSON, report CSV) carry both streams. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "infrastructure", "api", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-005",
+          "title": "generate-referrer-report for dual revenue streams",
+          "description": "Parallel fetch of broadcast + redemption counts. buildCommissions emits both streams. Skip rows where both are zero. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "application", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-004",
+          "title": "Per-tenant monthly redemption count aggregation",
+          "description": "getRedemptionCountsByTenantForMonth in coupon-redemption-repository. Indexed query. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "infrastructure", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-003",
+          "title": "Platform fee service — HK$0.30 broadcast + HK$0.30 redemption markup",
+          "description": "domain/services/platform-fee.ts: BROADCAST_PLATFORM_FEE_HKD = 0.3, REDEMPTION_PLATFORM_FEE_HKD = 0.3. get-billing-report integrated to show Meta passthrough vs. platform markup. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "billing", "domain", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-002",
+          "title": "Domain model updates — dual commission rates",
+          "description": "Referrer.commissionPerRedemptionHkd. ReferrerCommission gains redemptionsCount, commissionPerRedemption, broadcastCommission, redemptionCommission. CommissionRate VO supports per-type rates. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "domain", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
+          "id": "COMM-001",
+          "title": "DB schema for dual revenue streams",
+          "description": "Migration 025: commission_per_redemption_hkd on referrers; redemptions_count + commission_per_redemption + broadcast_commission + redemption_commission on referrer_commissions; CHECK constraint + paid-row protection trigger. Migration 026: total_commission as STORED GENERATED column. Backfill existing rows. Sprint Commission v2 PR #9.",
+          "labels": ["commission", "database", "backend"],
+          "sprint": "commission_v2",
+          "completed_at": "2026-04-16"
+        },
+        {
           "id": "BSP-001",
           "title": "Port interfaces for WhatsApp provider abstraction",
           "description": "Domain port interfaces: WhatsAppMessagingPort, WhatsAppTemplatePort, WhatsAppWebhookPort. InboundMessage replaces KapsoMessage. LogFn type for webhook parse.",
@@ -584,14 +640,9 @@
     }
   },
   "sprint_priority_order": [
-    "── Sprint Commission v2: Dual Revenue Streams (1.5 weeks, 7 tasks) — HIGHEST PRIORITY ──",
-    "COMM-001 → DB migration (extend schema for dual revenue)",
-    "COMM-002 → Domain model updates (dual commission rates)",
-    "COMM-003 → Platform fee service (HK$0.3 broadcast + HK$0.3 redemption)",
-    "COMM-004 → Redemption count aggregation repository",
-    "COMM-005 → Update generate-referrer-report (dual revenue)",
-    "COMM-006 → Update repositories, mappers, API responses",
-    "COMM-007 → Update commission report UI (broadcast vs. redemption breakdown)",
+    "── Sprint Commission v2: Dual Revenue Streams ✅ COMPLETED 2026-04-16 (PR #9) ──",
+    "── Sprint Bilingual Onboarding ✅ COMPLETED 2026-04-21..24 (PRs #11–#20) ──",
+    "── Production Deployment Scaffolding ✅ COMPLETED 2026-04-26 ──",
     "── Sprint A→B: Cross-Brand Recognition (10 weeks, 20 tasks) ──",
     "MBL-001  → DB migrations (foundation)",
     "MBL-002  → Domain entities",
@@ -624,8 +675,10 @@
   ],
   "commission_v2": {
     "name": "Sprint Commission v2: Dual Revenue Streams",
+    "status": "completed",
+    "completed_at": "2026-04-16",
+    "merged_in": "PR #9 (sprint/commission-v2)",
     "goal": "Extend referrer commission system to support both broadcast (HK$0.3 markup) and coupon redemption (HK$0.3 per redemption) revenue streams. Split HK$0.1 per item to referrer. Monthly settlement.",
-    "priority": "highest",
     "duration": "1.5 weeks",
     "tasks": ["COMM-001", "COMM-002", "COMM-003", "COMM-004", "COMM-005", "COMM-006", "COMM-007"],
     "pricing_model": {
