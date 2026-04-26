@@ -1,5 +1,6 @@
 import {
   createCampaign,
+  findExistingPausedWelcome,
   remapWelcomeCampaign,
   updateCampaign,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
@@ -11,22 +12,29 @@ export interface SeedDefaultWelcomeCampaignResult {
 }
 
 /**
- * Idempotent: creates a default welcome campaign for a restaurant and maps
- * it as the active welcome campaign — but only when the restaurant has no
- * welcome campaign mapped yet. Safe to call on every tenant creation and
- * from the 031 backfill migration's application-side companion (if any).
+ * Idempotent seeder for a restaurant's default welcome campaign.
  *
- * The mapping goes through `remapWelcomeCampaign` (not a direct UPDATE) so
- * the atomic RPC flips `campaigns.is_chargeable = false` on the new
- * campaign. Welcome campaigns must never bill.
+ * Two short-circuit guards (in order):
+ *   1. If a welcome campaign is already mapped, return its id.
+ *   2. If a previous attempt left a PAUSED welcome row behind (remap
+ *      failed mid-seed), reuse that row instead of creating a new one.
+ *      This prevents orphan accumulation across retries — the seeder
+ *      always converges on a single welcome row per restaurant.
  *
- * Atomicity (CodeRabbit follow-up): the campaign is created with
- * `status: 'paused'` first so it does NOT collide with the partial-unique
- * index on (restaurant_id, type) WHERE status = 'active'. Only after the
- * remap RPC succeeds do we flip the campaign to 'active'. If the remap
- * fails, the orphan paused row is best-effort deleted via an `updateCampaign`
- * to a terminal status; we cannot DELETE because the repo doesn't expose it,
- * so we leave the paused row (it won't trigger the active partial unique).
+ * Flow when neither guard fires:
+ *   createCampaign(status: 'paused') → remapWelcomeCampaign → updateCampaign(status: 'active')
+ *
+ * The PAUSED intermediate state is the safety net for the partial-unique
+ * index on (restaurant_id, type) WHERE status = 'active' — paused rows
+ * never collide with the constraint, so a concurrent or retried seed is
+ * safe.
+ *
+ * The remap RPC is the only path that flips `is_chargeable = false`;
+ * welcome campaigns must never bill.
+ *
+ * If the remap throws, we propagate the error naturally. The paused row
+ * stays as a reusable seed for the next retry — no orphan accumulation,
+ * no leaked active row.
  */
 export async function seedDefaultWelcomeCampaign(
   restaurantId: string
@@ -36,11 +44,25 @@ export async function seedDefaultWelcomeCampaign(
     return { campaignId: settings.welcomeCampaignId }
   }
 
+  const existingPaused = await findExistingPausedWelcome(restaurantId)
+  const campaignId = existingPaused
+    ? existingPaused.id
+    : await createPausedWelcomeFor(restaurantId, settings.defaultLanguage)
+
+  await remapWelcomeCampaign(restaurantId, null, campaignId)
+  await updateCampaign(campaignId, { status: 'active' })
+  return { campaignId }
+}
+
+async function createPausedWelcomeFor(
+  restaurantId: string,
+  defaultLanguage: 'en' | 'zh_hk'
+): Promise<string> {
   const fixture = buildDefaultWelcomeCampaign({ restaurantId })
-  // Respect tenant's default language for the legacy single-column
+  // Respect tenant default language for the legacy single-column
   // `template` snapshot. Older readers fall back to that column.
   const legacyTemplate =
-    settings.defaultLanguage === 'en' ? fixture.templateEn : fixture.templateZhHk
+    defaultLanguage === 'en' ? fixture.templateEn : fixture.templateZhHk
 
   const campaign = await createCampaign({
     restaurantId: fixture.restaurantId,
@@ -50,21 +72,9 @@ export async function seedDefaultWelcomeCampaign(
     templateEn: fixture.templateEn,
     templateZhHk: fixture.templateZhHk,
     couponConfig: fixture.couponConfig,
-    // Created paused so the active partial-unique index can't trip if a
-    // concurrent seed call races us. Flipped to 'active' only after the
-    // remap RPC succeeds.
+    // Created paused so the active partial-unique index can't trip on a
+    // concurrent or retried seed. Activated only after remap succeeds.
     status: 'paused',
   })
-
-  try {
-    await remapWelcomeCampaign(restaurantId, null, campaign.id)
-  } catch (err) {
-    // Best-effort: leave the paused orphan in place (no DELETE in repo).
-    // The paused status keeps it out of the active partial-unique index,
-    // so a subsequent retry can still seed cleanly.
-    throw err
-  }
-
-  await updateCampaign(campaign.id, { status: 'active' })
-  return { campaignId: campaign.id }
+  return campaign.id
 }

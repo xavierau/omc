@@ -5,6 +5,7 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository
 
 import {
   createCampaign,
+  findExistingPausedWelcome,
   remapWelcomeCampaign,
   updateCampaign,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
@@ -21,6 +22,7 @@ describe('seedDefaultWelcomeCampaign', () => {
       returningMemberTemplateZhHk: null,
       defaultLanguage: 'zh_hk',
     })
+    vi.mocked(findExistingPausedWelcome).mockResolvedValue(null)
     vi.mocked(createCampaign).mockResolvedValue({
       id: 'camp-1',
       restaurantId: 'rest-1',
@@ -102,6 +104,30 @@ describe('seedDefaultWelcomeCampaign', () => {
     // The orphan stays paused so the active partial-unique index isn't
     // poisoned. We MUST NOT have flipped it to active.
     expect(updateCampaign).not.toHaveBeenCalled()
+  })
+
+  it('reuses an existing paused welcome on retry (no orphan accumulation)', async () => {
+    // Attempt 1: createCampaign succeeds, remap fails. Paused row sticks.
+    vi.mocked(remapWelcomeCampaign).mockRejectedValueOnce(
+      new Error('remap RPC failed')
+    )
+    await expect(seedDefaultWelcomeCampaign('rest-1')).rejects.toThrow(
+      'remap RPC failed'
+    )
+    expect(createCampaign).toHaveBeenCalledTimes(1)
+
+    // Attempt 2: simulate the lookup finding the paused row from attempt 1.
+    vi.mocked(findExistingPausedWelcome).mockResolvedValueOnce({ id: 'camp-1' })
+    vi.mocked(remapWelcomeCampaign).mockResolvedValueOnce(undefined as never)
+
+    const result = await seedDefaultWelcomeCampaign('rest-1')
+
+    // The crucial invariant: createCampaign is NOT called a second time —
+    // the seeder reused the paused row from attempt 1.
+    expect(createCampaign).toHaveBeenCalledTimes(1)
+    expect(remapWelcomeCampaign).toHaveBeenLastCalledWith('rest-1', null, 'camp-1')
+    expect(updateCampaign).toHaveBeenLastCalledWith('camp-1', { status: 'active' })
+    expect(result).toEqual({ campaignId: 'camp-1' })
   })
 
   it('flips is_chargeable via remapWelcomeCampaign (not direct column write)', async () => {

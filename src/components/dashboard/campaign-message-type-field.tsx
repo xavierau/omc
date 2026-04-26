@@ -59,11 +59,23 @@ function MessageTypeRadios({ form, onChange }: { form: CampaignFormState; onChan
   return (
     <div className="flex gap-4">
       <label className="flex items-center gap-1.5 text-sm">
-        <input type="radio" checked={form.messageType === 'inline'} onChange={() => onChange('messageType', 'inline')} />
+        <input
+          type="radio"
+          name="messageType"
+          value="inline"
+          checked={form.messageType === 'inline'}
+          onChange={() => onChange('messageType', 'inline')}
+        />
         {t('inlineText')}
       </label>
       <label className="flex items-center gap-1.5 text-sm">
-        <input type="radio" checked={form.messageType === 'wa_template'} onChange={() => onChange('messageType', 'wa_template')} />
+        <input
+          type="radio"
+          name="messageType"
+          value="wa_template"
+          checked={form.messageType === 'wa_template'}
+          onChange={() => onChange('messageType', 'wa_template')}
+        />
         {t('waTemplate')}
       </label>
     </div>
