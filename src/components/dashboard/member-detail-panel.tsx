@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { MemberDeleteSection } from './member-delete-section'
 
 interface MemberDetail {
   id: string
@@ -23,6 +24,7 @@ interface MemberDetailPanelProps {
   memberId: string | null
   open: boolean
   onClose: () => void
+  onDeleted?: () => void
 }
 
 function formatDate(d: string | null): string {
@@ -119,7 +121,7 @@ function CouponList({ coupons }: { coupons: MemberDetail['coupons'] }) {
   )
 }
 
-export function MemberDetailPanel({ memberId, open, onClose }: MemberDetailPanelProps) {
+export function MemberDetailPanel({ memberId, open, onClose, onDeleted }: MemberDetailPanelProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
   const [member, setMember] = useState<MemberDetail | null>(null)
@@ -158,6 +160,16 @@ export function MemberDetailPanel({ memberId, open, onClose }: MemberDetailPanel
               <ReceiptList receipts={member.receipts} />
               <Separator />
               <CouponList coupons={member.coupons} />
+              <Separator />
+              <MemberDeleteSection
+                memberId={member.id}
+                memberName={member.name}
+                memberPhone={member.phone}
+                onDeleted={() => {
+                  onDeleted?.()
+                  onClose()
+                }}
+              />
             </div>
           ) : (
             <div className="py-8 text-center text-muted-foreground">{t('memberNotFound')}</div>

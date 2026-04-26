@@ -79,6 +79,7 @@ export default function MembersPage() {
         memberId={selectedMemberId}
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
+        onDeleted={refetch}
       />
     </div>
   )
