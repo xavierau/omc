@@ -1,5 +1,9 @@
 import type { LayoutTemplate, LayoutVerificationResult } from '@/domain/interfaces/layout-verification'
 
+export function isLayoutServiceEnabled(): boolean {
+  return process.env.LAYOUT_SERVICE_ENABLED !== 'false'
+}
+
 function getConfig() {
   return {
     apiUrl: process.env.LAYOUT_SERVICE_URL ?? 'http://localhost:8000',
@@ -69,6 +73,7 @@ export async function verifyReceiptLayout(
 }
 
 export async function checkHealth(): Promise<boolean> {
+  if (!isLayoutServiceEnabled()) return false
   try {
     const { apiUrl } = getConfig()
     const res = await fetch(`${apiUrl}/health`, { headers: buildHeaders() })

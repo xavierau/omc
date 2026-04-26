@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/infrastructure/layout-service/client')
+vi.mock('@/infrastructure/layout-service/client', () => ({
+  verifyReceiptLayout: vi.fn(),
+  isLayoutServiceEnabled: vi.fn(() => true),
+}))
 vi.mock('@/infrastructure/supabase/repositories/layout-template-repository')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 
-import { verifyReceiptLayout as callVerifyLayout } from '@/infrastructure/layout-service/client'
+import {
+  verifyReceiptLayout as callVerifyLayout,
+  isLayoutServiceEnabled,
+} from '@/infrastructure/layout-service/client'
 import { getActiveTemplate } from '@/infrastructure/supabase/repositories/layout-template-repository'
 import { updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { verifyReceiptLayout } from '../verify-receipt-layout'
@@ -41,6 +47,16 @@ describe('verifyReceiptLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(updateReceipt).mockResolvedValue(undefined as never)
+  })
+
+  it('returns early when layout service is disabled', async () => {
+    vi.mocked(isLayoutServiceEnabled).mockReturnValueOnce(false)
+
+    await verifyReceiptLayout(BASE_PARAMS)
+
+    expect(getActiveTemplate).not.toHaveBeenCalled()
+    expect(callVerifyLayout).not.toHaveBeenCalled()
+    expect(updateReceipt).not.toHaveBeenCalled()
   })
 
   it('returns early when no active template exists', async () => {

@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/infrastructure/layout-service/client')
+vi.mock('@/infrastructure/layout-service/client', () => ({
+  buildLayoutTemplate: vi.fn(),
+  isLayoutServiceEnabled: vi.fn(() => true),
+}))
 vi.mock('@/infrastructure/supabase/repositories/layout-template-repository')
 
-import { buildLayoutTemplate } from '@/infrastructure/layout-service/client'
+import {
+  buildLayoutTemplate,
+  isLayoutServiceEnabled,
+} from '@/infrastructure/layout-service/client'
 import {
   archiveTemplates,
   createTemplate,
@@ -24,6 +30,20 @@ describe('buildReceiptTemplate', () => {
     vi.mocked(archiveTemplates).mockResolvedValue(undefined as never)
     vi.mocked(buildLayoutTemplate).mockResolvedValue(TEMPLATE_RESULT as never)
     vi.mocked(createTemplate).mockResolvedValue('tmpl-1' as never)
+  })
+
+  it('throws when layout service is disabled', async () => {
+    vi.mocked(isLayoutServiceEnabled).mockReturnValueOnce(false)
+
+    await expect(
+      buildReceiptTemplate({
+        restaurantId: 'rest-1',
+        imageUrls: ['img1.jpg', 'img2.jpg', 'img3.jpg'],
+      })
+    ).rejects.toThrow('LAYOUT_SERVICE_ENABLED=false')
+
+    expect(archiveTemplates).not.toHaveBeenCalled()
+    expect(buildLayoutTemplate).not.toHaveBeenCalled()
   })
 
   it('throws when too few images are provided', async () => {

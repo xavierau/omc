@@ -1,4 +1,7 @@
-import { verifyReceiptLayout as callVerifyLayout } from '@/infrastructure/layout-service/client'
+import {
+  verifyReceiptLayout as callVerifyLayout,
+  isLayoutServiceEnabled,
+} from '@/infrastructure/layout-service/client'
 import { getActiveTemplate } from '@/infrastructure/supabase/repositories/layout-template-repository'
 import { updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 
@@ -7,6 +10,8 @@ export async function verifyReceiptLayout(params: {
   restaurantId: string
   imageUrl: string
 }): Promise<void> {
+  if (!isLayoutServiceEnabled()) return
+
   const { receiptId, restaurantId, imageUrl } = params
 
   const active = await getActiveTemplate(restaurantId)

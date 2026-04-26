@@ -1,0 +1,36 @@
+node_modules
+.next
+.git
+.gitignore
+.env*
+!.env.example
+
+# Build artifacts
+coverage
+out
+build
+*.tsbuildinfo
+next-env.d.ts
+
+# External services
+supabase
+receipt-layout-service
+
+# IDE and OS
+.DS_Store
+.vscode
+.idea
+*.swp
+
+# Docs and config not needed at build
+docs
+logs
+sample-receipts
+.claude
+.agents
+.gstack
+debugging_journals
+
+# Scripts not needed in image
+deploy.sh
+TODOS.md

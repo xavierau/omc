@@ -1,4 +1,7 @@
-import { buildLayoutTemplate } from '@/infrastructure/layout-service/client'
+import {
+  buildLayoutTemplate,
+  isLayoutServiceEnabled,
+} from '@/infrastructure/layout-service/client'
 import {
   archiveTemplates,
   createTemplate,
@@ -11,6 +14,10 @@ export async function buildReceiptTemplate(params: {
   restaurantId: string
   imageUrls: string[]
 }): Promise<{ templateId: string; regionCount: number }> {
+  if (!isLayoutServiceEnabled()) {
+    throw new Error('Layout service is disabled (LAYOUT_SERVICE_ENABLED=false)')
+  }
+
   const { restaurantId, imageUrls } = params
 
   validateImageCount(imageUrls.length)
