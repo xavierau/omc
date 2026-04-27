@@ -3,7 +3,10 @@ import { parseArgs } from 'node:util'
 import { execFileSync } from 'node:child_process'
 import { createTenant } from '@/application/create-tenant'
 
-const DEFAULT_WEBHOOK_URL = 'https://app.ohmyclient.io/api/webhooks/whatsapp'
+const WEBHOOK_URL_BY_ENV: Record<string, string> = {
+  prod: 'https://app.ohmyclient.io/api/webhooks/whatsapp',
+  dev: 'https://staging.ohmyclient.io/api/webhooks/whatsapp',
+}
 const WEBHOOK_EVENTS = [
   'whatsapp.message.received', 'whatsapp.message.sent', 'whatsapp.message.delivered',
   'whatsapp.message.read', 'whatsapp.message.failed', 'whatsapp.conversation.created',
@@ -11,14 +14,20 @@ const WEBHOOK_EVENTS = [
 ]
 const USAGE = `Usage: tsx scripts/onboard-tenant.ts --name <n> --slug <s> --email <e> \\
   --password <p> --whatsapp-number <+E164> --phone-number-id <id> \\
-  --business-account-id <waba_id> [--webhook-url <url>] [--dry-run]
+  --business-account-id <waba_id> [--env <prod|dev>] [--webhook-url <url>] [--dry-run]
 
 Creates the tenant (restaurant + admin) and registers a Kapso phone-number
-webhook signed with KAPSO_WEBHOOK_SECRET. Requires the kapso CLI logged in.`
+webhook signed with KAPSO_WEBHOOK_SECRET. Requires the kapso CLI logged in.
+
+--env defaults to "prod" (webhook → app.ohmyclient.io). Use "dev" for staging
+(webhook → staging.ohmyclient.io). Run "kapso projects use <id>" beforehand
+so the webhook is registered against the correct Kapso project.
+--webhook-url overrides the per-env default if given.`
 
 interface Options {
   name: string; slug: string; email: string; password: string; whatsappNumber: string
-  phoneNumberId: string; businessAccountId: string; webhookUrl: string; dryRun: boolean
+  phoneNumberId: string; businessAccountId: string; webhookUrl: string
+  env: string; dryRun: boolean
 }
 
 function exitUsage(code: number, message?: string): never {
@@ -38,8 +47,8 @@ const PARSE_CONFIG = {
     name: { type: 'string' }, slug: { type: 'string' }, email: { type: 'string' },
     password: { type: 'string' }, 'whatsapp-number': { type: 'string' },
     'phone-number-id': { type: 'string' }, 'business-account-id': { type: 'string' },
-    'webhook-url': { type: 'string' }, 'dry-run': { type: 'boolean', default: false },
-    help: { type: 'boolean', default: false },
+    'webhook-url': { type: 'string' }, env: { type: 'string', default: 'prod' },
+    'dry-run': { type: 'boolean', default: false }, help: { type: 'boolean', default: false },
   },
   allowPositionals: false,
 } as const
@@ -50,14 +59,17 @@ function parseOptions(): Options {
   const required = ['name', 'slug', 'email', 'password', 'whatsapp-number', 'phone-number-id', 'business-account-id']
   const missing = required.filter((k) => !values[k as keyof typeof values])
   if (missing.length) exitUsage(1, `Missing required flags: ${missing.join(', ')}`)
+  const env = (values.env as string) ?? 'prod'
+  const defaultWebhook = WEBHOOK_URL_BY_ENV[env]
+  if (!defaultWebhook) exitUsage(1, `--env must be one of: ${Object.keys(WEBHOOK_URL_BY_ENV).join(', ')}`)
   return {
     name: values.name as string, slug: values.slug as string,
     email: values.email as string, password: values.password as string,
     whatsappNumber: values['whatsapp-number'] as string,
     phoneNumberId: values['phone-number-id'] as string,
     businessAccountId: values['business-account-id'] as string,
-    webhookUrl: (values['webhook-url'] as string | undefined) ?? DEFAULT_WEBHOOK_URL,
-    dryRun: Boolean(values['dry-run']),
+    webhookUrl: (values['webhook-url'] as string | undefined) ?? defaultWebhook,
+    env, dryRun: Boolean(values['dry-run']),
   }
 }
 
@@ -99,6 +111,7 @@ function registerWebhook(args: string[]): { id?: string; url?: string } {
 
 function printDryRun(opts: Options): void {
   const args = buildWebhookArgs(opts.phoneNumberId, opts.webhookUrl, '<KAPSO_WEBHOOK_SECRET>')
+  process.stdout.write(`[dry-run] env=${opts.env} webhook=${opts.webhookUrl}\n`)
   process.stdout.write(`[dry-run] createTenant name=${opts.name} slug=${opts.slug} email=${opts.email}\n`)
   process.stdout.write(`[dry-run]   whatsapp=${opts.whatsappNumber} phoneNumberId=${opts.phoneNumberId} wabaId=${opts.businessAccountId}\n`)
   process.stdout.write(`[dry-run] invoke: kapso ${args.join(' ')}\n`)
