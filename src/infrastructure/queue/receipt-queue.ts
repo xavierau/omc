@@ -72,7 +72,6 @@ function createWorker(): Worker<ReceiptJobData> {
   return worker
 }
 
-// Auto-start worker on module import
 let worker: Worker<ReceiptJobData> | null = null
 
 export function ensureWorkerStarted(): void {
@@ -82,4 +81,9 @@ export function ensureWorkerStarted(): void {
   }
 }
 
-ensureWorkerStarted()
+export function getWorker(): Worker<ReceiptJobData> | null {
+  return worker
+}
+
+// Worker must be started explicitly in a long-running process,
+// not at module level (incompatible with serverless environments)

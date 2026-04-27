@@ -131,5 +131,9 @@ export function ensureWorkerStarted(): void {
   }
 }
 
+export function getWorker(): Worker<EventDispatchJobData> | null {
+  return worker
+}
+
 // Worker must be started explicitly in a long-running process,
 // not at module level (incompatible with serverless environments)
