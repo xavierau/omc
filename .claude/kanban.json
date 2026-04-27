@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-04-26T12:00",
+  "updated_at": "2026-04-27T12:00",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -362,6 +362,20 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "DEVOPS-002",
+          "title": "Branch model migration — main = production, develop = staging, v1.0.1 release",
+          "description": "Created main branch from develop. Tagged v1.0.0. Set main as default branch on GitHub. Cleaned up 21 merged feature branches. Promoted develop to main as v1.0.1 (includes parametric onboard script + removal of hardcoded password). Documented HA migration plan.",
+          "labels": ["devops", "release"],
+          "completed_at": "2026-04-27"
+        },
+        {
+          "id": "DEVOPS-001",
+          "title": "Parametric tenant onboarding script + CLI-first skill rewrite",
+          "description": "scripts/onboard-tenant.ts replaces hardcoded scripts/onboard-omc-kitchen.ts (which carried a literal 'password' string). Parametric, validated inputs at boundary, execFileSync (no shell injection), redactSecret on stderr, Kapso webhook registration with response unwrap. PR #12. Dual-reviewed (Claude + Gemini). Old hardcoded script removed in follow-up commit.",
+          "labels": ["devops", "tooling", "security"],
+          "completed_at": "2026-04-27"
+        },
         {
           "id": "PROD-001",
           "title": "Production deployment scaffolding",
