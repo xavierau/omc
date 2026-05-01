@@ -5,7 +5,7 @@ echo "→ Installing dependencies"
 npm ci
 
 echo "→ Applying pending migrations"
-supabase db push --linked --include-all
+npx supabase db push --linked --include-all
 
 echo "→ Seeding platform admin (idempotent)"
 npx tsx scripts/seed-platform-admin.ts
