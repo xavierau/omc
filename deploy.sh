@@ -8,7 +8,7 @@ echo "→ Applying pending migrations"
 npx supabase db push --linked --include-all
 
 echo "→ Seeding platform admin (idempotent)"
-npx tsx scripts/seed-platform-admin.ts
+./node_modules/.bin/tsx scripts/seed-platform-admin.ts
 
 echo "→ Building Next.js"
 npm run build
