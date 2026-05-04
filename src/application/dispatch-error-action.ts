@@ -46,29 +46,40 @@ export async function dispatchErrorAction(
   })
 }
 
+type Classification = ReturnType<typeof classifyErrorCode>
+
 async function applyAction(args: {
   message: WhatsAppMessage
   restaurantId: string
-  classification: ReturnType<typeof classifyErrorCode>
+  classification: Classification
 }): Promise<void> {
   const { message, restaurantId, classification } = args
-  const memberId = message.snapshot.memberId
-  switch (classification.action) {
-    case 'throttle_recipient_24h':
-      if (memberId)
-        await throttleMemberPmm(memberId, restaurantId, PMM_COOLDOWN_HOURS)
-      return
-    case 'mark_recipient_unreachable':
-      if (memberId) await markMemberUnreachable(memberId, restaurantId)
-      return
-    case 'block_template':
-    case 'engineering_alert':
-    case 'policy_violation_alert':
-      await emitOpsAlert({ kind: classification.action, message, restaurantId })
-      return
-    case 'reduce_batch_size':
-    case 'backoff_and_retry':
-    case 'log_only':
-      return
+  const action = classification.action
+  if (action === 'throttle_recipient_24h' || action === 'mark_recipient_unreachable') {
+    await applyMemberMutation(action, message, restaurantId)
+    return
   }
+  if (
+    action === 'block_template' ||
+    action === 'engineering_alert' ||
+    action === 'policy_violation_alert'
+  ) {
+    await emitOpsAlert({ kind: action, message, restaurantId })
+    return
+  }
+  // reduce_batch_size | backoff_and_retry | log_only — structured log only.
+}
+
+async function applyMemberMutation(
+  action: 'throttle_recipient_24h' | 'mark_recipient_unreachable',
+  message: WhatsAppMessage,
+  restaurantId: string
+): Promise<void> {
+  const memberId = message.snapshot.memberId
+  if (!memberId) return
+  if (action === 'throttle_recipient_24h') {
+    await throttleMemberPmm(memberId, restaurantId, PMM_COOLDOWN_HOURS)
+    return
+  }
+  await markMemberUnreachable(memberId, restaurantId)
 }

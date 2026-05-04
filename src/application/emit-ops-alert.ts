@@ -26,43 +26,57 @@ export interface EmitOpsAlertArgs {
  * `events` row + console line are the audit trail.
  */
 export async function emitOpsAlert(args: EmitOpsAlertArgs): Promise<void> {
-  const { kind, message, restaurantId } = args
-  const snapshot = message.snapshot
-  const classification = classifyErrorCode(snapshot.errorCode)
-
   // The console.error fires unconditionally — even if the DB insert below
   // fails, the alert is still observable in stdout for ops triage.
+  logAlertToConsole(args)
+  await tryInsertAlertRow(args)
+}
+
+function logAlertToConsole(args: EmitOpsAlertArgs): void {
+  const { kind, message, restaurantId } = args
+  const snapshot = message.snapshot
   console.error('[ops_alert]', kind, {
     restaurantId,
     errorCode: snapshot.errorCode,
     kapsoMessageId: snapshot.kapsoMessageId,
     errorTitle: snapshot.errorTitle,
   })
+}
 
+async function tryInsertAlertRow(args: EmitOpsAlertArgs): Promise<void> {
+  const { kind } = args
+  const row = buildAlertRow(args)
   try {
-    const supabase = createServerSupabaseClient()
-    const { error } = await supabase.from('events').insert({
-      restaurant_id: restaurantId,
-      type: 'whatsapp_error',
-      data_json: {
-        kind,
-        error_code: snapshot.errorCode,
-        action: classification.action,
-        kapso_message_id: snapshot.kapsoMessageId,
-        error_title: snapshot.errorTitle,
-        error_details: snapshot.errorDetails,
-      },
-    })
-    if (error) {
+    const { error } = await createServerSupabaseClient()
+      .from('events')
+      .insert(row)
+    if (error)
       console.error('[ops_alert] events_insert_failed', {
         kind,
         message: error.message,
       })
-    }
   } catch (err) {
     console.error('[ops_alert] events_insert_threw', {
       kind,
       error: err instanceof Error ? err.message : String(err),
     })
+  }
+}
+
+function buildAlertRow(args: EmitOpsAlertArgs): Record<string, unknown> {
+  const { kind, message, restaurantId } = args
+  const snapshot = message.snapshot
+  const classification = classifyErrorCode(snapshot.errorCode)
+  return {
+    restaurant_id: restaurantId,
+    type: 'whatsapp_error',
+    data_json: {
+      kind,
+      error_code: snapshot.errorCode,
+      action: classification.action,
+      kapso_message_id: snapshot.kapsoMessageId,
+      error_title: snapshot.errorTitle,
+      error_details: snapshot.errorDetails,
+    },
   }
 }
