@@ -65,7 +65,16 @@ async function buildSendContext(
   const restaurantDefaultLanguage = await getRestaurantDefaultLanguage(
     restaurantId
   )
-  return { campaign, phoneNumberId, template, restaurantDefaultLanguage }
+  // Capture the tracking flag ONCE per campaign run so an env-flip
+  // mid-batch doesn't orphan in-flight queued rows.
+  const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
+  return {
+    campaign,
+    phoneNumberId,
+    template,
+    restaurantDefaultLanguage,
+    trackingEnabled,
+  }
 }
 
 function assertHasAnyInlineTemplate(

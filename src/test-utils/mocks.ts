@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { okResult } from './send-result'
 
 export function mockCouponRepository() {
   return {
@@ -45,10 +46,13 @@ export function mockRestaurantRepository() {
 }
 
 export function mockKapsoClient() {
+  // The WhatsAppMessagingPort now requires a SendResult — returning
+  // `undefined` means callers that destructure `result.kapsoMessageId`
+  // silently see `undefined` and the test misses the regression.
   return {
-    sendTextMessage: vi.fn().mockResolvedValue(undefined),
-    sendImageMessage: vi.fn().mockResolvedValue(undefined),
-    sendInteractiveButtons: vi.fn().mockResolvedValue(undefined),
+    sendTextMessage: vi.fn().mockResolvedValue(okResult()),
+    sendImageMessage: vi.fn().mockResolvedValue(okResult()),
+    sendInteractiveButtons: vi.fn().mockResolvedValue(okResult()),
   }
 }
 

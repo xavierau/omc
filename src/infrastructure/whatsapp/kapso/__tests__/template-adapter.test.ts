@@ -19,6 +19,7 @@ import {
   sendTemplateMessage,
 } from '@/infrastructure/kapso/template-client'
 import type { WhatsAppTemplatePort } from '@/domain/ports/whatsapp-templates'
+import { okResult } from '@/test-utils/send-result'
 
 describe('kapsoTemplateAdapter', () => {
   it('satisfies WhatsAppTemplatePort interface', () => {
@@ -73,9 +74,10 @@ describe('kapsoTemplateAdapter', () => {
   })
 
   it('delegates sendTemplate', async () => {
-    vi.mocked(sendTemplateMessage).mockResolvedValue(true)
+    const ok = okResult('wamid.tpl')
+    vi.mocked(sendTemplateMessage).mockResolvedValue(ok)
     const params = { templateName: 'tpl', language: 'en' }
-    expect(await kapsoTemplateAdapter.sendTemplate('phone1', '+1234', params)).toBe(true)
+    expect(await kapsoTemplateAdapter.sendTemplate('phone1', '+1234', params)).toEqual(ok)
     expect(sendTemplateMessage).toHaveBeenCalledWith('phone1', '+1234', params)
   })
 })

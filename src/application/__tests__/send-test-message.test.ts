@@ -6,6 +6,7 @@ vi.mock('@/infrastructure/whatsapp/messaging', () => ({
 }))
 
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { okResult } from '@/test-utils/send-result'
 
 const mockSendTextMessage = vi.mocked(sendTextMessage)
 
@@ -15,7 +16,7 @@ describe('sendTestMessage', () => {
   })
 
   it('returns sent true on success', async () => {
-    mockSendTextMessage.mockResolvedValue(undefined)
+    mockSendTextMessage.mockResolvedValue(okResult())
 
     const result = await sendTestMessage('phone-id-1', '+85291234567')
 

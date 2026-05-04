@@ -1,3 +1,5 @@
+import type { SendResult } from '@/domain/value-objects/send-result'
+
 export interface TemplateComponent { type: string; [k: string]: unknown }
 export interface TemplateBodyParam { type: 'text'; text: string; parameterName: string }
 export interface TemplateHeaderParam { type: 'text'; text: string; parameterName?: string }
@@ -30,5 +32,5 @@ export interface WhatsAppTemplatePort {
     bodyParams?: TemplateBodyParam[]
     headerParams?: TemplateHeaderParam[]
     buttons?: TemplateButtonParam[]
-  }): Promise<boolean>
+  }): Promise<SendResult>
 }
