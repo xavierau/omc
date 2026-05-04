@@ -17,8 +17,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+// Renders NaN (denominator was zero — undefined rate) as '—' but keeps a
+// real 0 as '0.0%' so 100 sends with no failures shows '0.0%' rather than
+// the same dash as "no sends at all". (review fix r1, Fix 2)
 function formatPct(rate: number): string {
-  if (!Number.isFinite(rate) || rate === 0) return '—'
+  if (!Number.isFinite(rate)) return '—'
   return `${(rate * 100).toFixed(1)}%`
 }
 

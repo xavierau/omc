@@ -109,7 +109,9 @@ describe('getQualityKpisForTenant', () => {
     expect(kpis.deliveryRate).toBeCloseTo(0.7)
   })
 
-  it('returns zero rates without dividing by zero when there are no sends', async () => {
+  it('returns NaN rates when there are no sends (distinguishes empty from perfect)', async () => {
+    // Review fix r1, Fix 2: zero-denominator → NaN so the UI can render
+    // '—' for "no data" and '0.0%' for "many sends, no failures".
     const { client } = buildRpcClient({
       get_quality_kpis_for_tenant: {
         data: [
@@ -131,10 +133,10 @@ describe('getQualityKpisForTenant', () => {
     })
 
     expect(kpis.totalSends).toBe(0)
-    expect(kpis.deliveryRate).toBe(0)
-    expect(kpis.readRate).toBe(0)
-    expect(kpis.errorRate).toBe(0)
-    expect(kpis.optOutRate).toBe(0)
+    expect(Number.isNaN(kpis.deliveryRate)).toBe(true)
+    expect(Number.isNaN(kpis.readRate)).toBe(true)
+    expect(Number.isNaN(kpis.errorRate)).toBe(true)
+    expect(Number.isNaN(kpis.optOutRate)).toBe(true)
   })
 
   it('falls back to zero counters when the RPC returns no rows', async () => {
@@ -149,7 +151,37 @@ describe('getQualityKpisForTenant', () => {
     })
 
     expect(kpis.totalSends).toBe(0)
-    expect(kpis.deliveryRate).toBe(0)
+    expect(Number.isNaN(kpis.deliveryRate)).toBe(true)
+  })
+
+  it('returns 0 (not NaN) when there are sends but no failures', async () => {
+    // Review fix r1, Fix 2: 100 sends with 0 failures should report
+    // errorRate=0 (a finite number), so the UI shows '0.0%' rather than
+    // the same dash as "no sends at all".
+    const { client } = buildRpcClient({
+      get_quality_kpis_for_tenant: {
+        data: [
+          {
+            total_sends: 100,
+            delivered: 100,
+            read_count: 50,
+            failed: 0,
+            opted_out: 0,
+          },
+        ],
+      },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const kpis = await getQualityKpisForTenant({
+      restaurantId: 'rest-1',
+      windowDays: 7,
+    })
+
+    expect(kpis.errorRate).toBe(0)
+    expect(kpis.optOutRate).toBe(0)
+    expect(Number.isFinite(kpis.errorRate)).toBe(true)
+    expect(Number.isFinite(kpis.optOutRate)).toBe(true)
   })
 
   it('throws a contextual error when the RPC fails', async () => {
@@ -246,7 +278,7 @@ describe('getQualityKpisForAllTenants', () => {
     const c = map.get('c')!
     expect(c.totalSends).toBe(0)
     expect(c.optedOut).toBe(1)
-    expect(c.optOutRate).toBe(0)
+    expect(Number.isNaN(c.optOutRate)).toBe(true)
   })
 
   it('throws a contextual error when the RPC fails', async () => {

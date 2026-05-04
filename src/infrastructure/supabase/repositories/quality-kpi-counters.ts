@@ -26,8 +26,12 @@ export interface Counters {
   optedOut: number
 }
 
+// rate() returns NaN — not 0 — when the denominator is zero so callers can
+// distinguish "no sends, undefined rate" from "many sends, perfect rate"
+// (review fix r1, Fix 2). The UI's formatPct() treats NaN as '—' and a
+// real 0 as '0.0%'.
 export function rate(numerator: number, denominator: number): number {
-  return denominator === 0 ? 0 : numerator / denominator
+  return denominator === 0 ? NaN : numerator / denominator
 }
 
 export function toKpisFromCounters(c: Counters): QualityKpis {
