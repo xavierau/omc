@@ -12,6 +12,7 @@ import { Language } from '@/domain/value-objects/language'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { checkCampaignGuardrails } from './check-campaign-guardrails'
+import { enforceTemplateReview } from './enforce-template-review'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
@@ -45,12 +46,12 @@ export async function executeCampaign(
   const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
   await enforceGuardrails(restaurantId, activeMembers.length)
 
-  // Resolve the WhatsApp template (if any) up-front so we can also validate
-  // that the campaign has SOMETHING sendable BEFORE we flip status to
-  // 'sending'. A misconfigured campaign should fail fast with its status
-  // unchanged — no state churn, no revert required.
+  // Resolve template up-front so we fail fast (status unchanged) on a
+  // misconfigured campaign — no state churn, no revert required.
   const template = await resolveWhatsAppTemplate(campaign)
   assertHasAnyInlineTemplate(campaign, template)
+  // WAQ-011: untrusted tenants need an approved review row for MARKETING.
+  await enforceTemplateReview({ campaign, restaurantId, template })
 
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
