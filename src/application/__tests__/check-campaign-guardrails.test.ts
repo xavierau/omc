@@ -36,6 +36,10 @@ function makeSettings(
     maxUnsubscribeRate: 0.05,
     campaignPaused: false,
     perUserMarketingCap: 1,
+    autoThrottleFactor: 1,
+    autoPauseActive: false,
+    autoPauseReason: null,
+    autoPauseSetAt: null,
     ...overrides,
   }
 }
@@ -80,6 +84,8 @@ describe('checkCampaignGuardrails', () => {
       dailyLimit: 3,
       unsubscribeRate: 0.01,
       maxUnsubscribeRate: 0.05,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
     })
   })
 
@@ -148,5 +154,78 @@ describe('checkCampaignGuardrails', () => {
     expect(result.allowed).toBe(true)
     expect(result.warnings.length).toBeGreaterThan(0)
     expect(result.warnings[0]).toContain('approaching')
+  })
+
+  // WAQ-009: auto-throttle / auto-pause read paths.
+  describe('WAQ-009 auto-throttle / auto-pause', () => {
+    it('autoThrottleFactor=0.5 halves the effective daily limit', async () => {
+      // dailyCampaignLimit=3 -> floor(3 * 0.5) = 1. dailyCount=1 should now block.
+      setupMocks({
+        settings: makeSettings({ autoThrottleFactor: 0.5 }),
+        dailyCount: 1,
+      })
+      const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+      expect(result.allowed).toBe(false)
+      expect(result.usage.dailyLimit).toBe(1)
+      expect(result.usage.autoThrottleFactor).toBe(0.5)
+    })
+
+    it('autoThrottleFactor=0.5 halves the effective monthly limit', async () => {
+      // monthlySendLimit=1000 -> floor(1000 * 0.5) = 500. With 480 sends + 50
+      // target the new effective ceiling (500) is exceeded.
+      setupMocks({
+        settings: makeSettings({ autoThrottleFactor: 0.5 }),
+        monthlySends: 480,
+      })
+      const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+      expect(result.allowed).toBe(false)
+      expect(result.usage.monthlyLimit).toBe(500)
+    })
+
+    it('autoPauseActive=true denies regardless of count thresholds', async () => {
+      // Plenty of headroom on every other axis — pure auto-pause denial.
+      setupMocks({
+        settings: makeSettings({
+          autoPauseActive: true,
+          autoPauseReason: 'quality_red_auto',
+        }),
+        monthlySends: 0,
+        dailyCount: 0,
+      })
+      const result = await checkCampaignGuardrails(RESTAURANT_ID, 1)
+
+      expect(result.allowed).toBe(false)
+      expect(result.violations.some((v) => v.includes('auto-paused'))).toBe(true)
+      expect(result.usage.autoPauseActive).toBe(true)
+    })
+
+    it('autoThrottleFactor=1.0 (no throttle) preserves stored limits', async () => {
+      setupMocks({
+        settings: makeSettings({ autoThrottleFactor: 1 }),
+      })
+      const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+      expect(result.usage.dailyLimit).toBe(3)
+      expect(result.usage.monthlyLimit).toBe(1000)
+      expect(result.usage.autoThrottleFactor).toBe(1)
+    })
+
+    it('manual pause and auto-pause both register as separate violations', async () => {
+      setupMocks({
+        settings: makeSettings({
+          campaignPaused: true,
+          pausedReason: 'manual ops',
+          autoPauseActive: true,
+          autoPauseReason: 'quality_red_auto',
+        }),
+      })
+      const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+      expect(result.allowed).toBe(false)
+      // Both gates fire — distinct messages so ops can see both reasons.
+      expect(result.violations.length).toBeGreaterThanOrEqual(2)
+    })
   })
 })

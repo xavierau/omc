@@ -23,6 +23,10 @@ describe('updateTenantCampaignSettings', () => {
       maxUnsubscribeRate: 0.1,
       campaignPaused: false,
       perUserMarketingCap: 1,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
     }
     mockUpsert.mockResolvedValue(expected)
 
@@ -48,6 +52,10 @@ describe('updateTenantCampaignSettings', () => {
       maxUnsubscribeRate: 0.05,
       campaignPaused: false,
       perUserMarketingCap: 1,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
     }
     mockUpsert.mockResolvedValue(expected)
 

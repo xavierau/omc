@@ -23,6 +23,10 @@ describe('resumeTenantCampaigns', () => {
       maxUnsubscribeRate: 0.05,
       campaignPaused: false,
       perUserMarketingCap: 1,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
     })
 
     await resumeTenantCampaigns('rest-1')

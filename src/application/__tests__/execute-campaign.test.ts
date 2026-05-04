@@ -986,6 +986,10 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
       maxUnsubscribeRate: 0.05,
       campaignPaused: false,
       perUserMarketingCap: 2,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
     }
     vi.mocked(getSettingsForTenant).mockResolvedValue(settings)
 
