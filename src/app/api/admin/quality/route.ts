@@ -9,13 +9,18 @@ import { checkAdminRateLimit } from '@/infrastructure/rate-limit/admin-rate-limi
 import { getTenantQualityOverview } from '@/application/get-tenant-quality-overview'
 
 const DEFAULT_WINDOW_DAYS = 7
+// Upper bound prevents a malicious / accidentally-huge ?windowDays= from
+// scanning years of whatsapp_messages on every poll. 90d covers any
+// realistic dashboard range; longer windows go through analytics tooling.
+const MAX_WINDOW_DAYS = 90
 const VALID_RATINGS = ['GREEN', 'YELLOW', 'RED'] as const
 type FilterRating = (typeof VALID_RATINGS)[number]
 
 function parseWindowDays(raw: string | null): number {
   if (!raw) return DEFAULT_WINDOW_DAYS
   const n = parseInt(raw, 10)
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_WINDOW_DAYS
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_WINDOW_DAYS
+  return Math.min(n, MAX_WINDOW_DAYS)
 }
 
 function parseFilterRating(
