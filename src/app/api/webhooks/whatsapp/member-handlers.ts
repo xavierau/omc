@@ -4,6 +4,7 @@ import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import { revokeConsent } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { resolveLanguageForMember } from './resolve-language'
 import { getSystemReply } from './system-replies'
 
@@ -37,6 +38,8 @@ export async function handleUnsubscribe(
   const supabase = createServerSupabaseClient()
   await supabase.from('members').update({ status: 'unsubscribed' }).eq('id', member.id)
 
+  await revokeAllConsentsForUnsubscribe(restaurantId, phone, member.id)
+
   await emitEvent({
     restaurantId,
     memberId: member.id,
@@ -45,6 +48,17 @@ export async function handleUnsubscribe(
   })
 
   return sendTextMessage(phoneNumberId, phone, getSystemReply('unsubscribed', language))
+}
+
+// WAQ-005: STOP revokes every active consent (no category arg = all).
+// Transient errors propagate so Kapso retries (matches WAQ-004 JOIN).
+async function revokeAllConsentsForUnsubscribe(
+  restaurantId: string,
+  phone: string,
+  memberId: string
+): Promise<void> {
+  const revoked = await revokeConsent({ restaurantId, phoneE164: phone })
+  console.info('[unsubscribe] consent revoked', { memberId, count: revoked })
 }
 
 export async function handleRewards(

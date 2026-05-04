@@ -8,6 +8,7 @@ vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/reward-repository')
 vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
   insertConsentRecord: vi.fn(),
+  revokeConsent: vi.fn(),
 }))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
@@ -29,7 +30,10 @@ import { getRestaurantPhoneNumberId, getRestaurantName } from '@/infrastructure/
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
-import { insertConsentRecord } from '@/infrastructure/supabase/repositories/consent-record-repository'
+import {
+  insertConsentRecord,
+  revokeConsent,
+} from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
 import { registerMember } from '@/application/register-member'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
@@ -68,6 +72,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(findMemberByPhone).mockResolvedValue(null)
     vi.mocked(updateReceipt).mockResolvedValue(undefined)
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
+    vi.mocked(revokeConsent).mockResolvedValue(0)
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -413,6 +418,104 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       await expect(
         routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
       ).resolves.not.toThrow()
+    })
+  })
+
+  describe('STOP keyword revokes consent_records (WAQ-005)', () => {
+    beforeEach(() => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+    })
+
+    it('EN "STOP": flips member to unsubscribed AND revokes all active consents (no category arg)', async () => {
+      vi.mocked(revokeConsent).mockResolvedValue(2)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledTimes(1)
+      // No category passed → repo revokes EVERY active category for this contact.
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('ZH "退訂": same revoke-all behaviour as STOP', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(revokeConsent).mockResolvedValue(1)
+
+      await routeMessage(makeMessage({ text: '退訂' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('ZH "停止": same revoke-all behaviour as STOP', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(revokeConsent).mockResolvedValue(1)
+
+      await routeMessage(makeMessage({ text: '停止' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('STOP for a member with no active consents: revokeConsent returns 0, handler still acks the unsubscribe', async () => {
+      vi.mocked(revokeConsent).mockResolvedValue(0)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledTimes(1)
+      // Goodbye reply still goes out.
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('unsubscribed')
+      )
+    })
+
+    it('repeat STOP is idempotent: second call still calls revokeConsent (returns 0) and does not throw', async () => {
+      vi.mocked(revokeConsent).mockResolvedValueOnce(2).mockResolvedValueOnce(0)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      await expect(
+        routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
+
+      expect(revokeConsent).toHaveBeenCalledTimes(2)
+    })
+
+    it('if revokeConsent throws transient error, the handler propagates so Kapso retries', async () => {
+      vi.mocked(revokeConsent).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+    })
+
+    it('STOP from a non-member: revokeConsent is NOT called (no member to scope to)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).not.toHaveBeenCalled()
     })
   })
 
