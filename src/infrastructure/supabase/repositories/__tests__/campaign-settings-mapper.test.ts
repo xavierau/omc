@@ -39,7 +39,29 @@ describe('mapRowToSettings', () => {
       // WAQ-007: column added in migration 040 — defaults to 1 when the row
       // pre-dates the migration (per_user_marketing_cap absent on read).
       perUserMarketingCap: 1,
+      // WAQ-009: defaults to no-throttle / not-paused on pre-migration rows.
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
     })
+  })
+
+  it('reads auto_throttle_factor as a number when sent as a string (Postgres NUMERIC)', () => {
+    const row = buildRow({ auto_throttle_factor: '0.50' })
+    expect(mapRowToSettings(row).autoThrottleFactor).toBe(0.5)
+  })
+
+  it('reads auto_pause_active true with reason and set_at', () => {
+    const row = buildRow({
+      auto_pause_active: true,
+      auto_pause_reason: 'quality_red_auto',
+      auto_pause_set_at: '2026-05-04T12:00:00Z',
+    })
+    const result = mapRowToSettings(row)
+    expect(result.autoPauseActive).toBe(true)
+    expect(result.autoPauseReason).toBe('quality_red_auto')
+    expect(result.autoPauseSetAt).toEqual(new Date('2026-05-04T12:00:00Z'))
   })
 
   it('reads per_user_marketing_cap from the row when set', () => {
@@ -126,6 +148,39 @@ describe('mapSettingsToUpsert', () => {
     expect(result).toEqual({
       restaurant_id: 'rest-1',
       per_user_marketing_cap: 2,
+    })
+  })
+
+  it('writes WAQ-009 auto-quality flags when provided', () => {
+    const setAt = new Date('2026-05-04T12:00:00Z')
+    const result = mapSettingsToUpsert('rest-1', {
+      autoThrottleFactor: 0.5,
+      autoPauseActive: true,
+      autoPauseReason: 'quality_red_auto',
+      autoPauseSetAt: setAt,
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      auto_throttle_factor: 0.5,
+      auto_pause_active: true,
+      auto_pause_reason: 'quality_red_auto',
+      auto_pause_set_at: '2026-05-04T12:00:00.000Z',
+    })
+  })
+
+  it('clears auto-pause flags when set to null/false', () => {
+    const result = mapSettingsToUpsert('rest-1', {
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      auto_throttle_factor: 1,
+      auto_pause_active: false,
+      auto_pause_reason: null,
+      auto_pause_set_at: null,
     })
   })
 })
