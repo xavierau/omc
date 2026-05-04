@@ -99,6 +99,35 @@ export async function findByPhoneNumberId(
   return data as RestaurantRow
 }
 
+/**
+ * Resolve a tenant by Meta's `display_phone_number` (e.g. "85291234567").
+ * Used by webhooks like `phone_number_quality_update` that ship ONLY the
+ * display number, not the numeric `phone_number_id`. We try the value
+ * verbatim and with a leading "+" because `restaurants.whatsapp_number`
+ * is stored as `+85291234567` while Meta sends `85291234567`.
+ */
+export async function findByDisplayPhoneNumber(
+  displayPhoneNumber: string
+): Promise<RestaurantRow | null> {
+  const supabase = createServerSupabaseClient()
+  const candidates = displayPhoneNumberCandidates(displayPhoneNumber)
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select(RESTAURANT_COLUMNS)
+    .in('whatsapp_number', candidates)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return data as RestaurantRow
+}
+
+function displayPhoneNumberCandidates(value: string): string[] {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return []
+  if (trimmed.startsWith('+')) return [trimmed, trimmed.slice(1)]
+  return [trimmed, `+${trimmed}`]
+}
+
 export async function listActive(): Promise<RestaurantRow[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase

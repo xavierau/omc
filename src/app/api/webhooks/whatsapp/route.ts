@@ -6,10 +6,11 @@ import {
   verifyKapsoSignature,
 } from '@/infrastructure/whatsapp/webhooks'
 import { createWebhookLogger } from '@/infrastructure/logging/logger'
-import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { routeMessage } from './handlers'
 import { routeStatusEvent } from './status-handlers'
+import { routeQualityEvent } from './quality-handlers'
+import { resolveRestaurant } from './resolve-tenant'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export async function POST(request: NextRequest) {
@@ -40,6 +41,12 @@ export async function POST(request: NextRequest) {
 
     if (kind === 'status') {
       await routeStatusEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'quality') {
+      await routeQualityEvent(body, restaurantId, log)
       log('info', 'webhook.response', { status: 200, kind })
       return NextResponse.json({ status: 'ok' })
     }
@@ -80,39 +87,6 @@ async function handleInbound(
   await routeMessage(message, restaurantId, log)
   log('info', 'webhook.response', { status: 200 })
   return NextResponse.json({ status: 'ok' })
-}
-
-function extractPhoneNumberId(body: unknown): string | null {
-  const payload = body as Record<string, unknown>
-
-  // Kapso format: conversation.phone_number_id
-  const conversation = payload?.conversation as Record<string, unknown> | undefined
-  if (conversation?.phone_number_id) {
-    return conversation.phone_number_id as string
-  }
-
-  // Meta Cloud API format: entry[].changes[].value.metadata.phone_number_id
-  const entry = (payload?.entry as Array<Record<string, unknown>>)?.[0]
-  const changes = (entry?.changes as Array<Record<string, unknown>>)?.[0]
-  const value = changes?.value as Record<string, unknown> | undefined
-  const metadata = value?.metadata as Record<string, unknown> | undefined
-  return (metadata?.phone_number_id as string) ?? null
-}
-
-async function resolveRestaurant(body: unknown, log: LogFn): Promise<string | null> {
-  const phoneNumberId = extractPhoneNumberId(body)
-  if (!phoneNumberId) {
-    log('warn', 'webhook.no_phone_number_id', {})
-    return null
-  }
-
-  const restaurant = await findByPhoneNumberId(phoneNumberId)
-  if (!restaurant) {
-    log('warn', 'webhook.restaurant_not_found', { phoneNumberId })
-    return null
-  }
-
-  return restaurant.id
 }
 
 function verifySignature(request: NextRequest, rawBody: string): boolean {
