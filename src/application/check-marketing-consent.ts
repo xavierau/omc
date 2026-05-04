@@ -4,8 +4,16 @@ import {
 } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import type { ConsentRecord } from '@/domain/entities/consent-record'
 import type { ConsentGrade } from '@/domain/value-objects/consent-status'
+import type { MarketingSkipReason } from '@/domain/value-objects/marketing-skip-reason'
 
-export type ConsentRejectionReason = 'no_consent' | 'opted_out' | 'pending'
+// Subset of MarketingSkipReason that the consent gate alone can produce. The
+// cooldown gate emits the rest (pmm_throttled / cap_exceeded / unreachable).
+// Aliased to the unified union so callers that combine gates can handle a
+// single SkipDecision type — see WAQ-007.
+export type ConsentRejectionReason = Extract<
+  MarketingSkipReason,
+  'no_consent' | 'opted_out' | 'pending'
+>
 
 export interface ConsentCheckResult {
   allowed: boolean
