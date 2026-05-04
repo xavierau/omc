@@ -10,6 +10,9 @@ vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () =
   insertConsentRecord: vi.fn(),
   revokeConsent: vi.fn(),
 }))
+vi.mock('@/infrastructure/supabase/repositories/conversation-window-repository', () => ({
+  upsertOpenWindow: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -34,7 +37,9 @@ import {
   insertConsentRecord,
   revokeConsent,
 } from '@/infrastructure/supabase/repositories/consent-record-repository'
+import { upsertOpenWindow } from '@/infrastructure/supabase/repositories/conversation-window-repository'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
+import { ConversationWindow } from '@/domain/entities/conversation-window'
 import { registerMember } from '@/application/register-member'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
@@ -73,6 +78,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(updateReceipt).mockResolvedValue(undefined)
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
     vi.mocked(revokeConsent).mockResolvedValue(0)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -1095,5 +1101,68 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       // language field on params
       expect((call[0] as unknown as { language: { code: string } }).language.code).toBe('zh_hk')
     })
+  })
+})
+
+describe('conversation window upsert on inbound (WAQ-008)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  it('upserts a window for an inbound text message', async () => {
+    await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg).toBeInstanceOf(ConversationWindow)
+    expect(arg.snapshot.restaurantId).toBe(RESTAURANT_B)
+    expect(arg.snapshot.phoneE164).toBe(PHONE)
+  })
+
+  it('upserts a window for an interactive button reply', async () => {
+    await routeMessage(
+      makeMessage({ type: 'interactive', text: 'JOIN' }),
+      RESTAURANT_B
+    )
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.restaurantId).toBe(RESTAURANT_B)
+    expect(arg.snapshot.phoneE164).toBe(PHONE)
+  })
+
+  it('upserts a window for an inbound image message', async () => {
+    await routeMessage(
+      makeMessage({ type: 'image', imageUrl: 'https://x/y.jpg' }),
+      RESTAURANT_B
+    )
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('upsert failure is logged but does NOT break the inbound flow', async () => {
+    vi.mocked(upsertOpenWindow).mockRejectedValueOnce(new Error('db down'))
+    const log = vi.fn()
+
+    // Reaches the route handler; reply still goes out.
+    await expect(
+      routeMessage(makeMessage({ text: 'HELP' }), RESTAURANT_B, log)
+    ).resolves.not.toThrow()
+
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      'webhook.window_upsert_failed',
+      expect.objectContaining({ error: expect.stringContaining('db down') })
+    )
+    // The downstream HELP reply still ran (non-member -> JOIN invite via
+    // interactive buttons).
+    expect(sendInteractiveButtons).toHaveBeenCalled()
   })
 })

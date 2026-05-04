@@ -80,27 +80,6 @@ interface InsertRecorder {
   inserted: Record<string, unknown> | null
 }
 
-function buildInsertClient(opts: {
-  error: { message: string } | null
-} = { error: null }): {
-  client: ReturnType<typeof createServerSupabaseClient>
-  recorder: InsertRecorder
-} {
-  const recorder: InsertRecorder = { table: null, inserted: null }
-  const insert = vi.fn().mockImplementation((row: Record<string, unknown>) => {
-    recorder.inserted = row
-    return Promise.resolve({ error: opts.error })
-  })
-  const from = vi.fn().mockImplementation((t: string) => {
-    recorder.table = t
-    return { insert }
-  })
-  return {
-    client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
-    recorder,
-  }
-}
-
 interface CompositeRecorder {
   selectRecorder: SelectRecorder
   insertRecorder: InsertRecorder
