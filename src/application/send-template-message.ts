@@ -4,6 +4,7 @@ import {
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
+import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
 
 interface SendParams {
   phoneNumberId: string
@@ -15,7 +16,7 @@ interface SendParams {
 
 export async function sendWhatsAppTemplateMessage(
   params: SendParams
-): Promise<boolean> {
+): Promise<SendResult> {
   if (!isTemplateSendable(params.template)) {
     throw new Error('Template is not approved for sending')
   }

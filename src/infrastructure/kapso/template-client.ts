@@ -4,6 +4,7 @@ import {
   WhatsAppClient,
   buildTemplateSendPayload,
 } from '@kapso/whatsapp-cloud-api'
+import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
 
@@ -132,10 +133,24 @@ export async function sendTemplateMessage(
       parameters: Array<{ type: 'text'; text: string }>
     }>
   }
-): Promise<boolean> {
+): Promise<SendResult> {
   const client = getClient()
-  if (!client) return false
-  if (!phoneNumberId) return false
+  if (!client) {
+    return {
+      ok: false,
+      kapsoMessageId: null,
+      raw: null,
+      error: { title: 'kapso_no_api_key' },
+    }
+  }
+  if (!phoneNumberId) {
+    return {
+      ok: false,
+      kapsoMessageId: null,
+      raw: null,
+      error: { title: 'kapso_no_phone_number_id' },
+    }
+  }
 
   try {
     const payload = buildTemplateSendPayload({
@@ -146,14 +161,36 @@ export async function sendTemplateMessage(
       buttons: params.buttons,
     })
 
-    await client.messages.sendTemplate({
+    const raw = await client.messages.sendTemplate({
       phoneNumberId,
       to,
       template: payload,
     })
-    return true
+    const messages = (raw as { messages?: Array<{ id?: string }> } | null)
+      ?.messages
+    const id =
+      Array.isArray(messages) && messages[0]?.id ? messages[0].id : null
+    if (!id) {
+      return {
+        ok: false,
+        kapsoMessageId: null,
+        raw: (raw as unknown as Record<string, unknown>) ?? null,
+        error: { title: 'kapso_no_message_id' },
+      }
+    }
+    return {
+      ok: true,
+      kapsoMessageId: id,
+      raw: (raw as unknown as Record<string, unknown>) ?? null,
+    }
   } catch (err) {
-    console.warn('[Kapso] Error sending template:', (err as Error).message)
-    return false
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn('[Kapso] Error sending template:', message)
+    return {
+      ok: false,
+      kapsoMessageId: null,
+      raw: null,
+      error: { title: 'kapso_send_error', details: message },
+    }
   }
 }

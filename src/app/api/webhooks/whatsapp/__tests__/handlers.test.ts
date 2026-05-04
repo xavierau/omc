@@ -33,6 +33,7 @@ import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
+import { okResult } from '@/test-utils/send-result'
 
 const RESTAURANT_A = 'rest-a-uuid'
 const RESTAURANT_B = 'rest-b-uuid'
@@ -56,8 +57,8 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
-    vi.mocked(sendInteractiveButtons).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
     vi.mocked(findMemberByPhone).mockResolvedValue(null)
     vi.mocked(updateReceipt).mockResolvedValue(undefined)
   })

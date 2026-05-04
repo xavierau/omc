@@ -22,6 +22,7 @@ import { validateReceipt } from '@/application/validate-receipt'
 import { verifyReceiptLayout } from '@/application/verify-receipt-layout'
 import { processReceipt, handleParseResult, confirmReceipt } from '../process-receipt'
 import type { ParsedReceipt } from '@/domain/interfaces/parsed-receipt'
+import { okResult } from '@/test-utils/send-result'
 
 function makeParsed(overrides: Partial<ParsedReceipt> = {}): ParsedReceipt {
   return {
@@ -49,7 +50,7 @@ describe('handleParseResult', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(updateReceipt).mockResolvedValue(undefined as never)
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(awardPoints).mockResolvedValue(undefined)
     vi.mocked(validateReceipt).mockResolvedValue({ valid: true })
     vi.mocked(verifyReceiptLayout).mockResolvedValue(undefined)
@@ -197,7 +198,7 @@ describe('processReceipt', () => {
     vi.mocked(updateReceipt).mockResolvedValue(undefined as never)
     vi.mocked(submitReceiptExtraction).mockResolvedValue('job-123')
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('pn-1')
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(getMemberPreferredLanguage).mockResolvedValue(null)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
   })

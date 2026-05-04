@@ -5,6 +5,7 @@ vi.mock('@/infrastructure/whatsapp/templates')
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendWhatsAppTemplateMessage } from '../send-template-message'
+import { okResult } from '@/test-utils/send-result'
 
 function buildTemplate(
   overrides: Partial<WhatsAppTemplate> = {}
@@ -29,7 +30,7 @@ function buildTemplate(
 describe('sendWhatsAppTemplateMessage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(sendTemplateMessage).mockResolvedValue(true)
+    vi.mocked(sendTemplateMessage).mockResolvedValue(okResult())
   })
 
   it('throws for non-approved template', async () => {

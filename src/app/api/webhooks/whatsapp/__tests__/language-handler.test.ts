@@ -16,6 +16,7 @@ import {
   maybeDetectLanguageForExistingMember,
 } from '../language-handler'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
+import { okResult } from '@/test-utils/send-result'
 
 const RESTAURANT_ID = 'rest-uuid'
 const PHONE = '+85298765432'
@@ -36,7 +37,7 @@ describe('maybeHandleLanguageCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(updateMemberPreferredLanguage).mockResolvedValue(undefined)
   })
 

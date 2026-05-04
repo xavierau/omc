@@ -11,6 +11,7 @@ import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
 import { awardPoints } from '../award-points'
 import { Language } from '@/domain/value-objects/language'
+import { okResult } from '@/test-utils/send-result'
 
 const BASE_PARAMS = {
   receiptId: 'r-1',
@@ -28,7 +29,7 @@ describe('awardPoints', () => {
     vi.clearAllMocks()
     vi.mocked(updateReceipt).mockResolvedValue(undefined as never)
     vi.mocked(emitEvent).mockResolvedValue('event-1')
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(adjustMemberPoints).mockResolvedValue(60)
   })
 
