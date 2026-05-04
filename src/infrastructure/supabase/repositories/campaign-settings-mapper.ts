@@ -1,5 +1,6 @@
 import {
   DEFAULT_PER_USER_MARKETING_CAP,
+  DEFAULT_SETTINGS,
   type TenantCampaignSettings,
   type AutoPauseReason,
 } from '@/domain/services/campaign-guardrails'
@@ -23,6 +24,14 @@ export interface CampaignSettingsRow {
   auto_pause_active?: boolean | null
   auto_pause_reason?: string | null
   auto_pause_set_at?: string | null
+  // WAQ-010 — columns added in migration 043. Defaults applied on read so
+  // pre-migration rows fall back to the engagement_tier/100/100 baseline.
+  pacing_strategy?: string | null
+  probe_chunk_size?: number | null
+  scale_chunk_size?: number | null
+  active_hours_start_local?: string | null
+  active_hours_end_local?: string | null
+  tenant_timezone?: string | null
   created_at: string
   updated_at: string
 }
@@ -46,7 +55,24 @@ export function mapRowToSettings(
     autoPauseSetAt: row.auto_pause_set_at
       ? new Date(row.auto_pause_set_at)
       : null,
+    pacingStrategy: parsePacingStrategy(row.pacing_strategy),
+    probeChunkSize: row.probe_chunk_size ?? DEFAULT_SETTINGS.probeChunkSize,
+    scaleChunkSize: row.scale_chunk_size ?? DEFAULT_SETTINGS.scaleChunkSize,
+    activeHoursStartLocal:
+      row.active_hours_start_local ?? DEFAULT_SETTINGS.activeHoursStartLocal,
+    activeHoursEndLocal:
+      row.active_hours_end_local ?? DEFAULT_SETTINGS.activeHoursEndLocal,
+    tenantTimezone: row.tenant_timezone ?? DEFAULT_SETTINGS.tenantTimezone,
   }
+}
+
+// Defends the union: if the column ever drifts (manual SQL, restored row)
+// the mapper falls back to the default rather than corrupting the type.
+function parsePacingStrategy(
+  v: string | null | undefined
+): TenantCampaignSettings['pacingStrategy'] {
+  if (v === 'naive') return 'naive'
+  return DEFAULT_SETTINGS.pacingStrategy
 }
 
 // Postgres NUMERIC arrives as a string from PostgREST; integer literal 1
@@ -85,6 +111,12 @@ const FIELD_MAP: ReadonlyArray<
   ['autoPauseActive', 'auto_pause_active', passthrough],
   ['autoPauseReason', 'auto_pause_reason', passthrough],
   ['autoPauseSetAt', 'auto_pause_set_at', dateOrNull],
+  ['pacingStrategy', 'pacing_strategy', passthrough],
+  ['probeChunkSize', 'probe_chunk_size', passthrough],
+  ['scaleChunkSize', 'scale_chunk_size', passthrough],
+  ['activeHoursStartLocal', 'active_hours_start_local', passthrough],
+  ['activeHoursEndLocal', 'active_hours_end_local', passthrough],
+  ['tenantTimezone', 'tenant_timezone', passthrough],
 ]
 
 export function mapSettingsToUpsert(

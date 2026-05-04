@@ -27,6 +27,12 @@ describe('updateTenantCampaignSettings', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier' as const,
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     }
     mockUpsert.mockResolvedValue(expected)
 
@@ -56,6 +62,12 @@ describe('updateTenantCampaignSettings', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier' as const,
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     }
     mockUpsert.mockResolvedValue(expected)
 

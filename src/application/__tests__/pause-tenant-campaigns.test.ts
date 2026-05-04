@@ -28,6 +28,12 @@ describe('pauseTenantCampaigns', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     })
 
     await pauseTenantCampaigns('rest-1', 'Abuse detected')
@@ -51,6 +57,12 @@ describe('pauseTenantCampaigns', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     })
 
     const before = new Date()
