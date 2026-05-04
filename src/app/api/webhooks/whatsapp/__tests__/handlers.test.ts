@@ -1138,6 +1138,14 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
     expect(arg.snapshot.phoneE164).toBe(PHONE)
   })
 
+  it('upserts a window even when the inbound is a LANG command (short-circuit path)', async () => {
+    // Locks the placement invariant: bumpServiceWindow MUST run BEFORE
+    // maybeHandleLanguageCommand short-circuits the handler. Future refactor
+    // that moves the bump after the LANG short-circuit will fail here.
+    await routeMessage(makeMessage({ text: 'LANG EN' }), RESTAURANT_B)
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+  })
+
   it('upserts a window for an inbound image message', async () => {
     await routeMessage(
       makeMessage({ type: 'image', imageUrl: 'https://x/y.jpg' }),
