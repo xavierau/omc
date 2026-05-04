@@ -18,10 +18,12 @@ interface GateInput {
  * Compose the WAQ-004 consent gate and WAQ-007 cooldown gate into a single
  * per-phone decision. Each gate makes ONE bulk fetch — no per-member N+1.
  *
- * Cooldown signals (pmm_throttled / unreachable / cap_exceeded) take
- * precedence over consent reasons because they describe a quality-state
- * regression — surfacing 'no_consent' when a recipient is also throttled
- * would mask the more actionable signal in downstream skip-reason analytics.
+ * Consent reasons (opted_out / no_consent / pending) take precedence over
+ * cooldown reasons. Compliance is a legal boundary (HK PDPO) — surfacing
+ * 'cap_exceeded' for an opted_out recipient would mask the consent
+ * violation in downstream skip-reason analytics + WONB-008 re-confirmation
+ * stats. Once consent passes, cooldown reasons surface the quality-state
+ * regression.
  */
 export async function loadMarketingGateDecisions(
   input: GateInput
@@ -52,14 +54,14 @@ function mergeDecisions(
 ): Map<string, SkipDecision> {
   const out = new Map<string, SkipDecision>()
   for (const phone of phones) {
-    const cool = cooldown.get(phone)
-    if (cool && !cool.allowed) {
-      out.set(phone, cool)
-      continue
-    }
     const cons = consent.get(phone)
     if (cons && !cons.allowed) {
       out.set(phone, cons)
+      continue
+    }
+    const cool = cooldown.get(phone)
+    if (cool && !cool.allowed) {
+      out.set(phone, cool)
       continue
     }
     out.set(phone, { allowed: true })
