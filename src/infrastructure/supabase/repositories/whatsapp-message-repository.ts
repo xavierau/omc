@@ -15,6 +15,17 @@ import {
   toQueuedRow,
   type WhatsAppMessageRow,
 } from './whatsapp-message-mapper'
+import {
+  countMarketingSendsLast24h,
+  countMarketingSendsLast24hForPhones,
+} from './whatsapp-message-cooldown-queries'
+
+// WAQ-007 cooldown counters live in their own module to keep this file
+// under the size limit. Re-export so existing import sites keep working.
+export {
+  countMarketingSendsLast24h,
+  countMarketingSendsLast24hForPhones,
+} from './whatsapp-message-cooldown-queries'
 
 export async function insertQueued(m: WhatsAppMessage): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -124,4 +135,6 @@ export const whatsappMessageRepository: WhatsAppMessageRepository = {
   findByKapsoMessageId,
   applyStatusUpdate,
   markFailedNoBspId,
+  countMarketingSendsLast24h,
+  countMarketingSendsLast24hForPhones,
 }
