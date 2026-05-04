@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { classifyWebhookKind, normalizeStatusPayload } from '../webhooks'
+import {
+  classifyWebhookKind,
+  extractQualityEvent,
+  normalizeStatusPayload,
+} from '../webhooks'
 
 describe('classifyWebhookKind', () => {
   it('classifies Meta envelope with statuses[] as status', () => {
@@ -165,5 +169,221 @@ describe('normalizeStatusPayload', () => {
     }
     const out = normalizeStatusPayload(body)
     expect(out.map((s) => s.id)).toEqual(['wamid.D'])
+  })
+})
+
+describe('classifyWebhookKind — quality (WAQ-006)', () => {
+  it("classifies field='account_update' with quality field as quality", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number: '85291234567',
+                phone_number_id: 'pn-1',
+                current_limit: 'TIER_1K',
+                old_limit: 'TIER_NOT_SET',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('quality')
+  })
+
+  it("classifies field='message_template_quality_update' as quality", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: {
+                previous_quality_score: 'GREEN',
+                new_quality_score: 'YELLOW',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('quality')
+  })
+
+  it("classifies field='phone_number_quality_update' as quality", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'phone_number_quality_update',
+              value: {
+                display_phone_number: '85291234567',
+                event: 'FLAGGED',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('quality')
+  })
+
+  it('classifies a Kapso flat account_quality_update payload as quality', () => {
+    const body = {
+      event: 'account_quality_update',
+      data: {
+        phone_number_id: 'pn-1',
+        current_limit: 'TIER_10K',
+        quality: 'green',
+      },
+    }
+    expect(classifyWebhookKind(body)).toBe('quality')
+  })
+
+  it('does not regress existing classifications (status, inbound, other)', () => {
+    expect(
+      classifyWebhookKind({
+        entry: [{ changes: [{ value: { statuses: [{ id: 'x', status: 's' }] } }] }],
+      })
+    ).toBe('status')
+    expect(
+      classifyWebhookKind({
+        entry: [{ changes: [{ value: { messages: [{ id: 'x', from: 'y', type: 'text' }] } }] }],
+      })
+    ).toBe('inbound')
+    expect(classifyWebhookKind({ foo: 'bar' })).toBe('other')
+  })
+})
+
+describe('extractQualityEvent', () => {
+  it("reads account_update event with phone_number_id, tier (current_limit), and lowercase quality", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                current_limit: 'TIER_1K',
+                quality: 'yellow',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      phoneNumberId: 'pn-1',
+      qualityRating: 'YELLOW',
+      messagingTier: 'TIER_1K',
+      flagged: false,
+    })
+    expect(out[0].raw).toBeDefined()
+  })
+
+  it('reads phone_number_quality_update with FLAGGED event', () => {
+    const body = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'phone_number_quality_update',
+              value: {
+                display_phone_number: '85291234567',
+                event: 'FLAGGED',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(1)
+    expect(out[0].flagged).toBe(true)
+    // No quality field provided -> UNKNOWN sentinel rather than guessing.
+    expect(out[0].qualityRating).toBe('UNKNOWN')
+  })
+
+  it('reads message_template_quality_update new_quality_score', () => {
+    const body = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: {
+                previous_quality_score: 'GREEN',
+                new_quality_score: 'RED',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(1)
+    expect(out[0].qualityRating).toBe('RED')
+  })
+
+  it('reads Kapso flat account_quality_update payload', () => {
+    const body = {
+      event: 'account_quality_update',
+      data: {
+        phone_number_id: 'pn-9',
+        current_limit: 'TIER_100K',
+        quality: 'GREEN',
+      },
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      phoneNumberId: 'pn-9',
+      qualityRating: 'GREEN',
+      messagingTier: 'TIER_100K',
+    })
+  })
+
+  it('returns [] for unrelated payloads', () => {
+    expect(extractQualityEvent(null)).toEqual([])
+    expect(extractQualityEvent({})).toEqual([])
+    expect(
+      extractQualityEvent({
+        entry: [{ changes: [{ value: { statuses: [{ id: 'x', status: 's' }] } }] }],
+      })
+    ).toEqual([])
+  })
+
+  it('coerces unknown quality strings to UNKNOWN (defensive)', () => {
+    const body = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'account_update',
+              value: { quality: 'PURPLE' },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out[0].qualityRating).toBe('UNKNOWN')
   })
 })

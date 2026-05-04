@@ -1,8 +1,15 @@
 import { normalizeWebhook } from '@kapso/whatsapp-cloud-api/server'
 import { getWebhookProvider } from './provider-factory'
+import {
+  extractQualityEvent,
+  hasKapsoFlatQuality,
+  hasMetaQuality,
+  type QualityWebhookEntry,
+} from './webhooks-quality'
 import type { InboundMessage, LogFn } from '@/domain/ports/whatsapp-webhooks'
 
-export type { InboundMessage, LogFn }
+export { extractQualityEvent }
+export type { QualityWebhookEntry, InboundMessage, LogFn }
 export type KapsoMessage = InboundMessage
 
 export function parseKapsoWebhook(
@@ -21,23 +28,19 @@ export function verifyKapsoSignature(
   return getWebhookProvider().verifySignature(body, signature, secret)
 }
 
-export type WebhookKind = 'inbound' | 'status' | 'other'
+export type WebhookKind = 'inbound' | 'status' | 'quality' | 'other'
 
 /**
- * Pure dispatch discriminator for the webhook route. Recognises both:
- *   - Meta envelope: payload.entry[].changes[].value.{statuses,messages}
- *   - Kapso flat: payload.message_status, payload.event === 'message_status',
- *     or payload.message (inbound).
- *
- * Returns 'other' for payloads we cannot route — those are acked but ignored
- * upstream.
+ * Pure dispatch discriminator. Status/inbound take precedence over quality
+ * so a payload with mixed signals is not silently downgraded. Quality
+ * helpers live in webhooks-quality.ts (WAQ-006).
  */
 export function classifyWebhookKind(body: unknown): WebhookKind {
   if (!body || typeof body !== 'object') return 'other'
   const obj = body as Record<string, unknown>
-
   if (hasMetaStatuses(obj) || hasKapsoFlatStatus(obj)) return 'status'
   if (hasMetaMessages(obj) || hasKapsoFlatMessage(obj)) return 'inbound'
+  if (hasMetaQuality(obj) || hasKapsoFlatQuality(obj)) return 'quality'
   return 'other'
 }
 
