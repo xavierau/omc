@@ -2,7 +2,11 @@ import { upsertOpenWindow } from '@/infrastructure/supabase/repositories/convers
 import { ConversationWindow } from '@/domain/entities/conversation-window'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
-import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
+
+// Local narrow LogFn (no 'critical') — matches `handlers.ts`'s LogFn so a
+// plain handler logger can be passed through without widening. The window
+// upsert path only ever emits 'error', so the narrower union is sufficient.
+type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 
 /**
  * WAQ-008: every inbound bumps the customer-service window. Failure is

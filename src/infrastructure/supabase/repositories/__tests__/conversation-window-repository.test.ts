@@ -93,8 +93,12 @@ interface CompositeRecorder {
  */
 function buildUpsertClient(args: {
   existing: Record<string, unknown> | null
-  insertError?: { message: string } | null
+  insertError?: { code?: string; message: string } | null
   updateError?: { message: string } | null
+  // When set, the second SELECT (i.e. the post-23505 reconcile path)
+  // returns this row instead of `existing`. Lets a single test exercise
+  // the "missed → 23505 → find→bump" sequence.
+  existingOnReconcile?: Record<string, unknown> | null
 }): {
   client: ReturnType<typeof createServerSupabaseClient>
   recorder: CompositeRecorder
@@ -113,9 +117,16 @@ function buildUpsertClient(args: {
     eqs: Array<{ col: string; val: unknown }>
   }> = []
 
-  const selectMaybeSingle = vi.fn().mockResolvedValue({
-    data: args.existing,
-    error: null,
+  let selectCallCount = 0
+  const selectMaybeSingle = vi.fn().mockImplementation(async () => {
+    selectCallCount += 1
+    const data =
+      selectCallCount === 1
+        ? args.existing
+        : args.existingOnReconcile !== undefined
+          ? args.existingOnReconcile
+          : args.existing
+    return { data, error: null }
   })
   const selectChain: Record<string, unknown> = {}
   selectChain.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
@@ -327,6 +338,61 @@ describe('upsertOpenWindow', () => {
     })
     await expect(upsertOpenWindow(fresh)).rejects.toThrow(
       'upsertOpenWindow: permission denied'
+    )
+  })
+
+  // Fix 3 (Gemini r1): WAQ-008 anchors `opened_at` on the user's webhook
+  // timestamp, so concurrent duplicate webhooks (Meta retry) collide on
+  // `idx_conversation_windows_rid_phone_opened` and raise PG 23505.
+  // The losing writer must NOT bubble the error — re-run find+bump and
+  // advance the window the winner just inserted.
+  it('falls back to find+bump when INSERT raises 23505 (concurrent duplicate webhook)', async () => {
+    const winnerRow = {
+      id: 'w-winner',
+      restaurant_id: 'rest-1',
+      phone_e164: '+85291234567',
+      opened_at: '2026-05-04T10:00:00.000Z',
+      last_inbound_at: '2026-05-04T10:00:00.000Z',
+      expires_at: '2026-05-05T10:00:00.000Z',
+    }
+    const { client, recorder } = buildUpsertClient({
+      existing: null, // first SELECT: no row yet → INSERT path
+      insertError: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      existingOnReconcile: winnerRow, // second SELECT: winner now visible
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const fresh = ConversationWindow.open({
+      restaurantId: 'rest-1',
+      phoneE164: '+85291234567',
+      now: new Date('2026-05-04T10:00:00.000Z'),
+    })
+    const out = await upsertOpenWindow(fresh)
+
+    // INSERT was attempted exactly once.
+    expect(recorder.insertRecorder.inserted).not.toBeNull()
+    // Then UPDATE bumped the winner row.
+    expect(recorder.updateCalls).toHaveLength(1)
+    expect(recorder.updateCalls[0].eqs).toContainEqual({ col: 'id', val: 'w-winner' })
+    // Returned entity is the bumped winner, NOT the loser.
+    expect(out.snapshot.id).toBe('w-winner')
+    expect(out.snapshot.openedAt).toBe('2026-05-04T10:00:00.000Z')
+  })
+
+  it('throws when 23505 fires but the reconcile SELECT still finds no row', async () => {
+    const { client } = buildUpsertClient({
+      existing: null,
+      insertError: { code: '23505', message: 'duplicate key' },
+      existingOnReconcile: null, // unexpected — surface a clear error
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const fresh = ConversationWindow.open({
+      restaurantId: 'rest-1',
+      phoneE164: '+85291234567',
+    })
+    await expect(upsertOpenWindow(fresh)).rejects.toThrow(
+      'upsertOpenWindow: 23505 raised but no open window found on retry'
     )
   })
 
