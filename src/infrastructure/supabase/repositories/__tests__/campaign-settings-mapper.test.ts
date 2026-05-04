@@ -36,7 +36,20 @@ describe('mapRowToSettings', () => {
       campaignPaused: false,
       pausedReason: undefined,
       pausedAt: undefined,
+      // WAQ-007: column added in migration 040 — defaults to 1 when the row
+      // pre-dates the migration (per_user_marketing_cap absent on read).
+      perUserMarketingCap: 1,
     })
+  })
+
+  it('reads per_user_marketing_cap from the row when set', () => {
+    const row = buildRow({ per_user_marketing_cap: 2 })
+    expect(mapRowToSettings(row).perUserMarketingCap).toBe(2)
+  })
+
+  it('defaults to 1 when per_user_marketing_cap is absent (pre-migration row)', () => {
+    const row = buildRow()
+    expect(mapRowToSettings(row).perUserMarketingCap).toBe(1)
   })
 
   it('maps paused state with reason and date', () => {
@@ -106,5 +119,13 @@ describe('mapSettingsToUpsert', () => {
       monthly_send_limit: 500,
     })
     expect(result).not.toHaveProperty('campaign_paused')
+  })
+
+  it('writes per_user_marketing_cap to the upsert row when provided', () => {
+    const result = mapSettingsToUpsert('rest-1', { perUserMarketingCap: 2 })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      per_user_marketing_cap: 2,
+    })
   })
 })

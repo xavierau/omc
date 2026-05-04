@@ -11,13 +11,21 @@ export interface TenantCampaignSettings {
   campaignPaused: boolean
   pausedReason?: string | null
   pausedAt?: Date | null
+  // WAQ-007: per-recipient marketing cap per 24h. Default 1; tenants can opt
+  // up to 10 at their own quality risk. The cooldown gate reads this when
+  // composing the campaign send context so a per-tenant override applies
+  // to in-flight runs without redeploy.
+  perUserMarketingCap: number
 }
+
+export const DEFAULT_PER_USER_MARKETING_CAP = 1
 
 export const DEFAULT_SETTINGS: Omit<TenantCampaignSettings, 'restaurantId'> = {
   monthlySendLimit: 1000,
   dailyCampaignLimit: 1,
   maxUnsubscribeRate: 0.05,
   campaignPaused: false,
+  perUserMarketingCap: DEFAULT_PER_USER_MARKETING_CAP,
 }
 
 export function checkMonthlyLimit(

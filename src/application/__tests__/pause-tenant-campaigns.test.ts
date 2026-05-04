@@ -23,6 +23,7 @@ describe('pauseTenantCampaigns', () => {
       maxUnsubscribeRate: 0.05,
       campaignPaused: true,
       pausedReason: 'Abuse detected',
+      perUserMarketingCap: 1,
     })
 
     await pauseTenantCampaigns('rest-1', 'Abuse detected')
@@ -41,6 +42,7 @@ describe('pauseTenantCampaigns', () => {
       dailyCampaignLimit: 1,
       maxUnsubscribeRate: 0.05,
       campaignPaused: true,
+      perUserMarketingCap: 1,
     })
 
     const before = new Date()

@@ -22,6 +22,7 @@ describe('updateTenantCampaignSettings', () => {
       dailyCampaignLimit: 5,
       maxUnsubscribeRate: 0.1,
       campaignPaused: false,
+      perUserMarketingCap: 1,
     }
     mockUpsert.mockResolvedValue(expected)
 
@@ -46,6 +47,7 @@ describe('updateTenantCampaignSettings', () => {
       dailyCampaignLimit: 1,
       maxUnsubscribeRate: 0.05,
       campaignPaused: false,
+      perUserMarketingCap: 1,
     }
     mockUpsert.mockResolvedValue(expected)
 
