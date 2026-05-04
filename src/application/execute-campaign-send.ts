@@ -11,7 +11,7 @@ import type {
   MessageCategory,
   MessageContentType,
 } from '@/domain/entities/whatsapp-message'
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 export async function sendCampaignBody(
   member: Member,

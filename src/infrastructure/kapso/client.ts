@@ -1,5 +1,5 @@
 import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
 

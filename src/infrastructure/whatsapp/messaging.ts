@@ -1,5 +1,5 @@
 import { getMessagingProvider } from './provider-factory'
-import type { SendResult } from './messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 export function sendTextMessage(
   phoneNumberId: string,

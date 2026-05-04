@@ -1,4 +1,4 @@
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 export interface WhatsAppMessagingPort {
   sendText(

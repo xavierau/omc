@@ -9,7 +9,7 @@ import {
   attachKapsoMessageId,
   markFailedNoBspId,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 export interface RecordOutboundSendArgs {
   restaurantId: string

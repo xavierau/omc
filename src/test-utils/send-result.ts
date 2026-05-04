@@ -1,4 +1,4 @@
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 /** Test helper: an OK SendResult with a deterministic wamid. */
 export function okResult(id = 'wamid.test'): SendResult {

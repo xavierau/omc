@@ -4,7 +4,7 @@ import {
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
-import type { SendResult } from '@/infrastructure/whatsapp/messaging-result'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 interface SendParams {
   phoneNumberId: string
