@@ -152,6 +152,26 @@ describe('importMembersWithConsent', () => {
     expect(result.rejected[0].reason).toBe('duplicate_active')
   })
 
+  it('reports consent_insert_failed when consent insert throws a non-import error (member already inserted)', async () => {
+    const { client, recorder } = buildClient({ insertResult: { id: 'mem-orphan' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+    vi.mocked(insertConsentRecord).mockRejectedValue(
+      new Error('connection reset')
+    )
+
+    const result = await importMembersWithConsent({
+      restaurantId: 'r-1',
+      rows: [{ phoneE164: '85291234567', consent: { source: 'csv_import' } }],
+    })
+
+    expect(result.imported).toBe(0)
+    expect(result.rejected).toHaveLength(1)
+    expect(result.rejected[0].reason).toBe('consent_insert_failed')
+    expect(result.rejected[0].message).toBe('connection reset')
+    // Member insert DID succeed — the failure was on the consent leg.
+    expect(recorder.inserted).toHaveLength(1)
+  })
+
   it('defaults grade to strong when not provided', async () => {
     const { client } = buildClient({ insertResult: { id: 'mem-x' } })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)

@@ -50,6 +50,8 @@ export interface ConsentRecordRepository {
 export type ConsentImportReason =
   | 'duplicate_active'
   | 'missing_consent_source'
+  | 'member_insert_failed'
+  | 'consent_insert_failed'
 
 export class ConsentImportError extends Error {
   constructor(public readonly reason: ConsentImportReason, message?: string) {

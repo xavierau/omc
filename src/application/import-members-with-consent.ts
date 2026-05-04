@@ -27,7 +27,7 @@ export interface MemberImportRow {
 
 export interface ImportRejection {
   row: MemberImportRow
-  reason: ConsentImportReason | 'member_insert_failed'
+  reason: ConsentImportReason
   message?: string
 }
 
@@ -106,7 +106,28 @@ async function tryInsertConsent(
   memberId: string,
   row: MemberImportRow
 ): Promise<ImportOutcome> {
-  const record = ConsentRecord.grant({
+  const record = buildConsentFromImport(row, restaurantId, memberId)
+  try {
+    await insertConsentRecord(record)
+    return { ok: true }
+  } catch (err) {
+    if (err instanceof ConsentImportError) {
+      return reject(row, err.reason, err.message)
+    }
+    return reject(
+      row,
+      'consent_insert_failed',
+      err instanceof Error ? err.message : String(err)
+    )
+  }
+}
+
+function buildConsentFromImport(
+  row: MemberImportRow,
+  restaurantId: string,
+  memberId: string
+): ConsentRecord {
+  return ConsentRecord.grant({
     id: randomUUID(),
     restaurantId,
     memberId,
@@ -120,19 +141,6 @@ async function tryInsertConsent(
     capturedIp: row.consent.capturedIp ?? null,
     capturedUserAgent: row.consent.capturedUserAgent ?? null,
   })
-  try {
-    await insertConsentRecord(record)
-    return { ok: true }
-  } catch (err) {
-    if (err instanceof ConsentImportError) {
-      return reject(row, err.reason, err.message)
-    }
-    return reject(
-      row,
-      'member_insert_failed',
-      err instanceof Error ? err.message : String(err)
-    )
-  }
 }
 
 function reject(
