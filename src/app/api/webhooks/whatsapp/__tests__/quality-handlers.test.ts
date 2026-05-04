@@ -61,7 +61,8 @@ describe('routeQualityEvent', () => {
 
     expect(tryMarkProcessed).toHaveBeenCalledTimes(1)
     const claimedKey = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
-    expect(claimedKey).toMatch(/^account_quality:pn-1:/)
+    // Payload-derived key: <prefix>:<phoneNumberId>:<sha256_16>
+    expect(claimedKey).toMatch(/^account_quality:pn-1:[0-9a-f]{16}$/)
 
     expect(insertEvent).toHaveBeenCalledTimes(1)
     const insertedEvent = vi.mocked(insertEvent).mock.calls[0]?.[0]
@@ -123,14 +124,105 @@ describe('routeQualityEvent', () => {
       ],
     }
 
-    // The handler still needs phoneNumberId on the entity; we use a per-tenant
-    // fallback so we don't drop the event entirely. Test expectation: the
-    // claim key uses 'unknown' and the inserted entity uses the restaurantId
-    // as a synthetic phone identifier.
+    // The handler still needs phoneNumberId on the entity; we use the literal
+    // 'unknown' as a synthetic phone identifier so we don't drop the event
+    // entirely. Test expectation: the claim key uses 'unknown' and the
+    // entity is inserted.
     await routeQualityEvent(body, 'rest-1', log)
 
     const claimedKey = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
     expect(claimedKey).toMatch(/^account_quality:unknown:/)
+    expect(insertEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('same payload after 30 seconds: same idempotency key (no second insert)', async () => {
+    // RED before fix: when the key was clock-derived, two retries 30s apart
+    // produced different keys -> the second insert went through. Payload-
+    // derived key fingerprint must collapse them.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-04T10:00:00.000Z'))
+    vi.mocked(tryMarkProcessed).mockResolvedValueOnce('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+
+    await routeQualityEvent(metaQualityBody(), 'rest-1', log)
+    const firstKey = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
+
+    vi.setSystemTime(new Date('2026-05-04T10:00:30.000Z'))
+    vi.mocked(tryMarkProcessed).mockResolvedValueOnce('duplicate')
+    await routeQualityEvent(metaQualityBody(), 'rest-1', log)
+    const secondKey = vi.mocked(tryMarkProcessed).mock.calls[1]?.[0]
+
+    expect(secondKey).toBe(firstKey)
+    expect(insertEvent).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('GREEN -> YELLOW then YELLOW -> GREEN: distinct keys via old_limit', async () => {
+    // Two different transitions through the same YELLOW intermediate state
+    // would collapse if we keyed only on (rating, tier, flagged). Including
+    // old_limit and previous_quality_score in the fingerprint makes them
+    // distinct.
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+
+    const greenToYellow = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'yellow',
+                current_limit: 'TIER_1K',
+                old_limit: 'TIER_10K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const yellowToGreen = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'green',
+                current_limit: 'TIER_10K',
+                old_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeQualityEvent(greenToYellow, 'rest-1', log)
+    await routeQualityEvent(yellowToGreen, 'rest-1', log)
+
+    const k1 = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
+    const k2 = vi.mocked(tryMarkProcessed).mock.calls[1]?.[0]
+    expect(k1).not.toBe(k2)
+    expect(insertEvent).toHaveBeenCalledTimes(2)
+  })
+
+  it('identical payload twice: second is duplicate (regression)', async () => {
+    vi.mocked(tryMarkProcessed)
+      .mockResolvedValueOnce('new')
+      .mockResolvedValueOnce('duplicate')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+
+    await routeQualityEvent(metaQualityBody(), 'rest-1', log)
+    await routeQualityEvent(metaQualityBody(), 'rest-1', log)
+
+    expect(tryMarkProcessed).toHaveBeenCalledTimes(2)
     expect(insertEvent).toHaveBeenCalledTimes(1)
   })
 })

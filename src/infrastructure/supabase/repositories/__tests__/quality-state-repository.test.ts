@@ -39,7 +39,7 @@ function buildInsertClient(opts: { error: { message: string } | null } = { error
 interface SelectRecorder {
   table: string | null
   eqs: Array<{ col: string; val: unknown }>
-  order: { column: string; ascending: boolean } | null
+  orders: Array<{ column: string; ascending: boolean }>
   limit: number | null
 }
 
@@ -52,7 +52,7 @@ function buildSelectClient(
   const recorder: SelectRecorder = {
     table: null,
     eqs: [],
-    order: null,
+    orders: [],
     limit: null,
   }
   const maybeSingle = vi.fn().mockResolvedValue(result)
@@ -60,13 +60,17 @@ function buildSelectClient(
     recorder.limit = n
     return { maybeSingle }
   })
-  const order = vi.fn().mockImplementation((column: string, opts: { ascending: boolean }) => {
-    recorder.order = { column, ascending: opts.ascending }
-    return { limit }
+  const orderChain = {
+    order: vi.fn(),
+    limit,
+  }
+  orderChain.order.mockImplementation((column: string, opts: { ascending: boolean }) => {
+    recorder.orders.push({ column, ascending: opts.ascending })
+    return orderChain
   })
   const eq = vi.fn().mockImplementation((col: string, val: unknown) => {
     recorder.eqs.push({ col, val })
-    return { order }
+    return orderChain
   })
   const select = vi.fn().mockReturnValue({ eq })
   const from = vi.fn().mockImplementation((t: string) => {
@@ -134,7 +138,7 @@ describe('insertEvent', () => {
 describe('findLatest', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('queries by restaurant_id, orders by transitioned_at DESC, limits to 1', async () => {
+  it('queries by restaurant_id, orders by transitioned_at DESC + created_at DESC, limits to 1', async () => {
     const { client, recorder } = buildSelectClient({
       data: {
         id: 'evt-1',
@@ -154,10 +158,11 @@ describe('findLatest', () => {
 
     expect(recorder.table).toBe('tenant_quality_state')
     expect(recorder.eqs).toEqual([{ col: 'restaurant_id', val: 'rest-1' }])
-    expect(recorder.order).toEqual({
-      column: 'transitioned_at',
-      ascending: false,
-    })
+    // Two-key sort: primary transitioned_at DESC, tiebreaker created_at DESC
+    expect(recorder.orders).toEqual([
+      { column: 'transitioned_at', ascending: false },
+      { column: 'created_at', ascending: false },
+    ])
     expect(recorder.limit).toBe(1)
     expect(result?.snapshot.qualityRating).toBe('GREEN')
     expect(result?.snapshot.id).toBe('evt-1')

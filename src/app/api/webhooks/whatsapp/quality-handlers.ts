@@ -8,6 +8,18 @@
 //   - 'error'      -> throw idempotency.error so route.ts returns 500 and
 //                     Kapso retries (a transient DB blip must not lose the
 //                     transition).
+//
+// IDEMPOTENCY KEY — payload-derived (NOT clock-derived). Earlier versions
+// used `roundedNowIso()` which broke on Kapso retries that arrived more
+// than one second apart (different keys -> duplicate row). The hash below
+// fingerprints the *meaningful* content of the transition: current state
+// + old/previous state + identifier. Same payload twice -> same key
+// (idempotent). Distinct transitions (GREEN -> YELLOW vs YELLOW -> GREEN)
+// -> distinct keys because the OLD state differs.
+//
+// Trade-off: a tenant cycling YELLOW -> GREEN -> YELLOW *with the same old_*
+// values both times collapses to one row. Including old_limit /
+// previous_quality_score makes that vanishingly unlikely in practice.
 
 import crypto from 'crypto'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
@@ -40,13 +52,8 @@ async function handleQualityEntry(
   restaurantId: string,
   log: LogFn
 ): Promise<void> {
-  // Meta does not include a per-event timestamp on account_update payloads,
-  // so we fall back to Date.now() rounded to the second. Two retries within
-  // the same second collapse via idempotency (correct); two distinct
-  // transitions in different seconds get distinct keys (also correct).
-  const transitionedAt = roundedNowIso()
   const phoneNumberId = entry.phoneNumberId ?? 'unknown'
-  const idempotencyKey = `account_quality:${phoneNumberId}:${transitionedAt}`
+  const idempotencyKey = buildIdempotencyKey(phoneNumberId, entry)
 
   const claim = await tryMarkProcessed(idempotencyKey, log)
   if (claim === 'duplicate') return
@@ -62,7 +69,7 @@ async function handleQualityEntry(
     messagingTier: entry.messagingTier,
     flagged: entry.flagged,
     rawPayload: entry.raw,
-    transitionedAt,
+    transitionedAt: nowIso(),
   })
 
   await insertEvent(event)
@@ -73,6 +80,45 @@ async function handleQualityEntry(
   })
 }
 
-function roundedNowIso(): string {
-  return new Date(Math.floor(Date.now() / 1000) * 1000).toISOString()
+/**
+ * Builds a stable, payload-derived idempotency key. The fingerprint is a
+ * SHA-256 hash (truncated to 16 hex chars) of identifying fields:
+ *   - phoneNumberId (or 'unknown')
+ *   - current quality + tier + flagged
+ *   - old_limit / previous_quality_score / message_template_id from the
+ *     raw Meta payload (when present) — these distinguish back-to-back
+ *     transitions through the same intermediate state.
+ *
+ * Key shape: `account_quality:<phoneNumberId>:<sha256_16>`.
+ */
+function buildIdempotencyKey(
+  phoneNumberId: string,
+  entry: QualityWebhookEntry
+): string {
+  const fingerprint = {
+    phoneNumberId,
+    qualityRating: entry.qualityRating,
+    messagingTier: entry.messagingTier ?? null,
+    flagged: entry.flagged,
+    oldLimit: readString(entry.raw.old_limit) ?? null,
+    previousQualityScore: readString(entry.raw.previous_quality_score) ?? null,
+    messageTemplateId:
+      readString(entry.raw.message_template_id) ??
+      readString(entry.raw.template_id) ??
+      null,
+  }
+  const hash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(fingerprint))
+    .digest('hex')
+    .slice(0, 16)
+  return `account_quality:${phoneNumberId}:${hash}`
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function nowIso(): string {
+  return new Date().toISOString()
 }

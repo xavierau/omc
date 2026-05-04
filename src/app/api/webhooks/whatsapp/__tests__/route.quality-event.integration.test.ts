@@ -135,22 +135,23 @@ function qualityOps() {
   // findLatest is not exercised by this integration test (handler only
   // inserts), but the production repo still expects `from('tenant_quality_state')`
   // to expose `select` so the contract lock object stays callable.
+  // Chain shape: select().eq().order().order().limit().maybeSingle()
+  const orderChain: Record<string, unknown> = {
+    limit: () => ({
+      maybeSingle: async () => ({
+        data: state.qualityEvents.at(-1) ?? null,
+        error: null,
+      }),
+    }),
+  }
+  orderChain.order = () => orderChain
   return {
     insert: async (row: QualityRow) => {
       state.qualityEvents.push(row)
       return { error: null }
     },
     select: () => ({
-      eq: () => ({
-        order: () => ({
-          limit: () => ({
-            maybeSingle: async () => ({
-              data: state.qualityEvents.at(-1) ?? null,
-              error: null,
-            }),
-          }),
-        }),
-      }),
+      eq: () => orderChain,
     }),
   }
 }
@@ -317,16 +318,15 @@ describe('POST /api/webhooks/whatsapp — quality events (WAQ-006)', () => {
     expect(state.qualityEvents[0].quality_rating).toBe('RED')
   })
 
-  it('same-second repeat POST is idempotent — no duplicate row inserted', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-05-04T10:00:00.000Z'))
+  it('repeat POST is idempotent — no duplicate row inserted (payload-derived key)', async () => {
+    // Idempotency is now payload-derived, so the wall clock is irrelevant.
+    // Two identical POSTs collapse to one row regardless of how far apart
+    // they arrive. Cf. the unit test "same payload after 30 seconds".
     const fixture = loadFixture('meta-account-quality-yellow.json')
 
     await postWebhook(fixture)
     expect(state.qualityEvents).toHaveLength(1)
 
-    // Same wall clock -> same idempotency key -> claim returns 'duplicate'
-    // -> no second insert.
     const { status } = await postWebhook(fixture)
     expect(status).toBe(200)
     expect(state.qualityEvents).toHaveLength(1)

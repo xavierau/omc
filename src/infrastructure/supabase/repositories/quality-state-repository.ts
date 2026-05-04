@@ -28,12 +28,19 @@ export async function findLatest(
   // PostgREST does not natively support DISTINCT ON, but a compound index on
   // (restaurant_id, transitioned_at DESC) makes the equivalent
   // ORDER BY transitioned_at DESC LIMIT 1 effectively O(1) per tenant.
+  //
+  // Tiebreaker: two events that share the same transitioned_at (Meta does
+  // not provide millisecond precision, so two retries within the same
+  // second are common) would otherwise sort non-deterministically. Adding
+  // created_at DESC as a secondary sort key gives microsecond ordering
+  // (the column defaults to now() at insert time).
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
     .eq('restaurant_id', restaurantId)
     .order('transitioned_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) throw new Error(`findLatest: ${error.message}`)
