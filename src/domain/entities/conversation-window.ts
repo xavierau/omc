@@ -54,9 +54,16 @@ export class ConversationWindow {
   /**
    * Returns a new instance with bumped `lastInboundAt` and extended
    * `expiresAt`. `openedAt` and `id` are preserved — same logical window.
+   *
+   * Defensive: WhatsApp can deliver webhooks out of order. An older inbound
+   * arriving late MUST NOT shrink the window backwards — return `this`
+   * unchanged when the candidate timestamp is not strictly newer than the
+   * current `lastInboundAt`. ISO 8601 strings (always UTC `Z`) compare
+   * correctly via lexicographic ordering.
    */
   bumpInbound(now?: Date, windowHours?: number): ConversationWindow {
     const at = (now ?? new Date()).toISOString()
+    if (at <= this.props.lastInboundAt) return this
     const expires = addHoursIso(at, windowHours ?? DEFAULT_WINDOW_HOURS)
     return new ConversationWindow({
       ...this.props,

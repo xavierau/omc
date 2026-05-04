@@ -1147,6 +1147,51 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
     expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
   })
 
+  // Fix 1 (Gemini r1): Meta calculates the customer-service window from
+  // the user's original message timestamp. If our webhook is delayed/retried
+  // and we anchor on `new Date()`, our tracked window extends past Meta's
+  // enforced deadline → outbound replies silently get blocked. The window
+  // MUST be opened at the webhook `timestamp`, not server-receive time.
+  it('uses the inbound webhook timestamp (Meta seconds-since-epoch) instead of server time', async () => {
+    // Webhook timestamp = 2026-05-04T10:00:00Z (1777888800s since epoch).
+    const webhookSeconds = '1777888800'
+    const expectedOpenedAt = '2026-05-04T10:00:00.000Z'
+    const expectedExpiresAt = '2026-05-05T10:00:00.000Z'
+
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: webhookSeconds }),
+      RESTAURANT_B
+    )
+
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.openedAt).toBe(expectedOpenedAt)
+    expect(arg.snapshot.lastInboundAt).toBe(expectedOpenedAt)
+    expect(arg.snapshot.expiresAt).toBe(expectedExpiresAt)
+  })
+
+  it('falls back gracefully when the webhook timestamp is unparseable', async () => {
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: 'not-a-timestamp' }),
+      RESTAURANT_B
+    )
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    // Still produces a valid ISO string opened_at (server-time fallback).
+    expect(arg.snapshot.openedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
+  })
+
+  it('accepts ISO-8601 timestamps too (Kapso parser fallback path)', async () => {
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: '2026-05-04T10:00:00.000Z' }),
+      RESTAURANT_B
+    )
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.openedAt).toBe('2026-05-04T10:00:00.000Z')
+    expect(arg.snapshot.expiresAt).toBe('2026-05-05T10:00:00.000Z')
+  })
+
   it('upsert failure is logged but does NOT break the inbound flow', async () => {
     vi.mocked(upsertOpenWindow).mockRejectedValueOnce(new Error('db down'))
     const log = vi.fn()

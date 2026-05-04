@@ -1,7 +1,5 @@
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { upsertOpenWindow } from '@/infrastructure/supabase/repositories/conversation-window-repository'
-import { ConversationWindow } from '@/domain/entities/conversation-window'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
@@ -14,14 +12,15 @@ import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
+import { bumpServiceWindow } from './service-window'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 const noop: LogFn = () => {}
 
 export async function routeMessage(message: KapsoMessage, restaurantId: string, log: LogFn = noop) {
-  // WAQ-008: every inbound bumps the customer-service window. Failure is
-  // non-fatal — the tenant still gets a reply; analytics/billing may
-  // misattribute this single event but the inbound flow MUST not break.
+  // WAQ-008: every inbound bumps the customer-service window. See
+  // `service-window.ts` — the window is anchored on the user's webhook
+  // `timestamp`, not server-receive time, and failure is non-fatal.
   await bumpServiceWindow(message, restaurantId, log)
 
   if (await maybeHandleLanguageCommand(message, restaurantId)) return
@@ -117,19 +116,4 @@ async function dispatchConfirmation(
 
 function extractRewardId(rawText: string | undefined): string {
   return (rawText ?? '').trim().toUpperCase().replace('REWARD_', '').toLowerCase()
-}
-
-async function bumpServiceWindow(
-  message: KapsoMessage,
-  restaurantId: string,
-  log: LogFn
-): Promise<void> {
-  try {
-    const phoneE164 = PhoneNumber.create(message.from).value
-    await upsertOpenWindow(
-      ConversationWindow.open({ restaurantId, phoneE164 })
-    )
-  } catch (err) {
-    log('error', 'webhook.window_upsert_failed', { error: String(err) })
-  }
 }
