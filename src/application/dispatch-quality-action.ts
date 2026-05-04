@@ -38,7 +38,20 @@ export async function dispatchQualityAction(
     prevRating: args.prevRating,
     nextRating: args.nextRating,
   })
-  await applyAction(args, action)
+  try {
+    await applyAction(args, action)
+  } catch (err) {
+    args.log('error', 'webhook.quality_action_failed', {
+      restaurantId: args.restaurantId,
+      action: action.kind,
+      prevRating: args.prevRating,
+      nextRating: args.nextRating,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    // Best-effort: do NOT re-throw. Webhook handler must continue so the
+    // tenant_quality_state row insert isn't rolled back by an upstream throw,
+    // and so Kapso doesn't retry endlessly on transient DB errors.
+  }
   args.log('info', 'webhook.quality_action', toLogPayload(args, action))
 }
 

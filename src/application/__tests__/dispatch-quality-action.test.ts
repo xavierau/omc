@@ -160,4 +160,66 @@ describe('dispatchQualityAction', () => {
       expect.objectContaining({ error: 'events down' })
     )
   })
+
+  // WAQ-009 round-1 review (CRITICAL): the dispatcher's call into
+  // applyAutoThrottle / applyAutoPause MUST be wrapped in try/catch.
+  // If an uncaught throw bubbled to the webhook handler, the idempotency
+  // key has already been claimed, so Kapso's retry would be deduped as
+  // 'duplicate' and the auto-flag write would be permanently lost.
+  it('logs and swallows when applyAutoPause throws (CRITICAL)', async () => {
+    mockPause.mockRejectedValueOnce(new Error('supabase 503'))
+    await expect(
+      dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'RED',
+        log,
+      })
+    ).resolves.toBeUndefined()
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      'webhook.quality_action_failed',
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        action: 'pause',
+        prevRating: 'GREEN',
+        nextRating: 'RED',
+        error: 'supabase 503',
+      })
+    )
+    // Still emits the standard info log so observability stays consistent.
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      'webhook.quality_action',
+      expect.objectContaining({ kind: 'pause' })
+    )
+  })
+
+  it('logs and swallows when applyAutoThrottle throws (CRITICAL)', async () => {
+    mockThrottle.mockRejectedValueOnce(new Error('connection reset'))
+    await expect(
+      dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'YELLOW',
+        log,
+      })
+    ).resolves.toBeUndefined()
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      'webhook.quality_action_failed',
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        action: 'throttle',
+        prevRating: 'GREEN',
+        nextRating: 'YELLOW',
+        error: 'connection reset',
+      })
+    )
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      'webhook.quality_action',
+      expect.objectContaining({ kind: 'throttle' })
+    )
+  })
 })
