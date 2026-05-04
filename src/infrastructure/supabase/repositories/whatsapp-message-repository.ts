@@ -25,17 +25,23 @@ export async function insertQueuedMessage(m: WhatsAppMessage): Promise<void> {
 
 export async function attachKapsoMessageId(
   id: string,
-  kapsoMessageId: string
+  kapsoMessageId: string,
+  raw: Record<string, unknown> | null
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from('whatsapp_messages')
     .update({
       kapso_message_id: kapsoMessageId,
+      raw_send_response: raw,
       status: 'sent',
       sent_at: new Date().toISOString(),
     })
     .eq('id', id)
+    // Status guard: only progress queued -> sent. If a webhook handler has
+    // already advanced the row to delivered/read, this UPDATE matches no rows
+    // and becomes a no-op rather than regressing the status.
+    .eq('status', 'queued')
   if (error) throw new Error(`attachKapsoMessageId: ${error.message}`)
 }
 

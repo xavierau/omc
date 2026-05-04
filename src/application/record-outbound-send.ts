@@ -70,7 +70,7 @@ async function invokeAndPersist(
     }
   }
   if (result.ok && result.kapsoMessageId) {
-    await attachKapsoMessageId(localId, result.kapsoMessageId)
+    await attachKapsoMessageId(localId, result.kapsoMessageId, result.raw ?? null)
     return result
   }
   await markFailedNoBspId(localId, {

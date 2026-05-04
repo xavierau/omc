@@ -13,10 +13,16 @@ export interface WhatsAppMessageRepository {
   insertQueued(message: WhatsAppMessage): Promise<void>
 
   /**
-   * After the BSP returns, attach the wamid and flip status to `sent`.
-   * Sets `sent_at = now()`. Idempotent against repeated UPDATEs.
+   * After the BSP returns, attach the wamid, persist the raw send response
+   * for forensic replay, and progress status `queued` -> `sent`. Implementations
+   * MUST guard on `status='queued'` so a racing webhook update to
+   * delivered/read is not regressed.
    */
-  attachKapsoMessageId(id: string, kapsoMessageId: string): Promise<void>
+  attachKapsoMessageId(
+    id: string,
+    kapsoMessageId: string,
+    raw: Record<string, unknown> | null
+  ): Promise<void>
 
   findByKapsoMessageId(
     kapsoMessageId: string

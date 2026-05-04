@@ -44,8 +44,29 @@ describe('recordOutboundSend (trackingEnabled=true)', () => {
       send.mock.invocationCallOrder[0]
     )
     expect(attachKapsoMessageId).toHaveBeenCalledOnce()
+    // Caller must forward the BSP raw payload as the third arg so the
+    // repository can persist it into raw_send_response.
+    expect(attachKapsoMessageId).toHaveBeenCalledWith(
+      expect.any(String),
+      'wamid.123',
+      sendResult.raw ?? null
+    )
     expect(markFailedNoBspId).not.toHaveBeenCalled()
     expect(result).toEqual(sendResult)
+  })
+
+  it('forwards a non-null raw payload through to attachKapsoMessageId', async () => {
+    const raw = { messages: [{ id: 'wamid.456' }] }
+    const sendResult = { ok: true as const, kapsoMessageId: 'wamid.456', raw }
+    const send = vi.fn().mockResolvedValue(sendResult)
+
+    await recordOutboundSend({ ...BASE_ARGS, send })
+
+    expect(attachKapsoMessageId).toHaveBeenCalledWith(
+      expect.any(String),
+      'wamid.456',
+      raw
+    )
   })
 
   it('insert -> send throws -> markFailedNoBspId', async () => {
