@@ -59,11 +59,11 @@ describe('dispatchErrorAction', () => {
 
   // --- Member-mutation branches -------------------------------------------
 
-  it('131049 → throttleMemberPmm(memberId, 24); no ops alert; warn log', async () => {
+  it('131049 → throttleMemberPmm(memberId, restaurantId, 24); no ops alert; warn log', async () => {
     await dispatchErrorAction(buildFailedMessage('131049'), 'rest-1', log)
 
     expect(throttleMemberPmm).toHaveBeenCalledTimes(1)
-    expect(throttleMemberPmm).toHaveBeenCalledWith('mem-1', 24)
+    expect(throttleMemberPmm).toHaveBeenCalledWith('mem-1', 'rest-1', 24)
     expect(markMemberUnreachable).not.toHaveBeenCalled()
     expect(emitOpsAlert).not.toHaveBeenCalled()
     const entry = logs.find((l) => l[1] === 'whatsapp.error_dispatched')
@@ -76,11 +76,11 @@ describe('dispatchErrorAction', () => {
     })
   })
 
-  it('131026 → markMemberUnreachable(memberId); no ops alert; warn log', async () => {
+  it('131026 → markMemberUnreachable(memberId, restaurantId); no ops alert; warn log', async () => {
     await dispatchErrorAction(buildFailedMessage('131026'), 'rest-1', log)
 
     expect(markMemberUnreachable).toHaveBeenCalledTimes(1)
-    expect(markMemberUnreachable).toHaveBeenCalledWith('mem-1')
+    expect(markMemberUnreachable).toHaveBeenCalledWith('mem-1', 'rest-1')
     expect(throttleMemberPmm).not.toHaveBeenCalled()
     expect(emitOpsAlert).not.toHaveBeenCalled()
     const entry = logs.find((l) => l[1] === 'whatsapp.error_dispatched')

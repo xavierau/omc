@@ -55,10 +55,11 @@ async function applyAction(args: {
   const memberId = message.snapshot.memberId
   switch (classification.action) {
     case 'throttle_recipient_24h':
-      if (memberId) await throttleMemberPmm(memberId, PMM_COOLDOWN_HOURS)
+      if (memberId)
+        await throttleMemberPmm(memberId, restaurantId, PMM_COOLDOWN_HOURS)
       return
     case 'mark_recipient_unreachable':
-      if (memberId) await markMemberUnreachable(memberId)
+      if (memberId) await markMemberUnreachable(memberId, restaurantId)
       return
     case 'block_template':
     case 'engineering_alert':
