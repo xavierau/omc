@@ -20,6 +20,14 @@
 // Trade-off: a tenant cycling YELLOW -> GREEN -> YELLOW *with the same old_*
 // values both times collapses to one row. Including old_limit /
 // previous_quality_score makes that vanishingly unlikely in practice.
+//
+// PER-TENANT SCOPE: `restaurantId` is part of the hash so two restaurants
+// receiving identical webhook payloads (e.g. `message_template_quality_update`
+// without `phone_number_id`) generate DIFFERENT keys. The `processed_webhooks`
+// table is a global namespace — without this, tenant B's event would be
+// silently dropped as a duplicate of tenant A's. The key prefix likewise
+// falls back to `restaurant:<id>` (not the literal 'unknown') so the
+// human-readable key remains tenant-scoped for audits.
 
 import crypto from 'crypto'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
@@ -52,39 +60,13 @@ async function handleQualityEntry(
   restaurantId: string,
   log: LogFn
 ): Promise<void> {
-  // Idempotency key prefix uses whichever phone identifier we have so two
-  // events for different numbers (id vs display) never collide. The hash
-  // already factors all available payload fields, so identity-vs-display
-  // events for the same number stay distinct.
-  const keyPrefix =
-    entry.phoneNumberId ?? entry.displayPhoneNumber ?? 'unknown'
-  const idempotencyKey = buildIdempotencyKey(keyPrefix, entry)
-
+  const idempotencyKey = buildIdempotencyKey(restaurantId, entry)
   const claim = await tryMarkProcessed(idempotencyKey, log)
   if (claim === 'duplicate') return
   if (claim === 'error') {
     throw new Error(`${IDEMPOTENCY_ERROR_PREFIX} claim_failed key=${idempotencyKey}`)
   }
-
-  // Persist whichever identifier(s) were present. The DB enforces "at
-  // least one"; the entity also asserts it.
-  const phoneNumberId = entry.phoneNumberId
-  const displayPhoneNumber = entry.displayPhoneNumber
-  const fallbackId =
-    !phoneNumberId && !displayPhoneNumber ? 'unknown' : null
-
-  const event = QualityStateEvent.fromWebhook({
-    id: crypto.randomUUID(),
-    restaurantId,
-    phoneNumberId: phoneNumberId ?? fallbackId,
-    displayPhoneNumber,
-    qualityRating: entry.qualityRating,
-    messagingTier: entry.messagingTier,
-    flagged: entry.flagged,
-    rawPayload: entry.raw,
-    transitionedAt: nowIso(),
-  })
-
+  const event = buildEvent({ entry, restaurantId, transitionedAt: nowIso() })
   await insertEvent(event)
   log('info', 'webhook.quality_event', {
     qualityRating: entry.qualityRating,
@@ -94,22 +76,63 @@ async function handleQualityEntry(
 }
 
 /**
- * Builds a stable, payload-derived idempotency key. The fingerprint is a
- * SHA-256 hash (truncated to 16 hex chars) of identifying fields:
+ * Constructs the persisted entity. When neither phone identifier is on the
+ * payload (e.g. `message_template_quality_update`), we synthesise
+ * `restaurant:<restaurantId>` so the row keeps a non-null phoneNumberId AND
+ * is unique per tenant — better than the global literal 'unknown'.
+ */
+function buildEvent(args: {
+  entry: QualityWebhookEntry
+  restaurantId: string
+  transitionedAt: string
+}): QualityStateEvent {
+  const { entry, restaurantId, transitionedAt } = args
+  const fallbackId =
+    !entry.phoneNumberId && !entry.displayPhoneNumber
+      ? `restaurant:${restaurantId}`
+      : null
+  return QualityStateEvent.fromWebhook({
+    id: crypto.randomUUID(),
+    restaurantId,
+    phoneNumberId: entry.phoneNumberId ?? fallbackId,
+    displayPhoneNumber: entry.displayPhoneNumber,
+    qualityRating: entry.qualityRating,
+    messagingTier: entry.messagingTier,
+    flagged: entry.flagged,
+    rawPayload: entry.raw,
+    transitionedAt,
+  })
+}
+
+/**
+ * Builds a stable, payload-derived, per-tenant idempotency key.
+ *
+ * `restaurantId` is included in the hash AND in the human-readable key
+ * prefix so two restaurants receiving structurally identical webhooks
+ * (e.g. `message_template_quality_update` without `phone_number_id`)
+ * cannot collide on the global `processed_webhooks.idempotency_key`.
+ *
+ * The hash (SHA-256, truncated 16 hex) fingerprints:
+ *   - restaurantId (per-tenant scoping)
  *   - phoneNumberId / displayPhoneNumber
  *   - current quality + tier + flagged
  *   - old_limit / previous_quality_score / message_template_id from the
- *     raw Meta payload (when present) — these distinguish back-to-back
+ *     raw Meta payload (when present) — distinguishes back-to-back
  *     transitions through the same intermediate state.
  *
  * Key shape: `account_quality:<keyPrefix>:<sha256_16>` where keyPrefix is
- * the best phone identifier available (id > display > 'unknown').
+ * `phoneNumberId` > `displayPhoneNumber` > `restaurant:<restaurantId>`.
  */
 function buildIdempotencyKey(
-  keyPrefix: string,
+  restaurantId: string,
   entry: QualityWebhookEntry
 ): string {
+  const keyPrefix =
+    entry.phoneNumberId ??
+    entry.displayPhoneNumber ??
+    `restaurant:${restaurantId}`
   const fingerprint = {
+    restaurantId,
     phoneNumberId: entry.phoneNumberId ?? null,
     displayPhoneNumber: entry.displayPhoneNumber ?? null,
     qualityRating: entry.qualityRating,

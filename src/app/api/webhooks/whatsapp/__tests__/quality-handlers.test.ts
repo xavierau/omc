@@ -107,7 +107,7 @@ describe('routeQualityEvent', () => {
     expect(ignored).toBeDefined()
   })
 
-  it('falls back to phoneNumberId="unknown" in idempotency key when missing', async () => {
+  it('falls back to per-tenant synthetic id when both phone identifiers missing', async () => {
     vi.mocked(tryMarkProcessed).mockResolvedValue('new')
     vi.mocked(insertEvent).mockResolvedValue(undefined)
 
@@ -124,15 +124,62 @@ describe('routeQualityEvent', () => {
       ],
     }
 
-    // The handler still needs phoneNumberId on the entity; we use the literal
-    // 'unknown' as a synthetic phone identifier so we don't drop the event
-    // entirely. Test expectation: the claim key uses 'unknown' and the
-    // entity is inserted.
+    // When Meta omits phone_number_id (e.g. message_template_quality_update),
+    // the handler synthesises `restaurant:<restaurantId>` so the row stays
+    // tenant-scoped and the idempotency key cannot collide cross-tenant.
+    // The literal 'unknown' would have been a global namespace bug.
     await routeQualityEvent(body, 'rest-1', log)
 
     const claimedKey = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
-    expect(claimedKey).toMatch(/^account_quality:unknown:/)
+    expect(claimedKey).toMatch(/^account_quality:restaurant:rest-1:[0-9a-f]{16}$/)
     expect(insertEvent).toHaveBeenCalledTimes(1)
+    const insertedEvent = vi.mocked(insertEvent).mock.calls[0]?.[0]
+    expect(insertedEvent.snapshot.phoneNumberId).toBe('restaurant:rest-1')
+  })
+
+  it('CROSS-TENANT: same payload from two restaurantIds — both inserts succeed', async () => {
+    // CRITICAL: processed_webhooks.idempotency_key is GLOBAL. When Meta
+    // omits phone_number_id (e.g. message_template_quality_update), two
+    // tenants receiving structurally identical payloads must NOT collide
+    // on the idempotency key — otherwise tenant B's quality event is
+    // silently dropped as a duplicate of tenant A's.
+    const seenKeys = new Set<string>()
+    vi.mocked(tryMarkProcessed).mockImplementation(async (key: string) => {
+      if (seenKeys.has(key)) return 'duplicate'
+      seenKeys.add(key)
+      return 'new'
+    })
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+
+    const body = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: {
+                new_quality_score: 'GREEN',
+                previous_quality_score: 'YELLOW',
+                message_template_id: 'tpl-1',
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeQualityEvent(body, 'rest-A', log)
+    await routeQualityEvent(body, 'rest-B', log)
+
+    const keyA = vi.mocked(tryMarkProcessed).mock.calls[0]?.[0]
+    const keyB = vi.mocked(tryMarkProcessed).mock.calls[1]?.[0]
+    expect(keyA).not.toBe(keyB)
+    expect(insertEvent).toHaveBeenCalledTimes(2)
+
+    const restaurants = vi
+      .mocked(insertEvent)
+      .mock.calls.map((c) => c[0].snapshot.restaurantId)
+    expect(restaurants).toEqual(['rest-A', 'rest-B'])
   })
 
   it('same payload after 30 seconds: same idempotency key (no second insert)', async () => {
