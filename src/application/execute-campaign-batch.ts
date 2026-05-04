@@ -6,7 +6,10 @@ import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-la
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
 import { sendCampaignBody, sendCouponQr } from './execute-campaign-send'
-import { checkMarketingConsent } from './check-marketing-consent'
+import {
+  bulkCheckMarketingConsent,
+  type ConsentCheckResult,
+} from './check-marketing-consent'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
@@ -31,8 +34,16 @@ export async function sendInBatches(
   const isMarketing = isMarketingRun(ctx)
   for (let i = 0; i < members.length; i += BATCH_SIZE) {
     const batch = members.slice(i, i + BATCH_SIZE)
+    // ONE consent fetch for the whole batch (kills the per-member N+1 the
+    // earlier path produced — was 20 individual SELECTs per batch).
+    const consentMap = isMarketing
+      ? await bulkCheckMarketingConsent({
+          restaurantId: ctx.campaign.restaurantId,
+          phones: batch.map((m) => m.phone),
+        })
+      : null
     const results = await Promise.allSettled(
-      batch.map((m) => attemptMember(m, ctx, isMarketing))
+      batch.map((m) => attemptMember(m, ctx, isMarketing, consentMap))
     )
     for (const r of results) {
       if (r.status === 'rejected') {
@@ -59,24 +70,22 @@ type MemberOutcome = 'sent' | 'skipped_no_consent'
 async function attemptMember(
   member: Member,
   ctx: SendContext,
-  isMarketing: boolean
+  isMarketing: boolean,
+  consentMap: Map<string, ConsentCheckResult> | null
 ): Promise<MemberOutcome> {
-  if (isMarketing && !(await hasMarketingConsent(ctx, member))) {
+  if (isMarketing && !isAllowed(consentMap, member.phone)) {
     return 'skipped_no_consent'
   }
   await sendToMember(member, ctx)
   return 'sent'
 }
 
-async function hasMarketingConsent(
-  ctx: SendContext,
-  member: Member
-): Promise<boolean> {
-  const result = await checkMarketingConsent({
-    restaurantId: ctx.campaign.restaurantId,
-    phoneE164: member.phone,
-  })
-  return result.allowed
+function isAllowed(
+  consentMap: Map<string, ConsentCheckResult> | null,
+  phone: string
+): boolean {
+  // Defaults to denied if the map is missing the phone — defence in depth.
+  return consentMap?.get(phone)?.allowed === true
 }
 
 function isMarketingRun(ctx: SendContext): boolean {

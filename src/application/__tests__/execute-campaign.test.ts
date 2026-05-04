@@ -38,6 +38,7 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', ()
 
 vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
   findActiveConsent: vi.fn(),
+  findActiveMarketingConsentForPhones: vi.fn().mockResolvedValue(new Map()),
 }))
 
 vi.mock('@/infrastructure/supabase/storage', () => ({
@@ -95,7 +96,10 @@ import {
   attachKapsoMessageId,
   markFailedNoBspId,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
-import { findActiveConsent } from '@/infrastructure/supabase/repositories/consent-record-repository'
+import {
+  findActiveConsent,
+  findActiveMarketingConsentForPhones,
+} from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import { okResult } from '@/test-utils/send-result'
 
@@ -449,17 +453,23 @@ describe('executeCampaign', () => {
     vi.mocked(findTemplateById).mockResolvedValue(template)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
     // Marketing template runs are gated by consent (WAQ-004). Grant the
-    // member opt-in so the existing send path remains exercised.
-    vi.mocked(findActiveConsent).mockResolvedValue(
-      ConsentRecord.grant({
-        id: 'cr-1',
-        restaurantId: 'r-1',
-        memberId: 'm-1',
-        phoneE164: member.phone,
-        category: 'marketing',
-        source: 'pre-system migration',
-        grade: 'weak',
-      })
+    // member opt-in so the existing send path remains exercised. The batch
+    // path uses the bulk repo function — return a Map keyed by phone.
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      new Map([
+        [
+          member.phone,
+          ConsentRecord.grant({
+            id: 'cr-1',
+            restaurantId: 'r-1',
+            memberId: 'm-1',
+            phoneE164: member.phone,
+            category: 'marketing',
+            source: 'pre-system migration',
+            grade: 'weak',
+          }),
+        ],
+      ])
     )
 
     await executeCampaign('camp-1', 'r-1')
@@ -552,8 +562,8 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
     vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
-    // No consent record for the member.
-    vi.mocked(findActiveConsent).mockResolvedValue(null)
+    // No consent records returned at all → bulk fetch resolves to empty Map.
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(new Map())
 
     await executeCampaign('camp-1', 'r-1')
 
@@ -566,6 +576,12 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     expect(emitEvent).not.toHaveBeenCalled()
     // Campaign still completes — skipping is normal flow.
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    // Critical: ONE bulk fetch for the batch, not one-per-member (no N+1).
+    expect(findActiveMarketingConsentForPhones).toHaveBeenCalledTimes(1)
+    expect(findActiveMarketingConsentForPhones).toHaveBeenCalledWith({
+      restaurantId: 'r-1',
+      phones: [member.phone],
+    })
 
     delete process.env.WAQ_TRACK_MESSAGES
   })
@@ -579,16 +595,21 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
     vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
-    vi.mocked(findActiveConsent).mockResolvedValue(
-      ConsentRecord.grant({
-        id: 'cr-1',
-        restaurantId: 'r-1',
-        memberId: 'm-1',
-        phoneE164: member.phone,
-        category: 'marketing',
-        source: 'website_form',
-        grade: 'strong',
-      })
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      new Map([
+        [
+          member.phone,
+          ConsentRecord.grant({
+            id: 'cr-1',
+            restaurantId: 'r-1',
+            memberId: 'm-1',
+            phoneE164: member.phone,
+            category: 'marketing',
+            source: 'website_form',
+            grade: 'strong',
+          }),
+        ],
+      ])
     )
 
     await executeCampaign('camp-1', 'r-1')
@@ -608,28 +629,51 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
     vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([opted, noConsent, opted2])
-    vi.mocked(findActiveConsent).mockImplementation(async ({ phoneE164 }) => {
-      if (phoneE164 === noConsent.phone) return null
-      return ConsentRecord.grant({
-        id: `cr-${phoneE164}`,
-        restaurantId: 'r-1',
-        memberId: null,
-        phoneE164,
-        category: 'marketing',
-        source: 'website_form',
-      })
-    })
+    // Bulk fetch returns a Map with the consenting two only — `noConsent`
+    // is intentionally absent, mirroring how the real query works.
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      new Map([
+        [
+          opted.phone,
+          ConsentRecord.grant({
+            id: `cr-${opted.phone}`,
+            restaurantId: 'r-1',
+            memberId: null,
+            phoneE164: opted.phone,
+            category: 'marketing',
+            source: 'website_form',
+          }),
+        ],
+        [
+          opted2.phone,
+          ConsentRecord.grant({
+            id: `cr-${opted2.phone}`,
+            restaurantId: 'r-1',
+            memberId: null,
+            phoneE164: opted2.phone,
+            category: 'marketing',
+            source: 'website_form',
+          }),
+        ],
+      ])
+    )
 
     await executeCampaign('camp-1', 'r-1')
 
     // Only the two consenting members were sent to.
     expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(2)
     expect(incrementCampaignSent).toHaveBeenCalledTimes(2)
+    // ONE bulk fetch for the batch — three phones, single round-trip.
+    expect(findActiveMarketingConsentForPhones).toHaveBeenCalledTimes(1)
+    expect(findActiveMarketingConsentForPhones).toHaveBeenCalledWith({
+      restaurantId: 'r-1',
+      phones: [opted.phone, noConsent.phone, opted2.phone],
+    })
   })
 
   it('does NOT consent-check inline (non-MARKETING) campaigns — regression', async () => {
     // Inline-text campaign with no whatsappTemplateId; category is 'service'
-    // and the consent gate must be skipped entirely. findActiveConsent must
+    // and the consent gate must be skipped entirely. The bulk fetch must
     // not be called.
     const campaign = buildCampaignFor({ whatsappTemplateId: null })
     const member = buildMemberFor()
@@ -642,6 +686,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     await executeCampaign('camp-1', 'r-1')
 
     expect(findActiveConsent).not.toHaveBeenCalled()
+    expect(findActiveMarketingConsentForPhones).not.toHaveBeenCalled()
     expect(sendTextMessage).toHaveBeenCalledTimes(1)
   })
 })

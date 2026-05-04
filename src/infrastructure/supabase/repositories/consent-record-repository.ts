@@ -44,6 +44,53 @@ export async function findActiveConsent(
   return toEntity(data as ConsentRecordRow)
 }
 
+interface FindBulkArgs {
+  restaurantId: string
+  phones: string[]
+}
+
+/**
+ * Bulk-fetch active marketing consents for many phones in ONE round-trip.
+ * Used by the campaign batch send to avoid N individual queries per batch
+ * (the N+1 path the per-row `findActiveConsent` would otherwise produce).
+ *
+ * Returns a Map keyed by phone_e164 → ConsentRecord. Phones with no active
+ * marketing consent are absent from the map (callers default to "denied").
+ * If multiple active rows exist for the same phone, the most recent wins.
+ */
+export async function findActiveMarketingConsentForPhones(
+  args: FindBulkArgs
+): Promise<Map<string, ConsentRecord>> {
+  if (args.phones.length === 0) return new Map()
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('consent_records')
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('category', 'marketing')
+    .in('status', ACTIVE_STATUSES as unknown as string[])
+    .in('phone_e164', args.phones)
+  if (error) {
+    throw new Error(
+      `findActiveMarketingConsentForPhones: ${error.message}`
+    )
+  }
+  return buildLatestByPhone((data ?? []) as ConsentRecordRow[])
+}
+
+function buildLatestByPhone(
+  rows: ConsentRecordRow[]
+): Map<string, ConsentRecord> {
+  const out = new Map<string, ConsentRecord>()
+  for (const row of rows) {
+    const prev = out.get(row.phone_e164)
+    if (!prev || row.captured_at > prev.snapshot.capturedAt) {
+      out.set(row.phone_e164, toEntity(row))
+    }
+  }
+  return out
+}
+
 export async function insertConsentRecord(
   record: ConsentRecord
 ): Promise<void> {
@@ -90,6 +137,7 @@ export async function revokeConsent(args: RevokeArgs): Promise<number> {
 // TS surfaces it here rather than at the call sites or — worse — at runtime.
 export const consentRecordRepository: ConsentRecordRepository = {
   findActive: findActiveConsent,
+  findActiveMarketingForPhones: findActiveMarketingConsentForPhones,
   insert: insertConsentRecord,
   revoke: revokeConsent,
 }

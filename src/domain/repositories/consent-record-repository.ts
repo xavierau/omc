@@ -19,6 +19,17 @@ export interface ConsentRecordRepository {
   }): Promise<ConsentRecord | null>
 
   /**
+   * Bulk variant of `findActive` scoped to category='marketing'. Resolves to
+   * a Map<phoneE164, ConsentRecord> in a SINGLE round-trip. Empty `phones`
+   * returns an empty map without hitting the database. Used by the campaign
+   * batch send to eliminate N+1 consent lookups.
+   */
+  findActiveMarketingForPhones(args: {
+    restaurantId: string
+    phones: string[]
+  }): Promise<Map<string, ConsentRecord>>
+
+  /**
    * Insert a new consent record. Throws ConsentImportError with reason
    * 'duplicate_active' on partial-unique-index violation. Other database
    * errors throw a generic Error.

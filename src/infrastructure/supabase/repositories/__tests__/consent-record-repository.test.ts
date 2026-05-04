@@ -7,6 +7,7 @@ vi.mock('../../client', () => ({
 import { createServerSupabaseClient } from '../../client'
 import {
   findActiveConsent,
+  findActiveMarketingConsentForPhones,
   insertConsentRecord,
   revokeConsent,
 } from '../consent-record-repository'
@@ -349,5 +350,155 @@ describe('revokeConsent', () => {
     await expect(
       revokeConsent({ restaurantId: 'r-1', phoneE164: '85291234567' })
     ).rejects.toThrow(/revokeConsent.*permission denied/)
+  })
+})
+
+describe('findActiveMarketingConsentForPhones (bulk)', () => {
+  interface BulkRecorder {
+    selected?: string
+    eqs: Array<{ col: string; val: unknown }>
+    ins: Array<{ col: string; vals: unknown[] }>
+  }
+
+  function buildBulkClient(
+    rows: ConsentRecordRow[],
+    err: { message: string } | null = null
+  ): {
+    client: ReturnType<typeof createServerSupabaseClient>
+    recorder: BulkRecorder
+    fromCalls: { count: number }
+  } {
+    const recorder: BulkRecorder = { eqs: [], ins: [] }
+    const fromCalls = { count: 0 }
+    // Final awaited shape: a thenable returning { data, error }.
+    const finalResult = Promise.resolve({ data: rows, error: err })
+    const inFn = vi.fn().mockImplementation((col: string, vals: unknown[]) => {
+      recorder.ins.push({ col, vals })
+      // The repo issues two .in() calls (status + phone_e164). The last one
+      // resolves the query; earlier ones return the same chain.
+      const chain = {
+        in: vi.fn().mockImplementation((c: string, v: unknown[]) => {
+          recorder.ins.push({ col: c, vals: v })
+          return finalResult
+        }),
+      }
+      return chain
+    })
+    const eqChain = {
+      eq: vi.fn(),
+      in: inFn,
+    } as unknown as { eq: ReturnType<typeof vi.fn> }
+    eqChain.eq.mockImplementation((col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return eqChain
+    })
+    const select = vi.fn().mockImplementation((cols: string) => {
+      recorder.selected = cols
+      return eqChain
+    })
+    const from = vi.fn().mockImplementation(() => {
+      fromCalls.count += 1
+      return { select }
+    })
+    return {
+      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      recorder,
+      fromCalls,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns an empty map and does NOT hit the database when phones is empty', async () => {
+    const { client, fromCalls } = buildBulkClient([])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const map = await findActiveMarketingConsentForPhones({
+      restaurantId: 'r-1',
+      phones: [],
+    })
+
+    expect(map.size).toBe(0)
+    // Crucially, no round-trip when there's nothing to look up.
+    expect(fromCalls.count).toBe(0)
+  })
+
+  it('issues a single SELECT … IN (phones) for the whole batch and keys the map by phone', async () => {
+    const rows: ConsentRecordRow[] = [
+      {
+        id: 'cr-a',
+        restaurant_id: 'r-1',
+        member_id: 'm-a',
+        phone_e164: '85291111111',
+        category: 'marketing',
+        status: 'opted_in',
+        consent_grade: 'strong',
+        source: 'website_form',
+        source_reference: null,
+        business_name_shown: null,
+        captured_at: '2026-05-04T10:00:00.000Z',
+        revoked_at: null,
+        captured_ip: null,
+        captured_user_agent: null,
+      },
+      {
+        id: 'cr-b',
+        restaurant_id: 'r-1',
+        member_id: 'm-b',
+        phone_e164: '85293333333',
+        category: 'marketing',
+        status: 'opted_in',
+        consent_grade: 'weak',
+        source: 'pre-system migration',
+        source_reference: null,
+        business_name_shown: null,
+        captured_at: '2026-05-04T11:00:00.000Z',
+        revoked_at: null,
+        captured_ip: null,
+        captured_user_agent: null,
+      },
+    ]
+    const { client, recorder, fromCalls } = buildBulkClient(rows)
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const map = await findActiveMarketingConsentForPhones({
+      restaurantId: 'r-1',
+      phones: ['85291111111', '85292222222', '85293333333'],
+    })
+
+    // ONE round-trip — the whole point of this function (kills N+1).
+    expect(fromCalls.count).toBe(1)
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-1' },
+      { col: 'category', val: 'marketing' },
+    ])
+    // status filter + phones IN filter
+    expect(recorder.ins).toEqual(
+      expect.arrayContaining([
+        { col: 'status', vals: ['opted_in', 'pending'] },
+        {
+          col: 'phone_e164',
+          vals: ['85291111111', '85292222222', '85293333333'],
+        },
+      ])
+    )
+
+    // Map only contains the phones with rows; the missing one is absent.
+    expect(map.size).toBe(2)
+    expect(map.get('85291111111')?.snapshot.id).toBe('cr-a')
+    expect(map.get('85293333333')?.snapshot.id).toBe('cr-b')
+    expect(map.has('85292222222')).toBe(false)
+  })
+
+  it('throws a contextual error when the database returns an error', async () => {
+    const { client } = buildBulkClient([], { message: 'connection lost' })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(
+      findActiveMarketingConsentForPhones({
+        restaurantId: 'r-1',
+        phones: ['85291234567'],
+      })
+    ).rejects.toThrow(/findActiveMarketingConsentForPhones.*connection lost/)
   })
 })
