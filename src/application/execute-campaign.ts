@@ -14,6 +14,8 @@ import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { checkCampaignGuardrails } from './check-campaign-guardrails'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
+import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import { DEFAULT_PER_USER_MARKETING_CAP } from '@/domain/services/campaign-guardrails'
 
 export class NoTemplateError extends Error {
   constructor(campaignId: string) {
@@ -68,12 +70,19 @@ async function buildSendContext(
   // Capture the tracking flag ONCE per campaign run so an env-flip
   // mid-batch doesn't orphan in-flight queued rows.
   const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
+  // Same pattern for the WAQ-007 cooldown cap — read once so a
+  // tenant-settings update mid-batch does not change behaviour for an
+  // already-running campaign.
+  const settings = await getSettingsForTenant(restaurantId)
+  const perUserMarketingCap =
+    settings?.perUserMarketingCap ?? DEFAULT_PER_USER_MARKETING_CAP
   return {
     campaign,
     phoneNumberId,
     template,
     restaurantDefaultLanguage,
     trackingEnabled,
+    perUserMarketingCap,
   }
 }
 
