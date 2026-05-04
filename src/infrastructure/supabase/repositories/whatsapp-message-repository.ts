@@ -62,17 +62,21 @@ export async function findByKapsoMessageId(
 
 export async function applyStatusUpdate(
   kapsoMessageId: string,
-  update: StatusUpdate
+  update: StatusUpdate,
+  rawPayload: Record<string, unknown> | null = null
 ): Promise<WhatsAppMessage | null> {
   const current = await findByKapsoMessageId(kapsoMessageId)
   if (!current) return null
   const next = current.applyStatusUpdate(update)
-  if (next === current) return current
-  return persistStatusUpdate(next)
+  // Even when the domain rejects the transition (e.g. read -> delivered) we
+  // still persist `raw_status_payload` so forensic context for the latest
+  // webhook is preserved. Status/timestamp columns stay on the prior values.
+  return persistStatusUpdate(next, rawPayload)
 }
 
 async function persistStatusUpdate(
-  m: WhatsAppMessage
+  m: WhatsAppMessage,
+  rawPayload: Record<string, unknown> | null
 ): Promise<WhatsAppMessage> {
   const supabase = createServerSupabaseClient()
   const s = m.snapshot
@@ -87,6 +91,7 @@ async function persistStatusUpdate(
       error_code: s.errorCode,
       error_title: s.errorTitle,
       error_details: s.errorDetails,
+      raw_status_payload: rawPayload,
     })
     .eq('id', s.id)
   if (error) throw new Error(`applyStatusUpdate: ${error.message}`)

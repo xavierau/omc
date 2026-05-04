@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { parseKapsoWebhook, verifyKapsoSignature } from '@/infrastructure/whatsapp/webhooks'
-import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import {
+  classifyWebhookKind,
+  parseKapsoWebhook,
+  verifyKapsoSignature,
+} from '@/infrastructure/whatsapp/webhooks'
 import { createWebhookLogger } from '@/infrastructure/logging/logger'
 import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { routeMessage } from './handlers'
+import { routeStatusEvent } from './status-handlers'
 
 export async function POST(request: NextRequest) {
   const log = createWebhookLogger(crypto.randomUUID())
@@ -23,31 +28,54 @@ export async function POST(request: NextRequest) {
     }
 
     const body = JSON.parse(rawBody)
-    const webhookHeaders = {
-      'x-idempotency-key': request.headers.get('x-idempotency-key') ?? undefined,
-    }
-    const message = parseKapsoWebhook(body, webhookHeaders, log)
-    if (!message) {
-      log('info', 'webhook.ignored', { reason: 'parse returned null' })
-      return NextResponse.json({ status: 'ignored' })
-    }
-
     const restaurantId = await resolveRestaurant(body, log)
     if (!restaurantId) {
       log('warn', 'webhook.unknown_restaurant', { reason: 'no matching restaurant' })
       return NextResponse.json({ status: 'ignored' })
     }
 
-    const duplicateResponse = await tryMarkProcessed(message.messageId, log)
-    if (duplicateResponse) return duplicateResponse
+    const kind = classifyWebhookKind(body)
+    log('info', 'webhook.kind', { kind })
 
-    await routeMessage(message, restaurantId, log)
-    log('info', 'webhook.response', { status: 200 })
-    return NextResponse.json({ status: 'ok' })
+    if (kind === 'status') {
+      await routeStatusEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'inbound') {
+      return handleInbound(request, body, restaurantId, log)
+    }
+
+    log('info', 'webhook.ignored', { reason: 'unrecognised payload' })
+    return NextResponse.json({ status: 'ignored' })
   } catch (error) {
     log('error', 'webhook.error', { error: String(error) })
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
+}
+
+async function handleInbound(
+  request: NextRequest,
+  body: unknown,
+  restaurantId: string,
+  log: LogFn
+): Promise<NextResponse> {
+  const webhookHeaders = {
+    'x-idempotency-key': request.headers.get('x-idempotency-key') ?? undefined,
+  }
+  const message = parseKapsoWebhook(body, webhookHeaders, log)
+  if (!message) {
+    log('info', 'webhook.ignored', { reason: 'parse returned null' })
+    return NextResponse.json({ status: 'ignored' })
+  }
+
+  const claim = await tryMarkProcessed(message.messageId, log)
+  if (claim === 'duplicate') return NextResponse.json({ status: 'duplicate' })
+
+  await routeMessage(message, restaurantId, log)
+  log('info', 'webhook.response', { status: 200 })
+  return NextResponse.json({ status: 'ok' })
 }
 
 function extractPhoneNumberId(body: unknown): string | null {
@@ -103,25 +131,4 @@ function verifySignature(request: NextRequest, rawBody: string): boolean {
   }
 
   return verifyKapsoSignature(rawBody, signature, secret)
-}
-
-async function tryMarkProcessed(messageId: string, log: LogFn): Promise<NextResponse | null> {
-  const supabase = createServerSupabaseClient()
-
-  const { error } = await supabase
-    .from('processed_webhooks')
-    .insert({ idempotency_key: messageId })
-
-  if (!error) {
-    log('info', 'webhook.idempotency', { status: 'new', messageId })
-    return null
-  }
-
-  if (error.code === '23505') {
-    log('info', 'webhook.idempotency', { status: 'duplicate', messageId })
-    return NextResponse.json({ status: 'duplicate' })
-  }
-
-  log('error', 'webhook.idempotency', { status: 'error', error: error.message })
-  return null
 }

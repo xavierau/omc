@@ -32,10 +32,16 @@ export interface WhatsAppMessageRepository {
    * Webhook handler update path. Returns the post-update entity (or null if
    * no row matched). Implementations are responsible for honoring the
    * progression rules in {@link WhatsAppMessage.applyStatusUpdate}.
+   *
+   * `rawPayload` is the full Kapso webhook entry persisted to
+   * `raw_status_payload` for forensic replay. Pass `null` when there is no
+   * forensic context to record (e.g. internal callers triggering a status
+   * change without an upstream webhook).
    */
   applyStatusUpdate(
     kapsoMessageId: string,
-    update: StatusUpdate
+    update: StatusUpdate,
+    rawPayload?: Record<string, unknown> | null
   ): Promise<WhatsAppMessage | null>
 
   /**
