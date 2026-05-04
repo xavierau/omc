@@ -86,6 +86,13 @@ vi.mock('@/application/check-campaign-guardrails', () => ({
   }),
 }))
 
+// WAQ-011: stub the marketing-template review gate so existing
+// execute-campaign suites don't reach into the new repo paths. The gate
+// has its own dedicated test file (`enforce-template-review.test.ts`).
+vi.mock('@/application/enforce-template-review', () => ({
+  enforceTemplateReview: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { executeCampaign, NoTemplateError } from '@/application/execute-campaign'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import {
