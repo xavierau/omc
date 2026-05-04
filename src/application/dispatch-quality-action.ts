@@ -41,8 +41,9 @@ export async function dispatchQualityAction(
     nextRating: args.nextRating,
   })
   const applied = await tryApply(args, action)
+  if (!applied) return
   args.log('info', 'webhook.quality_action', toLogPayload(args, action))
-  if (applied) await tryNotify(args, action)
+  await tryNotify(args, action)
 }
 
 // Best-effort: do NOT re-throw. Webhook handler must continue so the

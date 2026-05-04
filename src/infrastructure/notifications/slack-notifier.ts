@@ -51,18 +51,38 @@ async function postToSlack(
       headers: { 'Content-Type': 'application/json' },
       body,
     })
-    if (!response.ok) warnNon2xx(channel, alert, response.status)
+    if (!response.ok) {
+      // Slack errors return plain-text bodies (e.g. 'invalid_payload',
+      // 'missing_text_or_fallback_or_attachments') — capture them so ops
+      // can debug payload shape mismatches without staring at HTTP codes.
+      const body = await safeReadText(response)
+      warnNon2xx(channel, alert, response.status, body)
+    }
   } catch (err) {
     warnFetchFailed(channel, alert, err)
+  }
+}
+
+async function safeReadText(response: Response): Promise<string | undefined> {
+  try {
+    return await response.text()
+  } catch {
+    return undefined
   }
 }
 
 function warnNon2xx(
   channel: 'cs' | 'platform',
   alert: OpsAlert,
-  status: number
+  status: number,
+  body: string | undefined
 ): void {
-  console.warn('[slack_notifier] non_2xx', { channel, status, kind: alert.kind })
+  console.warn('[slack_notifier] non_2xx', {
+    channel,
+    status,
+    kind: alert.kind,
+    body,
+  })
 }
 
 function warnFetchFailed(

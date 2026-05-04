@@ -194,11 +194,12 @@ describe('dispatchQualityAction', () => {
         error: 'supabase 503',
       })
     )
-    // Still emits the standard info log so observability stays consistent.
-    expect(log).toHaveBeenCalledWith(
+    // WAQ-013 r1 nit fix: info log only fires on successful apply so a
+    // failed transition doesn't muddy the action telemetry.
+    expect(log).not.toHaveBeenCalledWith(
       'info',
       'webhook.quality_action',
-      expect.objectContaining({ kind: 'pause' })
+      expect.anything()
     )
   })
 
@@ -223,10 +224,10 @@ describe('dispatchQualityAction', () => {
         error: 'connection reset',
       })
     )
-    expect(log).toHaveBeenCalledWith(
+    expect(log).not.toHaveBeenCalledWith(
       'info',
       'webhook.quality_action',
-      expect.objectContaining({ kind: 'throttle' })
+      expect.anything()
     )
   })
 
