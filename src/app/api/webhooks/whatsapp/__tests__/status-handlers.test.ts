@@ -196,17 +196,20 @@ describe('handleStatusUpdate', () => {
     expect(releaseIdempotencyKey).not.toHaveBeenCalled()
   })
 
-  it('returns early on claim error (does not retry side effects)', async () => {
+  it('throws on idempotency error so route returns 500 / triggers Kapso retry', async () => {
     vi.mocked(tryMarkProcessed).mockResolvedValue('error')
 
-    await handleStatusUpdate(
-      { id: 'wamid.AAA', status: 'delivered', raw: {} },
-      'rest-1',
-      log
-    )
+    await expect(
+      handleStatusUpdate(
+        { id: 'wamid.AAA', status: 'delivered', raw: {} },
+        'rest-1',
+        log
+      )
+    ).rejects.toThrow(/^idempotency\.error/)
 
     expect(findMessageByKapsoIdWithRetry).not.toHaveBeenCalled()
     expect(applyStatusUpdate).not.toHaveBeenCalled()
+    expect(releaseIdempotencyKey).not.toHaveBeenCalled()
   })
 
   it('unknown id: releases idempotency key and logs warn (no row update)', async () => {
@@ -347,5 +350,62 @@ describe('routeStatusEvent', () => {
       log
     )
     expect(tryMarkProcessed).toHaveBeenNthCalledWith(2, 'wamid.B:read', log)
+  })
+
+  it('re-throws idempotency errors so route.ts can return 500', async () => {
+    // First status hits an idempotency-claim DB failure → handler throws.
+    vi.mocked(tryMarkProcessed).mockResolvedValue('error')
+
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                statuses: [{ id: 'wamid.A', status: 'delivered' }],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    await expect(routeStatusEvent(body, 'rest-1', log)).rejects.toThrow(
+      /^idempotency\.error/
+    )
+
+    const errLog = logs.find((l) => l[1] === 'webhook.status_handler_error')
+    expect(errLog).toBeDefined()
+    expect(errLog?.[2]).toMatchObject({ retryable: true })
+  })
+
+  it('does NOT re-throw non-idempotency handler errors (per-status isolation)', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findMessageByKapsoIdWithRetry).mockRejectedValue(
+      new Error('lookup blew up')
+    )
+
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                statuses: [{ id: 'wamid.A', status: 'delivered' }],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    // Should not throw — non-idempotency errors stay swallowed.
+    await routeStatusEvent(body, 'rest-1', log)
+
+    const errLog = logs.find((l) => l[1] === 'webhook.status_handler_error')
+    expect(errLog).toBeDefined()
+    expect(errLog?.[2]).toMatchObject({ retryable: false })
   })
 })

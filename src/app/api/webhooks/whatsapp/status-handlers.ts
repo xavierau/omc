@@ -10,9 +10,14 @@ import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export { mapStatusUpdate, type KapsoStatusEntry }
 
+const IDEMPOTENCY_ERROR_PREFIX = 'idempotency.error'
+
 /**
  * Iterates every status update on a webhook payload and processes each.
- * Errors per status are isolated so one bad entry does not abort the rest.
+ * Errors per status are isolated so one bad entry does not abort the rest —
+ * EXCEPT idempotency-claim errors, which we re-throw so route.ts can return
+ * 500 and Kapso retries the whole webhook (otherwise the status update is
+ * permanently lost on a transient DB failure).
  */
 export async function routeStatusEvent(
   body: unknown,
@@ -25,11 +30,16 @@ export async function routeStatusEvent(
     try {
       await handleStatusUpdate(status, restaurantId, log)
     } catch (err) {
+      const isIdempotencyError =
+        err instanceof Error && err.message.startsWith(IDEMPOTENCY_ERROR_PREFIX)
       log('error', 'webhook.status_handler_error', {
         kapsoMessageId: status.id,
         status: status.status,
         error: String(err),
+        retryable: isIdempotencyError,
       })
+      // Contract: idempotency errors propagate to route.ts → 500 → Kapso retry.
+      if (isIdempotencyError) throw err
     }
   }
 }
@@ -52,7 +62,10 @@ export async function handleStatusUpdate(
   const idempotencyKey = `${status.id}:${status.status}`
 
   const claim = await tryMarkProcessed(idempotencyKey, log)
-  if (claim !== 'new') return
+  if (claim === 'duplicate') return
+  if (claim === 'error') {
+    throw new Error(`${IDEMPOTENCY_ERROR_PREFIX} claim_failed key=${idempotencyKey}`)
+  }
 
   const message = await findMessageByKapsoIdWithRetry(status.id)
   if (!message) {

@@ -57,12 +57,16 @@ const state = {
   messages: new Map<string, Row>(),
   processed: new Set<string>(),
   members: new Map<string, MemberRow>(),
+  // When set, the next processed_webhooks insert returns this error (transient
+  // DB failure simulation for the idempotency-error path).
+  processedInsertError: null as { code: string; message: string } | null,
 }
 
 function reset(): void {
   state.messages.clear()
   state.processed.clear()
   state.members.clear()
+  state.processedInsertError = null
 }
 
 function seedMessage(row: Partial<Row> & { id: string; kapso_message_id: string }): void {
@@ -101,6 +105,11 @@ function fakeSupabase() {
 function processedWebhooksOps() {
   return {
     insert: async (row: { idempotency_key: string }) => {
+      if (state.processedInsertError) {
+        const err = state.processedInsertError
+        state.processedInsertError = null
+        return { error: err }
+      }
       if (state.processed.has(row.idempotency_key)) {
         return { error: { code: '23505', message: 'duplicate key' } }
       }
@@ -279,6 +288,25 @@ describe('POST /api/webhooks/whatsapp — status events', () => {
     const row = state.messages.get('msg-1')!
     expect(row.status).toBe('read')
     expect(row.read_at).toBeTruthy()
+  })
+
+  it('returns 500 when idempotency claim fails transiently so Kapso retries', async () => {
+    seedMessage({ id: 'msg-1', kapso_message_id: KAPSO_DELIVERED_ID })
+    state.processedInsertError = {
+      code: '08006',
+      message: 'connection_failure',
+    }
+    const fixture = loadFixture('kapso-status-delivered.json')
+
+    const { status, json } = await postWebhook(fixture)
+
+    // route.ts top-level catch turns the re-thrown idempotency error into 500.
+    expect(status).toBe(500)
+    expect(json).toMatchObject({ error: 'Internal error' })
+    // Side effects must NOT have happened.
+    expect(state.messages.get('msg-1')!.status).toBe('sent')
+    expect(state.messages.get('msg-1')!.delivered_at).toBeNull()
+    expect(state.processed.has(`${KAPSO_DELIVERED_ID}:delivered`)).toBe(false)
   })
 
   it('unknown kapso id: 200, logs unknown_message, releases idempotency key so retry succeeds after the row appears', async () => {

@@ -72,6 +72,9 @@ async function handleInbound(
 
   const claim = await tryMarkProcessed(message.messageId, log)
   if (claim === 'duplicate') return NextResponse.json({ status: 'duplicate' })
+  if (claim === 'error') {
+    return NextResponse.json({ error: 'Idempotency claim failed' }, { status: 500 })
+  }
 
   await routeMessage(message, restaurantId, log)
   log('info', 'webhook.response', { status: 200 })
