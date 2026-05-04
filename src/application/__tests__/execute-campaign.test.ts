@@ -31,7 +31,7 @@ vi.mock('@/infrastructure/whatsapp/messaging', () => ({
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', () => ({
-  insertQueuedMessage: vi.fn(),
+  insertQueued: vi.fn(),
   attachKapsoMessageId: vi.fn(),
   markFailedNoBspId: vi.fn(),
 }))
@@ -87,7 +87,7 @@ import { resolveTargetMembers } from '@/application/resolve-campaign-members'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import {
-  insertQueuedMessage,
+  insertQueued,
   attachKapsoMessageId,
   markFailedNoBspId,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
@@ -468,7 +468,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
     vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
-    vi.mocked(insertQueuedMessage).mockResolvedValue(undefined)
+    vi.mocked(insertQueued).mockResolvedValue(undefined)
     vi.mocked(attachKapsoMessageId).mockResolvedValue(undefined)
     vi.mocked(markFailedNoBspId).mockResolvedValue(undefined)
   })
@@ -535,7 +535,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     await executeCampaign('camp-1', 'r-1')
 
     // 2 members × 2 rows each (body + QR) = 4 inserts
-    expect(insertQueuedMessage).toHaveBeenCalledTimes(4)
+    expect(insertQueued).toHaveBeenCalledTimes(4)
     expect(attachKapsoMessageId).toHaveBeenCalledTimes(4)
   })
 
@@ -559,7 +559,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     await executeCampaign('camp-1', 'r-1')
 
     // All 3 members produced inserts (3 body + 3 QR = 6)
-    expect(insertQueuedMessage).toHaveBeenCalledTimes(6)
+    expect(insertQueued).toHaveBeenCalledTimes(6)
     // Failed body for m-2 went through markFailedNoBspId
     expect(markFailedNoBspId).toHaveBeenCalled()
     // Status still flips to completed because the batch tolerates failures

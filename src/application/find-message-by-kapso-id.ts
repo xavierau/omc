@@ -1,4 +1,4 @@
-import { findMessageByKapsoId } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
+import { findByKapsoMessageId } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
 import type { WhatsAppMessage } from '@/domain/entities/whatsapp-message'
 
 const RETRY_DELAY_MS = 250
@@ -12,10 +12,10 @@ const RETRY_DELAY_MS = 250
 export async function findMessageByKapsoIdWithRetry(
   kapsoMessageId: string
 ): Promise<WhatsAppMessage | null> {
-  const first = await findMessageByKapsoId(kapsoMessageId)
+  const first = await findByKapsoMessageId(kapsoMessageId)
   if (first) return first
   await delay(RETRY_DELAY_MS)
-  return findMessageByKapsoId(kapsoMessageId)
+  return findByKapsoMessageId(kapsoMessageId)
 }
 
 function delay(ms: number): Promise<void> {

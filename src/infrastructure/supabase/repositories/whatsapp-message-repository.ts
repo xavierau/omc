@@ -9,18 +9,19 @@ import {
   WhatsAppMessage,
   type StatusUpdate,
 } from '@/domain/entities/whatsapp-message'
+import type { WhatsAppMessageRepository } from '@/domain/repositories/whatsapp-message-repository'
 import {
   toEntity,
   toQueuedRow,
   type WhatsAppMessageRow,
 } from './whatsapp-message-mapper'
 
-export async function insertQueuedMessage(m: WhatsAppMessage): Promise<void> {
+export async function insertQueued(m: WhatsAppMessage): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from('whatsapp_messages')
     .insert(toQueuedRow(m))
-  if (error) throw new Error(`insertQueuedMessage: ${error.message}`)
+  if (error) throw new Error(`insertQueued: ${error.message}`)
 }
 
 export async function attachKapsoMessageId(
@@ -45,7 +46,7 @@ export async function attachKapsoMessageId(
   if (error) throw new Error(`attachKapsoMessageId: ${error.message}`)
 }
 
-export async function findMessageByKapsoId(
+export async function findByKapsoMessageId(
   kapsoMessageId: string
 ): Promise<WhatsAppMessage | null> {
   const supabase = createServerSupabaseClient()
@@ -54,16 +55,16 @@ export async function findMessageByKapsoId(
     .select('*')
     .eq('kapso_message_id', kapsoMessageId)
     .maybeSingle()
-  if (error) throw new Error(`findMessageByKapsoId: ${error.message}`)
+  if (error) throw new Error(`findByKapsoMessageId: ${error.message}`)
   if (!data) return null
   return toEntity(data as WhatsAppMessageRow)
 }
 
-export async function applyStatusUpdateByKapsoId(
+export async function applyStatusUpdate(
   kapsoMessageId: string,
   update: StatusUpdate
 ): Promise<WhatsAppMessage | null> {
-  const current = await findMessageByKapsoId(kapsoMessageId)
+  const current = await findByKapsoMessageId(kapsoMessageId)
   if (!current) return null
   const next = current.applyStatusUpdate(update)
   if (next === current) return current
@@ -107,4 +108,15 @@ export async function markFailedNoBspId(
     })
     .eq('id', id)
   if (dbError) throw new Error(`markFailedNoBspId: ${dbError.message}`)
+}
+
+// Compile-time contract lock: this object MUST satisfy the domain repository
+// interface. If a future edit drifts a function signature away from the port,
+// TS surfaces it here rather than at the call sites or — worse — at runtime.
+export const whatsappMessageRepository: WhatsAppMessageRepository = {
+  insertQueued,
+  attachKapsoMessageId,
+  findByKapsoMessageId,
+  applyStatusUpdate,
+  markFailedNoBspId,
 }

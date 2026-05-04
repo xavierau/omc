@@ -5,7 +5,7 @@ import {
   type MessageContentType,
 } from '@/domain/entities/whatsapp-message'
 import {
-  insertQueuedMessage,
+  insertQueued,
   attachKapsoMessageId,
   markFailedNoBspId,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
@@ -48,7 +48,7 @@ export async function recordOutboundSend(
   })
   const localId = message.snapshot.id
 
-  await insertQueuedMessage(message)
+  await insertQueued(message)
   return invokeAndPersist(localId, args.send)
 }
 

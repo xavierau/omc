@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', () => ({
-  insertQueuedMessage: vi.fn(),
+  insertQueued: vi.fn(),
   attachKapsoMessageId: vi.fn(),
   markFailedNoBspId: vi.fn(),
 }))
 
 import {
-  insertQueuedMessage,
+  insertQueued,
   attachKapsoMessageId,
   markFailedNoBspId,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
@@ -37,10 +37,10 @@ describe('recordOutboundSend (trackingEnabled=true)', () => {
 
     const result = await recordOutboundSend({ ...BASE_ARGS, send })
 
-    expect(insertQueuedMessage).toHaveBeenCalledOnce()
+    expect(insertQueued).toHaveBeenCalledOnce()
     expect(send).toHaveBeenCalledOnce()
     // Insert must precede send
-    expect(vi.mocked(insertQueuedMessage).mock.invocationCallOrder[0]).toBeLessThan(
+    expect(vi.mocked(insertQueued).mock.invocationCallOrder[0]).toBeLessThan(
       send.mock.invocationCallOrder[0]
     )
     expect(attachKapsoMessageId).toHaveBeenCalledOnce()
@@ -74,7 +74,7 @@ describe('recordOutboundSend (trackingEnabled=true)', () => {
 
     const result = await recordOutboundSend({ ...BASE_ARGS, send })
 
-    expect(insertQueuedMessage).toHaveBeenCalledOnce()
+    expect(insertQueued).toHaveBeenCalledOnce()
     expect(markFailedNoBspId).toHaveBeenCalledOnce()
     expect(attachKapsoMessageId).not.toHaveBeenCalled()
     expect(result.ok).toBe(false)
@@ -88,7 +88,7 @@ describe('recordOutboundSend (trackingEnabled=true)', () => {
 
     const result = await recordOutboundSend({ ...BASE_ARGS, send })
 
-    expect(insertQueuedMessage).toHaveBeenCalledOnce()
+    expect(insertQueued).toHaveBeenCalledOnce()
     expect(markFailedNoBspId).toHaveBeenCalledOnce()
     expect(attachKapsoMessageId).not.toHaveBeenCalled()
     expect(result).toEqual(sendResult)
@@ -111,7 +111,7 @@ describe('recordOutboundSend (trackingEnabled=false)', () => {
     })
 
     expect(send).toHaveBeenCalledOnce()
-    expect(insertQueuedMessage).not.toHaveBeenCalled()
+    expect(insertQueued).not.toHaveBeenCalled()
     expect(attachKapsoMessageId).not.toHaveBeenCalled()
     expect(markFailedNoBspId).not.toHaveBeenCalled()
     expect(result).toEqual(sendResult)
@@ -127,6 +127,6 @@ describe('recordOutboundSend (trackingEnabled=false)', () => {
         send,
       })
     ).rejects.toThrow('flag-off boom')
-    expect(insertQueuedMessage).not.toHaveBeenCalled()
+    expect(insertQueued).not.toHaveBeenCalled()
   })
 })
