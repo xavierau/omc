@@ -6,6 +6,9 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/reward-repository')
+vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
+  insertConsentRecord: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -22,10 +25,12 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import { insertConsentRecord } from '@/infrastructure/supabase/repositories/consent-record-repository'
+import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
 import { registerMember } from '@/application/register-member'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
@@ -56,11 +61,13 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
     vi.mocked(findMemberByPhone).mockResolvedValue(null)
     vi.mocked(updateReceipt).mockResolvedValue(undefined)
+    vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -288,6 +295,124 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         'Tester',
         '加入'
       )
+    })
+  })
+
+  describe('JOIN keyword writes a consent_records row (WAQ-004)', () => {
+    it('writes a marketing/opted_in/strong consent for new members, sourced whatsapp_join_keyword', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+
+      await routeMessage(
+        makeMessage({ text: 'JOIN', messageId: 'wamid.join.1' }),
+        RESTAURANT_B
+      )
+
+      expect(insertConsentRecord).toHaveBeenCalledTimes(1)
+      const arg = vi.mocked(insertConsentRecord).mock.calls[0][0]
+      expect(arg.snapshot).toMatchObject({
+        restaurantId: RESTAURANT_B,
+        memberId: 'm-new',
+        phoneE164: PHONE,
+        category: 'marketing',
+        status: 'opted_in',
+        consentGrade: 'strong',
+        source: 'whatsapp_join_keyword',
+        sourceReference: 'wamid.join.1',
+        businessNameShown: 'Demo Cafe',
+      })
+    })
+
+    it('also writes a consent record for returning members (isNew=false) — covers Kapso retry after a partial first attempt', async () => {
+      // Why isNew=false isn't a guard against writing: the FIRST attempt may
+      // have created the member but then crashed before insertConsentRecord
+      // committed. On retry, registerMember finds the existing member and
+      // returns isNew=false; if we skip the consent write here, we'd leave
+      // the member permanently stranded with no consent record. The partial
+      // unique index on consent_records makes the write idempotent
+      // (duplicate_active is swallowed by the JOIN handler).
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: false,
+        memberId: 'm-existing',
+        pointsBalance: 100,
+      })
+
+      await routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+
+      expect(insertConsentRecord).toHaveBeenCalledTimes(1)
+    })
+
+    it('swallows duplicate_active errors silently (re-join is idempotent)', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new ConsentImportError('duplicate_active', 'already exists')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
+    })
+
+    it('JOIN: when consent write fails for an unexpected reason, the JOIN handler throws so Kapso can retry the webhook', async () => {
+      // Previously this error was swallowed and logged, leaving the member
+      // permanently without a consent record (and no retry signal back to
+      // Kapso). Surface the error: the route turns it into 500, Kapso
+      // retries, and on retry duplicate_active is swallowed as success.
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+    })
+
+    it('JOIN retry after first-attempt consent failure succeeds via duplicate_active swallow', async () => {
+      // First attempt: member created, consent write rejects (the bug).
+      // Second attempt (Kapso retry): registerMember returns isNew=false,
+      // recordJoinConsent runs again, the partial unique index trips and
+      // raises ConsentImportError('duplicate_active') — which the handler
+      // swallows. End state: a single consent row exists, no exception.
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+
+      // Retry. registerMember is now idempotent (member exists) → isNew=false.
+      // The DB-side unique index would convert a real second insert into a
+      // 23505, surfaced as ConsentImportError(duplicate_active).
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: false,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new ConsentImportError('duplicate_active', 'already exists')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
     })
   })
 

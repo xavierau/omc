@@ -6,6 +6,10 @@ import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-la
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
 import { sendCampaignBody, sendCouponQr } from './execute-campaign-send'
+import {
+  bulkCheckMarketingConsent,
+  type ConsentCheckResult,
+} from './check-marketing-consent'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
@@ -26,13 +30,27 @@ export async function sendInBatches(
   ctx: SendContext
 ): Promise<void> {
   let failedCount = 0
+  let skippedNoConsent = 0
+  const isMarketing = isMarketingRun(ctx)
   for (let i = 0; i < members.length; i += BATCH_SIZE) {
     const batch = members.slice(i, i + BATCH_SIZE)
-    const results = await Promise.allSettled(batch.map((m) => sendToMember(m, ctx)))
+    // ONE consent fetch for the whole batch (kills the per-member N+1 the
+    // earlier path produced — was 20 individual SELECTs per batch).
+    const consentMap = isMarketing
+      ? await bulkCheckMarketingConsent({
+          restaurantId: ctx.campaign.restaurantId,
+          phones: batch.map((m) => m.phone),
+        })
+      : null
+    const results = await Promise.allSettled(
+      batch.map((m) => attemptMember(m, ctx, isMarketing, consentMap))
+    )
     for (const r of results) {
       if (r.status === 'rejected') {
         failedCount++
         console.error('[Campaign] Member send failed:', r.reason)
+      } else if (r.value === 'skipped_no_consent') {
+        skippedNoConsent++
       }
     }
     if (i + BATCH_SIZE < members.length) await delay(BATCH_DELAY_MS)
@@ -40,6 +58,41 @@ export async function sendInBatches(
   if (failedCount > 0) {
     console.warn(`[Campaign] ${failedCount}/${members.length} sends failed`)
   }
+  if (skippedNoConsent > 0) {
+    console.warn(
+      `[Campaign] ${skippedNoConsent}/${members.length} skipped (marketing consent gate)`
+    )
+  }
+}
+
+type MemberOutcome = 'sent' | 'skipped_no_consent'
+
+async function attemptMember(
+  member: Member,
+  ctx: SendContext,
+  isMarketing: boolean,
+  consentMap: Map<string, ConsentCheckResult> | null
+): Promise<MemberOutcome> {
+  if (isMarketing && !isAllowed(consentMap, member.phone)) {
+    return 'skipped_no_consent'
+  }
+  await sendToMember(member, ctx)
+  return 'sent'
+}
+
+function isAllowed(
+  consentMap: Map<string, ConsentCheckResult> | null,
+  phone: string
+): boolean {
+  // Defaults to denied if the map is missing the phone — defence in depth.
+  return consentMap?.get(phone)?.allowed === true
+}
+
+function isMarketingRun(ctx: SendContext): boolean {
+  // Only WhatsApp template sends carry a Meta-classified category. Inline
+  // text/QR campaigns go out as 'service' and are not gated by marketing
+  // consent (they are receipt-tied or operational).
+  return ctx.template?.category === 'MARKETING'
 }
 
 async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
