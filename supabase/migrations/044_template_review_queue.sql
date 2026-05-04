@@ -46,9 +46,16 @@ CREATE TABLE template_review_queue (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Per-tenant pending lookup (admin queue + send-side gate hot paths).
+-- Per-tenant pending lookup (send-side gate hot path).
 CREATE INDEX idx_template_review_queue_restaurant_status
   ON template_review_queue(restaurant_id, status, submitted_at DESC);
+
+-- Global admin queue: list ALL tenants' submissions filtered by status.
+-- Without this index, the admin queue query (no restaurant_id filter) cannot
+-- use the index above (Postgres can't seek when the leading column is omitted
+-- from WHERE), and would degrade to a full scan as the table grows.
+CREATE INDEX idx_template_review_queue_status
+  ON template_review_queue(status, submitted_at DESC);
 
 -- One pending OR approved entry per (restaurant_id, template_name) at a
 -- time. A rejection or changes_requested closes a slot and a fresh
