@@ -40,7 +40,11 @@ async function handleQualityEntry(
   restaurantId: string,
   log: LogFn
 ): Promise<void> {
-  const transitionedAt = new Date().toISOString()
+  // Meta does not include a per-event timestamp on account_update payloads,
+  // so we fall back to Date.now() rounded to the second. Two retries within
+  // the same second collapse via idempotency (correct); two distinct
+  // transitions in different seconds get distinct keys (also correct).
+  const transitionedAt = roundedNowIso()
   const phoneNumberId = entry.phoneNumberId ?? 'unknown'
   const idempotencyKey = `account_quality:${phoneNumberId}:${transitionedAt}`
 
@@ -67,4 +71,8 @@ async function handleQualityEntry(
     messagingTier: entry.messagingTier,
     flagged: entry.flagged,
   })
+}
+
+function roundedNowIso(): string {
+  return new Date(Math.floor(Date.now() / 1000) * 1000).toISOString()
 }

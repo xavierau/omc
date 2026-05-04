@@ -98,12 +98,18 @@ function extractPhoneNumberId(body: unknown): string | null {
     return conversation.phone_number_id as string
   }
 
-  // Meta Cloud API format: entry[].changes[].value.metadata.phone_number_id
+  // Meta Cloud API formats:
+  //   - messages/statuses: entry[].changes[].value.metadata.phone_number_id
+  //   - account_update (WAQ-006): entry[].changes[].value.phone_number_id
   const entry = (payload?.entry as Array<Record<string, unknown>>)?.[0]
   const changes = (entry?.changes as Array<Record<string, unknown>>)?.[0]
   const value = changes?.value as Record<string, unknown> | undefined
   const metadata = value?.metadata as Record<string, unknown> | undefined
-  return (metadata?.phone_number_id as string) ?? null
+  return (
+    (metadata?.phone_number_id as string) ??
+    (value?.phone_number_id as string) ??
+    null
+  )
 }
 
 async function resolveRestaurant(body: unknown, log: LogFn): Promise<string | null> {

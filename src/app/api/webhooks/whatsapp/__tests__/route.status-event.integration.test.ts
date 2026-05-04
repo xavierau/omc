@@ -258,25 +258,18 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 }))
 
 const ORIGINAL_SECRET = process.env.KAPSO_WEBHOOK_SECRET
-const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 
 beforeAll(() => {
   delete process.env.KAPSO_WEBHOOK_SECRET
-  // Keep NODE_ENV unset / non-production so missing secret short-circuits
-  // verifySignature to true.
-  if (ORIGINAL_NODE_ENV === 'production') {
-    Object.defineProperty(process.env, 'NODE_ENV', { value: 'test' })
-  }
+  // NODE_ENV is left untouched: vitest 4 marks process.env.NODE_ENV as
+  // non-configurable, so any redefine via Object.defineProperty throws.
+  // Tests already run with NODE_ENV='test' which keeps verifySignature in
+  // demo mode (the secret short-circuit).
 })
 
 afterAll(() => {
   if (ORIGINAL_SECRET !== undefined) {
     process.env.KAPSO_WEBHOOK_SECRET = ORIGINAL_SECRET
-  }
-  if (ORIGINAL_NODE_ENV !== undefined) {
-    Object.defineProperty(process.env, 'NODE_ENV', {
-      value: ORIGINAL_NODE_ENV,
-    })
   }
 })
 
