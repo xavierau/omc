@@ -29,13 +29,19 @@ export function maybeLogProbeBoundary(
   if (plan.length < 2) return
 
   const skipped = sumSkipped(counters)
+  const failed = counters.failed
   const probeSize = plan[0].members.length
+  // Invariant for downstream KPI consumers: sent + skipped + failed ===
+  // probeSize. `failed` is its own bucket (rejected promises from the BSP
+  // path), distinct from the "skipped" gate decisions, so it must NOT be
+  // double-counted inside skipped. Phase 2 KPI thresholds (delivery >=95%,
+  // error <0.5%) read these fields directly.
   console.info('campaign.probe_chunk_complete', {
     campaignId: ctx.campaignId,
     probeSize,
-    sent: probeSize - skipped,
+    sent: probeSize - skipped - failed,
     skipped,
-    failed: counters.failed,
+    failed,
     pacingStrategy: ctx.pacingConfig.strategy,
     activeHoursStartLocal: ctx.pacingConfig.activeHoursStartLocal,
     activeHoursEndLocal: ctx.pacingConfig.activeHoursEndLocal,
@@ -43,7 +49,5 @@ export function maybeLogProbeBoundary(
 }
 
 function sumSkipped(c: SkipCounters): number {
-  return (
-    c.noConsent + c.capExceeded + c.throttled + c.unreachable + c.failed
-  )
+  return c.noConsent + c.capExceeded + c.throttled + c.unreachable
 }

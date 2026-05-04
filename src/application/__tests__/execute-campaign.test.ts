@@ -1292,6 +1292,65 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
     logSpy.mockRestore()
   })
 
+  it('probe-boundary log preserves sent+skipped+failed === probeSize when a send fails', async () => {
+    // Review fix (gemini r1 + analyzer IMPORTANT): `failed` was previously
+    // double-counted — once inside `skipped` and again as its own field.
+    // Phase 2 KPI thresholds (delivery >=95%, error <0.5%) read these
+    // fields directly, so the invariant must hold.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 3, scaleChunkSize: 3 })
+    )
+    const probeMembers = [
+      buildMemberFor({ id: 'p-0', phone: '85290000010' }),
+      buildMemberFor({ id: 'p-1', phone: '85290000011' }),
+      buildMemberFor({ id: 'p-2', phone: '85290000012' }),
+    ]
+    const scaleMembers = [
+      buildMemberFor({ id: 's-0', phone: '85290000020' }),
+    ]
+    // First two probe sends succeed; third probe send rejects → counters.failed=1.
+    // Subsequent scale calls succeed (we only assert the probe boundary log).
+    vi.mocked(sendTextMessage)
+      .mockResolvedValueOnce(okResult('wamid.text'))
+      .mockResolvedValueOnce(okResult('wamid.text'))
+      .mockRejectedValueOnce(new Error('flaky network'))
+      .mockResolvedValue(okResult('wamid.text'))
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      ...probeMembers,
+      ...scaleMembers,
+    ])
+    // Suppress the expected error log from the rejected send.
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const probeLog = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('campaign.probe_chunk_complete')
+    )
+    expect(probeLog).toBeDefined()
+    const payload = probeLog?.[1] as {
+      probeSize: number
+      sent: number
+      skipped: number
+      failed: number
+    }
+    // Failed must NOT be double-counted in skipped.
+    expect(payload.failed).toBe(1)
+    expect(payload.skipped).toBe(0)
+    expect(payload.sent).toBe(2)
+    // The invariant Phase 2 KPI consumers depend on.
+    expect(payload.sent + payload.skipped + payload.failed).toBe(payload.probeSize)
+    expect(payload.probeSize).toBe(3)
+
+    logSpy.mockRestore()
+    errSpy.mockRestore()
+  })
+
   it('caps in-flight sendTextMessage concurrency at 20 even within a 100-member chunk', async () => {
     // Review fix (gemini r1 CRITICAL): chunk sizes can now reach 1000 (per
     // migration 043). Without an inner sub-batch ceiling, each chunk would
