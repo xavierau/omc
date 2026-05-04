@@ -19,12 +19,24 @@ describe('QualityStateEvent.fromWebhook', () => {
       id: '11111111-1111-1111-1111-111111111111',
       restaurantId: 'rest-1',
       phoneNumberId: 'pn-1',
+      displayPhoneNumber: null,
       qualityRating: 'GREEN',
       messagingTier: 'TIER_1K',
       flagged: false,
       rawPayload: { foo: 'bar' },
       transitionedAt: '2026-05-04T10:00:00.000Z',
     })
+  })
+
+  it('accepts a display-only event (no phone_number_id)', () => {
+    const e = QualityStateEvent.fromWebhook({
+      id: 'id-2',
+      restaurantId: 'rest-1',
+      displayPhoneNumber: '85291234567',
+      qualityRating: 'YELLOW',
+    })
+    expect(e.snapshot.phoneNumberId).toBeNull()
+    expect(e.snapshot.displayPhoneNumber).toBe('85291234567')
   })
 
   it('defaults messagingTier=null, flagged=false, rawPayload=null when omitted', () => {
@@ -62,13 +74,26 @@ describe('QualityStateEvent.fromWebhook', () => {
     ).toThrow(/restaurantId/)
   })
 
-  it('rejects an empty phoneNumberId', () => {
+  it('rejects when neither phoneNumberId nor displayPhoneNumber is present', () => {
     expect(() =>
       QualityStateEvent.fromWebhook({
-        ...baseInput,
-        phoneNumberId: '   ',
+        id: 'id-x',
+        restaurantId: 'rest-1',
+        qualityRating: 'GREEN',
       })
-    ).toThrow(/phoneNumberId/)
+    ).toThrow(/phoneNumberId or displayPhoneNumber/)
+  })
+
+  it('rejects when both phone identifiers are blank strings', () => {
+    expect(() =>
+      QualityStateEvent.fromWebhook({
+        id: 'id-x',
+        restaurantId: 'rest-1',
+        phoneNumberId: '   ',
+        displayPhoneNumber: '',
+        qualityRating: 'GREEN',
+      })
+    ).toThrow(/phoneNumberId or displayPhoneNumber/)
   })
 })
 

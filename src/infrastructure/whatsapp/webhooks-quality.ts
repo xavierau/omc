@@ -20,6 +20,12 @@ const QUALITY_FIELDS = new Set([
 
 export interface QualityWebhookEntry {
   phoneNumberId: string | null
+  // Meta's `phone_number_quality_update` event ships ONLY the
+  // `display_phone_number` (e.g. "85291234567") — no `phone_number_id`.
+  // We expose it separately so the resolver can fall back when the id is
+  // missing, and so the persistence layer records whichever identifier
+  // was actually present.
+  displayPhoneNumber: string | null
   qualityRating: QualityRating
   messagingTier: string | null
   flagged: boolean
@@ -77,6 +83,7 @@ function toQualityEntry(
 ): QualityWebhookEntry {
   return {
     phoneNumberId: readString(value.phone_number_id) ?? null,
+    displayPhoneNumber: readString(value.display_phone_number) ?? null,
     qualityRating: readQualityRating(value),
     messagingTier:
       readString(value.current_limit) ?? readString(value.tier) ?? null,

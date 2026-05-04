@@ -7,7 +7,8 @@ import type { QualityRating } from '@/domain/value-objects/quality-rating'
 export interface TenantQualityStateRow {
   id: string
   restaurant_id: string
-  phone_number_id: string
+  phone_number_id: string | null
+  display_phone_number: string | null
   quality_rating: QualityRating
   messaging_tier: string | null
   flagged: boolean
@@ -18,7 +19,8 @@ export interface TenantQualityStateRow {
 export interface TenantQualityStateInsertRow {
   id: string
   restaurant_id: string
-  phone_number_id: string
+  phone_number_id: string | null
+  display_phone_number: string | null
   quality_rating: QualityRating
   messaging_tier: string | null
   flagged: boolean
@@ -31,6 +33,7 @@ export function toEntity(row: TenantQualityStateRow): QualityStateEvent {
     id: row.id,
     restaurantId: row.restaurant_id,
     phoneNumberId: row.phone_number_id,
+    displayPhoneNumber: row.display_phone_number,
     qualityRating: row.quality_rating,
     messagingTier: row.messaging_tier,
     flagged: row.flagged,
@@ -48,6 +51,7 @@ export function toInsertRow(
     id: s.id,
     restaurant_id: s.restaurantId,
     phone_number_id: s.phoneNumberId,
+    display_phone_number: s.displayPhoneNumber,
     quality_rating: s.qualityRating,
     messaging_tier: s.messagingTier,
     flagged: s.flagged,

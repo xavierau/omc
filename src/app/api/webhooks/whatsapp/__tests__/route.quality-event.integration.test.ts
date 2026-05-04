@@ -29,15 +29,20 @@ vi.mock('@/infrastructure/whatsapp/provider-factory', async () => {
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   findByPhoneNumberId: vi.fn(),
+  findByDisplayPhoneNumber: vi.fn(),
   getRestaurantPhoneNumberId: vi.fn(),
 }))
 
-import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  findByDisplayPhoneNumber,
+  findByPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 
 interface QualityRow extends Record<string, unknown> {
   id: string
   restaurant_id: string
-  phone_number_id: string
+  phone_number_id: string | null
+  display_phone_number: string | null
   quality_rating: string
   messaging_tier: string | null
   flagged: boolean
@@ -256,6 +261,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.useRealTimers()
   vi.mocked(findByPhoneNumberId).mockResolvedValue({ id: 'rest-1' } as never)
+  vi.mocked(findByDisplayPhoneNumber).mockResolvedValue({ id: 'rest-1' } as never)
 })
 
 function loadFixture(name: string): unknown {
@@ -342,6 +348,87 @@ describe('POST /api/webhooks/whatsapp — quality events (WAQ-006)', () => {
     expect(json).toEqual({ status: 'ok' })
     expect(state.messages.get('msg-1')!.status).toBe('delivered')
     // Quality table untouched
+    expect(state.qualityEvents).toHaveLength(0)
+  })
+
+  it('phone_number_quality_update with only display_phone_number: resolves restaurant + inserts row', async () => {
+    // Resolver must fall back to display_phone_number when the event omits
+    // phone_number_id. Pre-fix this dropped the webhook silently.
+    // (Use mockResolvedValue, not Once, so we don't pollute the next test.)
+    vi.mocked(findByPhoneNumberId).mockResolvedValue(null as never)
+    vi.mocked(findByDisplayPhoneNumber).mockResolvedValue({
+      id: 'rest-1',
+    } as never)
+
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'phone_number_quality_update',
+              value: {
+                display_phone_number: '85291234567',
+                event: 'FLAGGED',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    const { status, json } = await postWebhook(body)
+
+    expect(status).toBe(200)
+    expect(json).toEqual({ status: 'ok' })
+    expect(vi.mocked(findByDisplayPhoneNumber)).toHaveBeenCalledWith('85291234567')
+    expect(state.qualityEvents).toHaveLength(1)
+    expect(state.qualityEvents[0]).toMatchObject({
+      restaurant_id: 'rest-1',
+      phone_number_id: null,
+      display_phone_number: '85291234567',
+      flagged: true,
+    })
+  })
+
+  it('account_update payload still resolves via phone_number_id (regression)', async () => {
+    // Both finders are mocked, but the id finder takes precedence so
+    // findByDisplayPhoneNumber must NOT be called for the id-bearing case.
+    const fixture = loadFixture('meta-account-quality-yellow.json')
+    await postWebhook(fixture)
+    expect(vi.mocked(findByPhoneNumberId)).toHaveBeenCalledWith(
+      'WAQ002_TEST_PHONE_NUMBER_ID'
+    )
+    expect(vi.mocked(findByDisplayPhoneNumber)).not.toHaveBeenCalled()
+    expect(state.qualityEvents).toHaveLength(1)
+    expect(state.qualityEvents[0].phone_number_id).toBe(
+      'WAQ002_TEST_PHONE_NUMBER_ID'
+    )
+  })
+
+  it('neither phone_number_id nor display_phone_number: returns 200 ignored', async () => {
+    vi.mocked(findByPhoneNumberId).mockResolvedValue(null as never)
+    vi.mocked(findByDisplayPhoneNumber).mockResolvedValue(null as never)
+
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: { new_quality_score: 'GREEN' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const { status, json } = await postWebhook(body)
+    expect(status).toBe(200)
+    expect(json).toEqual({ status: 'ignored' })
     expect(state.qualityEvents).toHaveLength(0)
   })
 

@@ -319,6 +319,9 @@ describe('extractQualityEvent', () => {
     expect(out[0].flagged).toBe(true)
     // No quality field provided -> UNKNOWN sentinel rather than guessing.
     expect(out[0].qualityRating).toBe('UNKNOWN')
+    // phone_number_quality_update ships ONLY display_phone_number
+    expect(out[0].phoneNumberId).toBeNull()
+    expect(out[0].displayPhoneNumber).toBe('85291234567')
   })
 
   it('reads message_template_quality_update new_quality_score', () => {

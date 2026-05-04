@@ -52,8 +52,13 @@ async function handleQualityEntry(
   restaurantId: string,
   log: LogFn
 ): Promise<void> {
-  const phoneNumberId = entry.phoneNumberId ?? 'unknown'
-  const idempotencyKey = buildIdempotencyKey(phoneNumberId, entry)
+  // Idempotency key prefix uses whichever phone identifier we have so two
+  // events for different numbers (id vs display) never collide. The hash
+  // already factors all available payload fields, so identity-vs-display
+  // events for the same number stay distinct.
+  const keyPrefix =
+    entry.phoneNumberId ?? entry.displayPhoneNumber ?? 'unknown'
+  const idempotencyKey = buildIdempotencyKey(keyPrefix, entry)
 
   const claim = await tryMarkProcessed(idempotencyKey, log)
   if (claim === 'duplicate') return
@@ -61,10 +66,18 @@ async function handleQualityEntry(
     throw new Error(`${IDEMPOTENCY_ERROR_PREFIX} claim_failed key=${idempotencyKey}`)
   }
 
+  // Persist whichever identifier(s) were present. The DB enforces "at
+  // least one"; the entity also asserts it.
+  const phoneNumberId = entry.phoneNumberId
+  const displayPhoneNumber = entry.displayPhoneNumber
+  const fallbackId =
+    !phoneNumberId && !displayPhoneNumber ? 'unknown' : null
+
   const event = QualityStateEvent.fromWebhook({
     id: crypto.randomUUID(),
     restaurantId,
-    phoneNumberId,
+    phoneNumberId: phoneNumberId ?? fallbackId,
+    displayPhoneNumber,
     qualityRating: entry.qualityRating,
     messagingTier: entry.messagingTier,
     flagged: entry.flagged,
@@ -83,20 +96,22 @@ async function handleQualityEntry(
 /**
  * Builds a stable, payload-derived idempotency key. The fingerprint is a
  * SHA-256 hash (truncated to 16 hex chars) of identifying fields:
- *   - phoneNumberId (or 'unknown')
+ *   - phoneNumberId / displayPhoneNumber
  *   - current quality + tier + flagged
  *   - old_limit / previous_quality_score / message_template_id from the
  *     raw Meta payload (when present) — these distinguish back-to-back
  *     transitions through the same intermediate state.
  *
- * Key shape: `account_quality:<phoneNumberId>:<sha256_16>`.
+ * Key shape: `account_quality:<keyPrefix>:<sha256_16>` where keyPrefix is
+ * the best phone identifier available (id > display > 'unknown').
  */
 function buildIdempotencyKey(
-  phoneNumberId: string,
+  keyPrefix: string,
   entry: QualityWebhookEntry
 ): string {
   const fingerprint = {
-    phoneNumberId,
+    phoneNumberId: entry.phoneNumberId ?? null,
+    displayPhoneNumber: entry.displayPhoneNumber ?? null,
     qualityRating: entry.qualityRating,
     messagingTier: entry.messagingTier ?? null,
     flagged: entry.flagged,
@@ -112,7 +127,7 @@ function buildIdempotencyKey(
     .update(JSON.stringify(fingerprint))
     .digest('hex')
     .slice(0, 16)
-  return `account_quality:${phoneNumberId}:${hash}`
+  return `account_quality:${keyPrefix}:${hash}`
 }
 
 function readString(value: unknown): string | undefined {

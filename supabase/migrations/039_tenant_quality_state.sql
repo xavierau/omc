@@ -20,23 +20,40 @@
 CREATE TABLE tenant_quality_state (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  phone_number_id TEXT NOT NULL,
+  -- phone_number_id is NULL-able because Meta's
+  -- `phone_number_quality_update` event ships only `display_phone_number`,
+  -- not the numeric phone_number_id. We persist whichever identifier
+  -- arrives so forensic lookups still work.
+  phone_number_id TEXT,
+  display_phone_number TEXT,
   quality_rating TEXT NOT NULL
     CHECK (quality_rating IN ('GREEN', 'YELLOW', 'RED', 'UNKNOWN')),
   messaging_tier TEXT,
   flagged BOOLEAN NOT NULL DEFAULT false,
   raw_payload JSONB,
   transitioned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- At least one identifier must be present so forensics can correlate
+  -- the row to a specific Meta phone number.
+  CONSTRAINT tqs_phone_identifier_present CHECK (
+    phone_number_id IS NOT NULL OR display_phone_number IS NOT NULL
+  )
 );
 
 -- Per-tenant latest-state lookup (auto-pause + dashboard hot path)
 CREATE INDEX idx_tqs_restaurant_transitioned
   ON tenant_quality_state(restaurant_id, transitioned_at DESC);
 
--- Per-phone forensic lookup (when Kapso doesn't include restaurant_id)
+-- Per-phone forensic lookup (when Kapso doesn't include restaurant_id).
+-- Partial index so rows missing phone_number_id (display-only events)
+-- don't bloat the structure.
 CREATE INDEX idx_tqs_phone_transitioned
-  ON tenant_quality_state(phone_number_id, transitioned_at DESC);
+  ON tenant_quality_state(phone_number_id, transitioned_at DESC)
+  WHERE phone_number_id IS NOT NULL;
+
+CREATE INDEX idx_tqs_display_phone_transitioned
+  ON tenant_quality_state(display_phone_number, transitioned_at DESC)
+  WHERE display_phone_number IS NOT NULL;
 
 -- RLS — SELECT-only (writes are service-role-bypassed; see top-of-file).
 ALTER TABLE tenant_quality_state ENABLE ROW LEVEL SECURITY;
