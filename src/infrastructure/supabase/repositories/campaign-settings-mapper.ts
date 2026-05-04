@@ -59,47 +59,41 @@ function parseAutoThrottle(v: number | string | null | undefined): number {
 
 type SettingsUpdate = Partial<Omit<TenantCampaignSettings, 'restaurantId'>>
 
+// Identity transform — value passes through untouched (non-undefined only,
+// undefined branches are gated by the caller).
+const passthrough = (v: unknown): unknown => v
+// Date | null transform — emits ISO string or null. Date is already filtered
+// against undefined by the caller.
+const dateOrNull = (v: unknown): unknown =>
+  v instanceof Date ? v.toISOString() : null
+// `pausedReason` historically coerced its undefined-equivalent (null) through
+// `?? null`. The caller already gates on `!== undefined`, so we just return
+// the value as-is — preserves the old "null stays null" behavior.
+const stringOrNull = (v: unknown): unknown => v ?? null
+
+const FIELD_MAP: ReadonlyArray<
+  readonly [keyof SettingsUpdate, string, (v: unknown) => unknown]
+> = [
+  ['monthlySendLimit', 'monthly_send_limit', passthrough],
+  ['dailyCampaignLimit', 'daily_campaign_limit', passthrough],
+  ['maxUnsubscribeRate', 'max_unsubscribe_rate', passthrough],
+  ['campaignPaused', 'campaign_paused', passthrough],
+  ['pausedReason', 'paused_reason', stringOrNull],
+  ['pausedAt', 'paused_at', dateOrNull],
+  ['perUserMarketingCap', 'per_user_marketing_cap', passthrough],
+  ['autoThrottleFactor', 'auto_throttle_factor', passthrough],
+  ['autoPauseActive', 'auto_pause_active', passthrough],
+  ['autoPauseReason', 'auto_pause_reason', passthrough],
+  ['autoPauseSetAt', 'auto_pause_set_at', dateOrNull],
+]
+
 export function mapSettingsToUpsert(
   restaurantId: string,
   settings: SettingsUpdate
 ): Record<string, unknown> {
   const row: Record<string, unknown> = { restaurant_id: restaurantId }
-
-  if (settings.monthlySendLimit !== undefined) {
-    row.monthly_send_limit = settings.monthlySendLimit
+  for (const [src, dst, transform] of FIELD_MAP) {
+    if (settings[src] !== undefined) row[dst] = transform(settings[src])
   }
-  if (settings.dailyCampaignLimit !== undefined) {
-    row.daily_campaign_limit = settings.dailyCampaignLimit
-  }
-  if (settings.maxUnsubscribeRate !== undefined) {
-    row.max_unsubscribe_rate = settings.maxUnsubscribeRate
-  }
-  if (settings.campaignPaused !== undefined) {
-    row.campaign_paused = settings.campaignPaused
-  }
-  if (settings.pausedReason !== undefined) {
-    row.paused_reason = settings.pausedReason ?? null
-  }
-  if (settings.pausedAt !== undefined) {
-    row.paused_at = settings.pausedAt ? settings.pausedAt.toISOString() : null
-  }
-  if (settings.perUserMarketingCap !== undefined) {
-    row.per_user_marketing_cap = settings.perUserMarketingCap
-  }
-  if (settings.autoThrottleFactor !== undefined) {
-    row.auto_throttle_factor = settings.autoThrottleFactor
-  }
-  if (settings.autoPauseActive !== undefined) {
-    row.auto_pause_active = settings.autoPauseActive
-  }
-  if (settings.autoPauseReason !== undefined) {
-    row.auto_pause_reason = settings.autoPauseReason
-  }
-  if (settings.autoPauseSetAt !== undefined) {
-    row.auto_pause_set_at = settings.autoPauseSetAt
-      ? settings.autoPauseSetAt.toISOString()
-      : null
-  }
-
   return row
 }

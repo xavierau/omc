@@ -40,45 +40,57 @@ export async function checkCampaignGuardrails(
 ): Promise<GuardrailCheckResult> {
   const settings = await resolveSettings(restaurantId)
   const [monthlySends, dailyCount, unsubStats] = await fetchStats(restaurantId)
-  // WAQ-009: stored values are NEVER mutated by auto-throttle; we compute
-  // the effective bound at read time so undoing a throttle is one column
-  // write rather than a value backfill.
-  const effectiveDaily = effectiveLimit(
-    settings.dailyCampaignLimit, settings.autoThrottleFactor
-  )
-  const effectiveMonthly = effectiveLimit(
-    settings.monthlySendLimit, settings.autoThrottleFactor
-  )
-
+  const limits = computeEffectiveLimits(settings)
   const violations = collectViolations({
-    settings,
-    monthlySends, targetCount: targetMemberCount, dailyCount, unsubStats,
-    effectiveDaily, effectiveMonthly,
+    settings, monthlySends, targetCount: targetMemberCount, dailyCount,
+    unsubStats, ...limits,
   })
-  const warnings = collectWarnings(monthlySends, effectiveMonthly)
-  const unsubRate = unsubStats.total > 0
-    ? unsubStats.unsubscribed / unsubStats.total
-    : 0
-
   return {
     allowed: violations.length === 0,
     violations,
-    warnings,
-    usage: {
-      monthlySends,
-      monthlyLimit: effectiveMonthly,
-      dailyCampaigns: dailyCount,
-      dailyLimit: effectiveDaily,
-      unsubscribeRate: unsubRate,
-      maxUnsubscribeRate: settings.maxUnsubscribeRate,
-      autoThrottleFactor: settings.autoThrottleFactor,
-      autoPauseActive: settings.autoPauseActive,
-    },
+    warnings: collectWarnings(monthlySends, limits.effectiveMonthly),
+    usage: buildUsageView({ settings, monthlySends, dailyCount, unsubStats, limits }),
   }
 }
 
-function effectiveLimit(stored: number, factor: number): number {
-  return Math.floor(stored * factor)
+interface EffectiveLimits {
+  effectiveDaily: number
+  effectiveMonthly: number
+}
+
+// WAQ-009: stored values are NEVER mutated by auto-throttle; we compute
+// the effective bound at read time so undoing a throttle is one column
+// write rather than a value backfill.
+function computeEffectiveLimits(s: TenantCampaignSettings): EffectiveLimits {
+  return {
+    effectiveDaily: Math.floor(s.dailyCampaignLimit * s.autoThrottleFactor),
+    effectiveMonthly: Math.floor(s.monthlySendLimit * s.autoThrottleFactor),
+  }
+}
+
+interface UsageInput {
+  settings: TenantCampaignSettings
+  monthlySends: number
+  dailyCount: number
+  unsubStats: { total: number; unsubscribed: number }
+  limits: EffectiveLimits
+}
+
+function buildUsageView(input: UsageInput): GuardrailUsage {
+  const { settings, monthlySends, dailyCount, unsubStats, limits } = input
+  const unsubRate = unsubStats.total > 0
+    ? unsubStats.unsubscribed / unsubStats.total
+    : 0
+  return {
+    monthlySends,
+    monthlyLimit: limits.effectiveMonthly,
+    dailyCampaigns: dailyCount,
+    dailyLimit: limits.effectiveDaily,
+    unsubscribeRate: unsubRate,
+    maxUnsubscribeRate: settings.maxUnsubscribeRate,
+    autoThrottleFactor: settings.autoThrottleFactor,
+    autoPauseActive: settings.autoPauseActive,
+  }
 }
 
 async function resolveSettings(
