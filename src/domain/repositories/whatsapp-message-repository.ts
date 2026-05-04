@@ -53,4 +53,23 @@ export interface WhatsAppMessageRepository {
     id: string,
     error: { title: string; details?: string }
   ): Promise<void>
+
+  /**
+   * WAQ-007 cooldown gate input: count successful marketing sends for one
+   * recipient in the last 24h. Only sent/delivered/read count — failed sends
+   * don't burn the per-business cap because Meta tracks accepted-by-WhatsApp.
+   */
+  countMarketingSendsLast24h(args: {
+    restaurantId: string
+    phoneE164: string
+  }): Promise<number>
+
+  /**
+   * Bulk variant for the campaign batch path. Returns a Map keyed by
+   * phone_e164. Phones with zero sends are absent (callers default to 0).
+   */
+  countMarketingSendsLast24hForPhones(args: {
+    restaurantId: string
+    phones: string[]
+  }): Promise<Map<string, number>>
 }

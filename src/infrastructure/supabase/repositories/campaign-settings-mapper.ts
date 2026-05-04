@@ -1,4 +1,7 @@
-import type { TenantCampaignSettings } from '@/domain/services/campaign-guardrails'
+import {
+  DEFAULT_PER_USER_MARKETING_CAP,
+  type TenantCampaignSettings,
+} from '@/domain/services/campaign-guardrails'
 
 export interface CampaignSettingsRow {
   id: string
@@ -9,6 +12,10 @@ export interface CampaignSettingsRow {
   campaign_paused: boolean
   paused_reason: string | null
   paused_at: string | null
+  // WAQ-007 — column added in migration 040 with default 1. Older tenant
+  // rows that pre-date the migration won't have the column; the mapper
+  // defends by defaulting to 1 so the gate stays safely-tight.
+  per_user_marketing_cap?: number | null
   created_at: string
   updated_at: string
 }
@@ -24,6 +31,8 @@ export function mapRowToSettings(
     campaignPaused: row.campaign_paused,
     pausedReason: row.paused_reason ?? undefined,
     pausedAt: row.paused_at ? new Date(row.paused_at) : undefined,
+    perUserMarketingCap:
+      row.per_user_marketing_cap ?? DEFAULT_PER_USER_MARKETING_CAP,
   }
 }
 
@@ -52,6 +61,9 @@ export function mapSettingsToUpsert(
   }
   if (settings.pausedAt !== undefined) {
     row.paused_at = settings.pausedAt ? settings.pausedAt.toISOString() : null
+  }
+  if (settings.perUserMarketingCap !== undefined) {
+    row.per_user_marketing_cap = settings.perUserMarketingCap
   }
 
   return row

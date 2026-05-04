@@ -35,6 +35,7 @@ function makeSettings(
     dailyCampaignLimit: 3,
     maxUnsubscribeRate: 0.05,
     campaignPaused: false,
+    perUserMarketingCap: 1,
     ...overrides,
   }
 }

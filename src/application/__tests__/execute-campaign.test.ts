@@ -34,11 +34,24 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', ()
   insertQueued: vi.fn(),
   attachKapsoMessageId: vi.fn(),
   markFailedNoBspId: vi.fn(),
+  // WAQ-007 cooldown counters are re-exported from the repo file. They're
+  // wired through the mocked cooldown-queries module below, but the mock
+  // needs both surfaces present so dependents resolving via either path
+  // get a function rather than undefined.
+  countMarketingSendsLast24h: vi.fn().mockResolvedValue(0),
+  countMarketingSendsLast24hForPhones: vi.fn().mockResolvedValue(new Map()),
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
   findActiveConsent: vi.fn(),
   findActiveMarketingConsentForPhones: vi.fn().mockResolvedValue(new Map()),
+}))
+
+// SendContext now plumbs the per-tenant cooldown cap (WAQ-007). Mock the
+// settings repo so executeCampaign tests don't hit Supabase, and default to
+// `null` (loader applies DEFAULT_PER_USER_MARKETING_CAP=1 for missing rows).
+vi.mock('@/infrastructure/supabase/repositories/campaign-settings-repository', () => ({
+  getSettingsForTenant: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('@/infrastructure/supabase/storage', () => ({
@@ -100,7 +113,10 @@ import {
   findActiveConsent,
   findActiveMarketingConsentForPhones,
 } from '@/infrastructure/supabase/repositories/consent-record-repository'
+import { countMarketingSendsLast24hForPhones } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
+import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
+import type { TenantCampaignSettings } from '@/domain/services/campaign-guardrails'
 import { okResult } from '@/test-utils/send-result'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
@@ -140,6 +156,8 @@ function buildMember(overrides: Partial<Member> = {}): Member {
     joinedAt: '2024-01-01T00:00:00Z',
     lastVisitAt: null,
     preferredLanguage: null,
+    pmmThrottledUntil: null,
+    unreachableAt: null,
     ...overrides,
   }
 }
@@ -533,6 +551,8 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
       joinedAt: '2024-01-01T00:00:00Z',
       lastVisitAt: null,
       preferredLanguage: null,
+      pmmThrottledUntil: null,
+      unreachableAt: null,
       ...overrides,
     }
   }
@@ -752,6 +772,8 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
       joinedAt: '2024-01-01T00:00:00Z',
       lastVisitAt: null,
       preferredLanguage: null,
+      pmmThrottledUntil: null,
+      unreachableAt: null,
       ...overrides,
     }
   }
@@ -798,5 +820,214 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     expect(markFailedNoBspId).toHaveBeenCalled()
     // Status still flips to completed because the batch tolerates failures
     expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+  })
+})
+
+describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    // Default: cooldown counter empty (no prior sends).
+    vi.mocked(countMarketingSendsLast24hForPhones).mockResolvedValue(new Map())
+  })
+
+  function buildCampaignFor(overrides: Partial<Campaign> = {}): Campaign {
+    return {
+      id: 'camp-1',
+      restaurantId: 'r-1',
+      name: 'Promo',
+      type: 'promo',
+      template: 'Hi {{name}}',
+      templateEn: null,
+      templateZhHk: null,
+      imageUrlEn: null,
+      imageUrlZhHk: null,
+      couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 7 },
+      schedule: null,
+      scheduledAt: null,
+      status: 'active',
+      isChargeable: true,
+      chargeableSentCount: 0,
+      nonChargeableSentCount: 0,
+      redeemedCount: 0,
+      whatsappTemplateId: null,
+      targetAudience: 'all',
+      createdAt: '2024-01-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  function buildMemberFor(overrides: Partial<Member> = {}): Member {
+    return {
+      id: 'm-1',
+      restaurantId: 'r-1',
+      phone: '85291234567',
+      name: 'Alice',
+      pointsBalance: 100,
+      status: 'active',
+      joinedAt: '2024-01-01T00:00:00Z',
+      lastVisitAt: null,
+      preferredLanguage: null,
+      pmmThrottledUntil: null,
+      unreachableAt: null,
+      ...overrides,
+    }
+  }
+
+  const marketingTemplate = {
+    id: 'tpl-1',
+    restaurantId: 'r-1',
+    metaTemplateId: 'meta-1',
+    name: 'promo_template',
+    language: 'en',
+    category: 'MARKETING' as const,
+    status: 'approved' as const,
+    components: [],
+    parameterFormat: 'NAMED' as const,
+    rejectionReason: null,
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  }
+
+  function grantConsent(phone: string): ConsentRecord {
+    return ConsentRecord.grant({
+      id: `cr-${phone}`,
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: phone,
+      category: 'marketing',
+      source: 'website_form',
+    })
+  }
+
+  function consentMapFor(phones: string[]): Map<string, ConsentRecord> {
+    return new Map(phones.map((p) => [p, grantConsent(p)]))
+  }
+
+  it('skips a member whose pmm_throttled_until is in the future', async () => {
+    const campaign = buildCampaignFor({ whatsappTemplateId: 'tpl-1' })
+    const future = new Date(Date.now() + 3600_000).toISOString()
+    const throttled = buildMemberFor({ pmmThrottledUntil: future })
+
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([throttled])
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      consentMapFor([throttled.phone])
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // Skip is total: no template send, no coupon, no counter, no event.
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+    expect(insertQueued).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+    expect(emitEvent).not.toHaveBeenCalled()
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+  })
+
+  it('skips a member whose 24h marketing-send count meets the default cap of 1', async () => {
+    const campaign = buildCampaignFor({ whatsappTemplateId: 'tpl-1' })
+    const m = buildMemberFor()
+
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([m])
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      consentMapFor([m.phone])
+    )
+    // Already 1 successful marketing send in the last 24h → cap_exceeded.
+    vi.mocked(countMarketingSendsLast24hForPhones).mockResolvedValue(
+      new Map([[m.phone, 1]])
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+  })
+
+  it('skips a member who is marked unreachable (131026 set unreachable_at)', async () => {
+    const campaign = buildCampaignFor({ whatsappTemplateId: 'tpl-1' })
+    const dead = buildMemberFor({ unreachableAt: '2026-01-01T00:00:00Z' })
+
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([dead])
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      consentMapFor([dead.phone])
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+  })
+
+  it('cap=2 (tenant override) allows a second send to the same recipient within 24h', async () => {
+    const campaign = buildCampaignFor({ whatsappTemplateId: 'tpl-1' })
+    const m = buildMemberFor()
+
+    // Tenant overrides per_user_marketing_cap to 2.
+    const settings: TenantCampaignSettings = {
+      restaurantId: 'r-1',
+      monthlySendLimit: 1000,
+      dailyCampaignLimit: 1,
+      maxUnsubscribeRate: 0.05,
+      campaignPaused: false,
+      perUserMarketingCap: 2,
+    }
+    vi.mocked(getSettingsForTenant).mockResolvedValue(settings)
+
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([m])
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      consentMapFor([m.phone])
+    )
+    // Same recipient counted as 1 — second send within 24h still allowed
+    // because the tenant has opted into a higher cap.
+    vi.mocked(countMarketingSendsLast24hForPhones).mockResolvedValue(
+      new Map([[m.phone, 1]])
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(1)
+    expect(incrementCampaignSent).toHaveBeenCalledTimes(1)
+
+    // Restore default for downstream tests.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(null)
+  })
+
+  it('does NOT call the cooldown counter for non-MARKETING (inline) campaigns — regression', async () => {
+    const campaign = buildCampaignFor({ whatsappTemplateId: null })
+    const m = buildMemberFor()
+
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([m])
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // The cooldown counter is gated behind isMarketingRun(); inline runs
+    // bypass it entirely so PMM-budget tracking isn't billed for receipt /
+    // operational sends.
+    expect(countMarketingSendsLast24hForPhones).not.toHaveBeenCalled()
+    expect(findActiveMarketingConsentForPhones).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
   })
 })

@@ -6,10 +6,15 @@ import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-la
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
 import { sendCampaignBody, sendCouponQr } from './execute-campaign-send'
+import { loadMarketingGateDecisions } from './execute-campaign-batch-gate'
 import {
-  bulkCheckMarketingConsent,
-  type ConsentCheckResult,
-} from './check-marketing-consent'
+  emptyCounters,
+  logSummary,
+  outcomeFromDecision,
+  tally,
+  type MemberOutcome,
+} from './execute-campaign-batch-counters'
+import type { SkipDecision } from '@/domain/value-objects/marketing-skip-reason'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
@@ -23,91 +28,65 @@ export interface SendContext {
   template: WhatsAppTemplate | null
   restaurantDefaultLanguage: string | null
   trackingEnabled: boolean
+  // WAQ-007: per-recipient marketing cap. Captured at run-start so a
+  // mid-batch tenant_campaign_settings update doesn't change behaviour
+  // partway through. Default 1, tenant-overridable up to 10.
+  perUserMarketingCap: number
 }
 
 export async function sendInBatches(
   members: Member[],
   ctx: SendContext
 ): Promise<void> {
-  let failedCount = 0
-  let skippedNoConsent = 0
+  const counters = emptyCounters()
   const isMarketing = isMarketingRun(ctx)
   for (let i = 0; i < members.length; i += BATCH_SIZE) {
     const batch = members.slice(i, i + BATCH_SIZE)
-    // ONE consent fetch for the whole batch (kills the per-member N+1 the
-    // earlier path produced — was 20 individual SELECTs per batch).
-    const consentMap = isMarketing
-      ? await bulkCheckMarketingConsent({
-          restaurantId: ctx.campaign.restaurantId,
-          phones: batch.map((m) => m.phone),
-        })
-      : null
+    const decisions = isMarketing ? await loadDecisions(batch, ctx) : null
     const results = await Promise.allSettled(
-      batch.map((m) => attemptMember(m, ctx, isMarketing, consentMap))
+      batch.map((m) => attemptMember(m, ctx, decisions))
     )
-    for (const r of results) {
-      if (r.status === 'rejected') {
-        failedCount++
-        console.error('[Campaign] Member send failed:', r.reason)
-      } else if (r.value === 'skipped_no_consent') {
-        skippedNoConsent++
-      }
-    }
+    tally(results, counters)
     if (i + BATCH_SIZE < members.length) await delay(BATCH_DELAY_MS)
   }
-  if (failedCount > 0) {
-    console.warn(`[Campaign] ${failedCount}/${members.length} sends failed`)
-  }
-  if (skippedNoConsent > 0) {
-    console.warn(
-      `[Campaign] ${skippedNoConsent}/${members.length} skipped (marketing consent gate)`
-    )
-  }
+  logSummary(members.length, counters)
 }
 
-type MemberOutcome = 'sent' | 'skipped_no_consent'
+async function loadDecisions(
+  batch: Member[],
+  ctx: SendContext
+): Promise<Map<string, SkipDecision>> {
+  return loadMarketingGateDecisions({
+    restaurantId: ctx.campaign.restaurantId,
+    cap: ctx.perUserMarketingCap,
+    batch,
+  })
+}
 
 async function attemptMember(
   member: Member,
   ctx: SendContext,
-  isMarketing: boolean,
-  consentMap: Map<string, ConsentCheckResult> | null
+  decisions: Map<string, SkipDecision> | null
 ): Promise<MemberOutcome> {
-  if (isMarketing && !isAllowed(consentMap, member.phone)) {
-    return 'skipped_no_consent'
+  if (decisions !== null) {
+    const outcome = outcomeFromDecision(decisions.get(member.phone))
+    if (outcome !== 'allowed') return outcome
   }
   await sendToMember(member, ctx)
   return 'sent'
 }
 
-function isAllowed(
-  consentMap: Map<string, ConsentCheckResult> | null,
-  phone: string
-): boolean {
-  // Defaults to denied if the map is missing the phone — defence in depth.
-  return consentMap?.get(phone)?.allowed === true
-}
-
 function isMarketingRun(ctx: SendContext): boolean {
   // Only WhatsApp template sends carry a Meta-classified category. Inline
   // text/QR campaigns go out as 'service' and are not gated by marketing
-  // consent (they are receipt-tied or operational).
+  // consent or per-user cooldown (they are receipt-tied or operational).
   return ctx.template?.category === 'MARKETING'
 }
 
 async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
   const code = generateCouponCode()
-  const language = resolvePreferredLanguage(member, {
-    defaultLanguage: ctx.restaurantDefaultLanguage,
-  })
-  const resolvedTemplate = resolveCampaignTemplate(ctx.campaign, language)
-  const rendered = renderInline(resolvedTemplate ?? '', ctx.campaign, member, code)
-  // Coupon description is what admin dashboards show; avoid empty labels by
-  // falling back to the campaign name when the rendered template is blank.
-  const couponDescription =
-    rendered.trim().length > 0 ? rendered : ctx.campaign.name ?? ''
+  const couponDescription = buildCouponDescription(member, ctx, code)
   await createCampaignBroadcastCoupon(ctx.campaign, member, code, couponDescription)
-
   await sendCampaignBody(member, ctx, code, couponDescription)
   await sendCouponQr(member, ctx, code)
   await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
@@ -117,6 +96,21 @@ async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
     type: 'campaign',
     dataJson: { campaignId: ctx.campaign.id, couponCode: code },
   })
+}
+
+function buildCouponDescription(
+  member: Member,
+  ctx: SendContext,
+  code: string
+): string {
+  const language = resolvePreferredLanguage(member, {
+    defaultLanguage: ctx.restaurantDefaultLanguage,
+  })
+  const resolvedTemplate = resolveCampaignTemplate(ctx.campaign, language)
+  const rendered = renderInline(resolvedTemplate ?? '', ctx.campaign, member, code)
+  // Coupon description is what admin dashboards show; avoid empty labels by
+  // falling back to the campaign name when the rendered template is blank.
+  return rendered.trim().length > 0 ? rendered : ctx.campaign.name ?? ''
 }
 
 function renderInline(
