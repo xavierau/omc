@@ -5,6 +5,7 @@ import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { resolveLanguageForMember } from './resolve-language'
 import { getSystemReply } from './system-replies'
+import { recordJoinConsent } from './join-consent'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 
@@ -27,7 +28,22 @@ export async function handleJoin(params: JoinParams) {
     const upper = (message.text ?? '').trim().toUpperCase()
     const isAsciiJoin = upper === 'JOIN' || upper.startsWith('JOIN-')
     const inboundForDetection = isAsciiJoin ? undefined : message.text
-    return await registerMember(restaurantId, phone, message.contactName, inboundForDetection)
+    const result = await registerMember(
+      restaurantId,
+      phone,
+      message.contactName,
+      inboundForDetection
+    )
+    if (result.isNew) {
+      await recordJoinConsent({
+        restaurantId,
+        memberId: result.memberId,
+        phoneE164: phone,
+        sourceReference: message.messageId,
+        log,
+      })
+    }
+    return result
   } catch (error) {
     log('error', 'handler.error', { route: 'JOIN', error: String(error) })
     // Catch-all error text stays English per ONBOARD-008 scope lock.
