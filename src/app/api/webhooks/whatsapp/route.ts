@@ -10,6 +10,7 @@ import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/rest
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { routeMessage } from './handlers'
 import { routeStatusEvent } from './status-handlers'
+import { routeQualityEvent } from './quality-handlers'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export async function POST(request: NextRequest) {
@@ -40,6 +41,12 @@ export async function POST(request: NextRequest) {
 
     if (kind === 'status') {
       await routeStatusEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'quality') {
+      await routeQualityEvent(body, restaurantId, log)
       log('info', 'webhook.response', { status: 200, kind })
       return NextResponse.json({ status: 'ok' })
     }
