@@ -81,12 +81,32 @@ interface MemberRow extends Record<string, unknown> {
   unreachable_at: string | null
 }
 
+interface CampaignSettingsRow extends Record<string, unknown> {
+  restaurant_id: string
+  auto_throttle_factor?: number
+  auto_pause_active?: boolean
+  auto_pause_reason?: string | null
+  auto_pause_set_at?: string | null
+}
+
+interface EventRow extends Record<string, unknown> {
+  restaurant_id: string
+  type: string
+  data_json: Record<string, unknown>
+}
+
 const state = {
   qualityEvents: [] as QualityRow[],
   messages: new Map<string, MessageRow>(),
   members: new Map<string, MemberRow>(),
   processed: new Set<string>(),
   inbound: [] as Array<Record<string, unknown>>,
+  campaignSettings: new Map<string, CampaignSettingsRow>(),
+  emittedEvents: [] as EventRow[],
+  // Test hook: allows a test to seed a "prior" quality state row that the
+  // handler reads via findLatest before insertion (used to verify
+  // GREEN-from-RED recovery path + stale-event guard).
+  preSeededLatest: null as QualityRow | null,
 }
 
 function reset(): void {
@@ -95,6 +115,9 @@ function reset(): void {
   state.members.clear()
   state.processed.clear()
   state.inbound.length = 0
+  state.campaignSettings.clear()
+  state.emittedEvents.length = 0
+  state.preSeededLatest = null
 }
 
 function seedMessage(row: Partial<MessageRow> & { id: string; kapso_message_id: string }): void {
@@ -130,6 +153,8 @@ function fakeSupabase() {
       if (table === 'processed_webhooks') return processedOps()
       if (table === 'whatsapp_messages') return messagesOps()
       if (table === 'members') return membersOps()
+      if (table === 'tenant_campaign_settings') return settingsOps()
+      if (table === 'events') return eventsOps()
       // No use cases here for inbound writers — return a noop.
       return noopOps()
     },
@@ -137,14 +162,14 @@ function fakeSupabase() {
 }
 
 function qualityOps() {
-  // findLatest is not exercised by this integration test (handler only
-  // inserts), but the production repo still expects `from('tenant_quality_state')`
-  // to expose `select` so the contract lock object stays callable.
-  // Chain shape: select().eq().order().order().limit().maybeSingle()
+  // findLatest semantics: production code reads PRIOR state BEFORE the
+  // handler inserts the new row. Tests can pre-seed via state.preSeededLatest;
+  // otherwise we return the most recently inserted row (mirrors the prod
+  // ORDER BY transitioned_at DESC LIMIT 1).
   const orderChain: Record<string, unknown> = {
     limit: () => ({
       maybeSingle: async () => ({
-        data: state.qualityEvents.at(-1) ?? null,
+        data: state.preSeededLatest ?? state.qualityEvents.at(-1) ?? null,
         error: null,
       }),
     }),
@@ -157,6 +182,34 @@ function qualityOps() {
     },
     select: () => ({
       eq: () => orderChain,
+    }),
+  }
+}
+
+function settingsOps() {
+  return {
+    upsert: async (
+      row: CampaignSettingsRow,
+      _opts: { onConflict: string }
+    ) => {
+      const existing = state.campaignSettings.get(row.restaurant_id) ?? {
+        restaurant_id: row.restaurant_id,
+      }
+      state.campaignSettings.set(row.restaurant_id, { ...existing, ...row })
+      return { error: null }
+    },
+  }
+}
+
+function eventsOps() {
+  return {
+    insert: (row: EventRow) => ({
+      select: (_cols: string) => ({
+        single: async () => {
+          state.emittedEvents.push(row)
+          return { data: { id: `evt-${state.emittedEvents.length}` }, error: null }
+        },
+      }),
     }),
   }
 }
@@ -525,5 +578,113 @@ describe('POST /api/webhooks/whatsapp — quality events (WAQ-006)', () => {
       ],
     }
     expect(classifyWebhookKind(statusBody)).toBe('status')
+  })
+
+  // WAQ-009: end-to-end auto-pause / auto-throttle dispatch.
+  describe('WAQ-009 auto-pause / auto-throttle', () => {
+    it('RED webhook auto-pauses tenant', async () => {
+      const fixture = loadFixture('meta-account-quality-red.json')
+      const { status } = await postWebhook(fixture)
+
+      expect(status).toBe(200)
+      expect(state.qualityEvents).toHaveLength(1)
+      const settings = state.campaignSettings.get('rest-1')
+      expect(settings).toBeDefined()
+      expect(settings!.auto_pause_active).toBe(true)
+      expect(settings!.auto_pause_reason).toBe('quality_red_auto')
+    })
+
+    it('YELLOW webhook auto-throttles tenant to factor 0.5', async () => {
+      const fixture = loadFixture('meta-account-quality-yellow.json')
+      const { status } = await postWebhook(fixture)
+
+      expect(status).toBe(200)
+      const settings = state.campaignSettings.get('rest-1')
+      expect(settings).toBeDefined()
+      expect(settings!.auto_throttle_factor).toBe(0.5)
+      // Throttle alone does NOT set auto_pause_active.
+      expect(settings!.auto_pause_active ?? false).toBe(false)
+    })
+
+    it('GREEN-from-RED logs recovery_required, does NOT clear pause', async () => {
+      // Pre-seed RED prior state (the row read by findLatest BEFORE insert).
+      state.preSeededLatest = {
+        id: 'pre-1',
+        restaurant_id: 'rest-1',
+        phone_number_id: 'WAQ002_TEST_PHONE_NUMBER_ID',
+        display_phone_number: null,
+        quality_rating: 'RED',
+        messaging_tier: 'TIER_1K',
+        flagged: false,
+        raw_payload: null,
+        transitioned_at: '2026-05-04T00:00:00.000Z',
+      }
+      // Simulate the existing RED auto-pause already on the settings row so
+      // we can assert it is NOT cleared.
+      state.campaignSettings.set('rest-1', {
+        restaurant_id: 'rest-1',
+        auto_pause_active: true,
+        auto_pause_reason: 'quality_red_auto',
+        auto_throttle_factor: 1,
+      })
+
+      const fixture = loadFixture('meta-account-quality-green.json')
+      const { status } = await postWebhook(fixture)
+
+      expect(status).toBe(200)
+      const settings = state.campaignSettings.get('rest-1')
+      // Pause stays active — recovery is operator-cleared per Q1 resolution.
+      expect(settings!.auto_pause_active).toBe(true)
+      expect(settings!.auto_pause_reason).toBe('quality_red_auto')
+      // Recovery event was emitted for ops triage.
+      expect(state.emittedEvents.some((e) => e.type === 'quality_recovery_pending'))
+        .toBe(true)
+    })
+
+    it('GREEN-first-time is a no-op (no settings write, no event)', async () => {
+      // No preSeededLatest → handler treats as null prev. GREEN with null prev
+      // is no_op per decideQualityAction.
+      const fixture = loadFixture('meta-account-quality-green.json')
+      const { status } = await postWebhook(fixture)
+
+      expect(status).toBe(200)
+      expect(state.qualityEvents).toHaveLength(1)
+      expect(state.campaignSettings.size).toBe(0)
+      expect(state.emittedEvents).toHaveLength(0)
+    })
+
+    it('out-of-order RED-then-stale-YELLOW: stale event ignored', async () => {
+      // Step 1: RED arrives at "now". Real handler stamps transitionedAt
+      // with new Date(); we let it run.
+      const redFixture = loadFixture('meta-account-quality-red.json')
+      await postWebhook(redFixture)
+      const settingsAfterRed = state.campaignSettings.get('rest-1')
+      expect(settingsAfterRed!.auto_pause_active).toBe(true)
+
+      // Step 2: a YELLOW event arrives whose transitioned_at is OLDER than
+      // the most recent persisted row. Pre-seed an older RED in
+      // qualityEvents history, then override preSeededLatest to point at a
+      // newer row so the stale-guard fires.
+      state.preSeededLatest = {
+        id: 'newer-than-incoming',
+        restaurant_id: 'rest-1',
+        phone_number_id: 'WAQ002_TEST_PHONE_NUMBER_ID',
+        display_phone_number: null,
+        quality_rating: 'RED',
+        messaging_tier: 'TIER_1K',
+        flagged: false,
+        raw_payload: null,
+        // Far-future timestamp guarantees prev > thisAt regardless of
+        // wall-clock skew during the test run.
+        transitioned_at: '2099-01-01T00:00:00.000Z',
+      }
+      const yellowFixture = loadFixture('meta-account-quality-yellow.json')
+      await postWebhook(yellowFixture)
+
+      const settingsAfterYellow = state.campaignSettings.get('rest-1')
+      // Stale YELLOW must NOT downgrade the existing pause to a throttle.
+      expect(settingsAfterYellow!.auto_pause_active).toBe(true)
+      expect(settingsAfterYellow!.auto_pause_reason).toBe('quality_red_auto')
+    })
   })
 })

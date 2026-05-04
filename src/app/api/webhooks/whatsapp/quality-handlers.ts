@@ -9,33 +9,22 @@
 //                     Kapso retries (a transient DB blip must not lose the
 //                     transition).
 //
-// IDEMPOTENCY KEY — payload-derived (NOT clock-derived). Earlier versions
-// used `roundedNowIso()` which broke on Kapso retries that arrived more
-// than one second apart (different keys -> duplicate row). The hash below
-// fingerprints the *meaningful* content of the transition: current state
-// + old/previous state + identifier. Same payload twice -> same key
-// (idempotent). Distinct transitions (GREEN -> YELLOW vs YELLOW -> GREEN)
-// -> distinct keys because the OLD state differs.
-//
-// Trade-off: a tenant cycling YELLOW -> GREEN -> YELLOW *with the same old_*
-// values both times collapses to one row. Including old_limit /
-// previous_quality_score makes that vanishingly unlikely in practice.
-//
-// PER-TENANT SCOPE: `restaurantId` is part of the hash so two restaurants
-// receiving identical webhook payloads (e.g. `message_template_quality_update`
-// without `phone_number_id`) generate DIFFERENT keys. The `processed_webhooks`
-// table is a global namespace — without this, tenant B's event would be
-// silently dropped as a duplicate of tenant A's. The key prefix likewise
-// falls back to `restaurant:<id>` (not the literal 'unknown') so the
-// human-readable key remains tenant-scoped for audits.
+// Idempotency-key construction lives in `quality-idempotency.ts` to keep
+// this file under the 150-line ceiling. WAQ-009 wires the dispatcher
+// AFTER the row is persisted.
 
 import crypto from 'crypto'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
-import { insertEvent } from '@/infrastructure/supabase/repositories/quality-state-repository'
+import {
+  insertEvent,
+  findLatest,
+} from '@/infrastructure/supabase/repositories/quality-state-repository'
 import { extractQualityEvent } from '@/infrastructure/whatsapp/webhooks'
 import type { QualityWebhookEntry } from '@/infrastructure/whatsapp/webhooks'
 import { QualityStateEvent } from '@/domain/entities/quality-state-event'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
+import { dispatchQualityAction } from '@/application/dispatch-quality-action'
+import { buildQualityIdempotencyKey } from './quality-idempotency'
 
 const IDEMPOTENCY_ERROR_PREFIX = 'idempotency.error'
 
@@ -60,18 +49,59 @@ async function handleQualityEntry(
   restaurantId: string,
   log: LogFn
 ): Promise<void> {
-  const idempotencyKey = buildIdempotencyKey(restaurantId, entry)
+  const idempotencyKey = buildQualityIdempotencyKey(restaurantId, entry)
   const claim = await tryMarkProcessed(idempotencyKey, log)
   if (claim === 'duplicate') return
   if (claim === 'error') {
     throw new Error(`${IDEMPOTENCY_ERROR_PREFIX} claim_failed key=${idempotencyKey}`)
   }
-  const event = buildEvent({ entry, restaurantId, transitionedAt: nowIso() })
+  // WAQ-009 r1 review: prefer Meta's payload event time over server `now`.
+  // Server time always advances, so a delayed retry would get a NEWER
+  // timestamp than the current DB row and the stale guard would never
+  // trigger. Meta's `entry[].time` (or value.event_time / value.timestamp)
+  // is the only signal that actually orders out-of-band webhooks.
+  const transitionedAt = entry.eventTimestamp ?? new Date().toISOString()
+  // Read PRIOR state BEFORE inserting so the dispatcher sees the true
+  // previous rating (not the row we are about to insert).
+  const prev = await findLatest({ restaurantId })
+  const event = buildEvent({ entry, restaurantId, transitionedAt })
   await insertEvent(event)
   log('info', 'webhook.quality_event', {
     qualityRating: entry.qualityRating,
     messagingTier: entry.messagingTier,
     flagged: entry.flagged,
+  })
+  await maybeDispatchAction({ entry, prev, restaurantId, transitionedAt, log })
+}
+
+interface DispatchInput {
+  entry: QualityWebhookEntry
+  prev: QualityStateEvent | null
+  restaurantId: string
+  transitionedAt: string
+  log: LogFn
+}
+
+/**
+ * Stale-event guard: out-of-order webhooks (Kapso re-sends an OLDER event
+ * after a NEWER one) must not regress tenant state. We compare
+ * transitioned_at against the most recent persisted row.
+ */
+async function maybeDispatchAction(input: DispatchInput): Promise<void> {
+  const { entry, prev, restaurantId, transitionedAt, log } = input
+  if (prev && prev.snapshot.transitionedAt > transitionedAt) {
+    log('info', 'webhook.quality_action_skipped_stale', {
+      restaurantId,
+      prevAt: prev.snapshot.transitionedAt,
+      thisAt: transitionedAt,
+    })
+    return
+  }
+  await dispatchQualityAction({
+    restaurantId,
+    prevRating: prev?.snapshot.qualityRating ?? null,
+    nextRating: entry.qualityRating,
+    log,
   })
 }
 
@@ -102,61 +132,4 @@ function buildEvent(args: {
     rawPayload: entry.raw,
     transitionedAt,
   })
-}
-
-/**
- * Builds a stable, payload-derived, per-tenant idempotency key.
- *
- * `restaurantId` is included in the hash AND in the human-readable key
- * prefix so two restaurants receiving structurally identical webhooks
- * (e.g. `message_template_quality_update` without `phone_number_id`)
- * cannot collide on the global `processed_webhooks.idempotency_key`.
- *
- * The hash (SHA-256, truncated 16 hex) fingerprints:
- *   - restaurantId (per-tenant scoping)
- *   - phoneNumberId / displayPhoneNumber
- *   - current quality + tier + flagged
- *   - old_limit / previous_quality_score / message_template_id from the
- *     raw Meta payload (when present) — distinguishes back-to-back
- *     transitions through the same intermediate state.
- *
- * Key shape: `account_quality:<keyPrefix>:<sha256_16>` where keyPrefix is
- * `phoneNumberId` > `displayPhoneNumber` > `restaurant:<restaurantId>`.
- */
-function buildIdempotencyKey(
-  restaurantId: string,
-  entry: QualityWebhookEntry
-): string {
-  const keyPrefix =
-    entry.phoneNumberId ??
-    entry.displayPhoneNumber ??
-    `restaurant:${restaurantId}`
-  const fingerprint = {
-    restaurantId,
-    phoneNumberId: entry.phoneNumberId ?? null,
-    displayPhoneNumber: entry.displayPhoneNumber ?? null,
-    qualityRating: entry.qualityRating,
-    messagingTier: entry.messagingTier ?? null,
-    flagged: entry.flagged,
-    oldLimit: readString(entry.raw.old_limit) ?? null,
-    previousQualityScore: readString(entry.raw.previous_quality_score) ?? null,
-    messageTemplateId:
-      readString(entry.raw.message_template_id) ??
-      readString(entry.raw.template_id) ??
-      null,
-  }
-  const hash = crypto
-    .createHash('sha256')
-    .update(JSON.stringify(fingerprint))
-    .digest('hex')
-    .slice(0, 16)
-  return `account_quality:${keyPrefix}:${hash}`
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function nowIso(): string {
-  return new Date().toISOString()
 }

@@ -7,11 +7,23 @@ vi.mock(
   '@/infrastructure/supabase/repositories/quality-state-repository',
   () => ({
     insertEvent: vi.fn(),
+    // WAQ-009: handler reads PRIOR state before insert to feed the dispatcher.
+    findLatest: vi.fn().mockResolvedValue(null),
   })
 )
+// WAQ-009: stub the dispatcher so unit tests for routeQualityEvent stay
+// focused on idempotency + insertion. Dispatcher behaviour is covered by
+// dispatch-quality-action.test.ts and the integration test.
+vi.mock('@/application/dispatch-quality-action', () => ({
+  dispatchQualityAction: vi.fn().mockResolvedValue(undefined),
+}))
 
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
-import { insertEvent } from '@/infrastructure/supabase/repositories/quality-state-repository'
+import {
+  insertEvent,
+  findLatest,
+} from '@/infrastructure/supabase/repositories/quality-state-repository'
+import { dispatchQualityAction } from '@/application/dispatch-quality-action'
 import { routeQualityEvent } from '../quality-handlers'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
@@ -51,6 +63,9 @@ describe('routeQualityEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     logs = []
+    // Default: no prior state. Individual tests override per case.
+    vi.mocked(findLatest).mockResolvedValue(null)
+    vi.mocked(dispatchQualityAction).mockResolvedValue(undefined)
   })
 
   it('happy path: claims idempotency, inserts event, logs quality_event', async () => {
@@ -258,6 +273,152 @@ describe('routeQualityEvent', () => {
     const k2 = vi.mocked(tryMarkProcessed).mock.calls[1]?.[0]
     expect(k1).not.toBe(k2)
     expect(insertEvent).toHaveBeenCalledTimes(2)
+  })
+
+  // WAQ-009: dispatcher wiring + stale-event guard.
+  it('WAQ-009: dispatches action with prevRating from findLatest', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+    vi.mocked(findLatest).mockResolvedValue({
+      snapshot: {
+        qualityRating: 'GREEN',
+        transitionedAt: '2026-05-04T00:00:00.000Z',
+      },
+    } as never)
+
+    await routeQualityEvent(metaQualityBody({ quality: 'red' }), 'rest-1', log)
+
+    expect(dispatchQualityAction).toHaveBeenCalledTimes(1)
+    expect(dispatchQualityAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        prevRating: 'GREEN',
+        nextRating: 'RED',
+      })
+    )
+  })
+
+  it('WAQ-009: stale event (prev newer than this) skips dispatch', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+    // Prior row from the future — guarantees prev > thisAt.
+    vi.mocked(findLatest).mockResolvedValue({
+      snapshot: {
+        qualityRating: 'RED',
+        transitionedAt: '2099-01-01T00:00:00.000Z',
+      },
+    } as never)
+
+    await routeQualityEvent(metaQualityBody({ quality: 'yellow' }), 'rest-1', log)
+
+    expect(dispatchQualityAction).not.toHaveBeenCalled()
+    const skipLog = logs.find(
+      (l) => l[1] === 'webhook.quality_action_skipped_stale'
+    )
+    expect(skipLog).toBeDefined()
+  })
+
+  // WAQ-009 round-1 review (CRITICAL): when the Meta payload includes
+  // entry[].time, the stale-guard must use THAT (not server now). Without
+  // this fix a delayed retry got a NEWER server timestamp than the DB row
+  // and the guard never fired.
+  it('WAQ-009 r1: stale guard uses Meta entry[].time when present', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+    // Prev row at 2026-05-04T12:00:00.
+    vi.mocked(findLatest).mockResolvedValue({
+      snapshot: {
+        qualityRating: 'RED',
+        transitionedAt: '2026-05-04T12:00:00.000Z',
+      },
+    } as never)
+
+    // Incoming payload: entry[].time = 1 hour BEFORE the prev row.
+    const olderEpoch = Math.floor(
+      new Date('2026-05-04T11:00:00.000Z').getTime() / 1000
+    )
+    const body = {
+      entry: [
+        {
+          id: 'WABA-1',
+          time: olderEpoch,
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'yellow',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeQualityEvent(body, 'rest-1', log)
+
+    expect(dispatchQualityAction).not.toHaveBeenCalled()
+    const skipLog = logs.find(
+      (l) => l[1] === 'webhook.quality_action_skipped_stale'
+    )
+    expect(skipLog).toBeDefined()
+    expect(skipLog?.[2]).toMatchObject({
+      thisAt: '2026-05-04T11:00:00.000Z',
+      prevAt: '2026-05-04T12:00:00.000Z',
+    })
+  })
+
+  it('WAQ-009 r1: NEWER Meta entry[].time dispatches (regression)', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+    vi.mocked(findLatest).mockResolvedValue({
+      snapshot: {
+        qualityRating: 'GREEN',
+        transitionedAt: '2026-05-04T12:00:00.000Z',
+      },
+    } as never)
+
+    const newerEpoch = Math.floor(
+      new Date('2026-05-04T13:00:00.000Z').getTime() / 1000
+    )
+    const body = {
+      entry: [
+        {
+          time: newerEpoch,
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'red',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeQualityEvent(body, 'rest-1', log)
+
+    expect(dispatchQualityAction).toHaveBeenCalledWith(
+      expect.objectContaining({ prevRating: 'GREEN', nextRating: 'RED' })
+    )
+  })
+
+  it('WAQ-009: null prev (first-ever event) feeds dispatcher prevRating=null', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(insertEvent).mockResolvedValue(undefined)
+    vi.mocked(findLatest).mockResolvedValue(null)
+
+    await routeQualityEvent(metaQualityBody({ quality: 'red' }), 'rest-1', log)
+
+    expect(dispatchQualityAction).toHaveBeenCalledWith(
+      expect.objectContaining({ prevRating: null, nextRating: 'RED' })
+    )
   })
 
   it('identical payload twice: second is duplicate (regression)', async () => {
