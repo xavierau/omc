@@ -326,7 +326,14 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       })
     })
 
-    it('does NOT write a consent record for returning members (isNew=false)', async () => {
+    it('also writes a consent record for returning members (isNew=false) — covers Kapso retry after a partial first attempt', async () => {
+      // Why isNew=false isn't a guard against writing: the FIRST attempt may
+      // have created the member but then crashed before insertConsentRecord
+      // committed. On retry, registerMember finds the existing member and
+      // returns isNew=false; if we skip the consent write here, we'd leave
+      // the member permanently stranded with no consent record. The partial
+      // unique index on consent_records makes the write idempotent
+      // (duplicate_active is swallowed by the JOIN handler).
       vi.mocked(registerMember).mockResolvedValue({
         isNew: false,
         memberId: 'm-existing',
@@ -335,7 +342,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
       await routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
 
-      expect(insertConsentRecord).not.toHaveBeenCalled()
+      expect(insertConsentRecord).toHaveBeenCalledTimes(1)
     })
 
     it('swallows duplicate_active errors silently (re-join is idempotent)', async () => {
@@ -353,7 +360,11 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       ).resolves.not.toThrow()
     })
 
-    it('logs but does not throw if the consent write fails for an unexpected reason', async () => {
+    it('JOIN: when consent write fails for an unexpected reason, the JOIN handler throws so Kapso can retry the webhook', async () => {
+      // Previously this error was swallowed and logged, leaving the member
+      // permanently without a consent record (and no retry signal back to
+      // Kapso). Surface the error: the route turns it into 500, Kapso
+      // retries, and on retry duplicate_active is swallowed as success.
       vi.mocked(registerMember).mockResolvedValue({
         isNew: true,
         memberId: 'm-new',
@@ -362,18 +373,46 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       vi.mocked(insertConsentRecord).mockRejectedValueOnce(
         new Error('connection lost')
       )
-      const log = vi.fn()
 
-      // routeMessage signature is (message, restaurantId, log?). Pass the spy
-      // log so we can assert the warning was emitted.
       await expect(
-        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B, log)
-      ).resolves.not.toThrow()
-      expect(log).toHaveBeenCalledWith(
-        'warn',
-        'handler.consent_write_failed',
-        expect.objectContaining({ route: 'JOIN' })
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+    })
+
+    it('JOIN retry after first-attempt consent failure succeeds via duplicate_active swallow', async () => {
+      // First attempt: member created, consent write rejects (the bug).
+      // Second attempt (Kapso retry): registerMember returns isNew=false,
+      // recordJoinConsent runs again, the partial unique index trips and
+      // raises ConsentImportError('duplicate_active') — which the handler
+      // swallows. End state: a single consent row exists, no exception.
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new Error('connection lost')
       )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+
+      // Retry. registerMember is now idempotent (member exists) → isNew=false.
+      // The DB-side unique index would convert a real second insert into a
+      // 23505, surfaced as ConsentImportError(duplicate_active).
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: false,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new ConsentImportError('duplicate_active', 'already exists')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
     })
   })
 

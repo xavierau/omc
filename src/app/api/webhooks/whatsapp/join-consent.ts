@@ -24,8 +24,13 @@ export interface JoinConsentArgs {
  * name is captured at consent time so any audit can show the user exactly
  * what business they consented to.
  *
- * Failures are logged and swallowed: not writing a consent record must not
- * roll back the member registration that already succeeded above.
+ * Idempotency contract: callers invoke this on EVERY JOIN, including
+ * returning members (isNew=false). The partial-unique index on
+ * consent_records ensures a re-join is a no-op (duplicate_active is
+ * swallowed below). All other errors are logged AND re-thrown so the
+ * webhook returns 500 and Kapso retries the message — without that
+ * propagation, a member created on the first attempt could be left
+ * permanently without a consent record.
  */
 export async function recordJoinConsent(args: JoinConsentArgs): Promise<void> {
   try {
@@ -56,5 +61,6 @@ export async function recordJoinConsent(args: JoinConsentArgs): Promise<void> {
       route: 'JOIN',
       error: String(err),
     })
+    throw err
   }
 }

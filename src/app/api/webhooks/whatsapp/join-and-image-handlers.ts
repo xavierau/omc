@@ -19,35 +19,56 @@ export interface JoinParams {
 
 export async function handleJoin(params: JoinParams) {
   const { message, restaurantId, phone, phoneNumberId, log } = params
+  // Bare `JOIN` and QR-deep-link `JOIN-{restaurantId}` are both ASCII
+  // and would always detect as EN, falsely pinning member language to
+  // English regardless of their actual preference. Skip detection for
+  // JOIN-family ASCII inputs — the restaurant default wins. Chinese
+  // aliases (加入/入會/註冊) pass through and are detected as zh_hk.
+  const upper = (message.text ?? '').trim().toUpperCase()
+  const isAsciiJoin = upper === 'JOIN' || upper.startsWith('JOIN-')
+  const inboundForDetection = isAsciiJoin ? undefined : message.text
+  const result = await runRegister(
+    { restaurantId, phone, phoneNumberId, log },
+    message.contactName,
+    inboundForDetection
+  )
+  if (!result) return undefined
+  // ALWAYS write the consent record — even when isNew=false. A retry after
+  // a partially-completed first attempt arrives here with isNew=false; if
+  // we skipped the write, the member would remain stranded without
+  // consent. Errors propagate to the route so Kapso retries (200 here
+  // would be a silent permanent loss).
+  await recordJoinConsent({
+    restaurantId,
+    memberId: result.memberId,
+    phoneE164: phone,
+    sourceReference: message.messageId,
+    log,
+  })
+  return result
+}
+
+async function runRegister(
+  ctx: { restaurantId: string; phone: string; phoneNumberId: string; log: LogFn },
+  contactName?: string,
+  inboundForDetection?: string
+) {
   try {
-    // Bare `JOIN` and QR-deep-link `JOIN-{restaurantId}` are both ASCII
-    // and would always detect as EN, falsely pinning member language to
-    // English regardless of their actual preference. Skip detection for
-    // JOIN-family ASCII inputs — the restaurant default wins. Chinese
-    // aliases (加入/入會/註冊) pass through and are detected as zh_hk.
-    const upper = (message.text ?? '').trim().toUpperCase()
-    const isAsciiJoin = upper === 'JOIN' || upper.startsWith('JOIN-')
-    const inboundForDetection = isAsciiJoin ? undefined : message.text
-    const result = await registerMember(
-      restaurantId,
-      phone,
-      message.contactName,
+    return await registerMember(
+      ctx.restaurantId,
+      ctx.phone,
+      contactName,
       inboundForDetection
     )
-    if (result.isNew) {
-      await recordJoinConsent({
-        restaurantId,
-        memberId: result.memberId,
-        phoneE164: phone,
-        sourceReference: message.messageId,
-        log,
-      })
-    }
-    return result
   } catch (error) {
-    log('error', 'handler.error', { route: 'JOIN', error: String(error) })
+    ctx.log('error', 'handler.error', { route: 'JOIN', error: String(error) })
     // Catch-all error text stays English per ONBOARD-008 scope lock.
-    return sendTextMessage(phoneNumberId, phone, 'Sorry, something went wrong. Please try again later.')
+    await sendTextMessage(
+      ctx.phoneNumberId,
+      ctx.phone,
+      'Sorry, something went wrong. Please try again later.'
+    )
+    return null
   }
 }
 
