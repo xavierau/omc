@@ -10,14 +10,15 @@
 //
 // queued_at (not sent_at) is the window boundary so failed-before-send rows
 // still count toward error rate. sent_at would silently exclude them.
+//
+// Aggregation runs server-side via the RPCs in migration 045 to avoid
+// PostgREST's default 1000-row cap silently truncating KPIs at scale.
+// Each call is a single round-trip with bounded result size.
 
 import { createServerSupabaseClient } from '../client'
 import {
   cutoffIso,
-  emptyCounters,
-  tally,
-  toKpis,
-  type Counters,
+  toKpisFromCounters,
   type QualityKpis,
 } from './quality-kpi-counters'
 
@@ -34,113 +35,68 @@ interface AllArgs {
   now?: Date
 }
 
-interface MessageRow {
-  status: string
-  restaurant_id?: string
+interface KpiRpcRow {
+  total_sends: number | string
+  delivered: number | string
+  read_count: number | string
+  failed: number | string
+  opted_out: number | string
 }
 
-interface ConsentRow {
-  restaurant_id?: string
+interface KpiRpcRowAll extends KpiRpcRow {
+  restaurant_id: string
 }
 
-async function fetchTenantMessages(
-  restaurantId: string,
-  cutoff: string
-): Promise<MessageRow[]> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('whatsapp_messages')
-    .select('status')
-    .eq('restaurant_id', restaurantId)
-    .eq('category', 'marketing')
-    .gt('queued_at', cutoff)
-  if (error) throw new Error(`getQualityKpisForTenant: ${error.message}`)
-  return (data ?? []) as MessageRow[]
+// Postgres BIGINT serializes as a JSON number for values within Number.MAX_SAFE_INTEGER
+// (well above any plausible 7-day marketing volume), but PostgREST historically
+// returns BIGINT as a string in some configs. Coerce defensively.
+function toNum(v: number | string): number {
+  return typeof v === 'string' ? Number(v) : v
 }
 
-async function fetchTenantOptOuts(
-  restaurantId: string,
-  cutoff: string
-): Promise<number> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('consent_records')
-    .select('id')
-    .eq('restaurant_id', restaurantId)
-    .eq('category', 'marketing')
-    .eq('status', 'opted_out')
-    .gt('revoked_at', cutoff)
-  if (error) throw new Error(`getQualityKpisForTenant: ${error.message}`)
-  return (data ?? []).length
+function rowToKpis(row: KpiRpcRow): QualityKpis {
+  return toKpisFromCounters({
+    totalSends: toNum(row.total_sends),
+    delivered: toNum(row.delivered),
+    read: toNum(row.read_count),
+    failed: toNum(row.failed),
+    optedOut: toNum(row.opted_out),
+  })
 }
 
 export async function getQualityKpisForTenant(
   args: SingleArgs
 ): Promise<QualityKpis> {
   const cutoff = cutoffIso(args.now, args.windowDays)
-  const [messages, optedOut] = await Promise.all([
-    fetchTenantMessages(args.restaurantId, cutoff),
-    fetchTenantOptOuts(args.restaurantId, cutoff),
-  ])
-  const c = emptyCounters()
-  for (const m of messages) tally(c, m.status)
-  c.optedOut = optedOut
-  return toKpis(c)
-}
-
-async function fetchAllMessages(cutoff: string): Promise<MessageRow[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('whatsapp_messages')
-    .select('restaurant_id, status')
-    .eq('category', 'marketing')
-    .gt('queued_at', cutoff)
-  if (error) throw new Error(`getQualityKpisForAllTenants: ${error.message}`)
-  return (data ?? []) as MessageRow[]
-}
-
-async function fetchAllOptOuts(cutoff: string): Promise<ConsentRow[]> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('consent_records')
-    .select('restaurant_id')
-    .eq('category', 'marketing')
-    .eq('status', 'opted_out')
-    .gt('revoked_at', cutoff)
-  if (error) throw new Error(`getQualityKpisForAllTenants: ${error.message}`)
-  return (data ?? []) as ConsentRow[]
-}
-
-function bucketize(
-  messages: MessageRow[],
-  consents: ConsentRow[]
-): Map<string, Counters> {
-  const counters = new Map<string, Counters>()
-  for (const m of messages) {
-    if (!m.restaurant_id) continue
-    const c = counters.get(m.restaurant_id) ?? emptyCounters()
-    tally(c, m.status)
-    counters.set(m.restaurant_id, c)
-  }
-  for (const o of consents) {
-    if (!o.restaurant_id) continue
-    const c = counters.get(o.restaurant_id) ?? emptyCounters()
-    c.optedOut += 1
-    counters.set(o.restaurant_id, c)
-  }
-  return counters
+  const { data, error } = await supabase.rpc('get_quality_kpis_for_tenant', {
+    p_restaurant_id: args.restaurantId,
+    p_since: cutoff,
+  })
+  if (error) throw new Error(`getQualityKpisForTenant: ${error.message}`)
+  const rows = (data ?? []) as KpiRpcRow[]
+  return rows.length === 0
+    ? rowToKpis({
+        total_sends: 0,
+        delivered: 0,
+        read_count: 0,
+        failed: 0,
+        opted_out: 0,
+      })
+    : rowToKpis(rows[0])
 }
 
 export async function getQualityKpisForAllTenants(
   args: AllArgs
 ): Promise<Map<string, QualityKpis>> {
   const cutoff = cutoffIso(args.now, args.windowDays)
-  const [messages, consents] = await Promise.all([
-    fetchAllMessages(cutoff),
-    fetchAllOptOuts(cutoff),
-  ])
-  const counters = bucketize(messages, consents)
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('get_quality_kpis_for_all_tenants', {
+    p_since: cutoff,
+  })
+  if (error) throw new Error(`getQualityKpisForAllTenants: ${error.message}`)
+  const rows = (data ?? []) as KpiRpcRowAll[]
   const out = new Map<string, QualityKpis>()
-  for (const [id, c] of counters) out.set(id, toKpis(c))
+  for (const r of rows) out.set(r.restaurant_id, rowToKpis(r))
   return out
 }

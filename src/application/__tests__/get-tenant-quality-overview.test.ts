@@ -38,7 +38,22 @@ function buildClient(rowsByTable: Record<string, Row[]>) {
     const rows = rowsByTable[table] ?? []
     return buildBuilder(rows)
   })
-  return { from } as unknown as ReturnType<typeof createServerSupabaseClient>
+  // RPC routing: get_latest_quality_states_for_tenants reads the same
+  // logical fixture as the previous tenant_quality_state table mock, so
+  // the existing test data shape (restaurant_id, quality_rating, ...)
+  // works unchanged. (review fix r1, Fix 1)
+  const rpc = vi.fn().mockImplementation((name: string) => {
+    if (name === 'get_latest_quality_states_for_tenants') {
+      return Promise.resolve({
+        data: rowsByTable['tenant_quality_state'] ?? [],
+        error: null,
+      })
+    }
+    return Promise.resolve({ data: [], error: null })
+  })
+  return { from, rpc } as unknown as ReturnType<
+    typeof createServerSupabaseClient
+  >
 }
 
 function buildBuilder(rows: Row[]): Record<string, unknown> {

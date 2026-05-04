@@ -1,6 +1,10 @@
-// WAQ-012 helper module: counter accumulation + rate derivation. Extracted
-// from `quality-kpi-queries.ts` so the main file stays under the size limit.
-// Pure logic — no Supabase dependency, easy to unit-test in isolation.
+// WAQ-012 helper module: rate derivation + cutoff math. Pure logic — no
+// Supabase dependency, easy to unit-test in isolation.
+//
+// Aggregation now happens server-side in the RPCs from migration 045
+// (review fix r1, Fix 1), so the previous client-side tally helpers are
+// gone. This module is intentionally thin — it owns the rate semantics
+// and the window-cutoff arithmetic.
 
 export interface QualityKpis {
   totalSends: number
@@ -22,26 +26,11 @@ export interface Counters {
   optedOut: number
 }
 
-const STATUS_DELIVERED = ['delivered', 'read'] as const
-
-export function emptyCounters(): Counters {
-  return { totalSends: 0, delivered: 0, read: 0, failed: 0, optedOut: 0 }
-}
-
-export function tally(c: Counters, status: string): void {
-  c.totalSends += 1
-  if (STATUS_DELIVERED.includes(status as (typeof STATUS_DELIVERED)[number])) {
-    c.delivered += 1
-  }
-  if (status === 'read') c.read += 1
-  if (status === 'failed') c.failed += 1
-}
-
-function rate(numerator: number, denominator: number): number {
+export function rate(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : numerator / denominator
 }
 
-export function toKpis(c: Counters): QualityKpis {
+export function toKpisFromCounters(c: Counters): QualityKpis {
   return {
     totalSends: c.totalSends,
     delivered: c.delivered,

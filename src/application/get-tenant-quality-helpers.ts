@@ -62,16 +62,20 @@ async function fetchAllRestaurants(): Promise<RestaurantRow[]> {
   return (data ?? []) as RestaurantRow[]
 }
 
+// Fetches the latest quality_state per restaurant via an RPC that does the
+// DISTINCT ON server-side (review fix r1, Fix 1). The previous
+// client-side reduce-after-sort approach pulled the entire history (no
+// LIMIT) and risked silent truncation past PostgREST's 1000-row cap on
+// long-lived tenants.
 export async function fetchLatestQualityStates(
   restaurantIds: string[]
 ): Promise<Map<string, QualityStateLatest>> {
   if (restaurantIds.length === 0) return new Map()
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('tenant_quality_state')
-    .select('restaurant_id, quality_rating, messaging_tier, transitioned_at')
-    .in('restaurant_id', restaurantIds)
-    .order('transitioned_at', { ascending: false })
+  const { data, error } = await supabase.rpc(
+    'get_latest_quality_states_for_tenants',
+    { p_restaurant_ids: restaurantIds }
+  )
   if (error) throw new Error(`fetchLatestQualityStates: ${error.message}`)
   return reduceLatestByRestaurant((data ?? []) as QualityStateRawRow[])
 }
@@ -79,9 +83,9 @@ export async function fetchLatestQualityStates(
 function reduceLatestByRestaurant(
   rows: QualityStateRawRow[]
 ): Map<string, QualityStateLatest> {
-  // PostgREST returned them sorted DESC by transitioned_at, so the FIRST
-  // hit per restaurant_id wins. Using `if (has)` keeps that semantics
-  // explicit even if the upstream sort is lost.
+  // The RPC returns one row per restaurant_id (server-side DISTINCT ON),
+  // but we keep the de-dup loop as a safety net in case the RPC ever
+  // changes shape.
   const out = new Map<string, QualityStateLatest>()
   for (const r of rows) {
     if (out.has(r.restaurant_id)) continue
