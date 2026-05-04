@@ -13,6 +13,9 @@ vi.mock(
     applyStatusUpdate: vi.fn(),
   })
 )
+vi.mock('@/application/dispatch-error-action', () => ({
+  dispatchErrorAction: vi.fn(),
+}))
 
 import {
   tryMarkProcessed,
@@ -20,6 +23,7 @@ import {
 } from '@/infrastructure/supabase/idempotency'
 import { findMessageByKapsoIdWithRetry } from '@/application/find-message-by-kapso-id'
 import { applyStatusUpdate } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
+import { dispatchErrorAction } from '@/application/dispatch-error-action'
 import { WhatsAppMessage } from '@/domain/entities/whatsapp-message'
 import {
   handleStatusUpdate,
@@ -235,19 +239,18 @@ describe('handleStatusUpdate', () => {
     expect(warnEntry?.[0]).toBe('warn')
   })
 
-  it('failed webhook updates the row with error fields and does NOT call dispatchErrorAction', async () => {
+  it('failed webhook updates the row with error fields AND dispatches the error action (WAQ-003 wired in)', async () => {
     vi.mocked(tryMarkProcessed).mockResolvedValue('new')
     vi.mocked(findMessageByKapsoIdWithRetry).mockResolvedValue(
       buildMessage('sent')
     )
-    vi.mocked(applyStatusUpdate).mockResolvedValue(
-      buildMessage('failed', {
-        status: 'failed',
-        errorCode: '131049',
-        errorTitle: 'PMM',
-        failedAt: '2026-05-04T10:00:05.000Z',
-      })
-    )
+    const failed = buildMessage('failed', {
+      status: 'failed',
+      errorCode: '131049',
+      errorTitle: 'PMM',
+      failedAt: '2026-05-04T10:00:05.000Z',
+    })
+    vi.mocked(applyStatusUpdate).mockResolvedValue(failed)
 
     await handleStatusUpdate(
       {
@@ -276,10 +279,32 @@ describe('handleStatusUpdate', () => {
       }),
       expect.any(Object)
     )
-    const failedLog = logs.find((l) => l[1] === 'webhook.status_failed')
-    expect(failedLog).toBeDefined()
-    expect(failedLog?.[2]).toMatchObject({ errorCode: '131049' })
+    expect(dispatchErrorAction).toHaveBeenCalledTimes(1)
+    expect(dispatchErrorAction).toHaveBeenCalledWith(failed, 'rest-1', log)
     expect(releaseIdempotencyKey).not.toHaveBeenCalled()
+  })
+
+  it('failed webhook with NO errorCode does not call dispatchErrorAction (defensive: no code, no action)', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findMessageByKapsoIdWithRetry).mockResolvedValue(
+      buildMessage('sent')
+    )
+    vi.mocked(applyStatusUpdate).mockResolvedValue(
+      buildMessage('failed', {
+        status: 'failed',
+        errorCode: null,
+        errorTitle: null,
+        failedAt: '2026-05-04T10:00:05.000Z',
+      })
+    )
+
+    await handleStatusUpdate(
+      { id: 'wamid.AAA', status: 'failed', raw: {} },
+      'rest-1',
+      log
+    )
+
+    expect(dispatchErrorAction).not.toHaveBeenCalled()
   })
 })
 

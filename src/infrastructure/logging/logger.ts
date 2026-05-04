@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-type LogLevel = 'info' | 'warn' | 'error'
+type LogLevel = 'info' | 'warn' | 'error' | 'critical'
 
 interface LogEntry {
   timestamp: string

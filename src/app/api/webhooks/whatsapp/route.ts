@@ -10,6 +10,7 @@ import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/rest
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { routeMessage } from './handlers'
 import { routeStatusEvent } from './status-handlers'
+import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export async function POST(request: NextRequest) {
   const log = createWebhookLogger(crypto.randomUUID())
@@ -97,8 +98,6 @@ function extractPhoneNumberId(body: unknown): string | null {
   const metadata = value?.metadata as Record<string, unknown> | undefined
   return (metadata?.phone_number_id as string) ?? null
 }
-
-type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 
 async function resolveRestaurant(body: unknown, log: LogFn): Promise<string | null> {
   const phoneNumberId = extractPhoneNumberId(body)
