@@ -1,16 +1,13 @@
-// WAQ-006: quality-event classification + extraction helpers.
-// Meta forwards three relevant fields:
-//   - account_update (event: 'account_quality_update')
-//   - phone_number_quality_update
-//   - message_template_quality_update
-// Kapso may also wrap them as a flat `event: 'account_quality_update'`.
-// We read both shapes defensively — field names have changed across Meta API
-// versions so each reader tries multiple keys.
+// WAQ-006: quality-event classification + extraction. Meta forwards
+// account_update / phone_number_quality_update / message_template_quality_update
+// fields; Kapso may flatten them as `event: 'account_quality_update'`.
+// Field names have shifted across Meta API versions so readers try multiple keys.
 
 import {
   isQualityRating,
   type QualityRating,
 } from '@/domain/value-objects/quality-rating'
+import { readEventTimestamp } from './webhooks-quality-timestamp'
 
 const QUALITY_FIELDS = new Set([
   'account_update',
@@ -29,12 +26,18 @@ export interface QualityWebhookEntry {
   qualityRating: QualityRating
   messagingTier: string | null
   flagged: boolean
+  // Meta payload event time in ISO. Used by the stale-event guard so the
+  // dispatcher can detect out-of-order webhooks. Read order + fallback
+  // semantics live in webhooks-quality-timestamp.ts (WAQ-009 r1 review).
+  eventTimestamp?: string
   raw: Record<string, unknown>
 }
 
 export function hasMetaQuality(obj: Record<string, unknown>): boolean {
   return allChanges(obj).some(
-    (c) => typeof c.field === 'string' && QUALITY_FIELDS.has(c.field)
+    (c) =>
+      typeof c.change.field === 'string' &&
+      QUALITY_FIELDS.has(c.change.field as string)
   )
 }
 
@@ -60,9 +63,16 @@ function extractMetaQuality(
   // dropped.
   return allChanges(obj)
     .filter(
-      (c) => typeof c.field === 'string' && QUALITY_FIELDS.has(c.field as string)
+      (c) =>
+        typeof c.change.field === 'string' &&
+        QUALITY_FIELDS.has(c.change.field as string)
     )
-    .map((c) => toQualityEntry((c.value ?? {}) as Record<string, unknown>))
+    .map((c) =>
+      toQualityEntry(
+        (c.change.value ?? {}) as Record<string, unknown>,
+        c.entryTime
+      )
+    )
 }
 
 function extractKapsoFlatQuality(
@@ -70,20 +80,26 @@ function extractKapsoFlatQuality(
 ): QualityWebhookEntry | null {
   if (obj.event !== 'account_quality_update') return null
   const data = (obj.data as Record<string, unknown> | undefined) ?? obj
-  return toQualityEntry(data)
+  return toQualityEntry(data, undefined)
 }
 
-function allChanges(
-  obj: Record<string, unknown>
-): Array<Record<string, unknown>> {
+interface ChangeWithEntryContext {
+  change: Record<string, unknown>
+  // Top-level Meta `entry[].time` propagated to every change so
+  // toQualityEntry can build eventTimestamp without losing parent context.
+  entryTime: unknown
+}
+
+function allChanges(obj: Record<string, unknown>): ChangeWithEntryContext[] {
   const entries = Array.isArray(obj.entry) ? obj.entry : []
-  const out: Array<Record<string, unknown>> = []
+  const out: ChangeWithEntryContext[] = []
   for (const entry of entries) {
     const e = entry as Record<string, unknown> | undefined
     const changes = Array.isArray(e?.changes) ? (e!.changes as unknown[]) : []
+    const entryTime = e?.time
     for (const change of changes) {
       if (change && typeof change === 'object') {
-        out.push(change as Record<string, unknown>)
+        out.push({ change: change as Record<string, unknown>, entryTime })
       }
     }
   }
@@ -91,7 +107,8 @@ function allChanges(
 }
 
 function toQualityEntry(
-  value: Record<string, unknown>
+  value: Record<string, unknown>,
+  entryTime: unknown
 ): QualityWebhookEntry {
   return {
     phoneNumberId: readString(value.phone_number_id) ?? null,
@@ -100,6 +117,7 @@ function toQualityEntry(
     messagingTier:
       readString(value.current_limit) ?? readString(value.tier) ?? null,
     flagged: readFlagged(value),
+    eventTimestamp: readEventTimestamp(value, entryTime),
     raw: value,
   }
 }

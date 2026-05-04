@@ -55,7 +55,12 @@ async function handleQualityEntry(
   if (claim === 'error') {
     throw new Error(`${IDEMPOTENCY_ERROR_PREFIX} claim_failed key=${idempotencyKey}`)
   }
-  const transitionedAt = new Date().toISOString()
+  // WAQ-009 r1 review: prefer Meta's payload event time over server `now`.
+  // Server time always advances, so a delayed retry would get a NEWER
+  // timestamp than the current DB row and the stale guard would never
+  // trigger. Meta's `entry[].time` (or value.event_time / value.timestamp)
+  // is the only signal that actually orders out-of-band webhooks.
+  const transitionedAt = entry.eventTimestamp ?? new Date().toISOString()
   // Read PRIOR state BEFORE inserting so the dispatcher sees the true
   // previous rating (not the row we are about to insert).
   const prev = await findLatest({ restaurantId })

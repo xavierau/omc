@@ -461,4 +461,107 @@ describe('extractQualityEvent', () => {
     const out = extractQualityEvent(body)
     expect(out[0].qualityRating).toBe('UNKNOWN')
   })
+
+  // WAQ-009 round-1 review (CRITICAL): the stale-event guard MUST use Meta's
+  // payload event time, not server `now`. extractQualityEvent must surface
+  // it via QualityWebhookEntry.eventTimestamp.
+  describe('eventTimestamp (WAQ-009 r1)', () => {
+    it('reads top-level entry[].time (seconds since epoch) as ISO', () => {
+      const body = {
+        entry: [
+          {
+            id: 'WABA-1',
+            time: 1777896000, // 2026-05-04T12:00:00.000Z
+            changes: [
+              {
+                field: 'account_update',
+                value: {
+                  event: 'account_quality_update',
+                  phone_number_id: 'pn-1',
+                  quality: 'green',
+                },
+              },
+            ],
+          },
+        ],
+      }
+      const out = extractQualityEvent(body)
+      expect(out[0].eventTimestamp).toBe('2026-05-04T12:00:00.000Z')
+    })
+
+    it('falls back to value.event_time when entry[].time is missing', () => {
+      const body = {
+        entry: [
+          {
+            changes: [
+              {
+                field: 'phone_number_quality_update',
+                value: {
+                  display_phone_number: '85291234567',
+                  event: 'FLAGGED',
+                  event_time: 1777896000,
+                },
+              },
+            ],
+          },
+        ],
+      }
+      const out = extractQualityEvent(body)
+      expect(out[0].eventTimestamp).toBe('2026-05-04T12:00:00.000Z')
+    })
+
+    it('falls back to value.timestamp (Kapso flat shape, ISO string)', () => {
+      const body = {
+        event: 'account_quality_update',
+        data: {
+          phone_number_id: 'pn-9',
+          quality: 'GREEN',
+          timestamp: '2026-05-04T12:00:00.000Z',
+        },
+      }
+      const out = extractQualityEvent(body)
+      expect(out[0].eventTimestamp).toBe('2026-05-04T12:00:00.000Z')
+    })
+
+    it('returns undefined when no payload timestamp is present', () => {
+      const body = {
+        entry: [
+          {
+            changes: [
+              {
+                field: 'account_update',
+                value: { quality: 'green', phone_number_id: 'pn-1' },
+              },
+            ],
+          },
+        ],
+      }
+      const out = extractQualityEvent(body)
+      expect(out[0].eventTimestamp).toBeUndefined()
+    })
+
+    it('prefers entry[].time over value.event_time / value.timestamp', () => {
+      const body = {
+        entry: [
+          {
+            time: 1777896000, // wins
+            changes: [
+              {
+                field: 'account_update',
+                value: {
+                  event: 'account_quality_update',
+                  phone_number_id: 'pn-1',
+                  quality: 'green',
+                  event_time: 1, // would parse to 1970 if used
+                  timestamp: '2099-01-01T00:00:00.000Z',
+                },
+              },
+            ],
+          },
+        ],
+      }
+      const out = extractQualityEvent(body)
+      expect(out[0].eventTimestamp).toBe('2026-05-04T12:00:00.000Z')
+    })
+  })
 })
