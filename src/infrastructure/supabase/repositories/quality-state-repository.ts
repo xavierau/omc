@@ -7,7 +7,10 @@
 
 import { createServerSupabaseClient } from '../client'
 import { QualityStateEvent } from '@/domain/entities/quality-state-event'
-import type { QualityStateRepository } from '@/domain/repositories/quality-state-repository'
+import type {
+  FindLatestArgs,
+  QualityStateRepository,
+} from '@/domain/repositories/quality-state-repository'
 import {
   toEntity,
   toInsertRow,
@@ -23,7 +26,7 @@ export async function insertEvent(event: QualityStateEvent): Promise<void> {
 }
 
 export async function findLatest(
-  restaurantId: string
+  args: FindLatestArgs
 ): Promise<QualityStateEvent | null> {
   // PostgREST does not natively support DISTINCT ON, but a compound index on
   // (restaurant_id, transitioned_at DESC) makes the equivalent
@@ -34,11 +37,19 @@ export async function findLatest(
   // second are common) would otherwise sort non-deterministically. Adding
   // created_at DESC as a secondary sort key gives microsecond ordering
   // (the column defaults to now() at insert time).
+  //
+  // Optional `phoneNumberId` filter: a tenant can have multiple phone
+  // numbers, and dashboard rollups want tenant-wide history while per-
+  // phone health checks want phone-scoped history. Both are supported.
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from(TABLE)
     .select('*')
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', args.restaurantId)
+  if (args.phoneNumberId !== undefined) {
+    query = query.eq('phone_number_id', args.phoneNumberId)
+  }
+  const { data, error } = await query
     .order('transitioned_at', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(1)

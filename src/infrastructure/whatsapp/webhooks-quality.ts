@@ -33,9 +33,9 @@ export interface QualityWebhookEntry {
 }
 
 export function hasMetaQuality(obj: Record<string, unknown>): boolean {
-  const change = firstChange(obj)
-  const field = typeof change?.field === 'string' ? change.field : null
-  return field !== null && QUALITY_FIELDS.has(field)
+  return allChanges(obj).some(
+    (c) => typeof c.field === 'string' && QUALITY_FIELDS.has(c.field)
+  )
 }
 
 export function hasKapsoFlatQuality(obj: Record<string, unknown>): boolean {
@@ -54,11 +54,15 @@ export function extractQualityEvent(body: unknown): QualityWebhookEntry[] {
 function extractMetaQuality(
   obj: Record<string, unknown>
 ): QualityWebhookEntry[] {
-  const change = firstChange(obj)
-  if (!change || typeof change.field !== 'string') return []
-  if (!QUALITY_FIELDS.has(change.field)) return []
-  const value = (change.value ?? {}) as Record<string, unknown>
-  return [toQualityEntry(value)]
+  // Meta can batch multiple `entry[].changes[]` per webhook (e.g. two
+  // template quality updates and one account quality update in the same
+  // POST). Iterate over every quality-bearing change so none are silently
+  // dropped.
+  return allChanges(obj)
+    .filter(
+      (c) => typeof c.field === 'string' && QUALITY_FIELDS.has(c.field as string)
+    )
+    .map((c) => toQualityEntry((c.value ?? {}) as Record<string, unknown>))
 }
 
 function extractKapsoFlatQuality(
@@ -69,13 +73,21 @@ function extractKapsoFlatQuality(
   return toQualityEntry(data)
 }
 
-function firstChange(
+function allChanges(
   obj: Record<string, unknown>
-): Record<string, unknown> | null {
+): Array<Record<string, unknown>> {
   const entries = Array.isArray(obj.entry) ? obj.entry : []
-  const entry = entries[0] as Record<string, unknown> | undefined
-  const changes = Array.isArray(entry?.changes) ? entry!.changes : []
-  return (changes[0] as Record<string, unknown> | undefined) ?? null
+  const out: Array<Record<string, unknown>> = []
+  for (const entry of entries) {
+    const e = entry as Record<string, unknown> | undefined
+    const changes = Array.isArray(e?.changes) ? (e!.changes as unknown[]) : []
+    for (const change of changes) {
+      if (change && typeof change === 'object') {
+        out.push(change as Record<string, unknown>)
+      }
+    }
+  }
+  return out
 }
 
 function toQualityEntry(

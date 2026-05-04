@@ -1,5 +1,16 @@
 import type { QualityStateEvent } from '../entities/quality-state-event'
 
+export interface FindLatestArgs {
+  restaurantId: string
+  /**
+   * Optional phone-number-id filter. A tenant can have multiple phone
+   * numbers under one WABA; without this filter the result interleaves
+   * history from every phone. Pass it for per-phone health checks; omit
+   * it for tenant-wide dashboard rollups.
+   */
+  phoneNumberId?: string
+}
+
 /**
  * Contract for the `tenant_quality_state` writer/reader. The Supabase
  * implementation lives in `src/infrastructure/supabase/repositories/`
@@ -15,5 +26,5 @@ export interface QualityStateRepository {
 
   /** Returns the most recent transition for a tenant, or null if no
    * quality signal has ever been recorded. */
-  findLatest(restaurantId: string): Promise<QualityStateEvent | null>
+  findLatest(args: FindLatestArgs): Promise<QualityStateEvent | null>
 }

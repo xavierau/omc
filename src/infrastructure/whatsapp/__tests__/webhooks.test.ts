@@ -373,6 +373,78 @@ describe('extractQualityEvent', () => {
     ).toEqual([])
   })
 
+  it('iterates ALL entry[].changes[] (batched payloads)', () => {
+    // Meta batches multiple changes per webhook. Pre-fix the helper only
+    // inspected entry[0].changes[0] and silently dropped the rest.
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: { new_quality_score: 'GREEN' },
+            },
+            {
+              field: 'message_template_quality_update',
+              value: { new_quality_score: 'YELLOW' },
+            },
+          ],
+        },
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'red',
+                current_limit: 'TIER_1K',
+              },
+            },
+            {
+              field: 'phone_number_quality_update',
+              value: {
+                display_phone_number: '85291234567',
+                event: 'FLAGGED',
+                current_limit: 'TIER_1K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(4)
+    expect(out.map((e) => e.qualityRating)).toEqual([
+      'GREEN',
+      'YELLOW',
+      'RED',
+      'UNKNOWN',
+    ])
+  })
+
+  it('skips non-quality changes interleaved with quality ones', () => {
+    const body = {
+      entry: [
+        {
+          changes: [
+            { field: 'messages', value: { messages: [{ id: 'x' }] } },
+            {
+              field: 'account_update',
+              value: { quality: 'green' },
+            },
+          ],
+        },
+      ],
+    }
+    const out = extractQualityEvent(body)
+    expect(out).toHaveLength(1)
+    expect(out[0].qualityRating).toBe('GREEN')
+  })
+
   it('coerces unknown quality strings to UNKNOWN (defensive)', () => {
     const body = {
       entry: [

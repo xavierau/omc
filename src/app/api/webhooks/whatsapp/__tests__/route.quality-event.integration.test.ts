@@ -432,6 +432,65 @@ describe('POST /api/webhooks/whatsapp — quality events (WAQ-006)', () => {
     expect(state.qualityEvents).toHaveLength(0)
   })
 
+  it('webhook with 2 entries x 2 changes = 4 events: all 4 inserted', async () => {
+    // RED before fix: handler only inspected entry[0].changes[0]
+    // and silently dropped 3 of 4 events.
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'green',
+                current_limit: 'TIER_10K',
+                old_limit: 'TIER_1K',
+              },
+            },
+            {
+              field: 'message_template_quality_update',
+              value: {
+                previous_quality_score: 'GREEN',
+                new_quality_score: 'YELLOW',
+                message_template_id: 'tpl-1',
+              },
+            },
+          ],
+        },
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_quality_update',
+              value: {
+                previous_quality_score: 'YELLOW',
+                new_quality_score: 'RED',
+                message_template_id: 'tpl-2',
+              },
+            },
+            {
+              field: 'account_update',
+              value: {
+                event: 'account_quality_update',
+                phone_number_id: 'pn-1',
+                quality: 'yellow',
+                current_limit: 'TIER_1K',
+                old_limit: 'TIER_10K',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    const { status } = await postWebhook(body)
+    expect(status).toBe(200)
+    expect(state.qualityEvents).toHaveLength(4)
+  })
+
   it('REGRESSION: classifier still returns inbound (not quality) for messages payload', async () => {
     // Direct classifier check — full inbound routing requires the member
     // repository which is not part of this slice's mock surface.

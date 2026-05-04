@@ -60,19 +60,25 @@ function buildSelectClient(
     recorder.limit = n
     return { maybeSingle }
   })
-  const orderChain = {
-    order: vi.fn(),
-    limit,
-  }
-  orderChain.order.mockImplementation((column: string, opts: { ascending: boolean }) => {
-    recorder.orders.push({ column, ascending: opts.ascending })
-    return orderChain
-  })
-  const eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+  // The chain returned by `.eq()` must support both further `.eq(...)` calls
+  // (for optional filters like phone_number_id) and `.order(...).order().limit()`.
+  const eqChain: Record<string, unknown> = { limit }
+  eqChain.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
     recorder.eqs.push({ col, val })
-    return orderChain
+    return eqChain
   })
-  const select = vi.fn().mockReturnValue({ eq })
+  eqChain.order = vi.fn().mockImplementation(
+    (column: string, opts: { ascending: boolean }) => {
+      recorder.orders.push({ column, ascending: opts.ascending })
+      return eqChain
+    }
+  )
+  const select = vi.fn().mockReturnValue({
+    eq: (col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return eqChain
+    },
+  })
   const from = vi.fn().mockImplementation((t: string) => {
     recorder.table = t
     return { select }
@@ -156,7 +162,7 @@ describe('findLatest', () => {
     })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
-    const result = await findLatest('rest-1')
+    const result = await findLatest({ restaurantId: 'rest-1' })
 
     expect(recorder.table).toBe('tenant_quality_state')
     expect(recorder.eqs).toEqual([{ col: 'restaurant_id', val: 'rest-1' }])
@@ -170,11 +176,42 @@ describe('findLatest', () => {
     expect(result?.snapshot.id).toBe('evt-1')
   })
 
+  it('also filters by phone_number_id when provided', async () => {
+    const { client, recorder } = buildSelectClient({
+      data: null,
+      error: null,
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await findLatest({ restaurantId: 'rest-1', phoneNumberId: 'pn-2' })
+
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'rest-1' },
+      { col: 'phone_number_id', val: 'pn-2' },
+    ])
+    expect(recorder.orders).toEqual([
+      { column: 'transitioned_at', ascending: false },
+      { column: 'created_at', ascending: false },
+    ])
+  })
+
+  it('does NOT filter by phone_number_id when omitted (tenant-wide rollup)', async () => {
+    const { client, recorder } = buildSelectClient({
+      data: null,
+      error: null,
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await findLatest({ restaurantId: 'rest-1' })
+
+    expect(recorder.eqs).toEqual([{ col: 'restaurant_id', val: 'rest-1' }])
+  })
+
   it('returns null when no transitions exist for the tenant', async () => {
     const { client } = buildSelectClient({ data: null, error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
-    const result = await findLatest('rest-empty')
+    const result = await findLatest({ restaurantId: 'rest-empty' })
 
     expect(result).toBeNull()
   })
@@ -186,7 +223,7 @@ describe('findLatest', () => {
     })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
-    await expect(findLatest('rest-1')).rejects.toThrow(
+    await expect(findLatest({ restaurantId: 'rest-1' })).rejects.toThrow(
       'findLatest: connection_failure'
     )
   })
