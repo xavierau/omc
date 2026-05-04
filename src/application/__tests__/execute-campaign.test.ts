@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Campaign, CouponConfig } from '@/domain/entities/campaign'
 import type { Member } from '@/domain/entities/member'
 
@@ -28,6 +28,12 @@ vi.mock('@/application/emit-event', () => ({
 vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
   sendImageMessage: vi.fn(),
+}))
+
+vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', () => ({
+  insertQueuedMessage: vi.fn(),
+  attachKapsoMessageId: vi.fn(),
+  markFailedNoBspId: vi.fn(),
 }))
 
 vi.mock('@/infrastructure/supabase/storage', () => ({
@@ -73,13 +79,19 @@ import {
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { emitEvent } from '@/application/emit-event'
-import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolveTargetMembers } from '@/application/resolve-campaign-members'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import {
+  insertQueuedMessage,
+  attachKapsoMessageId,
+  markFailedNoBspId,
+} from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
+import { okResult } from '@/test-utils/send-result'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
@@ -442,5 +454,115 @@ describe('executeCampaign', () => {
         template,
       })
     )
+  })
+})
+
+describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () => {
+  const ORIGINAL_FLAG = process.env.WAQ_TRACK_MESSAGES
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.WAQ_TRACK_MESSAGES = '1'
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    vi.mocked(insertQueuedMessage).mockResolvedValue(undefined)
+    vi.mocked(attachKapsoMessageId).mockResolvedValue(undefined)
+    vi.mocked(markFailedNoBspId).mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    if (ORIGINAL_FLAG === undefined) {
+      delete process.env.WAQ_TRACK_MESSAGES
+    } else {
+      process.env.WAQ_TRACK_MESSAGES = ORIGINAL_FLAG
+    }
+  })
+
+  function buildCampaignLocal(overrides: Partial<Campaign> = {}): Campaign {
+    return {
+      id: 'camp-1',
+      restaurantId: 'r-1',
+      name: 'Test Campaign',
+      type: 'promo',
+      template: 'Hi {{name}}, use {{code}}',
+      templateEn: null,
+      templateZhHk: null,
+      imageUrlEn: null,
+      imageUrlZhHk: null,
+      couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 7 },
+      schedule: null,
+      scheduledAt: null,
+      status: 'active',
+      isChargeable: true,
+      chargeableSentCount: 0,
+      nonChargeableSentCount: 0,
+      redeemedCount: 0,
+      whatsappTemplateId: null,
+      targetAudience: 'all',
+      createdAt: '2024-01-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  function buildMemberLocal(overrides: Partial<Member> = {}): Member {
+    return {
+      id: 'm-1',
+      restaurantId: 'r-1',
+      phone: '85291234567',
+      name: 'Alice',
+      pointsBalance: 0,
+      status: 'active',
+      joinedAt: '2024-01-01T00:00:00Z',
+      lastVisitAt: null,
+      preferredLanguage: null,
+      ...overrides,
+    }
+  }
+
+  it('inserts a queued row per member (one for body, one for QR)', async () => {
+    const members = [
+      buildMemberLocal({ id: 'm-1', phone: '85291111111' }),
+      buildMemberLocal({ id: 'm-2', phone: '85292222222' }),
+    ]
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignLocal())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // 2 members × 2 rows each (body + QR) = 4 inserts
+    expect(insertQueuedMessage).toHaveBeenCalledTimes(4)
+    expect(attachKapsoMessageId).toHaveBeenCalledTimes(4)
+  })
+
+  it('a single member send failure does not abort the batch', async () => {
+    const members = [
+      buildMemberLocal({ id: 'm-1', phone: '85291111111' }),
+      buildMemberLocal({ id: 'm-2', phone: '85292222222' }),
+      buildMemberLocal({ id: 'm-3', phone: '85293333333' }),
+    ]
+    // First and third member: body sends succeed; second member's body send rejects.
+    vi.mocked(sendTextMessage)
+      .mockResolvedValueOnce(okResult('wamid.body-1'))
+      .mockRejectedValueOnce(new Error('flaky network'))
+      .mockResolvedValueOnce(okResult('wamid.body-3'))
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignLocal())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // All 3 members produced inserts (3 body + 3 QR = 6)
+    expect(insertQueuedMessage).toHaveBeenCalledTimes(6)
+    // Failed body for m-2 went through markFailedNoBspId
+    expect(markFailedNoBspId).toHaveBeenCalled()
+    // Status still flips to completed because the batch tolerates failures
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
   })
 })

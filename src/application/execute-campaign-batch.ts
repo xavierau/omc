@@ -1,13 +1,11 @@
 import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { emitEvent } from '@/application/emit-event'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
-import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
-import { sendWhatsAppTemplateMessage } from './send-template-message'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
+import { sendCampaignBody, sendCouponQr } from './execute-campaign-send'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
@@ -20,6 +18,7 @@ export interface SendContext {
   phoneNumberId: string
   template: WhatsAppTemplate | null
   restaurantDefaultLanguage: string | null
+  trackingEnabled: boolean
 }
 
 export async function sendInBatches(
@@ -56,39 +55,14 @@ async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
     rendered.trim().length > 0 ? rendered : ctx.campaign.name ?? ''
   await createCampaignBroadcastCoupon(ctx.campaign, member, code, couponDescription)
 
-  if (ctx.template) {
-    await sendViaTemplate(ctx.phoneNumberId, member, ctx.campaign, ctx.template, code)
-  } else {
-    await sendTextMessage(ctx.phoneNumberId, member.phone, couponDescription)
-  }
-  await sendCouponQr(ctx.phoneNumberId, member.phone, code)
+  await sendCampaignBody(member, ctx, code, couponDescription)
+  await sendCouponQr(member, ctx, code)
   await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
   await emitEvent({
     restaurantId: ctx.campaign.restaurantId,
     memberId: member.id,
     type: 'campaign',
     dataJson: { campaignId: ctx.campaign.id, couponCode: code },
-  })
-}
-
-async function sendViaTemplate(
-  phoneNumberId: string,
-  member: Member,
-  campaign: Campaign,
-  template: WhatsAppTemplate,
-  code: string
-): Promise<void> {
-  const discount = formatDiscount(campaign.couponConfig)
-  await sendWhatsAppTemplateMessage({
-    phoneNumberId,
-    to: member.phone,
-    template,
-    paramValues: {
-      customer_name: member.name ?? 'there',
-      code,
-      discount,
-    },
-    couponCode: code,
   })
 }
 
@@ -104,19 +78,6 @@ function renderInline(
     code,
     discount,
   })
-}
-
-async function sendCouponQr(
-  phoneNumberId: string,
-  phone: string,
-  code: string
-): Promise<void> {
-  try {
-    const qrUrl = await uploadCouponQr(code)
-    await sendImageMessage(phoneNumberId, phone, qrUrl, `Your code: ${code}`)
-  } catch (err) {
-    console.warn('[Campaign] QR send failed:', (err as Error).message)
-  }
 }
 
 function delay(ms: number): Promise<void> {
