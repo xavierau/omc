@@ -346,6 +346,7 @@
     "title": "OhMyClient Admin",
     "overview": "Overview",
     "tenants": "Tenants",
+    "quality": "Quality",
     "billing": "Billing",
     "referrers": "Referrers",
     "auditLogs": "Audit Logs",
