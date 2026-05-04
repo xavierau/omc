@@ -1291,4 +1291,52 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
 
     logSpy.mockRestore()
   })
+
+  it('caps in-flight sendTextMessage concurrency at 20 even within a 100-member chunk', async () => {
+    // Review fix (gemini r1 CRITICAL): chunk sizes can now reach 1000 (per
+    // migration 043). Without an inner sub-batch ceiling, each chunk would
+    // launch up to 1000 parallel BSP sends + DB writes — Supabase pool
+    // exhaustion. The legacy BATCH_SIZE=20 provided implicit throttling;
+    // we re-establish it as an explicit CONCURRENCY_LIMIT.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 100, scaleChunkSize: 100 })
+    )
+
+    const members = Array.from({ length: 100 }, (_, i) =>
+      buildMemberFor({
+        id: `m-${i}`,
+        // Pad to 11 digits so all phones are unique without leading-zero
+        // collisions (`8529000000${i}` would dedupe phones for i=0..9 vs 10).
+        phone: `852910${String(i).padStart(5, '0')}`,
+      })
+    )
+
+    let inFlight = 0
+    let peakInFlight = 0
+    vi.mocked(sendTextMessage).mockImplementation(async () => {
+      inFlight++
+      if (inFlight > peakInFlight) peakInFlight = inFlight
+      // Yield so all started sends overlap in the event loop. setImmediate
+      // releases the microtask queue first, giving Promise.allSettled a
+      // chance to start every parallel call before any of them resolve.
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      inFlight--
+      return okResult('wamid.text')
+    })
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendTextMessage).toHaveBeenCalledTimes(100)
+    // Peak concurrency must never exceed the inner sub-batch ceiling.
+    expect(peakInFlight).toBeLessThanOrEqual(20)
+    // Sanity: we should still be running in PARALLEL within a sub-batch
+    // (i.e. not serialised). With 20 concurrent slots and 100 members the
+    // peak should land at the ceiling, not at 1.
+    expect(peakInFlight).toBeGreaterThan(1)
+  })
 })

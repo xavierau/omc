@@ -26,6 +26,13 @@ function batchDelayMs(): number {
   return Number.isFinite(n) && n >= 0 ? n : 1000
 }
 
+// WAQ-010 review fix: inner concurrency ceiling. Chunks set the KPI-pacing
+// boundary (probe vs scale, up to 1000 members each per migration 043), but
+// firing an entire chunk through Promise.allSettled would exhaust Supabase
+// pools and trigger Kapso rate limits. The legacy code's BATCH_SIZE=20 gave
+// implicit throttling; we restore that as an explicit sub-batch ceiling.
+const CONCURRENCY_LIMIT = 20
+
 export interface SendContext {
   campaign: Campaign
   phoneNumberId: string
@@ -69,11 +76,19 @@ async function runChunk(
   isMarketing: boolean,
   counters: SkipCounters
 ): Promise<void> {
+  // Bulk-load gate decisions once per chunk (WAQ-007 N+1 fix) — must stay
+  // outside the inner sub-batch loop so we don't issue multiple DB queries.
   const decisions = isMarketing ? await loadDecisions(chunk.members, ctx) : null
-  const results = await Promise.allSettled(
-    chunk.members.map((m) => attemptMember(m, ctx, decisions))
-  )
-  tally(results, counters)
+  for (let i = 0; i < chunk.members.length; i += CONCURRENCY_LIMIT) {
+    const subBatch = chunk.members.slice(i, i + CONCURRENCY_LIMIT)
+    const results = await Promise.allSettled(
+      subBatch.map((m) => attemptMember(m, ctx, decisions))
+    )
+    tally(results, counters)
+    if (i + CONCURRENCY_LIMIT < chunk.members.length) {
+      await delay(batchDelayMs())
+    }
+  }
 }
 
 async function loadDecisions(
