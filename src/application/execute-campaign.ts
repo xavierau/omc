@@ -15,7 +15,14 @@ import { checkCampaignGuardrails } from './check-campaign-guardrails'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
-import { DEFAULT_PER_USER_MARKETING_CAP } from '@/domain/services/campaign-guardrails'
+import {
+  DEFAULT_PER_USER_MARKETING_CAP,
+  type TenantCampaignSettings,
+} from '@/domain/services/campaign-guardrails'
+import {
+  DEFAULT_PACING_CONFIG,
+  type PacingConfig,
+} from '@/domain/value-objects/pacing-strategy'
 
 export class NoTemplateError extends Error {
   constructor(campaignId: string) {
@@ -70,9 +77,7 @@ async function buildSendContext(
   // Capture the tracking flag ONCE per campaign run so an env-flip
   // mid-batch doesn't orphan in-flight queued rows.
   const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
-  // Same pattern for the WAQ-007 cooldown cap — read once so a
-  // tenant-settings update mid-batch does not change behaviour for an
-  // already-running campaign.
+  // Same pattern for WAQ-007 cooldown cap + WAQ-010 pacing — read once.
   const settings = await getSettingsForTenant(restaurantId)
   const perUserMarketingCap =
     settings?.perUserMarketingCap ?? DEFAULT_PER_USER_MARKETING_CAP
@@ -83,6 +88,23 @@ async function buildSendContext(
     restaurantDefaultLanguage,
     trackingEnabled,
     perUserMarketingCap,
+    pacingConfig: pacingConfigFrom(settings),
+  }
+}
+
+// WAQ-010: snapshot pacing so a mid-batch tenant-settings update can't
+// re-chunk an in-flight run. `settings` is null only on a missing row.
+function pacingConfigFrom(
+  settings: TenantCampaignSettings | null
+): PacingConfig {
+  if (!settings) return DEFAULT_PACING_CONFIG
+  return {
+    strategy: settings.pacingStrategy,
+    probeChunkSize: settings.probeChunkSize,
+    scaleChunkSize: settings.scaleChunkSize,
+    activeHoursStartLocal: settings.activeHoursStartLocal,
+    activeHoursEndLocal: settings.activeHoursEndLocal,
+    tenantTimezone: settings.tenantTimezone,
   }
 }
 

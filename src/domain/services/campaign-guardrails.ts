@@ -29,6 +29,17 @@ export interface TenantCampaignSettings {
   autoPauseActive: boolean
   autoPauseReason: AutoPauseReason | null
   autoPauseSetAt: Date | null
+  // WAQ-010 — engagement-tier probe pacing. `engagement_tier` (default)
+  // sorts recipients by last_visit_at DESC and chunks probe → scale.
+  // `naive` preserves the legacy 20-per-batch behaviour for opt-out tenants.
+  // The active-hours fields are advisory in Phase 1 (logged at probe
+  // boundary) and will gate the cron-driven scale phase in Phase 2.
+  pacingStrategy: 'engagement_tier' | 'naive'
+  probeChunkSize: number
+  scaleChunkSize: number
+  activeHoursStartLocal: string
+  activeHoursEndLocal: string
+  tenantTimezone: string
 }
 
 export const DEFAULT_PER_USER_MARKETING_CAP = 1
@@ -43,6 +54,14 @@ export const DEFAULT_SETTINGS: Omit<TenantCampaignSettings, 'restaurantId'> = {
   autoPauseActive: false,
   autoPauseReason: null,
   autoPauseSetAt: null,
+  // WAQ-010 defaults — match migration 043. Kept in sync so a tenant row
+  // missing the pacing columns (older row) reads as engagement_tier/100/100.
+  pacingStrategy: 'engagement_tier',
+  probeChunkSize: 100,
+  scaleChunkSize: 100,
+  activeHoursStartLocal: '10:00:00',
+  activeHoursEndLocal: '22:00:00',
+  tenantTimezone: 'Asia/Hong_Kong',
 }
 
 export function checkMonthlyLimit(

@@ -44,7 +44,33 @@ describe('mapRowToSettings', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      // WAQ-010: pacing config defaults applied when the columns are absent
+      // (pre-migration row) so existing tenants keep working.
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     })
+  })
+
+  it('reads WAQ-010 pacing columns when present', () => {
+    const row = buildRow({
+      pacing_strategy: 'naive',
+      probe_chunk_size: 50,
+      scale_chunk_size: 200,
+      active_hours_start_local: '09:00:00',
+      active_hours_end_local: '21:00:00',
+      tenant_timezone: 'Europe/London',
+    })
+    const result = mapRowToSettings(row)
+    expect(result.pacingStrategy).toBe('naive')
+    expect(result.probeChunkSize).toBe(50)
+    expect(result.scaleChunkSize).toBe(200)
+    expect(result.activeHoursStartLocal).toBe('09:00:00')
+    expect(result.activeHoursEndLocal).toBe('21:00:00')
+    expect(result.tenantTimezone).toBe('Europe/London')
   })
 
   it('reads auto_throttle_factor as a number when sent as a string (Postgres NUMERIC)', () => {
@@ -165,6 +191,26 @@ describe('mapSettingsToUpsert', () => {
       auto_pause_active: true,
       auto_pause_reason: 'quality_red_auto',
       auto_pause_set_at: '2026-05-04T12:00:00.000Z',
+    })
+  })
+
+  it('writes WAQ-010 pacing columns when provided', () => {
+    const result = mapSettingsToUpsert('rest-1', {
+      pacingStrategy: 'naive',
+      probeChunkSize: 50,
+      scaleChunkSize: 250,
+      activeHoursStartLocal: '09:00:00',
+      activeHoursEndLocal: '21:00:00',
+      tenantTimezone: 'Europe/London',
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      pacing_strategy: 'naive',
+      probe_chunk_size: 50,
+      scale_chunk_size: 250,
+      active_hours_start_local: '09:00:00',
+      active_hours_end_local: '21:00:00',
+      tenant_timezone: 'Europe/London',
     })
   })
 

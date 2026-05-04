@@ -990,6 +990,12 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
       autoPauseActive: false,
       autoPauseReason: null,
       autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     }
     vi.mocked(getSettingsForTenant).mockResolvedValue(settings)
 
@@ -1033,5 +1039,363 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     expect(countMarketingSendsLast24hForPhones).not.toHaveBeenCalled()
     expect(findActiveMarketingConsentForPhones).not.toHaveBeenCalled()
     expect(sendTextMessage).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
+  const ORIGINAL_DELAY = process.env.WAQ_BATCH_DELAY_MS
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Tests run with delay = 0 so probe → scale waits do not slow the suite.
+    process.env.WAQ_BATCH_DELAY_MS = '0'
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    vi.mocked(getSettingsForTenant).mockResolvedValue(null)
+  })
+
+  afterEach(() => {
+    if (ORIGINAL_DELAY === undefined) {
+      delete process.env.WAQ_BATCH_DELAY_MS
+    } else {
+      process.env.WAQ_BATCH_DELAY_MS = ORIGINAL_DELAY
+    }
+  })
+
+  function buildPacingSettings(
+    overrides: Partial<TenantCampaignSettings> = {}
+  ): TenantCampaignSettings {
+    return {
+      restaurantId: 'r-1',
+      monthlySendLimit: 10000,
+      dailyCampaignLimit: 100,
+      maxUnsubscribeRate: 0.05,
+      campaignPaused: false,
+      perUserMarketingCap: 1,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
+      ...overrides,
+    }
+  }
+
+  function buildCampaignFor(overrides: Partial<Campaign> = {}): Campaign {
+    return {
+      id: 'camp-1',
+      restaurantId: 'r-1',
+      name: 'Promo',
+      type: 'promo',
+      template: 'Hi {{name}}',
+      templateEn: null,
+      templateZhHk: null,
+      imageUrlEn: null,
+      imageUrlZhHk: null,
+      couponConfig: { discountType: 'percentage', discountValue: 10, expiresInDays: 7 },
+      schedule: null,
+      scheduledAt: null,
+      status: 'active',
+      isChargeable: true,
+      chargeableSentCount: 0,
+      nonChargeableSentCount: 0,
+      redeemedCount: 0,
+      whatsappTemplateId: null,
+      targetAudience: 'all',
+      createdAt: '2024-01-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  function buildMemberFor(overrides: Partial<Member> = {}): Member {
+    return {
+      id: 'm-1',
+      restaurantId: 'r-1',
+      phone: '85291234567',
+      name: 'Alice',
+      pointsBalance: 100,
+      status: 'active',
+      joinedAt: '2024-01-01T00:00:00Z',
+      lastVisitAt: null,
+      preferredLanguage: null,
+      pmmThrottledUntil: null,
+      unreachableAt: null,
+      ...overrides,
+    }
+  }
+
+  it('engagement_tier sorts recipients by lastVisitAt DESC before sending', async () => {
+    // Three recipients in REVERSE engagement order (oldest first). The
+    // batch loop should reorder them so the most-recent visitor goes first.
+    const oldest = buildMemberFor({
+      id: 'old',
+      phone: '85290000001',
+      lastVisitAt: '2026-01-01T00:00:00Z',
+    })
+    const newest = buildMemberFor({
+      id: 'new',
+      phone: '85290000002',
+      lastVisitAt: '2026-05-01T00:00:00Z',
+    })
+    const middle = buildMemberFor({
+      id: 'mid',
+      phone: '85290000003',
+      lastVisitAt: '2026-03-01T00:00:00Z',
+    })
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([oldest, newest, middle])
+
+    await executeCampaign('camp-1', 'r-1')
+
+    // sendTextMessage is called once per recipient; the FIRST call must be
+    // the most-recent visitor — proves the sort happened before chunking.
+    // Signature is (phoneNumberId, to, text) — `to` is the second arg.
+    const calls = vi.mocked(sendTextMessage).mock.calls
+    expect(calls.length).toBe(3)
+    expect(calls[0][1]).toBe('85290000002')
+    expect(calls[1][1]).toBe('85290000003')
+    expect(calls[2][1]).toBe('85290000001')
+  })
+
+  it('naive strategy preserves insertion order (no engagement sort)', async () => {
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ pacingStrategy: 'naive' })
+    )
+    const oldest = buildMemberFor({
+      id: 'old',
+      phone: '85290000001',
+      lastVisitAt: '2026-01-01T00:00:00Z',
+    })
+    const newest = buildMemberFor({
+      id: 'new',
+      phone: '85290000002',
+      lastVisitAt: '2026-05-01T00:00:00Z',
+    })
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    // Insertion order is oldest THEN newest; naive must keep this exact order.
+    vi.mocked(resolveTargetMembers).mockResolvedValue([oldest, newest])
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const calls = vi.mocked(sendTextMessage).mock.calls
+    expect(calls[0][1]).toBe('85290000001')
+    expect(calls[1][1]).toBe('85290000002')
+  })
+
+  it('honors probeChunkSize for the FIRST chunk and scaleChunkSize for the rest', async () => {
+    // probe=2, scale=3 → 6 recipients should split as [2, 3, 1]. We assert
+    // by counting the unique chunk-boundary log lines (probe boundary fires
+    // exactly once, scale boundary fires once per scale chunk after the first).
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 2, scaleChunkSize: 3 })
+    )
+    const members = Array.from({ length: 6 }, (_, i) =>
+      buildMemberFor({
+        id: `m-${i}`,
+        phone: `8529000000${i}`,
+        lastVisitAt: `2026-05-0${i + 1}T00:00:00Z`,
+      })
+    )
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await executeCampaign('camp-1', 'r-1')
+
+    // All 6 sent.
+    expect(sendTextMessage).toHaveBeenCalledTimes(6)
+    // Probe-boundary log fires once with the probe chunk-size in payload.
+    const probeLogs = logSpy.mock.calls.filter(
+      (c) => typeof c[0] === 'string' && c[0].includes('campaign.probe_chunk_complete')
+    )
+    expect(probeLogs.length).toBe(1)
+    // The probe payload should mention probeSize:2 — proves the chunker used
+    // the configured probe size, not the legacy BATCH_SIZE constant.
+    const payload = probeLogs[0][1] as Record<string, unknown> | undefined
+    expect(payload).toMatchObject({ probeSize: 2 })
+
+    logSpy.mockRestore()
+  })
+
+  it('probe-boundary log includes a KPI snapshot from whatsapp_messages', async () => {
+    // Phase 1 only LOGS the snapshot — no auto-abort yet. The snapshot keys
+    // must be present so ops can wire alerts off the structured log line.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 2, scaleChunkSize: 100 })
+    )
+    const members = Array.from({ length: 3 }, (_, i) =>
+      buildMemberFor({ id: `m-${i}`, phone: `8529000000${i}` })
+    )
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await executeCampaign('camp-1', 'r-1')
+
+    const probeLog = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('campaign.probe_chunk_complete')
+    )
+    expect(probeLog).toBeDefined()
+    const payload = probeLog?.[1] as Record<string, unknown>
+    // KPI snapshot keys exist even when the values are 0 (no errors yet).
+    expect(payload).toHaveProperty('campaignId', 'camp-1')
+    expect(payload).toHaveProperty('probeSize')
+    expect(payload).toHaveProperty('sent')
+    expect(payload).toHaveProperty('skipped')
+
+    logSpy.mockRestore()
+  })
+
+  it('does NOT emit a probe-boundary log when there is only one chunk (probe == total)', async () => {
+    // 2 recipients, probe=100 → only one chunk, no probe→scale boundary
+    // happens. Suppress the log to avoid noise on small campaigns.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 100, scaleChunkSize: 100 })
+    )
+    const members = [
+      buildMemberFor({ id: 'm-1', phone: '85290000001' }),
+      buildMemberFor({ id: 'm-2', phone: '85290000002' }),
+    ]
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await executeCampaign('camp-1', 'r-1')
+
+    const probeLogs = logSpy.mock.calls.filter(
+      (c) => typeof c[0] === 'string' && c[0].includes('campaign.probe_chunk_complete')
+    )
+    expect(probeLogs.length).toBe(0)
+
+    logSpy.mockRestore()
+  })
+
+  it('probe-boundary log preserves sent+skipped+failed === probeSize when a send fails', async () => {
+    // Review fix (gemini r1 + analyzer IMPORTANT): `failed` was previously
+    // double-counted — once inside `skipped` and again as its own field.
+    // Phase 2 KPI thresholds (delivery >=95%, error <0.5%) read these
+    // fields directly, so the invariant must hold.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 3, scaleChunkSize: 3 })
+    )
+    const probeMembers = [
+      buildMemberFor({ id: 'p-0', phone: '85290000010' }),
+      buildMemberFor({ id: 'p-1', phone: '85290000011' }),
+      buildMemberFor({ id: 'p-2', phone: '85290000012' }),
+    ]
+    const scaleMembers = [
+      buildMemberFor({ id: 's-0', phone: '85290000020' }),
+    ]
+    // First two probe sends succeed; third probe send rejects → counters.failed=1.
+    // Subsequent scale calls succeed (we only assert the probe boundary log).
+    vi.mocked(sendTextMessage)
+      .mockResolvedValueOnce(okResult('wamid.text'))
+      .mockResolvedValueOnce(okResult('wamid.text'))
+      .mockRejectedValueOnce(new Error('flaky network'))
+      .mockResolvedValue(okResult('wamid.text'))
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      ...probeMembers,
+      ...scaleMembers,
+    ])
+    // Suppress the expected error log from the rejected send.
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const probeLog = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('campaign.probe_chunk_complete')
+    )
+    expect(probeLog).toBeDefined()
+    const payload = probeLog?.[1] as {
+      probeSize: number
+      sent: number
+      skipped: number
+      failed: number
+    }
+    // Failed must NOT be double-counted in skipped.
+    expect(payload.failed).toBe(1)
+    expect(payload.skipped).toBe(0)
+    expect(payload.sent).toBe(2)
+    // The invariant Phase 2 KPI consumers depend on.
+    expect(payload.sent + payload.skipped + payload.failed).toBe(payload.probeSize)
+    expect(payload.probeSize).toBe(3)
+
+    logSpy.mockRestore()
+    errSpy.mockRestore()
+  })
+
+  it('caps in-flight sendTextMessage concurrency at 20 even within a 100-member chunk', async () => {
+    // Review fix (gemini r1 CRITICAL): chunk sizes can now reach 1000 (per
+    // migration 043). Without an inner sub-batch ceiling, each chunk would
+    // launch up to 1000 parallel BSP sends + DB writes — Supabase pool
+    // exhaustion. The legacy BATCH_SIZE=20 provided implicit throttling;
+    // we re-establish it as an explicit CONCURRENCY_LIMIT.
+    vi.mocked(getSettingsForTenant).mockResolvedValue(
+      buildPacingSettings({ probeChunkSize: 100, scaleChunkSize: 100 })
+    )
+
+    const members = Array.from({ length: 100 }, (_, i) =>
+      buildMemberFor({
+        id: `m-${i}`,
+        // Pad to 11 digits so all phones are unique without leading-zero
+        // collisions (`8529000000${i}` would dedupe phones for i=0..9 vs 10).
+        phone: `852910${String(i).padStart(5, '0')}`,
+      })
+    )
+
+    let inFlight = 0
+    let peakInFlight = 0
+    vi.mocked(sendTextMessage).mockImplementation(async () => {
+      inFlight++
+      if (inFlight > peakInFlight) peakInFlight = inFlight
+      // Yield so all started sends overlap in the event loop. setImmediate
+      // releases the microtask queue first, giving Promise.allSettled a
+      // chance to start every parallel call before any of them resolve.
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      inFlight--
+      return okResult('wamid.text')
+    })
+
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaignFor())
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue(members)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendTextMessage).toHaveBeenCalledTimes(100)
+    // Peak concurrency must never exceed the inner sub-batch ceiling.
+    expect(peakInFlight).toBeLessThanOrEqual(20)
+    // Sanity: we should still be running in PARALLEL within a sub-batch
+    // (i.e. not serialised). With 20 concurrent slots and 100 members the
+    // peak should land at the ceiling, not at 1.
+    expect(peakInFlight).toBeGreaterThan(1)
   })
 })
