@@ -10,16 +10,22 @@ vi.mock('@/infrastructure/supabase/repositories/event-repository', () => ({
   createEvent: vi.fn().mockResolvedValue('evt-1'),
 }))
 
+vi.mock('@/application/notify-ops-alert', () => ({
+  notifyOpsAlert: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { dispatchQualityAction } from '../dispatch-quality-action'
 import {
   applyAutoThrottle,
   applyAutoPause,
 } from '@/infrastructure/supabase/repositories/quality-auto-flags'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { notifyOpsAlert } from '@/application/notify-ops-alert'
 
 const mockThrottle = vi.mocked(applyAutoThrottle)
 const mockPause = vi.mocked(applyAutoPause)
 const mockCreateEvent = vi.mocked(createEvent)
+const mockNotify = vi.mocked(notifyOpsAlert)
 
 const log = vi.fn()
 
@@ -27,6 +33,7 @@ beforeEach(() => {
   mockThrottle.mockClear()
   mockPause.mockClear()
   mockCreateEvent.mockClear()
+  mockNotify.mockClear()
   log.mockClear()
 })
 
@@ -221,5 +228,87 @@ describe('dispatchQualityAction', () => {
       'webhook.quality_action',
       expect.objectContaining({ kind: 'throttle' })
     )
+  })
+
+  // WAQ-013 — live notification on each real transition.
+  describe('notifyOpsAlert wiring (WAQ-013)', () => {
+    it('throttle (YELLOW) → notify quality_transition_yellow / warn', async () => {
+      await dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'YELLOW',
+        log,
+      })
+      expect(mockNotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'quality_transition_yellow',
+          severity: 'warn',
+          restaurantId: RESTAURANT_ID,
+        })
+      )
+    })
+
+    it('pause (RED) → notify auto_pause_triggered / critical', async () => {
+      await dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'RED',
+        log,
+      })
+      // Spec: pause action notifies BOTH quality_transition_red AND
+      // auto_pause_triggered. We assert the auto_pause_triggered call
+      // because that's the actionable one for the platform team.
+      const calls = mockNotify.mock.calls.map((c) => c[0].kind)
+      expect(calls).toContain('auto_pause_triggered')
+      expect(calls).toContain('quality_transition_red')
+    })
+
+    it('manual_recovery_required (YELLOW->GREEN) → notify quality_recovery_pending / info', async () => {
+      await dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'YELLOW',
+        nextRating: 'GREEN',
+        log,
+      })
+      expect(mockNotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'quality_recovery_pending',
+          severity: 'info',
+        })
+      )
+    })
+
+    it('no_op (GREEN -> GREEN) → does NOT notify', async () => {
+      await dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'GREEN',
+        log,
+      })
+      expect(mockNotify).not.toHaveBeenCalled()
+    })
+
+    it('does NOT notify if applyAction throws (only the actually-applied side effects fire alerts)', async () => {
+      mockPause.mockRejectedValueOnce(new Error('supabase 503'))
+      await dispatchQualityAction({
+        restaurantId: RESTAURANT_ID,
+        prevRating: 'GREEN',
+        nextRating: 'RED',
+        log,
+      })
+      expect(mockNotify).not.toHaveBeenCalled()
+    })
+
+    it('does NOT throw if notifyOpsAlert rejects', async () => {
+      mockNotify.mockRejectedValue(new Error('slack down'))
+      await expect(
+        dispatchQualityAction({
+          restaurantId: RESTAURANT_ID,
+          prevRating: 'GREEN',
+          nextRating: 'YELLOW',
+          log,
+        })
+      ).resolves.toBeUndefined()
+    })
   })
 })

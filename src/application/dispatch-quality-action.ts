@@ -23,6 +23,8 @@ import {
   applyAutoPause,
 } from '@/infrastructure/supabase/repositories/quality-auto-flags'
 import { createEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { notifyOpsAlert } from '@/application/notify-ops-alert'
+import { buildQualityAlerts } from './notify-quality-action'
 
 export interface DispatchQualityActionArgs {
   restaurantId: string
@@ -38,8 +40,21 @@ export async function dispatchQualityAction(
     prevRating: args.prevRating,
     nextRating: args.nextRating,
   })
+  const applied = await tryApply(args, action)
+  args.log('info', 'webhook.quality_action', toLogPayload(args, action))
+  if (applied) await tryNotify(args, action)
+}
+
+// Best-effort: do NOT re-throw. Webhook handler must continue so the
+// tenant_quality_state row insert isn't rolled back by an upstream throw,
+// and so Kapso doesn't retry endlessly on transient DB errors.
+async function tryApply(
+  args: DispatchQualityActionArgs,
+  action: QualityAction
+): Promise<boolean> {
   try {
     await applyAction(args, action)
+    return true
   } catch (err) {
     args.log('error', 'webhook.quality_action_failed', {
       restaurantId: args.restaurantId,
@@ -48,11 +63,26 @@ export async function dispatchQualityAction(
       nextRating: args.nextRating,
       error: err instanceof Error ? err.message : String(err),
     })
-    // Best-effort: do NOT re-throw. Webhook handler must continue so the
-    // tenant_quality_state row insert isn't rolled back by an upstream throw,
-    // and so Kapso doesn't retry endlessly on transient DB errors.
+    return false
   }
-  args.log('info', 'webhook.quality_action', toLogPayload(args, action))
+}
+
+async function tryNotify(
+  args: DispatchQualityActionArgs,
+  action: QualityAction
+): Promise<void> {
+  const alerts = buildQualityAlerts(args, action)
+  for (const alert of alerts) {
+    try {
+      await notifyOpsAlert(alert)
+    } catch (err) {
+      args.log('warn', 'webhook.quality_action_notify_failed', {
+        restaurantId: args.restaurantId,
+        kind: alert.kind,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
 }
 
 async function applyAction(

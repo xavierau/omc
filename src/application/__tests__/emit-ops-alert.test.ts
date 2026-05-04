@@ -3,9 +3,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('@/infrastructure/supabase/client', () => ({
   createServerSupabaseClient: vi.fn(),
 }))
+vi.mock('@/application/notify-ops-alert', () => ({
+  notifyOpsAlert: vi.fn().mockResolvedValue(undefined),
+}))
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { emitOpsAlert } from '../emit-ops-alert'
+import { notifyOpsAlert } from '@/application/notify-ops-alert'
 import { WhatsAppMessage } from '@/domain/entities/whatsapp-message'
 
 interface InsertRecorder {
@@ -132,5 +136,77 @@ describe('emitOpsAlert', () => {
     // The console.error path still fires so the alert is at least observable
     // in stdout (twice — once for the original alert, once for the DB failure).
     expect(consoleErrorSpy).toHaveBeenCalled()
+  })
+
+  // WAQ-013: live notification on top of the audit trail.
+  describe('notifyOpsAlert wiring (WAQ-013)', () => {
+    it('block_template → notifyOpsAlert(kind=block_template, severity=error)', async () => {
+      const { client } = buildSupabase()
+      vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+      await emitOpsAlert({
+        kind: 'block_template',
+        message: buildMessage({ errorCode: '131045' }),
+        restaurantId: 'rest-1',
+      })
+
+      expect(notifyOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'block_template',
+          severity: 'error',
+          restaurantId: 'rest-1',
+        })
+      )
+    })
+
+    it('engineering_alert → notifyOpsAlert(kind=engineering_alert, severity=error)', async () => {
+      const { client } = buildSupabase()
+      vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+      await emitOpsAlert({
+        kind: 'engineering_alert',
+        message: buildMessage({ errorCode: '131051' }),
+        restaurantId: 'rest-1',
+      })
+
+      expect(notifyOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'engineering_alert',
+          severity: 'error',
+        })
+      )
+    })
+
+    it('policy_violation_alert → notifyOpsAlert(kind=policy_violation, severity=critical)', async () => {
+      const { client } = buildSupabase()
+      vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+      await emitOpsAlert({
+        kind: 'policy_violation_alert',
+        message: buildMessage({ errorCode: '132100' }),
+        restaurantId: 'rest-1',
+      })
+
+      expect(notifyOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'policy_violation',
+          severity: 'critical',
+        })
+      )
+    })
+
+    it('does NOT throw when notifyOpsAlert rejects', async () => {
+      const { client } = buildSupabase()
+      vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+      vi.mocked(notifyOpsAlert).mockRejectedValueOnce(new Error('slack down'))
+
+      await expect(
+        emitOpsAlert({
+          kind: 'block_template',
+          message: buildMessage({ errorCode: '131045' }),
+          restaurantId: 'rest-1',
+        })
+      ).resolves.toBeUndefined()
+    })
   })
 })

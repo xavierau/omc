@@ -1,6 +1,12 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { classifyErrorCode } from '@/domain/value-objects/whatsapp-error-code'
 import type { WhatsAppMessage } from '@/domain/entities/whatsapp-message'
+import { notifyOpsAlert } from '@/application/notify-ops-alert'
+import type {
+  AlertKind,
+  AlertSeverity,
+  OpsAlert,
+} from '@/domain/value-objects/ops-alert'
 
 export type OpsAlertKind =
   | 'block_template'
@@ -14,22 +20,58 @@ export interface EmitOpsAlertArgs {
 }
 
 /**
- * Records a `whatsapp_error` row on `events` and emits a `[ops_alert]`
- * `console.error` line for log aggregators.
+ * Records a `whatsapp_error` row on `events` (audit trail) AND fires the
+ * WAQ-013 live notifier (Slack) so the right team sees the alert in real time.
  *
  * Failure mode: NEVER throws. The dispatcher above us has already mutated
  * `members.pmm_throttled_until` / `unreachable_at` for the codes that need
  * those mutations; losing an audit row is preferable to surfacing a DB error
  * up to the webhook handler and triggering Kapso retries that double-mutate.
- *
- * Real Slack/email/PagerDuty integration lands in WAQ-013. Until then the
- * `events` row + console line are the audit trail.
  */
 export async function emitOpsAlert(args: EmitOpsAlertArgs): Promise<void> {
   // The console.error fires unconditionally — even if the DB insert below
   // fails, the alert is still observable in stdout for ops triage.
   logAlertToConsole(args)
   await tryInsertAlertRow(args)
+  await tryNotify(args)
+}
+
+const KIND_MAP: Record<OpsAlertKind, AlertKind> = {
+  block_template: 'block_template',
+  engineering_alert: 'engineering_alert',
+  policy_violation_alert: 'policy_violation',
+}
+
+const SEVERITY_MAP: Record<OpsAlertKind, AlertSeverity> = {
+  block_template: 'error',
+  engineering_alert: 'error',
+  policy_violation_alert: 'critical',
+}
+
+async function tryNotify(args: EmitOpsAlertArgs): Promise<void> {
+  try {
+    await notifyOpsAlert(buildNotifierAlert(args))
+  } catch (err) {
+    console.warn('[ops_alert] notifier_threw', {
+      kind: args.kind,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+function buildNotifierAlert(args: EmitOpsAlertArgs): OpsAlert {
+  const snapshot = args.message.snapshot
+  return {
+    kind: KIND_MAP[args.kind],
+    severity: SEVERITY_MAP[args.kind],
+    restaurantId: args.restaurantId,
+    message: snapshot.errorTitle ?? args.kind,
+    details: {
+      errorCode: snapshot.errorCode,
+      kapsoMessageId: snapshot.kapsoMessageId,
+      errorDetails: snapshot.errorDetails,
+    },
+  }
 }
 
 function logAlertToConsole(args: EmitOpsAlertArgs): void {
