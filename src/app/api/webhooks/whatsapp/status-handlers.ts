@@ -4,6 +4,7 @@ import {
 } from '@/infrastructure/supabase/idempotency'
 import { findMessageByKapsoIdWithRetry } from '@/application/find-message-by-kapso-id'
 import { applyStatusUpdate as applyStatusUpdateRepo } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
+import { dispatchErrorAction } from '@/application/dispatch-error-action'
 import { normalizeStatusPayload } from '@/infrastructure/whatsapp/webhooks'
 import { mapStatusUpdate, type KapsoStatusEntry } from './status-mapper'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
@@ -50,13 +51,12 @@ export async function routeStatusEvent(
  *   2. Look up the outbound row (one bounded retry; covers the §4.2 race).
  *   3. If missing: release the claim and log — Kapso's retry succeeds later.
  *   4. Otherwise: apply the status update via the repository.
- *
- * NOTE: WAQ-002 stops at writing the row. WAQ-003 will read failed rows and
- * dispatch error-code actions (member throttling, ops alerts, etc.).
+ *   5. On `failed` with an errorCode: dispatch the §6 error action
+ *      (member-state mutation or ops alert).
  */
 export async function handleStatusUpdate(
   status: KapsoStatusEntry,
-  _restaurantId: string,
+  restaurantId: string,
   log: LogFn
 ): Promise<void> {
   const idempotencyKey = `${status.id}:${status.status}`
@@ -77,11 +77,7 @@ export async function handleStatusUpdate(
   const update = mapStatusUpdate(status)
   const updated = await applyStatusUpdateRepo(status.id, update, status.raw)
 
-  if (updated?.snapshot.status === 'failed') {
-    log('info', 'webhook.status_failed', {
-      kapsoMessageId: status.id,
-      errorCode: updated.snapshot.errorCode,
-      errorTitle: updated.snapshot.errorTitle,
-    })
+  if (updated?.snapshot.status === 'failed' && updated.snapshot.errorCode) {
+    await dispatchErrorAction(updated, restaurantId, log)
   }
 }
