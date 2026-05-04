@@ -24,21 +24,21 @@ beforeEach(() => {
 })
 
 describe('applyAutoThrottle', () => {
-  it('upserts auto_throttle_factor and stamps set_at', async () => {
+  it('upserts auto_throttle_factor only (does NOT touch auto_pause_set_at)', async () => {
     await applyAutoThrottle('rest-1', 0.5)
     expect(upsertSpy).toHaveBeenCalledTimes(1)
     const [row, opts] = upsertSpy.mock.calls[0]
-    expect(row.restaurant_id).toBe('rest-1')
-    expect(row.auto_throttle_factor).toBe(0.5)
-    expect(row.auto_pause_set_at).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-    )
+    expect(row).toEqual({
+      restaurant_id: 'rest-1',
+      auto_throttle_factor: 0.5,
+    })
+    expect(row).not.toHaveProperty('auto_pause_set_at')
     expect(opts).toEqual({ onConflict: 'restaurant_id' })
   })
 })
 
 describe('applyAutoPause', () => {
-  it('upserts auto_pause_active=true with the supplied reason', async () => {
+  it('upserts auto_pause_active=true and stamps auto_pause_set_at', async () => {
     await applyAutoPause('rest-1', 'quality_red_auto')
     const [row] = upsertSpy.mock.calls[0]
     expect(row).toMatchObject({
@@ -46,12 +46,14 @@ describe('applyAutoPause', () => {
       auto_pause_active: true,
       auto_pause_reason: 'quality_red_auto',
     })
-    expect(row.auto_pause_set_at).toBeTypeOf('string')
+    expect(row.auto_pause_set_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
   })
 })
 
 describe('clearAutoQualityFlags', () => {
-  it('resets factor to 1 and clears the pause flag + reason', async () => {
+  it('resets factor to 1 and clears the pause flag, reason, and set_at to NULL', async () => {
     await clearAutoQualityFlags('rest-1')
     const [row] = upsertSpy.mock.calls[0]
     expect(row).toEqual({

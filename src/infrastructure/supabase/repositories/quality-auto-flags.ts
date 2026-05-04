@@ -16,9 +16,11 @@ export async function applyAutoThrottle(
   restaurantId: string,
   factor: number
 ): Promise<void> {
+  // NOTE: do NOT touch `auto_pause_set_at` here — that column tracks the
+  // moment the tenant entered the auto-paused state, not "when any auto
+  // action was last taken". WAQ-013 alerting reads it as "paused since X".
   await upsertAutoFlags(restaurantId, {
     auto_throttle_factor: factor,
-    auto_pause_set_at: nowIso(),
   })
 }
 

@@ -23,6 +23,11 @@ ALTER TABLE tenant_campaign_settings
   ADD COLUMN auto_pause_active BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN auto_pause_reason TEXT
     CHECK (auto_pause_reason IS NULL OR auto_pause_reason IN ('quality_red_auto', 'quality_yellow_throttle')),
+  -- Set ONLY when auto_pause_active flips to true (i.e. by applyAutoPause).
+  -- Cleared (set to NULL) on platform-admin clear (clearAutoQualityFlags).
+  -- NOT touched by auto-throttle transitions — auto_throttle_factor changes
+  -- alone leave this column unchanged. WAQ-013 alerting reads this column
+  -- as "tenant has been auto-paused since X".
   ADD COLUMN auto_pause_set_at TIMESTAMPTZ;
 
 -- Hot path for ops dashboards: list every tenant currently auto-paused.
