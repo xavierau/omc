@@ -238,6 +238,13 @@ describe('POST /api/webhooks/whatsapp — status events', () => {
     expect(row.status).toBe('delivered')
     expect(row.delivered_at).toBeTruthy()
     expect(state.processed.has(`${KAPSO_DELIVERED_ID}:delivered`)).toBe(true)
+    // Pin raw_status_payload write — guards against a future refactor
+    // silently dropping the JSONB column update.
+    expect(row.raw_status_payload).not.toBeNull()
+    expect(row.raw_status_payload).toMatchObject({
+      id: KAPSO_DELIVERED_ID,
+      status: 'delivered',
+    })
   })
 
   it('re-POSTing the identical payload no-ops via idempotency claim', async () => {
