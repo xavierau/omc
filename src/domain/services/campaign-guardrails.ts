@@ -3,6 +3,9 @@ export interface GuardrailResult {
   reason?: string
 }
 
+// WAQ-009: only two reasons allowed by migration 042 CHECK constraint.
+export type AutoPauseReason = 'quality_red_auto' | 'quality_yellow_throttle'
+
 export interface TenantCampaignSettings {
   restaurantId: string
   monthlySendLimit: number
@@ -16,6 +19,16 @@ export interface TenantCampaignSettings {
   // composing the campaign send context so a per-tenant override applies
   // to in-flight runs without redeploy.
   perUserMarketingCap: number
+  // WAQ-009: quality-driven runtime modifier. Stored limits are NOT mutated;
+  // the guardrail check multiplies by `autoThrottleFactor` at read time.
+  // 1.00 = no throttle. 0.50 = halved.
+  autoThrottleFactor: number
+  // WAQ-009: independent of `campaignPaused`. Manual unpause clears the
+  // ops switch only; a quality recovery webhook + admin override is needed
+  // to clear `autoPauseActive`.
+  autoPauseActive: boolean
+  autoPauseReason: AutoPauseReason | null
+  autoPauseSetAt: Date | null
 }
 
 export const DEFAULT_PER_USER_MARKETING_CAP = 1
@@ -26,6 +39,10 @@ export const DEFAULT_SETTINGS: Omit<TenantCampaignSettings, 'restaurantId'> = {
   maxUnsubscribeRate: 0.05,
   campaignPaused: false,
   perUserMarketingCap: DEFAULT_PER_USER_MARKETING_CAP,
+  autoThrottleFactor: 1,
+  autoPauseActive: false,
+  autoPauseReason: null,
+  autoPauseSetAt: null,
 }
 
 export function checkMonthlyLimit(
