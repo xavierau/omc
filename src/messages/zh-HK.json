@@ -401,6 +401,7 @@
     "settingsTab": "設定",
     "usersTab": "使用者",
     "metricsTab": "指標",
+    "onboardingTab": "啟用流程",
     "campaignsTab": "推廣活動",
     "tenantNotFound": "找不到租戶",
     "email": "電郵",
@@ -478,7 +479,56 @@
     "assignReferrer": "推薦人",
     "noReferrer": "無",
     "referrerAssigned": "推薦人指派成功",
-    "referrerAssignError": "指派推薦人失敗"
+    "referrerAssignError": "指派推薦人失敗",
+    "onboarding": {
+      "tabLabel": "啟用流程",
+      "path": {
+        "title": "啟用路徑",
+        "A": "路徑 A — 全新香港 SIM 卡",
+        "B1": "路徑 B1 — 共存（已使用 WhatsApp Business 應用程式）",
+        "B2": "路徑 B2 — 已連 Cloud API 嘅號碼",
+        "B3": "路徑 B3 — 由其他 BSP 遷移過嚟嘅號碼",
+        "locked": "離開 setup 階段後路徑會鎖定，唔可以再更改。"
+      },
+      "phase": {
+        "setup": "設置",
+        "probe": "試探",
+        "build": "起步",
+        "scale": "擴展",
+        "full": "全速",
+        "steady": "穩定"
+      },
+      "checklist": {
+        "title": "啟用前檢查清單",
+        "hk_sim_never_used": "租戶已取得香港 SIM 卡，從未用過 WhatsApp",
+        "verified_meta_business": "租戶已有經 Meta 認證嘅商業帳戶（或願意完成認證）",
+        "display_name_draft_approved": "我哋已批核租戶嘅顯示名稱草稿",
+        "opt_in_source_documented": "如要匯入聯絡人，已記錄其同意來源",
+        "vertical_allowed": "行業類別獲允許（香港餐飲業可，賭博／成人／加密貨幣／快速致富不可）",
+        "first_three_campaigns_drafted": "已草擬首三個推廣活動概念",
+        "notApplicable": "不適用"
+      },
+      "kpi": {
+        "title": "質素門檻（過去 7 日）",
+        "delivery": "送達率",
+        "optOut": "退訂率",
+        "threshold": "門檻",
+        "pass": "通過",
+        "fail": "未達標",
+        "insufficient": "已觀察 {count} / {min} 條訊息"
+      },
+      "advance": {
+        "button": "推進階段",
+        "success": "已推進階段。",
+        "disabledReason": {
+          "checklist_incomplete": "啟用前檢查清單仲未完成。",
+          "kpi_failed": "質素 KPI 未達門檻。",
+          "kpi_insufficient": "近期流量不足，未能評估門檻。",
+          "phase_terminal": "已經喺最後階段。",
+          "no_path": "請先揀啟用路徑。"
+        }
+      }
+    }
   },
   "onboarding": {
     "stepTenantInfo": "租戶資料",
