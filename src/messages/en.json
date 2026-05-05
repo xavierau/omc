@@ -401,6 +401,7 @@
     "settingsTab": "Settings",
     "usersTab": "Users",
     "metricsTab": "Metrics",
+    "onboardingTab": "Onboarding",
     "campaignsTab": "Campaigns",
     "tenantNotFound": "Tenant not found",
     "email": "Email",
@@ -478,7 +479,56 @@
     "assignReferrer": "Referrer",
     "noReferrer": "None",
     "referrerAssigned": "Referrer assigned successfully",
-    "referrerAssignError": "Failed to assign referrer"
+    "referrerAssignError": "Failed to assign referrer",
+    "onboarding": {
+      "tabLabel": "Onboarding",
+      "path": {
+        "title": "Onboarding path",
+        "A": "Path A — Fresh HK SIM",
+        "B1": "Path B1 — Coexistence (existing WhatsApp Business app)",
+        "B2": "Path B2 — Existing Cloud API number",
+        "B3": "Path B3 — Number migrated from another BSP",
+        "locked": "Path is locked once onboarding leaves the setup phase."
+      },
+      "phase": {
+        "setup": "Setup",
+        "probe": "Probe",
+        "build": "Build",
+        "scale": "Scale",
+        "full": "Full",
+        "steady": "Steady"
+      },
+      "checklist": {
+        "title": "Pre-kickoff checklist",
+        "hk_sim_never_used": "HK SIM acquired by tenant, never used for WhatsApp before",
+        "verified_meta_business": "Tenant has a verified Meta Business account (or is willing to complete verification)",
+        "display_name_draft_approved": "Tenant's display name draft approved by us",
+        "opt_in_source_documented": "Opt-in source documented for any contact list they want to import",
+        "vertical_allowed": "Vertical is allowed (HK F&B is fine; gambling / adult / crypto / get-rich-quick is not)",
+        "first_three_campaigns_drafted": "First three campaign concepts drafted",
+        "notApplicable": "N/A"
+      },
+      "kpi": {
+        "title": "Quality gate (last 7 days)",
+        "delivery": "Delivery rate",
+        "optOut": "Opt-out rate",
+        "threshold": "Threshold",
+        "pass": "Pass",
+        "fail": "Fail",
+        "insufficient": "{count} of {min} messages observed"
+      },
+      "advance": {
+        "button": "Advance phase",
+        "success": "Phase advanced.",
+        "disabledReason": {
+          "checklist_incomplete": "Pre-kickoff checklist is not complete.",
+          "kpi_failed": "Quality KPIs do not meet the threshold.",
+          "kpi_insufficient": "Not enough recent traffic to evaluate the gate.",
+          "phase_terminal": "Already at the final phase.",
+          "no_path": "Pick an onboarding path first."
+        }
+      }
+    }
   },
   "onboarding": {
     "stepTenantInfo": "Tenant Info",

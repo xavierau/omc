@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TenantSettingsTab } from '@/components/admin/tenant-settings-tab'
 import { TenantUsersTab } from '@/components/admin/tenant-users-tab'
 import { TenantMetricsTab } from '@/components/admin/tenant-metrics-tab'
+import { OnboardingTab } from '@/components/admin/onboarding/onboarding-tab'
 import { TenantCampaignSettingsTab } from '@/components/admin/tenant-campaign-settings-tab'
 import { CampaignSpendWidget } from '@/components/admin/campaign-spend-widget'
 import { CampaignQuotaUsage } from '@/components/admin/campaign-quota-usage'
@@ -50,6 +51,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           <TabsTrigger value="settings">{t('settingsTab')}</TabsTrigger>
           <TabsTrigger value="users">{t('usersTab')}</TabsTrigger>
           <TabsTrigger value="metrics">{t('metricsTab')}</TabsTrigger>
+          <TabsTrigger value="onboarding">{t('onboardingTab')}</TabsTrigger>
           <TabsTrigger value="campaigns">{t('campaignsTab')}</TabsTrigger>
         </TabsList>
         <TabsContent value="settings" className="mt-4 space-y-6">
@@ -61,6 +63,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
         </TabsContent>
         <TabsContent value="metrics" className="mt-4">
           {metrics && <TenantMetricsTab metrics={metrics} />}
+        </TabsContent>
+        <TabsContent value="onboarding" className="mt-4">
+          <OnboardingTab restaurantId={id} />
         </TabsContent>
         <TabsContent value="campaigns" className="mt-4 space-y-6">
           <CampaignQuotaUsage tenantId={id} plan={tenant.plan} />
