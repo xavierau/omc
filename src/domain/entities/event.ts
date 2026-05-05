@@ -10,6 +10,12 @@ export type EventType =
   | 'pos_refund'
   | 'pos_customer_link'
   | 'integration_error'
+  | 'whatsapp_error'
+  | 'onboarding_phase_advanced'
+  | 'consent_imported'
+  | 'consent_granted'
+  | 'consent_revoked'
+  | 'consent_expired'
 
 export interface CrmEvent {
   id: string

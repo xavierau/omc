@@ -119,7 +119,8 @@
     "deleteConfirmButton": "確認刪除",
     "deleteCancelButton": "取消",
     "deleting": "刪除中…",
-    "deleteFailed": "無法刪除會員，請再試一次。"
+    "deleteFailed": "無法刪除會員，請再試一次。",
+    "importContacts": "匯入聯絡人"
   },
   "coupons": {
     "heading": "優惠券",
@@ -673,5 +674,82 @@
     "created": "建立日期",
     "actions": "操作",
     "edit": "編輯"
+  },
+  "importWizard": {
+    "heading": "匯入聯絡人",
+    "steps": {
+      "meta": "批次資料",
+      "csv": "上載 CSV",
+      "grade": "預覽與評級",
+      "confirm": "確認"
+    },
+    "meta": {
+      "source": "來源 — 這些聯絡人從哪裡來（哪本筆記、哪份 POS 匯出、哪張表格）",
+      "dateRangeStart": "收集日期 — 由",
+      "dateRangeEnd": "收集日期 — 至",
+      "consentTextShown": "顧客當時看到的同意聲明文字 — 一字不改",
+      "consentChannel": "同意渠道 — 是 WhatsApp 專用，還是一般行銷？",
+      "proof": "存檔證明 — 原始紙本／表格／截圖",
+      "errors": {
+        "source_required": "請填寫來源。",
+        "consent_text_too_short": "同意聲明文字至少需要 10 個字符。",
+        "date_range_invalid": "結束日期必須等於或晚於開始日期。",
+        "date_range_future": "結束日期不可為將來日期。",
+        "proof_required_for_whatsapp": "WhatsApp 專用同意必須上載證明檔案。"
+      }
+    },
+    "channel": {
+      "whatsapp": "WhatsApp 專用",
+      "generic": "一般行銷",
+      "service_only": "僅限服務（只可發實用模板）",
+      "none": "無同意紀錄"
+    },
+    "csv": {
+      "description": "請上載至少包含 phone 欄位的 CSV，亦支援可選的 name 與 preferred_language 欄位。",
+      "pick": "選擇 CSV 檔案",
+      "rowCount": "{count} 列已準備評級",
+      "errors": {
+        "empty": "CSV 為空或缺少 phone 欄位。",
+        "tooManyRows": "每批次最多 {max} 列。"
+      }
+    },
+    "grade": {
+      "strong": "強",
+      "medium": "中",
+      "weak": "弱",
+      "none": "無"
+    },
+    "table": {
+      "phone": "電話",
+      "name": "姓名",
+      "grade": "評級",
+      "pageOf": "第 {page} 頁，共 {total} 頁"
+    },
+    "mergeExistingMembers": "與現有會員合併（為已存在的電話寫入新的同意紀錄而不拒絕）",
+    "proof": {
+      "pick": "上載證明",
+      "uploading": "上載中…",
+      "remove": "移除",
+      "viewExisting": "檢視已上載證明",
+      "tooLarge": "檔案太大。",
+      "wrongType": "只接受 JPG、PNG、WebP 或 PDF。",
+      "hint": "JPG／PNG／WebP／PDF — 最大 {maxMb} MB"
+    },
+    "confirm": {
+      "aboutToCommit": "確認後會建立批次、會員及同意紀錄，無法復原。",
+      "successTitle": "匯入完成",
+      "successDescription": "已寫入 {inserted} 條同意紀錄；新增 {members} 位會員。",
+      "rejected": "被拒絕"
+    },
+    "actions": {
+      "next": "下一步",
+      "back": "返回",
+      "prev": "上一頁",
+      "nextPage": "下一頁",
+      "confirm": "繼續",
+      "commit": "提交匯入",
+      "committing": "提交中…",
+      "done": "返回會員列表"
+    }
   }
 }

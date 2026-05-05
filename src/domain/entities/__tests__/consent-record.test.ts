@@ -206,6 +206,47 @@ describe('WONB-005 audit fields (proofUrl, consentTextShown, expiresAt)', () => 
   })
 })
 
+describe('WONB-004 importBatchId audit linkage', () => {
+  // B1: consent_records.import_batch_id must round-trip through the entity
+  // so the orchestrator can thread the batch id from the wizard commit path.
+
+  it('grant() exposes importBatchId when provided', () => {
+    const r = ConsentRecord.grant(
+      buildGrant({ importBatchId: '99999999-9999-9999-9999-999999999999' })
+    )
+    expect(r.snapshot.importBatchId).toBe(
+      '99999999-9999-9999-9999-999999999999'
+    )
+  })
+
+  it('grant() defaults importBatchId to null when omitted', () => {
+    const r = ConsentRecord.grant(buildGrant())
+    expect(r.snapshot.importBatchId).toBeNull()
+  })
+
+  it('markPending() defaults importBatchId to null', () => {
+    const r = ConsentRecord.markPending({
+      id: '77777777-7777-7777-7777-777777777777',
+      restaurantId: 'rest-1',
+      memberId: null,
+      phoneE164: '85299999999',
+      category: 'marketing',
+      source: 'whatsapp_keyword',
+    })
+    expect(r.snapshot.importBatchId).toBeNull()
+  })
+
+  it('revoke() preserves importBatchId verbatim', () => {
+    const granted = ConsentRecord.grant(
+      buildGrant({ importBatchId: '88888888-8888-8888-8888-888888888888' })
+    )
+    const revoked = granted.revoke(new Date('2026-05-05T10:00:00.000Z'))
+    expect(revoked.snapshot.importBatchId).toBe(
+      '88888888-8888-8888-8888-888888888888'
+    )
+  })
+})
+
 describe('WONB-005 grantedAt audit field', () => {
   // grantedAt is the explicit moment a row was promoted to opted_in. It is
   // distinct from updated_at (which the DB rewrites on every touch) and from
