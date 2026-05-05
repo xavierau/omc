@@ -1,8 +1,5 @@
-// INVARIANT (WAQ-004): the SOLE writer to the `consent_records` table.
-// `createServerSupabaseClient()` uses SUPABASE_SERVICE_ROLE_KEY which
-// bypasses RLS — there are no INSERT/UPDATE policies on the table by
-// design. Do NOT add a browser-side write path; route every mutation
-// through the named functions below so callers stay observable.
+// INVARIANT (WAQ-004): SOLE writer to consent_records (service-role bypass;
+// table has no INSERT/UPDATE policies). Route every mutation through here.
 
 import { createServerSupabaseClient } from '../client'
 import { ConsentRecord } from '@/domain/entities/consent-record'
@@ -49,15 +46,8 @@ interface FindBulkArgs {
   phones: string[]
 }
 
-/**
- * Bulk-fetch active marketing consents for many phones in ONE round-trip.
- * Used by the campaign batch send to avoid N individual queries per batch
- * (the N+1 path the per-row `findActiveConsent` would otherwise produce).
- *
- * Returns a Map keyed by phone_e164 → ConsentRecord. Phones with no active
- * marketing consent are absent from the map (callers default to "denied").
- * If multiple active rows exist for the same phone, the most recent wins.
- */
+// Bulk active-marketing-consent lookup keyed by phone_e164 in ONE round-trip
+// (kills N+1 from the campaign batch send). Most recent row wins per phone.
 export async function findActiveMarketingConsentForPhones(
   args: FindBulkArgs
 ): Promise<Map<string, ConsentRecord>> {
@@ -70,11 +60,7 @@ export async function findActiveMarketingConsentForPhones(
     .eq('category', 'marketing')
     .in('status', ACTIVE_STATUSES as unknown as string[])
     .in('phone_e164', args.phones)
-  if (error) {
-    throw new Error(
-      `findActiveMarketingConsentForPhones: ${error.message}`
-    )
-  }
+  if (error) throw new Error(`findActiveMarketingConsentForPhones: ${error.message}`)
   return buildLatestByPhone((data ?? []) as ConsentRecordRow[])
 }
 
@@ -108,6 +94,28 @@ export async function insertConsentRecord(
   throw new Error(`insertConsentRecord: ${error.message}`)
 }
 
+interface UpgradeArgs {
+  restaurantId: string
+  phoneE164: string
+  category: ConsentCategory
+}
+
+// WONB-005: idempotent pending→opted_in flip. Stamps `granted_at` (explicit
+// grant moment for WONB-007/008 analytics). True iff a pending row was upgraded.
+export async function upgradeToOptedIn(args: UpgradeArgs): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('consent_records')
+    .update({ status: 'opted_in', granted_at: new Date().toISOString() })
+    .eq('restaurant_id', args.restaurantId)
+    .eq('phone_e164', args.phoneE164)
+    .eq('category', args.category)
+    .eq('status', 'pending')
+    .select('id', { count: 'exact' })
+  if (error) throw new Error(`upgradeToOptedIn: ${error.message}`)
+  return (count ?? 0) > 0
+}
+
 interface RevokeArgs {
   restaurantId: string
   phoneE164: string
@@ -132,12 +140,11 @@ export async function revokeConsent(args: RevokeArgs): Promise<number> {
   return Array.isArray(data) ? data.length : 0
 }
 
-// Compile-time contract lock: this object MUST satisfy the domain repository
-// interface. If a future edit drifts a function signature away from the port,
-// TS surfaces it here rather than at the call sites or — worse — at runtime.
+// Compile-time contract lock against the domain port — TS surfaces drift here.
 export const consentRecordRepository: ConsentRecordRepository = {
   findActive: findActiveConsent,
   findActiveMarketingForPhones: findActiveMarketingConsentForPhones,
   insert: insertConsentRecord,
   revoke: revokeConsent,
+  upgradeToOptedIn,
 }

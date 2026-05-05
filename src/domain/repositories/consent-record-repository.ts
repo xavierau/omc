@@ -45,6 +45,18 @@ export interface ConsentRecordRepository {
     phoneE164: string
     category?: ConsentCategory
   }): Promise<number>
+
+  /**
+   * WONB-005: idempotent pending → opted_in transition for the inbound-YES
+   * webhook (WONB-007) and the re-confirmation campaign (WONB-008). Returns
+   * true only when a pending row was actually upgraded; false covers both
+   * "already opted_in" and "no row exists". Never throws on missing rows.
+   */
+  upgradeToOptedIn(args: {
+    restaurantId: string
+    phoneE164: string
+    category: ConsentCategory
+  }): Promise<boolean>
 }
 
 export type ConsentImportReason =

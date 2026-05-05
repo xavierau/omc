@@ -10,6 +10,7 @@ import {
   findActiveMarketingConsentForPhones,
   insertConsentRecord,
   revokeConsent,
+  upgradeToOptedIn,
 } from '../consent-record-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
@@ -87,6 +88,10 @@ describe('findActiveConsent', () => {
       revoked_at: null,
       captured_ip: null,
       captured_user_agent: null,
+      proof_url: null,
+      consent_text_shown: null,
+      expires_at: null,
+      granted_at: null,
     }
     const { client, recorder } = buildSelectClient({ data: row, error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -440,6 +445,10 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         revoked_at: null,
         captured_ip: null,
         captured_user_agent: null,
+        proof_url: null,
+        consent_text_shown: null,
+        expires_at: null,
+        granted_at: null,
       },
       {
         id: 'cr-b',
@@ -456,6 +465,10 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         revoked_at: null,
         captured_ip: null,
         captured_user_agent: null,
+        proof_url: null,
+        consent_text_shown: null,
+        expires_at: null,
+        granted_at: null,
       },
     ]
     const { client, recorder, fromCalls } = buildBulkClient(rows)
@@ -500,5 +513,157 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         phones: ['85291234567'],
       })
     ).rejects.toThrow(/findActiveMarketingConsentForPhones.*connection lost/)
+  })
+})
+
+describe('upgradeToOptedIn (WONB-005)', () => {
+  interface UpgradeRecorder {
+    update: Record<string, unknown> | null
+    eqs: Array<{ col: string; val: unknown }>
+    selectArg?: { cols: string; opts: { count: 'exact' } | undefined }
+  }
+
+  function buildUpgradeClient(
+    result: { count: number | null; error: { message: string } | null }
+  ): {
+    client: ReturnType<typeof createServerSupabaseClient>
+    recorder: UpgradeRecorder
+  } {
+    const recorder: UpgradeRecorder = { update: null, eqs: [] }
+    const select = vi
+      .fn()
+      .mockImplementation(
+        (cols: string, opts: { count: 'exact' } | undefined) => {
+          recorder.selectArg = { cols, opts }
+          return Promise.resolve({
+            data: null,
+            count: result.count,
+            error: result.error,
+          })
+        }
+      )
+    const eqChain = {
+      eq: vi.fn(),
+      select,
+    } as unknown as { eq: ReturnType<typeof vi.fn> }
+    eqChain.eq.mockImplementation((col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return eqChain
+    })
+    const update = vi.fn().mockImplementation((u: Record<string, unknown>) => {
+      recorder.update = u
+      return eqChain
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    return {
+      client: { from } as unknown as ReturnType<
+        typeof createServerSupabaseClient
+      >,
+      recorder,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('upgrades a pending row to opted_in and returns true', async () => {
+    const { client, recorder } = buildUpgradeClient({ count: 1, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeToOptedIn({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(true)
+    // The UPDATE must set BOTH status AND granted_at — analytics (WONB-007/008)
+    // depends on the explicit grant moment, not on updated_at which any touch
+    // would rewrite.
+    expect(recorder.update).toMatchObject({ status: 'opted_in' })
+    expect(recorder.update?.granted_at).toEqual(expect.any(String))
+    // ISO-8601 sanity: parseable as a Date.
+    expect(
+      Number.isFinite(new Date(recorder.update!.granted_at as string).getTime())
+    ).toBe(true)
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-1' },
+      { col: 'phone_e164', val: '85291234567' },
+      { col: 'category', val: 'marketing' },
+      { col: 'status', val: 'pending' },
+    ])
+    expect(recorder.selectArg?.opts).toEqual({ count: 'exact' })
+  })
+
+  it('returns false when no pending row exists (idempotent — already opted_in)', async () => {
+    const { client } = buildUpgradeClient({ count: 0, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeToOptedIn({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('returns false when no row exists at all (no-row path)', async () => {
+    const { client } = buildUpgradeClient({ count: 0, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeToOptedIn({
+      restaurantId: 'r-1',
+      phoneE164: '85299999999',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('treats null count as no rows (returns false, no throw)', async () => {
+    const { client } = buildUpgradeClient({ count: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeToOptedIn({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('scopes the match by (restaurantId, phoneE164, category, status=pending)', async () => {
+    const { client, recorder } = buildUpgradeClient({ count: 1, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await upgradeToOptedIn({
+      restaurantId: 'r-2',
+      phoneE164: '85298765432',
+      category: 'utility',
+    })
+
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-2' },
+      { col: 'phone_e164', val: '85298765432' },
+      { col: 'category', val: 'utility' },
+      { col: 'status', val: 'pending' },
+    ])
+  })
+
+  it('throws a contextual error when the database returns an error', async () => {
+    const { client } = buildUpgradeClient({
+      count: null,
+      error: { message: 'connection lost' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(
+      upgradeToOptedIn({
+        restaurantId: 'r-1',
+        phoneE164: '85291234567',
+        category: 'marketing',
+      })
+    ).rejects.toThrow(/upgradeToOptedIn.*connection lost/)
   })
 })
