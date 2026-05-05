@@ -9,9 +9,21 @@ vi.mock('@/infrastructure/supabase/repositories/reward-repository')
 vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
   insertConsentRecord: vi.fn(),
   revokeConsent: vi.fn(),
+  upgradeToOptedIn: vi.fn(),
+  findActiveConsent: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/conversation-window-repository', () => ({
   upsertOpenWindow: vi.fn(),
+  isWindowOpen: vi.fn(),
+}))
+vi.mock('@/application/prompt-marketing-optin', () => ({
+  promptMarketingOptin: vi.fn(async () => ({ promptSent: false, reason: 'no_member' })),
+}))
+vi.mock('@/application/confirm-marketing-optin', () => ({
+  confirmMarketingOptin: vi.fn(async () => ({ upgraded: false })),
+}))
+vi.mock('@/application/reject-marketing-optin', () => ({
+  rejectMarketingOptin: vi.fn(async () => ({ revoked: false })),
 }))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
