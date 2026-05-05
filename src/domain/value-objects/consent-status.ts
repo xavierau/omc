@@ -1,13 +1,15 @@
-// WAQ-004: consent classification primitives.
+// WAQ-004 / WONB-005: consent classification primitives.
 // `category` partitions consent by template message class (marketing /
 // utility / authentication). `status` is the lifecycle bit. `grade` records
-// audit strength: 'strong' for first-party captured consents, 'weak' for
-// backfilled / pre-system migration records that WONB-008 will upgrade via
-// a re-confirmation campaign.
+// audit strength on a 4-level scale (WONB-005):
+//   strong — first-party captured proof (paper form, signed waiver, web form)
+//   medium — first-party low-friction (whatsapp_join_keyword, QR opt-in)
+//   weak   — backfilled / pre-system migration records
+//   none   — explicit no-marketing-consent marker (e.g. service_only)
 
 export type ConsentStatus = 'opted_in' | 'opted_out' | 'pending'
 export type ConsentCategory = 'marketing' | 'utility' | 'authentication'
-export type ConsentGrade = 'strong' | 'weak'
+export type ConsentGrade = 'strong' | 'medium' | 'weak' | 'none'
 
 const STATUSES: readonly ConsentStatus[] = ['opted_in', 'opted_out', 'pending']
 const CATEGORIES: readonly ConsentCategory[] = [
@@ -15,7 +17,12 @@ const CATEGORIES: readonly ConsentCategory[] = [
   'utility',
   'authentication',
 ]
-const GRADES: readonly ConsentGrade[] = ['strong', 'weak']
+export const GRADES: readonly ConsentGrade[] = [
+  'strong',
+  'medium',
+  'weak',
+  'none',
+]
 
 export function isConsentStatus(v: unknown): v is ConsentStatus {
   return typeof v === 'string' && (STATUSES as readonly string[]).includes(v)

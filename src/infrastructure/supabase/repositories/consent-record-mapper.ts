@@ -23,6 +23,10 @@ export interface ConsentRecordRow {
   revoked_at: string | null
   captured_ip: string | null
   captured_user_agent: string | null
+  proof_url: string | null
+  consent_text_shown: string | null
+  expires_at: string | null
+  granted_at: string | null
 }
 
 export function toEntity(row: ConsentRecordRow): ConsentRecord {
@@ -41,6 +45,10 @@ export function toEntity(row: ConsentRecordRow): ConsentRecord {
     revokedAt: row.revoked_at,
     capturedIp: row.captured_ip,
     capturedUserAgent: row.captured_user_agent,
+    proofUrl: row.proof_url,
+    consentTextShown: row.consent_text_shown,
+    expiresAt: row.expires_at,
+    grantedAt: row.granted_at,
   }
   return ConsentRecord.fromProps(props)
 }
@@ -62,5 +70,9 @@ export function toRow(record: ConsentRecord): ConsentRecordRow {
     revoked_at: s.revokedAt,
     captured_ip: s.capturedIp,
     captured_user_agent: s.capturedUserAgent,
+    proof_url: s.proofUrl,
+    consent_text_shown: s.consentTextShown,
+    expires_at: s.expiresAt,
+    granted_at: s.grantedAt,
   }
 }

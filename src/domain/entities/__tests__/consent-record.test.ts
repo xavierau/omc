@@ -127,3 +127,116 @@ describe('ConsentRecord.revoke', () => {
     expect(revoked.snapshot.status).toBe('opted_out')
   })
 })
+
+describe('WONB-005 audit fields (proofUrl, consentTextShown, expiresAt)', () => {
+  const proofUrl = 'https://supabase.test/storage/consent/cr-1.pdf'
+  const text = 'I agree to receive marketing messages from Demo Cafe.'
+  const expires = '2028-05-04T12:00:00.000Z'
+
+  it('grant() accepts and exposes the three new audit fields', () => {
+    const r = ConsentRecord.grant(
+      buildGrant({
+        proofUrl,
+        consentTextShown: text,
+        expiresAt: expires,
+      })
+    )
+    expect(r.snapshot.proofUrl).toBe(proofUrl)
+    expect(r.snapshot.consentTextShown).toBe(text)
+    expect(r.snapshot.expiresAt).toBe(expires)
+  })
+
+  it('grant() defaults the three new audit fields to null when omitted', () => {
+    const r = ConsentRecord.grant(buildGrant())
+    expect(r.snapshot.proofUrl).toBeNull()
+    expect(r.snapshot.consentTextShown).toBeNull()
+    expect(r.snapshot.expiresAt).toBeNull()
+  })
+
+  it('markPending() accepts and exposes the three new audit fields', () => {
+    const r = ConsentRecord.markPending({
+      id: '44444444-4444-4444-4444-444444444444',
+      restaurantId: 'rest-1',
+      memberId: null,
+      phoneE164: '85299999999',
+      category: 'marketing',
+      source: 'whatsapp_keyword',
+      proofUrl,
+      consentTextShown: text,
+      expiresAt: expires,
+    })
+    expect(r.snapshot.proofUrl).toBe(proofUrl)
+    expect(r.snapshot.consentTextShown).toBe(text)
+    expect(r.snapshot.expiresAt).toBe(expires)
+  })
+
+  it('markPending() defaults the three new audit fields to null when omitted', () => {
+    const r = ConsentRecord.markPending({
+      id: '55555555-5555-5555-5555-555555555555',
+      restaurantId: 'rest-1',
+      memberId: null,
+      phoneE164: '85299999999',
+      category: 'marketing',
+      source: 'whatsapp_keyword',
+    })
+    expect(r.snapshot.proofUrl).toBeNull()
+    expect(r.snapshot.consentTextShown).toBeNull()
+    expect(r.snapshot.expiresAt).toBeNull()
+  })
+
+  it('revoke() preserves the three new audit fields', () => {
+    const granted = ConsentRecord.grant(
+      buildGrant({
+        proofUrl,
+        consentTextShown: text,
+        expiresAt: expires,
+      })
+    )
+    const revoked = granted.revoke(new Date('2026-05-05T10:00:00.000Z'))
+    expect(revoked.snapshot.proofUrl).toBe(proofUrl)
+    expect(revoked.snapshot.consentTextShown).toBe(text)
+    expect(revoked.snapshot.expiresAt).toBe(expires)
+  })
+
+  it('grant() accepts the new medium and none grades (WONB-005 widening)', () => {
+    const m = ConsentRecord.grant(buildGrant({ grade: 'medium' }))
+    expect(m.snapshot.consentGrade).toBe('medium')
+    const n = ConsentRecord.grant(buildGrant({ grade: 'none' }))
+    expect(n.snapshot.consentGrade).toBe('none')
+  })
+})
+
+describe('WONB-005 grantedAt audit field', () => {
+  // grantedAt is the explicit moment a row was promoted to opted_in. It is
+  // distinct from updated_at (which the DB rewrites on every touch) and from
+  // captured_at (which records when the proof was first taken). Downstream
+  // analytics (WONB-007/008) rely on this distinction.
+
+  it('grant() defaults grantedAt to null on the entity (the repo stamps it on flip)', () => {
+    const r = ConsentRecord.grant(buildGrant())
+    expect(r.snapshot.grantedAt).toBeNull()
+  })
+
+  it('markPending() defaults grantedAt to null (no consent granted yet)', () => {
+    const r = ConsentRecord.markPending({
+      id: '66666666-6666-6666-6666-666666666666',
+      restaurantId: 'rest-1',
+      memberId: null,
+      phoneE164: '85299999999',
+      category: 'marketing',
+      source: 'whatsapp_keyword',
+    })
+    expect(r.snapshot.grantedAt).toBeNull()
+  })
+
+  it('revoke() preserves grantedAt verbatim (audit trail must be stable)', () => {
+    const granted = ConsentRecord.grant(buildGrant())
+    const revoked = granted.revoke(new Date('2026-05-05T10:00:00.000Z'))
+    expect(revoked.snapshot.grantedAt).toBe(granted.snapshot.grantedAt)
+  })
+
+  it('snapshot exposes grantedAt as part of the entity contract', () => {
+    const r = ConsentRecord.grant(buildGrant())
+    expect('grantedAt' in r.snapshot).toBe(true)
+  })
+})

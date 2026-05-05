@@ -19,6 +19,14 @@ export interface ConsentRecordProps {
   revokedAt: string | null
   capturedIp: string | null
   capturedUserAgent: string | null
+  // WONB-005 audit + expiry
+  proofUrl: string | null
+  consentTextShown: string | null
+  expiresAt: string | null
+  // Explicit moment the row was promoted to opted_in. NULL while pending /
+  // for legacy rows that pre-date this column. The repo stamps it on flip;
+  // entity defaults to null.
+  grantedAt: string | null
 }
 
 export interface GrantConsentInput {
@@ -34,6 +42,9 @@ export interface GrantConsentInput {
   capturedAt?: Date
   capturedIp?: string | null
   capturedUserAgent?: string | null
+  proofUrl?: string | null
+  consentTextShown?: string | null
+  expiresAt?: string | null
 }
 
 export interface MarkPendingInput {
@@ -45,6 +56,9 @@ export interface MarkPendingInput {
   source: string
   sourceReference?: string | null
   businessNameShown?: string | null
+  proofUrl?: string | null
+  consentTextShown?: string | null
+  expiresAt?: string | null
 }
 
 export class ConsentRecord {
@@ -68,6 +82,10 @@ export class ConsentRecord {
       revokedAt: null,
       capturedIp: input.capturedIp ?? null,
       capturedUserAgent: input.capturedUserAgent ?? null,
+      proofUrl: input.proofUrl ?? null,
+      consentTextShown: input.consentTextShown ?? null,
+      expiresAt: input.expiresAt ?? null,
+      grantedAt: null,
     })
   }
 
@@ -89,6 +107,10 @@ export class ConsentRecord {
       revokedAt: null,
       capturedIp: null,
       capturedUserAgent: null,
+      proofUrl: input.proofUrl ?? null,
+      consentTextShown: input.consentTextShown ?? null,
+      expiresAt: input.expiresAt ?? null,
+      grantedAt: null,
     })
   }
 
@@ -96,7 +118,7 @@ export class ConsentRecord {
     return new ConsentRecord(props)
   }
 
-  /** Idempotent transition to opted_out. */
+  /** Idempotent transition to opted_out. Preserves audit fields. */
   revoke(at: Date): ConsentRecord {
     if (this.props.status === 'opted_out') return this
     return new ConsentRecord({
