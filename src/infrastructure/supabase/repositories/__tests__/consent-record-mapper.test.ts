@@ -25,6 +25,7 @@ const baseRow: ConsentRecordRow = {
   consent_text_shown: null,
   expires_at: null,
   granted_at: null,
+  import_batch_id: null,
 }
 
 describe('consent-record-mapper WONB-005 audit columns', () => {
@@ -124,5 +125,57 @@ describe('consent-record-mapper WONB-005 audit columns', () => {
       source: 'website_form',
     })
     expect(toRow(record).granted_at).toBeNull()
+  })
+
+  // B1: WONB-004 audit linkage. consent_records.import_batch_id must
+  // round-trip through toEntity/toRow so the import wizard can persist
+  // the batch id and the post-mortem index is meaningful.
+  it('toEntity reads import_batch_id', () => {
+    const row: ConsentRecordRow = {
+      ...baseRow,
+      import_batch_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    }
+    expect(toEntity(row).snapshot.importBatchId).toBe(
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    )
+  })
+
+  it('toEntity preserves null import_batch_id', () => {
+    expect(toEntity(baseRow).snapshot.importBatchId).toBeNull()
+  })
+
+  it('toRow writes import_batch_id when present on the entity', () => {
+    const record = ConsentRecord.grant({
+      id: 'cr-import',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '85291234567',
+      category: 'marketing',
+      source: 'csv_import',
+      importBatchId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    })
+    expect(toRow(record).import_batch_id).toBe(
+      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    )
+  })
+
+  it('toRow emits null import_batch_id when omitted (legacy callers)', () => {
+    const record = ConsentRecord.grant({
+      id: 'cr-no-import',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '85291234567',
+      category: 'marketing',
+      source: 'website_form',
+    })
+    expect(toRow(record).import_batch_id).toBeNull()
+  })
+
+  it('round-trips import_batch_id (snake) ↔ importBatchId (camel)', () => {
+    const row: ConsentRecordRow = {
+      ...baseRow,
+      import_batch_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    }
+    expect(toRow(toEntity(row))).toEqual(row)
   })
 })

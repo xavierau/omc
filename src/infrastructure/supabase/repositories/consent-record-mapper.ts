@@ -27,6 +27,7 @@ export interface ConsentRecordRow {
   consent_text_shown: string | null
   expires_at: string | null
   granted_at: string | null
+  import_batch_id: string | null
 }
 
 export function toEntity(row: ConsentRecordRow): ConsentRecord {
@@ -49,6 +50,7 @@ export function toEntity(row: ConsentRecordRow): ConsentRecord {
     consentTextShown: row.consent_text_shown,
     expiresAt: row.expires_at,
     grantedAt: row.granted_at,
+    importBatchId: row.import_batch_id,
   }
   return ConsentRecord.fromProps(props)
 }
@@ -74,5 +76,6 @@ export function toRow(record: ConsentRecord): ConsentRecordRow {
     consent_text_shown: s.consentTextShown,
     expires_at: s.expiresAt,
     granted_at: s.grantedAt,
+    import_batch_id: s.importBatchId,
   }
 }

@@ -119,7 +119,8 @@
     "deleteConfirmButton": "Yes, delete",
     "deleteCancelButton": "Cancel",
     "deleting": "Deleting…",
-    "deleteFailed": "Couldn't delete member. Please try again."
+    "deleteFailed": "Couldn't delete member. Please try again.",
+    "importContacts": "Import contacts"
   },
   "coupons": {
     "heading": "Coupons",
@@ -673,5 +674,82 @@
     "created": "Created",
     "actions": "Actions",
     "edit": "Edit"
+  },
+  "importWizard": {
+    "heading": "Import contacts",
+    "steps": {
+      "meta": "Batch metadata",
+      "csv": "Upload CSV",
+      "grade": "Preview & grade",
+      "confirm": "Confirm"
+    },
+    "meta": {
+      "source": "Source — where these came from (which notebook, which POS export, which form)",
+      "dateRangeStart": "Date range — start",
+      "dateRangeEnd": "Date range — end",
+      "consentTextShown": "Consent text shown — what exactly was the customer told?",
+      "consentChannel": "Channel of consent — was it WhatsApp-specific, or generic marketing?",
+      "proof": "Storage proof — original paper / form / screenshot",
+      "errors": {
+        "source_required": "Source is required.",
+        "consent_text_too_short": "Consent text must be at least 10 characters.",
+        "date_range_invalid": "Date range end must be on or after the start date.",
+        "date_range_future": "Date range end cannot be in the future.",
+        "proof_required_for_whatsapp": "Proof file is required for WhatsApp-specific consent."
+      }
+    },
+    "channel": {
+      "whatsapp": "WhatsApp-specific",
+      "generic": "Generic marketing",
+      "service_only": "Service only (utility templates only)",
+      "none": "No consent recorded"
+    },
+    "csv": {
+      "description": "Upload a CSV with at least a phone column. Optional name and preferred_language columns are supported.",
+      "pick": "Choose CSV file",
+      "rowCount": "{count} rows ready to grade",
+      "errors": {
+        "empty": "CSV is empty or missing the phone column.",
+        "tooManyRows": "Batch limit is {max} rows."
+      }
+    },
+    "grade": {
+      "strong": "Strong",
+      "medium": "Medium",
+      "weak": "Weak",
+      "none": "None"
+    },
+    "table": {
+      "phone": "Phone",
+      "name": "Name",
+      "grade": "Grade",
+      "pageOf": "Page {page} of {total}"
+    },
+    "mergeExistingMembers": "Merge with existing members (write a new consent record instead of rejecting)",
+    "proof": {
+      "pick": "Upload proof",
+      "uploading": "Uploading…",
+      "remove": "Remove",
+      "viewExisting": "View uploaded proof",
+      "tooLarge": "File is too large.",
+      "wrongType": "Only JPG, PNG, WebP, or PDF.",
+      "hint": "JPG / PNG / WebP / PDF — up to {maxMb} MB"
+    },
+    "confirm": {
+      "aboutToCommit": "Once you confirm we will create the import batch, member rows, and consent records. This cannot be undone.",
+      "successTitle": "Import committed",
+      "successDescription": "{inserted} consent records written; {members} new members created.",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "next": "Next",
+      "back": "Back",
+      "prev": "Previous",
+      "nextPage": "Next",
+      "confirm": "Continue",
+      "commit": "Commit import",
+      "committing": "Committing…",
+      "done": "Back to members"
+    }
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
 import { MemberTable } from '@/components/dashboard/member-table'
@@ -62,7 +63,15 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">{t('heading')}</h1>
+        <Link
+          href="/dashboard/members/import"
+          className="inline-flex h-9 items-center rounded-lg border border-input bg-background px-3 text-sm font-medium hover:bg-muted"
+        >
+          {t('importContacts')}
+        </Link>
+      </div>
       <MembersContent
         data={data}
         isLoading={isLoading}

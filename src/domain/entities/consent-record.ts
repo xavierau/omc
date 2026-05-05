@@ -27,6 +27,9 @@ export interface ConsentRecordProps {
   // for legacy rows that pre-date this column. The repo stamps it on flip;
   // entity defaults to null.
   grantedAt: string | null
+  // WONB-004 audit linkage. Set when the consent row originates from the
+  // bulk import wizard so admins can trace each row back to its batch row.
+  importBatchId: string | null
 }
 
 export interface GrantConsentInput {
@@ -45,6 +48,7 @@ export interface GrantConsentInput {
   proofUrl?: string | null
   consentTextShown?: string | null
   expiresAt?: string | null
+  importBatchId?: string | null
 }
 
 export interface MarkPendingInput {
@@ -59,6 +63,7 @@ export interface MarkPendingInput {
   proofUrl?: string | null
   consentTextShown?: string | null
   expiresAt?: string | null
+  importBatchId?: string | null
 }
 
 export class ConsentRecord {
@@ -86,6 +91,7 @@ export class ConsentRecord {
       consentTextShown: input.consentTextShown ?? null,
       expiresAt: input.expiresAt ?? null,
       grantedAt: null,
+      importBatchId: input.importBatchId ?? null,
     })
   }
 
@@ -111,6 +117,7 @@ export class ConsentRecord {
       consentTextShown: input.consentTextShown ?? null,
       expiresAt: input.expiresAt ?? null,
       grantedAt: null,
+      importBatchId: input.importBatchId ?? null,
     })
   }
 
