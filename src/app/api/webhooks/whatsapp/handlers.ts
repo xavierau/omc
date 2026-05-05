@@ -13,6 +13,11 @@ import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
 import { bumpServiceWindow } from './service-window'
+import { maybePromptOptin } from './optin-prompt'
+import {
+  handleOptinConfirmation,
+  handleOptinRejection,
+} from './optin-confirmation'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 const noop: LogFn = () => {}
@@ -22,6 +27,12 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
   // `service-window.ts` — the window is anchored on the user's webhook
   // `timestamp`, not server-receive time, and failure is non-fatal.
   await bumpServiceWindow(message, restaurantId, log)
+
+  // WONB-007: side-effect alongside dispatchRoute. Sends an opt-in
+  // confirmation template for the first qualifying inbound from a member
+  // without strong marketing consent. Never throws — failure is logged
+  // and the regular dispatch continues.
+  await maybePromptOptin(message, restaurantId, log)
 
   if (await maybeHandleLanguageCommand(message, restaurantId)) return
 
@@ -103,14 +114,21 @@ async function dispatchConfirmation(
   route: 'YES' | 'NO' | null
 ) {
   const { message, restaurantId, phone, phoneNumberId } = ctx
-  const handled = await handleReceiptConfirmation({
+  // Q-G: receipt confirmation wins YES.
+  const receiptHandled = await handleReceiptConfirmation({
     phoneNumberId,
     phone,
     route,
     restaurantId,
     text: route === null ? (message.text ?? '') : undefined,
   })
-  if (handled) return
+  if (receiptHandled) return
+
+  // WONB-007: opt-in YES/NO only when receipt didn't claim the route.
+  const optinCtx = { phoneNumberId, phone, restaurantId }
+  if (route === 'YES' && (await handleOptinConfirmation(optinCtx))) return
+  if (route === 'NO' && (await handleOptinRejection(optinCtx))) return
+
   return handleUnknown(phoneNumberId, phone, restaurantId)
 }
 
