@@ -230,6 +230,20 @@
     "imageTooLarge": "File too large (max 5MB)",
     "imageUploading": "Uploading…"
   },
+  "reconfirmation": {
+    "buttonLabel": "Re-confirm legacy contacts",
+    "dialogTitle": "Re-confirm legacy contacts",
+    "explainer": "Send a one-time utility template to legacy contacts whose marketing consent was inherited from older systems but never confirmed via WhatsApp. They reply YES to upgrade their consent to strong. Paced at {cap}/day for safety.",
+    "preflightOk": "Ready to launch — {n} contacts eligible.",
+    "preflightFailQualityNotGreen": "Tenant quality must be GREEN for 7 consecutive days. Current: {state}, since {since}.",
+    "preflightFailEmptyAudience": "No legacy contacts to re-confirm. (Audience: weak-graded but opted-in members from pre-system migration.)",
+    "preflightFailDailyCapMet": "Today's reconfirmation cap reached ({sent}/{cap}). Continue tomorrow.",
+    "preflightFailQualityPaused": "Reconfirmation paused due to quality drop. Awaiting platform-admin clearance.",
+    "templatePreviewTitle": "Template (sent in tenant's default language)",
+    "submit": "Launch reconfirmation campaign",
+    "audiencePreviewHelp": "First {n} contacts (sorted by most recent consent capture):",
+    "campaignCardLabel": "Re-confirmation"
+  },
   "events": {
     "join": "joined",
     "redeem": "redeemed a coupon",

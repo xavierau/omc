@@ -13,8 +13,6 @@ describe('listWhatsAppTemplates', () => {
     vi.mocked(listTemplates).mockResolvedValue({
       templates: [],
       total: 0,
-      page: 1,
-      pageSize: 20,
     })
   })
 

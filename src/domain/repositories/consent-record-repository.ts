@@ -1,5 +1,9 @@
 import type { ConsentRecord } from '../entities/consent-record'
-import type { ConsentCategory } from '../value-objects/consent-status'
+import type {
+  ConsentCategory,
+  ConsentGrade,
+  ConsentStatus,
+} from '../value-objects/consent-status'
 
 /**
  * Contract for the `consent_records` writer/reader. The Supabase
@@ -53,6 +57,31 @@ export interface ConsentRecordRepository {
    * "already opted_in" and "no row exists". Never throws on missing rows.
    */
   upgradeToOptedIn(args: {
+    restaurantId: string
+    phoneE164: string
+    category: ConsentCategory
+  }): Promise<boolean>
+
+  /**
+   * WONB-008: tally consent rows scoped to a (restaurant, grade, status,
+   * category) tuple. Single COUNT query — used by the reconfirmation
+   * pre-flight to size the audience (`grade='weak' AND status='opted_in'`).
+   */
+  countByGradeStatus(args: {
+    restaurantId: string
+    grade: ConsentGrade
+    status: ConsentStatus
+    category: ConsentCategory
+  }): Promise<number>
+
+  /**
+   * WONB-008: idempotent grade upgrade for the reconfirmation YES handler.
+   * Matches `consent_grade='weak' AND status='opted_in'`; sets
+   * `consent_grade='strong', granted_at=now()`. Returns true only when a
+   * weak+opted_in row was actually upgraded. False covers "already strong",
+   * "weak+pending", "no row exists". Never throws on missing rows.
+   */
+  upgradeGradeToStrong(args: {
     restaurantId: string
     phoneE164: string
     category: ConsentCategory

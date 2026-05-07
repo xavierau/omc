@@ -21,6 +21,7 @@ export interface CreateCampaignParams {
   whatsappTemplateId?: string | null
   targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
+  mode?: Campaign['mode']
 }
 
 export interface UpdateCampaignParams {
@@ -44,6 +45,15 @@ export interface UpdateCampaignParams {
   whatsappTemplateId?: string | null
   targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
+  mode?: Campaign['mode']
+}
+
+// Defends the union: if the column ever drifts (manual SQL, restored row, or
+// the row pre-dates migration 050 so the column is absent) the mapper falls
+// back to 'marketing' rather than corrupting the type.
+function parseMode(v: unknown): Campaign['mode'] {
+  if (v === 'reconfirmation') return 'reconfirmation'
+  return 'marketing'
 }
 
 export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
@@ -61,6 +71,9 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     schedule: (row.schedule as Record<string, unknown>) ?? null,
     scheduledAt: (row.scheduled_at as string) ?? null,
     status: row.status as Campaign['status'],
+    // WONB-008: defaults to 'marketing' so rows that pre-date migration 050
+    // (or test fixtures that omit the column) read back as the legacy mode.
+    mode: parseMode(row.mode),
     isChargeable: (row.is_chargeable as boolean | undefined) ?? true,
     chargeableSentCount: Number(row.chargeable_sent_count ?? 0),
     nonChargeableSentCount: Number(row.non_chargeable_sent_count ?? 0),
@@ -97,6 +110,7 @@ export function buildCampaignUpdateRow(
   if (changes.whatsappTemplateId !== undefined) update.whatsapp_template_id = changes.whatsappTemplateId
   if (changes.targetAudience !== undefined) update.target_audience = changes.targetAudience
   if (changes.status !== undefined) update.status = changes.status
+  if (changes.mode !== undefined) update.mode = changes.mode
 
   if (changes.template !== undefined) {
     update.template = changes.template

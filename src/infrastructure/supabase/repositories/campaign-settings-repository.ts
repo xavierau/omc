@@ -111,3 +111,43 @@ function todayStart(): string {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 }
+
+const DEFAULT_RECONFIRMATION_DAILY_CAP = 50
+
+// WONB-008: read the per-tenant reconfirmation cap. Defaults to 50 when no
+// settings row exists yet OR when the column is NULL (pre-migration row).
+// Range [50, 100] is enforced by the DB CHECK constraint + use-case layer.
+export async function getReconfirmationDailyCap(
+  restaurantId: string
+): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('tenant_campaign_settings')
+    .select('reconfirmation_daily_cap')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`getReconfirmationDailyCap: ${error.message}`)
+  return data?.reconfirmation_daily_cap ?? DEFAULT_RECONFIRMATION_DAILY_CAP
+}
+
+// WONB-008: write the per-tenant reconfirmation cap. Repo is a dumb writer —
+// the use-case validates the [50, 100] range before calling. The DB CHECK
+// constraint is the final safety net.
+export async function setReconfirmationDailyCap(
+  restaurantId: string,
+  cap: number
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('tenant_campaign_settings')
+    .upsert(
+      { restaurant_id: restaurantId, reconfirmation_daily_cap: cap },
+      { onConflict: 'restaurant_id' }
+    )
+  if (error) throw new Error(`setReconfirmationDailyCap: ${error.message}`)
+}
+
+// WONB-008 daily-send count lives in `reconfirmation-queries.ts` to keep
+// this file under the size limit. Re-exported so callers keep their
+// `campaign-settings-repository` import path.
+export { getReconfirmationSendsToday } from './reconfirmation-queries'

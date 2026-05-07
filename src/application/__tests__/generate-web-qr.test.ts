@@ -8,7 +8,7 @@ import { generateWebQr } from '../generate-web-qr'
 describe('generateWebQr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock')
+    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock' as never)
     delete process.env.NEXT_PUBLIC_APP_URL
   })
 

@@ -17,6 +17,25 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/application/check-reconfirmation-eligibility', () => ({
+  checkReconfirmationEligibility: vi.fn(),
+}))
+vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/whatsapp-template-repository')
+  >('@/infrastructure/supabase/repositories/whatsapp-template-repository')
+  return {
+    ...actual,
+    findTemplateById: vi.fn(),
+  }
+})
+vi.mock('@/application/emit-event', () => ({
+  emitEvent: vi.fn(),
+}))
+vi.mock('@/infrastructure/supabase/audit-logger', () => ({
+  logAdminAction: vi.fn(),
+  extractIp: vi.fn().mockReturnValue('1.2.3.4'),
+}))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -30,8 +49,13 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { checkReconfirmationEligibility } from '@/application/check-reconfirmation-eligibility'
+import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import { emitEvent } from '@/application/emit-event'
+import { logAdminAction } from '@/infrastructure/supabase/audit-logger'
 import { POST, GET } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 const RESTAURANT_ID = 'rest-1'
 
@@ -57,6 +81,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'draft',
+    mode: 'marketing',
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
@@ -435,6 +460,171 @@ describe('POST /api/dashboard/campaigns', () => {
         imageUrlZhHk: null,
       })
     )
+  })
+})
+
+describe('POST /api/dashboard/campaigns — reconfirmation mode (WONB-008)', () => {
+  function buildUtilityTemplate(
+    overrides: Partial<WhatsAppTemplate> = {}
+  ): WhatsAppTemplate {
+    return {
+      id: 'tpl-utility-1',
+      restaurantId: RESTAURANT_ID,
+      metaTemplateId: 'meta-1',
+      name: 'reconfirmation_consent_v1',
+      language: 'en',
+      category: 'UTILITY',
+      status: 'approved',
+      components: [{ type: 'BODY', text: 'Reply YES.' }],
+      parameterFormat: 'NAMED',
+      rejectionReason: null,
+      createdAt: '2026-04-01T00:00:00Z',
+      updatedAt: '2026-04-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(createCampaign).mockResolvedValue(
+      buildCampaign({ id: 'c-rc-1', mode: 'reconfirmation', status: 'active' })
+    )
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(getOnboardingSettings).mockResolvedValue({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+    vi.mocked(checkReconfirmationEligibility).mockResolvedValue({
+      allowed: true,
+      violations: [],
+      audienceCount: 30,
+      currentDailySent: 0,
+      cap: 50,
+    })
+    vi.mocked(findTemplateById).mockResolvedValue(buildUtilityTemplate())
+    vi.mocked(emitEvent).mockResolvedValue('evt-1')
+  })
+
+  function rcReq(body: Record<string, unknown> = {}) {
+    return postRequest({
+      mode: 'reconfirmation',
+      name: 'May reconfirmation',
+      templateId: 'tpl-utility-1',
+      ...body,
+    })
+  }
+
+  it('returns 201 with campaignId on the happy path', async () => {
+    const r = await POST(rcReq())
+    expect(r.status).toBe(201)
+    const body = await r.json()
+    expect(body.campaignId).toBe('c-rc-1')
+  })
+
+  it('forces mode=reconfirmation and status=active on the persisted campaign', async () => {
+    await POST(rcReq())
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'reconfirmation', status: 'active' })
+    )
+  })
+
+  it('rejects with 400 + violations when preflight fails', async () => {
+    vi.mocked(checkReconfirmationEligibility).mockResolvedValue({
+      allowed: false,
+      violations: [
+        { key: 'daily_cap_met', detail: '50/50' },
+        { key: 'quality_not_green', detail: 'YELLOW since 2026-04-30' },
+      ],
+      audienceCount: 0,
+      currentDailySent: 50,
+      cap: 50,
+    })
+    const r = await POST(rcReq())
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.reason).toBe('reconfirmation_not_allowed')
+    expect(body.violations).toHaveLength(2)
+    expect(body.violations[0].key).toBe('daily_cap_met')
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+
+  it('rejects with 400 + reason=template_not_utility when template category is MARKETING', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue(
+      buildUtilityTemplate({ category: 'MARKETING' })
+    )
+    const r = await POST(rcReq())
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.reason).toBe('template_not_utility')
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+
+  it('rejects with 400 + reason=template_not_utility when template is not approved', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue(
+      buildUtilityTemplate({ status: 'pending' })
+    )
+    const r = await POST(rcReq())
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.reason).toBe('template_not_utility')
+  })
+
+  it('rejects with 400 when templateId is missing', async () => {
+    const r = await POST(
+      postRequest({ mode: 'reconfirmation', name: 'n' })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects with 400 + reason=template_not_utility when template id is unknown', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue(null)
+    const r = await POST(rcReq())
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.reason).toBe('template_not_utility')
+  })
+
+  it('does NOT emit events.campaign on create (the campaign event fires at execute time per AC #11)', async () => {
+    await POST(rcReq())
+    expect(emitEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'campaign' })
+    )
+  })
+
+  it('writes a reconfirmation.create audit log on success', async () => {
+    await POST(rcReq())
+    expect(logAdminAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u-1',
+        action: 'reconfirmation.create',
+        resourceType: 'campaign',
+      })
+    )
+  })
+
+  it('does NOT touch the welcome auto-map path even if mode=reconfirmation', async () => {
+    await POST(rcReq())
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when not signed in', async () => {
+    vi.mocked(getTenantContext).mockRejectedValueOnce(
+      new (await import('@/infrastructure/supabase/guards/auth-guard')).AuthError(
+        'Unauthorized',
+        401
+      )
+    )
+    const r = await POST(rcReq())
+    expect(r.status).toBe(401)
   })
 })
 

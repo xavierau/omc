@@ -11,6 +11,9 @@ import {
   insertConsentRecord,
   revokeConsent,
   upgradeToOptedIn,
+  countByGradeStatus,
+  upgradeGradeToStrong,
+  findReconfirmationAudience,
 } from '../consent-record-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
@@ -92,6 +95,7 @@ describe('findActiveConsent', () => {
       consent_text_shown: null,
       expires_at: null,
       granted_at: null,
+      import_batch_id: null,
     }
     const { client, recorder } = buildSelectClient({ data: row, error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -449,6 +453,7 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         consent_text_shown: null,
         expires_at: null,
         granted_at: null,
+        import_batch_id: null,
       },
       {
         id: 'cr-b',
@@ -469,6 +474,7 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         consent_text_shown: null,
         expires_at: null,
         granted_at: null,
+        import_batch_id: null,
       },
     ]
     const { client, recorder, fromCalls } = buildBulkClient(rows)
@@ -520,11 +526,11 @@ describe('upgradeToOptedIn (WONB-005)', () => {
   interface UpgradeRecorder {
     update: Record<string, unknown> | null
     eqs: Array<{ col: string; val: unknown }>
-    selectArg?: { cols: string; opts: { count: 'exact' } | undefined }
+    selectArg?: { cols: string }
   }
 
   function buildUpgradeClient(
-    result: { count: number | null; error: { message: string } | null }
+    result: { data: Array<{ id: string }> | null; error: { message: string } | null }
   ): {
     client: ReturnType<typeof createServerSupabaseClient>
     recorder: UpgradeRecorder
@@ -533,11 +539,10 @@ describe('upgradeToOptedIn (WONB-005)', () => {
     const select = vi
       .fn()
       .mockImplementation(
-        (cols: string, opts: { count: 'exact' } | undefined) => {
-          recorder.selectArg = { cols, opts }
+        (cols: string) => {
+          recorder.selectArg = { cols }
           return Promise.resolve({
-            data: null,
-            count: result.count,
+            data: result.data,
             error: result.error,
           })
         }
@@ -566,7 +571,7 @@ describe('upgradeToOptedIn (WONB-005)', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('upgrades a pending row to opted_in and returns true', async () => {
-    const { client, recorder } = buildUpgradeClient({ count: 1, error: null })
+    const { client, recorder } = buildUpgradeClient({ data: [{ id: 'cr-1' }], error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
     const upgraded = await upgradeToOptedIn({
@@ -591,11 +596,11 @@ describe('upgradeToOptedIn (WONB-005)', () => {
       { col: 'category', val: 'marketing' },
       { col: 'status', val: 'pending' },
     ])
-    expect(recorder.selectArg?.opts).toEqual({ count: 'exact' })
+    expect(recorder.selectArg?.cols).toBe('id')
   })
 
   it('returns false when no pending row exists (idempotent — already opted_in)', async () => {
-    const { client } = buildUpgradeClient({ count: 0, error: null })
+    const { client } = buildUpgradeClient({ data: [], error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
     const upgraded = await upgradeToOptedIn({
@@ -608,7 +613,7 @@ describe('upgradeToOptedIn (WONB-005)', () => {
   })
 
   it('returns false when no row exists at all (no-row path)', async () => {
-    const { client } = buildUpgradeClient({ count: 0, error: null })
+    const { client } = buildUpgradeClient({ data: [], error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
     const upgraded = await upgradeToOptedIn({
@@ -620,8 +625,8 @@ describe('upgradeToOptedIn (WONB-005)', () => {
     expect(upgraded).toBe(false)
   })
 
-  it('treats null count as no rows (returns false, no throw)', async () => {
-    const { client } = buildUpgradeClient({ count: null, error: null })
+  it('treats null data as no rows (returns false, no throw)', async () => {
+    const { client } = buildUpgradeClient({ data: null, error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
     const upgraded = await upgradeToOptedIn({
@@ -634,7 +639,7 @@ describe('upgradeToOptedIn (WONB-005)', () => {
   })
 
   it('scopes the match by (restaurantId, phoneE164, category, status=pending)', async () => {
-    const { client, recorder } = buildUpgradeClient({ count: 1, error: null })
+    const { client, recorder } = buildUpgradeClient({ data: [{ id: 'cr-1' }], error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
 
     await upgradeToOptedIn({
@@ -653,7 +658,7 @@ describe('upgradeToOptedIn (WONB-005)', () => {
 
   it('throws a contextual error when the database returns an error', async () => {
     const { client } = buildUpgradeClient({
-      count: null,
+      data: null,
       error: { message: 'connection lost' },
     })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -665,5 +670,399 @@ describe('upgradeToOptedIn (WONB-005)', () => {
         category: 'marketing',
       })
     ).rejects.toThrow(/upgradeToOptedIn.*connection lost/)
+  })
+})
+
+describe('countByGradeStatus (WONB-008)', () => {
+  interface CountRecorder {
+    table: string | null
+    selected?: { cols: string; opts: { count: 'exact'; head: true } | undefined }
+    eqs: Array<{ col: string; val: unknown }>
+  }
+
+  function buildCountClient(result: {
+    count: number | null
+    error: { message: string } | null
+  }): {
+    client: ReturnType<typeof createServerSupabaseClient>
+    recorder: CountRecorder
+  } {
+    const recorder: CountRecorder = { table: null, eqs: [] }
+    // Final eq() resolves the query (PostgREST returns count without an
+    // explicit terminal). Each .eq() returns the same chain — the LAST one
+    // is the one we await. We model that by making the chain itself a
+    // thenable-like object that returns the result when awaited.
+    const finalResult = Promise.resolve({
+      data: null,
+      count: result.count,
+      error: result.error,
+    })
+    const eqChain = {
+      eq: vi.fn(),
+      then: (
+        onFulfilled: (v: unknown) => unknown,
+        onRejected?: (e: unknown) => unknown
+      ) => finalResult.then(onFulfilled, onRejected),
+    } as unknown as { eq: ReturnType<typeof vi.fn> }
+    eqChain.eq.mockImplementation((col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return eqChain
+    })
+    const select = vi.fn().mockImplementation(
+      (cols: string, opts: { count: 'exact'; head: true } | undefined) => {
+        recorder.selected = { cols, opts }
+        return eqChain
+      }
+    )
+    const from = vi.fn().mockImplementation((t: string) => {
+      recorder.table = t
+      return { select }
+    })
+    return {
+      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      recorder,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('issues a single SELECT count(*) scoped by (restaurant_id, category, status, consent_grade)', async () => {
+    const { client, recorder } = buildCountClient({ count: 7, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const n = await countByGradeStatus({
+      restaurantId: 'r-1',
+      grade: 'weak',
+      status: 'opted_in',
+      category: 'marketing',
+    })
+
+    expect(n).toBe(7)
+    expect(recorder.table).toBe('consent_records')
+    // head:true keeps the response a count-only — no rows shipped over the wire.
+    expect(recorder.selected?.opts).toEqual({ count: 'exact', head: true })
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-1' },
+      { col: 'category', val: 'marketing' },
+      { col: 'status', val: 'opted_in' },
+      { col: 'consent_grade', val: 'weak' },
+    ])
+  })
+
+  it('returns 0 when no rows match (null-count → 0 normalisation)', async () => {
+    const { client } = buildCountClient({ count: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const n = await countByGradeStatus({
+      restaurantId: 'r-1',
+      grade: 'weak',
+      status: 'opted_in',
+      category: 'marketing',
+    })
+
+    expect(n).toBe(0)
+  })
+
+  it('throws contextually on database error', async () => {
+    const { client } = buildCountClient({
+      count: null,
+      error: { message: 'permission denied' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(
+      countByGradeStatus({
+        restaurantId: 'r-1',
+        grade: 'weak',
+        status: 'opted_in',
+        category: 'marketing',
+      })
+    ).rejects.toThrow(/countByGradeStatus.*permission denied/)
+  })
+})
+
+describe('upgradeGradeToStrong (WONB-008)', () => {
+  interface UpgradeRecorder {
+    update: Record<string, unknown> | null
+    eqs: Array<{ col: string; val: unknown }>
+    selectArg?: { cols: string }
+  }
+
+  function buildUpgradeClient(result: {
+    data: Array<{ id: string }> | null
+    error: { message: string } | null
+  }): {
+    client: ReturnType<typeof createServerSupabaseClient>
+    recorder: UpgradeRecorder
+  } {
+    const recorder: UpgradeRecorder = { update: null, eqs: [] }
+    const select = vi
+      .fn()
+      .mockImplementation(
+        (cols: string) => {
+          recorder.selectArg = { cols }
+          return Promise.resolve({
+            data: result.data,
+            error: result.error,
+          })
+        }
+      )
+    const eqChain = {
+      eq: vi.fn(),
+      select,
+    } as unknown as { eq: ReturnType<typeof vi.fn> }
+    eqChain.eq.mockImplementation((col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return eqChain
+    })
+    const update = vi.fn().mockImplementation((u: Record<string, unknown>) => {
+      recorder.update = u
+      return eqChain
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    return {
+      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      recorder,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('upgrades a weak+opted_in row to strong and stamps granted_at; returns true', async () => {
+    const { client, recorder } = buildUpgradeClient({ data: [{ id: 'cr-1' }], error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeGradeToStrong({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(true)
+    // The UPDATE must set BOTH consent_grade AND granted_at — analytics
+    // (events.consent_granted source='reconfirmation_campaign') depends on
+    // the explicit grant moment, not on updated_at which any touch rewrites.
+    expect(recorder.update).toMatchObject({ consent_grade: 'strong' })
+    expect(recorder.update?.granted_at).toEqual(expect.any(String))
+    expect(
+      Number.isFinite(new Date(recorder.update!.granted_at as string).getTime())
+    ).toBe(true)
+    // WHERE: restaurant_id, phone_e164, category, status='opted_in', consent_grade='weak'
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-1' },
+      { col: 'phone_e164', val: '85291234567' },
+      { col: 'category', val: 'marketing' },
+      { col: 'status', val: 'opted_in' },
+      { col: 'consent_grade', val: 'weak' },
+    ])
+    expect(recorder.selectArg?.cols).toBe('id')
+  })
+
+  it('returns false when no weak+opted_in row exists (idempotent — already strong)', async () => {
+    const { client } = buildUpgradeClient({ data: [], error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeGradeToStrong({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('returns false when no row exists at all (no-row path, no throw)', async () => {
+    const { client } = buildUpgradeClient({ data: [], error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeGradeToStrong({
+      restaurantId: 'r-1',
+      phoneE164: '85299999999',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('treats null data as no rows (returns false)', async () => {
+    const { client } = buildUpgradeClient({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const upgraded = await upgradeGradeToStrong({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+    })
+
+    expect(upgraded).toBe(false)
+  })
+
+  it('respects the category scope (utility category does not match marketing rows)', async () => {
+    const { client, recorder } = buildUpgradeClient({ data: [], error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await upgradeGradeToStrong({
+      restaurantId: 'r-2',
+      phoneE164: '85298765432',
+      category: 'utility',
+    })
+
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-2' },
+      { col: 'phone_e164', val: '85298765432' },
+      { col: 'category', val: 'utility' },
+      { col: 'status', val: 'opted_in' },
+      { col: 'consent_grade', val: 'weak' },
+    ])
+  })
+
+  it('throws contextually on database error', async () => {
+    const { client } = buildUpgradeClient({
+      data: null,
+      error: { message: 'connection lost' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(
+      upgradeGradeToStrong({
+        restaurantId: 'r-1',
+        phoneE164: '85291234567',
+        category: 'marketing',
+      })
+    ).rejects.toThrow(/upgradeGradeToStrong.*connection lost/)
+  })
+})
+
+describe('findReconfirmationAudience (WONB-008)', () => {
+  // Returns members whose consent is `grade='weak' AND status='opted_in' AND
+  // category='marketing'`, sorted by captured_at DESC, capped to `limit`.
+  // The query embeds members via a PostgREST inner join on the FK.
+
+  interface Recorder {
+    table: string | null
+    selected?: string
+    eqs: Array<{ col: string; val: unknown }>
+    orders: Array<{ col: string; opts: { ascending: boolean } | undefined }>
+    limited?: number
+  }
+
+  function buildClient(rows: Array<Record<string, unknown>>, error: { message: string } | null = null) {
+    const recorder: Recorder = { table: null, eqs: [], orders: [] }
+    const limit = vi.fn().mockImplementation((n: number) => {
+      recorder.limited = n
+      return Promise.resolve({ data: rows, error })
+    })
+    const order = vi.fn().mockImplementation((col: string, opts) => {
+      recorder.orders.push({ col, opts })
+      return { order, limit }
+    })
+    const eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+      recorder.eqs.push({ col, val })
+      return { eq, order, limit }
+    })
+    const select = vi.fn().mockImplementation((cols: string) => {
+      recorder.selected = cols
+      return { eq, order, limit }
+    })
+    const from = vi.fn().mockImplementation((t: string) => {
+      recorder.table = t
+      return { select }
+    })
+    return {
+      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      recorder,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('queries consent_records joined to members and filters weak+opted_in+marketing', async () => {
+    const { client, recorder } = buildClient([
+      {
+        captured_at: '2026-04-01T00:00:00Z',
+        members: { id: 'm-1', phone_e164: '85291111111', preferred_language: 'en' },
+      },
+    ])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await findReconfirmationAudience({ restaurantId: 'r-1', limit: 50 })
+
+    expect(recorder.table).toBe('consent_records')
+    expect(recorder.eqs).toEqual([
+      { col: 'restaurant_id', val: 'r-1' },
+      { col: 'category', val: 'marketing' },
+      { col: 'status', val: 'opted_in' },
+      { col: 'consent_grade', val: 'weak' },
+    ])
+    expect(recorder.orders[0]).toEqual({
+      col: 'captured_at',
+      opts: { ascending: false },
+    })
+    expect(recorder.limited).toBe(50)
+  })
+
+  it('maps each row to { memberId, phoneE164, preferredLanguage }', async () => {
+    const { client } = buildClient([
+      {
+        captured_at: '2026-04-01T00:00:00Z',
+        members: {
+          id: 'm-1',
+          phone_e164: '85291111111',
+          preferred_language: 'en',
+        },
+      },
+      {
+        captured_at: '2026-03-01T00:00:00Z',
+        members: {
+          id: 'm-2',
+          phone_e164: '85292222222',
+          preferred_language: null,
+        },
+      },
+    ])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const out = await findReconfirmationAudience({
+      restaurantId: 'r-1',
+      limit: 10,
+    })
+
+    expect(out).toEqual([
+      { memberId: 'm-1', phoneE164: '85291111111', preferredLanguage: 'en' },
+      { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: null },
+    ])
+  })
+
+  it('skips rows whose member embed is null (defensive — orphaned consent rows)', async () => {
+    const { client } = buildClient([
+      { captured_at: '2026-04-01T00:00:00Z', members: null },
+      {
+        captured_at: '2026-03-01T00:00:00Z',
+        members: {
+          id: 'm-2',
+          phone_e164: '85292222222',
+          preferred_language: 'zh_hk',
+        },
+      },
+    ])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const out = await findReconfirmationAudience({
+      restaurantId: 'r-1',
+      limit: 10,
+    })
+
+    expect(out).toEqual([
+      { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: 'zh_hk' },
+    ])
+  })
+
+  it('throws contextually on db error', async () => {
+    const { client } = buildClient([], { message: 'permission denied' })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(
+      findReconfirmationAudience({ restaurantId: 'r-1', limit: 50 })
+    ).rejects.toThrow(/findReconfirmationAudience.*permission denied/)
   })
 })

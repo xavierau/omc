@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ReconfirmationStatusBadge } from './reconfirmation-status-badge'
 
 interface CampaignCardProps {
   id: string
   name: string | null
   type: string
   status: string
+  mode?: 'marketing' | 'reconfirmation'
   sentCount: number
   redeemedCount: number
   scheduledAt?: string | null
@@ -40,7 +42,7 @@ function formatDate(iso: string): string {
 }
 
 export function CampaignCard({
-  id, name, type, status, sentCount, redeemedCount, scheduledAt, onExecute, onEdit, sendDisabled,
+  id, name, type, status, mode, sentCount, redeemedCount, scheduledAt, onExecute, onEdit, sendDisabled,
 }: CampaignCardProps) {
   const t = useTranslations('campaigns')
   const [executing, setExecuting] = useState(false)
@@ -72,6 +74,7 @@ export function CampaignCard({
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
+          {mode && <ReconfirmationStatusBadge mode={mode} />}
           <Badge variant={getStatusVariant(status)}>{status}</Badge>
         </div>
       </CardHeader>

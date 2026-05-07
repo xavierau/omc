@@ -141,6 +141,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'active',
+    mode: 'marketing',
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
@@ -536,6 +537,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
       schedule: null,
       scheduledAt: null,
       status: 'active',
+      mode: 'marketing',
       isChargeable: true,
       chargeableSentCount: 0,
       nonChargeableSentCount: 0,
@@ -757,6 +759,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
       schedule: null,
       scheduledAt: null,
       status: 'active',
+      mode: 'marketing',
       isChargeable: true,
       chargeableSentCount: 0,
       nonChargeableSentCount: 0,
@@ -857,6 +860,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
       schedule: null,
       scheduledAt: null,
       status: 'active',
+      mode: 'marketing',
       isChargeable: true,
       chargeableSentCount: 0,
       nonChargeableSentCount: 0,
@@ -1111,6 +1115,7 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
       schedule: null,
       scheduledAt: null,
       status: 'active',
+      mode: 'marketing',
       isChargeable: true,
       chargeableSentCount: 0,
       nonChargeableSentCount: 0,
@@ -1404,5 +1409,104 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
     // (i.e. not serialised). With 20 concurrent slots and 100 members the
     // peak should land at the ceiling, not at 1.
     expect(peakInFlight).toBeGreaterThan(1)
+  })
+})
+
+// WONB-008: branching by campaign.mode — `marketing` keeps the existing
+// path; `reconfirmation` delegates to executeReconfirmationCampaign which
+// has its own audience query, eligibility gate, and batch wrapper.
+vi.mock('@/application/execute-reconfirmation-campaign', () => ({
+  executeReconfirmationCampaign: vi.fn(),
+}))
+
+describe('executeCampaign — WONB-008 mode branching', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+  })
+
+  it('routes mode=reconfirmation to executeReconfirmationCampaign', async () => {
+    const { executeReconfirmationCampaign } = await import(
+      '@/application/execute-reconfirmation-campaign'
+    )
+    const campaign = {
+      id: 'c-1',
+      restaurantId: 'r-1',
+      name: 'Reconfirm',
+      type: 'promo' as const,
+      template: '',
+      templateEn: 'YES?',
+      templateZhHk: 'YES?',
+      imageUrlEn: null,
+      imageUrlZhHk: null,
+      couponConfig: null,
+      schedule: null,
+      scheduledAt: null,
+      status: 'active' as const,
+      mode: 'reconfirmation' as const,
+      isChargeable: false,
+      chargeableSentCount: 0,
+      nonChargeableSentCount: 0,
+      redeemedCount: 0,
+      whatsappTemplateId: 'tpl-1',
+      targetAudience: 'all' as const,
+      createdAt: '2026-01-01T00:00:00Z',
+    }
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+
+    await executeCampaign('c-1', 'r-1')
+
+    expect(executeReconfirmationCampaign).toHaveBeenCalledWith({
+      campaign,
+      restaurantId: 'r-1',
+    })
+    // Existing marketing path is bypassed — no audience resolve, no
+    // send-in-batches transition for the legacy flow.
+    expect(resolveTargetMembers).not.toHaveBeenCalled()
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+  })
+
+  it('routes mode=marketing through the existing path (default)', async () => {
+    const { executeReconfirmationCampaign } = await import(
+      '@/application/execute-reconfirmation-campaign'
+    )
+    const campaign = {
+      id: 'c-1',
+      restaurantId: 'r-1',
+      name: 'Promo',
+      type: 'promo' as const,
+      template: 'Hi',
+      templateEn: null,
+      templateZhHk: null,
+      imageUrlEn: null,
+      imageUrlZhHk: null,
+      couponConfig: null,
+      schedule: null,
+      scheduledAt: null,
+      status: 'active' as const,
+      mode: 'marketing' as const,
+      isChargeable: true,
+      chargeableSentCount: 0,
+      nonChargeableSentCount: 0,
+      redeemedCount: 0,
+      whatsappTemplateId: null,
+      targetAudience: 'all' as const,
+      createdAt: '2026-01-01T00:00:00Z',
+    }
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(resolveTargetMembers).mockResolvedValue([])
+
+    await executeCampaign('c-1', 'r-1')
+
+    expect(executeReconfirmationCampaign).not.toHaveBeenCalled()
+    // Existing path runs: audience resolve + status transition.
+    expect(resolveTargetMembers).toHaveBeenCalled()
+    expect(transitionCampaignStatus).toHaveBeenCalled()
   })
 })

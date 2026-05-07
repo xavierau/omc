@@ -41,6 +41,9 @@ export async function createCampaign(
       whatsapp_template_id: params.whatsappTemplateId ?? null,
       target_audience: params.targetAudience ?? 'all',
       status: params.status ?? 'draft',
+      // WONB-008: defaults to 'marketing' so existing callers stay unchanged.
+      // The 'reconfirmation' branch is set explicitly by the WONB-008 route.
+      mode: params.mode ?? 'marketing',
     })
     .select('*')
     .single()

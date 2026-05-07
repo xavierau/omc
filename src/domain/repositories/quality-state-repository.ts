@@ -27,4 +27,14 @@ export interface QualityStateRepository {
   /** Returns the most recent transition for a tenant, or null if no
    * quality signal has ever been recorded. */
   findLatest(args: FindLatestArgs): Promise<QualityStateEvent | null>
+
+  /**
+   * WONB-008 Q-H: thin wrapper around the `tenant_green_for_days(restaurant,
+   * days)` SQL RPC. Returns true iff the tenant is currently GREEN AND has
+   * been continuously GREEN for ≥ `minDays`. Strict semantics: any non-GREEN
+   * transition within the window disqualifies. The pure-function mirror in
+   * `src/domain/services/is-green-for-at-least.ts` is used by tests so we
+   * don't need a live database to verify the boundary math.
+   */
+  isGreenForDays(restaurantId: string, minDays: number): Promise<boolean>
 }
