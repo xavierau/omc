@@ -6,6 +6,9 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   updateCampaign: vi.fn(),
   transitionCampaignStatus: vi.fn(),
 }))
+vi.mock('@/infrastructure/supabase/repositories/reconfirmation-cap-claim', () => ({
+  claimReconfirmationAllotment: vi.fn(),
+}))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantPhoneNumberId: vi.fn(),
 }))
@@ -36,6 +39,7 @@ import {
   updateCampaign,
   transitionCampaignStatus,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { claimReconfirmationAllotment } from '@/infrastructure/supabase/repositories/reconfirmation-cap-claim'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { checkReconfirmationEligibility } from '@/application/check-reconfirmation-eligibility'
@@ -105,8 +109,18 @@ function happyEligibility() {
 }
 
 const audienceRows = [
-  { memberId: 'm-1', phoneE164: '85291111111', preferredLanguage: 'en' as const },
-  { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: null },
+  {
+    memberId: 'm-1',
+    memberRestaurantId: 'r-1',
+    phoneE164: '85291111111',
+    preferredLanguage: 'en' as const,
+  },
+  {
+    memberId: 'm-2',
+    memberRestaurantId: 'r-1',
+    phoneE164: '85292222222',
+    preferredLanguage: null,
+  },
 ]
 
 describe('executeReconfirmationCampaign', () => {
@@ -120,6 +134,12 @@ describe('executeReconfirmationCampaign', () => {
     vi.mocked(findTemplateById).mockResolvedValue(buildTemplate())
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(emitEvent).mockResolvedValue('evt-1')
+    // Default: the advisory-lock helper returns the same value the JS-side
+    // would compute (cap - currentDailySent). Tests that exercise contention
+    // override this per-test.
+    vi.mocked(claimReconfirmationAllotment).mockImplementation(
+      async (_rid, requested) => requested
+    )
   })
 
   it('throws ReconfirmationEligibilityError when pre-flight fails', async () => {
@@ -221,7 +241,14 @@ describe('executeReconfirmationCampaign', () => {
     )
   })
 
-  it('reverts campaign back to active on send failure', async () => {
+  // P1 fix (review finding 8): on persistent send failure, the previous
+  // behavior flipped the campaign back to 'active' which let the queue
+  // worker immediately re-trigger and burn through retries / log spam.
+  // Now we transition to 'paused' so the next worker tick skips it
+  // (status check requires 'active') and the failure is logged at error
+  // level for ops triage.
+  it('pauses campaign and logs error context on send failure', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(executeReconfirmationBatch).mockRejectedValue(new Error('boom'))
 
     await expect(
@@ -231,7 +258,53 @@ describe('executeReconfirmationCampaign', () => {
       })
     ).rejects.toThrow('boom')
 
-    expect(updateCampaign).toHaveBeenCalledWith('c-1', { status: 'active' })
+    expect(updateCampaign).toHaveBeenCalledWith('c-1', { status: 'paused' })
+    expect(errSpy).toHaveBeenCalledWith(
+      '[reconfirmation] campaign send failed; paused for review',
+      expect.objectContaining({
+        campaignId: 'c-1',
+        restaurantId: 'r-1',
+        error: 'boom',
+      })
+    )
+    errSpy.mockRestore()
+  })
+
+  // P0 fix (review finding 1): two concurrent launches must NOT both spend
+  // the full daily allotment. The advisory-lock RPC returns 0 to whichever
+  // caller failed to acquire the lock — that caller still completes the
+  // campaign cleanly (no throw, no eligibility violation) and sends nothing.
+  it('shares the per-tenant cap across simultaneous launches via the advisory-lock claim', async () => {
+    // executeReconfirmationBatch's resolved value persists across tests
+    // (mockResolved/Rejected aren't cleared by clearAllMocks). Reset it here
+    // so the previous "pauses on failure" test doesn't bleed in.
+    vi.mocked(executeReconfirmationBatch).mockReset()
+    vi.mocked(executeReconfirmationBatch).mockResolvedValue(undefined)
+    // First launch: claim returns the full requested allotment.
+    // Second launch (concurrent): claim returns 0 because the lock is held.
+    vi.mocked(claimReconfirmationAllotment)
+      .mockResolvedValueOnce(50)
+      .mockResolvedValueOnce(0)
+    vi.mocked(resolveReconfirmationAudience).mockImplementation(
+      async ({ remainingCap }) => (remainingCap > 0 ? audienceRows : [])
+    )
+
+    await Promise.all([
+      executeReconfirmationCampaign({
+        campaign: buildCampaign({ id: 'c-1' }),
+        restaurantId: 'r-1',
+      }),
+      executeReconfirmationCampaign({
+        campaign: buildCampaign({ id: 'c-2' }),
+        restaurantId: 'r-1',
+      }),
+    ])
+
+    // Only ONE of the two launches sends; the second sees remainingCap=0.
+    expect(executeReconfirmationBatch).toHaveBeenCalledTimes(1)
+    // Both campaigns still complete (not active, not paused).
+    expect(updateCampaign).toHaveBeenCalledWith('c-1', { status: 'completed' })
+    expect(updateCampaign).toHaveBeenCalledWith('c-2', { status: 'completed' })
   })
 
   it('returns early without throwing when the audience is empty AFTER eligibility passed', async () => {

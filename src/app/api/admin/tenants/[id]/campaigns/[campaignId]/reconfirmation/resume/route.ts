@@ -3,6 +3,17 @@
 // whole point of the gate. Re-runs the full eligibility check (NOT just
 // GREEN-7d) so a tenant that recovered quality but hit the daily cap meanwhile
 // is still blocked.
+//
+// Side-effect note (review finding 7):
+//   `clearAutoQualityFlags(tenantId)` writes `auto_pause_active=false` on the
+//   tenant's single `tenant_campaign_settings` row. There is no per-mode
+//   auto-pause flag — the YELLOW→auto-pause transition pauses the WHOLE
+//   tenant (all modes), and recovery clears the WHOLE tenant. This is the
+//   correct architectural behavior: a tenant that recovered quality should
+//   have all of its auto-paused marketing campaigns un-throttled in lockstep.
+//   We surface the side-effect to the admin via `sideEffectsNote` in the
+//   response so the dashboard can render an "FYI marketing campaigns also
+//   resumed" toast — there is no per-mode mechanism to scope this clear.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-admin-guard'
@@ -48,7 +59,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     const restartedAt = new Date().toISOString()
     logResumeAudit(userId, id, campaignId, request, restartedAt)
-    return NextResponse.json({ resumed: true, restartedAt })
+    return NextResponse.json({
+      resumed: true,
+      restartedAt,
+      sideEffectsNote:
+        'Auto-paused marketing campaigns for this tenant also resumed (auto-pause flag is tenant-wide, not per-mode).',
+    })
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })

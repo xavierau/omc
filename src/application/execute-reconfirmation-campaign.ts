@@ -8,6 +8,7 @@ import {
   updateCampaign,
   transitionCampaignStatus,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { claimReconfirmationAllotment } from '@/infrastructure/supabase/repositories/reconfirmation-cap-claim'
 import { ReconfirmationEligibilityError } from '@/domain/services/__errors__/reconfirmation-errors'
 import { checkReconfirmationEligibility } from './check-reconfirmation-eligibility'
 import { resolveReconfirmationAudience } from './resolve-reconfirmation-audience'
@@ -34,9 +35,16 @@ export async function executeReconfirmationCampaign(
   if (!eligibility.allowed) {
     throw new ReconfirmationEligibilityError(eligibility.violations)
   }
-  const remainingCap = Math.max(
+  const requestedCap = Math.max(
     0,
     eligibility.cap - eligibility.currentDailySent
+  )
+  // P0 fix (review finding 1): race-free claim via advisory lock so two
+  // concurrent launches can't double-spend the daily cap. Returns 0 when
+  // another launch is already mid-claim — we treat that as "skip cleanly".
+  const remainingCap = await claimReconfirmationAllotment(
+    input.restaurantId,
+    requestedCap
   )
   const template = await loadUtilityTemplate(input.campaign)
   const audience = await resolveReconfirmationAudience({
@@ -64,14 +72,25 @@ export async function executeReconfirmationCampaign(
         template,
       })
       await executeReconfirmationBatch({
-        members: audienceToMembers(audience, input.restaurantId),
+        members: audienceToMembers(audience),
         ctx,
         dailyAllotment: remainingCap,
       })
     }
     await updateCampaign(input.campaign.id, { status: 'completed' })
   } catch (err) {
-    await updateCampaign(input.campaign.id, { status: 'active' })
+    // P1 fix (review finding 8): on send failure, transition to 'paused'
+    // (not 'active') so the queue worker doesn't immediately re-trigger and
+    // burn through retries / log spam in a tight loop. Persist the failure
+    // context to console at error level for ops triage.
+    await updateCampaign(input.campaign.id, { status: 'paused' })
+    console.error('[reconfirmation] campaign send failed; paused for review', {
+      campaignId: input.campaign.id,
+      restaurantId: input.restaurantId,
+      error: (err as Error)?.message,
+      stack: (err as Error)?.stack,
+      pausedAt: new Date().toISOString(),
+    })
     throw err
   }
 }

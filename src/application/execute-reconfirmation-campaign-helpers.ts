@@ -83,21 +83,37 @@ function pacingConfigFrom(
   }
 }
 
+// P1 fix (review finding 6): stamp the Member with the `restaurant_id` that
+// came back from the join, NOT the caller's id. After review finding 5 added
+// `memberRestaurantId` to the audience row + the post-filter for cross-tenant
+// rows, this should always equal the requesting restaurantId — but using the
+// row's own value is the defence-in-depth invariant. If for any reason the
+// field is empty, the row is dropped with a warn so a corrupted audience can
+// never silently send to the wrong tenant's contact.
 export function audienceToMembers(
-  rows: ReconfirmationAudienceRow[],
-  restaurantId: string
+  rows: ReconfirmationAudienceRow[]
 ): Member[] {
-  return rows.map((r) => ({
-    id: r.memberId,
-    restaurantId,
-    phone: r.phoneE164,
-    name: null,
-    pointsBalance: 0,
-    status: 'active',
-    joinedAt: '',
-    lastVisitAt: null,
-    preferredLanguage: r.preferredLanguage,
-    pmmThrottledUntil: null,
-    unreachableAt: null,
-  }))
+  const out: Member[] = []
+  for (const r of rows) {
+    if (!r.memberRestaurantId) {
+      console.warn('[reconfirmation] dropping audience row missing restaurant_id', {
+        memberId: r.memberId,
+      })
+      continue
+    }
+    out.push({
+      id: r.memberId,
+      restaurantId: r.memberRestaurantId,
+      phone: r.phoneE164,
+      name: null,
+      pointsBalance: 0,
+      status: 'active',
+      joinedAt: '',
+      lastVisitAt: null,
+      preferredLanguage: r.preferredLanguage,
+      pmmThrottledUntil: null,
+      unreachableAt: null,
+    })
+  }
+  return out
 }

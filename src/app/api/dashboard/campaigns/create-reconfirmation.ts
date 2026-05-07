@@ -39,7 +39,10 @@ export async function handleReconfirmationCreate(
     )
   }
 
-  const templateError = await assertUtilityTemplate(validated.templateId)
+  const templateError = await assertUtilityTemplate(
+    validated.templateId,
+    input.tenant.restaurantId
+  )
   if (templateError) return templateError
 
   const campaign = await createCampaign({
@@ -92,10 +95,24 @@ function validateBody(body: Record<string, unknown>): ValidatedBody | NextRespon
 }
 
 async function assertUtilityTemplate(
-  templateId: string
+  templateId: string,
+  restaurantId: string
 ): Promise<NextResponse | null> {
   const tpl = await findTemplateById(templateId)
-  if (!tpl || tpl.status !== 'approved' || tpl.category !== 'UTILITY') {
+  // P1 fix (review finding 4): findTemplateById is not tenant-scoped, so
+  // without this check a tenant could attach another tenant's UTILITY
+  // template to their reconfirmation campaign. Refuse here with a typed
+  // reason so the dialog renders a specific i18n string.
+  if (!tpl || tpl.restaurantId !== restaurantId) {
+    return NextResponse.json(
+      {
+        error: 'Template not owned by tenant',
+        reason: 'TEMPLATE_NOT_OWNED_BY_TENANT',
+      },
+      { status: 400 }
+    )
+  }
+  if (tpl.status !== 'approved' || tpl.category !== 'UTILITY') {
     return NextResponse.json(
       {
         error: 'Reconfirmation template must be an approved UTILITY template',

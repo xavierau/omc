@@ -1001,12 +1001,13 @@ describe('findReconfirmationAudience (WONB-008)', () => {
     expect(recorder.limited).toBe(50)
   })
 
-  it('maps each row to { memberId, phoneE164, preferredLanguage }', async () => {
+  it('maps each row to { memberId, memberRestaurantId, phoneE164, preferredLanguage }', async () => {
     const { client } = buildClient([
       {
         captured_at: '2026-04-01T00:00:00Z',
         members: {
           id: 'm-1',
+          restaurant_id: 'r-1',
           phone_e164: '85291111111',
           preferred_language: 'en',
         },
@@ -1015,6 +1016,7 @@ describe('findReconfirmationAudience (WONB-008)', () => {
         captured_at: '2026-03-01T00:00:00Z',
         members: {
           id: 'm-2',
+          restaurant_id: 'r-1',
           phone_e164: '85292222222',
           preferred_language: null,
         },
@@ -1028,8 +1030,18 @@ describe('findReconfirmationAudience (WONB-008)', () => {
     })
 
     expect(out).toEqual([
-      { memberId: 'm-1', phoneE164: '85291111111', preferredLanguage: 'en' },
-      { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: null },
+      {
+        memberId: 'm-1',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85291111111',
+        preferredLanguage: 'en',
+      },
+      {
+        memberId: 'm-2',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85292222222',
+        preferredLanguage: null,
+      },
     ])
   })
 
@@ -1040,6 +1052,7 @@ describe('findReconfirmationAudience (WONB-008)', () => {
         captured_at: '2026-03-01T00:00:00Z',
         members: {
           id: 'm-2',
+          restaurant_id: 'r-1',
           phone_e164: '85292222222',
           preferred_language: 'zh_hk',
         },
@@ -1053,8 +1066,64 @@ describe('findReconfirmationAudience (WONB-008)', () => {
     })
 
     expect(out).toEqual([
-      { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: 'zh_hk' },
+      {
+        memberId: 'm-2',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85292222222',
+        preferredLanguage: 'zh_hk',
+      },
     ])
+  })
+
+  // Defence-in-depth (review finding 5): even if the consent_records.restaurant_id
+  // filter holds in PostgREST, a corrupted DB state (member moved between
+  // tenants without the consent_record being re-keyed) shouldn't be able to
+  // leak another tenant's contact into the send batch.
+  it('skips rows whose embedded member belongs to a different tenant', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { client } = buildClient([
+      {
+        captured_at: '2026-04-01T00:00:00Z',
+        members: {
+          id: 'm-rogue',
+          restaurant_id: 'OTHER-TENANT',
+          phone_e164: '85299999999',
+          preferred_language: 'en',
+        },
+      },
+      {
+        captured_at: '2026-03-01T00:00:00Z',
+        members: {
+          id: 'm-ok',
+          restaurant_id: 'r-1',
+          phone_e164: '85292222222',
+          preferred_language: 'zh_hk',
+        },
+      },
+    ])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const out = await findReconfirmationAudience({
+      restaurantId: 'r-1',
+      limit: 10,
+    })
+
+    expect(out).toEqual([
+      {
+        memberId: 'm-ok',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85292222222',
+        preferredLanguage: 'zh_hk',
+      },
+    ])
+    expect(warn).toHaveBeenCalledWith(
+      '[reconfirmation] cross-tenant member skipped',
+      expect.objectContaining({
+        memberRestaurantId: 'OTHER-TENANT',
+        requestedRestaurantId: 'r-1',
+      })
+    )
+    warn.mockRestore()
   })
 
   it('throws contextually on db error', async () => {

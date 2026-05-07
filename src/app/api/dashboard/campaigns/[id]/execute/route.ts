@@ -10,11 +10,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await getTenantContext()
+    const { restaurantId: callerRestaurantId } = await getTenantContext()
     const { id } = await params
     const campaign = await getCampaignById(id)
 
-    if (!campaign) {
+    // P0 fix (review finding 3): pre-existing IDOR — getTenantContext was
+    // awaited but its restaurantId was discarded, so Tenant A could trigger
+    // Tenant B's campaign. We collapse "not found" and "cross-tenant" to the
+    // same 404 response so the API can't be used to enumerate campaign IDs.
+    if (!campaign || campaign.restaurantId !== callerRestaurantId) {
       return NextResponse.json(
         { error: 'Campaign not found' },
         { status: 404 }

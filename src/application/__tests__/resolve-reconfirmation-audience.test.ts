@@ -26,9 +26,24 @@ describe('resolveReconfirmationAudience', () => {
 
   it('returns the rows as-is (sorted captured_at DESC by repo)', async () => {
     const rows = [
-      { memberId: 'm-1', phoneE164: '85291111111', preferredLanguage: 'en' as const },
-      { memberId: 'm-2', phoneE164: '85292222222', preferredLanguage: 'zh_hk' as const },
-      { memberId: 'm-3', phoneE164: '85293333333', preferredLanguage: null },
+      {
+        memberId: 'm-1',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85291111111',
+        preferredLanguage: 'en' as const,
+      },
+      {
+        memberId: 'm-2',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85292222222',
+        preferredLanguage: 'zh_hk' as const,
+      },
+      {
+        memberId: 'm-3',
+        memberRestaurantId: 'r-1',
+        phoneE164: '85293333333',
+        preferredLanguage: null,
+      },
     ]
     vi.mocked(findReconfirmationAudience).mockResolvedValue(rows)
 

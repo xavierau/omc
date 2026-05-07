@@ -15,12 +15,14 @@ interface SampleArgs {
   limit: number
 }
 
+interface SampleMemberEmbed {
+  phone_e164: string
+  restaurant_id: string
+}
+
 interface SampleJoinedRow {
   captured_at: string
-  members:
-    | { phone_e164: string }
-    | Array<{ phone_e164: string }>
-    | null
+  members: SampleMemberEmbed | SampleMemberEmbed[] | null
 }
 
 export async function findReconfirmationAudienceSample(
@@ -29,7 +31,7 @@ export async function findReconfirmationAudienceSample(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('consent_records')
-    .select('captured_at, members:member_id(phone_e164)')
+    .select('captured_at, members:member_id(phone_e164, restaurant_id)')
     .eq('restaurant_id', args.restaurantId)
     .eq('category', 'marketing')
     .eq('status', 'opted_in')
@@ -37,25 +39,41 @@ export async function findReconfirmationAudienceSample(
     .order('captured_at', { ascending: false })
     .limit(args.limit)
   if (error) throw new Error(`findReconfirmationAudienceSample: ${error.message}`)
-  return mapSampleRows((data ?? []) as unknown as SampleJoinedRow[])
+  return mapSampleRows(
+    (data ?? []) as unknown as SampleJoinedRow[],
+    args.restaurantId
+  )
 }
 
+// Defence-in-depth: project members.restaurant_id alongside the phone and
+// post-filter rows where the join produced a cross-tenant member. Should
+// never happen given the consent_records.restaurant_id eq above, but a
+// corrupted DB state shouldn't be able to leak another tenant's phone into
+// the preflight dialog preview.
 function mapSampleRows(
-  rows: SampleJoinedRow[]
+  rows: SampleJoinedRow[],
+  restaurantId: string
 ): ReconfirmationAudienceSampleRow[] {
   const out: ReconfirmationAudienceSampleRow[] = []
   for (const r of rows) {
-    const phone = pickSamplePhone(r.members)
-    if (!phone) continue
-    out.push({ phoneE164: phone, capturedAt: r.captured_at })
+    const m = pickSampleMember(r.members)
+    if (!m) continue
+    if (m.restaurant_id !== restaurantId) {
+      console.warn('[reconfirmation] cross-tenant member skipped', {
+        memberRestaurantId: m.restaurant_id,
+        requestedRestaurantId: restaurantId,
+      })
+      continue
+    }
+    out.push({ phoneE164: m.phone_e164, capturedAt: r.captured_at })
   }
   return out
 }
 
-function pickSamplePhone(
+function pickSampleMember(
   embed: SampleJoinedRow['members']
-): string | null {
+): SampleMemberEmbed | null {
   if (!embed) return null
-  if (Array.isArray(embed)) return embed[0]?.phone_e164 ?? null
-  return embed.phone_e164 ?? null
+  if (Array.isArray(embed)) return embed[0] ?? null
+  return embed
 }

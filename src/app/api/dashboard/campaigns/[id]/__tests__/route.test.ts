@@ -552,6 +552,67 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     expect(r.status).toBe(400)
   })
 
+  // P0 fix (review finding 2): a tenant-manager could resume an auto-paused
+  // reconfirmation campaign with PATCH { status: 'active' }, bypassing the
+  // platform-admin-only resume gate (Q-H2). The PATCH path now rejects any
+  // status change on a reconfirmation-mode campaign EXCEPT 'archived'.
+  it('returns 403 RECONFIRMATION_RESUME_REQUIRES_PLATFORM_ADMIN when tenant-manager PATCHes reconfirmation campaign with status=active', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ mode: 'reconfirmation', status: 'paused' })
+    )
+    const r = await PATCH(patchRequest({ status: 'active' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(403)
+    const body = await r.json()
+    expect(body.reason).toBe('RECONFIRMATION_RESUME_REQUIRES_PLATFORM_ADMIN')
+    expect(updateCampaign).not.toHaveBeenCalled()
+  })
+
+  it('also blocks PATCH { status: paused } on a reconfirmation campaign (only archive is allowed)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ mode: 'reconfirmation', status: 'active' })
+    )
+    const r = await PATCH(patchRequest({ status: 'paused' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(403)
+  })
+
+  // Forward-compat: when an 'archived' status is later added to the Campaign
+  // union, tenants must still be able to end-of-life their own reconfirmation
+  // campaigns without bouncing off a platform-admin gate. The PATCH layer
+  // accepts the literal `'archived'` even today so this stays green when the
+  // domain type is widened.
+  it('allows tenant-manager to ARCHIVE a reconfirmation campaign via PATCH (forward-compat)', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ mode: 'reconfirmation', status: 'paused' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValueOnce(buildCampaign())
+    const r = await PATCH(patchRequest({ status: 'archived' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ status: 'archived' })
+    )
+  })
+
+  it('still allows status changes on non-reconfirmation campaigns', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ mode: 'marketing', status: 'paused' })
+    )
+    const r = await PATCH(patchRequest({ status: 'active' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ status: 'active' })
+    )
+  })
+
   it('clears image URLs when PATCHing a non-welcome row (existing promo)', async () => {
     vi.mocked(getCampaignById).mockResolvedValueOnce(
       buildCampaign({ type: 'promo' })

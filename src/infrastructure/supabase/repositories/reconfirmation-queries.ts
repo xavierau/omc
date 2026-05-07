@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from '../client'
 
 export interface ReconfirmationAudienceRow {
   memberId: string
+  memberRestaurantId: string
   phoneE164: string
   preferredLanguage: 'en' | 'zh_hk' | null
 }
@@ -18,6 +19,7 @@ interface ReconfirmationAudienceArgs {
 
 interface AudienceMemberEmbed {
   id: string
+  restaurant_id: string
   phone_e164: string
   preferred_language: 'en' | 'zh_hk' | null
 }
@@ -31,14 +33,18 @@ interface AudienceJoinedRow {
 // Members joined with consent_records WHERE grade='weak' AND
 // status='opted_in' AND category='marketing'. Sorted captured_at DESC, capped.
 // Single round-trip via PostgREST inner-join. Orphaned consent rows (members
-// embed = null) are silently skipped.
+// embed = null) are silently skipped. Defence-in-depth: we also project
+// `members.restaurant_id` and post-filter cross-tenant rows so a corrupted DB
+// state can never leak another tenant's member into the send batch.
 export async function findReconfirmationAudience(
   args: ReconfirmationAudienceArgs
 ): Promise<ReconfirmationAudienceRow[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('consent_records')
-    .select('captured_at, members:member_id(id, phone_e164, preferred_language)')
+    .select(
+      'captured_at, members:member_id(id, restaurant_id, phone_e164, preferred_language)'
+    )
     .eq('restaurant_id', args.restaurantId)
     .eq('category', 'marketing')
     .eq('status', 'opted_in')
@@ -46,18 +52,28 @@ export async function findReconfirmationAudience(
     .order('captured_at', { ascending: false })
     .limit(args.limit)
   if (error) throw new Error(`findReconfirmationAudience: ${error.message}`)
-  return mapAudienceRows((data ?? []) as unknown as AudienceJoinedRow[])
+  return mapAudienceRows((data ?? []) as unknown as AudienceJoinedRow[], args.restaurantId)
 }
 
 function mapAudienceRows(
-  rows: AudienceJoinedRow[]
+  rows: AudienceJoinedRow[],
+  restaurantId: string
 ): ReconfirmationAudienceRow[] {
   const out: ReconfirmationAudienceRow[] = []
   for (const r of rows) {
     const m = pickMemberEmbed(r.members)
     if (!m) continue
+    if (m.restaurant_id !== restaurantId) {
+      console.warn('[reconfirmation] cross-tenant member skipped', {
+        memberId: m.id,
+        memberRestaurantId: m.restaurant_id,
+        requestedRestaurantId: restaurantId,
+      })
+      continue
+    }
     out.push({
       memberId: m.id,
+      memberRestaurantId: m.restaurant_id,
       phoneE164: m.phone_e164,
       preferredLanguage: m.preferred_language ?? null,
     })
@@ -119,6 +135,10 @@ function todayStart(): string {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 }
+
+// WONB-008 P0 fix: race-free per-tenant daily-cap claim. Re-exported from
+// its own file so this file stays under the size limit.
+export { claimReconfirmationAllotment } from './reconfirmation-cap-claim'
 
 // Re-export the sample helper from its own file so existing import sites can
 // keep using the `reconfirmation-queries` path (the tests import from here).

@@ -62,11 +62,11 @@ describe('findReconfirmationAudienceSample', () => {
     const { client, recorder } = buildClient([
       {
         captured_at: '2026-04-30T01:00:00.000Z',
-        members: { phone_e164: '+85291111111' },
+        members: { phone_e164: '+85291111111', restaurant_id: 'r-1' },
       },
       {
         captured_at: '2026-04-29T01:00:00.000Z',
-        members: { phone_e164: '+85292222222' },
+        members: { phone_e164: '+85292222222', restaurant_id: 'r-1' },
       },
     ])
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -114,7 +114,7 @@ describe('findReconfirmationAudienceSample', () => {
       },
       {
         captured_at: '2026-04-29T00:00:00.000Z',
-        members: { phone_e164: '+85291111111' },
+        members: { phone_e164: '+85291111111', restaurant_id: 'r-1' },
       },
     ])
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -125,6 +125,39 @@ describe('findReconfirmationAudienceSample', () => {
     expect(r).toEqual([
       { phoneE164: '+85291111111', capturedAt: '2026-04-29T00:00:00.000Z' },
     ])
+  })
+
+  // Defence-in-depth (review finding 5): preflight dialog preview must NOT
+  // leak another tenant's phone number even if a corrupted DB state lets the
+  // join return a cross-tenant member row.
+  it('skips rows whose embedded member belongs to a different tenant', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { client } = buildClient([
+      {
+        captured_at: '2026-04-30T00:00:00.000Z',
+        members: { phone_e164: '+85299999999', restaurant_id: 'OTHER' },
+      },
+      {
+        captured_at: '2026-04-29T00:00:00.000Z',
+        members: { phone_e164: '+85291111111', restaurant_id: 'r-1' },
+      },
+    ])
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+    const r = await findReconfirmationAudienceSample({
+      restaurantId: 'r-1',
+      limit: 5,
+    })
+    expect(r).toEqual([
+      { phoneE164: '+85291111111', capturedAt: '2026-04-29T00:00:00.000Z' },
+    ])
+    expect(warn).toHaveBeenCalledWith(
+      '[reconfirmation] cross-tenant member skipped',
+      expect.objectContaining({
+        memberRestaurantId: 'OTHER',
+        requestedRestaurantId: 'r-1',
+      })
+    )
+    warn.mockRestore()
   })
 
   it('throws when supabase returns an error', async () => {

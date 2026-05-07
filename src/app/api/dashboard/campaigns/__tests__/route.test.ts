@@ -585,12 +585,27 @@ describe('POST /api/dashboard/campaigns — reconfirmation mode (WONB-008)', () 
     expect(r.status).toBe(400)
   })
 
-  it('rejects with 400 + reason=template_not_utility when template id is unknown', async () => {
+  // Updated for review finding 4: when the template doesn't exist OR belongs
+  // to another tenant, we surface the same `TEMPLATE_NOT_OWNED_BY_TENANT`
+  // reason — same response shape so the API can't be used to enumerate
+  // template ids across tenants.
+  it('rejects with 400 + reason=TEMPLATE_NOT_OWNED_BY_TENANT when template id is unknown', async () => {
     vi.mocked(findTemplateById).mockResolvedValue(null)
     const r = await POST(rcReq())
     expect(r.status).toBe(400)
     const body = await r.json()
-    expect(body.reason).toBe('template_not_utility')
+    expect(body.reason).toBe('TEMPLATE_NOT_OWNED_BY_TENANT')
+  })
+
+  it('rejects with 400 + reason=TEMPLATE_NOT_OWNED_BY_TENANT when template belongs to another tenant', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue(
+      buildUtilityTemplate({ restaurantId: 'OTHER-TENANT' })
+    )
+    const r = await POST(rcReq())
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.reason).toBe('TEMPLATE_NOT_OWNED_BY_TENANT')
+    expect(createCampaign).not.toHaveBeenCalled()
   })
 
   it('does NOT emit events.campaign on create (the campaign event fires at execute time per AC #11)', async () => {
