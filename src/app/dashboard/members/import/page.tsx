@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { StepBatchMeta } from '@/components/dashboard/import-wizard/step-batch-meta'
@@ -33,6 +33,14 @@ const EMPTY_META: BatchMetaInput = {
 }
 
 export default function ImportWizardPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <ImportWizardContent />
+    </Suspense>
+  )
+}
+
+function ImportWizardContent() {
   const t = useTranslations('importWizard')
   const router = useRouter()
   const params = useSearchParams()

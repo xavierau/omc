@@ -3,6 +3,7 @@ import {
   updateCampaign,
   transitionCampaignStatus,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { executeReconfirmationCampaign } from './execute-reconfirmation-campaign'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
@@ -40,6 +41,11 @@ export async function executeCampaign(
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`)
   if (campaign.type === 'welcome') {
     throw new Error('Welcome campaigns are triggered on member join')
+  }
+  // WONB-008 mode branch — reconfirmation has its own audience query
+  // (legacy weak+opted_in members) and a UTILITY-only template gate.
+  if (campaign.mode === 'reconfirmation') {
+    return executeReconfirmationCampaign({ campaign, restaurantId })
   }
 
   const members = await resolveTargetMembers(campaign, restaurantId)

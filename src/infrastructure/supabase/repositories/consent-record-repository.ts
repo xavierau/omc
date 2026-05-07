@@ -94,28 +94,6 @@ export async function insertConsentRecord(
   throw new Error(`insertConsentRecord: ${error.message}`)
 }
 
-interface UpgradeArgs {
-  restaurantId: string
-  phoneE164: string
-  category: ConsentCategory
-}
-
-// WONB-005: idempotent pending→opted_in flip. Stamps `granted_at` (explicit
-// grant moment for WONB-007/008 analytics). True iff a pending row was upgraded.
-export async function upgradeToOptedIn(args: UpgradeArgs): Promise<boolean> {
-  const supabase = createServerSupabaseClient()
-  const { count, error } = await supabase
-    .from('consent_records')
-    .update({ status: 'opted_in', granted_at: new Date().toISOString() })
-    .eq('restaurant_id', args.restaurantId)
-    .eq('phone_e164', args.phoneE164)
-    .eq('category', args.category)
-    .eq('status', 'pending')
-    .select('id', { count: 'exact' })
-  if (error) throw new Error(`upgradeToOptedIn: ${error.message}`)
-  return (count ?? 0) > 0
-}
-
 interface RevokeArgs {
   restaurantId: string
   phoneE164: string
@@ -140,6 +118,22 @@ export async function revokeConsent(args: RevokeArgs): Promise<number> {
   return Array.isArray(data) ? data.length : 0
 }
 
+// WONB-005/008 grade-flip writers + the consent-grade COUNT query live in
+// `consent-grade-mutations.ts`, and the WONB-008 reconfirmation audience
+// query lives in `reconfirmation-queries.ts`, both to keep this file under
+// the size limit. Re-exported so callers keep their `consent-record-repository`
+// import path.
+import {
+  upgradeToOptedIn,
+  upgradeGradeToStrong,
+  countByGradeStatus,
+} from './consent-grade-mutations'
+export { upgradeToOptedIn, upgradeGradeToStrong, countByGradeStatus }
+export {
+  findReconfirmationAudience,
+  type ReconfirmationAudienceRow,
+} from './reconfirmation-queries'
+
 // Compile-time contract lock against the domain port — TS surfaces drift here.
 export const consentRecordRepository: ConsentRecordRepository = {
   findActive: findActiveConsent,
@@ -147,4 +141,6 @@ export const consentRecordRepository: ConsentRecordRepository = {
   insert: insertConsentRecord,
   revoke: revokeConsent,
   upgradeToOptedIn,
+  countByGradeStatus,
+  upgradeGradeToStrong,
 }

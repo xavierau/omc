@@ -115,6 +115,7 @@ describe('redeemRewardUseCase', () => {
     const result = await redeemRewardUseCase(defaultParams)
 
     expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected failure result')
     expect(result.message).toContain('Not enough points')
     expect(result.message).toContain('100')
     expect(result.message).toContain('200')
@@ -182,6 +183,7 @@ describe('redeemRewardUseCase', () => {
       })
 
       expect(result.success).toBe(false)
+      if (result.success) throw new Error('expected failure result')
       expect(result.message).toContain('積分不足')
       expect(result.message).toContain('100')
       expect(result.message).toContain('200')
@@ -217,9 +219,29 @@ describe('redeemRewardUseCase', () => {
     vi.mocked(generateCouponCode)
       .mockReturnValueOnce('DUPE-CODE')
       .mockReturnValueOnce('UNIQUE-CODE')
+    const stubCoupon = {
+      id: 'cp-1',
+      restaurantId: 'r-1',
+      type: 'reward' as const,
+      code: 'UNIQUE-CODE',
+      status: 'active' as const,
+      memberId: 'm-1',
+      expiresAt: null,
+      redeemedAt: null,
+      discountType: 'percentage' as const,
+      discountValue: 100,
+      maxUses: 1,
+      currentUses: 0,
+      isActive: true,
+      isChargeable: true,
+      title: null,
+      description: null,
+      campaignId: null,
+      createdAt: '2026-05-04T00:00:00.000Z',
+    }
     vi.mocked(createCoupon)
       .mockRejectedValueOnce(new Error('unique constraint violation'))
-      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(stubCoupon)
 
     const result = await redeemRewardUseCase(defaultParams)
 

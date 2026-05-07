@@ -59,6 +59,56 @@ describe('buildCampaignUpdateRow', () => {
   })
 })
 
+describe('mapRowToCampaign mode (WONB-008)', () => {
+  const baseRow = {
+    id: 'c-1',
+    restaurant_id: 'r-1',
+    name: 'n',
+    type: 'welcome',
+    template: '',
+    status: 'active',
+    target_audience: 'all',
+    created_at: '2026-04-20T00:00:00Z',
+  }
+
+  it('maps mode=marketing through (camelCase)', () => {
+    const c = mapRowToCampaign({ ...baseRow, mode: 'marketing' })
+    expect(c.mode).toBe('marketing')
+  })
+
+  it('maps mode=reconfirmation through (camelCase)', () => {
+    const c = mapRowToCampaign({ ...baseRow, mode: 'reconfirmation' })
+    expect(c.mode).toBe('reconfirmation')
+  })
+
+  it("defaults missing mode column to 'marketing' (back-compat for old rows)", () => {
+    const c = mapRowToCampaign(baseRow)
+    expect(c.mode).toBe('marketing')
+  })
+
+  it("defaults unknown mode value to 'marketing' (defends the union)", () => {
+    const c = mapRowToCampaign({ ...baseRow, mode: 'banana' })
+    expect(c.mode).toBe('marketing')
+  })
+})
+
+describe('buildCampaignUpdateRow mode (WONB-008)', () => {
+  it('writes mode=reconfirmation when supplied', () => {
+    const row = buildCampaignUpdateRow({ mode: 'reconfirmation' })
+    expect(row).toEqual({ mode: 'reconfirmation' })
+  })
+
+  it('writes mode=marketing when supplied', () => {
+    const row = buildCampaignUpdateRow({ mode: 'marketing' })
+    expect(row).toEqual({ mode: 'marketing' })
+  })
+
+  it('does not touch mode when undefined (sparse PATCH)', () => {
+    const row = buildCampaignUpdateRow({ name: 'x' })
+    expect('mode' in row).toBe(false)
+  })
+})
+
 describe('mapRowToCampaign image fields', () => {
   it('maps image_url_en and image_url_zh_hk into camelCase', () => {
     const campaign = mapRowToCampaign({

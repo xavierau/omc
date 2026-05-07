@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from '../../client'
 import {
   insertEvent,
   findLatest,
+  isGreenForDays,
   qualityStateRepository,
 } from '../quality-state-repository'
 import { QualityStateEvent } from '@/domain/entities/quality-state-event'
@@ -229,9 +230,79 @@ describe('findLatest', () => {
   })
 })
 
+describe('isGreenForDays (WONB-008 RPC wrapper)', () => {
+  interface RpcRecorder {
+    name: string | null
+    args: Record<string, unknown> | null
+  }
+
+  function buildRpcClient(result: { data: unknown; error: { message: string } | null }): {
+    client: ReturnType<typeof createServerSupabaseClient>
+    recorder: RpcRecorder
+  } {
+    const recorder: RpcRecorder = { name: null, args: null }
+    const rpc = vi.fn().mockImplementation(
+      (name: string, args: Record<string, unknown>) => {
+        recorder.name = name
+        recorder.args = args
+        return Promise.resolve(result)
+      }
+    )
+    return {
+      client: { rpc } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      recorder,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('calls tenant_green_for_days RPC with positional restaurant + minDays args', async () => {
+    const { client, recorder } = buildRpcClient({ data: true, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const allowed = await isGreenForDays('rest-1', 7)
+
+    expect(allowed).toBe(true)
+    expect(recorder.name).toBe('tenant_green_for_days')
+    expect(recorder.args).toEqual({
+      p_restaurant_id: 'rest-1',
+      p_min_days: 7,
+    })
+  })
+
+  it('returns false when the RPC returns false', async () => {
+    const { client } = buildRpcClient({ data: false, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const allowed = await isGreenForDays('rest-1', 7)
+    expect(allowed).toBe(false)
+  })
+
+  it('returns false when the RPC yields null (no quality signal yet)', async () => {
+    const { client } = buildRpcClient({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const allowed = await isGreenForDays('rest-empty', 7)
+    expect(allowed).toBe(false)
+  })
+
+  it('throws contextually on RPC error', async () => {
+    const { client } = buildRpcClient({
+      data: null,
+      error: { message: 'function does not exist' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await expect(isGreenForDays('rest-1', 7)).rejects.toThrow(
+      /isGreenForDays.*function does not exist/
+    )
+  })
+})
+
 describe('qualityStateRepository contract lock', () => {
-  it('exposes insertEvent and findLatest from the same module', () => {
+  it('exposes insertEvent, findLatest, and isGreenForDays from the same module', () => {
     expect(qualityStateRepository.insertEvent).toBe(insertEvent)
     expect(qualityStateRepository.findLatest).toBe(findLatest)
+    expect(qualityStateRepository.isGreenForDays).toBe(isGreenForDays)
   })
 })

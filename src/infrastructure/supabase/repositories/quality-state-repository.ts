@@ -59,10 +59,29 @@ export async function findLatest(
   return toEntity(data as TenantQualityStateRow)
 }
 
+// WONB-008 Q-H: thin wrapper around the SQL `tenant_green_for_days` RPC.
+// The RPC encodes the strict semantics (any non-GREEN within minDays
+// disqualifies); see migration 050. We default null → false so a tenant
+// with no quality history is treated as "not green long enough" — fail-safe
+// for the reconfirmation pre-flight gate.
+export async function isGreenForDays(
+  restaurantId: string,
+  minDays: number
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('tenant_green_for_days', {
+    p_restaurant_id: restaurantId,
+    p_min_days: minDays,
+  })
+  if (error) throw new Error(`isGreenForDays: ${error.message}`)
+  return data === true
+}
+
 // Compile-time contract lock: this object MUST satisfy the domain repository
 // interface. If a future edit drifts a function signature away from the port,
 // TS surfaces it here rather than at the call sites or — worse — at runtime.
 export const qualityStateRepository: QualityStateRepository = {
   insertEvent,
   findLatest,
+  isGreenForDays,
 }

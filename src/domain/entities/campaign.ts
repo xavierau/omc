@@ -22,6 +22,15 @@ export interface Campaign {
   schedule: Record<string, unknown> | null
   scheduledAt: string | null
   status: 'draft' | 'active' | 'sending' | 'paused' | 'completed'
+  /**
+   * WONB-008: campaign delivery mode.
+   *  - 'marketing' (default): regular campaign, full audience eligibility.
+   *  - 'reconfirmation' (Strategy B): targets `consent_grade='weak' AND
+   *    status='opted_in'` legacy contacts (migration 038 backfill); paced
+   *    per-tenant via tenant_campaign_settings.reconfirmation_daily_cap and
+   *    gated on tenant_green_for_days(7). YES upgrades grade weak → strong.
+   */
+  mode: 'marketing' | 'reconfirmation'
   isChargeable: boolean
   chargeableSentCount: number
   nonChargeableSentCount: number

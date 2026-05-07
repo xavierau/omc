@@ -18,6 +18,8 @@ import {
   handleOptinConfirmation,
   handleOptinRejection,
 } from './optin-confirmation'
+import { handleReconfirmationConsent } from './reconfirmation-consent'
+import { handleReconfirmationRejection } from './reconfirmation-rejection'
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 const noop: LogFn = () => {}
@@ -125,9 +127,18 @@ async function dispatchConfirmation(
   if (receiptHandled) return
 
   // WONB-007: opt-in YES/NO only when receipt didn't claim the route.
+  // WONB-008: reconfirmation YES/NO tried after opt-in. Each use case's
+  // WHERE clause is the safety net — YES (weak+opted_in→strong) and NO
+  // (weak+opted_in→opted_out) only match the reconfirmation audience row,
+  // so a pending opt-in row is always claimed by the WONB-007 handler first.
   const optinCtx = { phoneNumberId, phone, restaurantId }
-  if (route === 'YES' && (await handleOptinConfirmation(optinCtx))) return
-  if (route === 'NO' && (await handleOptinRejection(optinCtx))) return
+  if (route === 'YES') {
+    if (await handleOptinConfirmation(optinCtx)) return
+    if (await handleReconfirmationConsent(optinCtx)) return
+  } else if (route === 'NO') {
+    if (await handleOptinRejection(optinCtx)) return
+    if (await handleReconfirmationRejection(optinCtx)) return
+  }
 
   return handleUnknown(phoneNumberId, phone, restaurantId)
 }

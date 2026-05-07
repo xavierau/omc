@@ -230,6 +230,20 @@
     "imageTooLarge": "檔案過大（最多 5MB）",
     "imageUploading": "上傳中…"
   },
+  "reconfirmation": {
+    "buttonLabel": "重新確認舊有聯絡人",
+    "dialogTitle": "重新確認舊有聯絡人",
+    "explainer": "向沿用自舊系統、但從未透過 WhatsApp 確認推廣同意的聯絡人，發送一次性工具型範本。他們回覆 YES 即可將同意級別升級為「強同意」。為安全起見，每日上限為 {cap} 個。",
+    "preflightOk": "可啟動 — 合資格聯絡人共 {n} 位。",
+    "preflightFailQualityNotGreen": "租戶品質須連續 7 天維持 GREEN。目前：{state}，自 {since} 起。",
+    "preflightFailEmptyAudience": "沒有可重新確認的舊有聯絡人。（對象：由舊系統匯入、同意級別為「弱」但仍標示為已同意的會員。）",
+    "preflightFailDailyCapMet": "今日重新確認上限已達（{sent}/{cap}）。請明日繼續。",
+    "preflightFailQualityPaused": "因品質下降，重新確認暫停中，須由平台管理員核可方可繼續。",
+    "templatePreviewTitle": "範本（以租戶預設語言發送）",
+    "submit": "啟動重新確認推廣",
+    "audiencePreviewHelp": "首 {n} 位聯絡人（按最近同意紀錄排序）：",
+    "campaignCardLabel": "重新確認"
+  },
   "events": {
     "join": "已加入",
     "redeem": "已兌換優惠券",

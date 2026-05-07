@@ -25,6 +25,12 @@ vi.mock('@/application/confirm-marketing-optin', () => ({
 vi.mock('@/application/reject-marketing-optin', () => ({
   rejectMarketingOptin: vi.fn(async () => ({ revoked: false })),
 }))
+vi.mock('@/application/confirm-reconfirmation-consent', () => ({
+  confirmReconfirmationConsent: vi.fn(async () => ({ upgraded: false })),
+}))
+vi.mock('@/application/reject-reconfirmation-consent', () => ({
+  rejectReconfirmationConsent: vi.fn(async () => ({ revoked: false })),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -1113,6 +1119,71 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       // language field on params
       expect((call[0] as unknown as { language: { code: string } }).language.code).toBe('zh_hk')
     })
+  })
+})
+
+describe('YES dispatch order: receipt > opt-in > reconfirmation (WONB-008)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+    const ww = await import('@/infrastructure/supabase/repositories/conversation-window-repository')
+    vi.mocked(ww.isWindowOpen).mockResolvedValue(false)
+  })
+
+  it('reconfirmation YES handled when no pending receipt and no pending opt-in (weak→strong upgrade)', async () => {
+    const { confirmReconfirmationConsent } = await import('@/application/confirm-reconfirmation-consent')
+    vi.mocked(findPendingReceipt).mockResolvedValue(null)
+    const { confirmMarketingOptin } = await import('@/application/confirm-marketing-optin')
+    vi.mocked(confirmMarketingOptin).mockResolvedValue({ upgraded: false })
+    vi.mocked(confirmReconfirmationConsent).mockResolvedValue({ upgraded: true })
+
+    await routeMessage(makeMessage({ text: 'YES' }), RESTAURANT_A)
+
+    expect(confirmReconfirmationConsent).toHaveBeenCalledWith({
+      restaurantId: RESTAURANT_A,
+      phoneE164: PHONE,
+    })
+  })
+
+  it('opt-in YES wins over reconfirmation YES when both could match', async () => {
+    const { confirmMarketingOptin } = await import('@/application/confirm-marketing-optin')
+    const { confirmReconfirmationConsent } = await import('@/application/confirm-reconfirmation-consent')
+    vi.mocked(findPendingReceipt).mockResolvedValue(null)
+    vi.mocked(confirmMarketingOptin).mockResolvedValue({ upgraded: true })
+    vi.mocked(confirmReconfirmationConsent).mockResolvedValue({ upgraded: true })
+
+    await routeMessage(makeMessage({ text: 'YES' }), RESTAURANT_A)
+
+    expect(confirmMarketingOptin).toHaveBeenCalled()
+    // After opt-in claimed YES, reconfirmation must not be invoked.
+    expect(confirmReconfirmationConsent).not.toHaveBeenCalled()
+  })
+
+  it('receipt YES wins over opt-in and reconfirmation', async () => {
+    const { confirmMarketingOptin } = await import('@/application/confirm-marketing-optin')
+    const { confirmReconfirmationConsent } = await import('@/application/confirm-reconfirmation-consent')
+    vi.mocked(findPendingReceipt).mockResolvedValue({
+      id: 'rec-1',
+      pending_amount: 99,
+    } as unknown as Record<string, unknown>)
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined)
+    vi.mocked(findMemberByPhone).mockResolvedValue({
+      id: 'm-x',
+      pointsBalance: 0,
+      preferredLanguage: 'en',
+    })
+
+    await routeMessage(makeMessage({ text: 'YES' }), RESTAURANT_A)
+
+    expect(confirmReceipt).toHaveBeenCalled()
+    expect(confirmMarketingOptin).not.toHaveBeenCalled()
+    expect(confirmReconfirmationConsent).not.toHaveBeenCalled()
   })
 })
 

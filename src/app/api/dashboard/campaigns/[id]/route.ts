@@ -14,7 +14,11 @@ import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
 } from './template-helpers'
-import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
+import {
+  pickAllowed,
+  applyImageScopeGuard,
+  ReconfirmationResumeForbiddenError,
+} from './patch-helpers'
 import { CampaignBodyError } from '../parse-create-body-errors'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 
@@ -69,7 +73,7 @@ export async function PATCH(
     if (templateError) {
       return NextResponse.json({ error: templateError }, { status: 400 })
     }
-    const changes: UpdateCampaignParams = pickAllowed(body)
+    const changes: UpdateCampaignParams = pickAllowed(body, existing)
     applyImageScopeGuard(changes, existing, restaurantId)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
 
@@ -95,6 +99,12 @@ export async function PATCH(
     }
     if (error instanceof CampaignBodyError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (error instanceof ReconfirmationResumeForbiddenError) {
+      return NextResponse.json(
+        { error: error.message, reason: error.reason },
+        { status: error.statusCode }
+      )
     }
     if (error instanceof CrossTenantMemberError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })

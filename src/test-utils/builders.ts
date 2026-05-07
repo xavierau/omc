@@ -49,6 +49,7 @@ export function buildCampaign(
     schedule: null,
     scheduledAt: null,
     status: 'active',
+    mode: 'marketing',
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,

@@ -15,6 +15,7 @@ function makeRestaurant(
     status: 'active',
     plan: 'starter',
     trialExpiresAt: null,
+    referrerId: null,
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   }

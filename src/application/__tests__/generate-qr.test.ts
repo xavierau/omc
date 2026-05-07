@@ -8,7 +8,7 @@ import { generateQr } from '../generate-qr'
 describe('generateQr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock')
+    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock' as never)
   })
 
   it('builds deep link with + stripped from number', async () => {
