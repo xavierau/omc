@@ -25,6 +25,9 @@ vi.mock('@/application/confirm-marketing-optin', () => ({
 vi.mock('@/application/reject-marketing-optin', () => ({
   rejectMarketingOptin: vi.fn(async () => ({ revoked: false })),
 }))
+vi.mock('../my-card-handler', () => ({
+  handleMyCard: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -57,6 +60,7 @@ import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
+import { handleMyCard } from '../my-card-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { okResult } from '@/test-utils/send-result'
@@ -599,6 +603,9 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         PHONE,
         expect.stringContaining('可用指令')
       )
+      // HELP copy nudges toward the card keyword (plan §8 step 6).
+      const zhBody = vi.mocked(sendTextMessage).mock.calls.at(-1)?.[2] ?? ''
+      expect(zhBody).toContain('會員碼')
     })
 
     it('EN "HELP" from EN member → handleHelp with EN copy', async () => {
@@ -615,6 +622,9 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         PHONE,
         expect.stringContaining('Available commands')
       )
+      // HELP copy nudges toward the card keyword (plan §8 step 6).
+      const enBody = vi.mocked(sendTextMessage).mock.calls.at(-1)?.[2] ?? ''
+      expect(enBody).toContain('CARD')
     })
 
     it('ZH "是" with pending receipt → confirm path', async () => {
@@ -1229,5 +1239,34 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
     // The downstream HELP reply still ran (non-member -> JOIN invite via
     // interactive buttons).
     expect(sendInteractiveButtons).toHaveBeenCalled()
+  })
+})
+
+describe('MY_CARD routing (plan §8)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+    vi.mocked(handleMyCard).mockResolvedValue(undefined)
+  })
+
+  it('dispatches a CARD keyword to handleMyCard', async () => {
+    await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+    expect(handleMyCard).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      RESTAURANT_A
+    )
+  })
+
+  it('dispatches the CJK 我的會員碼 keyword to handleMyCard', async () => {
+    await routeMessage(makeMessage({ text: '我的會員碼' }), RESTAURANT_A)
+    expect(handleMyCard).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      RESTAURANT_A
+    )
   })
 })

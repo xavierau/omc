@@ -10,6 +10,7 @@ import {
 import { resolveRoute, type RouteResult } from './route-resolver'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
+import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
 import { bumpServiceWindow } from './service-window'
@@ -90,6 +91,8 @@ async function dispatchByRoute(ctx: DispatchContext) {
       return handlePoints(phoneNumberId, phone, restaurantId)
     case 'HELP':
       return handleHelp(phoneNumberId, phone, restaurantId)
+    case 'MY_CARD':
+      return handleMyCard(phoneNumberId, phone, restaurantId)
     case 'STOP':
       return handleUnsubscribe(phoneNumberId, phone, restaurantId)
     case 'REWARDS':

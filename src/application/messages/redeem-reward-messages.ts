@@ -83,6 +83,21 @@ export function rewardQrCaption(
     : `您的代碼：${vars.code}`
 }
 
+/**
+ * "X to go" come-back nudge (plan §7) — sent once per card when the diner is one
+ * stamp short of the reward. MARKETING-class copy.
+ */
+export function stampToGoNudge(
+  language: Language,
+  vars: { stampsCount: number; stampsRequired: number }
+): string {
+  const remaining = vars.stampsRequired - vars.stampsCount
+  if (language.equals(Language.EN)) {
+    return `✨ Almost there! ${vars.stampsCount}/${vars.stampsRequired} stamps — just ${remaining} to go for your reward. See you soon!`
+  }
+  return `✨ 就快儲滿！${vars.stampsCount}/${vars.stampsRequired} 個印花，仲差 ${remaining} 個就有獎賞。期待您再次光臨！`
+}
+
 function formatDiscount(type: string, value: number): string {
   const prefix = type === 'fixed_amount' ? 'HK$' : ''
   const suffix = type === 'percentage' ? '%' : ''

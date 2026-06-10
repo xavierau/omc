@@ -122,6 +122,15 @@ describe('resolveRoute', () => {
     it('bare 兌換 → REDEEM', () => {
       expect(resolveRoute('兌換', 'text').route).toBe('REDEEM')
     })
+    it('CARD → MY_CARD (auto-routes via matchCommand, no resolver branch)', () => {
+      expect(resolveRoute('CARD', 'text').route).toBe('MY_CARD')
+    })
+    it('QR → MY_CARD', () => {
+      expect(resolveRoute('QR', 'text').route).toBe('MY_CARD')
+    })
+    it('我的會員碼 → MY_CARD', () => {
+      expect(resolveRoute('我的會員碼', 'text').route).toBe('MY_CARD')
+    })
   })
 
   describe('priority 6: unknown', () => {
