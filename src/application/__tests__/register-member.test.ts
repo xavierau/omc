@@ -192,6 +192,11 @@ describe('registerMember', () => {
       couponCode: 'WELCOME1',
     })
     expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+    // Enrollment-time loyalty QR coverage (plan §4.3, subtask 13): a brand-new
+    // member always gets a scannable hex loyalty_token at insert.
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ loyalty_token: expect.stringMatching(/^[0-9a-f]{32}$/) })
+    )
     expect(createCampaignCoupon).not.toHaveBeenCalled()
     expect(incrementCampaignSent).not.toHaveBeenCalled()
     expect(emitEvent).toHaveBeenCalledWith(

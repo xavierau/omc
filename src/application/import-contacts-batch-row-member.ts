@@ -3,6 +3,7 @@
 // the resolved memberId or a typed row-level reject for the orchestrator.
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
 import type { ImportRowRejectReason } from '@/domain/services/__errors__/import-errors'
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>
@@ -62,6 +63,7 @@ async function tryInsertMember(
       name: input.row.name,
       status: 'active',
       preferred_language: input.row.preferredLanguage,
+      loyalty_token: loyaltyToken(),
     })
     .select('id')
     .single()

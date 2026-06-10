@@ -10,6 +10,7 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
 import type { Campaign } from '@/domain/entities/campaign'
 
 interface WebRegisterResult {
@@ -53,6 +54,7 @@ async function createNewWebMember(
       phone: phone.value,
       status: 'active',
       name,
+      loyalty_token: loyaltyToken(),
     })
     .select('id')
     .single()

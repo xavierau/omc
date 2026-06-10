@@ -8,7 +8,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { resolveScanIdentity } from '@/application/resolve-scan-identity'
 import { applyStampUseCase } from '@/application/apply-stamp-use-case'
-import { findActiveStampCampaign } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
+import { findStampableCampaignForMember } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
 import { getMemberContact } from '@/infrastructure/supabase/repositories/member-loyalty-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 
@@ -34,7 +34,10 @@ async function grantStamp(
   const resolved = await resolveScanIdentity(rawScan, restaurantId)
   if ('error' in resolved) return NextResponse.json({ error: 'not_resolved' })
 
-  const campaign = await findActiveStampCampaign(restaurantId)
+  // Resolve which campaign this grant lands on: the active campaign, OR — when none
+  // is active — an ended-but-within-honor campaign the member already has an
+  // in-progress card on (plan §9 grace path), so a card can still COMPLETE post-end.
+  const campaign = await findStampableCampaignForMember(restaurantId, resolved.memberId)
   if (!campaign) return NextResponse.json({ error: 'no_active_campaign' })
 
   const result = await applyForMember(resolved.memberId, restaurantId, userId, campaign)

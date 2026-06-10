@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
 import { insertConsentRecord } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import {
@@ -92,6 +93,7 @@ async function tryInsertMember(
       name: row.name ?? null,
       status: 'active',
       preferred_language: row.preferredLanguage ?? null,
+      loyalty_token: loyaltyToken(),
     })
     .select('id')
     .single()

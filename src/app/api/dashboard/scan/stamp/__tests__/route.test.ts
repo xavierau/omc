@@ -12,7 +12,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { resolveScanIdentity } from '@/application/resolve-scan-identity'
 import { applyStampUseCase } from '@/application/apply-stamp-use-case'
-import { findActiveStampCampaign } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
+import { findStampableCampaignForMember } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
 import { getMemberContact } from '@/infrastructure/supabase/repositories/member-loyalty-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { POST } from '../route'
@@ -36,7 +36,7 @@ function tenantOk() {
 }
 
 function campaignOk() {
-  vi.mocked(findActiveStampCampaign).mockResolvedValue({
+  vi.mocked(findStampableCampaignForMember).mockResolvedValue({
     id: 'c-1',
     stampsRequired: 10,
     rewardId: 'rw-1',
@@ -74,7 +74,7 @@ describe('POST /api/dashboard/scan/stamp', () => {
   it('returns no_active_campaign (HTTP 200) when no campaign is running', async () => {
     tenantOk()
     vi.mocked(resolveScanIdentity).mockResolvedValue({ memberId: 'm-1' })
-    vi.mocked(findActiveStampCampaign).mockResolvedValue(null)
+    vi.mocked(findStampableCampaignForMember).mockResolvedValue(null)
 
     const res = await POST(req({ rawScan: 'LOYALTY:tok' }))
     const json = await res.json()
@@ -82,6 +82,28 @@ describe('POST /api/dashboard/scan/stamp', () => {
     expect(res.status).toBe(200)
     expect(json).toEqual({ error: 'no_active_campaign' })
     expect(applyStampUseCase).not.toHaveBeenCalled()
+  })
+
+  it('honor-window: resolves the member-scoped campaign so an in-progress card completes', async () => {
+    tenantOk()
+    vi.mocked(resolveScanIdentity).mockResolvedValue({ memberId: 'm-1' })
+    // No active campaign, but the member has an in-progress card on an ended campaign
+    // still inside its honor window — findStampableCampaignForMember returns it.
+    vi.mocked(findStampableCampaignForMember).mockResolvedValue({
+      id: 'c-ended', stampsRequired: 10, rewardId: 'rw-1', maxStampsPerDay: 1,
+    })
+    vi.mocked(applyStampUseCase).mockResolvedValue({
+      outcome: 'stamped', stampsCount: 10, stampsRequired: 10, completed: true,
+    })
+
+    const res = await POST(req({ rawScan: 'LOYALTY:tok' }))
+    const json = await res.json()
+
+    expect(findStampableCampaignForMember).toHaveBeenCalledWith(RESTAURANT_ID, 'm-1')
+    expect(applyStampUseCase).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: 'c-ended' })
+    )
+    expect(json.completed).toBe(true)
   })
 
   it('passes the resolved member + campaign cap to applyStampUseCase and maps the outcome', async () => {
