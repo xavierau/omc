@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Users, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
@@ -57,6 +57,7 @@ export function Sidebar() {
     { label: t('members'), href: '/dashboard/members', icon: Users },
     { label: t('liveFeed'), href: '/dashboard/feed', icon: Radio },
     { label: t('campaigns'), href: '/dashboard/campaigns', icon: Megaphone },
+    { label: t('stampCampaigns'), href: '/dashboard/campaigns/stamps', icon: Stamp },
     { label: t('waTemplates'), href: '/dashboard/wa-templates', icon: MessageSquare },
     { label: t('coupons'), href: '/dashboard/coupons', icon: Ticket },
     { label: t('scan'), href: '/dashboard/scan', icon: QrCode },
