@@ -62,6 +62,12 @@ async function assertRewardCatalog(input: CreateStampCampaignInput): Promise<voi
   }
 }
 
+// CAP IMMUTABILITY: max_stamps_per_day is set at CREATE only — there is no edit path
+// for it (the PATCH route handles activate/pause/end transitions, never the cap). The
+// platform-admin off/warn/block cap policy is therefore enforced exactly once, here at
+// create. If an edit path for max_stamps_per_day is ever added, it MUST re-run
+// evaluateStampCapPolicy (same off/warn/block semantics), or a tenant could route
+// around the platform cap by editing post-create.
 async function applyCapPolicy(maxPerDay: number): Promise<string | undefined> {
   const decision = evaluateStampCapPolicy(maxPerDay, await getStampCapPolicy())
   if (!decision.allowed) throw new CapBlockedError(decision.error ?? 'Cap exceeded')

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { reverseStampUseCase } from '@/application/reverse-stamp-use-case'
-import { findActiveStampCampaign } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
+import { findStampableCampaignForMember } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +28,10 @@ async function reverse(
   restaurantId: string,
   userId: string
 ): Promise<NextResponse> {
-  const campaign = await findActiveStampCampaign(restaurantId)
+  // Resolve the same campaign set the grant path uses (active OR ended-but-within-
+  // honor card the member already holds), so a mistaken stamp granted during a
+  // campaign's honor window can still be reversed instead of failing no_active_campaign.
+  const campaign = await findStampableCampaignForMember(restaurantId, memberId)
   if (!campaign) return NextResponse.json({ error: 'no_active_campaign' })
 
   const result = await reverseStampUseCase({

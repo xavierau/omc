@@ -93,17 +93,13 @@ d('apply_stamp — HK-local day boundary (cap-integrity control)', () => {
   // The rig must be able to pin the clock (e.g. a freeze-time helper or
   // injected now()) to exercise these. The date is derived SERVER-SIDE as
   // (now() AT TIME ZONE 'Asia/Hong_Kong')::date — never client-supplied.
-  it('23:30 HKT and 23:45 HKT same HK day → collapse to one stamp', async () => {
-    // freezeAt('2026-06-09T15:30:00Z') ; applyStamp -> stamped
-    // freezeAt('2026-06-09T15:45:00Z') ; applyStamp -> already_stamped_today
-    expect(true).toBe(true)
-  })
+  // TODO: requires the test:db rig (Slice-1 subtask 1) — not yet built. These need a
+  // clock-freeze helper to pin server-side now() across the HK-day boundary. Marked
+  // it.todo so they do NOT report as passing cap-integrity coverage (previously a
+  // `expect(true).toBe(true)` placeholder that passed while asserting nothing).
+  it.todo('23:30 HKT and 23:45 HKT same HK day → collapse to one stamp')
 
-  it('23:00 HKT and next-day 01:00 HKT → two different dedup_keys, two stamps', async () => {
-    // freezeAt('2026-06-09T15:00:00Z') ; applyStamp -> stamped (key ...:2026-06-09)
-    // freezeAt('2026-06-09T17:00:00Z') ; applyStamp -> stamped (key ...:2026-06-10)
-    expect(true).toBe(true)
-  })
+  it.todo('23:00 HKT and next-day 01:00 HKT → two different dedup_keys, two stamps')
 })
 
 d('apply_stamp — completion at snapshotted required', () => {

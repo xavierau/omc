@@ -60,7 +60,16 @@ export class StampCard {
     return new StampCard({ ...this.props, stampsCount, status })
   }
 
-  /** Decrement one stamp; floored at 0; reopens a completed card if it drops below required. */
+  /**
+   * Decrement one stamp; floored at 0; reopens a completed card if it drops below required.
+   *
+   * NOTE (runtime divergence): the RUNTIME reversal path is the `reverse_stamp` RPC,
+   * which only operates on an `in_progress` card and does NOT reopen a `completed`
+   * card — the reward coupon is already minted on completion, so re-opening would
+   * desync the ledger from the issued reward. The reopen-on-reverse branch below is
+   * therefore intentionally NOT exercised at runtime; it is retained for entity
+   * completeness/symmetry with `increment` only.
+   */
   reverse(): StampCard {
     if (this.props.stampsCount === 0) return this
     const stampsCount = this.props.stampsCount - 1

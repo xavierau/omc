@@ -8,7 +8,7 @@ vi.mock('@/infrastructure/supabase/repositories/stamp-campaign-repository')
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { reverseStampUseCase } from '@/application/reverse-stamp-use-case'
-import { findActiveStampCampaign } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
+import { findStampableCampaignForMember } from '@/infrastructure/supabase/repositories/stamp-campaign-repository'
 import { POST } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
@@ -32,7 +32,7 @@ function tenantOk() {
 describe('POST /api/dashboard/scan/stamp/reverse', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(findActiveStampCampaign).mockResolvedValue({
+    vi.mocked(findStampableCampaignForMember).mockResolvedValue({
       id: 'c-1',
       stampsRequired: 10,
       rewardId: 'rw-1',
@@ -59,7 +59,7 @@ describe('POST /api/dashboard/scan/stamp/reverse', () => {
 
   it('returns no_active_campaign when none is running', async () => {
     tenantOk()
-    vi.mocked(findActiveStampCampaign).mockResolvedValue(null)
+    vi.mocked(findStampableCampaignForMember).mockResolvedValue(null)
 
     const res = await POST(req({ memberId: 'm-1' }))
     const json = await res.json()
@@ -83,6 +83,37 @@ describe('POST /api/dashboard/scan/stamp/reverse', () => {
       restaurantId: RESTAURANT_ID,
       memberId: 'm-1',
       campaignId: 'c-1',
+      actorUserId: 'u-1',
+    })
+    expect(json).toEqual({ outcome: 'reversed', stampsCount: 6, stampsRequired: 10 })
+  })
+
+  it('reverses on an honor-window card when no campaign is active (HIGH-2)', async () => {
+    tenantOk()
+    // No ACTIVE campaign, but the member holds an in-progress card on an ended
+    // campaign still inside its 14-day honor window. The grant path can stamp it,
+    // so the reverse path must resolve the same campaign and succeed — not fail
+    // no_active_campaign. findStampableCampaignForMember returns that card's campaign.
+    vi.mocked(findStampableCampaignForMember).mockResolvedValue({
+      id: 'c-ended',
+      stampsRequired: 10,
+      rewardId: 'rw-1',
+      maxStampsPerDay: 1,
+    })
+    vi.mocked(reverseStampUseCase).mockResolvedValue({
+      outcome: 'reversed',
+      stampsCount: 6,
+      stampsRequired: 10,
+    })
+
+    const res = await POST(req({ memberId: 'm-1' }))
+    const json = await res.json()
+
+    expect(findStampableCampaignForMember).toHaveBeenCalledWith(RESTAURANT_ID, 'm-1')
+    expect(reverseStampUseCase).toHaveBeenCalledWith({
+      restaurantId: RESTAURANT_ID,
+      memberId: 'm-1',
+      campaignId: 'c-ended',
       actorUserId: 'u-1',
     })
     expect(json).toEqual({ outcome: 'reversed', stampsCount: 6, stampsRequired: 10 })
