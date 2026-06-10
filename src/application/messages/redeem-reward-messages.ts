@@ -45,6 +45,35 @@ export function rewardRedeemedCelebration(
   ].join('\n')
 }
 
+export interface StampCelebrationVars {
+  name: string
+  discountType: string
+  discountValue: number
+  code: string
+}
+
+/**
+ * Stamp-completion celebration — the no-points variant. A completed stamp card
+ * has NO points cost and NO balance, so this template omits both fields (the
+ * points celebration's `pointsCost`/`newBalance` would be meaningless here).
+ */
+export function stampRewardUnlockedCelebration(
+  language: Language,
+  vars: StampCelebrationVars
+): string {
+  const discount = formatDiscount(vars.discountType, vars.discountValue)
+  if (language.equals(Language.EN)) {
+    return [
+      `\u{1F389} Stamp card complete! You unlocked ${vars.name} (${discount} off).`,
+      `Your code: *${vars.code}*`,
+    ].join('\n')
+  }
+  return [
+    `\u{1F389} 印花卡儲滿！您已解鎖 ${vars.name}（${discount}）。`,
+    `您的代碼：*${vars.code}*`,
+  ].join('\n')
+}
+
 export function rewardQrCaption(
   language: Language,
   vars: { code: string }
