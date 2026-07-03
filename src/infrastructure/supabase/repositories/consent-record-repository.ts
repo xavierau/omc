@@ -104,14 +104,19 @@ interface UpgradeArgs {
 // grant moment for WONB-007/008 analytics). True iff a pending row was upgraded.
 export async function upgradeToOptedIn(args: UpgradeArgs): Promise<boolean> {
   const supabase = createServerSupabaseClient()
+  // count belongs on .update() — .select() after an update takes no options,
+  // so the old `.select('id', { count: 'exact' })` never sent the count
+  // preference: count was always null and this function always returned false.
   const { count, error } = await supabase
     .from('consent_records')
-    .update({ status: 'opted_in', granted_at: new Date().toISOString() })
+    .update(
+      { status: 'opted_in', granted_at: new Date().toISOString() },
+      { count: 'exact' }
+    )
     .eq('restaurant_id', args.restaurantId)
     .eq('phone_e164', args.phoneE164)
     .eq('category', args.category)
     .eq('status', 'pending')
-    .select('id', { count: 'exact' })
   if (error) throw new Error(`upgradeToOptedIn: ${error.message}`)
   return (count ?? 0) > 0
 }
