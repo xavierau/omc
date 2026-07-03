@@ -6,6 +6,41 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "CAMP-002",
+          "title": "Campaign broadcast retry idempotency — no duplicate send / double-count on re-execution",
+          "description": "From CAMP-001 review (adversarial #1, HIGH). resolveTargetMembers has no 'already sent' filter, so re-executing a campaign that reverted sending→active (partial failure) re-sends to the whole audience. Eager mode double-SENDS the body (mint short-circuits on the 053 index, but the message already went out) — this is PRE-EXISTING. Claim mode additionally double-COUNTS: sendClaimToMember increments chargeableSentCount + emits the campaign event unconditionally (no per-member guard, since claim mode mints nothing at broadcast). Needs a per-member sent ledger (or use whatsapp_messages when tracking on) to make broadcast at-most-once. Affects billing + WhatsApp duplicate-marketing policy.",
+          "priority": "high",
+          "labels": ["campaign", "billing", "reliability"]
+        },
+        {
+          "id": "CAMP-003",
+          "title": "Audit quick-reply button payloads vs command-keyword namespace",
+          "description": "From CAMP-001 review (adversarial #6). The parser now surfaces template button.payload as message.text, so ALL template quick-reply taps route through matchCommand. An approved template whose quick-reply payload normalizes to a keyword (YES/NO/STOP/HELP/POINTS/REDEEM or CJK equivalents) would trigger that command — e.g. a payload 'STOP' silently unsubscribes the member. CLAIM_<id> is safe. Audit existing approved templates' quick-reply payloads; consider routing button payloads only via explicit prefixes (CLAIM_/REWARD_/JOIN/REDEEM) rather than the bare keyword matcher.",
+          "priority": "medium",
+          "labels": ["campaign", "whatsapp", "webhook"]
+        },
+        {
+          "id": "CAMP-004",
+          "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
+          "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
+          "priority": "medium",
+          "labels": ["campaign", "whatsapp", "fullstack"]
+        },
+        {
+          "id": "CAMP-005",
+          "title": "Claim window cutoff + claim-template body-param validation",
+          "description": "From CAMP-001 review (adversarial #9/#11, product decisions). (1) 'completed' campaigns are claimable indefinitely and each tap mints a fresh coupon whose expiry is measured from claim time — decide whether a claim cutoff (campaign end date) is wanted. (2) sendClaimTemplate only supplies customer_name + discount; any other {{param}} in a claim template (e.g. a stray {{code}}) is sent as '' and may be rejected by Meta — validate a claim template's body params are satisfiable in claim mode.",
+          "priority": "low",
+          "labels": ["campaign", "whatsapp"]
+        },
+        {
+          "id": "CAMP-006",
+          "title": "createCampaignCoupon 23505 robustness + null-config mint coverage",
+          "description": "From CAMP-001 review (adversarial #2b, QA gap). Migration 053's partial unique index also constrains welcome-flow promo coupons. createCampaignCoupon (coupon-factory.ts) catches unique violations by message.includes('unique') and retries 3x with a NEW code — a 23505 on (campaign_id, member_id) isn't fixed by a new code, so it fails confusingly. Low reachability (welcome mints for fresh member ids), but should reuse isCouponUniqueViolation + treat a (campaign,member) collision as idempotent. Also add a unit test asserting createCampaignBroadcastCoupon's minted-coupon shape for couponConfig:null (no expiry/discount).",
+          "priority": "low",
+          "labels": ["campaign", "coupon", "quality"]
+        },
+        {
           "id": "CI-001",
           "title": "CI pipeline — tsc, vitest, next build on every PR",
           "description": "There is no CI (.github/workflows is empty; zero check-runs on PRs). Consequences observed during v1.2.0 release prep: a build-breaking type error sat on develop for weeks disguised as 'baseline tsc noise', and a prerender failure (useSearchParams without Suspense) was only caught by a manual release-readiness build. Minimum gate per PR: tsc --noEmit (now at 0 errors — keep it there), vitest run, next build. The Suspense regression class is only catchable by next build.",
@@ -1217,27 +1252,7 @@
     },
     "todo": {
       "label": "To Do",
-      "tasks": [
-        {
-          "id": "CAMP-001",
-          "title": "Claim-button campaign flow — lazy coupon/QR on button tap",
-          "description": "User-reported (investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim): broadcasts currently mint a live coupon per recipient and eagerly send the QR at send time (execute-campaign-broadcast.ts sendToMember); when the marketing template body is silently rejected (Meta per-user cap, paused template), customers receive ONLY a bare QR. Rework: broadcast sends only the campaign template with a QUICK_REPLY claim button (payload CLAIM_<campaignId>); a new webhook route handles the button tap, idempotently mints the coupon for that member, and sends the QR lazily; remove the eager mint/QR from sendToMember. The webhook parser already surfaces button_reply ids.",
-          "priority": "high",
-          "labels": ["feature", "campaign", "whatsapp", "billing"],
-          "estimate": "2d",
-          "acceptance_criteria": [
-            "Broadcast sends exactly one message per recipient: the campaign template with a claim QUICK_REPLY button; no coupon row and no QR exist for a member before they tap",
-            "Tapping the claim button mints the coupon idempotently (double-tap = one coupon, same QR resent) and sends the QR image with the redeem code",
-            "Claim works for the full campaign validity window and respects campaign status (paused/ended campaigns reply with a friendly refusal, no mint)",
-            "Body-send failures are no longer swallowed: a failed template send does not increment the chargeable incrementCampaignSent counter, does not emit the campaign event, and is recorded/observable per recipient",
-            "Existing eager-mode campaigns in flight are unaffected mid-migration; feature covered by unit tests for the new handler + send path per acceptance criterion",
-            "Threat model note addressed: CLAIM_<campaignId> payload cannot mint for another restaurant's campaign or an unenrolled member (tenant + membership re-checked server-side)"
-          ],
-          "workspace_artifacts": [
-            "investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim"
-          ]
-        }
-      ]
+      "tasks": []
     },
     "in_progress": {
       "label": "In Progress",
@@ -1271,6 +1286,18 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "CAMP-001",
+          "title": "Claim-button campaign flow — lazy coupon/QR on button tap",
+          "description": "Broadcast now branches on template shape: claim mode (approved template has a QUICK_REPLY button) sends only the template with a dynamic CLAIM_<campaignId> payload, minting the coupon + QR lazily when the customer taps; eager mode (inline text / URL-button) preserved. Body-send failures no longer increment the chargeable counter or emit the campaign event (body sent first, side-effects gated on send success; failed sends tallied + recorded). Claim tap re-checks tenant + membership + audience targeting (selected campaigns) + status, mints idempotently (app pre-check + Postgres 23505 + migration 053 partial unique index), resends the same QR on double-tap, and falls back to texting the code if the QR image fails. PR #50 → develop (squash). Independent /review (code-review-analyzer + security-architect + qa-engineer + adversarial): security F1 (audience-targeting leak — a forwarded CLAIM_ payload minting for non-targeted members) FIXED; migration deploy-gate + non-CONCURRENTLY lock documented. Follow-ups: CAMP-002 (retry idempotency), CAMP-003 (button↔keyword collision), CAMP-004 (explicit claim flag), CAMP-005 (claim window/param validation), CAMP-006 (welcome-coupon 23505). Known: pre-existing flaky WAQ integration tests (pass in isolation; CI-001).",
+          "priority": "high",
+          "labels": ["feature", "campaign", "whatsapp", "billing"],
+          "completed_at": "2026-07-03",
+          "workspace_artifacts": [
+            "investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim",
+            "plans/2026-07-03-camp-001-claim-button-flow"
+          ]
+        },
         {
           "id": "REL-001",
           "title": "v1.2.0 release blockers — build break, stamp RLS, prerender failure",
