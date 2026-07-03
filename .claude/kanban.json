@@ -1239,7 +1239,15 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "REL-001",
+          "title": "v1.2.0 release blockers — build break, stamp RLS, prerender failure",
+          "description": "Release-readiness review of develop→main found: (1) next build failed on a type error in consent-record-repository (the .select count option was also a runtime bug — upgradeToOptedIn always returned false, breaking WONB-005/007 opt-in YES handling); (2) migration 050's stamp_campaigns/member_stamp_cards shipped without RLS (cross-tenant read/write via anon key) — fixed by migration 052; (3) /dashboard/members/import used useSearchParams without Suspense, hard-failing prerender in Next 16. Also zeroed all 18 baseline tsc errors (type drift in 8 test files) so the build gate is trustworthy, and documented WAQ/opt-in env vars in .env.example + deploy/README.md.",
+          "priority": "high",
+          "labels": ["release", "bug", "security"]
+        }
+      ]
     },
     "done": {
       "label": "Done",
