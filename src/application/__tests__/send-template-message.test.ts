@@ -142,4 +142,89 @@ describe('sendWhatsAppTemplateMessage', () => {
       })
     )
   })
+
+  // CAMP-001: claim-button quick_reply params.
+  it('emits a quick_reply button at the QUICK_REPLY index with the claim payload', async () => {
+    const template = buildTemplate({
+      components: [
+        { type: 'BODY', text: 'Hi {{customer_name}}, {{discount}} off!' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'URL', text: 'Visit', url: 'https://example.com/{{1}}' },
+            { type: 'QUICK_REPLY', text: 'Claim' },
+          ],
+        },
+      ],
+    })
+
+    await sendWhatsAppTemplateMessage({
+      phoneNumberId: 'pn-1',
+      to: '+85291234567',
+      template,
+      paramValues: { customer_name: 'Alice', discount: '10%' },
+      claimPayload: 'CLAIM_camp-123',
+    })
+
+    const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+    expect(args.buttons).toEqual([
+      {
+        type: 'button',
+        subType: 'quick_reply',
+        index: 1,
+        parameters: [{ type: 'payload', payload: 'CLAIM_camp-123' }],
+      },
+    ])
+  })
+
+  it('picks the first QUICK_REPLY button index when multiple exist', async () => {
+    const template = buildTemplate({
+      components: [
+        { type: 'BODY', text: 'Hello!' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'QUICK_REPLY', text: 'Claim now' },
+            { type: 'QUICK_REPLY', text: 'Later' },
+          ],
+        },
+      ],
+    })
+
+    await sendWhatsAppTemplateMessage({
+      phoneNumberId: 'pn-1',
+      to: '+85291234567',
+      template,
+      paramValues: {},
+      claimPayload: 'CLAIM_x',
+    })
+
+    const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+    expect(args.buttons?.[0]).toMatchObject({ index: 0 })
+  })
+
+  it('emits no buttons when claimPayload is set but template has no QUICK_REPLY', async () => {
+    const template = buildTemplate({
+      components: [
+        { type: 'BODY', text: 'Hello!' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'URL', text: 'Redeem', url: 'https://example.com/{{1}}' },
+          ],
+        },
+      ],
+    })
+
+    await sendWhatsAppTemplateMessage({
+      phoneNumberId: 'pn-1',
+      to: '+85291234567',
+      template,
+      paramValues: {},
+      claimPayload: 'CLAIM_x',
+    })
+
+    const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+    expect(args.buttons).toBeUndefined()
+  })
 })
