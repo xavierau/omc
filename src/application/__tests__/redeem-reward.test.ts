@@ -47,6 +47,13 @@ import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { emitEvent } from '@/application/emit-event'
 import { adjustMemberPoints } from '@/infrastructure/supabase/repositories/member-repository'
+import { buildCoupon } from '@/test-utils/builders'
+import type { RedeemRewardResult } from '@/application/redeem-reward'
+
+function expectFailure(result: RedeemRewardResult): { success: false; message: string } {
+  if (result.success) throw new Error('expected a failure result')
+  return result
+}
 
 function buildReward(overrides = {}) {
   return {
@@ -112,9 +119,8 @@ describe('redeemRewardUseCase', () => {
     vi.mocked(getRewardById).mockResolvedValue(buildReward({ pointsCost: 200 }))
     setupMemberBalance(100)
 
-    const result = await redeemRewardUseCase(defaultParams)
+    const result = expectFailure(await redeemRewardUseCase(defaultParams))
 
-    expect(result.success).toBe(false)
     expect(result.message).toContain('Not enough points')
     expect(result.message).toContain('100')
     expect(result.message).toContain('200')
@@ -176,12 +182,13 @@ describe('redeemRewardUseCase', () => {
       vi.mocked(getRewardById).mockResolvedValue(buildReward({ pointsCost: 200 }))
       setupMemberBalance(100)
 
-      const result = await redeemRewardUseCase({
-        ...defaultParams,
-        language: Language.ZH_HK,
-      })
+      const result = expectFailure(
+        await redeemRewardUseCase({
+          ...defaultParams,
+          language: Language.ZH_HK,
+        })
+      )
 
-      expect(result.success).toBe(false)
       expect(result.message).toContain('積分不足')
       expect(result.message).toContain('100')
       expect(result.message).toContain('200')
@@ -219,7 +226,7 @@ describe('redeemRewardUseCase', () => {
       .mockReturnValueOnce('UNIQUE-CODE')
     vi.mocked(createCoupon)
       .mockRejectedValueOnce(new Error('unique constraint violation'))
-      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(buildCoupon({ code: 'UNIQUE-CODE' }))
 
     const result = await redeemRewardUseCase(defaultParams)
 

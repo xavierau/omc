@@ -54,7 +54,7 @@ describe('createWhatsAppTemplate', () => {
     vi.mocked(findTemplateByNameAndLanguage).mockResolvedValue(null)
     vi.mocked(createTemplate).mockResolvedValue(TEMPLATE_BASE)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue(null)
-    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(null)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('')
     vi.mocked(resolveWabaId).mockResolvedValue(null)
   })
 
@@ -83,7 +83,7 @@ describe('createWhatsAppTemplate', () => {
 
   it('submits to Meta and updates status to pending when businessAccountId is available', async () => {
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
-    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'meta-tpl-1' })
+    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'meta-tpl-1', status: 'PENDING' })
     const pendingTemplate = {
       ...TEMPLATE_BASE,
       metaTemplateId: 'meta-tpl-1',
