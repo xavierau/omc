@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -22,6 +22,8 @@
 
 # claude
 .claude/skills/
+.claude/scheduled_tasks.lock
+.claude/worktrees/
 
 # misc
 .DS_Store
