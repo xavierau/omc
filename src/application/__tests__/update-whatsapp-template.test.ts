@@ -88,7 +88,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(findTemplateById).mockResolvedValue(existingWithMeta)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
-    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'new-meta-id' })
+    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'new-meta-id', status: 'PENDING' })
 
     const pendingTemplate = {
       ...TEMPLATE_BASE,

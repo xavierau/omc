@@ -6,6 +6,13 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "CI-001",
+          "title": "CI pipeline — tsc, vitest, next build on every PR",
+          "description": "There is no CI (.github/workflows is empty; zero check-runs on PRs). Consequences observed during v1.2.0 release prep: a build-breaking type error sat on develop for weeks disguised as 'baseline tsc noise', and a prerender failure (useSearchParams without Suspense) was only caught by a manual release-readiness build. Minimum gate per PR: tsc --noEmit (now at 0 errors — keep it there), vitest run, next build. The Suspense regression class is only catchable by next build.",
+          "priority": "high",
+          "labels": ["devops", "quality"]
+        },
+        {
           "id": "WH-004",
           "title": "Webhook signature verification fails OPEN when secret is unset in production",
           "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
@@ -15,7 +22,7 @@
         {
           "id": "WH-005",
           "title": "Webhook robustness hardening bundle",
-          "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it. (5) A transient Supabase error in resolveRestaurant returns null → 200 'ignored' → legitimate event silently dropped with no retry (repositories swallow errors to null). (6) message.id as JSON object/array with a valid sender: truthy cast passes, PostgREST insert errors non-23505 every attempt → pre-claim 500 storm (pathological payload only). (7) Confirm Kapso's 4xx retry semantics — if it retries any non-2xx like Meta, switch the malformed-JSON 400 to a 200-ignore. (8) route.ts returns handleInbound(...) without await, so its rejections bypass the webhook.error structured log.",
+          "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it. (5) A transient Supabase error in resolveRestaurant returns null → 200 'ignored' → legitimate event silently dropped with no retry (repositories swallow errors to null). (6) message.id as JSON object/array with a valid sender: truthy cast passes, PostgREST insert errors non-23505 every attempt → pre-claim 500 storm (pathological payload only). (7) Confirm Kapso's 4xx retry semantics — if it retries any non-2xx like Meta, switch the malformed-JSON 400 to a 200-ignore. (8) route.ts returns handleInbound(...) without await, so its rejections bypass the webhook.error structured log. (9) confirm-marketing-optin emits consent_granted non-transactionally after the flip: if emitEvent throws, the webhook 500s, the Kapso retry finds no pending row and falls through to handleUnknown — customer gets an 'unknown command' reply after a successful YES, event lost (surfaced in REL-001 review as newly-activated behavior).",
           "priority": "medium",
           "labels": ["security", "backend", "webhook"]
         },
@@ -1239,7 +1246,15 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "REL-001",
+          "title": "v1.2.0 release blockers — build break, stamp RLS, prerender failure",
+          "description": "Release-readiness review of develop→main found: (1) next build failed on a type error in consent-record-repository (the .select count option was also a runtime bug — upgradeToOptedIn always returned false, breaking WONB-005/007 opt-in YES handling); (2) migration 050's stamp_campaigns/member_stamp_cards shipped without RLS (cross-tenant read/write via anon key) — fixed by migration 052; (3) /dashboard/members/import used useSearchParams without Suspense, hard-failing prerender in Next 16. Also zeroed all 18 baseline tsc errors (type drift in 8 test files) so the build gate is trustworthy, and documented WAQ/opt-in env vars in .env.example + deploy/README.md.",
+          "priority": "high",
+          "labels": ["release", "bug", "security"]
+        }
+      ]
     },
     "done": {
       "label": "Done",

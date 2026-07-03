@@ -92,6 +92,7 @@ describe('findActiveConsent', () => {
       consent_text_shown: null,
       expires_at: null,
       granted_at: null,
+      import_batch_id: null,
     }
     const { client, recorder } = buildSelectClient({ data: row, error: null })
     vi.mocked(createServerSupabaseClient).mockReturnValue(client)
@@ -449,6 +450,7 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         consent_text_shown: null,
         expires_at: null,
         granted_at: null,
+        import_batch_id: null,
       },
       {
         id: 'cr-b',
@@ -469,6 +471,7 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
         consent_text_shown: null,
         expires_at: null,
         granted_at: null,
+        import_batch_id: null,
       },
     ]
     const { client, recorder, fromCalls } = buildBulkClient(rows)
@@ -519,8 +522,8 @@ describe('findActiveMarketingConsentForPhones (bulk)', () => {
 describe('upgradeToOptedIn (WONB-005)', () => {
   interface UpgradeRecorder {
     update: Record<string, unknown> | null
+    updateOpts?: { count: 'exact' }
     eqs: Array<{ col: string; val: unknown }>
-    selectArg?: { cols: string; opts: { count: 'exact' } | undefined }
   }
 
   function buildUpgradeClient(
@@ -530,30 +533,32 @@ describe('upgradeToOptedIn (WONB-005)', () => {
     recorder: UpgradeRecorder
   } {
     const recorder: UpgradeRecorder = { update: null, eqs: [] }
-    const select = vi
-      .fn()
-      .mockImplementation(
-        (cols: string, opts: { count: 'exact' } | undefined) => {
-          recorder.selectArg = { cols, opts }
-          return Promise.resolve({
-            data: null,
-            count: result.count,
-            error: result.error,
-          })
-        }
-      )
+    // The filter chain itself is awaited (no trailing .select) — the real
+    // builder is a thenable resolving { count, error } from the update.
+    // Like real PostgREST, count only comes back when the count preference
+    // was sent — every test therefore enforces the { count: 'exact' } wiring.
     const eqChain = {
       eq: vi.fn(),
-      select,
+      then: (resolve: (v: unknown) => void) =>
+        resolve({
+          data: null,
+          count: recorder.updateOpts?.count === 'exact' ? result.count : null,
+          error: result.error,
+        }),
     } as unknown as { eq: ReturnType<typeof vi.fn> }
     eqChain.eq.mockImplementation((col: string, val: unknown) => {
       recorder.eqs.push({ col, val })
       return eqChain
     })
-    const update = vi.fn().mockImplementation((u: Record<string, unknown>) => {
-      recorder.update = u
-      return eqChain
-    })
+    const update = vi
+      .fn()
+      .mockImplementation(
+        (u: Record<string, unknown>, opts?: { count: 'exact' }) => {
+          recorder.update = u
+          recorder.updateOpts = opts
+          return eqChain
+        }
+      )
     const from = vi.fn().mockReturnValue({ update })
     return {
       client: { from } as unknown as ReturnType<
@@ -591,7 +596,9 @@ describe('upgradeToOptedIn (WONB-005)', () => {
       { col: 'category', val: 'marketing' },
       { col: 'status', val: 'pending' },
     ])
-    expect(recorder.selectArg?.opts).toEqual({ count: 'exact' })
+    // count preference must ride the UPDATE itself (a post-update .select
+    // takes no options — that regression made this function always false).
+    expect(recorder.updateOpts).toEqual({ count: 'exact' })
   })
 
   it('returns false when no pending row exists (idempotent — already opted_in)', async () => {
