@@ -229,6 +229,61 @@ describe('parseKapsoWebhook', () => {
     })
   })
 
+  describe('message without sender (issue #45 — status/echo events)', () => {
+    it('returns null for Kapso format message with no from', () => {
+      const payload = {
+        message: {
+          id: 'wamid.nofrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for Kapso format message with empty from', () => {
+      const payload = {
+        message: {
+          from: '',
+          id: 'wamid.emptyfrom',
+          type: 'image',
+          image: { url: 'https://example.com/img.jpg', id: 'img-1' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for Meta format message with no from', () => {
+      const payload = {
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      id: 'wamid.meta-nofrom',
+                      type: 'text',
+                      text: { body: 'Hello' },
+                      timestamp: '1774685162',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+  })
+
   describe('resolveMessageType - unknown type', () => {
     it('returns unknown for unrecognized type', () => {
       const payload = {

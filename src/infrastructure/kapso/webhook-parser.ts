@@ -82,12 +82,17 @@ function buildMessage(
   msg: Record<string, unknown>,
   fallbackId: string,
   contactName?: string
-): KapsoMessage {
+): KapsoMessage | null {
+  // Message-shaped events without a sender (Kapso status/echo events) are a
+  // different category — routing them as inbound throws on the empty phone
+  // and turns into a provider retry storm (issue #45). Ignore them.
+  if (!msg.from) return null
+
   const textContent = msg.text as Record<string, string> | string | undefined
 
   return {
     messageId: (msg.id as string) ?? fallbackId,
-    from: (msg.from as string) ?? '',
+    from: msg.from as string,
     type: resolveMessageType(msg.type as string),
     text: extractText(textContent) ?? extractInteractiveText(msg.interactive),
     imageUrl: extractImageUrl(msg.image),

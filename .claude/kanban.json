@@ -6,6 +6,20 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "WH-002",
+          "title": "Webhook observability for ignored events + raw payload capture",
+          "description": "Follow-ups from issue #45 review: (1) ignored-event logs carry no message id ('parse returned null' / 'no sender' are anonymous) — thread an id into the parser-null path so production triage can correlate; (2) capture one raw failing payload (only parsed/masked data is logged today) to confirm sender-less events are Kapso status/echo events. Also revisit idempotency-before-processing: a transient routeMessage failure permanently drops the message because the key is claimed first.",
+          "priority": "medium",
+          "labels": ["backend", "webhook", "observability"]
+        },
+        {
+          "id": "WH-003",
+          "title": "Meta webhook parser only reads messages[0] — batch entries dropped",
+          "description": "Pre-existing, surfaced in WH-001 review: parseMetaWebhook reads entry[0].changes[0].value.messages[0] only. A Meta batch payload with multiple messages silently drops all but the first — and after WH-001, a batch whose first entry lacks a sender drops the real messages behind it. Parse all messages (return an array) or at least the first message WITH a sender.",
+          "priority": "medium",
+          "labels": ["bug", "backend", "webhook"]
+        },
+        {
           "id": "SCAN-002",
           "title": "Scanner visible square misaligned with decode region (iOS portrait)",
           "description": "Found in SCAN-001 adversarial review: the aspect-square overflow-hidden container crops the video, so on portrait camera streams the centered qrbox extends below the visible area — staff center the QR in the visible square but the decode region sits lower. Plausibly the real root cause of 'scanner does not work' complaints. Candidate fix: pass aspectRatio: 1 in the html5-qrcode config, or size/position from the container's visible box. Needs on-device verification (iOS Safari + Android Chrome).",
@@ -1211,7 +1225,15 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "WH-001",
+          "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
+          "description": "GitHub issue #45: message-shaped webhooks without `from` (Kapso status/echo events) built a message with from:'' → PhoneNumber.create('') threw → HTTP 500 → Kapso retry storm; idempotency claimed pre-processing dropped the event forever. Fix: buildMessage returns null when no sender (parser), plus a no-sender guard in handleInbound before the idempotency claim (defense in depth). Regression tests at parser and route level.",
+          "priority": "high",
+          "labels": ["bug", "backend", "webhook"]
+        }
+      ]
     },
     "done": {
       "label": "Done",

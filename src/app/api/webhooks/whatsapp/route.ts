@@ -78,6 +78,14 @@ async function handleInbound(
     return NextResponse.json({ status: 'ignored' })
   }
 
+  // Defense in depth for issue #45: never let a sender-less event reach
+  // routing — PhoneNumber.create('') throws, the catch returns 500, and a
+  // 500 makes the provider retry-storm an event we can never act on.
+  if (!message.from) {
+    log('info', 'webhook.ignored', { reason: 'no sender' })
+    return NextResponse.json({ status: 'ignored' })
+  }
+
   const claim = await tryMarkProcessed(message.messageId, log)
   if (claim === 'duplicate') return NextResponse.json({ status: 'duplicate' })
   if (claim === 'error') {
