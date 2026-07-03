@@ -4,6 +4,7 @@ import {
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
+import type { TemplateButtonParam } from '@/domain/ports/whatsapp-templates'
 import type { SendResult } from '@/domain/value-objects/send-result'
 
 interface SendParams {
@@ -12,6 +13,10 @@ interface SendParams {
   template: WhatsAppTemplate
   paramValues: Record<string, string>
   couponCode?: string
+  // CAMP-001: claim-mode quick-reply payload (`CLAIM_<campaignId>`). Emitted
+  // at the template's first QUICK_REPLY button index. Mutually exclusive with
+  // `couponCode` in practice.
+  claimPayload?: string
 }
 
 export async function sendWhatsAppTemplateMessage(
@@ -28,17 +33,24 @@ export async function sendWhatsAppTemplateMessage(
     parameterName: name,
   }))
 
-  const buttons = buildUrlButtonParams(
-    params.template,
-    params.couponCode
-  )
-
   return sendTemplateMessage(params.phoneNumberId, params.to, {
     templateName: params.template.name,
     language: params.template.language,
     bodyParams,
-    buttons,
+    buttons: buildButtonParams(params),
   })
+}
+
+function buildButtonParams(
+  params: SendParams
+): TemplateButtonParam[] | undefined {
+  const url = buildUrlButtonParams(params.template, params.couponCode)
+  const quickReply = buildQuickReplyButtonParams(
+    params.template,
+    params.claimPayload
+  )
+  const merged = [...(url ?? []), ...(quickReply ?? [])]
+  return merged.length > 0 ? merged : undefined
 }
 
 type UrlButtonParam = {
@@ -46,6 +58,34 @@ type UrlButtonParam = {
   subType: 'url'
   index: number
   parameters: Array<{ type: 'text'; text: string }>
+}
+
+type QuickReplyButtonParam = {
+  type: 'button'
+  subType: 'quick_reply'
+  index: number
+  parameters: Array<{ type: 'payload'; payload: string }>
+}
+
+function buildQuickReplyButtonParams(
+  template: WhatsAppTemplate,
+  claimPayload?: string
+): QuickReplyButtonParam[] | undefined {
+  if (!claimPayload) return undefined
+
+  const buttonsComponent = template.components.find((c) => c.type === 'BUTTONS')
+  const index =
+    buttonsComponent?.buttons?.findIndex((b) => b.type === 'QUICK_REPLY') ?? -1
+  if (index < 0) return undefined
+
+  return [
+    {
+      type: 'button',
+      subType: 'quick_reply',
+      index,
+      parameters: [{ type: 'payload', payload: claimPayload }],
+    },
+  ]
 }
 
 function buildUrlButtonParams(

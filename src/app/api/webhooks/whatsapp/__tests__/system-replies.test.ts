@@ -153,6 +153,33 @@ describe('getSystemReply', () => {
     })
   })
 
+  describe('campaignUnavailable (CAMP-001)', () => {
+    it('EN says the promotion is not available', () => {
+      const text = getSystemReply('campaignUnavailable', Language.EN)
+      expect(text.toLowerCase()).toContain("isn't available")
+    })
+
+    it('ZH apologises and mentions 優惠', () => {
+      const text = getSystemReply('campaignUnavailable', Language.ZH_HK)
+      expect(text).toContain('抱歉')
+      expect(text).toContain('優惠')
+    })
+  })
+
+  describe('claimReady (CAMP-001)', () => {
+    it('EN interpolates the coupon code and mentions coupon', () => {
+      const text = getSystemReply('claimReady', Language.EN, { code: 'ABC123' })
+      expect(text).toContain('ABC123')
+      expect(text.toLowerCase()).toContain('coupon')
+    })
+
+    it('ZH interpolates the coupon code and mentions 優惠券', () => {
+      const text = getSystemReply('claimReady', Language.ZH_HK, { code: 'ABC123' })
+      expect(text).toContain('ABC123')
+      expect(text).toContain('優惠券')
+    })
+  })
+
   describe('reward button label', () => {
     it('EN renders "{name} ({cost}pts)"', () => {
       const text = getSystemReply('rewardButton', Language.EN, {

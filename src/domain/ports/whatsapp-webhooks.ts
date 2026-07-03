@@ -1,7 +1,7 @@
 export interface InboundMessage {
   messageId: string
   from: string
-  type: 'text' | 'image' | 'interactive' | 'unknown'
+  type: 'text' | 'image' | 'interactive' | 'button' | 'unknown'
   text?: string
   imageUrl?: string
   imageId?: string

@@ -3,6 +3,7 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
+import { handleClaim } from './claim-handler'
 import {
   maybeHandleLanguageCommand,
   maybeDetectLanguageForExistingMember,
@@ -102,6 +103,8 @@ async function dispatchByRoute(ctx: DispatchContext) {
       return handleRedeem(phoneNumberId, phone, resolved.argument ?? '', restaurantId)
     case 'REWARD_REDEEM':
       return handleRewardRedeem(phoneNumberId, phone, extractRewardId(message.text), restaurantId)
+    case 'CLAIM':
+      return handleClaim({ phoneNumberId, phone, campaignId: resolved.argument ?? '', restaurantId, log })
     case 'receipt-image':
       return handleReceiptImage(phoneNumberId, phone, restaurantId, message.imageUrl, message.imageId)
     case 'YES':

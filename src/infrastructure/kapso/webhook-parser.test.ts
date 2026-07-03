@@ -166,6 +166,74 @@ describe('parseKapsoWebhook', () => {
     })
   })
 
+  describe('button template tap (CAMP-001 claim button)', () => {
+    it('Kapso format: type button with button.payload → type "button", text = payload', () => {
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.claim',
+          type: 'button',
+          button: { payload: 'CLAIM_abc-123', text: 'Claim' },
+          timestamp: '1774685162',
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('button')
+      expect(result!.text).toBe('CLAIM_abc-123')
+    })
+
+    it('Meta format: type button with button.payload → type "button", text = payload (case preserved)', () => {
+      const payload = {
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      from: '15551234567',
+                      id: 'wamid.claim2',
+                      type: 'button',
+                      button: { payload: 'CLAIM_UUID-Case', text: 'Claim' },
+                      timestamp: '1774685162',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('button')
+      expect(result!.text).toBe('CLAIM_UUID-Case')
+    })
+
+    it('type button with missing button object → type "button", text undefined (null-safe)', () => {
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.claim3',
+          type: 'button',
+          timestamp: '1774685162',
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('button')
+      expect(result!.text).toBeUndefined()
+    })
+  })
+
   describe('Meta format - image with link key', () => {
     it('extracts imageUrl from link instead of url', () => {
       const payload = {

@@ -24,6 +24,7 @@ type NoVars = void
 interface PointsVars { points: number }
 interface CantAffordVars { points: number; name: string; cost: number }
 interface RewardButtonVars { name: string; cost: number }
+interface ClaimReadyVars { code: string }
 
 export interface ReplyVarsMap {
   nonMember: NoVars
@@ -38,6 +39,8 @@ export interface ReplyVarsMap {
   buttonRewards: NoVars
   buttonHelp: NoVars
   rewardButton: RewardButtonVars
+  campaignUnavailable: NoVars
+  claimReady: ClaimReadyVars
 }
 
 export type ReplyKey = keyof ReplyVarsMap
@@ -89,6 +92,15 @@ const REPLIES: Replies = {
   rewardButton: {
     en: ({ name, cost }) => `${name} (${cost}pts)`,
     zhHk: ({ name, cost }) => `${name} (${cost} 積分)`,
+  },
+  campaignUnavailable: {
+    en: "Sorry, this promotion isn't available right now.",
+    zhHk: '抱歉，此優惠目前未能使用。',
+  },
+  claimReady: {
+    en: ({ code }) =>
+      `Here's your coupon! Show this QR code to redeem. Code: ${code}`,
+    zhHk: ({ code }) => `這是您的優惠券！出示此 QR 碼即可兌換。代碼：${code}`,
   },
 }
 
