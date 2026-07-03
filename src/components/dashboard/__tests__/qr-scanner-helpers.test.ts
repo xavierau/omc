@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { computeQrbox } from '../qr-scanner-helpers'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import {
+  computeQrbox,
+  watchViewportChange,
+  QR_CONFIG,
+} from '../qr-scanner-helpers'
 
 describe('computeQrbox', () => {
   it('returns a square sized to 80% of the smaller viewfinder dimension (portrait phone)', () => {
@@ -15,21 +19,111 @@ describe('computeQrbox', () => {
     expect(computeQrbox(360, 640)).toEqual({ width: 288, height: 288 })
   })
 
-  it('never exceeds either viewfinder dimension', () => {
-    const { width, height } = computeQrbox(100, 900)
-    expect(width).toBeLessThanOrEqual(100)
-    expect(height).toBeLessThanOrEqual(100)
-    expect(width).toBe(height)
-  })
-
-  it('clamps degenerate viewfinders to the library minimum qrbox (50px)', () => {
-    // html5-qrcode rejects qrbox < 50px, which would surface as "camera blocked"
-    expect(computeQrbox(40, 40)).toEqual({ width: 50, height: 50 })
-    expect(computeQrbox(0, 0)).toEqual({ width: 50, height: 50 })
+  it('stays within the viewfinder when the smaller dimension is at least 63px (50 / 0.8)', () => {
+    for (const dim of [63, 100, 250, 342, 1080]) {
+      const { width, height } = computeQrbox(dim, 900)
+      expect(width).toBeLessThanOrEqual(dim)
+      expect(height).toBeLessThanOrEqual(dim)
+      expect(width).toBe(height)
+    }
   })
 
   it('floors fractional results to whole pixels', () => {
     // 333 * 0.8 = 266.4 → 266
     expect(computeQrbox(333, 333)).toEqual({ width: 266, height: 266 })
+  })
+
+  it('clamps degenerate viewfinders to the library minimum qrbox (50px)', () => {
+    // html5-qrcode requires qrbox >= 50px; clamp so degenerate viewfinders can't violate that
+    expect(computeQrbox(40, 40)).toEqual({ width: 50, height: 50 })
+    expect(computeQrbox(0, 0)).toEqual({ width: 50, height: 50 })
+  })
+})
+
+describe('QR_CONFIG', () => {
+  it('passes computeQrbox itself so the box tracks the live viewfinder', () => {
+    // A regression like `qrbox: computeQrbox(250, 250)` (pre-computed fixed size)
+    // would compile and silently restore the too-small scanner.
+    expect(QR_CONFIG.qrbox).toBe(computeQrbox)
+  })
+})
+
+describe('watchViewportChange', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function fakeViewport(innerWidth: number) {
+    return Object.assign(new EventTarget(), { innerWidth })
+  }
+
+  it('debounces rapid resize events into a single callback', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(800)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.innerWidth = 400
+    target.dispatchEvent(new Event('resize'))
+    target.dispatchEvent(new Event('resize'))
+    target.dispatchEvent(new Event('resize'))
+    expect(onChange).not.toHaveBeenCalled()
+
+    vi.runAllTimers()
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('fires on orientationchange when the width changed', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.innerWidth = 844
+    target.dispatchEvent(new Event('orientationchange'))
+    vi.runAllTimers()
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores height-only changes (iOS browser chrome collapse fires resize on scroll)', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('fires again only on further width changes', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.innerWidth = 844
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops listening and cancels pending callbacks after cleanup', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    const cleanup = watchViewportChange(target, onChange)
+
+    target.innerWidth = 844
+    target.dispatchEvent(new Event('resize'))
+    cleanup()
+    vi.runAllTimers()
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
