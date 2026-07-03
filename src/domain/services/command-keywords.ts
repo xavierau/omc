@@ -16,6 +16,7 @@ export type CommandRoute =
   | 'NO'
   | 'REWARDS'
   | 'REDEEM'
+  | 'MY_CARD'
 
 const KEYWORDS: Record<CommandRoute, readonly string[]> = {
   POINTS: ['POINTS', '積分', '查積分', '查詢積分'],
@@ -25,6 +26,7 @@ const KEYWORDS: Record<CommandRoute, readonly string[]> = {
   NO: ['NO', 'N', '否', '取消'],
   REWARDS: ['REWARDS', 'REWARD', '獎賞', '兌換項目'],
   REDEEM: ['REDEEM', '兌換'],
+  MY_CARD: ['CARD', 'QR', '我的會員碼', '會員碼', '我嘅會員碼', '我張卡', '會員卡'],
 }
 
 const ASCII_ONLY = /^[\x00-\x7F]+$/

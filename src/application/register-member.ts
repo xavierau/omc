@@ -3,6 +3,7 @@ import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositori
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
 import { detectLanguageFromText } from '@/domain/services/detect-language'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { minimalWelcomeText } from './onboarding-defaults'
@@ -83,6 +84,7 @@ async function createNewMember(
       status: 'active',
       name: contactName ?? null,
       preferred_language: memberPreferredLanguage,
+      loyalty_token: loyaltyToken(),
     })
     .select('id')
     .single()

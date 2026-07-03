@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { MemberDeleteSection } from './member-delete-section'
+import { MemberStampReversalSection } from './member-stamp-reversal-section'
 
 interface MemberDetail {
   id: string
@@ -160,6 +161,8 @@ export function MemberDetailPanel({ memberId, open, onClose, onDeleted }: Member
               <ReceiptList receipts={member.receipts} />
               <Separator />
               <CouponList coupons={member.coupons} />
+              <Separator />
+              <MemberStampReversalSection memberId={member.id} />
               <Separator />
               <MemberDeleteSection
                 memberId={member.id}

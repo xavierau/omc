@@ -84,6 +84,8 @@ export function buildMember(
     joinedAt: '2025-01-01T00:00:00Z',
     lastVisitAt: null,
     preferredLanguage: null,
+    pmmThrottledUntil: null,
+    unreachableAt: null,
     ...overrides,
   }
 }

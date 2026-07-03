@@ -8,6 +8,7 @@ const HELP_EN =
   '• POINTS / 積分 — Check your balance\n' +
   '• REWARDS / 獎賞 — View rewards\n' +
   '• REDEEM <code> / 兌換 <代碼> — Use a coupon\n' +
+  '• CARD / 我的會員碼 — Get your stamp-card QR\n' +
   '• STOP / 退訂 — Unsubscribe\n' +
   '• LANG EN / 語言 中文 — Change language'
 
@@ -16,6 +17,7 @@ const HELP_ZH =
   '• POINTS / 積分 — 查詢餘額\n' +
   '• REWARDS / 獎賞 — 查看獎賞\n' +
   '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券\n' +
+  '• CARD / 我的會員碼 — 取得您的儲印花會員碼\n' +
   '• STOP / 退訂 — 停止接收訊息\n' +
   '• LANG EN / 語言 中文 — 切換語言'
 

@@ -1,4 +1,5 @@
 import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
+import type { SendResult } from '@/domain/value-objects/send-result'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
 
@@ -17,26 +18,64 @@ function getClient(): WhatsAppClient | null {
   return cachedClient
 }
 
+function skipResult(title: string): SendResult {
+  return { ok: false, kapsoMessageId: null, raw: null, error: { title } }
+}
+
+function errorResult(err: unknown): SendResult {
+  const message = err instanceof Error ? err.message : String(err)
+  return {
+    ok: false,
+    kapsoMessageId: null,
+    raw: null,
+    error: { title: 'kapso_send_error', details: message },
+  }
+}
+
+function successFromResponse(raw: unknown): SendResult {
+  // SDK shape: { messagingProduct, contacts, messages: [{ id, ... }] }
+  const messages = (raw as { messages?: Array<{ id?: string }> } | null)
+    ?.messages
+  const id = Array.isArray(messages) && messages[0]?.id ? messages[0].id : null
+  const rawObj =
+    raw && typeof raw === 'object'
+      ? (raw as unknown as Record<string, unknown>)
+      : null
+  if (!id) {
+    return {
+      ok: false,
+      kapsoMessageId: null,
+      raw: rawObj,
+      error: { title: 'kapso_no_message_id' },
+    }
+  }
+  return { ok: true, kapsoMessageId: id, raw: rawObj }
+}
+
 export async function sendTextMessage(
   phoneNumberId: string,
   to: string,
   text: string
-): Promise<void> {
+): Promise<SendResult> {
   const client = getClient()
   if (!client) {
     console.warn('[Kapso] No API key — message not sent:', { to, text })
-    return
+    return skipResult('kapso_no_api_key')
   }
-
   if (!phoneNumberId) {
     console.warn('[Kapso] No phoneNumberId — message not sent:', { to, text })
-    return
+    return skipResult('kapso_no_phone_number_id')
   }
-
   try {
-    await client.messages.sendText({ phoneNumberId, to, body: text })
+    const raw = await client.messages.sendText({
+      phoneNumberId,
+      to,
+      body: text,
+    })
+    return successFromResponse(raw)
   } catch (err) {
     console.warn('[Kapso] Error sending message:', (err as Error).message)
+    return errorResult(err)
   }
 }
 
@@ -45,26 +84,26 @@ export async function sendImageMessage(
   to: string,
   imageUrl: string,
   caption?: string
-): Promise<void> {
+): Promise<SendResult> {
   const client = getClient()
   if (!client) {
     console.warn('[Kapso] No API key — image not sent:', { to, imageUrl })
-    return
+    return skipResult('kapso_no_api_key')
   }
-
   if (!phoneNumberId) {
     console.warn('[Kapso] No phoneNumberId — image not sent:', { to, imageUrl })
-    return
+    return skipResult('kapso_no_phone_number_id')
   }
-
   try {
-    await client.messages.sendImage({
+    const raw = await client.messages.sendImage({
       phoneNumberId,
       to,
       image: { link: imageUrl, caption },
     })
+    return successFromResponse(raw)
   } catch (err) {
     console.warn('[Kapso] Error sending image:', (err as Error).message)
+    return errorResult(err)
   }
 }
 
@@ -74,27 +113,30 @@ export async function sendInteractiveButtons(
   bodyText: string,
   buttons: Array<{ id: string; title: string }>,
   footerText?: string
-): Promise<void> {
+): Promise<SendResult> {
   const client = getClient()
   if (!client) {
     console.warn('[Kapso] No API key — buttons not sent:', { to, bodyText })
-    return
+    return skipResult('kapso_no_api_key')
   }
-
   if (!phoneNumberId) {
-    console.warn('[Kapso] No phoneNumberId — buttons not sent:', { to, bodyText })
-    return
+    console.warn('[Kapso] No phoneNumberId — buttons not sent:', {
+      to,
+      bodyText,
+    })
+    return skipResult('kapso_no_phone_number_id')
   }
-
   try {
-    await client.messages.sendInteractiveButtons({
+    const raw = await client.messages.sendInteractiveButtons({
       phoneNumberId,
       to,
       bodyText,
       buttons,
       footerText,
     })
+    return successFromResponse(raw)
   } catch (err) {
     console.warn('[Kapso] Error sending buttons:', (err as Error).message)
+    return errorResult(err)
   }
 }

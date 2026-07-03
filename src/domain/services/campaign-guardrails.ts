@@ -3,6 +3,9 @@ export interface GuardrailResult {
   reason?: string
 }
 
+// WAQ-009: only two reasons allowed by migration 042 CHECK constraint.
+export type AutoPauseReason = 'quality_red_auto' | 'quality_yellow_throttle'
+
 export interface TenantCampaignSettings {
   restaurantId: string
   monthlySendLimit: number
@@ -11,13 +14,54 @@ export interface TenantCampaignSettings {
   campaignPaused: boolean
   pausedReason?: string | null
   pausedAt?: Date | null
+  // WAQ-007: per-recipient marketing cap per 24h. Default 1; tenants can opt
+  // up to 10 at their own quality risk. The cooldown gate reads this when
+  // composing the campaign send context so a per-tenant override applies
+  // to in-flight runs without redeploy.
+  perUserMarketingCap: number
+  // WAQ-009: quality-driven runtime modifier. Stored limits are NOT mutated;
+  // the guardrail check multiplies by `autoThrottleFactor` at read time.
+  // 1.00 = no throttle. 0.50 = halved.
+  autoThrottleFactor: number
+  // WAQ-009: independent of `campaignPaused`. Manual unpause clears the
+  // ops switch only; a quality recovery webhook + admin override is needed
+  // to clear `autoPauseActive`.
+  autoPauseActive: boolean
+  autoPauseReason: AutoPauseReason | null
+  autoPauseSetAt: Date | null
+  // WAQ-010 — engagement-tier probe pacing. `engagement_tier` (default)
+  // sorts recipients by last_visit_at DESC and chunks probe → scale.
+  // `naive` preserves the legacy 20-per-batch behaviour for opt-out tenants.
+  // The active-hours fields are advisory in Phase 1 (logged at probe
+  // boundary) and will gate the cron-driven scale phase in Phase 2.
+  pacingStrategy: 'engagement_tier' | 'naive'
+  probeChunkSize: number
+  scaleChunkSize: number
+  activeHoursStartLocal: string
+  activeHoursEndLocal: string
+  tenantTimezone: string
 }
+
+export const DEFAULT_PER_USER_MARKETING_CAP = 1
 
 export const DEFAULT_SETTINGS: Omit<TenantCampaignSettings, 'restaurantId'> = {
   monthlySendLimit: 1000,
   dailyCampaignLimit: 1,
   maxUnsubscribeRate: 0.05,
   campaignPaused: false,
+  perUserMarketingCap: DEFAULT_PER_USER_MARKETING_CAP,
+  autoThrottleFactor: 1,
+  autoPauseActive: false,
+  autoPauseReason: null,
+  autoPauseSetAt: null,
+  // WAQ-010 defaults — match migration 043. Kept in sync so a tenant row
+  // missing the pacing columns (older row) reads as engagement_tier/100/100.
+  pacingStrategy: 'engagement_tier',
+  probeChunkSize: 100,
+  scaleChunkSize: 100,
+  activeHoursStartLocal: '10:00:00',
+  activeHoursEndLocal: '22:00:00',
+  tenantTimezone: 'Asia/Hong_Kong',
 }
 
 export function checkMonthlyLimit(

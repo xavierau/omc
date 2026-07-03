@@ -1,122 +1,125 @@
-import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
-import { emitEvent } from '@/application/emit-event'
-import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
-import { uploadCouponQr } from '@/infrastructure/supabase/storage'
-import { generateCouponCode } from '@/domain/value-objects/coupon-code'
-import { renderTemplate } from '@/domain/services/template-renderer'
-import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
-import { sendWhatsAppTemplateMessage } from './send-template-message'
-import { resolveCampaignTemplate } from './resolve-campaign-template'
-import { createCampaignBroadcastCoupon, formatDiscount } from './execute-campaign-coupon'
+import { sendToMember } from './execute-campaign-broadcast'
+import { loadMarketingGateDecisions } from './execute-campaign-batch-gate'
+import { sortByEngagementTier } from './sort-by-engagement-tier'
+import { planChunks, type ChunkPlan } from './execute-campaign-batch-chunker'
+import { maybeLogProbeBoundary } from './execute-campaign-batch-probe-log'
+import {
+  emptyCounters,
+  logSummary,
+  outcomeFromDecision,
+  tally,
+  type MemberOutcome,
+  type SkipCounters,
+} from './execute-campaign-batch-counters'
+import type { SkipDecision } from '@/domain/value-objects/marketing-skip-reason'
+import type { PacingConfig } from '@/domain/value-objects/pacing-strategy'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 
-const BATCH_SIZE = 20
-const BATCH_DELAY_MS = 1000
+// WAQ-010: between-chunk pause. Defaults to 1s (legacy BATCH_DELAY_MS) so
+// existing tests stay fast. Production may override via WAQ_BATCH_DELAY_MS.
+function batchDelayMs(): number {
+  const raw = process.env.WAQ_BATCH_DELAY_MS
+  if (raw === undefined) return 1000
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) && n >= 0 ? n : 1000
+}
+
+// WAQ-010 review fix: inner concurrency ceiling. Chunks set the KPI-pacing
+// boundary (probe vs scale, up to 1000 members each per migration 043), but
+// firing an entire chunk through Promise.allSettled would exhaust Supabase
+// pools and trigger Kapso rate limits. The legacy code's BATCH_SIZE=20 gave
+// implicit throttling; we restore that as an explicit sub-batch ceiling.
+const CONCURRENCY_LIMIT = 20
 
 export interface SendContext {
   campaign: Campaign
   phoneNumberId: string
   template: WhatsAppTemplate | null
   restaurantDefaultLanguage: string | null
+  trackingEnabled: boolean
+  perUserMarketingCap: number
+  // WAQ-010: per-tenant probe pacing. Captured at run-start so a mid-batch
+  // settings update doesn't change ordering or chunk sizes partway through.
+  pacingConfig: PacingConfig
 }
 
 export async function sendInBatches(
   members: Member[],
   ctx: SendContext
 ): Promise<void> {
-  let failedCount = 0
-  for (let i = 0; i < members.length; i += BATCH_SIZE) {
-    const batch = members.slice(i, i + BATCH_SIZE)
-    const results = await Promise.allSettled(batch.map((m) => sendToMember(m, ctx)))
-    for (const r of results) {
-      if (r.status === 'rejected') {
-        failedCount++
-        console.error('[Campaign] Member send failed:', r.reason)
-      }
+  const counters = emptyCounters()
+  const ordered = orderForPacing(members, ctx.pacingConfig)
+  const plan = planChunks(ordered, ctx.pacingConfig)
+  const isMarketing = isMarketingRun(ctx)
+  const logCtx = { campaignId: ctx.campaign.id, pacingConfig: ctx.pacingConfig }
+  for (let i = 0; i < plan.length; i++) {
+    await runChunk(plan[i], ctx, isMarketing, counters)
+    maybeLogProbeBoundary(plan, i, logCtx, counters)
+    if (i < plan.length - 1) await delay(batchDelayMs())
+  }
+  logSummary(members.length, counters)
+}
+
+function orderForPacing(members: Member[], config: PacingConfig): Member[] {
+  // `naive` opts out of engagement sorting — preserves legacy insertion-order
+  // behaviour so tenants on that strategy get the exact pre-WAQ-010 send pattern.
+  return config.strategy === 'engagement_tier'
+    ? sortByEngagementTier(members)
+    : members
+}
+
+async function runChunk(
+  chunk: ChunkPlan,
+  ctx: SendContext,
+  isMarketing: boolean,
+  counters: SkipCounters
+): Promise<void> {
+  // Bulk-load gate decisions once per chunk (WAQ-007 N+1 fix) — must stay
+  // outside the inner sub-batch loop so we don't issue multiple DB queries.
+  const decisions = isMarketing ? await loadDecisions(chunk.members, ctx) : null
+  for (let i = 0; i < chunk.members.length; i += CONCURRENCY_LIMIT) {
+    const subBatch = chunk.members.slice(i, i + CONCURRENCY_LIMIT)
+    const results = await Promise.allSettled(
+      subBatch.map((m) => attemptMember(m, ctx, decisions))
+    )
+    tally(results, counters)
+    if (i + CONCURRENCY_LIMIT < chunk.members.length) {
+      await delay(batchDelayMs())
     }
-    if (i + BATCH_SIZE < members.length) await delay(BATCH_DELAY_MS)
-  }
-  if (failedCount > 0) {
-    console.warn(`[Campaign] ${failedCount}/${members.length} sends failed`)
   }
 }
 
-async function sendToMember(member: Member, ctx: SendContext): Promise<void> {
-  const code = generateCouponCode()
-  const language = resolvePreferredLanguage(member, {
-    defaultLanguage: ctx.restaurantDefaultLanguage,
-  })
-  const resolvedTemplate = resolveCampaignTemplate(ctx.campaign, language)
-  const rendered = renderInline(resolvedTemplate ?? '', ctx.campaign, member, code)
-  // Coupon description is what admin dashboards show; avoid empty labels by
-  // falling back to the campaign name when the rendered template is blank.
-  const couponDescription =
-    rendered.trim().length > 0 ? rendered : ctx.campaign.name ?? ''
-  await createCampaignBroadcastCoupon(ctx.campaign, member, code, couponDescription)
-
-  if (ctx.template) {
-    await sendViaTemplate(ctx.phoneNumberId, member, ctx.campaign, ctx.template, code)
-  } else {
-    await sendTextMessage(ctx.phoneNumberId, member.phone, couponDescription)
-  }
-  await sendCouponQr(ctx.phoneNumberId, member.phone, code)
-  await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
-  await emitEvent({
+async function loadDecisions(
+  batch: Member[],
+  ctx: SendContext
+): Promise<Map<string, SkipDecision>> {
+  return loadMarketingGateDecisions({
     restaurantId: ctx.campaign.restaurantId,
-    memberId: member.id,
-    type: 'campaign',
-    dataJson: { campaignId: ctx.campaign.id, couponCode: code },
+    cap: ctx.perUserMarketingCap,
+    batch,
   })
 }
 
-async function sendViaTemplate(
-  phoneNumberId: string,
+async function attemptMember(
   member: Member,
-  campaign: Campaign,
-  template: WhatsAppTemplate,
-  code: string
-): Promise<void> {
-  const discount = formatDiscount(campaign.couponConfig)
-  await sendWhatsAppTemplateMessage({
-    phoneNumberId,
-    to: member.phone,
-    template,
-    paramValues: {
-      customer_name: member.name ?? 'there',
-      code,
-      discount,
-    },
-    couponCode: code,
-  })
-}
-
-function renderInline(
-  template: string,
-  campaign: Campaign,
-  member: Member,
-  code: string
-): string {
-  const discount = formatDiscount(campaign.couponConfig)
-  return renderTemplate(template, {
-    name: member.name ?? 'there',
-    code,
-    discount,
-  })
-}
-
-async function sendCouponQr(
-  phoneNumberId: string,
-  phone: string,
-  code: string
-): Promise<void> {
-  try {
-    const qrUrl = await uploadCouponQr(code)
-    await sendImageMessage(phoneNumberId, phone, qrUrl, `Your code: ${code}`)
-  } catch (err) {
-    console.warn('[Campaign] QR send failed:', (err as Error).message)
+  ctx: SendContext,
+  decisions: Map<string, SkipDecision> | null
+): Promise<MemberOutcome> {
+  if (decisions !== null) {
+    const outcome = outcomeFromDecision(decisions.get(member.phone))
+    if (outcome !== 'allowed') return outcome
   }
+  await sendToMember(member, ctx)
+  return 'sent'
+}
+
+function isMarketingRun(ctx: SendContext): boolean {
+  // Only WhatsApp template sends carry a Meta-classified category. Inline
+  // text/QR campaigns go out as 'service' and are not gated by marketing
+  // consent or per-user cooldown.
+  return ctx.template?.category === 'MARKETING'
 }
 
 function delay(ms: number): Promise<void> {

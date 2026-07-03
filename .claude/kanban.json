@@ -1,26 +1,277 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-04-27T12:00",
+  "updated_at": "2026-07-03",
   "columns": {
     "backlog": {
       "label": "Backlog",
       "tasks": [
         {
+          "id": "CI-001",
+          "title": "CI pipeline — tsc, vitest, next build on every PR",
+          "description": "There is no CI (.github/workflows is empty; zero check-runs on PRs). Consequences observed during v1.2.0 release prep: a build-breaking type error sat on develop for weeks disguised as 'baseline tsc noise', and a prerender failure (useSearchParams without Suspense) was only caught by a manual release-readiness build. Minimum gate per PR: tsc --noEmit (now at 0 errors — keep it there), vitest run, next build. The Suspense regression class is only catchable by next build.",
+          "priority": "high",
+          "labels": ["devops", "quality"]
+        },
+        {
+          "id": "WH-004",
+          "title": "Webhook signature verification fails OPEN when secret is unset in production",
+          "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
+          "priority": "high",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
+          "id": "WH-005",
+          "title": "Webhook robustness hardening bundle",
+          "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it. (5) A transient Supabase error in resolveRestaurant returns null → 200 'ignored' → legitimate event silently dropped with no retry (repositories swallow errors to null). (6) message.id as JSON object/array with a valid sender: truthy cast passes, PostgREST insert errors non-23505 every attempt → pre-claim 500 storm (pathological payload only). (7) Confirm Kapso's 4xx retry semantics — if it retries any non-2xx like Meta, switch the malformed-JSON 400 to a 200-ignore. (8) route.ts returns handleInbound(...) without await, so its rejections bypass the webhook.error structured log. (9) confirm-marketing-optin emits consent_granted non-transactionally after the flip: if emitEvent throws, the webhook 500s, the Kapso retry finds no pending row and falls through to handleUnknown — customer gets an 'unknown command' reply after a successful YES, event lost (surfaced in REL-001 review as newly-activated behavior).",
+          "priority": "medium",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
+          "id": "WH-002",
+          "title": "Webhook observability for ignored events + raw payload capture",
+          "description": "Follow-ups from issue #45 review: (1) ignored-event logs carry no message id ('parse returned null' / 'no sender' are anonymous) — thread an id into the parser-null path so production triage can correlate; (2) capture one raw failing payload (only parsed/masked data is logged today) to confirm sender-less events are Kapso status/echo events. Also revisit idempotency-before-processing: a transient routeMessage failure permanently drops the message because the key is claimed first.",
+          "priority": "medium",
+          "labels": ["backend", "webhook", "observability"]
+        },
+        {
+          "id": "WH-003",
+          "title": "Meta webhook parser only reads messages[0] — batch entries dropped",
+          "description": "Pre-existing, surfaced in WH-001 review: parseMetaWebhook reads entry[0].changes[0].value.messages[0] only. A Meta batch payload with multiple messages silently drops all but the first — and after WH-001, a batch whose first entry lacks a sender drops the real messages behind it. Parse all messages (return an array) or at least the first message WITH a sender.",
+          "priority": "medium",
+          "labels": ["bug", "backend", "webhook"]
+        },
+        {
+          "id": "SCAN-002",
+          "title": "Scanner visible square misaligned with decode region (iOS portrait)",
+          "description": "Found in SCAN-001 adversarial review: the aspect-square overflow-hidden container crops the video, so on portrait camera streams the centered qrbox extends below the visible area — staff center the QR in the visible square but the decode region sits lower. Plausibly the real root cause of 'scanner does not work' complaints. Candidate fix: pass aspectRatio: 1 in the html5-qrcode config, or size/position from the container's visible box. Needs on-device verification (iOS Safari + Android Chrome).",
+          "priority": "medium",
+          "labels": ["bug", "frontend", "scan"]
+        },
+        {
+          "id": "SCAN-003",
+          "title": "Camera leak + false 'camera blocked' on rapid scan-mode toggle",
+          "description": "Found in SCAN-001 adversarial review: cross-instance race — toggling redeem/stamp unmounts one QrScanner and mounts another; the old instance's camera can still be initializing (stop skipped), leaking the MediaStream and making the new instance's getUserMedia fail with NotReadableError on Android — surfacing the misleading 'camera permission denied' card. Within-instance restarts were serialized in SCAN-001; this task is the cross-instance equivalent (serialize sessions across instances or share one scanner).",
+          "priority": "medium",
+          "labels": ["bug", "frontend", "scan"]
+        },
+        {
+          "id": "SMS-001",
+          "title": "PaaSoo procurement + HK sender ID registration",
+          "description": "Sign PaaSoo contract, register alphanumeric sender ID via OFCA SMS Sender Registration Scheme. Capture HK MSISDN per-message rate, throughput limits, two-way SMS support. Document credentials in 1Password.",
+          "priority": "high",
+          "labels": [
+            "ops",
+            "vendor",
+            "sms",
+            "compliance"
+          ],
+          "estimate": "3d",
+          "epic": "sms-gateway",
+          "note": "Blocker for all SMS dev work. Mostly waiting time on paperwork."
+        },
+        {
+          "id": "SMS-002",
+          "title": "SMS provider abstraction (architecture)",
+          "description": "Mirror src/infrastructure/whatsapp/provider-factory.ts pattern. Define SmsMessagingProvider + SmsWebhookProvider interfaces. Env-driven factory. New folder src/infrastructure/sms/. Domain entities: SmsMessage, SmsDeliveryStatus.",
+          "priority": "high",
+          "labels": [
+            "architecture",
+            "sms",
+            "backend"
+          ],
+          "estimate": "1d",
+          "epic": "sms-gateway"
+        },
+        {
+          "id": "SMS-003",
+          "title": "PaaSoo client + messaging adapter",
+          "description": "Implement src/infrastructure/sms/paasoo/{client.ts, messaging-adapter.ts}. Methods: sendSms(to, text, senderId). Auth, retry-with-backoff, error mapping to domain errors. TDD with Vitest.",
+          "priority": "high",
+          "labels": [
+            "backend",
+            "sms"
+          ],
+          "estimate": "2d",
+          "epic": "sms-gateway",
+          "depends_on": [
+            "SMS-001",
+            "SMS-002"
+          ]
+        },
+        {
+          "id": "SMS-004",
+          "title": "PaaSoo webhook adapter (delivery + inbound SMS)",
+          "description": "Parse PaaSoo delivery status callbacks (sent/delivered/failed) + inbound SMS. New table sms_messages (log). Inbound STOP keyword detection routes to opt-out handler (SMS-005). Webhook signature verification.",
+          "priority": "high",
+          "labels": [
+            "backend",
+            "sms",
+            "security"
+          ],
+          "estimate": "2d",
+          "epic": "sms-gateway",
+          "depends_on": [
+            "SMS-003"
+          ]
+        },
+        {
+          "id": "SMS-005",
+          "title": "SMS opt-out tracking + STOP handling",
+          "description": "Add members.sms_status column ('active' | 'unsubscribed_sms'), distinct from WhatsApp status. STOP handler for inbound SMS sets sms_status. SMS send paths filter unsubscribed_sms. Audit event 'sms_unsubscribe'. PDPO/UEMO 10-working-day honour built in.",
+          "priority": "high",
+          "labels": [
+            "backend",
+            "compliance",
+            "sms"
+          ],
+          "estimate": "1d",
+          "epic": "sms-gateway",
+          "depends_on": [
+            "SMS-004"
+          ]
+        },
+        {
+          "id": "SMS-006",
+          "title": "Member CSV import (paper list → prospects)",
+          "description": "Admin UI: drag-and-drop CSV (phone, name, optional email). Validate HK phone format (+852). Dedup against existing members and prospects. Insert as prospects (new table prospects with status='cold' or merge into members with consent_source='csv_import'). Audit log who uploaded what.",
+          "priority": "high",
+          "labels": [
+            "feature",
+            "admin",
+            "backend"
+          ],
+          "estimate": "3d",
+          "epic": "sms-gateway"
+        },
+        {
+          "id": "SMS-007",
+          "title": "SMS broadcast UI (one-shot reactivation blast)",
+          "description": "Admin UI to compose SMS body + select recipient list (filter by tag/import batch/last visit). Preview cost. Send via PaaSoo. Track per-recipient: delivery status, click on embedded short link, STOP replies. Background job, idempotent.",
+          "priority": "high",
+          "labels": [
+            "feature",
+            "admin",
+            "sms"
+          ],
+          "estimate": "3d",
+          "epic": "sms-gateway",
+          "depends_on": [
+            "SMS-003",
+            "SMS-006"
+          ]
+        },
+        {
+          "id": "SMS-008",
+          "title": "HK PDPO + UEMO compliance review",
+          "description": "Walk through SMS flow with privacy/legal lens: consent basis (existing business relationship), sender ID disclosure in every message, mandatory opt-out, 10-working-day honour, OFCA Do-Not-Call register check before bulk send. Document in docs/compliance/sms-uemo.md.",
+          "priority": "high",
+          "labels": [
+            "compliance",
+            "legal",
+            "sms"
+          ],
+          "estimate": "1d",
+          "epic": "sms-gateway",
+          "depends_on": [
+            "SMS-005",
+            "SMS-007"
+          ]
+        },
+        {
+          "id": "REACT-001",
+          "title": "WhatsApp resubscribe keyword (START / 訂閱)",
+          "description": "Add keywords START / 訂閱 / 重新訂閱 to src/domain/services/command-keywords.ts. Handler in member-handlers.ts: flip members.status from 'unsubscribed' → 'active', emit 'resubscribe' event, send confirmation message in member's preferred language.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp"
+          ],
+          "estimate": "0.5d",
+          "epic": "reactivation"
+        },
+        {
+          "id": "REACT-002",
+          "title": "Admin UI: manual member subscription toggle + audit",
+          "description": "Update src/components/dashboard/member-detail-panel.tsx: replace read-only status badge with toggle. Require reason text on flip. POST /api/dashboard/members/[id]/subscription persists status + emits event. RBAC: tenant admin only.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "admin",
+            "frontend"
+          ],
+          "estimate": "1d",
+          "epic": "reactivation"
+        },
+        {
+          "id": "REACT-003",
+          "title": "WhatsApp opt-in deep link + landing page",
+          "description": "Per-tenant wa.me deep link with prefilled greeting (e.g. 'Hi [Restaurant], I want to join'). Update /join/[slug] route to render fallback landing page (for no-WhatsApp users) and accept utm_source for SMS attribution. Persist click events.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "frontend",
+            "reactivation"
+          ],
+          "estimate": "1d",
+          "epic": "reactivation"
+        },
+        {
+          "id": "REACT-004",
+          "title": "Reactivation campaign: SMS → WhatsApp opt-in flow",
+          "description": "End-to-end campaign: select cold/lapsed list → SMS template ('Hi from [Restaurant]! Tap [short.link/x] to rejoin. Reply STOP to opt out.') → short-link redirects to wa.me deep link with utm tracking → on inbound WhatsApp message, mark prospect as opted-in member. Per-campaign throttle to protect WhatsApp quality rating.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "sms",
+            "whatsapp",
+            "reactivation"
+          ],
+          "estimate": "2d",
+          "epic": "reactivation",
+          "depends_on": [
+            "SMS-007",
+            "REACT-003"
+          ]
+        },
+        {
+          "id": "REACT-005",
+          "title": "Reactivation funnel analytics",
+          "description": "Per-reactivation-campaign dashboard: sent → delivered → clicked → WhatsApp opt-in → first WA message → opted-out via STOP. Conversion rate per stage. Export CSV. Helps justify SMS spend.",
+          "priority": "low",
+          "labels": [
+            "feature",
+            "analytics"
+          ],
+          "estimate": "2d",
+          "epic": "reactivation",
+          "depends_on": [
+            "REACT-004"
+          ]
+        },
+        {
           "id": "WABA-001",
           "title": "WABA pooling strategy",
           "description": "Design architecture to distribute tenants across multiple WABAs (~50 per WABA) for quality rating isolation.",
           "priority": "low",
-          "labels": ["architecture", "scaling"],
+          "labels": [
+            "architecture",
+            "scaling"
+          ],
           "estimate": "5d",
           "trigger": "When tenant count exceeds 50",
-          "depends_on": ["MSG-002"]
+          "depends_on": [
+            "MSG-002"
+          ]
         },
         {
           "id": "WABA-002",
           "title": "Evaluate BSP partnership (360dialog or similar)",
           "description": "At 200+ tenants, evaluate partnering with a registered Meta BSP for managed multi-WABA orchestration.",
           "priority": "low",
-          "labels": ["business", "scaling"],
+          "labels": [
+            "business",
+            "scaling"
+          ],
           "estimate": "research",
           "trigger": "When tenant count exceeds 200 OR quality rating issues emerge"
         },
@@ -29,7 +280,10 @@
           "title": "Swap The Green Kitchen WhatsApp number to +852 95757235",
           "description": "Replace current number with +852 95757235. Kapso Setup Link generated (yweaWa5h...). After completing embedded signup: get Phone Number ID + WABA ID, update tenant record, verify webhook, test end-to-end. WhatsApp Business App stays active (Meta supports coexistence).",
           "priority": "medium",
-          "labels": ["ops", "onboarding"],
+          "labels": [
+            "ops",
+            "onboarding"
+          ],
           "estimate": "0.5d",
           "note": "Setup Link created 2026-04-13. Awaiting user to complete Facebook embedded signup flow in Kapso."
         },
@@ -38,27 +292,44 @@
           "title": "Automated tenant invoicing (Stripe)",
           "description": "Generate monthly invoices per tenant based on campaign message usage. Integrate with Stripe for payment collection.",
           "priority": "low",
-          "labels": ["billing", "feature"],
+          "labels": [
+            "billing",
+            "feature"
+          ],
           "estimate": "5d",
-          "depends_on": ["MSG-001", "BILL-001"]
+          "depends_on": [
+            "MSG-001",
+            "BILL-001"
+          ]
         },
         {
           "id": "ONBOARD-002",
           "title": "Self-serve tenant onboarding via Kapso Setup Links",
           "description": "Integrate Kapso Platform API Setup Links so new tenants can self-serve WhatsApp number connection via Facebook auth.",
           "priority": "low",
-          "labels": ["feature", "onboarding", "automation"],
+          "labels": [
+            "feature",
+            "onboarding",
+            "automation"
+          ],
           "estimate": "3d",
-          "depends_on": ["ONBOARD-001"]
+          "depends_on": [
+            "ONBOARD-001"
+          ]
         },
         {
           "id": "ANALYTICS-001",
           "title": "Campaign delivery status tracking via webhooks",
           "description": "Parse Kapso/Meta delivery status webhooks (sent, delivered, read, failed) for campaign messages. Useful for campaign performance reporting and accurate billing (Meta charges on delivery).",
           "priority": "low",
-          "labels": ["feature", "analytics"],
+          "labels": [
+            "feature",
+            "analytics"
+          ],
           "estimate": "2d",
-          "depends_on": ["MSG-001"],
+          "depends_on": [
+            "MSG-001"
+          ],
           "note": "Demoted — billing difference between sent/delivered is negligible at current scale. Revisit when campaign volume justifies it."
         },
         {
@@ -66,16 +337,26 @@
           "title": "Tenant health dashboard for platform admin",
           "description": "Admin dashboard showing per-tenant health: campaign volume trend, quality signals, active members growth, churn risk.",
           "priority": "low",
-          "labels": ["feature", "admin", "analytics"],
+          "labels": [
+            "feature",
+            "admin",
+            "analytics"
+          ],
           "estimate": "5d",
-          "depends_on": ["MSG-001"]
+          "depends_on": [
+            "MSG-001"
+          ]
         },
         {
           "id": "MBL-001",
           "title": "DB migrations for multi-brand loyalty tables",
           "description": "Create Supabase migration with: restaurant_groups, restaurant_group_members (UNIQUE on restaurant_id), group_customers (UNIQUE on group_id+phone), points_transfers, group_campaigns, group_migrations audit table. Add group_customer_id FK to members. Add group_id + available_at_restaurant_ids to rewards. Extend events type CHECK for cross_brand_recognition, cross_brand_consent, points_transfer, group_campaign. Add pos_transactions.location_id for future Model C.",
           "priority": "high",
-          "labels": ["multi-brand", "database", "backend"],
+          "labels": [
+            "multi-brand",
+            "database",
+            "backend"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
           "prd_ref": "PRD §6 Data Model Changes"
@@ -85,10 +366,16 @@
           "title": "Domain entities for multi-brand loyalty",
           "description": "Create domain entities: RestaurantGroup (id, name, slug, loyaltyModel, pointsPortability), GroupCustomer (id, groupId, phone, consentStatus), PointsTransfer (id, groupId, sourceMemberId, targetMemberId, amount, reason), GroupCampaign (id, groupId, name, type, targetScope, status). Value objects: LoyaltyModel (separate|cross_recognition|unified), PointsPortability (isolated|portable|pooled), ConsentStatus (pending|granted|denied|revoked).",
           "priority": "high",
-          "labels": ["multi-brand", "domain", "backend"],
+          "labels": [
+            "multi-brand",
+            "domain",
+            "backend"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-001"],
+          "depends_on": [
+            "MBL-001"
+          ],
           "prd_ref": "PRD §6"
         },
         {
@@ -96,10 +383,18 @@
           "title": "Repositories + RLS policies for multi-brand entities",
           "description": "Repository interfaces + Supabase implementations for RestaurantGroup, GroupCustomer, PointsTransfer, GroupCampaign. user_group_ids() helper function. RLS SELECT/INSERT/UPDATE policies on all new tables using user_group_ids() and is_platform_admin(). transfer_points_across_brands Postgres function with row-level locking + deadlock prevention via UUID ordering.",
           "priority": "high",
-          "labels": ["multi-brand", "infrastructure", "backend", "security"],
+          "labels": [
+            "multi-brand",
+            "infrastructure",
+            "backend",
+            "security"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-001", "MBL-002"],
+          "depends_on": [
+            "MBL-001",
+            "MBL-002"
+          ],
           "prd_ref": "PRD §6.3, §6.4"
         },
         {
@@ -107,10 +402,16 @@
           "title": "Group management API (CRUD)",
           "description": "POST /api/dashboard/groups (create group + add restaurants). PATCH /api/dashboard/groups/[groupId] (update name, loyaltyModel, pointsPortability — no downgrade C→B or B→A). POST /api/dashboard/groups/[groupId]/restaurants (add restaurant, reject if already in another group). DELETE /api/dashboard/groups/[groupId]/restaurants/[restaurantId] (remove, cannot remove last). Validate caller has admin role on all affected restaurants.",
           "priority": "high",
-          "labels": ["multi-brand", "api", "backend"],
+          "labels": [
+            "multi-brand",
+            "api",
+            "backend"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-003"],
+          "depends_on": [
+            "MBL-003"
+          ],
           "prd_ref": "PRD §7.1, user story B-01"
         },
         {
@@ -118,10 +419,15 @@
           "title": "Group management UI in dashboard",
           "description": "Group Settings page: create group (name, logo, select restaurants), add/remove restaurants, loyalty model selector (separate/cross_recognition/unified), points portability toggle. Group nav item in sidebar (visible only when user manages 2+ restaurants). Confirmation dialogs for portability downgrades. i18n for en + zh-HK.",
           "priority": "high",
-          "labels": ["multi-brand", "frontend"],
+          "labels": [
+            "multi-brand",
+            "frontend"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-004"],
+          "depends_on": [
+            "MBL-004"
+          ],
           "prd_ref": "PRD §5.1 B-01, B-02"
         },
         {
@@ -129,10 +435,16 @@
           "title": "Cross-brand customer recognition (phone matching)",
           "description": "On member registration: check if phone (E.164) exists in any sibling restaurant within the same group. If match found: create group_customers record with consent_status='pending', link both member records via group_customer_id. Emit cross_brand_recognition event at both restaurants. Matching is strict phone only — no fuzzy matching. Hook into existing register-member use case.",
           "priority": "high",
-          "labels": ["multi-brand", "backend", "domain"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "domain"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-003"],
+          "depends_on": [
+            "MBL-003"
+          ],
           "prd_ref": "PRD §5.1 B-03"
         },
         {
@@ -140,10 +452,17 @@
           "title": "Cross-brand consent flow via WhatsApp",
           "description": "After cross_brand_recognition: send WhatsApp consent request from the brand where recognition occurred (cross_brand_consent template). Handle YES/NO/STOP SHARING replies. Update group_customers.consent_status (pending→granted, pending→denied, granted→revoked). Emit cross_brand_consent event on status change. Data visibility rules: without consent only show 'Member at N other brands' — no details. Server-side filtering in GroupCustomerRepository.getProfile().",
           "priority": "high",
-          "labels": ["multi-brand", "backend", "whatsapp", "privacy"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "whatsapp",
+            "privacy"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-006"],
+          "depends_on": [
+            "MBL-006"
+          ],
           "prd_ref": "PRD §5.1 B-04, §11 Privacy and Consent"
         },
         {
@@ -151,10 +470,17 @@
           "title": "Points portability configuration + transfer API",
           "description": "Per-group points portability setting (isolated/portable/pooled). POST /api/dashboard/groups/[groupId]/points/transfer — atomic cross-brand points transfer using transfer_points_across_brands Postgres function. Validates: same group, portability not isolated, sufficient balance, source≠target. Emits points_transfer event at both brands with shared transfer_id. Mode change from isolated→portable preserves per-brand balances. Portable→isolated warns about losing cross-brand spending.",
           "priority": "high",
-          "labels": ["multi-brand", "api", "backend"],
+          "labels": [
+            "multi-brand",
+            "api",
+            "backend"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-003", "MBL-004"],
+          "depends_on": [
+            "MBL-003",
+            "MBL-004"
+          ],
           "prd_ref": "PRD §5.1 B-02, B-05, §7.3"
         },
         {
@@ -162,10 +488,16 @@
           "title": "Redemption flow update for cross-brand points",
           "description": "When redeeming at Brand Y with portable/pooled points: show available balances across all group brands. Allow member to select which brand(s) to deduct from. Execute multi-brand deduction atomically via transfer_points_across_brands. Update redemption UI to display cross-brand balance picker. Only shown when group portability is portable or pooled and member has consented.",
           "priority": "high",
-          "labels": ["multi-brand", "feature", "fullstack"],
+          "labels": [
+            "multi-brand",
+            "feature",
+            "fullstack"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-008"],
+          "depends_on": [
+            "MBL-008"
+          ],
           "prd_ref": "PRD §5.1 B-05"
         },
         {
@@ -173,10 +505,17 @@
           "title": "Group dashboard — basic cross-brand metrics",
           "description": "Group-level dashboard showing: total group members, unique customers (deduplicated by phone), cross-brand overlap %, total points outstanding, per-brand breakdown (member count, points, 30d revenue). Click brand row → navigate to brand dashboard. Hidden for users with only 1 restaurant.",
           "priority": "high",
-          "labels": ["multi-brand", "frontend", "analytics"],
+          "labels": [
+            "multi-brand",
+            "frontend",
+            "analytics"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-003", "MBL-005"],
+          "depends_on": [
+            "MBL-003",
+            "MBL-005"
+          ],
           "prd_ref": "PRD §5.1 B-07, §7.5"
         },
         {
@@ -184,10 +523,17 @@
           "title": "Cross-brand customer list + profile API",
           "description": "GET /api/dashboard/groups/[groupId]/customers — paginated, searchable list of group customers with cross-brand memberships (points balance, join date, last visit per brand). GET /api/dashboard/groups/[groupId]/customers/[id] — detailed profile with merged event timeline + points transfers. Consent-gated: only show cross-brand data if consent_status='granted'.",
           "priority": "high",
-          "labels": ["multi-brand", "api", "backend"],
+          "labels": [
+            "multi-brand",
+            "api",
+            "backend"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-006", "MBL-007"],
+          "depends_on": [
+            "MBL-006",
+            "MBL-007"
+          ],
           "prd_ref": "PRD §7.2"
         },
         {
@@ -195,10 +541,17 @@
           "title": "A-to-B migration tooling (bulk phone matching)",
           "description": "When owner sets loyalty_model='cross_recognition': scan all members tables across group restaurants for phone matches. Create group_customers records for all matches (consent_status='pending'). Queue consent request WhatsApp messages via home brand number (rate-limited ~80/sec per WABA). Generate migration report: X unique customers, Y cross-brand matches, Z consent requests sent. BullMQ async job for matching (< 30s for 5K members). Record in group_migrations audit table.",
           "priority": "high",
-          "labels": ["multi-brand", "backend", "migration"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "migration"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-006", "MBL-007"],
+          "depends_on": [
+            "MBL-006",
+            "MBL-007"
+          ],
           "prd_ref": "PRD §12.1 Model A to B"
         },
         {
@@ -206,10 +559,16 @@
           "title": "Event system fan-out for cross-brand events",
           "description": "New emitGroupEvent() function: emits primary event at origin restaurant + fan-out events to sibling restaurants in group. Fan-out events carry source='group_fanout:{originEventId}' for echo loop prevention. New event types: cross_brand_recognition, cross_brand_consent, points_transfer, group_campaign. Extend resolveListenersForEvent to check group membership and include group-level listeners.",
           "priority": "medium",
-          "labels": ["multi-brand", "backend", "events"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "events"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-006"],
+          "depends_on": [
+            "MBL-006"
+          ],
           "prd_ref": "PRD §8 Event System Integration"
         },
         {
@@ -217,10 +576,16 @@
           "title": "Cross-brand WhatsApp templates",
           "description": "Submit new WhatsApp templates to Meta for approval: cross_brand_welcome, cross_brand_consent, cross_brand_points_earned, group_promo. Each template must be approved per brand's WABA separately. Template variables: {{group_name}}, {{new_brand_name}}, {{existing_brand_name}}, {{points}}, {{total_balance}}, {{offer_details}}, {{valid_brands}}.",
           "priority": "medium",
-          "labels": ["multi-brand", "whatsapp", "ops"],
+          "labels": [
+            "multi-brand",
+            "whatsapp",
+            "ops"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-007"],
+          "depends_on": [
+            "MBL-007"
+          ],
           "prd_ref": "PRD §9.2",
           "note": "Submit templates 2 weeks before feature launch. Have fallback plain-text versions."
         },
@@ -229,10 +594,18 @@
           "title": "Group campaigns CRUD + audience targeting",
           "description": "POST /api/dashboard/groups/[groupId]/campaigns — create group campaign (cross_sell, group_promo, winback, announcement). Target scope: all group members, specific brands, single-brand-only members (cross-sell targets). Coupon config with validAtRestaurantIds (empty = all brands). Campaign stored in group_campaigns table. Members without consent only receive campaigns targeting their home brand.",
           "priority": "medium",
-          "labels": ["multi-brand", "api", "backend", "feature"],
+          "labels": [
+            "multi-brand",
+            "api",
+            "backend",
+            "feature"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-004", "MBL-011"],
+          "depends_on": [
+            "MBL-004",
+            "MBL-011"
+          ],
           "prd_ref": "PRD §5.1 B-06, §7.4"
         },
         {
@@ -240,10 +613,17 @@
           "title": "Group campaign execution (multi-WABA send)",
           "description": "POST /api/dashboard/groups/[groupId]/campaigns/[id]/execute — send messages via each member's home brand WhatsApp number. Resolve kapsoPhoneNumberId per recipient's home brand. Batch sends per WABA to respect rate limits. Per-brand delivery tracking (sent, opens, redemptions). Emit group_campaign event per member. Return jobId + estimatedRecipients (202 Accepted).",
           "priority": "medium",
-          "labels": ["multi-brand", "backend", "whatsapp"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "whatsapp"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-015", "MBL-014"],
+          "depends_on": [
+            "MBL-015",
+            "MBL-014"
+          ],
           "prd_ref": "PRD §5.1 B-06, §9.1"
         },
         {
@@ -251,10 +631,17 @@
           "title": "Group campaigns UI",
           "description": "Dashboard UI for creating and managing group campaigns. Campaign creation form with audience targeting (all/specific brands/single-brand-only). Coupon config (discount type, value, expiry, valid brands). Campaign list with status. Results view with per-brand breakdowns of sends, opens, redemptions + group totals. i18n en + zh-HK.",
           "priority": "medium",
-          "labels": ["multi-brand", "frontend", "feature"],
+          "labels": [
+            "multi-brand",
+            "frontend",
+            "feature"
+          ],
           "estimate": "3d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-015", "MBL-016"],
+          "depends_on": [
+            "MBL-015",
+            "MBL-016"
+          ],
           "prd_ref": "PRD §5.1 B-06"
         },
         {
@@ -262,10 +649,17 @@
           "title": "Group analytics dashboard (full)",
           "description": "GET /api/dashboard/groups/[groupId]/analytics — cross-brand overlap matrix (brand A × brand B shared customer counts), customer flow direction (Brand X members who later joined Brand Y vs. vice versa), time series (new members, points issued, redemptions by brand + group total). CSV export with one row per customer showing all brand memberships + combined metrics. Date range filter.",
           "priority": "medium",
-          "labels": ["multi-brand", "analytics", "fullstack"],
+          "labels": [
+            "multi-brand",
+            "analytics",
+            "fullstack"
+          ],
           "estimate": "4d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-010", "MBL-011"],
+          "depends_on": [
+            "MBL-010",
+            "MBL-011"
+          ],
           "prd_ref": "PRD §5.1 B-07, §7.5"
         },
         {
@@ -273,7 +667,11 @@
           "title": "Model A portfolio view (group dashboard rollup)",
           "description": "For owners with 2+ restaurants (even without a group): 'My Portfolio' view showing per-restaurant member count, active coupons, points outstanding, 30d revenue in a table. Click row → navigate to restaurant dashboard. Hidden for single-restaurant owners. Uses existing user_tenants M:N — no new data model needed.",
           "priority": "medium",
-          "labels": ["multi-brand", "frontend", "feature"],
+          "labels": [
+            "multi-brand",
+            "frontend",
+            "feature"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
           "prd_ref": "PRD §5.3 A-01"
@@ -283,10 +681,16 @@
           "title": "POS cross-brand awareness",
           "description": "When POS transaction phone matches a member at a sibling brand (but not at the transacting brand): emit cross_brand_recognition event, log match for group owner review. Do NOT auto-create member at transacting brand. Add auto_enroll_on_pos_match group setting (default false). If enabled, auto-create member at transacting brand on POS phone match. No changes to POS webhook routing — cross-brand logic is at loyalty layer.",
           "priority": "low",
-          "labels": ["multi-brand", "backend", "pos"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "pos"
+          ],
           "estimate": "2d",
           "sprint": "a_to_b",
-          "depends_on": ["MBL-006"],
+          "depends_on": [
+            "MBL-006"
+          ],
           "prd_ref": "PRD §10.2, §10.4"
         },
         {
@@ -294,10 +698,17 @@
           "title": "Unified member identity (Model C schema + creation flow)",
           "description": "Relax members UNIQUE(restaurant_id, phone) constraint for Model C groups. Add group_id column to members with UNIQUE(group_id, phone) for Model C. New member creation flow: when group is Model C, create member at group level (group_id set, restaurant_id null). Unified member has single points_balance, single history. Events tagged with location_id (restaurant where action occurred) not restaurant_id.",
           "priority": "low",
-          "labels": ["multi-brand", "database", "backend", "domain"],
+          "labels": [
+            "multi-brand",
+            "database",
+            "backend",
+            "domain"
+          ],
           "estimate": "4d",
           "sprint": "b_to_c",
-          "depends_on": ["MBL-007"],
+          "depends_on": [
+            "MBL-007"
+          ],
           "prd_ref": "PRD §5.2 C-01"
         },
         {
@@ -305,10 +716,16 @@
           "title": "B-to-C migration tooling",
           "description": "When owner sets loyalty_model='unified': merge group_customers linked records into single member per phone (only consent_status='granted'). Sum points balances across brands. Archive per-brand member records (soft-delete with archived_at + unified_member_id pointer). Set group_id on rewards. Pre-migration: total points check (sum must match). 7-day confirmation period. Automated reconciliation report. Record in group_migrations. Rollback is destructive (one-way, documented).",
           "priority": "low",
-          "labels": ["multi-brand", "backend", "migration"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "migration"
+          ],
           "estimate": "5d",
           "sprint": "b_to_c",
-          "depends_on": ["MBL-021"],
+          "depends_on": [
+            "MBL-021"
+          ],
           "prd_ref": "PRD §12.2 Model B to C"
         },
         {
@@ -316,10 +733,16 @@
           "title": "Unified reward catalog with location restrictions",
           "description": "Model C: rewards belong to group (group_id set). Reward can be assigned to 'all locations' or restricted to specific locations via available_at_restaurant_ids. Customer at Location B sees restricted rewards marked 'Available at [Location A] only'. Coupon validity enforced at specified locations only.",
           "priority": "low",
-          "labels": ["multi-brand", "backend", "feature"],
+          "labels": [
+            "multi-brand",
+            "backend",
+            "feature"
+          ],
           "estimate": "2d",
           "sprint": "b_to_c",
-          "depends_on": ["MBL-021"],
+          "depends_on": [
+            "MBL-021"
+          ],
           "prd_ref": "PRD §5.2 C-02"
         },
         {
@@ -327,10 +750,16 @@
           "title": "Single WhatsApp channel for Model C",
           "description": "Model C groups use one WABA and phone number for all locations. Messages include location context ('You earned 50 points at [Location Name]', 'Redeem at any of our locations'). Location-aware message composition. Simplifies template management but requires location selector in message templates. Need Kapso confirmation on whether group needs separate Meta Business Account.",
           "priority": "low",
-          "labels": ["multi-brand", "whatsapp", "infrastructure"],
+          "labels": [
+            "multi-brand",
+            "whatsapp",
+            "infrastructure"
+          ],
           "estimate": "3d",
           "sprint": "b_to_c",
-          "depends_on": ["MBL-021"],
+          "depends_on": [
+            "MBL-021"
+          ],
           "prd_ref": "PRD §9.3",
           "note": "Open question Q4: does group need separate Meta Business Account for single WABA? Need Kapso confirmation."
         },
@@ -339,11 +768,450 @@
           "title": "E2E testing: full A → B → C journey + performance",
           "description": "End-to-end test of complete Model A → Model B → Model C upgrade path. Verify: group creation, phone matching, consent flow, points transfer, group campaigns, migration B→C, unified member operations. Performance test: phone matching for 5K+ members (< 30s), cross-brand queries with indexes, Redis caching for group membership. Reconciliation test: pre/post migration point totals match.",
           "priority": "low",
-          "labels": ["multi-brand", "testing", "quality"],
+          "labels": [
+            "multi-brand",
+            "testing",
+            "quality"
+          ],
           "estimate": "5d",
           "sprint": "b_to_c",
-          "depends_on": ["MBL-022", "MBL-023", "MBL-024"],
+          "depends_on": [
+            "MBL-022",
+            "MBL-023",
+            "MBL-024"
+          ],
           "prd_ref": "PRD §15 Phase 3 exit criteria"
+        },
+        {
+          "id": "WAQ-001",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md + addendum 2026-04-28-waq-p0-vertical-slice-addendum.md",
+          "title": "Per-message status tracking — whatsapp_messages table + send-side instrumentation",
+          "description": "Create migration for whatsapp_messages (id, restaurant_id, member_id, phone_e164, direction, category [marketing|utility|authentication|service], template_id, content_preview, kapso_message_id UNIQUE, status [queued|sent|delivered|read|failed], error_code, sent_at, delivered_at, read_at, failed_at, created_at). Wire src/application/execute-campaign-batch.ts and other send paths (sendTextMessage, sendImageMessage, sendWhatsAppTemplateMessage) to insert a row per send. Repository + mapper. Foundation for every quality metric.",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "observability",
+            "database",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "playbook_ref": "docs/playbooks/dev-shared-waba-safeguards.md §3.3, §11"
+        },
+        {
+          "id": "WAQ-002",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md + addendum 2026-04-28-waq-p0-vertical-slice-addendum.md",
+          "title": "Outbound status webhook handler — ingest sent/delivered/read/failed",
+          "description": "Extend src/app/api/webhooks/whatsapp/route.ts + handlers.ts to detect outbound status events (currently only inbound is routed). Parse Kapso status payloads, update whatsapp_messages.status + timestamp + error_code by kapso_message_id. Idempotent via processed_webhooks. Supersedes ANALYTICS-001 — same capability, now framed for quality observability rather than billing.",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "webhooks",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001"
+          ],
+          "supersedes": [
+            "ANALYTICS-001"
+          ]
+        },
+        {
+          "id": "WAQ-003",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md + addendum 2026-04-28-waq-p0-vertical-slice-addendum.md",
+          "title": "Error code routing — 131049 PMM throttle, 131026 unreachable, policy violations",
+          "description": "On status=failed webhook, dispatch by error_code. 131049 → set members.pmm_throttled_until = now() + 24h. 131026 → set members.unreachable_at + skip future sends. 131045 (template not approved) → block tenant's send + alert. Policy-violation codes (132xxx) → log to tenant_quality_state history + alert platform team. Migration adds members.pmm_throttled_until + members.unreachable_at columns.",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "webhooks",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-002"
+          ]
+        },
+        {
+          "id": "WAQ-004",
+          "mvp_critical": true,
+          "title": "Consent records table + import gate",
+          "description": "Migration creates consent_records (id, restaurant_id, member_id, phone_e164, category [marketing|utility|authentication], status [opted_in|opted_out|pending], source, source_reference, business_name_shown, captured_at, revoked_at, captured_ip, captured_user_agent). Backfill from existing members table — backfill policy depends on Q4 (default: pending). Import gate at boundaries (CSV upload, member creation API): reject contacts lacking source + business_name + date. Pre-send check: marketing send requires consent_records(category='marketing', status='opted_in'). Closes the audit gap.",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "compliance",
+            "database",
+            "backend"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_quality_safeguards",
+          "decision_log": [
+            "Q4 resolved 2026-05-04: backfill all existing active members as status='opted_in'. Rationale (user): low current member count bounds the audit-defence risk; choosing non-breaking option to avoid pausing running campaigns. Note: indefensible if Meta audits — re-confirmation campaign should run early in WONB rollout to upgrade weak records."
+          ],
+          "playbook_ref": "docs/playbooks/dev-shared-waba-safeguards.md §3.1"
+        },
+        {
+          "id": "WAQ-005",
+          "mvp_critical": true,
+          "title": "Wire STOP keyword to consent_records (extend existing handler)",
+          "description": "src/domain/services/command-keywords.ts already routes STOP/退訂/停止 to handleUnsubscribe which flips members.status='unsubscribed'. Extend handleUnsubscribe to ALSO write consent_records(status='opted_out', revoked_at=now()) for that contact across all categories. Idempotent on repeat STOP. Tests cover EN + zh-HK keywords.",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "compliance",
+            "backend"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-004"
+          ]
+        },
+        {
+          "id": "WAQ-006",
+          "mvp_critical": true,
+          "title": "Quality rating polling job + tenant_quality_state history",
+          "description": "Migration: tenant_quality_state (restaurant_id, phone_number_id, quality_rating [GREEN|YELLOW|RED|UNKNOWN], messaging_tier, flagged, polled_at, transitioned_at). Cron job polls Kapso health endpoint every 30 min per active phone number, persists transitions. Reuses existing observe-whatsapp / health check logic (.agents/skills/observe-whatsapp/references/health-reference.md) which is currently on-demand only — converts to scheduled + persistent. Q1 affects scope (per-tenant vs per-WABA-and-tenant); Q2 affects mechanism (poll vs webhook).",
+          "priority": "medium",
+          "labels": [
+            "quality",
+            "observability",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "decision_log": [
+            "Q1 resolved 2026-05-04: each tenant has their own WABA → per-tenant scope (per-tenant == per-WABA in our architecture).",
+            "Q2 resolved 2026-05-04: webhook-driven quality detection (Meta account_update / account_quality_update webhook). Better future performance vs polling. Mechanism change: instead of polling Kapso health endpoint every 30 min, subscribe to the WABA quality update webhook and persist transitions on receive."
+          ]
+        },
+        {
+          "id": "WAQ-007",
+          "mvp_critical": true,
+          "title": "Per-user marketing cooldown enforcer",
+          "description": "Pre-send check (in execute-campaign-batch.ts and any future send paths): reject marketing template send if (a) no marketing consent, (b) members.pmm_throttled_until > now(), (c) >=N marketing sends to this contact in last 24h (default N depends on Q3, ship with N=2 if undecided; configurable per tenant via tenant_campaign_settings.per_user_marketing_cap). Cache state per campaign-run to avoid per-recipient round-trips. Returns structured skip-reason for analytics.",
+          "priority": "medium",
+          "labels": [
+            "quality",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-003",
+            "WAQ-004"
+          ],
+          "decision_log": [
+            "Q3 resolved 2026-05-04: default N=1 marketing template per recipient per 24h, configurable per tenant via tenant_campaign_settings.per_user_marketing_cap. Rationale: Meta 2026 policy enforces 1 marketing template per business per 24h (resets on user reply); going higher routinely triggers 131049. Cross-brand global cap is 2/24h but invisible to us. Conservative default protects new tenants' quality rating; established tenants can opt up at their own risk. Sources: Meta for Developers per-user-limits doc + Turn.io / Chatarmin / Vonage best-practice writeups."
+          ]
+        },
+        {
+          "id": "WAQ-008",
+          "title": "24h customer service window tracking",
+          "description": "Migration: conversation_windows (restaurant_id, phone_e164, opened_at, expires_at). On every inbound message (text or button reply), upsert window with expires_at = now + 24h. Helper isInWindow(restaurant_id, phone) for callers. Used by send paths to know whether content is service/free or template/billed, and by analytics to attribute marketing-inside-window correctly (does not count toward Meta PMM). Cleanup expired rows.",
+          "priority": "medium",
+          "labels": [
+            "quality",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards"
+        },
+        {
+          "id": "WAQ-009",
+          "mvp_critical": true,
+          "title": "Auto-pause on quality drop + admin kill switch UI",
+          "description": "When tenant_quality_state transitions to YELLOW: throttle (halve effective tenant_campaign_settings.daily_campaign_limit and monthly_send_limit at runtime; do not modify stored values). When transitions to RED: set tenant_campaign_settings.campaign_paused=true with paused_reason='quality_red_auto'. Admin UI on tenant detail to view + manually override (manual unpause requires platform_admin role). Builds on existing campaign_paused field + admin pause/resume already shipped in MSG-002. Q1 affects scope: with isolated WABAs the auto-pause may need to operate per-WABA rather than per-tenant.",
+          "priority": "medium",
+          "labels": [
+            "quality",
+            "admin",
+            "fullstack"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-006"
+          ],
+          "decision_log": [
+            "Q1 resolved 2026-05-04: per-tenant scope (each tenant has its own WABA, so per-tenant auto-pause is per-WABA effectively)."
+          ]
+        },
+        {
+          "id": "WAQ-010",
+          "mvp_critical": true,
+          "title": "Engagement-tier probe pacing — replace fixed BATCH_SIZE in execute-campaign-batch",
+          "description": "src/application/execute-campaign-batch.ts currently uses BATCH_SIZE=20, BATCH_DELAY_MS=1000 (naive). Refactor to: (1) sort recipients by engagement tier (members.last_visit_at desc), (2) send 100-message probe to top tier first, (3) wait 60-90 min and read KPIs from whatsapp_messages (delivery rate ≥95%, read rate ≥30% for marketing, error rate <0.5%, opt-out rate <2%), (4) abort campaign if any KPI fails or continue scaling 100/chunk. Spread chunks across active hours (10am-10pm tenant timezone, no overnight sends). Strategy configurable per tenant.",
+          "priority": "medium",
+          "labels": [
+            "quality",
+            "campaigns",
+            "backend"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-002"
+          ]
+        },
+        {
+          "id": "WAQ-011",
+          "title": "Template approval queue for new tenants (first 90 days)",
+          "description": "Migration: template_review_queue (id, restaurant_id, template_name, target_audience_size, target_audience_query, content_preview, status [pending|approved|rejected|changes_requested], submitted_by, submitted_at, reviewed_by, reviewed_at, review_notes). Tenants created < 90 days ago cannot launch a marketing campaign without an approved row. Admin UI to approve/reject/request changes. After 90 days clean (no quality incidents), tenant auto-promoted to 'trusted' (skip queue).",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "admin",
+            "fullstack"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_quality_safeguards"
+        },
+        {
+          "id": "WAQ-012",
+          "title": "Quality dashboard — per-tenant + WABA-level admin view",
+          "description": "Per-tenant widget on tenant dashboard: current quality rating (color), 7d trend chart, last 7d delivery rate / read rate / error rate / opt-out rate computed from whatsapp_messages. Platform admin overview page: every tenant's quality at a glance, filterable by rating/tier, click-through to tenant detail. Reuses tenant_quality_state + whatsapp_messages aggregations. Q1 affects whether the admin overview groups by WABA.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "frontend",
+            "admin"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-002",
+            "WAQ-006"
+          ],
+          "blocked_by": [
+            "Q1"
+          ]
+        },
+        {
+          "id": "WAQ-013",
+          "title": "Alerting — Slack/email on quality transitions + error spikes",
+          "description": "Webhook adapter to Slack channel and/or email on: (a) tenant transitions to yellow/red, (b) 131049 rate >N/h for any tenant, (c) >5% opt-out rate on any campaign, (d) auto-pause triggered, (e) WABA-level tier change. Configurable destination via env. Severity routing: CS team gets yellow + opt-out spikes; platform team gets red + WABA tier changes + mass policy errors.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "alerts",
+            "backend"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-006",
+            "WAQ-009"
+          ]
+        },
+        {
+          "id": "WAQ-OPS-001",
+          "title": "processed_webhooks retention sweep — TTL or partition follow-up",
+          "description": "After WAQ-002 ships, the idempotency key shape changes from kapsoMessageId to kapsoMessageId:status, multiplying rows 3-4× per message (~8k webhook rows/day at the blocking customer's expected ~2k marketing sends/day, ~3M rows/year). The architect's design at docs/architecture/2026-04-28-waq-p0-vertical-slice-addendum.md (Q1 escalation answer) recommends accepting growth in the P0 slice and sweeping in this follow-up. Implement either (a) TTL-based cleanup job (delete rows older than N days, default 90) or (b) monthly partitioning migration if observed growth exceeds projection. Decide based on table size at week 6 post-WAQ-002 deploy.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "ops",
+            "database"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-002"
+          ],
+          "trigger": "Run when processed_webhooks exceeds 5M rows OR 6 weeks post-WAQ-002 deploy, whichever sooner",
+          "playbook_ref": "docs/architecture/2026-04-28-waq-p0-vertical-slice-addendum.md (Q1 escalation)"
+        },
+        {
+          "id": "WONB-002",
+          "title": "Daily sync of display name + business verification status from Meta",
+          "description": "Scheduled job polls Kapso/Meta for each active phone number's business_verification_status and display_name_status. Persist on tenant_onboarding_state (or meta_account_state). Surface badges on tenant header with last-checked timestamp. Gate phase advancement to 'probe' until both = approved. If display name rejected twice, raise alert per playbook §2.3.",
+          "priority": "medium",
+          "labels": [
+            "onboarding",
+            "backend",
+            "frontend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WONB-001"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §2.2, §2.3, §4"
+        },
+        {
+          "id": "WONB-003",
+          "title": "Coexistence onboarding wizard for Path B1 (Business App + Cloud API)",
+          "description": "Step-by-step UI walking the tenant through: (1) Meta Business Verification on the same business that owns the App, (2) two-step verification PIN reset, (3) inbound routing config (App vs Cloud API), (4) smoke test. Each step persists in tenant_onboarding_state.coexistence_wizard JSONB so CS can resume mid-flow. Includes screenshots/videos for the PIN reset step (most common stuck point).",
+          "priority": "medium",
+          "labels": [
+            "onboarding",
+            "fullstack"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WONB-001"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §3.2"
+        },
+        {
+          "id": "WONB-006",
+          "title": "QR-code opt-in generator — printable PDF + scan tracking (Strategy A)",
+          "description": "Per-tenant printable PDF generator (table tent / receipt footer / poster sizes). Each PDF embeds a QR pointing at wa.me/{tenant_phone}?text=Join%20{brand}. Track scans by detecting inbound matching the prefilled text and recording opt_in_source='qr_strategy_a' on the resulting consent_record. Tenant dashboard shows scans/week + conversion to opt-in. Strategy A from playbook §6.2 — the safest paper-list activation path; becomes tenant's main growth channel post-Week 4.",
+          "priority": "medium",
+          "labels": [
+            "onboarding",
+            "fullstack"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WONB-007"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy A"
+        },
+        {
+          "id": "WONB-009",
+          "title": "Stale-consent expiry — auto-revert >24mo consent to grade=none",
+          "description": "Daily cron evaluates consent_records.expires_at. Records past expiry are demoted: grade='none', status='pending'. Notifies tenant CS via dashboard widget that N contacts need re-confirmation (suggest Strategy A or B). Prevents zombie consent. Defensible to Meta + PDPO regulators.",
+          "priority": "low",
+          "labels": [
+            "compliance",
+            "backend"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WONB-005"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.5"
+        },
+        {
+          "id": "WONB-010",
+          "title": "Block reason ingestion + tenant dashboard insight panel",
+          "description": "Where Meta exposes block reasons (currently visible only in WhatsApp Manager UI for medium/low ratings — confirm Kapso passthrough), pull and persist a 7-day breakdown per tenant. Surface on tenant dashboard with §5.3 mitigation playbook inline (e.g. 'Didn't sign up' = audit opt-in source; 'Spam' = cut volume). If block reason API not available, fall back to manual paste-in by CS during weekly review.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "frontend",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-006",
+            "WAQ-012"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §5.3, §4.1"
+        },
+        {
+          "id": "WONB-011",
+          "title": "Campaign variant requirement — ≥3 content variants for audience >100",
+          "description": "Campaign builder UI: when audience size >100, force the user to provide at least 3 content variants. Variant editor with personalisation token preview. Send-time round-robin across variants. Reduces 'identical content to thousands' spam-flag risk per playbook §5.6 + journey playbook §5.1.",
+          "priority": "medium",
+          "labels": [
+            "campaigns",
+            "frontend",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §5.6"
+        },
+        {
+          "id": "WONB-012",
+          "title": "Template category auto-classifier — warn on probable miscategorisation",
+          "description": "When CS submits a template marked 'utility' but content matches marketing patterns (% off, 'free', 'offer', 'sale', heavy emoji, CTA links), surface a warning at submission time. CS reviewer must override explicitly with reason. Reduces template-paused incidents from Meta auto-recategorisation per playbook §5.1. Lightweight rule-based, no ML required initially.",
+          "priority": "low",
+          "labels": [
+            "campaigns",
+            "fullstack"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §5.1"
+        },
+        {
+          "id": "WONB-013",
+          "title": "PDPO consent export — per-contact JSON dump of all ConsentEvents",
+          "description": "Authenticated API endpoint /api/contacts/{id}/consent-export returns the full consent history for a contact: every grade change, status change, source, wording shown, captured_at, revoked_at, IP, user_agent. PDF export option for regulatory submissions. Tenant CS can trigger from dashboard. Required for HK PDPO right-to-know requests + Meta audit defence per playbook §6.5.",
+          "priority": "low",
+          "labels": [
+            "compliance",
+            "backend",
+            "api"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-004",
+            "WONB-005"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.5"
+        },
+        {
+          "id": "WONB-014",
+          "title": "Right-to-erasure flow — soft-delete contact + tombstone to prevent re-import",
+          "description": "Admin/CS can invoke right-to-erasure on a contact. Flow: (1) anonymise members row, (2) hard-delete consent_records and conversation history, (3) write tombstone to deletion_tombstones (phone_e164_hash, deleted_at, restaurant_id) so re-import cannot resurrect them. Audit log entry. Required for HK PDPO compliance.",
+          "priority": "low",
+          "labels": [
+            "compliance",
+            "backend",
+            "database"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.5"
+        },
+        {
+          "id": "WONB-015",
+          "title": "Per-tenant incident timeline — auto-pauses, halts, transitions, manual overrides",
+          "description": "Append-only incidents table (tenant_id, type, severity, payload JSONB, occurred_at, resolved_at, resolved_by). Writes from: WAQ-009 auto-pause, WAQ-013 alerts, manual unpause, phase advances/reverts, quality transitions, campaign auto-halts. Tenant detail page shows a chronological timeline. Used for Monday CS review per journey playbook §9 and incident retros.",
+          "priority": "low",
+          "labels": [
+            "admin",
+            "frontend",
+            "backend"
+          ],
+          "estimate": "2d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-009",
+            "WAQ-013"
+          ],
+          "playbook_ref": "docs/playbooks/cs-whatsapp-onboarding-journey.md §9, §10"
+        },
+        {
+          "id": "WONB-016",
+          "title": "Multi-tenant WABA health watcher — page platform team if N+ tenants degrade together",
+          "description": "Job evaluates tenant_quality_state across a shared WABA. If ≥3 tenants on the same WABA transition to YELLOW or worse within a 24h window, raise a P0 alert to platform Slack — this signals a WABA-level issue rather than a single bad tenant. Threshold configurable. Differentiated from single-tenant alerts in WAQ-013.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "alerts",
+            "platform"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-006",
+            "WAQ-013"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §8"
         }
       ]
     },
@@ -353,104 +1221,624 @@
     },
     "in_progress": {
       "label": "In Progress",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "WONB-008",
+          "mvp_critical": true,
+          "title": "Re-confirmation campaign type — Strong-grade only, hard pacing, Green-rating gate",
+          "description": "New campaign mode 'reconfirmation'. Forced template format (utility category, opt-in solicitation copy). Forced pacing 50/day max regardless of tenant tier. Audience filter hard-coded to consent_records.grade='strong'. Pre-flight: tenant_quality_state.quality_rating must be GREEN for ≥7 consecutive days; else launch refused. On YES reply (handled via WAQ-005 keyword router), upgrade contact's consent_records(grade=strong, status=opted_in). Campaign builder has a dedicated 'Re-confirm legacy contacts' button that creates this type. Strategy B backend.",
+          "priority": "medium",
+          "labels": [
+            "campaigns",
+            "compliance",
+            "fullstack"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WONB-005",
+            "WONB-007",
+            "WAQ-006"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
+        }
+      ]
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "REL-001",
+          "title": "v1.2.0 release blockers — build break, stamp RLS, prerender failure",
+          "description": "Release-readiness review of develop→main found: (1) next build failed on a type error in consent-record-repository (the .select count option was also a runtime bug — upgradeToOptedIn always returned false, breaking WONB-005/007 opt-in YES handling); (2) migration 050's stamp_campaigns/member_stamp_cards shipped without RLS (cross-tenant read/write via anon key) — fixed by migration 052; (3) /dashboard/members/import used useSearchParams without Suspense, hard-failing prerender in Next 16. Also zeroed all 18 baseline tsc errors (type drift in 8 test files) so the build gate is trustworthy, and documented WAQ/opt-in env vars in .env.example + deploy/README.md.",
+          "priority": "high",
+          "labels": ["release", "bug", "security"]
+        }
+      ]
     },
     "done": {
       "label": "Done",
       "tasks": [
         {
+          "id": "WH-001",
+          "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
+          "description": "GitHub issue #45: message-shaped webhooks without a usable sender 500'd (PhoneNumber.create threw) → Kapso retry storm; idempotency claimed pre-processing dropped events forever. Fixed in PR #47: parser returns null for non-string/blank senders; route validates the sender phone BEFORE the idempotency claim and 200-ignores unroutable ones; malformed JSON → 400; signature compare is byte-safe. Regression tests at parser + route level (real-parser and parser-stubbed). Follow-ups: WH-002..WH-005 (WH-004 = fail-open signature, decision needed).",
+          "priority": "high",
+          "labels": ["bug", "backend", "webhook"],
+          "completed_at": "2026-07-03"
+        },
+        {
+          "id": "SCAN-001",
+          "title": "Enlarge QR scanner area on mobile (responsive qrbox)",
+          "description": "Customer feedback: scanner too small on phones. Fixed 250x250 qrbox replaced with a responsive function (80% of the live viewfinder, 50px library-minimum clamp) for both redeem and give-stamp flows; scanner restarts on real viewport width changes (rotation) with start/stop serialized so streams never overlap. PRs #44 + #46 (squash-merged to develop). Follow-ups filed: SCAN-002, SCAN-003.",
+          "labels": ["bug", "frontend", "scan"],
+          "completed_at": "2026-07-03"
+        },
+        {
+          "id": "WONB-007",
+          "mvp_critical": true,
+          "title": "Inbound-first opt-in flow — match unknown phone, send confirmation in 24h window",
+          "description": "Webhook handler enhancement: first inbound from a phone not yet in members → match against contacts table by phone (paper-list imports may have created Weak/None graded shells). Open 24h window via WAQ-008. Send tenant-configured confirmation template ('Welcome! Reply YES to receive offers'). On YES, write consent_records(grade=strong, status=opted_in, source=current_source). Else leave service-only. Zero marketing template ever sent to a non-consented phone — this is the Strategy A backend.",
+          "priority": "high",
+          "labels": [
+            "onboarding",
+            "compliance",
+            "backend"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-004",
+            "WAQ-005",
+            "WAQ-008",
+            "WONB-005"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy A",
+          "merged_at": "2026-05-05",
+          "pr": 42
+        },
+        {
+          "id": "WONB-004",
+          "mvp_critical": true,
+          "title": "Contact import wizard — required metadata + Strong/Medium/Weak/None grading",
+          "description": "New CSV/Excel import flow that REFUSES batches without per-batch metadata: source (e.g. 'reservation notebook 2025'), date_range_start/end, consent_text_shown (verbatim), consent_channel (whatsapp|generic|service_only|none), proof_file_url. Auto-grades each batch into Strong/Medium/Weak/None per playbook §6.1 rules. Persists consent_grade on consent_records and an import_batch row with all metadata for audit. Replaces ad-hoc CSV imports going forward. Mandatory before any paper-list onboarding.",
+          "priority": "high",
+          "labels": [
+            "onboarding",
+            "compliance",
+            "fullstack",
+            "database"
+          ],
+          "estimate": "4d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-004",
+            "WONB-005"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.1",
+          "merged_at": "2026-05-05",
+          "pr": 41
+        },
+        {
+          "id": "WONB-005",
+          "mvp_critical": true,
+          "title": "Extend consent_records with grade, proof_url, expires_at, consent_text_shown",
+          "description": "Migration adds consent_records.grade (enum: strong|medium|weak|none), proof_url (storage URL of paper form / screenshot), consent_text_shown (verbatim wording, longer-form than business_name_shown), expires_at (default captured_at + 24 months). Populated by WONB-004 import flow and inbound-first opt-in (WONB-007). Drives campaign-builder eligibility checks per playbook §6.2.",
+          "priority": "high",
+          "labels": [
+            "compliance",
+            "database",
+            "backend"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-004"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.1, §6.5",
+          "merged_at": "2026-05-05",
+          "pr": 40
+        },
+        {
+          "id": "WONB-001",
+          "title": "Tenant onboarding state machine — path + phase + pre-kickoff checklist",
+          "description": "Migration adds tenant_onboarding_state (restaurant_id, onboarding_path [A|B1|B2|B3], phase [setup|probe|build|scale|full|steady], pre_kickoff_checklist JSONB, advanced_at, advanced_by). Sales→CS handoff requires all checklist items per playbook §2.1 (HK SIM never used, verified Meta Business, display name draft approved, opt-in source documented, vertical allowed, first 3 campaigns drafted). Phase advance gated on KPIs from whatsapp_messages (delivery ≥95%, opt-out <2%, block <0.5% over the prior 7d). UI on tenant detail page; advance button disabled until KPIs pass.",
+          "priority": "high",
+          "labels": [
+            "onboarding",
+            "fullstack",
+            "database"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "depends_on": [
+            "WAQ-001"
+          ],
+          "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §1, §2.1",
+          "merged_at": "2026-05-05T03:56:50Z",
+          "pr": 39
+        },
+        {
+          "id": "WAQ-013",
+          "title": "Slack alerting on quality transitions + error spikes",
+          "description": "OpsAlert VO + routingFor (cs|platform|both per spec). Slack notifier (env-driven, severity-color attachments, missing env = no-op + warn, error body captured). notifyOpsAlert dispatcher. notify-quality-action maps QualityAction → OpsAlert[]. Wired into WAQ-003 emit-ops-alert (after events insert) + WAQ-009 dispatch-quality-action (after applyAction succeeds; pause emits 2 alerts). Failure mode: every layer catches+warns, alerting NEVER crashes calling code. Email/SMTP + spike-detection crons deferred — AlertKinds ready for future producers.",
+          "labels": [
+            "quality",
+            "alerts",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-006",
+            "WAQ-009"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/38",
+          "merged_into": "develop @ a95118d",
+          "tests": "1868 passing, 0 failing (+41 new)",
+          "review": "gemini r1 PASS with 2 nits + analyzer r1 APPROVED → both nits applied + 2 affected tests updated → merged",
+          "follow_ups": [
+            "Email/SMTP/SES path",
+            "131049 rate spike detection cron (AlertKind ready)",
+            "Opt-out rate spike detection cron (AlertKind ready)",
+            "WABA-level tier change detection (AlertKind ready)",
+            "Slack channel admin UI (env-driven for MVP)",
+            "Restaurant name hydration in OpsAlert (currently shows UUID)",
+            "AbortController timeout on Slack fetch"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-012",
+          "title": "Quality dashboard — backend + minimal admin overview",
+          "description": "Migration 045: 3 SECURITY DEFINER RPCs (per-tenant + bulk KPIs + latest quality_state). Server-side aggregation prevents PostgREST 1000-row truncation. Application orchestrator joins restaurants + tenant_quality_state (latest) + tenant_campaign_settings (auto_pause). Routes: /api/admin/quality (platform admin, rate-limited, windowDays clamped to 90); /api/quality/[restaurantId] (tenant context guard with cross-tenant ownership check OR platform admin). Page: /admin/quality table with rating badge / tier / KPIs / auto-pause. AdminSidebar nav + i18n. rate() returns NaN on zero denominator so 0-sends and perfect 0% can be distinguished.",
+          "labels": [
+            "quality",
+            "frontend",
+            "admin"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-002",
+            "WAQ-006"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/37",
+          "merged_into": "develop @ 83e00c2",
+          "tests": "1827 passing, 0 failing (+31 new)",
+          "review": "gemini r1 REVISE (2 critical PostgREST truncation + 1 important rate semantics) + analyzer r1 APPROVED with 1 important (windowDays bound) → all 3 fixes applied → merged",
+          "follow_ups": [
+            "Apply migrations 044+045 once Docker is healthy",
+            "7d trend chart line graph (deferred)",
+            "Per-tenant dashboard widget (deferred)",
+            "Click-through to tenant detail page (deferred)",
+            "Filtering UI beyond ?filterRating (deferred)",
+            "Real-time updates / SSE (deferred)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-011",
+          "title": "Template approval queue for new tenants (backend)",
+          "description": "Migration 044 template_review_queue + partial unique index (rid, template_name) WHERE pending OR approved + cross-tenant admin status index. Domain TemplateReview entity with immutable transitions. isTenantTrusted (3 conditions: age 90d AND no recent YELLOW/RED AND not auto-paused). enforceTemplateReview send-time gate: untrusted tenants need approved review row to send MARKETING. submit-template-review (tenant), review-template (platform admin native check + audit). Routes: GET/POST /api/admin/template-reviews + POST /api/template-reviews. Admin UI deferred.",
+          "labels": [
+            "quality",
+            "admin",
+            "fullstack"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "pr": "https://github.com/xavierau/omc/pull/36",
+          "merged_into": "develop @ ce16790",
+          "tests": "1796 passing, 0 failing (+75 new)",
+          "review": "gemini r1 pass-with-fixes (admin-queue index miss) → fixed inline → merged",
+          "follow_ups": [
+            "Apply migration 044 once Docker is healthy",
+            "Frontend admin UI for template review queue (deferred)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-010",
+          "mvp_critical": true,
+          "title": "Engagement-tier probe pacing (Phase 1)",
+          "description": "Migration 043 + tenant_campaign_settings.{pacing_strategy ('engagement_tier' default | 'naive'), active_hours_*, tenant_timezone, probe_chunk_size, scale_chunk_size}. Replaces naive BATCH_SIZE=20 with engagement-tier sort (DESC by last_visit_at, nulls last) + probe-then-scale chunking. Inner concurrency cap of 20 prevents pool exhaustion even at chunk_size=1000. KPI snapshot logged at probe boundary. Phase 2 (campaign_runs state machine + cron probe→wait→check→scale-or-abort) deferred.",
+          "labels": [
+            "quality",
+            "campaigns",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-002"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/35",
+          "merged_into": "develop @ 5fe8b85",
+          "tests": "1721 passing, 0 failing (+26 new)",
+          "review": "analyzer r1 APPROVED + gemini r1 pass-with-fixes (concurrency cap + probe-log invariant) → both fixes applied → gemini r2 PASS",
+          "follow_ups": [
+            "Apply migration 043 once Docker is healthy",
+            "Phase 2: campaign_runs state machine + cron probe→wait→check→scale-or-abort + getCampaignKpis repo + active-hours gate"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-009",
+          "mvp_critical": true,
+          "title": "Auto-pause on quality drop + admin override (backend)",
+          "description": "Migration 042: tenant_campaign_settings.{auto_throttle_factor (0,1], auto_pause_active, auto_pause_reason, auto_pause_set_at}. QualityAction VO routes RED → pause; YELLOW from non-yellow → 0.5x throttle; GREEN-from-degraded → manual_recovery_required (no auto-clear). dispatchQualityAction wires VO to repo. clearTenantAutoQualityFlags admin override validates platform_admin natively + emits audit. Stale-event guard uses Meta entry[].time (not server time) so out-of-order webhooks don't corrupt state. Stored daily/monthly limits NEVER mutated; throttle is computed at read time in check-campaign-guardrails.",
+          "labels": [
+            "quality",
+            "admin",
+            "fullstack"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-006"
+          ],
+          "decision_log": [
+            "Q1 resolved 2026-05-04: per-tenant scope (each tenant has own WABA → per-tenant auto-pause is per-WABA)."
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/34",
+          "merged_into": "develop @ d79dde9",
+          "tests": "1695 passing, 0 failing (+71 new)",
+          "review": "gemini r1 pass-with-fixes (2 critical) + analyzer r1 CONDITIONAL (same 2 critical + 3 important) → all 5 fixes applied → gemini r2 PASS",
+          "follow_ups": [
+            "Apply migration 042 once Docker is healthy",
+            "Frontend tenant-detail UI for clear-pause button (deferred to WAQ-012)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-008",
+          "title": "24h customer service window tracking",
+          "description": "Migration 041 conversation_windows (rid, phone, opened_at, last_inbound_at, expires_at) + 3 indexes + RLS + trigger. ConversationWindow entity with immutable forward-only bumpInbound. Repo: findOpenWindow / upsertOpenWindow (find-then-bump-or-insert; preserves opened_at) / isWindowOpen / bulkIsWindowOpen. Wired into routeMessage BEFORE language short-circuit and keyword dispatch. Anchors window on Meta's message.timestamp (not server time). 23505 race reconciles via find+bump.",
+          "labels": [
+            "quality",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "pr": "https://github.com/xavierau/omc/pull/33",
+          "merged_into": "develop @ f5b8881",
+          "tests": "1624 passing, 0 failing (+41 new)",
+          "review": "analyzer r1 APPROVED + gemini r1 pass-with-fixes (timestamp anchor + forward-only bump + 23505 reconcile + LANG-short-circuit test)",
+          "follow_ups": [
+            "Apply migration 041 once Docker is healthy",
+            "Send-path consumption of isWindowOpen (consumers integrate later)",
+            "Marketing-inside-window attribution for WAQ-007 cooldown",
+            "Cleanup/retention of expired rows (ops follow-up)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-007",
+          "mvp_critical": true,
+          "title": "Per-user marketing cooldown enforcer",
+          "description": "Pre-send gate combines WAQ-004 consent + new cooldown check (pmm_throttled / unreachable / cap_exceeded) for MARKETING templates. Default N=1/24h per Q3; tenant-configurable via per_user_marketing_cap. Bulk fetch avoids N+1. 5 distinct skip counters. Consent precedence over cooldown for HK PDPO compliance.",
+          "labels": [
+            "quality",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-001",
+            "WAQ-003",
+            "WAQ-004"
+          ],
+          "decision_log": [
+            "Q3 resolved 2026-05-04: N=1 per 24h default, tenant-configurable.",
+            "Precedence flip 2026-05-04: consent reasons surface before cooldown reasons (HK PDPO compliance — gemini r1 finding)."
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/32",
+          "merged_into": "develop @ e3a1db8",
+          "tests": "1583 passing, 0 failing (+27 new)",
+          "review": "analyzer r1 PASS + gemini r1 pass-with-fixes (precedence flip applied) → merged",
+          "follow_ups": [
+            "Apply migration 040 once Docker is healthy",
+            "Per-tenant override UI for per_user_marketing_cap (admin task, future)",
+            "+1 per user reply Meta rule (future enhancement)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-006",
+          "mvp_critical": true,
+          "title": "Webhook-driven tenant_quality_state ingestion",
+          "description": "Migration 039 creates tenant_quality_state history table with quality_rating + messaging_tier + flagged + raw_payload + indexes + RLS. Webhook routing extends classifyWebhookKind with 'quality' kind. routeQualityEvent follows WAQ-002 claim-then-process pattern with payload-derived SHA-256 idempotency key (per-tenant scoped). resolveRestaurant supports phone_number_id OR display_phone_number lookup. iterates all entry[].changes[].",
+          "labels": [
+            "quality",
+            "observability",
+            "webhooks",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "decision_log": [
+            "Q1 resolved 2026-05-04: per-tenant scope (each tenant has own WABA → per-tenant == per-WABA).",
+            "Q2 resolved 2026-05-04: webhook-driven via Meta account_quality_update (not polling)."
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/31",
+          "merged_into": "develop @ 9816435",
+          "tests": "1556 passing, 0 failing (+70 new)",
+          "review": "gemini r1 REVISE 5 findings + analyzer r1 CONDITIONAL 3 findings → all 8 fixes applied → gemini r2 PASS",
+          "follow_ups": [
+            "Apply migration 039 once Docker is healthy",
+            "Replace synthetic Meta fixtures with real sandbox captures",
+            "WAQ-009 will read tenant_quality_state for auto-pause logic"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-005",
+          "mvp_critical": true,
+          "title": "Wire STOP keyword to revoke consent_records",
+          "description": "Extends handleUnsubscribe (existing STOP/退訂/停止 handler) to call revokeConsent({restaurantId, phoneE164}) — no category arg revokes all active categories. Errors propagate so Kapso retries. Idempotent on repeat STOP.",
+          "labels": [
+            "quality",
+            "compliance",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "depends_on": [
+            "WAQ-004"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/30",
+          "merged_into": "develop @ 00e377f",
+          "tests": "1486 passing, 0 failing (+7 new)",
+          "review": "gemini r1 PASS no nits",
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-004",
+          "mvp_critical": true,
+          "title": "Consent records table + import gate + pre-send marketing consent",
+          "description": "Migration 038 creates consent_records with partial unique index on (restaurant_id, phone_e164, category) WHERE status IN ('opted_in', 'pending'), RLS SELECT policy, and Q4 backfill of all active members as marketing/opted_in/weak/'pre-system migration'. ConsentRecord entity with idempotent revoke. checkMarketingConsent + bulkCheckMarketingConsent (single fetch per batch — kills N+1). Pre-send gate ONLY for MARKETING templates. WhatsApp JOIN keyword writes opted_in/strong consent on every JOIN, idempotent on duplicate_active.",
+          "labels": [
+            "quality",
+            "compliance",
+            "database",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "decision_log": [
+            "Q4 resolved 2026-05-04: backfill all active members as marketing/opted_in/weak/'pre-system migration'. WONB-008 will run re-confirmation campaign."
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/29",
+          "merged_into": "develop @ 24fc935",
+          "tests": "1479 passing, 0 failing (+50 new)",
+          "review": "analyzer r1 PASS-WITH-FIXES (consent_insert_failed reason) + gemini r1 REVISE (N+1, swallowed JOIN consent error) → all 3 fixes applied → gemini r2 PASS",
+          "follow_ups": [
+            "Apply migration 038 once Docker is healthy; verify Q4 backfill INSERT runs for active members",
+            "WONB-008: re-confirmation campaign for consent_grade='weak' records",
+            "Future: bulk insert for importMembersWithConsent (CSV UI, deferred)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-003",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "title": "Error code routing — 131049 PMM throttle, 131026 unreachable, policy violations",
+          "description": "Full §6.1 dispatch table in classifyErrorCode (131045/131047/131048/131049/131051/131056 + 132xxx + internal_orphan + unknown). dispatchErrorAction routes failed webhooks to throttleMemberPmm (24h, scoped to memberId+restaurantId, regression-guarded), markMemberUnreachable, or emitOpsAlert (events row + console.error). Wired into status-handlers.ts after WAQ-002. internal_orphan invariant enforced at 3 layers — orphan-reconciliation rows MUST NOT mutate members.",
+          "labels": [
+            "quality",
+            "webhooks",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "pr": "https://github.com/xavierau/omc/pull/28",
+          "merged_into": "develop @ c6ea7d5",
+          "tests": "1429 passing, 0 failing (+37 new)",
+          "review": "analyzer r1 PASS + gemini r1 found 1 valid issue (restaurantId scoping) → fixed → gemini r2 PASS",
+          "follow_ups": [
+            "Apply migration 037 (events_type CHECK) once Docker is healthy",
+            "Replace synthetic 131026 + 132100 fixtures with real Kapso sandbox payloads",
+            "Template BLOCKED status flip on 131045 (deferred per design §6.3)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-002",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md + addendum 2026-04-28-waq-p0-vertical-slice-addendum.md",
+          "title": "Outbound status webhook handler — ingest sent/delivered/read/failed",
+          "description": "classifyWebhookKind discriminator splits before existing inbound parse; routeStatusEvent + handleStatusUpdate implement the addendum's claim-then-process pattern (kapsoMessageId:status idempotency key, releaseIdempotencyKey on orphan miss). Lifted tryMarkProcessed into shared idempotency.ts with typed return new|duplicate|error. raw_status_payload JSONB persisted on every status update. WAQ-003 boundary respected: failed webhooks populate error_code on the row but do NOT mutate members.pmm_throttled_until/unreachable_at. Supersedes ANALYTICS-001.",
+          "labels": [
+            "quality",
+            "webhooks",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "supersedes": [
+            "ANALYTICS-001"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/27",
+          "merged_into": "develop @ 9931c00",
+          "tests": "1392 passing, 0 failing",
+          "review": "dual review (code-review-analyzer r1 PASS + gemini r1 found valid claim==='error' swallow) → fixes applied → gemini r2 PASS (analyzer r2 stalled on infra; r1 verdict already clean)",
+          "follow_ups": [
+            "Replace synthetic Kapso fixtures with three real sandbox payloads (delivered, read, failed/131049) per addendum §5.2 before campaign-heavy production rollout",
+            "Apply migrations 035 + 036 in dev once Docker is healthy (carried from WAQ-001)",
+            "Register Vercel/Forge cron schedule for /api/cron/reconcile-orphan-messages at */5 * * * * (carried from WAQ-001)",
+            "Revisit mapStatusUpdate unknown-status coercion when WAQ-003 lands (analyzer I-1)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
+          "id": "WAQ-001",
+          "mvp_critical": true,
+          "design_status": "approved",
+          "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md + addendum 2026-04-28-waq-p0-vertical-slice-addendum.md",
+          "title": "Per-message status tracking — whatsapp_messages table + send-side instrumentation",
+          "description": "whatsapp_messages table + members.pmm_throttled_until/unreachable_at columns. WhatsAppMessagingPort returns SendResult so the BSP wamid reaches application layer. recordOutboundSend two-phase pattern wired into campaign batch (gated by WAQ_TRACK_MESSAGES). findMessageByKapsoIdWithRetry helper (250ms single retry) + orphan-row reconciliation cron at /api/cron/reconcile-orphan-messages. Domain: WhatsAppMessage entity with idempotent applyStatusUpdate lattice, WhatsAppErrorCode skeleton (internal_orphan + default — full table is WAQ-003), WhatsAppMessageRepository interface with typed const lock.",
+          "labels": [
+            "quality",
+            "observability",
+            "database",
+            "backend"
+          ],
+          "sprint": "whatsapp_quality_safeguards",
+          "pr": "https://github.com/xavierau/omc/pull/26",
+          "merged_into": "develop @ 8bff506",
+          "tests": "1355 passing, 0 failing, 0 TS errors",
+          "review": "dual review (code-review-analyzer + gemini CLI), 2 rounds — round 2 verdict: PASS by both",
+          "follow_ups": [
+            "Apply migrations 035 + 036 in dev once Docker daemon is healthy; verify tenant_campaign_settings.updated_at trigger still works after update_updated_at_column rename",
+            "Register Vercel/Forge cron schedule for /api/cron/reconcile-orphan-messages at */5 * * * *",
+            "Sandbox-capture three Kapso webhook payloads (delivered, read, failed/131049) before WAQ-002 starts (addendum §5.2)"
+          ],
+          "started_at": "2026-05-04",
+          "completed_at": "2026-05-04"
+        },
+        {
           "id": "DEVOPS-002",
           "title": "Branch model migration — main = production, develop = staging, v1.0.1 release",
           "description": "Created main branch from develop. Tagged v1.0.0. Set main as default branch on GitHub. Cleaned up 21 merged feature branches. Promoted develop to main as v1.0.1 (includes parametric onboard script + removal of hardcoded password). Documented HA migration plan.",
-          "labels": ["devops", "release"],
+          "labels": [
+            "devops",
+            "release"
+          ],
           "completed_at": "2026-04-27"
         },
         {
           "id": "DEVOPS-001",
           "title": "Parametric tenant onboarding script + CLI-first skill rewrite",
           "description": "scripts/onboard-tenant.ts replaces hardcoded scripts/onboard-omc-kitchen.ts (which carried a literal 'password' string). Parametric, validated inputs at boundary, execFileSync (no shell injection), redactSecret on stderr, Kapso webhook registration with response unwrap. PR #12. Dual-reviewed (Claude + Gemini). Old hardcoded script removed in follow-up commit.",
-          "labels": ["devops", "tooling", "security"],
+          "labels": [
+            "devops",
+            "tooling",
+            "security"
+          ],
           "completed_at": "2026-04-27"
         },
         {
           "id": "PROD-001",
           "title": "Production deployment scaffolding",
           "description": "Dockerfile, docker-compose.yml, .dockerignore, Next.js output: 'standalone', /api/health endpoint, receipt-layout-service Dockerfile updates. Production WhatsApp Commerce MVP PRD + architecture notes captured.",
-          "labels": ["deployment", "infrastructure"],
+          "labels": [
+            "deployment",
+            "infrastructure"
+          ],
           "completed_at": "2026-04-26"
         },
         {
           "id": "OPS-001",
           "title": "Delete-member button for demo reset",
           "description": "Hard-delete RPC (delete_member_cascade, SECURITY DEFINER, service_role only). DELETE API route with role allowlist. MemberDeleteSection component with Sheet-scoped inline confirm. Wired into MemberDetailPanel with refetch callback. Migration 033 + 034 (RLS WITH CHECK fix). PR #22.",
-          "labels": ["ops", "members", "fullstack"],
+          "labels": [
+            "ops",
+            "members",
+            "fullstack"
+          ],
           "completed_at": "2026-04-24"
         },
         {
           "id": "ONBOARD-010",
           "title": "Bilingual welcome campaign images",
           "description": "Per-language image attached to welcome campaign (image_url_en, image_url_zh_hk). Image-with-caption send first; nested try/catch falls back to text on image failure. Strict per-language image match (no cross-language fallback). campaign-images Storage bucket with RLS. Migration 032 + 034. PR #20.",
-          "labels": ["onboarding", "i18n", "fullstack"],
+          "labels": [
+            "onboarding",
+            "i18n",
+            "fullstack"
+          ],
           "completed_at": "2026-04-24"
         },
         {
           "id": "ONBOARD-009",
           "title": "Welcome campaign creation + auto-seed default per tenant",
           "description": "Added 'welcome' to campaign type dropdown. Auto-seed default welcome campaign per tenant (paused → remap → activate flow for atomicity). Partial unique index on (restaurant_id, type) WHERE status='active'. Cascade welcome-mapping when campaign is set to type=welcome and active. PR #18.",
-          "labels": ["onboarding", "campaigns", "fullstack"],
+          "labels": [
+            "onboarding",
+            "campaigns",
+            "fullstack"
+          ],
           "completed_at": "2026-04-23"
         },
         {
           "id": "ONBOARD-008",
           "title": "Localize handler reply text",
           "description": "Handler reply messages (redeem-coupon, redeem-reward, award-points, confirm-receipt) honor member preferred_language. Per-use-case message modules. PR #16.",
-          "labels": ["onboarding", "i18n", "backend"],
+          "labels": [
+            "onboarding",
+            "i18n",
+            "backend"
+          ],
           "completed_at": "2026-04-22"
         },
         {
           "id": "ONBOARD-007",
           "title": "Bilingual inbound keyword commands",
           "description": "Inbound keyword resolver supports English (REDEEM, POINTS, REWARDS) and Chinese (兌換, 查詢積分, 獎賞). LANG EN / 語言 中文 / 语言 中文 (Simplified) language switch commands. Chinese JOIN aliases. Routes inbound keywords by language. PR #15.",
-          "labels": ["onboarding", "i18n", "backend"],
+          "labels": [
+            "onboarding",
+            "i18n",
+            "backend"
+          ],
           "completed_at": "2026-04-21"
         },
         {
           "id": "ONBOARD-006",
           "title": "Member-level language preference",
           "description": "members.preferred_language column with CHECK constraint. Language detection from inbound message script (Latin vs. Han/Hiragana/Katakana). resolvePreferredLanguage chain: member → restaurant → default. Migration 030. PR #14.",
-          "labels": ["onboarding", "i18n", "domain"],
+          "labels": [
+            "onboarding",
+            "i18n",
+            "domain"
+          ],
           "completed_at": "2026-04-21"
         },
         {
           "id": "ONBOARD-005",
           "title": "Bilingual templates",
           "description": "Campaigns store template_en and template_zh_hk alongside legacy single template column. resolveLocalizedTemplate chain: preferred → other → legacy → null. Migration 029. PR #13.",
-          "labels": ["onboarding", "i18n", "domain"],
+          "labels": [
+            "onboarding",
+            "i18n",
+            "domain"
+          ],
           "completed_at": "2026-04-21"
         },
         {
           "id": "ONBOARD-004",
           "title": "Welcome campaign mapping with non-chargeable billing",
           "description": "welcome_campaign_id FK on restaurants, atomic remap_welcome_campaign RPC (auto-flips is_chargeable=false on welcome). Per-coupon is_chargeable stamped at creation. Split campaign counters (chargeable_sent_count + non_chargeable_sent_count). Backfill migration 031 with NOT EXISTS race-guard. Migrations 027 + 028. PR #11.",
-          "labels": ["onboarding", "campaigns", "billing", "fullstack"],
+          "labels": [
+            "onboarding",
+            "campaigns",
+            "billing",
+            "fullstack"
+          ],
           "completed_at": "2026-04-21"
         },
         {
           "id": "WA-FIX-001",
           "title": "Prevent template loss during update",
           "description": "WhatsApp template update silently lost data when partial update fields collided with stored values. Hardened with allowlist + tenant scoping. PR #10.",
-          "labels": ["whatsapp", "fix"],
+          "labels": [
+            "whatsapp",
+            "fix"
+          ],
           "completed_at": "2026-04-17"
         },
         {
           "id": "COMM-007",
           "title": "Update commission report UI — broadcast vs. redemption breakdown",
           "description": "Summary cards for broadcast + redemption commission totals. Commission table columns: Redemptions, Broadcast Commission, Redemption Commission. Referrer detail per-type breakdown. Referrer form: commission_per_redemption_hkd field (default HK$0.10). CSV columns + i18n. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "frontend"],
+          "labels": [
+            "commission",
+            "frontend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -458,7 +1846,12 @@
           "id": "COMM-006",
           "title": "Commission repositories, mappers, and API responses for dual revenue",
           "description": "referrer-commission-mapper maps new DB columns. upsertCommissions for new fields. getReferrerEarnings RPC sums broadcast + redemption. API responses (list, detail, report JSON, report CSV) carry both streams. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "infrastructure", "api", "backend"],
+          "labels": [
+            "commission",
+            "infrastructure",
+            "api",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -466,7 +1859,11 @@
           "id": "COMM-005",
           "title": "generate-referrer-report for dual revenue streams",
           "description": "Parallel fetch of broadcast + redemption counts. buildCommissions emits both streams. Skip rows where both are zero. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "application", "backend"],
+          "labels": [
+            "commission",
+            "application",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -474,7 +1871,11 @@
           "id": "COMM-004",
           "title": "Per-tenant monthly redemption count aggregation",
           "description": "getRedemptionCountsByTenantForMonth in coupon-redemption-repository. Indexed query. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "infrastructure", "backend"],
+          "labels": [
+            "commission",
+            "infrastructure",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -482,7 +1883,12 @@
           "id": "COMM-003",
           "title": "Platform fee service — HK$0.30 broadcast + HK$0.30 redemption markup",
           "description": "domain/services/platform-fee.ts: BROADCAST_PLATFORM_FEE_HKD = 0.3, REDEMPTION_PLATFORM_FEE_HKD = 0.3. get-billing-report integrated to show Meta passthrough vs. platform markup. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "billing", "domain", "backend"],
+          "labels": [
+            "commission",
+            "billing",
+            "domain",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -490,7 +1896,11 @@
           "id": "COMM-002",
           "title": "Domain model updates — dual commission rates",
           "description": "Referrer.commissionPerRedemptionHkd. ReferrerCommission gains redemptionsCount, commissionPerRedemption, broadcastCommission, redemptionCommission. CommissionRate VO supports per-type rates. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "domain", "backend"],
+          "labels": [
+            "commission",
+            "domain",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -498,7 +1908,11 @@
           "id": "COMM-001",
           "title": "DB schema for dual revenue streams",
           "description": "Migration 025: commission_per_redemption_hkd on referrers; redemptions_count + commission_per_redemption + broadcast_commission + redemption_commission on referrer_commissions; CHECK constraint + paid-row protection trigger. Migration 026: total_commission as STORED GENERATED column. Backfill existing rows. Sprint Commission v2 PR #9.",
-          "labels": ["commission", "database", "backend"],
+          "labels": [
+            "commission",
+            "database",
+            "backend"
+          ],
           "sprint": "commission_v2",
           "completed_at": "2026-04-16"
         },
@@ -506,133 +1920,207 @@
           "id": "BSP-001",
           "title": "Port interfaces for WhatsApp provider abstraction",
           "description": "Domain port interfaces: WhatsAppMessagingPort, WhatsAppTemplatePort, WhatsAppWebhookPort. InboundMessage replaces KapsoMessage. LogFn type for webhook parse.",
-          "labels": ["architecture", "refactor", "domain"],
+          "labels": [
+            "architecture",
+            "refactor",
+            "domain"
+          ],
           "completed_at": "2026-04-13"
         },
         {
           "id": "BSP-002",
           "title": "Kapso adapters + provider factory",
           "description": "Thin adapters in src/infrastructure/whatsapp/kapso/ wrapping existing kapso/* functions. Lazy singleton factory with WHATSAPP_PROVIDER env var, KNOWN_PROVIDERS validation, _resetProviders() for tests. 22 new tests.",
-          "labels": ["architecture", "refactor", "infrastructure"],
+          "labels": [
+            "architecture",
+            "refactor",
+            "infrastructure"
+          ],
           "completed_at": "2026-04-13"
         },
         {
           "id": "BSP-003",
           "title": "Bridge re-exports + consumer migration",
           "description": "Convenience re-exports matching existing function names. Migrated 18 source files + 12 test files from @/infrastructure/kapso/* to @/infrastructure/whatsapp/*. Zero call-site changes. 452 tests pass, build clean. PR #8 squash-merged.",
-          "labels": ["refactor", "infrastructure"],
+          "labels": [
+            "refactor",
+            "infrastructure"
+          ],
           "completed_at": "2026-04-13"
         },
         {
           "id": "RESEARCH-004",
           "title": "YCloud as Kapso replacement evaluation",
           "description": "YCloud is a Meta-certified BSP with zero markup pricing, free tier (1000 conversations/mo), similar API surface. Conclusion: feasible 100% replacement with 2-3 day migration effort. BSP abstraction layer (BSP-001/002/003) should be built first to make swap painless.",
-          "labels": ["research", "business", "bsp"],
+          "labels": [
+            "research",
+            "business",
+            "bsp"
+          ],
           "completed_at": "2026-04-13"
         },
         {
           "id": "REF-006",
           "title": "Commission report UI + assign referrer dropdown",
           "description": "Report page with month picker, summary cards, CSV export. TenantReferrerSelector dropdown on tenant detail. Sidebar nav, i18n. Gemini-reviewed.",
-          "labels": ["feature", "referrer", "frontend"],
+          "labels": [
+            "feature",
+            "referrer",
+            "frontend"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "REF-005",
           "title": "Referrer report API + mark paid + assign tenant",
           "description": "GET /report (JSON), GET /report/csv (CSV download), POST /commissions/[id]/mark-paid, PUT /tenants/[id]/referrer. Gemini LGTM first pass.",
-          "labels": ["feature", "referrer", "api", "backend"],
+          "labels": [
+            "feature",
+            "referrer",
+            "api",
+            "backend"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "REF-004",
           "title": "Generate referrer commission report + mark paid",
           "description": "generate-referrer-report use case (parallel fetch usage/tenants/referrers, calculate commissions, upsert skipping paid). mark-commission-paid use case. Gemini-reviewed. 10 new tests, 265 total.",
-          "labels": ["feature", "referrer", "billing", "backend"],
+          "labels": [
+            "feature",
+            "referrer",
+            "billing",
+            "backend"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "REF-003",
           "title": "Referrer use cases + admin UI (CRUD)",
           "description": "Phase 3: Validators, use cases (create/update/get-detail/list), API routes (CRUD + commissions), hooks, UI (table, form dialog, commission table, list page, detail page), sidebar nav, i18n. Gemini-reviewed (2 rounds, 7 bugs fixed). 255 tests.",
-          "labels": ["feature", "referrer", "fullstack"],
+          "labels": [
+            "feature",
+            "referrer",
+            "fullstack"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "REF-002",
           "title": "Referrer repositories + mappers",
           "description": "Phase 2: referrer-repository, referrer-commission-repository, mappers, safeguard migration. All with tests.",
-          "labels": ["feature", "referrer", "infrastructure", "backend"],
+          "labels": [
+            "feature",
+            "referrer",
+            "infrastructure",
+            "backend"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "REF-001",
           "title": "Referrer domain model + migration",
           "description": "Phase 1: Referrer/ReferrerCommission entities, CommissionRate VO, month-range service (DRY extraction), restaurant referrerId, migration 018. 210 tests, PR #6.",
-          "labels": ["feature", "referrer", "domain", "backend"],
+          "labels": [
+            "feature",
+            "referrer",
+            "domain",
+            "backend"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "ONBOARD-001",
           "title": "Streamline number onboarding via admin UI",
           "description": "4-step wizard: tenant info → Kapso validation → test message → review & create. Email/slug format validation, input sanitization, double-submit guard. 197 tests, PR #5.",
-          "labels": ["feature", "onboarding", "admin"],
+          "labels": [
+            "feature",
+            "onboarding",
+            "admin"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "ONBOARD-000",
           "title": "Create /onboard-number skill",
           "description": "Claude Code skill for guided WhatsApp number onboarding via Kapso.",
-          "labels": ["tooling", "onboarding"],
+          "labels": [
+            "tooling",
+            "onboarding"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "RESEARCH-001",
           "title": "Kapso vs 360dialog evaluation",
           "description": "Decision: stay with Kapso (< 50 tenants). 360dialog Partner offers multi-WABA but 3-5x more expensive.",
-          "labels": ["research", "business"],
+          "labels": [
+            "research",
+            "business"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "RESEARCH-002",
           "title": "WABA architecture decision",
           "description": "Decision: single WABA with shared parameterized templates. Multi-WABA not needed until 50+ tenants.",
-          "labels": ["research", "architecture"],
+          "labels": [
+            "research",
+            "architecture"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "RESEARCH-003",
           "title": "Message cost analysis",
           "description": "Confirmed: only campaign/template messages cost money ($0.0732/msg HK marketing). All reactive flows (join, points, receipts, rewards) use free-form messages within 24h customer service window = FREE. This fundamentally changes billing/tracking scope.",
-          "labels": ["research", "billing"],
+          "labels": [
+            "research",
+            "billing"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "BILL-002",
           "title": "Monthly campaign cost report for admin",
           "description": "Admin billing page with per-tenant breakdown, month nav, CSV export. Dedicated unpaginated query. 175 tests.",
-          "labels": ["feature", "billing", "admin"],
+          "labels": [
+            "feature",
+            "billing",
+            "admin"
+          ],
           "completed_at": "2026-04-12"
         },
         {
           "id": "BILL-001",
           "title": "Tenant plan tiers with campaign quotas",
           "description": "Starter/growth/pro plans (1K/10K/100K msgs/mo). Plan drives monthly_send_limit guardrail with rollback. Admin API, badge, selector, usage-vs-quota widget. 167 tests.",
-          "labels": ["feature", "billing"],
+          "labels": [
+            "feature",
+            "billing"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "MSG-001",
           "title": "Per-tenant campaign message tracking",
           "description": "Derive campaign usage from existing campaigns table. Admin API + dashboard widget with HKD cost display. 144 tests.",
-          "labels": ["feature", "billing", "infrastructure"],
+          "labels": [
+            "feature",
+            "billing",
+            "infrastructure"
+          ],
           "completed_at": "2026-04-11"
         },
         {
           "id": "MSG-002",
           "title": "Campaign send guardrails + quality protection",
           "description": "Per-tenant campaign limits (monthly cap, daily frequency, unsub rate threshold), admin kill switch (pause/resume), guardrail enforcement in execute + cron, dashboard warnings.",
-          "labels": ["feature", "quality", "risk-mitigation"],
+          "labels": [
+            "feature",
+            "quality",
+            "risk-mitigation"
+          ],
           "completed_at": "2026-04-11"
         }
       ]
@@ -685,7 +2173,39 @@
     "MBL-024  → Single WABA channel",
     "MBL-025  → E2E testing A→B→C journey",
     "── Other (independent) ──",
-    "ONBOARD-003 → Swap The Green Kitchen WhatsApp number"
+    "ONBOARD-003 → Swap The Green Kitchen WhatsApp number",
+    "── Epic: WhatsApp Quality & Safeguards (~6 weeks, 13 tasks) ──",
+    "WAQ-001  → whatsapp_messages table + send instrumentation (P0)",
+    "WAQ-002  → Outbound status webhook handler (P0)",
+    "WAQ-003  → Error code routing (131049, 131026, policy) (P0)",
+    "WAQ-004  → Consent records + import gate (P0)",
+    "WAQ-005  → Wire STOP keyword to consent_records (P0)",
+    "WAQ-006  → Quality rating polling + history (P1)",
+    "WAQ-007  → Per-user marketing cooldown (P1)",
+    "WAQ-008  → 24h customer service window tracking (P1)",
+    "WAQ-009  → Auto-pause on quality drop + admin override (P1)",
+    "WAQ-010  → Engagement-tier probe pacing (P1)",
+    "WAQ-011  → Template approval queue for new tenants (P2)",
+    "WAQ-012  → Quality dashboard (P2)",
+    "WAQ-013  → Slack/email alerts (P2)",
+    "WAQ-OPS-001 → processed_webhooks retention sweep (post-launch, follow-up to WAQ-002)",
+    "── Epic: Onboarding & Contact Lifecycle (~7 weeks, 16 tasks) ──",
+    "WONB-001 → Tenant onboarding state machine + checklist (MVP)",
+    "WONB-004 → Contact import wizard + grading (MVP)",
+    "WONB-005 → Extend consent_records with grade + proof_url + expires_at (MVP)",
+    "WONB-007 → Inbound-first opt-in flow (Strategy A backend) (MVP)",
+    "WONB-008 → Re-confirmation campaign type (Strategy B) (MVP)",
+    "WONB-002 → Display name + verification status sync (post-launch)",
+    "WONB-003 → Coexistence (B1) onboarding wizard (post-launch)",
+    "WONB-006 → QR opt-in PDF generator (post-launch)",
+    "WONB-009 → Stale-consent expiry job (post-launch)",
+    "WONB-010 → Block reason ingestion + insight panel (post-launch)",
+    "WONB-011 → Variant requirement enforcement (post-launch)",
+    "WONB-012 → Template category auto-classifier (post-launch)",
+    "WONB-013 → PDPO consent export endpoint (post-launch)",
+    "WONB-014 → Right-to-erasure + tombstone (post-launch)",
+    "WONB-015 → Per-tenant incident timeline (post-launch)",
+    "WONB-016 → Multi-tenant WABA health correlator (post-launch)"
   ],
   "commission_v2": {
     "name": "Sprint Commission v2: Dual Revenue Streams",
@@ -694,7 +2214,15 @@
     "merged_in": "PR #9 (sprint/commission-v2)",
     "goal": "Extend referrer commission system to support both broadcast (HK$0.3 markup) and coupon redemption (HK$0.3 per redemption) revenue streams. Split HK$0.1 per item to referrer. Monthly settlement.",
     "duration": "1.5 weeks",
-    "tasks": ["COMM-001", "COMM-002", "COMM-003", "COMM-004", "COMM-005", "COMM-006", "COMM-007"],
+    "tasks": [
+      "COMM-001",
+      "COMM-002",
+      "COMM-003",
+      "COMM-004",
+      "COMM-005",
+      "COMM-006",
+      "COMM-007"
+    ],
     "pricing_model": {
       "broadcast_to_tenant": {
         "meta_api_fee": "HK$0.57/msg (passthrough)",
@@ -711,10 +2239,37 @@
       }
     },
     "milestones": [
-      { "day": 2, "gate": "DB migration + domain models ready", "tasks": ["COMM-001", "COMM-002"] },
-      { "day": 4, "gate": "Platform fee service + redemption aggregation", "tasks": ["COMM-003", "COMM-004"] },
-      { "day": 6, "gate": "Report generation + API updated", "tasks": ["COMM-005", "COMM-006"] },
-      { "day": 8, "gate": "UI updated + E2E verified", "tasks": ["COMM-007"] }
+      {
+        "day": 2,
+        "gate": "DB migration + domain models ready",
+        "tasks": [
+          "COMM-001",
+          "COMM-002"
+        ]
+      },
+      {
+        "day": 4,
+        "gate": "Platform fee service + redemption aggregation",
+        "tasks": [
+          "COMM-003",
+          "COMM-004"
+        ]
+      },
+      {
+        "day": 6,
+        "gate": "Report generation + API updated",
+        "tasks": [
+          "COMM-005",
+          "COMM-006"
+        ]
+      },
+      {
+        "day": 8,
+        "gate": "UI updated + E2E verified",
+        "tasks": [
+          "COMM-007"
+        ]
+      }
     ],
     "exit_criteria": [
       "referrer_commissions stores broadcast + redemption separately",
@@ -734,17 +2289,78 @@
         "goal": "From isolated tenants to full Model B — groups, cross-brand recognition, consent, points portability, campaigns, analytics",
         "duration": "10 weeks",
         "tasks": [
-          "MBL-001", "MBL-002", "MBL-003", "MBL-004", "MBL-005",
-          "MBL-006", "MBL-007", "MBL-008", "MBL-009", "MBL-010",
-          "MBL-011", "MBL-012", "MBL-013", "MBL-014", "MBL-015",
-          "MBL-016", "MBL-017", "MBL-018", "MBL-019", "MBL-020"
+          "MBL-001",
+          "MBL-002",
+          "MBL-003",
+          "MBL-004",
+          "MBL-005",
+          "MBL-006",
+          "MBL-007",
+          "MBL-008",
+          "MBL-009",
+          "MBL-010",
+          "MBL-011",
+          "MBL-012",
+          "MBL-013",
+          "MBL-014",
+          "MBL-015",
+          "MBL-016",
+          "MBL-017",
+          "MBL-018",
+          "MBL-019",
+          "MBL-020"
         ],
         "milestones": [
-          { "week": 2, "gate": "DB + domain + repos ready", "tasks": ["MBL-001", "MBL-002", "MBL-003"] },
-          { "week": 4, "gate": "Group CRUD + recognition + consent working E2E", "tasks": ["MBL-004", "MBL-005", "MBL-006", "MBL-007"] },
-          { "week": 6, "gate": "Points portability + transfer + redemption + basic dashboard", "tasks": ["MBL-008", "MBL-009", "MBL-010", "MBL-011"] },
-          { "week": 8, "gate": "Group campaigns + WA templates + event fan-out", "tasks": ["MBL-012", "MBL-013", "MBL-014", "MBL-015", "MBL-016"] },
-          { "week": 10, "gate": "Full analytics, portfolio view, POS awareness, A→B migration", "tasks": ["MBL-017", "MBL-018", "MBL-019", "MBL-020"] }
+          {
+            "week": 2,
+            "gate": "DB + domain + repos ready",
+            "tasks": [
+              "MBL-001",
+              "MBL-002",
+              "MBL-003"
+            ]
+          },
+          {
+            "week": 4,
+            "gate": "Group CRUD + recognition + consent working E2E",
+            "tasks": [
+              "MBL-004",
+              "MBL-005",
+              "MBL-006",
+              "MBL-007"
+            ]
+          },
+          {
+            "week": 6,
+            "gate": "Points portability + transfer + redemption + basic dashboard",
+            "tasks": [
+              "MBL-008",
+              "MBL-009",
+              "MBL-010",
+              "MBL-011"
+            ]
+          },
+          {
+            "week": 8,
+            "gate": "Group campaigns + WA templates + event fan-out",
+            "tasks": [
+              "MBL-012",
+              "MBL-013",
+              "MBL-014",
+              "MBL-015",
+              "MBL-016"
+            ]
+          },
+          {
+            "week": 10,
+            "gate": "Full analytics, portfolio view, POS awareness, A→B migration",
+            "tasks": [
+              "MBL-017",
+              "MBL-018",
+              "MBL-019",
+              "MBL-020"
+            ]
+          }
         ],
         "exit_criteria": [
           "Owner can create a group, add restaurants, configure points portability",
@@ -762,11 +2378,37 @@
         "name": "Sprint B→C: Unified Program",
         "goal": "From cross-recognition to unified — single member identity, shared point pool, unified rewards, single WABA",
         "duration": "6 weeks",
-        "tasks": ["MBL-021", "MBL-022", "MBL-023", "MBL-024", "MBL-025"],
+        "tasks": [
+          "MBL-021",
+          "MBL-022",
+          "MBL-023",
+          "MBL-024",
+          "MBL-025"
+        ],
         "milestones": [
-          { "week": 2, "gate": "Unified member schema + creation flow working", "tasks": ["MBL-021"] },
-          { "week": 4, "gate": "B→C migration + unified rewards + location-aware events", "tasks": ["MBL-022", "MBL-023"] },
-          { "week": 6, "gate": "Single WABA + full E2E A→B→C journey tested", "tasks": ["MBL-024", "MBL-025"] }
+          {
+            "week": 2,
+            "gate": "Unified member schema + creation flow working",
+            "tasks": [
+              "MBL-021"
+            ]
+          },
+          {
+            "week": 4,
+            "gate": "B→C migration + unified rewards + location-aware events",
+            "tasks": [
+              "MBL-022",
+              "MBL-023"
+            ]
+          },
+          {
+            "week": 6,
+            "gate": "Single WABA + full E2E A→B→C journey tested",
+            "tasks": [
+              "MBL-024",
+              "MBL-025"
+            ]
+          }
         ],
         "exit_criteria": [
           "Model B group can upgrade to Model C with automated migration",
@@ -791,12 +2433,333 @@
       "Q6: Group-level admin role vs restaurant-level admin for group access? (Needed by A→B Week 1)"
     ]
   },
+  "whatsapp_quality_safeguards": {
+    "name": "Epic: WhatsApp Quality Observability & Safeguards",
+    "goal": "Bridge the gap from tenant-level guardrails to per-message observability + automated safeguards. Today we cannot detect 131049, quality drops, blocks, or audit consent. After this epic: every send tracked, every error routed, quality auto-paused, consent provable, pacing adaptive — protecting the shared WABA from any single tenant's bad campaign.",
+    "rationale_doc": "docs/playbooks/dev-shared-waba-safeguards.md",
+    "audience_playbooks": [
+      "docs/playbooks/sales-whatsapp-customer-education.md",
+      "docs/playbooks/cs-whatsapp-onboarding-journey.md",
+      "docs/playbooks/dev-shared-waba-safeguards.md"
+    ],
+    "duration": "~6 weeks (≈28 engineer-days) — split into MVP + post-launch",
+    "tasks": [
+      "WAQ-001",
+      "WAQ-002",
+      "WAQ-003",
+      "WAQ-004",
+      "WAQ-005",
+      "WAQ-006",
+      "WAQ-007",
+      "WAQ-008",
+      "WAQ-009",
+      "WAQ-010",
+      "WAQ-011",
+      "WAQ-012",
+      "WAQ-013"
+    ],
+    "mvp_scope": {
+      "purpose": "Critical infrastructure that MUST ship before the next production tenant onboarding (new marketing-heavy customer, ~hundreds of contacts, currently on hold pending this work).",
+      "tasks": [
+        "WAQ-001",
+        "WAQ-002",
+        "WAQ-003",
+        "WAQ-004",
+        "WAQ-005",
+        "WAQ-006",
+        "WAQ-007",
+        "WAQ-009",
+        "WAQ-010"
+      ],
+      "estimate": "~19 engineer-days — 4-5 weeks single eng, 2.5-3 weeks paired",
+      "gating": "No new production tenant for marketing campaigns until all 9 MVP tasks ship",
+      "milestones": [
+        {
+          "week": 1,
+          "gate": "Observability foundation — every send tracked, every status ingested, error codes routed",
+          "tasks": [
+            "WAQ-001",
+            "WAQ-002",
+            "WAQ-003"
+          ]
+        },
+        {
+          "week": 2,
+          "gate": "Consent foundation — provable opt-in, STOP propagated to records",
+          "tasks": [
+            "WAQ-004",
+            "WAQ-005"
+          ]
+        },
+        {
+          "week": 3,
+          "gate": "Quality polling + per-user cooldown live",
+          "tasks": [
+            "WAQ-006",
+            "WAQ-007"
+          ]
+        },
+        {
+          "week": 4,
+          "gate": "Auto-pause + adaptive pacing operational",
+          "tasks": [
+            "WAQ-009",
+            "WAQ-010"
+          ]
+        }
+      ]
+    },
+    "post_launch_scope": {
+      "purpose": "Operational quality-of-life. Can ship after the first production tenant is onboarded — not blocking, manual workarounds exist at single-customer scale.",
+      "tasks": [
+        "WAQ-008",
+        "WAQ-011",
+        "WAQ-012",
+        "WAQ-013",
+        "WAQ-OPS-001"
+      ],
+      "estimate": "~10 engineer-days",
+      "manual_workarounds": [
+        "WAQ-008 (24h window tracking) — informational; correct attribution can wait",
+        "WAQ-011 (template review queue) — CS reviews each campaign manually for the first customer",
+        "WAQ-012 (quality dashboard) — read tenant_quality_state directly via SQL or admin tool",
+        "WAQ-013 (Slack alerts) — manual daily check works at single-tenant scale",
+        "WAQ-OPS-001 (processed_webhooks retention) — table is fine until ~3M rows; sweep when threshold hit"
+      ]
+    },
+    "design_status": {
+      "WAQ-001_002_003": {
+        "status": "approved",
+        "approved_at": "2026-04-28",
+        "design_doc": "docs/architecture/2026-04-28-waq-p0-vertical-slice.md",
+        "addendum": "docs/architecture/2026-04-28-waq-p0-vertical-slice-addendum.md",
+        "reviewed_by": [
+          "code-review-analyzer",
+          "gemini-cli"
+        ],
+        "verdict": "approve-with-changes (changes applied in addendum)",
+        "ready_for_implementation": true,
+        "blocking_prerequisite": "Day-0 sandbox capture of Kapso outbound status webhook payload (~30 min, must complete before any code is merged) — addendum §5.2"
+      }
+    },
+    "milestones": [
+      {
+        "week": 1,
+        "gate": "MVP observability foundation — every send tracked, every status ingested, error codes routed",
+        "tasks": [
+          "WAQ-001",
+          "WAQ-002",
+          "WAQ-003"
+        ],
+        "mvp": true
+      },
+      {
+        "week": 2,
+        "gate": "MVP consent foundation — provable opt-in, STOP propagated to records",
+        "tasks": [
+          "WAQ-004",
+          "WAQ-005"
+        ],
+        "mvp": true
+      },
+      {
+        "week": 3,
+        "gate": "MVP quality polling + per-user cooldown live",
+        "tasks": [
+          "WAQ-006",
+          "WAQ-007"
+        ],
+        "mvp": true
+      },
+      {
+        "week": 4,
+        "gate": "MVP auto-pause + adaptive pacing operational — production tenant onboarding can begin",
+        "tasks": [
+          "WAQ-009",
+          "WAQ-010"
+        ],
+        "mvp": true
+      },
+      {
+        "week": 5,
+        "gate": "Post-launch — window tracking + template review queue",
+        "tasks": [
+          "WAQ-008",
+          "WAQ-011"
+        ],
+        "mvp": false
+      },
+      {
+        "week": 6,
+        "gate": "Post-launch — admin dashboard + alerts",
+        "tasks": [
+          "WAQ-012",
+          "WAQ-013"
+        ],
+        "mvp": false
+      }
+    ],
+    "exit_criteria": [
+      "Every WhatsApp send creates a whatsapp_messages row updated by inbound status webhooks",
+      "Error 131049 throttles the affected contact for 24h automatically",
+      "STOP keyword (EN + zh) flips consent_records to opted_out with timestamp",
+      "Marketing send is rejected at runtime if recipient lacks marketing consent",
+      "Quality rating polled every 30 min per active number; transitions persisted",
+      "YELLOW quality auto-throttles tenant; RED quality auto-pauses tenant",
+      "Per-user marketing cooldown enforces ≤2/24h before Meta does",
+      "24h customer service window tracked per recipient",
+      "Probe-then-scale pacing replaces fixed BATCH_SIZE=20",
+      "First-90-day tenants cannot launch marketing without human approval",
+      "Admin can see WABA + per-tenant quality at a glance",
+      "Slack alert fires on yellow/red/auto-pause/error spike"
+    ],
+    "blast_radius_protected": "Single-WABA quality cannot be silently destroyed by one tenant's bad campaign — system detects + auto-pauses before per-portfolio quality drops cascade across all tenants.",
+    "supersedes": [
+      "ANALYTICS-001"
+    ],
+    "critical_path_blockers": [
+      "Q4 RESOLVED 2026-05-04 — backfill='opted_in' for all existing active members tagged consent_grade='weak'. Re-confirm via WONB-008.",
+      "Q1 RESOLVED 2026-05-04 — per-tenant scope; each tenant has its own WABA so per-tenant == per-WABA in our architecture.",
+      "Q2 RESOLVED 2026-05-04 — webhook-driven (Meta account_quality_update). Better future performance than polling.",
+      "Q3 RESOLVED 2026-05-04 — default N=1 marketing template/recipient/24h, configurable per tenant. Matches Meta 2026 per-business cap; reduces 131049 risk."
+    ],
+    "open_questions": [
+      {
+        "id": "Q4",
+        "question": "consent_records backfill — set existing active members to status='pending' (audit-safe; blocks current campaigns until re-confirmation collected) or status='opted_in' (risky; non-breaking but no proof of consent)?",
+        "blocks": [
+          "WAQ-004"
+        ],
+        "deadline": "Before WAQ-004 starts (~Week 2)",
+        "urgency": "resolved",
+        "resolved_at": "2026-05-04",
+        "resolution": "opted_in",
+        "resolution_rationale": "User decision: current active member count is small enough that audit-defence risk is bounded. Choose non-breaking option to avoid pausing running campaigns. Backfilled records should be tagged consent_grade='weak' + source='pre-system migration' (per WONB-005) and queued for re-confirmation via WONB-008 once Green quality is established.",
+        "default_if_unanswered": "pending",
+        "rationale": "Migration writes a consent row per existing member. Wrong choice means a second migration to fix. 'pending' aligns with Meta's audit expectations and the Sales playbook's discovery requirement; 'opted_in' avoids breaking running campaigns but is indefensible if Meta audits."
+      },
+      {
+        "id": "Q1",
+        "question": "Keep all tenants on one shared WABA, or isolate marketing-heavy tenants on a second WABA?",
+        "blocks": [
+          "WAQ-006",
+          "WAQ-009",
+          "WAQ-012"
+        ],
+        "urgency": "resolved",
+        "resolved_at": "2026-05-04",
+        "resolution": "per-tenant WABA",
+        "resolution_rationale": "User decision: each tenant gets their own WABA. Per-tenant scope == per-WABA scope in our architecture. Auto-pause + quality polling + dashboard all operate at tenant level."
+      },
+      {
+        "id": "Q2",
+        "question": "Does Kapso forward Meta account/quality update webhooks, or do we always have to poll?",
+        "blocks": [
+          "WAQ-006"
+        ],
+        "urgency": "resolved",
+        "resolved_at": "2026-05-04",
+        "resolution": "webhook-driven",
+        "resolution_rationale": "User decision: webhook-driven for future performance. Subscribe to Meta account_quality_update webhook (forwarded by Kapso) and persist transitions on receive instead of polling. Mechanism update: WAQ-006 description changes from 'cron job polls Kapso health endpoint every 30 min' to 'webhook handler ingests account_quality_update events'."
+      },
+      {
+        "id": "Q3",
+        "question": "Default per-user marketing cap (1, 2, or 3 marketing templates per 24h)?",
+        "blocks": [
+          "WAQ-007"
+        ],
+        "urgency": "resolved",
+        "resolved_at": "2026-05-04",
+        "resolution": "N=1 per 24h, tenant-configurable",
+        "resolution_rationale": "Research: Meta 2026 policy enforces 1 marketing template per business per 24h (resets on user reply). Cross-brand global cap is 2/24h but invisible to us. Going higher routinely triggers 131049 → erodes quality rating. Conservative default protects new tenants; established tenants can raise via tenant_campaign_settings.per_user_marketing_cap. Sources: Meta for Developers per-user-limits doc + Turn.io / Chatarmin / Vonage best-practice writeups."
+      }
+    ]
+  },
+  "whatsapp_onboarding_and_contact_lifecycle": {
+    "name": "Epic: Onboarding & Contact Lifecycle Operations",
+    "goal": "Operationalise the staff onboarding playbook (docs/playbooks/staff-number-onboarding-and-marketing.md) — turn manual checklists, paper-list grading, and consent capture into system-enforced flows. Complements the dev-focused WAQ epic (server-side observability + safeguards) by covering the operations + UX layer: onboarding state machine, paper-list activation strategies, compliance ergonomics.",
+    "rationale_doc": "docs/playbooks/staff-number-onboarding-and-marketing.md",
+    "audience_playbooks": [
+      "docs/playbooks/staff-number-onboarding-and-marketing.md",
+      "docs/playbooks/cs-whatsapp-onboarding-journey.md",
+      "docs/playbooks/sales-whatsapp-customer-education.md"
+    ],
+    "duration": "~7 weeks (≈33 engineer-days) — split into MVP + post-launch",
+    "depends_on_epic": "whatsapp_quality_safeguards (multiple WAQ-* tasks)",
+    "tasks": [
+      "WONB-001",
+      "WONB-002",
+      "WONB-003",
+      "WONB-004",
+      "WONB-005",
+      "WONB-006",
+      "WONB-007",
+      "WONB-008",
+      "WONB-009",
+      "WONB-010",
+      "WONB-011",
+      "WONB-012",
+      "WONB-013",
+      "WONB-014",
+      "WONB-015",
+      "WONB-016"
+    ],
+    "mvp_scope": {
+      "purpose": "Minimum set that turns the most-failing manual processes (paper list import, opt-in capture, onboarding state visibility) into system-enforced flows. Required before next paper-list-heavy tenant onboarding.",
+      "tasks": [
+        "WONB-001",
+        "WONB-004",
+        "WONB-005",
+        "WONB-007",
+        "WONB-008"
+      ],
+      "estimate": "~14 engineer-days",
+      "gating": "No new paper-list-heavy tenant for marketing campaigns until MVP ships"
+    },
+    "post_launch_scope": {
+      "purpose": "Operational ergonomics + compliance polish. Ship after MVP.",
+      "tasks": [
+        "WONB-002",
+        "WONB-003",
+        "WONB-006",
+        "WONB-009",
+        "WONB-010",
+        "WONB-011",
+        "WONB-012",
+        "WONB-013",
+        "WONB-014",
+        "WONB-015",
+        "WONB-016"
+      ],
+      "estimate": "~19 engineer-days"
+    },
+    "exit_criteria": [
+      "Tenant has explicit onboarding_path + phase + checklist; phase advancement is gated on KPIs",
+      "All contact imports require consent metadata + grading; ungraded imports are rejected",
+      "Paper-list contacts are activated via QR (Strategy A) or paced re-confirmation (Strategy B), never via marketing blast",
+      "consent_records carries grade, proof_url, expires_at; expires after 24 months",
+      "Campaign builder enforces variant minimums + template category sanity warnings",
+      "PDPO consent export + right-to-erasure + tombstone available for compliance",
+      "Per-tenant incident timeline visible to CS",
+      "Multi-tenant WABA degradation pages platform team"
+    ]
+  },
   "key_insight": {
     "summary": "Only campaign/template messages cost money. All reactive flows (join, points, receipts, rewards) are free-form within 24h customer service window = FREE.",
     "implication": "Billing, quotas, and tracking should focus exclusively on campaign sends. Don't rate-limit or track free reactive messages — they drive engagement at zero cost.",
     "cost_model": {
-      "free": ["Customer sends JOIN → welcome reply", "Customer sends receipt → processing + points reply", "Customer sends POINTS → balance reply", "Customer sends REWARDS → rewards list", "Customer sends REDEEM → redemption reply", "Any free-form reply within 24h of customer message"],
-      "paid": ["Campaign broadcast (marketing template) → $0.0732/msg HK", "Any business-initiated template message outside 24h window"]
+      "free": [
+        "Customer sends JOIN → welcome reply",
+        "Customer sends receipt → processing + points reply",
+        "Customer sends POINTS → balance reply",
+        "Customer sends REWARDS → rewards list",
+        "Customer sends REDEEM → redemption reply",
+        "Any free-form reply within 24h of customer message"
+      ],
+      "paid": [
+        "Campaign broadcast (marketing template) → $0.0732/msg HK",
+        "Any business-initiated template message outside 24h window"
+      ]
     }
   },
   "meta_notes": {

@@ -36,7 +36,68 @@ describe('mapRowToSettings', () => {
       campaignPaused: false,
       pausedReason: undefined,
       pausedAt: undefined,
+      // WAQ-007: column added in migration 040 — defaults to 1 when the row
+      // pre-dates the migration (per_user_marketing_cap absent on read).
+      perUserMarketingCap: 1,
+      // WAQ-009: defaults to no-throttle / not-paused on pre-migration rows.
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
+      // WAQ-010: pacing config defaults applied when the columns are absent
+      // (pre-migration row) so existing tenants keep working.
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     })
+  })
+
+  it('reads WAQ-010 pacing columns when present', () => {
+    const row = buildRow({
+      pacing_strategy: 'naive',
+      probe_chunk_size: 50,
+      scale_chunk_size: 200,
+      active_hours_start_local: '09:00:00',
+      active_hours_end_local: '21:00:00',
+      tenant_timezone: 'Europe/London',
+    })
+    const result = mapRowToSettings(row)
+    expect(result.pacingStrategy).toBe('naive')
+    expect(result.probeChunkSize).toBe(50)
+    expect(result.scaleChunkSize).toBe(200)
+    expect(result.activeHoursStartLocal).toBe('09:00:00')
+    expect(result.activeHoursEndLocal).toBe('21:00:00')
+    expect(result.tenantTimezone).toBe('Europe/London')
+  })
+
+  it('reads auto_throttle_factor as a number when sent as a string (Postgres NUMERIC)', () => {
+    const row = buildRow({ auto_throttle_factor: '0.50' })
+    expect(mapRowToSettings(row).autoThrottleFactor).toBe(0.5)
+  })
+
+  it('reads auto_pause_active true with reason and set_at', () => {
+    const row = buildRow({
+      auto_pause_active: true,
+      auto_pause_reason: 'quality_red_auto',
+      auto_pause_set_at: '2026-05-04T12:00:00Z',
+    })
+    const result = mapRowToSettings(row)
+    expect(result.autoPauseActive).toBe(true)
+    expect(result.autoPauseReason).toBe('quality_red_auto')
+    expect(result.autoPauseSetAt).toEqual(new Date('2026-05-04T12:00:00Z'))
+  })
+
+  it('reads per_user_marketing_cap from the row when set', () => {
+    const row = buildRow({ per_user_marketing_cap: 2 })
+    expect(mapRowToSettings(row).perUserMarketingCap).toBe(2)
+  })
+
+  it('defaults to 1 when per_user_marketing_cap is absent (pre-migration row)', () => {
+    const row = buildRow()
+    expect(mapRowToSettings(row).perUserMarketingCap).toBe(1)
   })
 
   it('maps paused state with reason and date', () => {
@@ -106,5 +167,66 @@ describe('mapSettingsToUpsert', () => {
       monthly_send_limit: 500,
     })
     expect(result).not.toHaveProperty('campaign_paused')
+  })
+
+  it('writes per_user_marketing_cap to the upsert row when provided', () => {
+    const result = mapSettingsToUpsert('rest-1', { perUserMarketingCap: 2 })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      per_user_marketing_cap: 2,
+    })
+  })
+
+  it('writes WAQ-009 auto-quality flags when provided', () => {
+    const setAt = new Date('2026-05-04T12:00:00Z')
+    const result = mapSettingsToUpsert('rest-1', {
+      autoThrottleFactor: 0.5,
+      autoPauseActive: true,
+      autoPauseReason: 'quality_red_auto',
+      autoPauseSetAt: setAt,
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      auto_throttle_factor: 0.5,
+      auto_pause_active: true,
+      auto_pause_reason: 'quality_red_auto',
+      auto_pause_set_at: '2026-05-04T12:00:00.000Z',
+    })
+  })
+
+  it('writes WAQ-010 pacing columns when provided', () => {
+    const result = mapSettingsToUpsert('rest-1', {
+      pacingStrategy: 'naive',
+      probeChunkSize: 50,
+      scaleChunkSize: 250,
+      activeHoursStartLocal: '09:00:00',
+      activeHoursEndLocal: '21:00:00',
+      tenantTimezone: 'Europe/London',
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      pacing_strategy: 'naive',
+      probe_chunk_size: 50,
+      scale_chunk_size: 250,
+      active_hours_start_local: '09:00:00',
+      active_hours_end_local: '21:00:00',
+      tenant_timezone: 'Europe/London',
+    })
+  })
+
+  it('clears auto-pause flags when set to null/false', () => {
+    const result = mapSettingsToUpsert('rest-1', {
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
+    })
+    expect(result).toEqual({
+      restaurant_id: 'rest-1',
+      auto_throttle_factor: 1,
+      auto_pause_active: false,
+      auto_pause_reason: null,
+      auto_pause_set_at: null,
+    })
   })
 })

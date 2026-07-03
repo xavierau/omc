@@ -68,6 +68,12 @@ Set in the Forge UI under **Site → Environment**. Restart daemons after editin
 | `PLATFORM_ADMIN_PASSWORD` | First-time platform admin password |
 | `APP_URL` | e.g. `https://app.ohmyclient.io` |
 | `NEXT_PUBLIC_APP_URL` | Same as `APP_URL` |
+| `CRON_SECRET` | Bearer token for `/api/cron/*` endpoints |
+| `SLACK_WEBHOOK_URL_CS` | Optional — CS-channel quality alerts (WAQ-013) |
+| `SLACK_WEBHOOK_URL_PLATFORM` | Optional — platform-channel quality alerts (WAQ-013) |
+| `WAQ_TRACK_MESSAGES` | Set to `1` to enable outbound message tracking; unset = WAQ pipeline dormant |
+| `WAQ_BATCH_DELAY_MS` | Optional — delay between campaign send chunks (default 1000) |
+| `KAPSO_DEFAULT_OPTIN_TEMPLATE_ID` | Optional — platform-default UTILITY template for opt-in prompts (WONB-007) |
 
 ## Forge Daemons
 

@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { parseKapsoWebhook, verifyKapsoSignature } from '@/infrastructure/whatsapp/webhooks'
-import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import {
+  classifyWebhookKind,
+  parseKapsoWebhook,
+  verifyKapsoSignature,
+} from '@/infrastructure/whatsapp/webhooks'
 import { createWebhookLogger } from '@/infrastructure/logging/logger'
-import { findByPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
+import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { routeMessage } from './handlers'
+import { routeStatusEvent } from './status-handlers'
+import { routeQualityEvent } from './quality-handlers'
+import { resolveRestaurant } from './resolve-tenant'
+import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export async function POST(request: NextRequest) {
   const log = createWebhookLogger(crypto.randomUUID())
@@ -22,67 +30,91 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    const body = JSON.parse(rawBody)
-    const webhookHeaders = {
-      'x-idempotency-key': request.headers.get('x-idempotency-key') ?? undefined,
+    // Malformed JSON can never become parseable — a 500 would make the
+    // provider retry-storm it forever (issue #45 class). 400 = don't retry.
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      log('warn', 'webhook.bad_json', { bodySize: rawBody.length })
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 })
     }
-    const message = parseKapsoWebhook(body, webhookHeaders, log)
-    if (!message) {
-      log('info', 'webhook.ignored', { reason: 'parse returned null' })
-      return NextResponse.json({ status: 'ignored' })
-    }
-
     const restaurantId = await resolveRestaurant(body, log)
     if (!restaurantId) {
       log('warn', 'webhook.unknown_restaurant', { reason: 'no matching restaurant' })
       return NextResponse.json({ status: 'ignored' })
     }
 
-    const duplicateResponse = await tryMarkProcessed(message.messageId, log)
-    if (duplicateResponse) return duplicateResponse
+    const kind = classifyWebhookKind(body)
+    log('info', 'webhook.kind', { kind })
 
-    await routeMessage(message, restaurantId, log)
-    log('info', 'webhook.response', { status: 200 })
-    return NextResponse.json({ status: 'ok' })
+    if (kind === 'status') {
+      await routeStatusEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'quality') {
+      await routeQualityEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'inbound') {
+      return handleInbound(request, body, restaurantId, log)
+    }
+
+    log('info', 'webhook.ignored', { reason: 'unrecognised payload' })
+    return NextResponse.json({ status: 'ignored' })
   } catch (error) {
     log('error', 'webhook.error', { error: String(error) })
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
-function extractPhoneNumberId(body: unknown): string | null {
-  const payload = body as Record<string, unknown>
-
-  // Kapso format: conversation.phone_number_id
-  const conversation = payload?.conversation as Record<string, unknown> | undefined
-  if (conversation?.phone_number_id) {
-    return conversation.phone_number_id as string
+async function handleInbound(
+  request: NextRequest,
+  body: unknown,
+  restaurantId: string,
+  log: LogFn
+): Promise<NextResponse> {
+  const webhookHeaders = {
+    'x-idempotency-key': request.headers.get('x-idempotency-key') ?? undefined,
+  }
+  const message = parseKapsoWebhook(body, webhookHeaders, log)
+  if (!message) {
+    log('info', 'webhook.ignored', { reason: 'parse returned null' })
+    return NextResponse.json({ status: 'ignored' })
   }
 
-  // Meta Cloud API format: entry[].changes[].value.metadata.phone_number_id
-  const entry = (payload?.entry as Array<Record<string, unknown>>)?.[0]
-  const changes = (entry?.changes as Array<Record<string, unknown>>)?.[0]
-  const value = changes?.value as Record<string, unknown> | undefined
-  const metadata = value?.metadata as Record<string, unknown> | undefined
-  return (metadata?.phone_number_id as string) ?? null
+  // Issue #45: an unroutable sender must never reach routing OR the
+  // idempotency claim. Post-claim throws return 500 → provider retry storm,
+  // and the burned key then drops the event forever. Validating the phone
+  // here (not just non-empty) closes the whole class: '', whitespace,
+  // alphanumeric ids, and out-of-range digit counts.
+  if (!hasRoutableSender(message.from)) {
+    log('info', 'webhook.ignored', { reason: 'unroutable sender' })
+    return NextResponse.json({ status: 'ignored' })
+  }
+
+  const claim = await tryMarkProcessed(message.messageId, log)
+  if (claim === 'duplicate') return NextResponse.json({ status: 'duplicate' })
+  if (claim === 'error') {
+    return NextResponse.json({ error: 'Idempotency claim failed' }, { status: 500 })
+  }
+
+  await routeMessage(message, restaurantId, log)
+  log('info', 'webhook.response', { status: 200 })
+  return NextResponse.json({ status: 'ok' })
 }
 
-type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
-
-async function resolveRestaurant(body: unknown, log: LogFn): Promise<string | null> {
-  const phoneNumberId = extractPhoneNumberId(body)
-  if (!phoneNumberId) {
-    log('warn', 'webhook.no_phone_number_id', {})
-    return null
+function hasRoutableSender(from: string): boolean {
+  try {
+    PhoneNumber.create(from)
+    return true
+  } catch {
+    return false
   }
-
-  const restaurant = await findByPhoneNumberId(phoneNumberId)
-  if (!restaurant) {
-    log('warn', 'webhook.restaurant_not_found', { phoneNumberId })
-    return null
-  }
-
-  return restaurant.id
 }
 
 function verifySignature(request: NextRequest, rawBody: string): boolean {
@@ -103,25 +135,4 @@ function verifySignature(request: NextRequest, rawBody: string): boolean {
   }
 
   return verifyKapsoSignature(rawBody, signature, secret)
-}
-
-async function tryMarkProcessed(messageId: string, log: LogFn): Promise<NextResponse | null> {
-  const supabase = createServerSupabaseClient()
-
-  const { error } = await supabase
-    .from('processed_webhooks')
-    .insert({ idempotency_key: messageId })
-
-  if (!error) {
-    log('info', 'webhook.idempotency', { status: 'new', messageId })
-    return null
-  }
-
-  if (error.code === '23505') {
-    log('info', 'webhook.idempotency', { status: 'duplicate', messageId })
-    return NextResponse.json({ status: 'duplicate' })
-  }
-
-  log('error', 'webhook.idempotency', { status: 'error', error: error.message })
-  return null
 }

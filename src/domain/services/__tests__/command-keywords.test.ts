@@ -110,6 +110,39 @@ describe('matchCommand', () => {
     })
   })
 
+  describe('MY_CARD synonyms', () => {
+    it('matches CARD', () => {
+      expect(matchCommand('CARD')).toBe('MY_CARD')
+    })
+    it('matches card (lower, case-folded)', () => {
+      expect(matchCommand('card')).toBe('MY_CARD')
+    })
+    it('matches QR', () => {
+      expect(matchCommand('QR')).toBe('MY_CARD')
+    })
+    it('matches qr (lower, case-folded)', () => {
+      expect(matchCommand('qr')).toBe('MY_CARD')
+    })
+    it('matches 我的會員碼', () => {
+      expect(matchCommand('我的會員碼')).toBe('MY_CARD')
+    })
+    it('matches 會員碼', () => {
+      expect(matchCommand('會員碼')).toBe('MY_CARD')
+    })
+    it('matches 我嘅會員碼', () => {
+      expect(matchCommand('我嘅會員碼')).toBe('MY_CARD')
+    })
+    it('matches 我張卡', () => {
+      expect(matchCommand('我張卡')).toBe('MY_CARD')
+    })
+    it('matches 會員卡', () => {
+      expect(matchCommand('會員卡')).toBe('MY_CARD')
+    })
+    it('does NOT match a near-miss like 會員 (must be exact)', () => {
+      expect(matchCommand('會員')).toBeNull()
+    })
+  })
+
   describe('whitespace normalization', () => {
     it('trims leading/trailing whitespace', () => {
       expect(matchCommand('  POINTS  ')).toBe('POINTS')

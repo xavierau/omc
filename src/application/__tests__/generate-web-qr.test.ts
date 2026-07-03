@@ -8,7 +8,8 @@ import { generateWebQr } from '../generate-web-qr'
 describe('generateWebQr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock')
+    // `as never`: toDataURL's callback overload makes vi.mocked infer void
+    vi.mocked(QRCode.toDataURL).mockResolvedValue('data:image/png;base64,mock' as never)
     delete process.env.NEXT_PUBLIC_APP_URL
   })
 

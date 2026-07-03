@@ -12,8 +12,18 @@ import { Language } from '@/domain/value-objects/language'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { checkCampaignGuardrails } from './check-campaign-guardrails'
+import { enforceTemplateReview } from './enforce-template-review'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
+import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import {
+  DEFAULT_PER_USER_MARKETING_CAP,
+  type TenantCampaignSettings,
+} from '@/domain/services/campaign-guardrails'
+import {
+  DEFAULT_PACING_CONFIG,
+  type PacingConfig,
+} from '@/domain/value-objects/pacing-strategy'
 
 export class NoTemplateError extends Error {
   constructor(campaignId: string) {
@@ -36,12 +46,12 @@ export async function executeCampaign(
   const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
   await enforceGuardrails(restaurantId, activeMembers.length)
 
-  // Resolve the WhatsApp template (if any) up-front so we can also validate
-  // that the campaign has SOMETHING sendable BEFORE we flip status to
-  // 'sending'. A misconfigured campaign should fail fast with its status
-  // unchanged — no state churn, no revert required.
+  // Resolve template up-front so we fail fast (status unchanged) on a
+  // misconfigured campaign — no state churn, no revert required.
   const template = await resolveWhatsAppTemplate(campaign)
   assertHasAnyInlineTemplate(campaign, template)
+  // WAQ-011: untrusted tenants need an approved review row for MARKETING.
+  await enforceTemplateReview({ campaign, restaurantId, template })
 
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
@@ -65,7 +75,38 @@ async function buildSendContext(
   const restaurantDefaultLanguage = await getRestaurantDefaultLanguage(
     restaurantId
   )
-  return { campaign, phoneNumberId, template, restaurantDefaultLanguage }
+  // Capture the tracking flag ONCE per campaign run so an env-flip
+  // mid-batch doesn't orphan in-flight queued rows.
+  const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
+  // Same pattern for WAQ-007 cooldown cap + WAQ-010 pacing — read once.
+  const settings = await getSettingsForTenant(restaurantId)
+  const perUserMarketingCap =
+    settings?.perUserMarketingCap ?? DEFAULT_PER_USER_MARKETING_CAP
+  return {
+    campaign,
+    phoneNumberId,
+    template,
+    restaurantDefaultLanguage,
+    trackingEnabled,
+    perUserMarketingCap,
+    pacingConfig: pacingConfigFrom(settings),
+  }
+}
+
+// WAQ-010: snapshot pacing so a mid-batch tenant-settings update can't
+// re-chunk an in-flight run. `settings` is null only on a missing row.
+function pacingConfigFrom(
+  settings: TenantCampaignSettings | null
+): PacingConfig {
+  if (!settings) return DEFAULT_PACING_CONFIG
+  return {
+    strategy: settings.pacingStrategy,
+    probeChunkSize: settings.probeChunkSize,
+    scaleChunkSize: settings.scaleChunkSize,
+    activeHoursStartLocal: settings.activeHoursStartLocal,
+    activeHoursEndLocal: settings.activeHoursEndLocal,
+    tenantTimezone: settings.tenantTimezone,
+  }
 }
 
 function assertHasAnyInlineTemplate(

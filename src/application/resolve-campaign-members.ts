@@ -3,7 +3,7 @@ import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 
 const MEMBER_COLUMNS =
-  'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language'
+  'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, pmm_throttled_until, unreachable_at'
 
 export async function resolveTargetMembers(
   campaign: Campaign,
@@ -93,5 +93,7 @@ function mapRowToMember(row: Record<string, unknown>): Member {
     joinedAt: row.joined_at as string,
     lastVisitAt: (row.last_visit_at as string) ?? null,
     preferredLanguage: (row.preferred_language as string) ?? null,
+    pmmThrottledUntil: (row.pmm_throttled_until as string) ?? null,
+    unreachableAt: (row.unreachable_at as string) ?? null,
   }
 }

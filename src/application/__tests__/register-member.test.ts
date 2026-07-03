@@ -26,6 +26,7 @@ import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/mes
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { registerMember } from '../register-member'
 import type { Campaign } from '@/domain/entities/campaign'
+import { okResult } from '@/test-utils/send-result'
 
 const mockSingle = vi.fn()
 const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle })
@@ -76,8 +77,8 @@ describe('registerMember', () => {
     vi.clearAllMocks()
     vi.mocked(createServerSupabaseClient).mockReturnValue(mockSupabase as never)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
-    vi.mocked(sendImageMessage).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult())
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
     vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WELCOME1', id: 'c-1' })
     vi.mocked(createCampaignCoupon).mockResolvedValue({ code: 'MAPPED1', id: 'c-2' })
@@ -191,6 +192,11 @@ describe('registerMember', () => {
       couponCode: 'WELCOME1',
     })
     expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+    // Enrollment-time loyalty QR coverage (plan §4.3, subtask 13): a brand-new
+    // member always gets a scannable hex loyalty_token at insert.
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ loyalty_token: expect.stringMatching(/^[0-9a-f]{32}$/) })
+    )
     expect(createCampaignCoupon).not.toHaveBeenCalled()
     expect(incrementCampaignSent).not.toHaveBeenCalled()
     expect(emitEvent).toHaveBeenCalledWith(

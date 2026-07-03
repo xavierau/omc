@@ -39,7 +39,8 @@
     "qrSetup": "Settings",
     "logout": "Log Out",
     "rewards": "Rewards",
-    "scan": "Scan QR"
+    "scan": "Scan QR",
+    "stampCampaigns": "Stamp Cards"
   },
   "login": {
     "title": "OhMyClient",
@@ -119,7 +120,18 @@
     "deleteConfirmButton": "Yes, delete",
     "deleteCancelButton": "Cancel",
     "deleting": "Deleting…",
-    "deleteFailed": "Couldn't delete member. Please try again."
+    "deleteFailed": "Couldn't delete member. Please try again.",
+    "importContacts": "Import contacts",
+    "stampsSection": "Stamp Card",
+    "stampsCount": "{count} / {required} stamps",
+    "noActiveStampCard": "No active stamp card.",
+    "removeStamp": "Remove a stamp",
+    "removeStampConfirmTitle": "Remove one stamp?",
+    "removeStampConfirmBody": "This is an audited correction. The stamp count will go down by one.",
+    "removeStampConfirmButton": "Remove stamp",
+    "removingStamp": "Removing…",
+    "removeStampFailed": "Couldn't remove the stamp. Please try again.",
+    "removeStampAtZero": "Stamp count is already zero."
   },
   "coupons": {
     "heading": "Coupons",
@@ -346,6 +358,7 @@
     "title": "OhMyClient Admin",
     "overview": "Overview",
     "tenants": "Tenants",
+    "quality": "Quality",
     "billing": "Billing",
     "referrers": "Referrers",
     "auditLogs": "Audit Logs",
@@ -400,6 +413,7 @@
     "settingsTab": "Settings",
     "usersTab": "Users",
     "metricsTab": "Metrics",
+    "onboardingTab": "Onboarding",
     "campaignsTab": "Campaigns",
     "tenantNotFound": "Tenant not found",
     "email": "Email",
@@ -477,7 +491,56 @@
     "assignReferrer": "Referrer",
     "noReferrer": "None",
     "referrerAssigned": "Referrer assigned successfully",
-    "referrerAssignError": "Failed to assign referrer"
+    "referrerAssignError": "Failed to assign referrer",
+    "onboarding": {
+      "tabLabel": "Onboarding",
+      "path": {
+        "title": "Onboarding path",
+        "A": "Path A — Fresh HK SIM",
+        "B1": "Path B1 — Coexistence (existing WhatsApp Business app)",
+        "B2": "Path B2 — Existing Cloud API number",
+        "B3": "Path B3 — Number migrated from another BSP",
+        "locked": "Path is locked once onboarding leaves the setup phase."
+      },
+      "phase": {
+        "setup": "Setup",
+        "probe": "Probe",
+        "build": "Build",
+        "scale": "Scale",
+        "full": "Full",
+        "steady": "Steady"
+      },
+      "checklist": {
+        "title": "Pre-kickoff checklist",
+        "hk_sim_never_used": "HK SIM acquired by tenant, never used for WhatsApp before",
+        "verified_meta_business": "Tenant has a verified Meta Business account (or is willing to complete verification)",
+        "display_name_draft_approved": "Tenant's display name draft approved by us",
+        "opt_in_source_documented": "Opt-in source documented for any contact list they want to import",
+        "vertical_allowed": "Vertical is allowed (HK F&B is fine; gambling / adult / crypto / get-rich-quick is not)",
+        "first_three_campaigns_drafted": "First three campaign concepts drafted",
+        "notApplicable": "N/A"
+      },
+      "kpi": {
+        "title": "Quality gate (last 7 days)",
+        "delivery": "Delivery rate",
+        "optOut": "Opt-out rate",
+        "threshold": "Threshold",
+        "pass": "Pass",
+        "fail": "Fail",
+        "insufficient": "{count} of {min} messages observed"
+      },
+      "advance": {
+        "button": "Advance phase",
+        "success": "Phase advanced.",
+        "disabledReason": {
+          "checklist_incomplete": "Pre-kickoff checklist is not complete.",
+          "kpi_failed": "Quality KPIs do not meet the threshold.",
+          "kpi_insufficient": "Not enough recent traffic to evaluate the gate.",
+          "phase_terminal": "Already at the final phase.",
+          "no_path": "Pick an onboarding path first."
+        }
+      }
+    }
   },
   "onboarding": {
     "stepTenantInfo": "Tenant Info",
@@ -545,7 +608,73 @@
     "usesCount": "{current} / {max}",
     "usesUnlimited": "{current} (unlimited)",
     "couponAlreadyRedeemed": "This coupon has already been redeemed.",
-    "couponExpired": "This coupon has expired."
+    "couponExpired": "This coupon has expired.",
+    "modeRedeem": "Redeem",
+    "modeStamp": "Give Stamp",
+    "stampSubtitle": "Scan any customer QR to give a stamp",
+    "stampConfirmTitle": "Give stamp to this customer?",
+    "stampConfirmHint": "Confirm the customer is present, then tap to add one stamp.",
+    "stampConfirmButton": "Give Stamp",
+    "stamping": "Adding stamp...",
+    "stampAdded": "Stamp added",
+    "stampProgress": "{count} / {required}",
+    "stampToGo": "{remaining} to go",
+    "stampAlreadyToday": "Already stamped today",
+    "stampCompleted": "Reward unlocked! Card reset",
+    "stampNoCampaign": "No stamp card running right now",
+    "stampNotResolved": "Couldn't read that code",
+    "stampLookupPrompt": "Look up the customer by phone instead.",
+    "stampPhonePlaceholder": "Phone number",
+    "stampLookupButton": "Look up by phone",
+    "stampLookingUp": "Looking up...",
+    "stampMemberNotFound": "No member found with that phone.",
+    "stampAddMember": "Add as member",
+    "stampGiveAnother": "Give Another Stamp"
+  },
+  "stampCampaigns": {
+    "heading": "Stamp Cards",
+    "subtitle": "Run a digital stamp card. Customers collect stamps and unlock a reward.",
+    "create": "Create Stamp Card",
+    "couldntLoad": "Couldn't load stamp cards.",
+    "noStampCardsTitle": "No stamp cards yet",
+    "noStampCardsDescription": "Create a stamp card so customers earn a reward after a set number of visits.",
+    "activeSectionTitle": "Active",
+    "otherSectionTitle": "Drafts & Paused",
+    "statusDraft": "Draft",
+    "statusActive": "Active",
+    "statusPaused": "Paused",
+    "statusEnded": "Ended",
+    "stampsRequired": "{count} stamps to unlock",
+    "perDayCap": "Max {count}/day",
+    "honorUntil": "Honoring in-progress cards until {date}",
+    "activate": "Activate",
+    "pause": "Pause",
+    "end": "End",
+    "edit": "Edit",
+    "formName": "Name (English)",
+    "formNamePlaceholder": "Coffee Lovers Card",
+    "formNameZh": "Name (Chinese)",
+    "formNameZhPlaceholder": "咖啡儲印花卡",
+    "formStampsRequired": "Stamps required",
+    "formReward": "Reward",
+    "formRewardPlaceholder": "Choose a reward",
+    "formMaxPerDay": "Max stamps per day",
+    "formMaxPerDayHint": "Default is 1 stamp per customer per day.",
+    "noRewardsTitle": "Add a reward first",
+    "noRewardsBody": "A stamp card needs a reward to unlock. Create one in Rewards, then come back.",
+    "goToRewards": "Go to Rewards",
+    "capWarning": "Raising the daily cap increases abuse risk from forwarded QR codes. Keep it at 1 unless you trust the counter flow.",
+    "errorOneActive": "Pause the running card first.",
+    "errorNoRewards": "Add a reward before creating a stamp card.",
+    "errorRewardNotFound": "That reward is no longer available.",
+    "errorCapBlocked": "Your plan limits stamps per day. Lower the value and try again.",
+    "saveError": "Couldn't save the stamp card. Please try again.",
+    "transitionError": "Couldn't update the stamp card. Please try again.",
+    "endConfirmTitle": "End this stamp card?",
+    "endConfirmBody": "Customers with cards in progress can still complete them. Honor in-progress cards for 14 days, or end immediately.",
+    "endNow": "End now",
+    "endHonor": "Honor 14 days",
+    "ending": "Ending…"
   },
   "receiptTemplate": {
     "heading": "Receipt Layout Template",
@@ -622,5 +751,82 @@
     "created": "Created",
     "actions": "Actions",
     "edit": "Edit"
+  },
+  "importWizard": {
+    "heading": "Import contacts",
+    "steps": {
+      "meta": "Batch metadata",
+      "csv": "Upload CSV",
+      "grade": "Preview & grade",
+      "confirm": "Confirm"
+    },
+    "meta": {
+      "source": "Source — where these came from (which notebook, which POS export, which form)",
+      "dateRangeStart": "Date range — start",
+      "dateRangeEnd": "Date range — end",
+      "consentTextShown": "Consent text shown — what exactly was the customer told?",
+      "consentChannel": "Channel of consent — was it WhatsApp-specific, or generic marketing?",
+      "proof": "Storage proof — original paper / form / screenshot",
+      "errors": {
+        "source_required": "Source is required.",
+        "consent_text_too_short": "Consent text must be at least 10 characters.",
+        "date_range_invalid": "Date range end must be on or after the start date.",
+        "date_range_future": "Date range end cannot be in the future.",
+        "proof_required_for_whatsapp": "Proof file is required for WhatsApp-specific consent."
+      }
+    },
+    "channel": {
+      "whatsapp": "WhatsApp-specific",
+      "generic": "Generic marketing",
+      "service_only": "Service only (utility templates only)",
+      "none": "No consent recorded"
+    },
+    "csv": {
+      "description": "Upload a CSV with at least a phone column. Optional name and preferred_language columns are supported.",
+      "pick": "Choose CSV file",
+      "rowCount": "{count} rows ready to grade",
+      "errors": {
+        "empty": "CSV is empty or missing the phone column.",
+        "tooManyRows": "Batch limit is {max} rows."
+      }
+    },
+    "grade": {
+      "strong": "Strong",
+      "medium": "Medium",
+      "weak": "Weak",
+      "none": "None"
+    },
+    "table": {
+      "phone": "Phone",
+      "name": "Name",
+      "grade": "Grade",
+      "pageOf": "Page {page} of {total}"
+    },
+    "mergeExistingMembers": "Merge with existing members (write a new consent record instead of rejecting)",
+    "proof": {
+      "pick": "Upload proof",
+      "uploading": "Uploading…",
+      "remove": "Remove",
+      "viewExisting": "View uploaded proof",
+      "tooLarge": "File is too large.",
+      "wrongType": "Only JPG, PNG, WebP, or PDF.",
+      "hint": "JPG / PNG / WebP / PDF — up to {maxMb} MB"
+    },
+    "confirm": {
+      "aboutToCommit": "Once you confirm we will create the import batch, member rows, and consent records. This cannot be undone.",
+      "successTitle": "Import committed",
+      "successDescription": "{inserted} consent records written; {members} new members created.",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "next": "Next",
+      "back": "Back",
+      "prev": "Previous",
+      "nextPage": "Next",
+      "confirm": "Continue",
+      "commit": "Commit import",
+      "committing": "Committing…",
+      "done": "Back to members"
+    }
   }
 }

@@ -127,6 +127,36 @@ describe('resolveTargetMembers', () => {
     expect(result[0].preferredLanguage).toBe('en')
   })
 
+  it('maps WAQ-007 cooldown columns (pmm_throttled_until, unreachable_at) onto the Member shape', async () => {
+    const campaign = buildCampaign({ type: 'promo', targetAudience: 'all' })
+
+    setupChain({
+      data: [
+        {
+          ...memberRow,
+          pmm_throttled_until: '2026-12-31T00:00:00.000Z',
+          unreachable_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      error: null,
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result[0].pmmThrottledUntil).toBe('2026-12-31T00:00:00.000Z')
+    expect(result[0].unreachableAt).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  it('defaults the WAQ-007 cooldown columns to null when absent from the row', async () => {
+    const campaign = buildCampaign({ type: 'promo', targetAudience: 'all' })
+    setupChain({ data: [memberRow], error: null })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result[0].pmmThrottledUntil).toBeNull()
+    expect(result[0].unreachableAt).toBeNull()
+  })
+
   it('fetches winback members with last_visit_at before cutoff', async () => {
     const campaign = buildCampaign({
       type: 'winback',

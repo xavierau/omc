@@ -6,6 +6,28 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/supabase/repositories/receipt-repository')
 vi.mock('@/infrastructure/supabase/repositories/reward-repository')
+vi.mock('@/infrastructure/supabase/repositories/consent-record-repository', () => ({
+  insertConsentRecord: vi.fn(),
+  revokeConsent: vi.fn(),
+  upgradeToOptedIn: vi.fn(),
+  findActiveConsent: vi.fn(),
+}))
+vi.mock('@/infrastructure/supabase/repositories/conversation-window-repository', () => ({
+  upsertOpenWindow: vi.fn(),
+  isWindowOpen: vi.fn(),
+}))
+vi.mock('@/application/prompt-marketing-optin', () => ({
+  promptMarketingOptin: vi.fn(async () => ({ promptSent: false, reason: 'no_member' })),
+}))
+vi.mock('@/application/confirm-marketing-optin', () => ({
+  confirmMarketingOptin: vi.fn(async () => ({ upgraded: false })),
+}))
+vi.mock('@/application/reject-marketing-optin', () => ({
+  rejectMarketingOptin: vi.fn(async () => ({ revoked: false })),
+}))
+vi.mock('../my-card-handler', () => ({
+  handleMyCard: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -22,17 +44,26 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import {
+  insertConsentRecord,
+  revokeConsent,
+} from '@/infrastructure/supabase/repositories/consent-record-repository'
+import { upsertOpenWindow } from '@/infrastructure/supabase/repositories/conversation-window-repository'
+import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
+import { ConversationWindow } from '@/domain/entities/conversation-window'
 import { registerMember } from '@/application/register-member'
 import { redeemCouponUseCase } from '@/application/redeem-coupon'
 import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
+import { handleMyCard } from '../my-card-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
+import { okResult } from '@/test-utils/send-result'
 
 const RESTAURANT_A = 'rest-a-uuid'
 const RESTAURANT_B = 'rest-b-uuid'
@@ -55,11 +86,15 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
-    vi.mocked(sendTextMessage).mockResolvedValue(undefined)
-    vi.mocked(sendInteractiveButtons).mockResolvedValue(undefined)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
     vi.mocked(findMemberByPhone).mockResolvedValue(null)
     vi.mocked(updateReceipt).mockResolvedValue(undefined)
+    vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
+    vi.mocked(revokeConsent).mockResolvedValue(0)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -290,6 +325,222 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
   })
 
+  describe('JOIN keyword writes a consent_records row (WAQ-004)', () => {
+    it('writes a marketing/opted_in/strong consent for new members, sourced whatsapp_join_keyword', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+
+      await routeMessage(
+        makeMessage({ text: 'JOIN', messageId: 'wamid.join.1' }),
+        RESTAURANT_B
+      )
+
+      expect(insertConsentRecord).toHaveBeenCalledTimes(1)
+      const arg = vi.mocked(insertConsentRecord).mock.calls[0][0]
+      expect(arg.snapshot).toMatchObject({
+        restaurantId: RESTAURANT_B,
+        memberId: 'm-new',
+        phoneE164: PHONE,
+        category: 'marketing',
+        status: 'opted_in',
+        consentGrade: 'strong',
+        source: 'whatsapp_join_keyword',
+        sourceReference: 'wamid.join.1',
+        businessNameShown: 'Demo Cafe',
+      })
+    })
+
+    it('also writes a consent record for returning members (isNew=false) — covers Kapso retry after a partial first attempt', async () => {
+      // Why isNew=false isn't a guard against writing: the FIRST attempt may
+      // have created the member but then crashed before insertConsentRecord
+      // committed. On retry, registerMember finds the existing member and
+      // returns isNew=false; if we skip the consent write here, we'd leave
+      // the member permanently stranded with no consent record. The partial
+      // unique index on consent_records makes the write idempotent
+      // (duplicate_active is swallowed by the JOIN handler).
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: false,
+        memberId: 'm-existing',
+        pointsBalance: 100,
+      })
+
+      await routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+
+      expect(insertConsentRecord).toHaveBeenCalledTimes(1)
+    })
+
+    it('swallows duplicate_active errors silently (re-join is idempotent)', async () => {
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new ConsentImportError('duplicate_active', 'already exists')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
+    })
+
+    it('JOIN: when consent write fails for an unexpected reason, the JOIN handler throws so Kapso can retry the webhook', async () => {
+      // Previously this error was swallowed and logged, leaving the member
+      // permanently without a consent record (and no retry signal back to
+      // Kapso). Surface the error: the route turns it into 500, Kapso
+      // retries, and on retry duplicate_active is swallowed as success.
+      vi.mocked(registerMember).mockResolvedValue({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+    })
+
+    it('JOIN retry after first-attempt consent failure succeeds via duplicate_active swallow', async () => {
+      // First attempt: member created, consent write rejects (the bug).
+      // Second attempt (Kapso retry): registerMember returns isNew=false,
+      // recordJoinConsent runs again, the partial unique index trips and
+      // raises ConsentImportError('duplicate_active') — which the handler
+      // swallows. End state: a single consent row exists, no exception.
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: true,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+
+      // Retry. registerMember is now idempotent (member exists) → isNew=false.
+      // The DB-side unique index would convert a real second insert into a
+      // 23505, surfaced as ConsentImportError(duplicate_active).
+      vi.mocked(registerMember).mockResolvedValueOnce({
+        isNew: false,
+        memberId: 'm-new',
+        pointsBalance: 0,
+      })
+      vi.mocked(insertConsentRecord).mockRejectedValueOnce(
+        new ConsentImportError('duplicate_active', 'already exists')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'JOIN' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
+    })
+  })
+
+  describe('STOP keyword revokes consent_records (WAQ-005)', () => {
+    beforeEach(() => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'en',
+      })
+    })
+
+    it('EN "STOP": flips member to unsubscribed AND revokes all active consents (no category arg)', async () => {
+      vi.mocked(revokeConsent).mockResolvedValue(2)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledTimes(1)
+      // No category passed → repo revokes EVERY active category for this contact.
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('ZH "退訂": same revoke-all behaviour as STOP', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(revokeConsent).mockResolvedValue(1)
+
+      await routeMessage(makeMessage({ text: '退訂' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('ZH "停止": same revoke-all behaviour as STOP', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b',
+        pointsBalance: 0,
+        preferredLanguage: 'zh_hk',
+      })
+      vi.mocked(revokeConsent).mockResolvedValue(1)
+
+      await routeMessage(makeMessage({ text: '停止' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledWith({
+        restaurantId: RESTAURANT_B,
+        phoneE164: PHONE,
+      })
+    })
+
+    it('STOP for a member with no active consents: revokeConsent returns 0, handler still acks the unsubscribe', async () => {
+      vi.mocked(revokeConsent).mockResolvedValue(0)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).toHaveBeenCalledTimes(1)
+      // Goodbye reply still goes out.
+      expect(sendTextMessage).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('unsubscribed')
+      )
+    })
+
+    it('repeat STOP is idempotent: second call still calls revokeConsent (returns 0) and does not throw', async () => {
+      vi.mocked(revokeConsent).mockResolvedValueOnce(2).mockResolvedValueOnce(0)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      await expect(
+        routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      ).resolves.not.toThrow()
+
+      expect(revokeConsent).toHaveBeenCalledTimes(2)
+    })
+
+    it('if revokeConsent throws transient error, the handler propagates so Kapso retries', async () => {
+      vi.mocked(revokeConsent).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+
+      await expect(
+        routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+      ).rejects.toThrow(/connection lost/)
+    })
+
+    it('STOP from a non-member: revokeConsent is NOT called (no member to scope to)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue(null)
+
+      await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
+
+      expect(revokeConsent).not.toHaveBeenCalled()
+    })
+  })
+
   describe('every member lookup is tenant-scoped (guard against regressions)', () => {
     const cases: Array<{ name: string; message: KapsoMessage }> = [
       { name: 'unknown text', message: makeMessage({ text: 'hi there' }) },
@@ -352,6 +603,9 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         PHONE,
         expect.stringContaining('可用指令')
       )
+      // HELP copy nudges toward the card keyword (plan §8 step 6).
+      const zhBody = vi.mocked(sendTextMessage).mock.calls.at(-1)?.[2] ?? ''
+      expect(zhBody).toContain('會員碼')
     })
 
     it('EN "HELP" from EN member → handleHelp with EN copy', async () => {
@@ -368,6 +622,9 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
         PHONE,
         expect.stringContaining('Available commands')
       )
+      // HELP copy nudges toward the card keyword (plan §8 step 6).
+      const enBody = vi.mocked(sendTextMessage).mock.calls.at(-1)?.[2] ?? ''
+      expect(enBody).toContain('CARD')
     })
 
     it('ZH "是" with pending receipt → confirm path', async () => {
@@ -866,5 +1123,150 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       // language field on params
       expect((call[0] as unknown as { language: { code: string } }).language.code).toBe('zh_hk')
     })
+  })
+})
+
+describe('conversation window upsert on inbound (WAQ-008)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  it('upserts a window for an inbound text message', async () => {
+    await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg).toBeInstanceOf(ConversationWindow)
+    expect(arg.snapshot.restaurantId).toBe(RESTAURANT_B)
+    expect(arg.snapshot.phoneE164).toBe(PHONE)
+  })
+
+  it('upserts a window for an interactive button reply', async () => {
+    await routeMessage(
+      makeMessage({ type: 'interactive', text: 'JOIN' }),
+      RESTAURANT_B
+    )
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.restaurantId).toBe(RESTAURANT_B)
+    expect(arg.snapshot.phoneE164).toBe(PHONE)
+  })
+
+  it('upserts a window even when the inbound is a LANG command (short-circuit path)', async () => {
+    // Locks the placement invariant: bumpServiceWindow MUST run BEFORE
+    // maybeHandleLanguageCommand short-circuits the handler. Future refactor
+    // that moves the bump after the LANG short-circuit will fail here.
+    await routeMessage(makeMessage({ text: 'LANG EN' }), RESTAURANT_B)
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('upserts a window for an inbound image message', async () => {
+    await routeMessage(
+      makeMessage({ type: 'image', imageUrl: 'https://x/y.jpg' }),
+      RESTAURANT_B
+    )
+
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+  })
+
+  // Fix 1 (Gemini r1): Meta calculates the customer-service window from
+  // the user's original message timestamp. If our webhook is delayed/retried
+  // and we anchor on `new Date()`, our tracked window extends past Meta's
+  // enforced deadline → outbound replies silently get blocked. The window
+  // MUST be opened at the webhook `timestamp`, not server-receive time.
+  it('uses the inbound webhook timestamp (Meta seconds-since-epoch) instead of server time', async () => {
+    // Webhook timestamp = 2026-05-04T10:00:00Z (1777888800s since epoch).
+    const webhookSeconds = '1777888800'
+    const expectedOpenedAt = '2026-05-04T10:00:00.000Z'
+    const expectedExpiresAt = '2026-05-05T10:00:00.000Z'
+
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: webhookSeconds }),
+      RESTAURANT_B
+    )
+
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.openedAt).toBe(expectedOpenedAt)
+    expect(arg.snapshot.lastInboundAt).toBe(expectedOpenedAt)
+    expect(arg.snapshot.expiresAt).toBe(expectedExpiresAt)
+  })
+
+  it('falls back gracefully when the webhook timestamp is unparseable', async () => {
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: 'not-a-timestamp' }),
+      RESTAURANT_B
+    )
+    expect(upsertOpenWindow).toHaveBeenCalledTimes(1)
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    // Still produces a valid ISO string opened_at (server-time fallback).
+    expect(arg.snapshot.openedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
+  })
+
+  it('accepts ISO-8601 timestamps too (Kapso parser fallback path)', async () => {
+    await routeMessage(
+      makeMessage({ text: 'POINTS', timestamp: '2026-05-04T10:00:00.000Z' }),
+      RESTAURANT_B
+    )
+    const arg = vi.mocked(upsertOpenWindow).mock.calls[0][0] as ConversationWindow
+    expect(arg.snapshot.openedAt).toBe('2026-05-04T10:00:00.000Z')
+    expect(arg.snapshot.expiresAt).toBe('2026-05-05T10:00:00.000Z')
+  })
+
+  it('upsert failure is logged but does NOT break the inbound flow', async () => {
+    vi.mocked(upsertOpenWindow).mockRejectedValueOnce(new Error('db down'))
+    const log = vi.fn()
+
+    // Reaches the route handler; reply still goes out.
+    await expect(
+      routeMessage(makeMessage({ text: 'HELP' }), RESTAURANT_B, log)
+    ).resolves.not.toThrow()
+
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      'webhook.window_upsert_failed',
+      expect.objectContaining({ error: expect.stringContaining('db down') })
+    )
+    // The downstream HELP reply still ran (non-member -> JOIN invite via
+    // interactive buttons).
+    expect(sendInteractiveButtons).toHaveBeenCalled()
+  })
+})
+
+describe('MY_CARD routing (plan §8)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+    vi.mocked(handleMyCard).mockResolvedValue(undefined)
+  })
+
+  it('dispatches a CARD keyword to handleMyCard', async () => {
+    await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+    expect(handleMyCard).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      RESTAURANT_A
+    )
+  })
+
+  it('dispatches the CJK 我的會員碼 keyword to handleMyCard', async () => {
+    await routeMessage(makeMessage({ text: '我的會員碼' }), RESTAURANT_A)
+    expect(handleMyCard).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      RESTAURANT_A
+    )
   })
 })

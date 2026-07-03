@@ -22,6 +22,17 @@ describe('resumeTenantCampaigns', () => {
       dailyCampaignLimit: 1,
       maxUnsubscribeRate: 0.05,
       campaignPaused: false,
+      perUserMarketingCap: 1,
+      autoThrottleFactor: 1,
+      autoPauseActive: false,
+      autoPauseReason: null,
+      autoPauseSetAt: null,
+      pacingStrategy: 'engagement_tier',
+      probeChunkSize: 100,
+      scaleChunkSize: 100,
+      activeHoursStartLocal: '10:00:00',
+      activeHoursEndLocal: '22:00:00',
+      tenantTimezone: 'Asia/Hong_Kong',
     })
 
     await resumeTenantCampaigns('rest-1')
