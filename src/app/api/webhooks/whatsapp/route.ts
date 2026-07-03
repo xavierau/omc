@@ -7,6 +7,7 @@ import {
 } from '@/infrastructure/whatsapp/webhooks'
 import { createWebhookLogger } from '@/infrastructure/logging/logger'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
+import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { routeMessage } from './handlers'
 import { routeStatusEvent } from './status-handlers'
 import { routeQualityEvent } from './quality-handlers'
@@ -29,7 +30,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    const body = JSON.parse(rawBody)
+    // Malformed JSON can never become parseable — a 500 would make the
+    // provider retry-storm it forever (issue #45 class). 400 = don't retry.
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      log('warn', 'webhook.bad_json', { bodySize: rawBody.length })
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 })
+    }
     const restaurantId = await resolveRestaurant(body, log)
     if (!restaurantId) {
       log('warn', 'webhook.unknown_restaurant', { reason: 'no matching restaurant' })
@@ -78,6 +87,16 @@ async function handleInbound(
     return NextResponse.json({ status: 'ignored' })
   }
 
+  // Issue #45: an unroutable sender must never reach routing OR the
+  // idempotency claim. Post-claim throws return 500 → provider retry storm,
+  // and the burned key then drops the event forever. Validating the phone
+  // here (not just non-empty) closes the whole class: '', whitespace,
+  // alphanumeric ids, and out-of-range digit counts.
+  if (!hasRoutableSender(message.from)) {
+    log('info', 'webhook.ignored', { reason: 'unroutable sender' })
+    return NextResponse.json({ status: 'ignored' })
+  }
+
   const claim = await tryMarkProcessed(message.messageId, log)
   if (claim === 'duplicate') return NextResponse.json({ status: 'duplicate' })
   if (claim === 'error') {
@@ -87,6 +106,15 @@ async function handleInbound(
   await routeMessage(message, restaurantId, log)
   log('info', 'webhook.response', { status: 200 })
   return NextResponse.json({ status: 'ok' })
+}
+
+function hasRoutableSender(from: string): boolean {
+  try {
+    PhoneNumber.create(from)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function verifySignature(request: NextRequest, rawBody: string): boolean {

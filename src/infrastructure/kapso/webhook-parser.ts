@@ -82,12 +82,19 @@ function buildMessage(
   msg: Record<string, unknown>,
   fallbackId: string,
   contactName?: string
-): KapsoMessage {
+): KapsoMessage | null {
+  // Message-shaped events without a usable sender (Kapso status/echo events,
+  // or garbage like a numeric `from`) are a different category — routing them
+  // as inbound throws downstream and turns into a provider retry storm
+  // (issue #45). Ignore them. Must be a string: a non-string would already
+  // throw in this module's masked logging before any route-level guard.
+  if (typeof msg.from !== 'string' || msg.from.trim() === '') return null
+
   const textContent = msg.text as Record<string, string> | string | undefined
 
   return {
     messageId: (msg.id as string) ?? fallbackId,
-    from: (msg.from as string) ?? '',
+    from: msg.from,
     type: resolveMessageType(msg.type as string),
     text: extractText(textContent) ?? extractInteractiveText(msg.interactive),
     imageUrl: extractImageUrl(msg.image),
@@ -158,7 +165,9 @@ export function verifyKapsoSignature(
     .update(body)
     .digest('hex')
 
-  if (signature.length !== expected.length) return false
+  // Compare byte lengths, not string lengths: a multi-byte char with matching
+  // string length would make timingSafeEqual throw → an unauthenticated 500.
+  if (Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return false
 
   return crypto.timingSafeEqual(
     Buffer.from(signature),

@@ -6,6 +6,34 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "WH-004",
+          "title": "Webhook signature verification fails OPEN when secret is unset in production",
+          "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
+          "priority": "high",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
+          "id": "WH-005",
+          "title": "Webhook robustness hardening bundle",
+          "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it. (5) A transient Supabase error in resolveRestaurant returns null → 200 'ignored' → legitimate event silently dropped with no retry (repositories swallow errors to null). (6) message.id as JSON object/array with a valid sender: truthy cast passes, PostgREST insert errors non-23505 every attempt → pre-claim 500 storm (pathological payload only). (7) Confirm Kapso's 4xx retry semantics — if it retries any non-2xx like Meta, switch the malformed-JSON 400 to a 200-ignore. (8) route.ts returns handleInbound(...) without await, so its rejections bypass the webhook.error structured log.",
+          "priority": "medium",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
+          "id": "WH-002",
+          "title": "Webhook observability for ignored events + raw payload capture",
+          "description": "Follow-ups from issue #45 review: (1) ignored-event logs carry no message id ('parse returned null' / 'no sender' are anonymous) — thread an id into the parser-null path so production triage can correlate; (2) capture one raw failing payload (only parsed/masked data is logged today) to confirm sender-less events are Kapso status/echo events. Also revisit idempotency-before-processing: a transient routeMessage failure permanently drops the message because the key is claimed first.",
+          "priority": "medium",
+          "labels": ["backend", "webhook", "observability"]
+        },
+        {
+          "id": "WH-003",
+          "title": "Meta webhook parser only reads messages[0] — batch entries dropped",
+          "description": "Pre-existing, surfaced in WH-001 review: parseMetaWebhook reads entry[0].changes[0].value.messages[0] only. A Meta batch payload with multiple messages silently drops all but the first — and after WH-001, a batch whose first entry lacks a sender drops the real messages behind it. Parse all messages (return an array) or at least the first message WITH a sender.",
+          "priority": "medium",
+          "labels": ["bug", "backend", "webhook"]
+        },
+        {
           "id": "SCAN-002",
           "title": "Scanner visible square misaligned with decode region (iOS portrait)",
           "description": "Found in SCAN-001 adversarial review: the aspect-square overflow-hidden container crops the video, so on portrait camera streams the centered qrbox extends below the visible area — staff center the QR in the visible square but the decode region sits lower. Plausibly the real root cause of 'scanner does not work' complaints. Candidate fix: pass aspectRatio: 1 in the html5-qrcode config, or size/position from the container's visible box. Needs on-device verification (iOS Safari + Android Chrome).",
@@ -1211,7 +1239,15 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "WH-001",
+          "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
+          "description": "GitHub issue #45: message-shaped webhooks without `from` (Kapso status/echo events) built a message with from:'' → PhoneNumber.create('') threw → HTTP 500 → Kapso retry storm; idempotency claimed pre-processing dropped the event forever. Fix: buildMessage returns null when no sender (parser), plus a no-sender guard in handleInbound before the idempotency claim (defense in depth). Regression tests at parser and route level.",
+          "priority": "high",
+          "labels": ["bug", "backend", "webhook"]
+        }
+      ]
     },
     "done": {
       "label": "Done",

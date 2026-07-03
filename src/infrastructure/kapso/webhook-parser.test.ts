@@ -229,6 +229,89 @@ describe('parseKapsoWebhook', () => {
     })
   })
 
+  describe('message without sender (issue #45 — status/echo events)', () => {
+    it('returns null for Kapso format message with no from', () => {
+      const payload = {
+        message: {
+          id: 'wamid.nofrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for Kapso format message with empty from', () => {
+      const payload = {
+        message: {
+          from: '',
+          id: 'wamid.emptyfrom',
+          type: 'image',
+          image: { url: 'https://example.com/img.jpg', id: 'img-1' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for a non-string from (JSON number) — would throw in masked logging', () => {
+      const payload = {
+        message: {
+          from: 85266281556,
+          id: 'wamid.numfrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for a whitespace-only from', () => {
+      const payload = {
+        message: {
+          from: '   ',
+          id: 'wamid.wsfrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for Meta format message with no from', () => {
+      const payload = {
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      id: 'wamid.meta-nofrom',
+                      type: 'text',
+                      text: { body: 'Hello' },
+                      timestamp: '1774685162',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+  })
+
   describe('resolveMessageType - unknown type', () => {
     it('returns unknown for unrecognized type', () => {
       const payload = {
@@ -290,5 +373,13 @@ describe('verifyKapsoSignature', () => {
 
   it('returns false for wrong length signature', () => {
     expect(verifyKapsoSignature(body, 'tooshort', secret)).toBe(false)
+  })
+
+  it('returns false (not throw) for a same-string-length signature with multi-byte chars', () => {
+    const signature = computeSignature(body, secret)
+    // same JS string length, longer byte length — timingSafeEqual would throw
+    const multiByte = signature.slice(0, -1) + 'é'
+
+    expect(verifyKapsoSignature(body, multiByte, secret)).toBe(false)
   })
 })
