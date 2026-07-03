@@ -1,5 +1,8 @@
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
+import {
+  getCampaignById,
+  getCampaignMemberIds,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { recordOutboundSend } from '@/application/record-outbound-send'
@@ -63,9 +66,40 @@ async function runClaim(params: HandleClaimParams) {
   if (!isCampaignClaimable(campaign.status)) {
     return reply(params, getSystemReply('campaignUnavailable', lang))
   }
+  if (!(await isMemberTargeted(campaign, member.id))) {
+    log('warn', 'claim.not_targeted', { campaignId, phone: maskPhone(phone) })
+    return reply(params, getSystemReply('campaignUnavailable', lang))
+  }
+  return mintAndSendQr({ params, campaign, memberId: member.id, lang })
+}
 
-  const { coupon } = await claimCampaignCoupon({ campaign, member })
-  return sendClaimQr({ params, code: coupon.code, memberId: member.id, lang })
+// Selected-audience campaigns must only mint for members in the campaign's
+// target set — the eager broadcast is audience-scoped, so the lazy claim path
+// must be too, else a forwarded CLAIM_<id> payload leaks the discount to
+// non-targeted members. 'all'-audience campaigns target every member.
+async function isMemberTargeted(
+  campaign: Campaign,
+  memberId: string
+): Promise<boolean> {
+  if (campaign.targetAudience !== 'selected') return true
+  const targeted = await getCampaignMemberIds(campaign.id)
+  return targeted.includes(memberId)
+}
+
+interface MintAndSendArgs {
+  params: HandleClaimParams
+  campaign: Campaign
+  memberId: string
+  lang: Language
+}
+
+async function mintAndSendQr({ params, campaign, memberId, lang }: MintAndSendArgs) {
+  const { coupon } = await claimCampaignCoupon({ campaign, member: { id: memberId } })
+  const qr = await sendClaimQr({ params, code: coupon.code, memberId, lang })
+  // If the QR image couldn't be delivered, still hand the customer the code
+  // (redeemable as text) rather than leaving the tap a silent no-op.
+  if (qr.ok) return qr
+  return reply(params, getSystemReply('claimReady', lang, { code: coupon.code }))
 }
 
 function reply(params: HandleClaimParams, text: string) {

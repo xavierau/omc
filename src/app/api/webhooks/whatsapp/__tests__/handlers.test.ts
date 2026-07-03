@@ -28,6 +28,9 @@ vi.mock('@/application/reject-marketing-optin', () => ({
 vi.mock('../my-card-handler', () => ({
   handleMyCard: vi.fn(),
 }))
+vi.mock('../claim-handler', () => ({
+  handleClaim: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -61,6 +64,7 @@ import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { handleMyCard } from '../my-card-handler'
+import { handleClaim } from '../claim-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { okResult } from '@/test-utils/send-result'
@@ -95,6 +99,30 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
     vi.mocked(revokeConsent).mockResolvedValue(0)
     vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  describe('CLAIM dispatch wiring (CAMP-001)', () => {
+    it('routes a CLAIM_<id> button payload to handleClaim with the parsed campaignId', async () => {
+      await routeMessage(
+        makeMessage({ text: 'CLAIM_camp-xyz', type: 'button' }),
+        RESTAURANT_A
+      )
+
+      expect(handleClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignId: 'camp-xyz', restaurantId: RESTAURANT_A })
+      )
+    })
+
+    it('preserves campaignId case (UUIDs are not upper-cased)', async () => {
+      await routeMessage(
+        makeMessage({ text: 'CLAIM_AbC-123', type: 'button' }),
+        RESTAURANT_A
+      )
+
+      expect(handleClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignId: 'AbC-123' })
+      )
+    })
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {

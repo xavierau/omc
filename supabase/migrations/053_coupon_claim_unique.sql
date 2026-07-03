@@ -7,15 +7,22 @@
 -- 23505, which claimCampaignCoupon catches and converts into an idempotent
 -- re-fetch (same coupon, QR resent).
 --
--- Partial so it constrains ONLY campaign-broadcast promo coupons and never the
--- welcome / reward / shared coupons that legitimately share a member with a
--- null campaign_id.
+-- SCOPE — the partial predicate constrains EVERY `promo` coupon that has both
+-- campaign_id and member_id set. That is NOT only CAMP-001 broadcast coupons:
+-- the welcome flow's createCampaignCoupon (coupon-factory.ts) also mints
+-- type='promo' with the welcome campaign_id + member_id, so it is constrained
+-- too. That is a valid invariant (one promo coupon per campaign+member), but it
+-- means the deploy gate and any dedupe must consider welcome coupons as well.
+-- Only coupons with a NULL campaign_id (ad-hoc / shared) are excluded.
 --
--- DEPLOY GATE — a non-CONCURRENTLY unique index FAILS (aborting the deploy) if
--- any pre-existing (campaign_id, member_id) promo duplicates exist. Duplicates
+-- DEPLOY GATE — a non-CONCURRENTLY unique index (a) takes a lock that blocks
+-- writes to `coupons` for the build (brief on a small table; flag to devops for
+-- timing on a large one), and (b) FAILS, aborting the deploy, if any
+-- pre-existing (campaign_id, member_id) promo duplicates exist. Broadcast dupes
 -- are structurally unlikely (a campaign executes once per active→sending
--- transition, one coupon per recipient) but a campaign re-executed after a
--- partial failure could have minted some members twice. BEFORE applying, run:
+-- transition, one coupon per recipient), but a re-executed campaign or a
+-- re-onboarded member (welcome coupon) could have minted a pair twice. BEFORE
+-- applying, run:
 --
 --   SELECT campaign_id, member_id, count(*) FROM coupons
 --   WHERE type = 'promo' AND campaign_id IS NOT NULL AND member_id IS NOT NULL

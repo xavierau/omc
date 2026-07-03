@@ -9,6 +9,7 @@ vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
 }))
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   getCampaignById: vi.fn(),
+  getCampaignMemberIds: vi.fn(),
 }))
 vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
@@ -29,7 +30,10 @@ vi.mock('../resolve-language', () => ({
 
 import { handleClaim, isCampaignClaimable } from '../claim-handler'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
+import {
+  getCampaignById,
+  getCampaignMemberIds,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { claimCampaignCoupon } from '@/application/claim-campaign-coupon'
@@ -95,6 +99,7 @@ describe('handleClaim', () => {
     vi.mocked(sendImageMessage).mockResolvedValue(OK)
     vi.mocked(uploadCouponQr).mockResolvedValue('https://cdn/qr.png')
     vi.mocked(recordOutboundSend).mockImplementation((args) => args.send())
+    vi.mocked(getCampaignMemberIds).mockResolvedValue([])
   })
 
   it('non-member → nonMember reply, no mint', async () => {
@@ -184,6 +189,71 @@ describe('handleClaim', () => {
     expect(uploadCouponQr).toHaveBeenCalledWith('DUP1')
     expect(sendImageMessage).toHaveBeenCalledWith(
       'pn-1', '85261234567', 'https://cdn/qr.png', expect.stringContaining('DUP1')
+    )
+  })
+
+  it('selected-audience campaign, member NOT targeted → refusal + warn, no mint (F1)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'selected' })
+    )
+    vi.mocked(getCampaignMemberIds).mockResolvedValue(['m-OTHER'])
+    const p = params()
+
+    await handleClaim(p)
+
+    expect(p.log).toHaveBeenCalledWith(
+      'warn', 'claim.not_targeted', expect.objectContaining({ campaignId: 'camp-1' })
+    )
+    expect(claimCampaignCoupon).not.toHaveBeenCalled()
+    expect(sendImageMessage).not.toHaveBeenCalled()
+  })
+
+  it('selected-audience campaign, member IS targeted → mints', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'selected' })
+    )
+    vi.mocked(getCampaignMemberIds).mockResolvedValue(['m-OTHER', 'm-1'])
+    vi.mocked(claimCampaignCoupon).mockResolvedValue({
+      coupon: buildCoupon({ code: 'SEL1' }), alreadyClaimed: false,
+    })
+
+    await handleClaim(params())
+
+    expect(claimCampaignCoupon).toHaveBeenCalledOnce()
+    expect(sendImageMessage).toHaveBeenCalled()
+  })
+
+  it('all-audience campaign does NOT query the target set (every member eligible)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember())
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign({ targetAudience: 'all' }))
+    vi.mocked(claimCampaignCoupon).mockResolvedValue({
+      coupon: buildCoupon(), alreadyClaimed: false,
+    })
+
+    await handleClaim(params())
+
+    expect(getCampaignMemberIds).not.toHaveBeenCalled()
+    expect(claimCampaignCoupon).toHaveBeenCalledOnce()
+  })
+
+  it('QR image send fails (ok:false) → falls back to texting the code', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember())
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign())
+    vi.mocked(claimCampaignCoupon).mockResolvedValue({
+      coupon: buildCoupon({ code: 'QRFAIL1' }), alreadyClaimed: false,
+    })
+    vi.mocked(sendImageMessage).mockResolvedValue({
+      ok: false, kapsoMessageId: null, raw: null, error: { title: 'send_failed' },
+    })
+
+    await handleClaim(params())
+
+    // coupon still minted; customer gets the code as text instead of a silent no-op
+    expect(claimCampaignCoupon).toHaveBeenCalledOnce()
+    expect(sendTextMessage).toHaveBeenLastCalledWith(
+      'pn-1', '85261234567', expect.stringContaining('QRFAIL1')
     )
   })
 
