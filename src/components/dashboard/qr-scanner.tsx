@@ -34,7 +34,12 @@ export function QrScanner({ onScan, active }: QrScannerProps) {
 
     sessionRef.current = sessionRef.current.then(async () => {
       if (cancelled) return
-      const scanner = new Html5Qrcode(CONTAINER_ID)
+      let scanner: Html5Qrcode
+      try {
+        scanner = new Html5Qrcode(CONTAINER_ID)
+      } catch {
+        return // container already unmounted; nothing to start
+      }
       try {
         await scanner.start(
           { facingMode: 'environment' },
