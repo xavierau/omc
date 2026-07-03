@@ -24,7 +24,7 @@ vi.mock('../quality-handlers', () => ({
   routeQualityEvent: vi.fn(async () => undefined),
 }))
 vi.mock('@/infrastructure/supabase/idempotency', () => ({
-  tryMarkProcessed: vi.fn(async () => 'claimed'),
+  tryMarkProcessed: vi.fn(async () => 'new'),
 }))
 
 import { POST } from '../route'
