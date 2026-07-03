@@ -535,10 +535,16 @@ describe('upgradeToOptedIn (WONB-005)', () => {
     const recorder: UpgradeRecorder = { update: null, eqs: [] }
     // The filter chain itself is awaited (no trailing .select) — the real
     // builder is a thenable resolving { count, error } from the update.
+    // Like real PostgREST, count only comes back when the count preference
+    // was sent — every test therefore enforces the { count: 'exact' } wiring.
     const eqChain = {
       eq: vi.fn(),
       then: (resolve: (v: unknown) => void) =>
-        resolve({ data: null, count: result.count, error: result.error }),
+        resolve({
+          data: null,
+          count: recorder.updateOpts?.count === 'exact' ? result.count : null,
+          error: result.error,
+        }),
     } as unknown as { eq: ReturnType<typeof vi.fn> }
     eqChain.eq.mockImplementation((col: string, val: unknown) => {
       recorder.eqs.push({ col, val })

@@ -6,6 +6,13 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "CI-001",
+          "title": "CI pipeline — tsc, vitest, next build on every PR",
+          "description": "There is no CI (.github/workflows is empty; zero check-runs on PRs). Consequences observed during v1.2.0 release prep: a build-breaking type error sat on develop for weeks disguised as 'baseline tsc noise', and a prerender failure (useSearchParams without Suspense) was only caught by a manual release-readiness build. Minimum gate per PR: tsc --noEmit (now at 0 errors — keep it there), vitest run, next build. The Suspense regression class is only catchable by next build.",
+          "priority": "high",
+          "labels": ["devops", "quality"]
+        },
+        {
           "id": "WH-004",
           "title": "Webhook signature verification fails OPEN when secret is unset in production",
           "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
