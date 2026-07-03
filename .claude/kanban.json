@@ -1239,19 +1239,19 @@
     },
     "review": {
       "label": "Review",
-      "tasks": [
-        {
-          "id": "WH-001",
-          "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
-          "description": "GitHub issue #45: message-shaped webhooks without `from` (Kapso status/echo events) built a message with from:'' → PhoneNumber.create('') threw → HTTP 500 → Kapso retry storm; idempotency claimed pre-processing dropped the event forever. Fix: buildMessage returns null when no sender (parser), plus a no-sender guard in handleInbound before the idempotency claim (defense in depth). Regression tests at parser and route level.",
-          "priority": "high",
-          "labels": ["bug", "backend", "webhook"]
-        }
-      ]
+      "tasks": []
     },
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "WH-001",
+          "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
+          "description": "GitHub issue #45: message-shaped webhooks without a usable sender 500'd (PhoneNumber.create threw) → Kapso retry storm; idempotency claimed pre-processing dropped events forever. Fixed in PR #47: parser returns null for non-string/blank senders; route validates the sender phone BEFORE the idempotency claim and 200-ignores unroutable ones; malformed JSON → 400; signature compare is byte-safe. Regression tests at parser + route level (real-parser and parser-stubbed). Follow-ups: WH-002..WH-005 (WH-004 = fail-open signature, decision needed).",
+          "priority": "high",
+          "labels": ["bug", "backend", "webhook"],
+          "completed_at": "2026-07-03"
+        },
         {
           "id": "SCAN-001",
           "title": "Enlarge QR scanner area on mobile (responsive qrbox)",
