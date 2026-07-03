@@ -53,12 +53,17 @@ describe('watchViewportChange', () => {
     vi.useRealTimers()
   })
 
+  function fakeViewport(innerWidth: number) {
+    return Object.assign(new EventTarget(), { innerWidth })
+  }
+
   it('debounces rapid resize events into a single callback', () => {
     vi.useFakeTimers()
-    const target = new EventTarget()
+    const target = fakeViewport(800)
     const onChange = vi.fn()
     watchViewportChange(target, onChange)
 
+    target.innerWidth = 400
     target.dispatchEvent(new Event('resize'))
     target.dispatchEvent(new Event('resize'))
     target.dispatchEvent(new Event('resize'))
@@ -68,23 +73,51 @@ describe('watchViewportChange', () => {
     expect(onChange).toHaveBeenCalledTimes(1)
   })
 
-  it('fires on orientationchange', () => {
+  it('fires on orientationchange when the width changed', () => {
     vi.useFakeTimers()
-    const target = new EventTarget()
+    const target = fakeViewport(390)
     const onChange = vi.fn()
     watchViewportChange(target, onChange)
 
+    target.innerWidth = 844
     target.dispatchEvent(new Event('orientationchange'))
     vi.runAllTimers()
     expect(onChange).toHaveBeenCalledTimes(1)
   })
 
+  it('ignores height-only changes (iOS browser chrome collapse fires resize on scroll)', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('fires again only on further width changes', () => {
+    vi.useFakeTimers()
+    const target = fakeViewport(390)
+    const onChange = vi.fn()
+    watchViewportChange(target, onChange)
+
+    target.innerWidth = 844
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+    target.dispatchEvent(new Event('resize'))
+    vi.runAllTimers()
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
   it('stops listening and cancels pending callbacks after cleanup', () => {
     vi.useFakeTimers()
-    const target = new EventTarget()
+    const target = fakeViewport(390)
     const onChange = vi.fn()
     const cleanup = watchViewportChange(target, onChange)
 
+    target.innerWidth = 844
     target.dispatchEvent(new Event('resize'))
     cleanup()
     vi.runAllTimers()

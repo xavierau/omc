@@ -17,14 +17,24 @@ export function computeQrbox(viewfinderWidth: number, viewfinderHeight: number) 
 export const QR_CONFIG = { fps: 10, qrbox: computeQrbox }
 
 // Debounced so browser-chrome show/hide and rotation animations don't
-// restart the camera repeatedly while the viewport settles.
+// restart the camera repeatedly while the viewport settles. Width-compared
+// because iOS Safari fires resize on scroll (chrome collapse) with the width
+// unchanged — only a width change can alter the scanner's geometry (the
+// container is width-driven: mx-auto max-w-[400px] aspect-square).
 const VIEWPORT_SETTLE_MS = 500
 
-export function watchViewportChange(target: EventTarget, onChange: () => void) {
+type ViewportTarget = EventTarget & { innerWidth: number }
+
+export function watchViewportChange(target: ViewportTarget, onChange: () => void) {
   let timer: ReturnType<typeof setTimeout> | undefined
+  let lastWidth = target.innerWidth
   const handler = () => {
     clearTimeout(timer)
-    timer = setTimeout(onChange, VIEWPORT_SETTLE_MS)
+    timer = setTimeout(() => {
+      if (target.innerWidth === lastWidth) return
+      lastWidth = target.innerWidth
+      onChange()
+    }, VIEWPORT_SETTLE_MS)
   }
   target.addEventListener('resize', handler)
   target.addEventListener('orientationchange', handler)
