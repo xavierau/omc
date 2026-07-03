@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-04-27T12:00",
+  "updated_at": "2026-07-03T12:00",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -357,7 +357,15 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "SCAN-001",
+          "title": "Enlarge QR scanner area on mobile (responsive qrbox)",
+          "description": "Customer feedback: scanner too small on phones. Replace fixed 250x250 qrbox with a responsive function sized to 80% of the live viewfinder (html5-qrcode QrDimensionFunction). Applies to both redeem and give-stamp scan flows via shared QrScanner.",
+          "priority": "high",
+          "labels": ["bug", "frontend", "scan"]
+        }
+      ]
     },
     "done": {
       "label": "Done",
