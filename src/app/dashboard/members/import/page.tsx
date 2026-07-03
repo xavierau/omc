@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { StepBatchMeta } from '@/components/dashboard/import-wizard/step-batch-meta'
@@ -32,7 +32,17 @@ const EMPTY_META: BatchMetaInput = {
   proofFilePresent: false,
 }
 
+// useSearchParams() must sit under a Suspense boundary or Next fails the
+// whole build at prerender time (missing-suspense-with-csr-bailout).
 export default function ImportWizardPage() {
+  return (
+    <Suspense fallback={null}>
+      <ImportWizard />
+    </Suspense>
+  )
+}
+
+function ImportWizard() {
   const t = useTranslations('importWizard')
   const router = useRouter()
   const params = useSearchParams()
