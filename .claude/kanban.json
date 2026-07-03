@@ -6,6 +6,20 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "SCAN-002",
+          "title": "Scanner visible square misaligned with decode region (iOS portrait)",
+          "description": "Found in SCAN-001 adversarial review: the aspect-square overflow-hidden container crops the video, so on portrait camera streams the centered qrbox extends below the visible area — staff center the QR in the visible square but the decode region sits lower. Plausibly the real root cause of 'scanner does not work' complaints. Candidate fix: pass aspectRatio: 1 in the html5-qrcode config, or size/position from the container's visible box. Needs on-device verification (iOS Safari + Android Chrome).",
+          "priority": "medium",
+          "labels": ["bug", "frontend", "scan"]
+        },
+        {
+          "id": "SCAN-003",
+          "title": "Camera leak + false 'camera blocked' on rapid scan-mode toggle",
+          "description": "Found in SCAN-001 adversarial review: QrScanner cleanup only calls stop() when isScanning is true, which flips after the video 'playing' event. Toggling redeem/stamp during the camera init window skips stop(), leaks the MediaStream (LED stays on, decode loop burns CPU), and the new instance's getUserMedia can fail with NotReadableError on Android — surfacing the misleading 'camera permission denied' card. Fix direction: keep the start() promise in a ref, await it in cleanup, stop tracks unconditionally.",
+          "priority": "medium",
+          "labels": ["bug", "frontend", "scan"]
+        },
+        {
           "id": "WABA-001",
           "title": "WABA pooling strategy",
           "description": "Design architecture to distribute tenants across multiple WABAs (~50 per WABA) for quality rating isolation.",

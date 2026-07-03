@@ -1,21 +1,28 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
-import { computeQrbox } from './qr-scanner-helpers'
+import { QR_CONFIG, watchViewportChange } from './qr-scanner-helpers'
 
 interface QrScannerProps {
   onScan: (text: string) => void
   active: boolean
 }
 
-const QR_CONFIG = { fps: 10, qrbox: computeQrbox }
 const CONTAINER_ID = 'qr-reader'
 
 export function QrScanner({ onScan, active }: QrScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const onScanRef = useRef(onScan)
   useEffect(() => { onScanRef.current = onScan })
+
+  // html5-qrcode sizes the video and qrbox once at start; bump the tick on
+  // rotation/resize so the effect below restarts the scanner with fresh geometry.
+  const [viewportTick, setViewportTick] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    return watchViewportChange(window, () => setViewportTick((t) => t + 1))
+  }, [active])
 
   const stopScanner = useCallback(async () => {
     try {
@@ -48,7 +55,7 @@ export function QrScanner({ onScan, active }: QrScannerProps) {
       .catch(() => onScanRef.current(''))
 
     return () => { stopScanner() }
-  }, [active, stopScanner])
+  }, [active, viewportTick, stopScanner])
 
   return (
     <div
