@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
 import { MemberTable } from '@/components/dashboard/member-table'
+import { MemberTagFilter } from '@/components/dashboard/member-tag-filter'
 import { MemberDetailPanel } from '@/components/dashboard/member-detail-panel'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ export default function MembersPage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [tagId, setTagId] = useState<string | null>(null)
 
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -36,7 +38,13 @@ export default function MembersPage() {
     page,
     sortBy,
     sortOrder,
+    tagId: tagId ?? undefined,
   })
+
+  const handleTagFilter = useCallback((id: string | null) => {
+    setTagId(id)
+    setPage(1)
+  }, [])
 
   const handleSort = (column: string) => {
     if (column === sortBy) {
@@ -72,10 +80,12 @@ export default function MembersPage() {
           {t('importContacts')}
         </Link>
       </div>
+      <MemberTagFilter tagId={tagId} onChange={handleTagFilter} />
       <MembersContent
         data={data}
         isLoading={isLoading}
         search={search}
+        tagFiltered={!!tagId}
         onSearchChange={handleSearchChange}
         sortBy={sortBy}
         sortOrder={sortOrder}
@@ -89,6 +99,7 @@ export default function MembersPage() {
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         onDeleted={refetch}
+        onTagsChanged={refetch}
       />
     </div>
   )
@@ -108,6 +119,7 @@ interface MembersContentProps {
   data: ReturnType<typeof useMembers>['data']
   isLoading: boolean
   search: string
+  tagFiltered: boolean
   onSearchChange: (value: string) => void
   sortBy: string
   sortOrder: 'asc' | 'desc'
@@ -118,14 +130,14 @@ interface MembersContentProps {
 }
 
 function MembersContent({
-  data, isLoading, search, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange,
+  data, isLoading, search, tagFiltered, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange,
 }: MembersContentProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
 
   if (isLoading) return <LoadingSkeleton />
 
-  if (data && data.members.length === 0 && !search) {
+  if (data && data.members.length === 0 && !search && !tagFiltered) {
     return (
       <EmptyState
         title={t('noMembersTitle')}

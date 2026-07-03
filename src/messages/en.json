@@ -131,7 +131,12 @@
     "removeStampConfirmButton": "Remove stamp",
     "removingStamp": "Removing…",
     "removeStampFailed": "Couldn't remove the stamp. Please try again.",
-    "removeStampAtZero": "Stamp count is already zero."
+    "removeStampAtZero": "Stamp count is already zero.",
+    "tagsColumn": "Tags",
+    "filterByTag": "Filter by tag",
+    "allTags": "All tags",
+    "addTag": "Add tag",
+    "noTags": "No tags"
   },
   "coupons": {
     "heading": "Coupons",
@@ -239,7 +244,21 @@
     "imageRemove": "Remove",
     "imageUploadError": "Upload failed",
     "imageTooLarge": "File too large (max 5MB)",
-    "imageUploading": "Uploading…"
+    "imageUploading": "Uploading…",
+    "targetByTag": "Target by tag",
+    "selectTag": "Select a tag..."
+  },
+  "tags": {
+    "title": "Tags",
+    "manage": "Manage tags",
+    "create": "Create tag",
+    "name": "Tag name",
+    "rename": "Rename",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this tag? It will be removed from all members and campaigns.",
+    "empty": "No tags yet",
+    "duplicateName": "A tag with this name already exists.",
+    "placeholder": "Search or add a tag..."
   },
   "events": {
     "join": "joined",
@@ -767,6 +786,8 @@
       "consentTextShown": "Consent text shown — what exactly was the customer told?",
       "consentChannel": "Channel of consent — was it WhatsApp-specific, or generic marketing?",
       "proof": "Storage proof — original paper / form / screenshot",
+      "tags": "Tags — applied to every contact in this batch",
+      "tagsHint": "Selected tags are added to each member created or merged.",
       "errors": {
         "source_required": "Source is required.",
         "consent_text_too_short": "Consent text must be at least 10 characters.",

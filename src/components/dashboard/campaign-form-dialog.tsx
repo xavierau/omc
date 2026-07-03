@@ -55,6 +55,7 @@ function campaignToFormState(c: Campaign): CampaignFormState {
     scheduledAt: c.scheduledAt ? c.scheduledAt.slice(0, 16) : '',
     targetAudience: c.targetAudience ?? 'all',
     memberIds: [],
+    tagIds: [],
   }
 }
 
@@ -105,6 +106,12 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
         .then((d) => d.memberIds && setForm((p) => ({ ...p, memberIds: d.memberIds })))
         .catch(() => {})
     }
+    if (campaign.targetAudience === 'tag') {
+      fetch(`/api/dashboard/campaigns/${campaign.id}`)
+        .then((res) => res.json())
+        .then((d) => setForm((p) => ({ ...p, tagIds: d.tagIds ?? [] })))
+        .catch(() => {})
+    }
   }, [campaign])
 
   const handleClose = () => { setForm(initialCampaignForm); onOpenChange(false) }
@@ -144,6 +151,7 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
             draftNonce={draftNonce}
             onChange={handleChange}
             onMemberIdsChange={(ids) => setForm((p) => ({ ...p, memberIds: ids }))}
+            onTagIdsChange={(ids) => setForm((p) => ({ ...p, tagIds: ids }))}
             onTemplateChange={handleTemplateChange}
           />
           {error && <p className="text-sm text-destructive mt-2">{error}</p>}

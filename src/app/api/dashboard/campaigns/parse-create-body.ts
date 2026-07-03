@@ -1,6 +1,12 @@
 import { MAX_TEMPLATE_LENGTH } from '@/domain/onboarding/onboarding-settings'
 import { CampaignBodyError } from './parse-create-body-errors'
 import { parseImageUrl } from './parse-image-url'
+import {
+  parseTargetAudience,
+  validateMemberIds,
+  validateTagIds,
+  type TargetAudience,
+} from './parse-create-body-audience'
 
 export { CampaignBodyError } from './parse-create-body-errors'
 export { parseImageUrl } from './parse-image-url'
@@ -22,8 +28,9 @@ export interface ParsedCampaignBody {
   scheduledAt: string | null
   schedule: Record<string, unknown> | null
   status: (typeof ALLOWED_STATUSES)[number]
-  targetAudience: 'all' | 'selected'
+  targetAudience: TargetAudience
   memberIds: string[]
+  tagIds: string[]
 }
 
 export function parseCreateBody(
@@ -51,9 +58,9 @@ export function parseCreateBody(
   }
   validateCouponConfig(body.couponConfig)
   validateStatus(body.status)
-  const targetAudience: 'all' | 'selected' =
-    body.targetAudience === 'selected' ? 'selected' : 'all'
+  const targetAudience = parseTargetAudience(body.targetAudience)
   const memberIds = validateMemberIds(body.memberIds, targetAudience)
+  const tagIds = validateTagIds(body.tagIds, targetAudience)
   const type = body.type as (typeof ALLOWED_TYPES)[number]
   // Welcome-only image scope guard (non-welcome campaigns never persist images).
   const allowImages = type === 'welcome'
@@ -72,6 +79,7 @@ export function parseCreateBody(
     status: (body.status as (typeof ALLOWED_STATUSES)[number]) ?? 'draft',
     targetAudience,
     memberIds,
+    tagIds,
   }
 }
 
@@ -130,20 +138,4 @@ function validateStatus(status: unknown): void {
   if (!ALLOWED_STATUSES.includes(status as (typeof ALLOWED_STATUSES)[number])) {
     throw new CampaignBodyError(400, `status must be one of: ${ALLOWED_STATUSES.join(', ')}`)
   }
-}
-
-function validateMemberIds(
-  value: unknown,
-  targetAudience: 'all' | 'selected'
-): string[] {
-  if (targetAudience !== 'selected') return []
-  const ok =
-    Array.isArray(value) && value.length > 0 && value.every((id) => typeof id === 'string')
-  if (!ok) {
-    throw new CampaignBodyError(
-      400,
-      'memberIds must be a non-empty array of strings when targeting selected members'
-    )
-  }
-  return value as string[]
 }

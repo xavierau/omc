@@ -131,7 +131,12 @@
     "removeStampConfirmButton": "移除印花",
     "removingStamp": "移除中…",
     "removeStampFailed": "無法移除印花，請再試一次。",
-    "removeStampAtZero": "印花數目已經是零。"
+    "removeStampAtZero": "印花數目已經是零。",
+    "tagsColumn": "標籤",
+    "filterByTag": "按標籤篩選",
+    "allTags": "所有標籤",
+    "addTag": "新增標籤",
+    "noTags": "沒有標籤"
   },
   "coupons": {
     "heading": "優惠券",
@@ -239,7 +244,21 @@
     "imageRemove": "移除",
     "imageUploadError": "上傳失敗",
     "imageTooLarge": "檔案過大（最多 5MB）",
-    "imageUploading": "上傳中…"
+    "imageUploading": "上傳中…",
+    "targetByTag": "按標籤指定對象",
+    "selectTag": "選擇標籤…"
+  },
+  "tags": {
+    "title": "標籤",
+    "manage": "管理標籤",
+    "create": "建立標籤",
+    "name": "標籤名稱",
+    "rename": "重新命名",
+    "delete": "刪除",
+    "deleteConfirm": "確定刪除此標籤？它將從所有會員及行銷活動中移除。",
+    "empty": "尚未有標籤",
+    "duplicateName": "已有相同名稱的標籤。",
+    "placeholder": "搜尋或新增標籤…"
   },
   "events": {
     "join": "已加入",
@@ -767,6 +786,8 @@
       "consentTextShown": "顧客當時看到的同意聲明文字 — 一字不改",
       "consentChannel": "同意渠道 — 是 WhatsApp 專用，還是一般行銷？",
       "proof": "存檔證明 — 原始紙本／表格／截圖",
+      "tags": "標籤 — 套用至此批次的所有聯絡人",
+      "tagsHint": "所選標籤會加到每位新建立或合併的會員。",
       "errors": {
         "source_required": "請填寫來源。",
         "consent_text_too_short": "同意聲明文字至少需要 10 個字符。",

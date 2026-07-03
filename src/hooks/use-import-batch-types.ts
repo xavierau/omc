@@ -35,6 +35,7 @@ export interface ImportContactsBatchInput {
   metadata: ImportBatchMetadata
   rows: ImportContactsBatchRow[]
   mergeExistingMembers: boolean
+  tags?: string[]
 }
 
 export type ImportRejectReason =

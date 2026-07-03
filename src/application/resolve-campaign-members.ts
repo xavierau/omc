@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
 
 const MEMBER_COLUMNS =
   'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, pmm_throttled_until, unreachable_at'
@@ -11,6 +12,9 @@ export async function resolveTargetMembers(
 ): Promise<Member[]> {
   if (campaign.targetAudience === 'selected') {
     return fetchSelectedMembers(campaign.id, restaurantId)
+  }
+  if (campaign.targetAudience === 'tag') {
+    return fetchTagMembers(campaign, restaurantId)
   }
   if (campaign.type === 'winback') {
     return fetchWinbackMembers(campaign, restaurantId)
@@ -80,6 +84,41 @@ async function fetchSelectedMembers(
     .in('id', memberIds)
   if (mErr) throw new Error(`fetchSelectedMembers: ${mErr.message}`)
   return (members ?? []).map(mapRowToMember)
+}
+
+// Target-by-tag resolves to whoever carries the linked tag(s) at SEND time
+// (dynamic membership). Mirrors the two-step fetchSelectedMembers shape and
+// stays tenant-scoped via restaurant_id on member_tags.
+async function fetchTagMembers(
+  campaign: Campaign,
+  restaurantId: string
+): Promise<Member[]> {
+  const tagIds = await getCampaignTagIds(campaign.id)
+  if (tagIds.length === 0) return []
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('member_tags')
+    .select('member_id')
+    .eq('restaurant_id', restaurantId)
+    .in('tag_id', tagIds)
+  if (error) throw new Error(`fetchTagMembers: ${error.message}`)
+  const memberIds = [...new Set((data ?? []).map((r) => r.member_id as string))]
+  if (memberIds.length === 0) return []
+  return fetchMembersByIds(memberIds, restaurantId)
+}
+
+async function fetchMembersByIds(
+  memberIds: string[],
+  restaurantId: string
+): Promise<Member[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('members')
+    .select(MEMBER_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .in('id', memberIds)
+  if (error) throw new Error(`fetchMembersByIds: ${error.message}`)
+  return (data ?? []).map(mapRowToMember)
 }
 
 function mapRowToMember(row: Record<string, unknown>): Member {

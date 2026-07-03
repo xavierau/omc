@@ -31,7 +31,7 @@ export interface ImportOneRowInput {
 }
 
 export type ImportRowOutcome =
-  | { ok: true; gradeBucket: ConsentGrade; created: boolean }
+  | { ok: true; gradeBucket: ConsentGrade; created: boolean; memberId: string | null }
   | { ok: false; reject: { phoneE164: string; reason: ImportRowRejectReason; message?: string } }
 
 export async function importOneContactRow(
@@ -80,7 +80,7 @@ async function persistConsentAndEvent(
       source: input.meta.source,
     },
   })
-  return { ok: true, gradeBucket: input.grade, created }
+  return { ok: true, gradeBucket: input.grade, created, memberId }
 }
 
 function rejectFromConsentError(phoneE164: string, err: unknown): ImportRowOutcome {

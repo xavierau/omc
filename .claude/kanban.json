@@ -1276,6 +1276,32 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
+        },
+        {
+          "id": "TAG-001",
+          "title": "Member tagging — tenant-scoped tags, assign/remove on members, import-batch tagging, campaign target-by-tag",
+          "description": "Add reusable member tags (contact==member). (1) Tag model: tenant-scoped tags + member_tags join, RLS matching existing tables. (2) Tag CRUD + assign/remove on members via dashboard API; tag chips on member detail; tag column+filter in members list. (3) Import wizard: apply one or more tags to all members in a batch (new + merged), idempotent. (4) Campaigns can target a tag — audience resolves to current members carrying the tag at send time. Authorization: re-check tenant ownership of member AND tag on every assignment (service-role client bypasses RLS).",
+          "priority": "high",
+          "labels": [
+            "members",
+            "tags",
+            "campaigns",
+            "import",
+            "fullstack",
+            "database"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "acceptance_criteria": [
+            "Tenant can create/list/rename/delete tags; tag names unique per tenant (case-insensitive).",
+            "Tenant can assign/remove tags on a member; assigning a tag from another tenant is rejected.",
+            "Members list can filter by tag; member detail shows tag chips with add/remove.",
+            "Import wizard applies selected tags to every member in the batch (new and merged), without duplicate member_tags rows.",
+            "A campaign can target a tag; recipients resolve to members currently carrying that tag at send time.",
+            "All tag reads/writes are tenant-isolated (RLS + app-layer ownership checks)."
+          ],
+          "workspace_artifacts": [
+            "plans/2026-07-03-tag-001-member-tagging"
+          ]
         }
       ]
     },

@@ -54,6 +54,8 @@ export interface ImportBatchWireBody {
     preferredLanguage?: 'en' | 'zh_hk' | null
   }>
   mergeExistingMembers?: boolean
+  // TAG-001: tags selected in the wizard, applied to every member in the batch.
+  tags?: string[]
 }
 
 export function parseDateOrThrow(value: string, field: string): Date {

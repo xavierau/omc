@@ -25,6 +25,7 @@ interface CampaignFormFieldsProps {
   draftNonce: string
   onChange: OnChange
   onMemberIdsChange: (ids: string[]) => void
+  onTagIdsChange: (ids: string[]) => void
   onTemplateChange: (next: { en: string; zhHk: string }) => void
 }
 
@@ -34,6 +35,7 @@ export function CampaignFormFields({
   draftNonce,
   onChange,
   onMemberIdsChange,
+  onTagIdsChange,
   onTemplateChange,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
@@ -53,7 +55,12 @@ export function CampaignFormFields({
           <option value="promo">{t('formPromo')}</option>
         </select>
       </Field>
-      <CampaignTargetAudienceFields form={form} onChange={onChange} onMemberIdsChange={onMemberIdsChange} />
+      <CampaignTargetAudienceFields
+        form={form}
+        onChange={onChange}
+        onMemberIdsChange={onMemberIdsChange}
+        onTagIdsChange={onTagIdsChange}
+      />
       <CampaignMessageTypeField form={form} onChange={onChange} onTemplateChange={onTemplateChange} />
       {form.type === 'welcome' && (
         <WelcomeImageFields

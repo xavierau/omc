@@ -65,6 +65,46 @@ function setupChain(result: { data: unknown[]; error: null }) {
   mockIn.mockReturnValue(thenable)
 }
 
+/**
+ * Wire the three sequential `from()` calls of the tag branch:
+ *   1. campaign_tags → select('tag_id').eq('campaign_id')       → tagRows
+ *   2. member_tags   → select('member_id').eq('restaurant_id').in('tag_id') → memberTagRows
+ *   3. members       → select(cols).eq('restaurant_id').in('id')           → memberRows
+ * Extra queued mocks are harmless when the branch returns early.
+ */
+function setupTagChain(opts: {
+  tagRows: { tag_id: string }[]
+  memberTagRows?: { member_id: string }[]
+  memberRows?: Record<string, unknown>[]
+}) {
+  // clearAllMocks (beforeEach) does NOT flush the mockReturnValueOnce queue, so
+  // reset here to drop any unconsumed queued mocks from an early-returning test.
+  mockFrom.mockReset()
+  const campaignTagsEq = vi
+    .fn()
+    .mockResolvedValue({ data: opts.tagRows, error: null })
+  const memberTagsIn = vi
+    .fn()
+    .mockResolvedValue({ data: opts.memberTagRows ?? [], error: null })
+  const memberTagsEq = vi.fn().mockReturnValue({ in: memberTagsIn })
+  const membersIn = vi
+    .fn()
+    .mockResolvedValue({ data: opts.memberRows ?? [], error: null })
+  const membersEq = vi.fn().mockReturnValue({ in: membersIn })
+
+  mockFrom.mockReturnValueOnce({
+    select: vi.fn().mockReturnValue({ eq: campaignTagsEq }),
+  })
+  mockFrom.mockReturnValueOnce({
+    select: vi.fn().mockReturnValue({ eq: memberTagsEq }),
+  })
+  mockFrom.mockReturnValueOnce({
+    select: vi.fn().mockReturnValue({ eq: membersEq }),
+  })
+
+  return { campaignTagsEq, memberTagsEq, memberTagsIn, membersEq, membersIn }
+}
+
 describe('resolveTargetMembers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -184,5 +224,91 @@ describe('resolveTargetMembers', () => {
 
     expect(result).toEqual([])
     expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('resolves members carrying a linked tag (tag branch)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    setupTagChain({
+      tagRows: [{ tag_id: 't-1' }],
+      memberTagRows: [{ member_id: 'm-1' }],
+      memberRows: [memberRow],
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('m-1')
+    expect(mockFrom).toHaveBeenCalledWith('campaign_tags')
+    expect(mockFrom).toHaveBeenCalledWith('member_tags')
+    expect(mockFrom).toHaveBeenCalledWith('members')
+  })
+
+  it('includes a member tagged AFTER campaign creation (dynamic membership)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    // The tag link existed at create time; m-2 was tagged later. Because the
+    // branch reads member_tags live at send time, m-2 is resolved.
+    setupTagChain({
+      tagRows: [{ tag_id: 't-1' }],
+      memberTagRows: [{ member_id: 'm-2' }],
+      memberRows: [{ ...memberRow, id: 'm-2', name: 'Newbie' }],
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('m-2')
+  })
+
+  it('resolves to [] when the linked tag has 0 members (no error, no members query)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    setupTagChain({ tagRows: [{ tag_id: 't-1' }], memberTagRows: [] })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toEqual([])
+    expect(mockFrom).toHaveBeenCalledWith('member_tags')
+    expect(mockFrom).not.toHaveBeenCalledWith('members')
+  })
+
+  it('resolves to [] when the campaign has no linked tags (no member_tags query)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    setupTagChain({ tagRows: [] })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toEqual([])
+    expect(mockFrom).toHaveBeenCalledWith('campaign_tags')
+    expect(mockFrom).not.toHaveBeenCalledWith('member_tags')
+  })
+
+  it('does not resolve a cross-tenant tag: member_tags is scoped by restaurant_id', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    // member_tags scoped to r-1 returns nothing — the tag's members live in
+    // another tenant, so nothing is resolved.
+    const mocks = setupTagChain({
+      tagRows: [{ tag_id: 't-1' }],
+      memberTagRows: [],
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toEqual([])
+    expect(mocks.memberTagsEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
+  })
+
+  it('dedups a member that carries two linked tags', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    const mocks = setupTagChain({
+      tagRows: [{ tag_id: 't-1' }, { tag_id: 't-2' }],
+      memberTagRows: [{ member_id: 'm-1' }, { member_id: 'm-1' }],
+      memberRows: [memberRow],
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    // Deduped to a single id before the members lookup.
+    expect(mocks.membersIn).toHaveBeenCalledWith('id', ['m-1'])
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('m-1')
   })
 })

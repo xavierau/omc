@@ -18,6 +18,19 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/infrastructure/supabase/repositories/campaign-tags-repository', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/campaign-tags-repository')
+  >('@/infrastructure/supabase/repositories/campaign-tags-repository')
+  return { ...actual, getCampaignTagIds: vi.fn() }
+})
+vi.mock('@/application/set-campaign-tags', async () => {
+  // Keep the real CrossTenantTagError so `instanceof` checks in route.ts match.
+  const actual = await vi.importActual<
+    typeof import('@/application/set-campaign-tags')
+  >('@/application/set-campaign-tags')
+  return { ...actual, setCampaignTags: vi.fn() }
+})
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -31,7 +44,9 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { PATCH } from '../route'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { setCampaignTags, CrossTenantTagError } from '@/application/set-campaign-tags'
+import { GET, PATCH } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
 const RESTAURANT_ID = 'rest-1'
@@ -573,5 +588,86 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
         imageUrlZhHk: null,
       })
     )
+  })
+})
+
+// TAG-001 regression: the tag vertical slice must load and persist on EDIT,
+// mirroring how 'selected'/memberIds already works.
+describe('GET /api/dashboard/campaigns/[id] — tag audience', () => {
+  beforeEach(() => {
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(getCampaignTagIds).mockReset()
+  })
+
+  it('returns tagIds for a tag-targeted campaign', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue(['tag-1', 'tag-2'])
+
+    const r = await GET(new NextRequest('http://localhost'), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    const body = await r.json()
+    expect(body.tagIds).toEqual(['tag-1', 'tag-2'])
+    expect(getCampaignTagIds).toHaveBeenCalledWith(CAMPAIGN_ID)
+  })
+})
+
+describe('PATCH /api/dashboard/campaigns/[id] — tag persistence', () => {
+  beforeEach(() => {
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(updateCampaign).mockReset()
+    vi.mocked(setCampaignTags).mockReset()
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(setCampaignTags).mockResolvedValue(undefined)
+  })
+
+  it('persists tagIds via setCampaignTags(id, tagIds, restaurantId)', async () => {
+    const r = await PATCH(
+      patchRequest({ targetAudience: 'tag', tagIds: ['tag-1'] }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(r.status).toBe(200)
+    expect(setCampaignTags).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      ['tag-1'],
+      RESTAURANT_ID
+    )
+  })
+
+  it('returns 400 when a cross-tenant tag is rejected', async () => {
+    vi.mocked(setCampaignTags).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    const r = await PATCH(
+      patchRequest({ targetAudience: 'tag', tagIds: ['other-tenant-tag'] }),
+      { params: Promise.resolve({ id: CAMPAIGN_ID }) }
+    )
+
+    expect(r.status).toBe(400)
   })
 })

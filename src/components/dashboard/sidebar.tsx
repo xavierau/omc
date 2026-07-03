@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Users, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
@@ -51,10 +51,12 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeMobile = () => setMobileOpen(false)
   const t = useTranslations('nav')
+  const tt = useTranslations('tags')
 
   const navItems = [
     { label: t('overview'), href: '/dashboard', icon: LayoutDashboard },
     { label: t('members'), href: '/dashboard/members', icon: Users },
+    { label: tt('title'), href: '/dashboard/tags', icon: Tag },
     { label: t('liveFeed'), href: '/dashboard/feed', icon: Radio },
     { label: t('campaigns'), href: '/dashboard/campaigns', icon: Megaphone },
     { label: t('stampCampaigns'), href: '/dashboard/campaigns/stamps', icon: Stamp },

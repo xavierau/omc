@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       },
       rows: body.rows,
       mergeExistingMembers: body.mergeExistingMembers ?? false,
+      tagIds: body.tags ?? [],
     })
     return NextResponse.json(result, { status: 200 })
   } catch (error) {

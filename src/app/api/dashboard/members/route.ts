@@ -38,6 +38,7 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
   const search = searchParams.get('search') ?? undefined
   const sortBy = (searchParams.get('sortBy') ?? 'last_visit_at') as 'name' | 'points_balance' | 'last_visit_at' | 'joined_at'
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
+  const tagId = searchParams.get('tagId') ?? undefined
 
   const result = await getMembers({
     restaurantId,
@@ -46,6 +47,7 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
     search,
     sortBy,
     sortOrder,
+    tagId,
   })
 
   return NextResponse.json({

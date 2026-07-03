@@ -4,7 +4,7 @@
 // aborts the whole batch — surviving rows still commit and the orchestrator
 // patches the batch counts with what it actually inserted.
 
-import { importOneContactRow } from './import-contacts-batch-row'
+import { importOneContactRow, type ImportRowOutcome } from './import-contacts-batch-row'
 import type { ImportContactsBatchInput, ImportRowReject } from './import-contacts-batch'
 import type { PreflightAcceptedRow } from './import-contacts-batch-validation'
 import type { ConsentGrade } from '@/domain/value-objects/consent-status'
@@ -21,11 +21,16 @@ export interface FanOutResult {
   membersCreated: number
   gradeBuckets: ConsentGrade[]
   rejected: ImportRowReject[]
+  // TAG-001: resolved member id per committed row (created AND merged); null
+  // for consent-only rows. Nulls are filtered by the orchestrator before tagging.
+  memberIds: Array<string | null>
 }
 
 export async function fanOutRows(args: FanOutArgs): Promise<FanOutResult> {
   const meta = buildRowMeta(args.input, args.batchId)
-  const out: FanOutResult = { inserted: 0, membersCreated: 0, gradeBuckets: [], rejected: [] }
+  const out: FanOutResult = {
+    inserted: 0, membersCreated: 0, gradeBuckets: [], rejected: [], memberIds: [],
+  }
   for (const row of args.rows) {
     await runOneRow({ input: args.input, grade: args.grade, meta, row, out })
   }
@@ -61,11 +66,8 @@ async function runOneRow(args: RunOneRowArgs): Promise<void> {
       meta,
       row: { phoneE164: row.phoneE164, name: row.name, preferredLanguage: row.preferredLanguage },
     })
-    if (outcome.ok) {
-      out.inserted++
-      if (outcome.created) out.membersCreated++
-      out.gradeBuckets.push(outcome.gradeBucket)
-    } else out.rejected.push(outcome.reject)
+    if (outcome.ok) accumulateOk(out, outcome)
+    else out.rejected.push(outcome.reject)
   } catch (err) {
     out.rejected.push({
       phoneE164: row.phoneE164,
@@ -73,4 +75,14 @@ async function runOneRow(args: RunOneRowArgs): Promise<void> {
       message: err instanceof Error ? err.message : String(err),
     })
   }
+}
+
+function accumulateOk(
+  out: FanOutResult,
+  outcome: Extract<ImportRowOutcome, { ok: true }>
+): void {
+  out.inserted++
+  if (outcome.created) out.membersCreated++
+  out.gradeBuckets.push(outcome.gradeBucket)
+  out.memberIds.push(outcome.memberId)
 }

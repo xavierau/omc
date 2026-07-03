@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '../client'
-import type { MemberRow } from './member-repository'
+import type { MemberRow, MemberTagLite } from './member-repository'
 
 export interface MemberDetail extends MemberRow {
   restaurant_id: string
@@ -11,7 +11,7 @@ export interface MemberDetail extends MemberRow {
 export async function getMemberById(memberId: string): Promise<MemberDetail | null> {
   const supabase = createServerSupabaseClient()
 
-  const [memberRes, receiptsRes, couponsRes] = await Promise.all([
+  const [memberRes, receiptsRes, couponsRes, tagsRes] = await Promise.all([
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase
       .from('receipts')
@@ -24,6 +24,10 @@ export async function getMemberById(memberId: string): Promise<MemberDetail | nu
       .select('id, code, type, status, redeemed_at')
       .eq('member_id', memberId)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('member_tags')
+      .select('tags(id, name, color)')
+      .eq('member_id', memberId),
   ])
 
   if (memberRes.error || !memberRes.data) return null
@@ -33,5 +37,13 @@ export async function getMemberById(memberId: string): Promise<MemberDetail | nu
     receipts: (receiptsRes.data ?? []) as MemberDetail['receipts'],
     coupons: (couponsRes.data ?? []) as MemberDetail['coupons'],
     visitCount: receiptsRes.data?.length ?? 0,
+    tags: toMemberTags(tagsRes.data),
   }
+}
+
+function toMemberTags(data: unknown): MemberTagLite[] {
+  if (!Array.isArray(data)) return []
+  return data
+    .map((r) => (r as { tags?: MemberTagLite | null }).tags)
+    .filter((t): t is MemberTagLite => Boolean(t))
 }

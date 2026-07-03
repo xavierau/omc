@@ -21,6 +21,7 @@ import {
   type PreflightResult,
 } from './import-contacts-batch-validation'
 import { fanOutRows } from './import-contacts-batch-fanout'
+import { assignTagsToImportedMembers } from './assign-tags-to-imported-members'
 import {
   buildPlaceholderBatchEntity,
   countByGrade,
@@ -36,6 +37,8 @@ export interface ImportContactsBatchInput {
     preferredLanguage?: 'en' | 'zh_hk' | null
   }>
   mergeExistingMembers: boolean
+  // TAG-001: tags to apply to every member created OR merged in this batch.
+  tagIds: string[]
   now?: Date
 }
 
@@ -66,6 +69,7 @@ export async function importContactsBatch(
   const fanOut = await fanOutRows({ input, batchId, grade, rows: preflight.acceptedRows })
   const breakdown = countByGrade(fanOut.gradeBuckets)
   await updateImportBatchCounts(batchId, { rowCount: fanOut.inserted, gradeBreakdown: breakdown })
+  await maybeAssignImportTags(input, fanOut.memberIds)
   return {
     importBatchId: batchId,
     inserted: fanOut.inserted,
@@ -73,6 +77,21 @@ export async function importContactsBatch(
     rejected: [...preflight.rejected, ...fanOut.rejected],
     gradeBreakdown: breakdown,
   }
+}
+
+// TAG-001: after the fan-out, apply the wizard's tags to every member the
+// batch touched. ONE bulk call (not per-row); nulls filtered here, tenant
+// ownership of the tags is re-asserted inside assignTagsToImportedMembers.
+async function maybeAssignImportTags(
+  input: ImportContactsBatchInput,
+  memberIds: Array<string | null>
+): Promise<void> {
+  if (input.tagIds.length === 0) return
+  await assignTagsToImportedMembers({
+    restaurantId: input.restaurantId,
+    memberIds: memberIds.filter(Boolean),
+    tagIds: input.tagIds,
+  })
 }
 
 function preflightOrThrow(

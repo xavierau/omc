@@ -13,6 +13,7 @@ interface Member {
   status: string
   joined_at: string
   last_visit_at: string | null
+  tags?: { id: string; name: string; color: string }[]
 }
 
 interface MemberTableProps {
@@ -37,6 +38,20 @@ function formatDate(dateStr: string | null): string {
 function SortIndicator({ column, sortBy, sortOrder }: { column: string; sortBy: string; sortOrder: string }) {
   if (column !== sortBy) return null
   return <span className="ml-1">{sortOrder === 'asc' ? '\u2191' : '\u2193'}</span>
+}
+
+function MemberTagChips({ tags }: { tags?: { id: string; name: string; color: string }[] }) {
+  if (!tags || tags.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <Badge key={tag.id} variant="outline" className="gap-1">
+          <span className="size-2 rounded-full" style={{ backgroundColor: tag.color }} />
+          {tag.name}
+        </Badge>
+      ))}
+    </div>
+  )
 }
 
 export function MemberTable({
@@ -82,6 +97,7 @@ export function MemberTable({
                   <SortIndicator column={col.key} sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
               ))}
+              <TableHead>{t('tagsColumn')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -101,6 +117,7 @@ export function MemberTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(member.last_visit_at)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(member.joined_at)}</TableCell>
+                <TableCell><MemberTagChips tags={member.tags} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

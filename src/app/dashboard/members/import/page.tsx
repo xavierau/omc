@@ -30,6 +30,7 @@ const EMPTY_META: BatchMetaInput = {
   consentTextShown: '',
   consentChannel: 'whatsapp',
   proofFilePresent: false,
+  tagIds: [],
 }
 
 // useSearchParams() must sit under a Suspense boundary or Next fails the
@@ -84,6 +85,7 @@ function ImportWizard() {
     },
     rows: csvRows,
     mergeExistingMembers: merge,
+    tags: meta.tagIds,
   }), [meta, proofPath, csvRows, merge])
 
   async function runPreviewAndAdvance() {

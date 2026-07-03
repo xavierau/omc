@@ -7,9 +7,11 @@ import {
   CrossTenantMemberError,
   CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { cascadeCampaignTypeChange } from '@/application/cascade-campaign-type-change'
+import { setCampaignTags, CrossTenantTagError } from '@/application/set-campaign-tags'
 import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
@@ -35,6 +37,8 @@ export async function GET(
     const result: Record<string, unknown> = { ...campaign }
     if (campaign.targetAudience === 'selected') {
       result.memberIds = await getCampaignMemberIds(id)
+    } else if (campaign.targetAudience === 'tag') {
+      result.tagIds = await getCampaignTagIds(id)
     }
     return NextResponse.json(result)
   } catch (error) {
@@ -79,6 +83,10 @@ export async function PATCH(
       await setCampaignMembers(id, body.memberIds, restaurantId)
     }
 
+    if (body.targetAudience === 'tag' && body.tagIds) {
+      await setCampaignTags(id, body.tagIds, restaurantId)
+    }
+
     await cascadeCampaignTypeChange({
       restaurantId,
       campaignId: id,
@@ -97,6 +105,9 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     if (error instanceof CrossTenantMemberError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    if (error instanceof CrossTenantTagError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     if (
