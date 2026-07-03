@@ -3,6 +3,8 @@ import {
   getCampaignById,
   getCampaignMemberIds,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { listMemberIdsByTag } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { recordOutboundSend } from '@/application/record-outbound-send'
@@ -73,17 +75,27 @@ async function runClaim(params: HandleClaimParams) {
   return mintAndSendQr({ params, campaign, memberId: member.id, lang })
 }
 
-// Selected-audience campaigns must only mint for members in the campaign's
+// Audience-scoped campaigns must only mint for members in the campaign's
 // target set — the eager broadcast is audience-scoped, so the lazy claim path
 // must be too, else a forwarded CLAIM_<id> payload leaks the discount to
-// non-targeted members. 'all'-audience campaigns target every member.
+// non-targeted members. 'selected' checks campaign_members; 'tag' checks that
+// the member currently carries one of the campaign's linked tags;
+// 'all'-audience campaigns target every member.
 async function isMemberTargeted(
   campaign: Campaign,
   memberId: string
 ): Promise<boolean> {
-  if (campaign.targetAudience !== 'selected') return true
-  const targeted = await getCampaignMemberIds(campaign.id)
-  return targeted.includes(memberId)
+  if (campaign.targetAudience === 'selected') {
+    const targeted = await getCampaignMemberIds(campaign.id)
+    return targeted.includes(memberId)
+  }
+  if (campaign.targetAudience === 'tag') {
+    const tagIds = await getCampaignTagIds(campaign.id)
+    if (tagIds.length === 0) return false
+    const targeted = await listMemberIdsByTag(tagIds, campaign.restaurantId)
+    return targeted.includes(memberId)
+  }
+  return true // 'all'
 }
 
 interface MintAndSendArgs {
