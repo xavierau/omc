@@ -257,6 +257,34 @@ describe('parseKapsoWebhook', () => {
       expect(parseKapsoWebhook(payload)).toBeNull()
     })
 
+    it('returns null for a non-string from (JSON number) — would throw in masked logging', () => {
+      const payload = {
+        message: {
+          from: 85266281556,
+          id: 'wamid.numfrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
+    it('returns null for a whitespace-only from', () => {
+      const payload = {
+        message: {
+          from: '   ',
+          id: 'wamid.wsfrom',
+          type: 'text',
+          text: { body: 'x' },
+          timestamp: '1774685162',
+        },
+      }
+
+      expect(parseKapsoWebhook(payload)).toBeNull()
+    })
+
     it('returns null for Meta format message with no from', () => {
       const payload = {
         object: 'whatsapp_business_account',
@@ -345,5 +373,13 @@ describe('verifyKapsoSignature', () => {
 
   it('returns false for wrong length signature', () => {
     expect(verifyKapsoSignature(body, 'tooshort', secret)).toBe(false)
+  })
+
+  it('returns false (not throw) for a same-string-length signature with multi-byte chars', () => {
+    const signature = computeSignature(body, secret)
+    // same JS string length, longer byte length — timingSafeEqual would throw
+    const multiByte = signature.slice(0, -1) + 'é'
+
+    expect(verifyKapsoSignature(body, multiByte, secret)).toBe(false)
   })
 })

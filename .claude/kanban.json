@@ -6,6 +6,20 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "WH-004",
+          "title": "Webhook signature verification fails OPEN when secret is unset in production",
+          "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
+          "priority": "high",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
+          "id": "WH-005",
+          "title": "Webhook robustness hardening bundle",
+          "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it.",
+          "priority": "medium",
+          "labels": ["security", "backend", "webhook"]
+        },
+        {
           "id": "WH-002",
           "title": "Webhook observability for ignored events + raw payload capture",
           "description": "Follow-ups from issue #45 review: (1) ignored-event logs carry no message id ('parse returned null' / 'no sender' are anonymous) — thread an id into the parser-null path so production triage can correlate; (2) capture one raw failing payload (only parsed/masked data is logged today) to confirm sender-less events are Kapso status/echo events. Also revisit idempotency-before-processing: a transient routeMessage failure permanently drops the message because the key is claimed first.",

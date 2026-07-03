@@ -32,10 +32,14 @@ import { routeMessage } from '../handlers'
 import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 
 function post(body: unknown) {
+  return rawPost(JSON.stringify(body))
+}
+
+function rawPost(body: string) {
   return POST(
     new NextRequest('http://localhost/api/webhooks/whatsapp', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body,
     })
   )
 }
@@ -86,6 +90,31 @@ describe('POST /api/webhooks/whatsapp — no-sender events (issue #45)', () => {
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ status: 'ignored' })
+    expect(tryMarkProcessed).not.toHaveBeenCalled()
+    expect(routeMessage).not.toHaveBeenCalled()
+  })
+
+  it('200-ignores an unroutable sender (fails phone validation) before any idempotency claim', async () => {
+    const res = await post({
+      message: {
+        from: 'abc',
+        id: 'wamid.alphafrom',
+        type: 'text',
+        text: { body: 'x' },
+        timestamp: '1774685162',
+      },
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ status: 'ignored' })
+    expect(tryMarkProcessed).not.toHaveBeenCalled()
+    expect(routeMessage).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 (not a retryable 500) for malformed JSON', async () => {
+    const res = await rawPost('{not json')
+
+    expect(res.status).toBe(400)
     expect(tryMarkProcessed).not.toHaveBeenCalled()
     expect(routeMessage).not.toHaveBeenCalled()
   })
