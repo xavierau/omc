@@ -1217,7 +1217,27 @@
     },
     "todo": {
       "label": "To Do",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "CAMP-001",
+          "title": "Claim-button campaign flow — lazy coupon/QR on button tap",
+          "description": "User-reported (investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim): broadcasts currently mint a live coupon per recipient and eagerly send the QR at send time (execute-campaign-broadcast.ts sendToMember); when the marketing template body is silently rejected (Meta per-user cap, paused template), customers receive ONLY a bare QR. Rework: broadcast sends only the campaign template with a QUICK_REPLY claim button (payload CLAIM_<campaignId>); a new webhook route handles the button tap, idempotently mints the coupon for that member, and sends the QR lazily; remove the eager mint/QR from sendToMember. The webhook parser already surfaces button_reply ids.",
+          "priority": "high",
+          "labels": ["feature", "campaign", "whatsapp", "billing"],
+          "estimate": "2d",
+          "acceptance_criteria": [
+            "Broadcast sends exactly one message per recipient: the campaign template with a claim QUICK_REPLY button; no coupon row and no QR exist for a member before they tap",
+            "Tapping the claim button mints the coupon idempotently (double-tap = one coupon, same QR resent) and sends the QR image with the redeem code",
+            "Claim works for the full campaign validity window and respects campaign status (paused/ended campaigns reply with a friendly refusal, no mint)",
+            "Body-send failures are no longer swallowed: a failed template send does not increment the chargeable incrementCampaignSent counter, does not emit the campaign event, and is recorded/observable per recipient",
+            "Existing eager-mode campaigns in flight are unaffected mid-migration; feature covered by unit tests for the new handler + send path per acceptance criterion",
+            "Threat model note addressed: CLAIM_<campaignId> payload cannot mint for another restaurant's campaign or an unenrolled member (tenant + membership re-checked server-side)"
+          ],
+          "workspace_artifacts": [
+            "investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim"
+          ]
+        }
+      ]
     },
     "in_progress": {
       "label": "In Progress",
