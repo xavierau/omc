@@ -13,7 +13,5 @@ export interface Restaurant {
   plan: TenantPlan
   trialExpiresAt: string | null
   referrerId: string | null
-  redirectNumber: string | null
-  redirectLabel: string
   createdAt: string
 }

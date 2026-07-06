@@ -16,8 +16,6 @@ function makeRestaurant(
     plan: 'starter',
     trialExpiresAt: null,
     referrerId: null,
-    redirectNumber: null,
-    redirectLabel: 'Contact us',
     createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   }

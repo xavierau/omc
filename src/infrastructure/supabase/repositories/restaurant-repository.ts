@@ -12,12 +12,10 @@ export interface RestaurantRow {
   trial_expires_at: string | null
   logo_url: string | null
   referrer_id: string | null
-  redirect_number: string | null
-  redirect_label: string
 }
 
 const RESTAURANT_COLUMNS =
-  'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url, referrer_id, redirect_number, redirect_label'
+  'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url, referrer_id'
 
 export async function getRestaurantPhoneNumberId(
   restaurantId: string
@@ -181,21 +179,27 @@ export async function updateLogoUrl(
 export async function getRestaurantRedirect(
   restaurantId: string
 ): Promise<{ redirectNumber: string | null; redirectLabel: string }> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('restaurants')
-    .select('redirect_number, redirect_label')
-    .eq('id', restaurantId)
-    .single()
+  const OFF = { redirectNumber: null, redirectLabel: 'Contact us' }
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('redirect_number, redirect_label')
+      .eq('id', restaurantId)
+      .single()
 
-  if (error || !data) {
-    return { redirectNumber: null, redirectLabel: 'Contact us' }
-  }
-  return {
-    redirectNumber: (data.redirect_number as string | null) ?? null,
-    // Clamp to 20 chars: the label is used as a WhatsApp CTA displayText / reply-button
-    // title (both ≤20), so guard the send path against legacy/direct-DB writes.
-    redirectLabel: ((data.redirect_label as string | null) ?? 'Contact us').slice(0, 20),
+    if (error || !data) return OFF
+    return {
+      redirectNumber: (data.redirect_number as string | null) ?? null,
+      // Clamp to 20 chars and coalesce empty/null (|| not ??): the label is used as a
+      // WhatsApp CTA displayText / reply-button title (both ≤20), and an empty title
+      // makes Meta reject the whole message. Guards legacy/direct-DB writes.
+      redirectLabel: ((data.redirect_label as string | null) || 'Contact us').slice(0, 20),
+    }
+  } catch {
+    // Webhook hot path: degrade OFF, never throw (a post-idempotency-claim 500
+    // would trigger a provider retry storm and drop the event).
+    return OFF
   }
 }
 
