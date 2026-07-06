@@ -53,6 +53,8 @@ export function mockKapsoClient() {
     sendTextMessage: vi.fn().mockResolvedValue(okResult()),
     sendImageMessage: vi.fn().mockResolvedValue(okResult()),
     sendInteractiveButtons: vi.fn().mockResolvedValue(okResult()),
+    sendInteractiveList: vi.fn().mockResolvedValue(okResult()),
+    sendCtaUrlButton: vi.fn().mockResolvedValue(okResult()),
   }
 }
 

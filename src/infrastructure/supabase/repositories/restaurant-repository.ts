@@ -171,3 +171,53 @@ export async function updateLogoUrl(
   }
 }
 
+/**
+ * Resolve a tenant's contact-redirect config. Runs in the webhook hot path, so
+ * it must never throw: on any error / not-found it degrades the feature OFF by
+ * returning a null number with the default label.
+ */
+export async function getRestaurantRedirect(
+  restaurantId: string
+): Promise<{ redirectNumber: string | null; redirectLabel: string }> {
+  const OFF = { redirectNumber: null, redirectLabel: 'Contact us' }
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('redirect_number, redirect_label')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return OFF
+    return {
+      redirectNumber: (data.redirect_number as string | null) ?? null,
+      // Clamp to 20 chars and coalesce empty/null (|| not ??): the label is used as a
+      // WhatsApp CTA displayText / reply-button title (both ≤20), and an empty title
+      // makes Meta reject the whole message. Guards legacy/direct-DB writes.
+      redirectLabel: ((data.redirect_label as string | null) || 'Contact us').slice(0, 20),
+    }
+  } catch {
+    // Webhook hot path: degrade OFF, never throw (a post-idempotency-claim 500
+    // would trigger a provider retry storm and drop the event).
+    return OFF
+  }
+}
+
+export async function updateRestaurantRedirect(
+  restaurantId: string,
+  redirect: { redirectNumber: string | null; redirectLabel: string }
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({
+      redirect_number: redirect.redirectNumber,
+      redirect_label: redirect.redirectLabel,
+    })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update redirect: ${error.message}`)
+  }
+}
+

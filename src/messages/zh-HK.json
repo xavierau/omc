@@ -578,6 +578,15 @@
     "description": "管理您的餐廳設定。",
     "logoTitle": "餐廳標誌",
     "logoDescription": "上傳您的餐廳標誌，將顯示在公開加入頁面上。",
+    "contactRedirectTitle": "聯絡轉接",
+    "contactRedirectDescription": "在自動回覆選單中加入「聯絡我們」選項。客人點按後，WhatsApp 會開啟與以下號碼的對話。留空即可關閉此功能。",
+    "redirectNumberLabel": "聯絡號碼",
+    "redirectNumberPlaceholder": "+85291234567",
+    "redirectLabelLabel": "按鈕文字",
+    "redirectInvalid": "請輸入有效電話號碼（只限數字，8 至 15 位，可加 +）。",
+    "redirectSaved": "已儲存",
+    "redirectSaveFailed": "儲存失敗，請再試一次。",
+    "save": "儲存",
     "saving": "儲存中..."
   },
   "scan": {

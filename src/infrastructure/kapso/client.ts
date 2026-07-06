@@ -140,3 +140,74 @@ export async function sendInteractiveButtons(
     return errorResult(err)
   }
 }
+
+export async function sendInteractiveList(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  buttonText: string,
+  sections: Array<{
+    title?: string
+    rows: Array<{ id: string; title: string; description?: string }>
+  }>,
+  footerText?: string
+): Promise<SendResult> {
+  const client = getClient()
+  if (!client) {
+    console.warn('[Kapso] No API key — list not sent:', { to, bodyText })
+    return skipResult('kapso_no_api_key')
+  }
+  if (!phoneNumberId) {
+    console.warn('[Kapso] No phoneNumberId — list not sent:', { to, bodyText })
+    return skipResult('kapso_no_phone_number_id')
+  }
+  try {
+    const raw = await client.messages.sendInteractiveList({
+      phoneNumberId,
+      to,
+      bodyText,
+      buttonText,
+      sections,
+      footerText,
+    })
+    return successFromResponse(raw)
+  } catch (err) {
+    console.warn('[Kapso] Error sending list:', (err as Error).message)
+    return errorResult(err)
+  }
+}
+
+export async function sendCtaUrlButton(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  displayText: string,
+  url: string,
+  footerText?: string
+): Promise<SendResult> {
+  const client = getClient()
+  if (!client) {
+    console.warn('[Kapso] No API key — CTA url not sent:', { to, bodyText })
+    return skipResult('kapso_no_api_key')
+  }
+  if (!phoneNumberId) {
+    console.warn('[Kapso] No phoneNumberId — CTA url not sent:', {
+      to,
+      bodyText,
+    })
+    return skipResult('kapso_no_phone_number_id')
+  }
+  try {
+    const raw = await client.messages.sendInteractiveCtaUrl({
+      phoneNumberId,
+      to,
+      bodyText,
+      parameters: { displayText, url },
+      footerText,
+    })
+    return successFromResponse(raw)
+  } catch (err) {
+    console.warn('[Kapso] Error sending CTA url:', (err as Error).message)
+    return errorResult(err)
+  }
+}

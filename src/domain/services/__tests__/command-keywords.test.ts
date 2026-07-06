@@ -143,6 +143,33 @@ describe('matchCommand', () => {
     })
   })
 
+  describe('CONTACT synonyms (REPLY-001)', () => {
+    it('matches CONTACT (upper)', () => {
+      expect(matchCommand('CONTACT')).toBe('CONTACT')
+    })
+    it('matches contact (lower, case-folded)', () => {
+      expect(matchCommand('contact')).toBe('CONTACT')
+    })
+    it('matches 客服', () => {
+      expect(matchCommand('客服')).toBe('CONTACT')
+    })
+    it('matches 聯絡', () => {
+      expect(matchCommand('聯絡')).toBe('CONTACT')
+    })
+    it('matches 聯絡我們', () => {
+      expect(matchCommand('聯絡我們')).toBe('CONTACT')
+    })
+    it('matches 聯繫', () => {
+      expect(matchCommand('聯繫')).toBe('CONTACT')
+    })
+    it('does NOT match a non-synonym like 聯 (must be exact)', () => {
+      expect(matchCommand('聯')).not.toBe('CONTACT')
+    })
+    it('does NOT match unrelated English', () => {
+      expect(matchCommand('reach out')).not.toBe('CONTACT')
+    })
+  })
+
   describe('whitespace normalization', () => {
     it('trims leading/trailing whitespace', () => {
       expect(matchCommand('  POINTS  ')).toBe('POINTS')

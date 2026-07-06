@@ -159,6 +159,25 @@ describe('resolveRoute', () => {
     })
   })
 
+  describe('CONTACT route (REPLY-001, auto-routes via matchCommand)', () => {
+    it('text "CONTACT" → CONTACT', () => {
+      expect(resolveRoute('CONTACT', 'text').route).toBe('CONTACT')
+    })
+    it('lower "contact" → CONTACT (case-folded)', () => {
+      expect(resolveRoute('contact', 'text').route).toBe('CONTACT')
+    })
+    it('Chinese 客服 → CONTACT', () => {
+      expect(resolveRoute('客服', 'text').route).toBe('CONTACT')
+    })
+    it('Chinese 聯絡 → CONTACT', () => {
+      expect(resolveRoute('聯絡', 'text').route).toBe('CONTACT')
+    })
+    it('a tapped list row id "CONTACT" (surfaced as text) → CONTACT', () => {
+      // A tapped interactive-list row surfaces as message.text = row.id.
+      expect(resolveRoute('CONTACT', 'interactive').route).toBe('CONTACT')
+    })
+  })
+
   describe('priority 6: unknown', () => {
     it('random text → unknown', () => {
       expect(resolveRoute('hello', 'text').route).toBe('unknown')
