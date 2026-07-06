@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-03",
+  "updated_at": "2026-07-06",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1286,6 +1286,21 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "REPLY-001",
+          "title": "Contact-redirect action in the fallback reply menu (per-tenant wa.me CTA button)",
+          "description": "Per-restaurant \"Contact us\" option in the WhatsApp no-keyword fallback. Sends a CTA-URL button opening wa.me/<redirect_number>; fallback converts to an interactive list when options exceed 3; non-members also get Join + Contact when a redirect is set (NOT member-only, per user directive); redirect unset = unchanged. Migration 054 (redirect_number + redirect_label), new outbound sendInteractiveList + sendCtaUrlButton, CONTACT keyword (EN + 客服/聯絡), handleContact, tenant-scoped /dashboard/setup settings + PATCH API + i18n. Built via 4 parallel TDD streams (A migration/repo, B outbound, C routing/handler/fallback, D admin UI). Reviewed: code-review-analyzer APPROVE (0 must-fix, 3 nice-to-haves applied) + adversarial /review — P2 (removed redirect cols from shared RESTAURANT_COLUMNS so the webhook no longer couples to migration 054), P5 (empty-label ??->|| Meta-reject guard), P3 (getRestaurantRedirect try/catch) all fixed. tsc clean; full suite 2654 pass. PR #52 squash-merged to develop. Follow-ups: CAMP-003 audit (new bare CONTACT keyword vs template quick-reply payloads); optional owner-gating on settings PATCH (role-less, matches logo route).",
+          "priority": "medium",
+          "labels": ["feature", "whatsapp", "webhook", "fullstack"],
+          "completed_at": "2026-07-06",
+          "merged_at": "2026-07-06",
+          "pr": 52,
+          "merged_into": "develop",
+          "workspace_artifacts": [
+            "plans/2026-07-06-reply-001-contact-redirect",
+            "reviews/2026-07-06-reply-001-review"
+          ]
+        },
         {
           "id": "CAMP-001",
           "title": "Claim-button campaign flow — lazy coupon/QR on button tap",
