@@ -578,6 +578,15 @@
     "description": "Manage your restaurant settings.",
     "logoTitle": "Restaurant Logo",
     "logoDescription": "Upload your restaurant logo. It will be shown on the public join page.",
+    "contactRedirectTitle": "Contact Redirect",
+    "contactRedirectDescription": "Adds a \"Contact us\" option to the automatic reply menu. When a customer taps it, WhatsApp opens a chat with the number below. Leave the number blank to turn this off.",
+    "redirectNumberLabel": "Contact number",
+    "redirectNumberPlaceholder": "+85291234567",
+    "redirectLabelLabel": "Button label",
+    "redirectInvalid": "Enter a valid phone number (digits only, 8–15 long, optional +).",
+    "redirectSaved": "Saved",
+    "redirectSaveFailed": "Could not save. Please try again.",
+    "save": "Save",
     "saving": "Saving..."
   },
   "scan": {

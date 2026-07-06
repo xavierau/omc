@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isValidEmail,
+  isValidPhoneE164,
   isValidSlug,
   isValidUUID,
   validateRequired,
@@ -17,6 +18,24 @@ describe('isValidEmail', () => {
     expect(isValidEmail('notanemail')).toBe(false)
     expect(isValidEmail('@missing.local')).toBe(false)
     expect(isValidEmail('no@')).toBe(false)
+  })
+})
+
+describe('isValidPhoneE164', () => {
+  it('accepts valid phone numbers', () => {
+    expect(isValidPhoneE164('+85291234567')).toBe(true)
+    expect(isValidPhoneE164('85291234567')).toBe(true)
+    expect(isValidPhoneE164('+12025550123')).toBe(true)
+    expect(isValidPhoneE164('12345678')).toBe(true)
+  })
+
+  it('rejects invalid phone numbers', () => {
+    expect(isValidPhoneE164('')).toBe(false)
+    expect(isValidPhoneE164('abc')).toBe(false)
+    expect(isValidPhoneE164('1234567')).toBe(false) // too short (7 digits)
+    expect(isValidPhoneE164('1234567890123456')).toBe(false) // too long (16 digits)
+    expect(isValidPhoneE164('+852 9123 4567')).toBe(false) // inner spaces
+    expect(isValidPhoneE164('+852-9123-4567')).toBe(false) // dashes
   })
 })
 

@@ -77,6 +77,8 @@ function assertTenantActive(row: TenantStatusRow): void {
     plan: 'starter',
     trialExpiresAt: row.trial_expires_at,
     referrerId: null,
+    redirectNumber: null,
+    redirectLabel: 'Contact us',
     createdAt: '',
   })
 

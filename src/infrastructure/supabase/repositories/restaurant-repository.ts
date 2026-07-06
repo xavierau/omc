@@ -12,10 +12,12 @@ export interface RestaurantRow {
   trial_expires_at: string | null
   logo_url: string | null
   referrer_id: string | null
+  redirect_number: string | null
+  redirect_label: string
 }
 
 const RESTAURANT_COLUMNS =
-  'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url, referrer_id'
+  'id, slug, name, kapso_phone_number_id, meta_business_account_id, status, plan, trial_expires_at, logo_url, referrer_id, redirect_number, redirect_label'
 
 export async function getRestaurantPhoneNumberId(
   restaurantId: string
@@ -168,6 +170,50 @@ export async function updateLogoUrl(
 
   if (error) {
     throw new Error(`Failed to update logo: ${error.message}`)
+  }
+}
+
+/**
+ * Resolve a tenant's contact-redirect config. Runs in the webhook hot path, so
+ * it must never throw: on any error / not-found it degrades the feature OFF by
+ * returning a null number with the default label.
+ */
+export async function getRestaurantRedirect(
+  restaurantId: string
+): Promise<{ redirectNumber: string | null; redirectLabel: string }> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('redirect_number, redirect_label')
+    .eq('id', restaurantId)
+    .single()
+
+  if (error || !data) {
+    return { redirectNumber: null, redirectLabel: 'Contact us' }
+  }
+  return {
+    redirectNumber: (data.redirect_number as string | null) ?? null,
+    // Clamp to 20 chars: the label is used as a WhatsApp CTA displayText / reply-button
+    // title (both ≤20), so guard the send path against legacy/direct-DB writes.
+    redirectLabel: ((data.redirect_label as string | null) ?? 'Contact us').slice(0, 20),
+  }
+}
+
+export async function updateRestaurantRedirect(
+  restaurantId: string,
+  redirect: { redirectNumber: string | null; redirectLabel: string }
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({
+      redirect_number: redirect.redirectNumber,
+      redirect_label: redirect.redirectLabel,
+    })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update redirect: ${error.message}`)
   }
 }
 

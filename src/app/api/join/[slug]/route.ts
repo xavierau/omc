@@ -25,6 +25,8 @@ export async function POST(
       plan: (restaurant.plan as 'starter' | 'growth' | 'pro') ?? 'starter',
       trialExpiresAt: restaurant.trial_expires_at,
       referrerId: restaurant.referrer_id ?? null,
+      redirectNumber: restaurant.redirect_number ?? null,
+      redirectLabel: restaurant.redirect_label ?? 'Contact us',
       createdAt: '',
     })
 

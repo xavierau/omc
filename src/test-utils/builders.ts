@@ -104,6 +104,8 @@ export function buildRestaurant(
     plan: 'starter',
     trialExpiresAt: null,
     referrerId: null,
+    redirectNumber: null,
+    redirectLabel: 'Contact us',
     createdAt: '2025-01-01T00:00:00Z',
     ...overrides,
   }
