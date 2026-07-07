@@ -3,12 +3,19 @@ import type { SendResult } from '@/domain/value-objects/send-result'
 export interface TemplateComponent { type: string; [k: string]: unknown }
 export interface TemplateBodyParam { type: 'text'; text: string; parameterName: string }
 export interface TemplateHeaderParam { type: 'text'; text: string; parameterName?: string }
-export interface TemplateButtonParam {
-  type: 'button'
-  subType: 'url'
-  index: number | string
-  parameters: Array<{ type: 'text'; text: string }>
-}
+export type TemplateButtonParam =
+  | {
+      type: 'button'
+      subType: 'url'
+      index: number | string
+      parameters: Array<{ type: 'text'; text: string }>
+    }
+  | {
+      type: 'button'
+      subType: 'quick_reply'
+      index: number | string
+      parameters: Array<{ type: 'payload'; payload: string }>
+    }
 export interface CreateTemplateResult { id: string; status: string }
 export interface TemplateListItem { id: string; name: string; status: string; [k: string]: unknown }
 

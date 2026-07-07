@@ -28,6 +28,12 @@ vi.mock('@/application/reject-marketing-optin', () => ({
 vi.mock('../my-card-handler', () => ({
   handleMyCard: vi.fn(),
 }))
+vi.mock('../claim-handler', () => ({
+  handleClaim: vi.fn(),
+}))
+vi.mock('../contact-handler', () => ({
+  handleContact: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -44,10 +50,10 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId, getRestaurantName } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
-import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import { listActiveRewards, hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import {
   insertConsentRecord,
   revokeConsent,
@@ -61,6 +67,8 @@ import { redeemRewardUseCase } from '@/application/redeem-reward'
 import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { handleMyCard } from '../my-card-handler'
+import { handleClaim } from '../claim-handler'
+import { handleContact } from '../contact-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { okResult } from '@/test-utils/send-result'
@@ -87,6 +95,11 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
     vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: null,
+      redirectLabel: 'Contact us',
+    })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
@@ -95,6 +108,44 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
     vi.mocked(revokeConsent).mockResolvedValue(0)
     vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  describe('CLAIM dispatch wiring (CAMP-001)', () => {
+    it('routes a CLAIM_<id> button payload to handleClaim with the parsed campaignId', async () => {
+      await routeMessage(
+        makeMessage({ text: 'CLAIM_camp-xyz', type: 'button' }),
+        RESTAURANT_A
+      )
+
+      expect(handleClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignId: 'camp-xyz', restaurantId: RESTAURANT_A })
+      )
+    })
+
+    it('preserves campaignId case (UUIDs are not upper-cased)', async () => {
+      await routeMessage(
+        makeMessage({ text: 'CLAIM_AbC-123', type: 'button' }),
+        RESTAURANT_A
+      )
+
+      expect(handleClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignId: 'AbC-123' })
+      )
+    })
+  })
+
+  describe('CONTACT dispatch wiring (REPLY-001)', () => {
+    it('routes text "CONTACT" to handleContact with (phoneNumberId, phone, restaurantId)', async () => {
+      await routeMessage(makeMessage({ text: 'CONTACT' }), RESTAURANT_A)
+
+      expect(handleContact).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
+
+    it('routes a Chinese synonym 客服 to handleContact', async () => {
+      await routeMessage(makeMessage({ text: '客服' }), RESTAURANT_A)
+
+      expect(handleContact).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
   })
 
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
@@ -1131,6 +1182,11 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
     vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: null,
+      redirectLabel: 'Contact us',
+    })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())

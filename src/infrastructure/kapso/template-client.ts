@@ -126,12 +126,20 @@ export async function sendTemplateMessage(
     language: string
     bodyParams?: Array<{ type: 'text'; text: string; parameterName: string }>
     headerParams?: Array<{ type: 'text'; text: string; parameterName?: string }>
-    buttons?: Array<{
-      type: 'button'
-      subType: 'url'
-      index: number | string
-      parameters: Array<{ type: 'text'; text: string }>
-    }>
+    buttons?: Array<
+      | {
+          type: 'button'
+          subType: 'url'
+          index: number | string
+          parameters: Array<{ type: 'text'; text: string }>
+        }
+      | {
+          type: 'button'
+          subType: 'quick_reply'
+          index: number | string
+          parameters: Array<{ type: 'payload'; payload: string }>
+        }
+    >
   }
 ): Promise<SendResult> {
   const client = getClient()

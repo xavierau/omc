@@ -176,6 +176,11 @@ describe('executeCampaign', () => {
     vi.mocked(renderTemplate).mockReturnValue('rendered text')
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(resolveTargetMembers).mockResolvedValue([])
+    // CAMP-001: the broadcaster now checks the send SendResult and throws on a
+    // non-ok send (skipping mint/QR/increment/emit), so happy-path sends must
+    // return a successful result by default.
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(okResult('wamid.tpl'))
   })
 
   it('throws when campaign is not found', async () => {
@@ -519,6 +524,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
     vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(okResult('wamid.tpl'))
   })
 
   function buildCampaignFor(overrides: Partial<Campaign> = {}): Campaign {
@@ -729,6 +735,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
     vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(okResult('wamid.tpl'))
     vi.mocked(insertQueued).mockResolvedValue(undefined)
     vi.mocked(attachKapsoMessageId).mockResolvedValue(undefined)
     vi.mocked(markFailedNoBspId).mockResolvedValue(undefined)
@@ -821,8 +828,10 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
 
     await executeCampaign('camp-1', 'r-1')
 
-    // All 3 members produced inserts (3 body + 3 QR = 6)
-    expect(insertQueued).toHaveBeenCalledTimes(6)
+    // m-1 and m-3 succeed → body + QR each (4 inserts). m-2's body send
+    // rejects, so under CAMP-001 AC#4 its QR is skipped (no mint/QR on a
+    // failed body); only its queued body row inserts → 5 total.
+    expect(insertQueued).toHaveBeenCalledTimes(5)
     // Failed body for m-2 went through markFailedNoBspId
     expect(markFailedNoBspId).toHaveBeenCalled()
     // Status still flips to completed because the batch tolerates failures
@@ -838,6 +847,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
     vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(okResult('wamid.tpl'))
     // Default: cooldown counter empty (no prior sends).
     vi.mocked(countMarketingSendsLast24hForPhones).mockResolvedValue(new Map())
   })

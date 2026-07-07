@@ -31,7 +31,15 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
     .select('*')
     .single()
 
-  if (error || !data) throw new Error(`createCoupon: ${error?.message}`)
+  if (error || !data) {
+    // Preserve the pg SQLSTATE so callers can classify a unique violation
+    // (23505) by code, not brittle message text — see isCouponUniqueViolation.
+    const wrapped = new Error(`createCoupon: ${error?.message}`) as Error & {
+      code?: string
+    }
+    if (error?.code) wrapped.code = error.code
+    throw wrapped
+  }
   return mapRowToCoupon(data)
 }
 
@@ -51,6 +59,28 @@ export async function findCouponByCode(code: string): Promise<Coupon | null> {
 
   if (error || !data) return null
   return mapRowToCoupon(data)
+}
+
+// CAMP-001: idempotency lookup for the lazy claim flow. A campaign-broadcast
+// coupon is a `promo` row keyed by (restaurant, campaign, member); at most one
+// should exist (enforced by the partial unique index in migration 053).
+export async function findCouponByMemberAndCampaign(
+  restaurantId: string,
+  memberId: string,
+  campaignId: string
+): Promise<Coupon | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
+    .eq('campaign_id', campaignId)
+    .eq('type', 'promo')
+    .maybeSingle()
+
+  if (error) throw new Error(`findCouponByMemberAndCampaign: ${error.message}`)
+  return data ? mapRowToCoupon(data) : null
 }
 
 export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {

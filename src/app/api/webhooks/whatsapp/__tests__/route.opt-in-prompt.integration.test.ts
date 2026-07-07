@@ -20,6 +20,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantPhoneNumberId: vi.fn(),
   getRestaurantName: vi.fn(),
+  // REPLY-001: handleUnknown now reads the contact-redirect config. Default OFF
+  // (null) preserves the existing 3-button / Join-invite fallback path here.
+  getRestaurantRedirect: vi.fn(async () => ({
+    redirectNumber: null,
+    redirectLabel: 'Contact us',
+  })),
 }))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository', () => ({
   getRestaurantDefaultLanguage: vi.fn(),

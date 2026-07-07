@@ -3,6 +3,7 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
+import { handleClaim } from './claim-handler'
 import {
   maybeHandleLanguageCommand,
   maybeDetectLanguageForExistingMember,
@@ -10,6 +11,7 @@ import {
 import { resolveRoute, type RouteResult } from './route-resolver'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
+import { handleContact } from './contact-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
@@ -91,6 +93,8 @@ async function dispatchByRoute(ctx: DispatchContext) {
       return handlePoints(phoneNumberId, phone, restaurantId)
     case 'HELP':
       return handleHelp(phoneNumberId, phone, restaurantId)
+    case 'CONTACT':
+      return handleContact(phoneNumberId, phone, restaurantId)
     case 'MY_CARD':
       return handleMyCard(phoneNumberId, phone, restaurantId)
     case 'STOP':
@@ -102,6 +106,8 @@ async function dispatchByRoute(ctx: DispatchContext) {
       return handleRedeem(phoneNumberId, phone, resolved.argument ?? '', restaurantId)
     case 'REWARD_REDEEM':
       return handleRewardRedeem(phoneNumberId, phone, extractRewardId(message.text), restaurantId)
+    case 'CLAIM':
+      return handleClaim({ phoneNumberId, phone, campaignId: resolved.argument ?? '', restaurantId, log })
     case 'receipt-image':
       return handleReceiptImage(phoneNumberId, phone, restaurantId, message.imageUrl, message.imageId)
     case 'YES':

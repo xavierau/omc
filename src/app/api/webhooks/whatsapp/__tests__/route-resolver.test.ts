@@ -34,6 +34,32 @@ describe('resolveRoute', () => {
     })
   })
 
+  describe('CLAIM_<campaignId> (button payload, CAMP-001)', () => {
+    it('CLAIM_<uuid> → route CLAIM, argument is the raw uuid', () => {
+      const r = resolveRoute('CLAIM_3f1a2b4c-5d6e-7f80-9a1b-2c3d4e5f6a7b', 'button')
+      expect(r.route).toBe('CLAIM')
+      expect(r.argument).toBe('3f1a2b4c-5d6e-7f80-9a1b-2c3d4e5f6a7b')
+    })
+    it('preserves the campaignId case (no uppercasing of the argument)', () => {
+      const r = resolveRoute('CLAIM_AbCd-EfGh', 'text')
+      expect(r.route).toBe('CLAIM')
+      expect(r.argument).toBe('AbCd-EfGh')
+    })
+    it('lowercase claim_ prefix still routes (prefix match is case-insensitive)', () => {
+      const r = resolveRoute('claim_AbCd', 'text')
+      expect(r.route).toBe('CLAIM')
+      expect(r.argument).toBe('AbCd')
+    })
+    it('CLAIM without an underscore does NOT match the CLAIM route', () => {
+      expect(resolveRoute('CLAIM', 'text').route).not.toBe('CLAIM')
+    })
+    it('surrounding whitespace is trimmed before slicing the argument', () => {
+      const r = resolveRoute('  CLAIM_camp-9  ', 'button')
+      expect(r.route).toBe('CLAIM')
+      expect(r.argument).toBe('camp-9')
+    })
+  })
+
   describe('priority 3: REWARD_<id>', () => {
     it('REWARD_xyz → REWARD_REDEEM', () => {
       const r = resolveRoute('REWARD_xyz', 'text')
@@ -130,6 +156,25 @@ describe('resolveRoute', () => {
     })
     it('我的會員碼 → MY_CARD', () => {
       expect(resolveRoute('我的會員碼', 'text').route).toBe('MY_CARD')
+    })
+  })
+
+  describe('CONTACT route (REPLY-001, auto-routes via matchCommand)', () => {
+    it('text "CONTACT" → CONTACT', () => {
+      expect(resolveRoute('CONTACT', 'text').route).toBe('CONTACT')
+    })
+    it('lower "contact" → CONTACT (case-folded)', () => {
+      expect(resolveRoute('contact', 'text').route).toBe('CONTACT')
+    })
+    it('Chinese 客服 → CONTACT', () => {
+      expect(resolveRoute('客服', 'text').route).toBe('CONTACT')
+    })
+    it('Chinese 聯絡 → CONTACT', () => {
+      expect(resolveRoute('聯絡', 'text').route).toBe('CONTACT')
+    })
+    it('a tapped list row id "CONTACT" (surfaced as text) → CONTACT', () => {
+      // A tapped interactive-list row surfaces as message.text = row.id.
+      expect(resolveRoute('CONTACT', 'interactive').route).toBe('CONTACT')
     })
   })
 

@@ -4,6 +4,7 @@ import { WelcomeSetupForm } from '@/components/dashboard/welcome-setup-form'
 import { ReceiptTemplateSection } from '@/components/dashboard/receipt-template-section'
 import { FlaggedReceiptsPanel } from '@/components/dashboard/flagged-receipts-panel'
 import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
+import { ContactRedirectSection } from '@/components/dashboard/contact-redirect-section'
 import { Separator } from '@/components/ui/separator'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -16,7 +17,7 @@ export default async function SetupPage() {
   const supabase = createServerSupabaseClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('logo_url')
+    .select('logo_url, redirect_number, redirect_label')
     .eq('id', restaurantId)
     .single()
 
@@ -27,6 +28,13 @@ export default async function SetupPage() {
         <p className="text-muted-foreground mt-1">{st('description')}</p>
       </div>
       <TenantLogoSection initialLogoUrl={restaurant?.logo_url ?? null} />
+
+      <Separator />
+
+      <ContactRedirectSection
+        initialRedirectNumber={restaurant?.redirect_number ?? null}
+        initialRedirectLabel={restaurant?.redirect_label ?? 'Contact us'}
+      />
 
       <Separator />
 

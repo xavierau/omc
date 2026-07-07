@@ -7,7 +7,7 @@ const noop: LogFn = () => {}
 export interface KapsoMessage {
   messageId: string
   from: string
-  type: 'text' | 'image' | 'interactive' | 'unknown'
+  type: 'text' | 'image' | 'interactive' | 'button' | 'unknown'
   text?: string
   imageUrl?: string
   imageId?: string
@@ -96,7 +96,9 @@ function buildMessage(
     messageId: (msg.id as string) ?? fallbackId,
     from: msg.from,
     type: resolveMessageType(msg.type as string),
-    text: extractText(textContent) ?? extractInteractiveText(msg.interactive),
+    text: extractText(textContent)
+      ?? extractInteractiveText(msg.interactive)
+      ?? extractButtonPayload(msg.button),
     imageUrl: extractImageUrl(msg.image),
     imageId: extractImageId(msg.image),
     timestamp: (msg.timestamp as string) ?? new Date().toISOString(),
@@ -110,6 +112,7 @@ function resolveMessageType(
   if (type === 'image') return 'image'
   if (type === 'text') return 'text'
   if (type === 'interactive') return 'interactive'
+  if (type === 'button') return 'button'
   return 'unknown'
 }
 
@@ -139,6 +142,12 @@ function extractInteractiveText(
   const listReply = obj.list_reply as Record<string, unknown> | undefined
   if (listReply?.id) return listReply.id as string
   return undefined
+}
+
+function extractButtonPayload(button: unknown): string | undefined {
+  if (!button || typeof button !== 'object') return undefined
+  const b = button as Record<string, unknown>
+  return typeof b.payload === 'string' ? b.payload : undefined
 }
 
 function extractImageUrl(image: unknown): string | undefined {
