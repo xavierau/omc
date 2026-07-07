@@ -40,6 +40,30 @@ export async function listActiveRewards(
   return (data ?? []).map(mapRowToReward)
 }
 
+/**
+ * Cheap existence check for the fallback menu (REPLY-002): does this restaurant
+ * have any active reward? Uses a head+count query — no rows fetched. On error,
+ * returns true so the "View Rewards" option is NOT hidden: showing a possibly
+ * working option is safer than hiding it on a transient failure (no regression).
+ */
+export async function hasActiveRewards(restaurantId: string): Promise<boolean> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { count, error } = await supabase
+      .from('rewards')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId)
+      .eq('is_active', true)
+
+    if (error) return true
+    return (count ?? 0) > 0
+  } catch {
+    // Webhook hot path: never throw. On any failure, show the option rather than
+    // hide a possibly-working one (no regression to today's menu).
+    return true
+  }
+}
+
 export async function getRewardById(
   id: string
 ): Promise<Reward | null> {

@@ -13,6 +13,9 @@ vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantRedirect: vi.fn(),
 }))
+vi.mock('@/infrastructure/supabase/repositories/reward-repository', () => ({
+  hasActiveRewards: vi.fn(),
+}))
 vi.mock('../resolve-language', () => ({
   resolveLanguageForMember: vi.fn(),
 }))
@@ -24,6 +27,7 @@ import {
 } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { resolveLanguageForMember } from '../resolve-language'
 
 const PHONE_NUMBER_ID = 'pn-1'
@@ -41,6 +45,7 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
       redirectNumber: null,
       redirectLabel: 'Contact us',
     })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
   })
 
   it('(a) member + redirect set → interactive LIST with 4 rows, Contact last', async () => {
@@ -152,5 +157,48 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
       { id: 'HELP', title: '幫助' },
       { id: 'CONTACT', title: '聯絡我們' },
     ])
+  })
+
+  // REPLY-002: hide "View Rewards" when the restaurant has no active rewards
+  it('member + no active rewards + redirect unset → buttons omit REWARDS', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(hasActiveRewards).mockResolvedValue(false)
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendInteractiveList).not.toHaveBeenCalled()
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([
+      { id: 'POINTS', title: 'Check Points' },
+      { id: 'HELP', title: 'Help' },
+    ])
+    expect(buttons.map((b) => b.id)).not.toContain('REWARDS')
+  })
+
+  it('member + no active rewards + redirect set → 3 buttons [Points, Help, Contact] (not a list)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(hasActiveRewards).mockResolvedValue(false)
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: '+85291234567',
+      redirectLabel: 'Call Us',
+    })
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendInteractiveList).not.toHaveBeenCalled()
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([
+      { id: 'POINTS', title: 'Check Points' },
+      { id: 'HELP', title: 'Help' },
+      { id: 'CONTACT', title: 'Call Us' },
+    ])
+  })
+
+  it('non-member → hasActiveRewards not consulted (no reward option in the Join menu)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(hasActiveRewards).not.toHaveBeenCalled()
   })
 })
