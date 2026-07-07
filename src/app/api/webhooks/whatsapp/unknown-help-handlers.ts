@@ -5,6 +5,7 @@ import {
 } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { Language } from '@/domain/value-objects/language'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
 import { resolveLanguageForMember } from './resolve-language'
@@ -76,9 +77,16 @@ export async function handleUnknown(
   const body = member
     ? isEn ? UNKNOWN_EN : UNKNOWN_ZH
     : isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH
-  const baseOptions = member
+  let baseOptions = member
     ? isEn ? MEMBER_OPTIONS_EN : MEMBER_OPTIONS_ZH
     : [isEn ? JOIN_OPTION_EN : JOIN_OPTION_ZH]
+
+  // Hide "View Rewards" when the restaurant has no active rewards — the option
+  // would otherwise lead only to a dead "no rewards" reply.
+  if (member && !(await hasActiveRewards(restaurantId))) {
+    baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
+  }
+
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]
   const buttonText = isEn ? OPTIONS_BUTTON_EN : OPTIONS_BUTTON_ZH
 

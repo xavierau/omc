@@ -53,7 +53,7 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
-import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import { listActiveRewards, hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import {
   insertConsentRecord,
   revokeConsent,
@@ -99,6 +99,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       redirectNumber: null,
       redirectLabel: 'Contact us',
     })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
@@ -1185,6 +1186,7 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
       redirectNumber: null,
       redirectLabel: 'Contact us',
     })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
