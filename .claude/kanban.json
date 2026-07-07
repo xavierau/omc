@@ -1287,6 +1287,17 @@
       "label": "Done",
       "tasks": [
         {
+          "id": "REPLY-002",
+          "title": "Hide View Rewards from the fallback menu when the restaurant has no active rewards",
+          "description": "Follow-up to REPLY-001. The member no-keyword fallback menu showed a static [Check Points, View Rewards, Help]; View Rewards led only to a dead 'rewardsEmpty' reply when the restaurant had none configured. Now omit that option when the restaurant has zero active rewards (per-restaurant). Members who have points but can't yet afford a reward STILL see it (keeps the 'saving toward a reward' nudge) — per-member hiding was intentionally NOT chosen. New reward-repository.hasActiveRewards(restaurantId): cheap head+count check, wrapped in try/catch and returning true on any failure so the webhook hot path never throws and a working option is never hidden on a transient error (applies the REPLY-001 hot-path resilience lesson). Only View Rewards affected; Check Points / Help / Contact / non-members unchanged. Reviewed clean (built-in /code-review, 0 findings). tsc clean; full suite 2661 pass. PR #53 squash-merged to develop.",
+          "priority": "low",
+          "labels": ["feature", "whatsapp", "webhook"],
+          "completed_at": "2026-07-07",
+          "merged_at": "2026-07-07",
+          "pr": 53,
+          "merged_into": "develop"
+        },
+        {
           "id": "REPLY-001",
           "title": "Contact-redirect action in the fallback reply menu (per-tenant wa.me CTA button)",
           "description": "Per-restaurant \"Contact us\" option in the WhatsApp no-keyword fallback. Sends a CTA-URL button opening wa.me/<redirect_number>; fallback converts to an interactive list when options exceed 3; non-members also get Join + Contact when a redirect is set (NOT member-only, per user directive); redirect unset = unchanged. Migration 054 (redirect_number + redirect_label), new outbound sendInteractiveList + sendCtaUrlButton, CONTACT keyword (EN + 客服/聯絡), handleContact, tenant-scoped /dashboard/setup settings + PATCH API + i18n. Built via 4 parallel TDD streams (A migration/repo, B outbound, C routing/handler/fallback, D admin UI). Reviewed: code-review-analyzer APPROVE (0 must-fix, 3 nice-to-haves applied) + adversarial /review — P2 (removed redirect cols from shared RESTAURANT_COLUMNS so the webhook no longer couples to migration 054), P5 (empty-label ??->|| Meta-reject guard), P3 (getRestaurantRedirect try/catch) all fixed. tsc clean; full suite 2654 pass. PR #52 squash-merged to develop. Follow-ups: CAMP-003 audit (new bare CONTACT keyword vs template quick-reply payloads); optional owner-gating on settings PATCH (role-less, matches logo route).",
