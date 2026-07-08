@@ -26,6 +26,16 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
     redirectNumber: null,
     redirectLabel: 'Contact us',
   })),
+  // REPLY-003: dispatch reads the reply config. Default = all functions ON,
+  // no custom copy, preserving the existing fallback behavior here.
+  getReplyConfig: vi.fn(async () => ({
+    features: { points: true, rewards: true, redeem: true, card: true },
+    text: {
+      unknown: { en: null, zh: null },
+      help: { en: null, zh: null },
+      join: { en: null, zh: null },
+    },
+  })),
 }))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository', () => ({
   getRestaurantDefaultLanguage: vi.fn(),

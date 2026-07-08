@@ -4,13 +4,18 @@ import {
   sendInteractiveList,
 } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getRestaurantRedirect,
+  getReplyConfig,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { Language } from '@/domain/value-objects/language'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
+import type { LocalizedText } from '@/domain/services/reply-config'
 import { resolveLanguageForMember } from './resolve-language'
 import {
   buildFallbackMenu,
+  buildHelpText,
   UNKNOWN_EN,
   UNKNOWN_ZH,
   JOIN_INVITE_EN,
@@ -24,23 +29,11 @@ import {
   type MenuOption,
 } from './fallback-menu'
 
-const HELP_EN =
-  'Available commands:\n' +
-  '• POINTS / 積分 — Check your balance\n' +
-  '• REWARDS / 獎賞 — View rewards\n' +
-  '• REDEEM <code> / 兌換 <代碼> — Use a coupon\n' +
-  '• CARD / 我的會員碼 — Get your stamp-card QR\n' +
-  '• STOP / 退訂 — Unsubscribe\n' +
-  '• LANG EN / 語言 中文 — Change language'
-
-const HELP_ZH =
-  '可用指令：\n' +
-  '• POINTS / 積分 — 查詢餘額\n' +
-  '• REWARDS / 獎賞 — 查看獎賞\n' +
-  '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券\n' +
-  '• CARD / 我的會員碼 — 取得您的儲印花會員碼\n' +
-  '• STOP / 退訂 — 停止接收訊息\n' +
-  '• LANG EN / 語言 中文 — 切換語言'
+// Pick a tenant's custom message for the active language, or null to signal
+// "use the stock default".
+function customFor(text: LocalizedText, isEn: boolean): string | null {
+  return isEn ? text.en : text.zh
+}
 
 export async function handleHelp(
   phoneNumberId: string,
@@ -52,7 +45,12 @@ export async function handleHelp(
     return sendJoinInvite(phoneNumberId, phone, restaurantId)
   }
   const language = await resolveLanguageForMember(member, restaurantId)
-  const body = language.equals(Language.EN) ? HELP_EN : HELP_ZH
+  const isEn = language.equals(Language.EN)
+  const config = await getReplyConfig(restaurantId)
+  // A tenant-authored HELP overrides everything; otherwise the default lists
+  // only the functions still enabled.
+  const body =
+    customFor(config.text.help, isEn) ?? buildHelpText(isEn, config.features)
   return sendTextMessage(phoneNumberId, phone, body)
 }
 
@@ -65,26 +63,37 @@ export async function handleUnknown(
   const language = await resolveLanguageForMember(member, restaurantId)
   const isEn = language.equals(Language.EN)
 
-  // Contact is NOT member-only: surface it to members and non-members alike
-  // whenever a valid redirect number is configured. An invalid stored number
-  // yields a null url ⇒ the row is omitted (no regression to today's menu).
-  const { redirectNumber, redirectLabel } = await getRestaurantRedirect(restaurantId)
+  // Independent tenant reads — fetch together. hasActiveRewards is deferred
+  // because it's only consulted for an enabled-rewards member.
+  const [config, { redirectNumber, redirectLabel }] = await Promise.all([
+    getReplyConfig(restaurantId),
+    // Contact is NOT member-only: surface it to members and non-members alike
+    // whenever a valid redirect number is configured. An invalid stored number
+    // yields a null url ⇒ the row is omitted (no regression to today's menu).
+    getRestaurantRedirect(restaurantId),
+  ])
   const contactRow: MenuOption | null =
     redirectNumber && buildContactUrl(redirectNumber)
       ? { id: 'CONTACT', title: redirectLabel }
       : null
 
   const body = member
-    ? isEn ? UNKNOWN_EN : UNKNOWN_ZH
-    : isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH
+    ? customFor(config.text.unknown, isEn) ?? (isEn ? UNKNOWN_EN : UNKNOWN_ZH)
+    : customFor(config.text.join, isEn) ?? (isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH)
   let baseOptions = member
     ? isEn ? MEMBER_OPTIONS_EN : MEMBER_OPTIONS_ZH
     : [isEn ? JOIN_OPTION_EN : JOIN_OPTION_ZH]
 
-  // Hide "View Rewards" when the restaurant has no active rewards — the option
-  // would otherwise lead only to a dead "no rewards" reply.
-  if (member && !(await hasActiveRewards(restaurantId))) {
-    baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
+  if (member) {
+    // Drop a function's row when the tenant disabled it (REPLY-003). Rewards
+    // additionally stays hidden when there are no active rewards (REPLY-002) —
+    // short-circuit skips that query when rewards is already off.
+    if (!config.features.points) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'POINTS')
+    }
+    if (!config.features.rewards || !(await hasActiveRewards(restaurantId))) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
+    }
   }
 
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]
@@ -109,7 +118,10 @@ async function sendJoinInvite(
   restaurantId: string
 ) {
   const language = await resolveLanguageForMember(null, restaurantId)
-  const body = language.equals(Language.EN) ? JOIN_INVITE_EN : JOIN_INVITE_ZH
-  const button = language.equals(Language.EN) ? JOIN_OPTION_EN : JOIN_OPTION_ZH
+  const isEn = language.equals(Language.EN)
+  const config = await getReplyConfig(restaurantId)
+  const body =
+    customFor(config.text.join, isEn) ?? (isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH)
+  const button = isEn ? JOIN_OPTION_EN : JOIN_OPTION_ZH
   return sendInteractiveButtons(phoneNumberId, phone, body, [button])
 }

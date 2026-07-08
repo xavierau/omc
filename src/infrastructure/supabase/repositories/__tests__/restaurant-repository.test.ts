@@ -6,7 +6,10 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
   getRestaurantRedirect,
   updateRestaurantRedirect,
+  getReplyConfig,
+  updateReplyConfig,
 } from '../restaurant-repository'
+import { DEFAULT_REPLY_FEATURES } from '@/domain/services/reply-config'
 
 function mockReadChain(result: { data: unknown; error: unknown }) {
   const single = vi.fn().mockResolvedValue(result)
@@ -133,5 +136,104 @@ describe('updateRestaurantRedirect', () => {
         redirectLabel: 'Chat with us',
       })
     ).rejects.toThrow('update failed')
+  })
+})
+
+describe('getReplyConfig', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const ALL_TEXT_NULL = {
+    unknown: { en: null, zh: null },
+    help: { en: null, zh: null },
+    join: { en: null, zh: null },
+  }
+
+  it('selects only reply_config by id', async () => {
+    const { from, select, eq } = mockReadChain({
+      data: { reply_config: {} },
+      error: null,
+    })
+
+    await getReplyConfig('restaurant-1')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(select).toHaveBeenCalledWith('reply_config')
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('returns all-ON + null text for an empty blob', async () => {
+    mockReadChain({ data: { reply_config: {} }, error: null })
+
+    const result = await getReplyConfig('restaurant-1')
+
+    expect(result).toEqual({ features: DEFAULT_REPLY_FEATURES, text: ALL_TEXT_NULL })
+  })
+
+  it('merges a partial stored blob over the defaults', async () => {
+    mockReadChain({
+      data: {
+        reply_config: {
+          features: { points: false },
+          text: { unknown: { en: 'Try POINTS' } },
+        },
+      },
+      error: null,
+    })
+
+    const result = await getReplyConfig('restaurant-1')
+
+    expect(result.features).toEqual({
+      points: false,
+      rewards: true,
+      redeem: true,
+      card: true,
+    })
+    expect(result.text.unknown).toEqual({ en: 'Try POINTS', zh: null })
+  })
+
+  it('degrades to all-ON when the query errors', async () => {
+    mockReadChain({ data: null, error: { message: 'boom' } })
+
+    const result = await getReplyConfig('restaurant-1')
+
+    expect(result.features).toEqual(DEFAULT_REPLY_FEATURES)
+    expect(result.text).toEqual(ALL_TEXT_NULL)
+  })
+
+  it('degrades to all-ON when the restaurant is not found', async () => {
+    mockReadChain({ data: null, error: null })
+
+    const result = await getReplyConfig('missing')
+
+    expect(result.features).toEqual(DEFAULT_REPLY_FEATURES)
+  })
+})
+
+describe('updateReplyConfig', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const CONFIG = {
+    features: { points: false, rewards: true, redeem: true, card: false },
+    text: {
+      unknown: { en: 'Hi', zh: null },
+      help: { en: null, zh: null },
+      join: { en: null, zh: null },
+    },
+  }
+
+  it('writes the reply_config blob by id', async () => {
+    const { from, update, eq } = mockWriteChain({ error: null })
+
+    await updateReplyConfig('restaurant-1', CONFIG)
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(update).toHaveBeenCalledWith({ reply_config: CONFIG })
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('throws when the update fails', async () => {
+    mockWriteChain({ error: { message: 'nope' } })
+
+    await expect(updateReplyConfig('restaurant-1', CONFIG)).rejects.toThrow('nope')
   })
 })
