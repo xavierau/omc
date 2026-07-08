@@ -7,6 +7,8 @@
  * `unknown-help-handlers.ts` thin. No infra imports — pure and unit-testable.
  */
 
+import type { ReplyFeatureKey, ReplyFeatures } from '@/domain/services/reply-config'
+
 export interface MenuOption {
   id: string
   title: string
@@ -52,6 +54,51 @@ export const MEMBER_OPTIONS_ZH: MenuOption[] = [
 
 export const JOIN_OPTION_EN: MenuOption = { id: 'JOIN', title: 'Join Rewards' }
 export const JOIN_OPTION_ZH: MenuOption = { id: 'JOIN', title: '加入會員' }
+
+// --- HELP command text, composed from per-function lines (REPLY-003) ---
+// A disabled function drops its line; STOP + LANG are always listed. With every
+// function enabled this reproduces the previous fixed HELP copy verbatim.
+
+const HELP_HEADER_EN = 'Available commands:'
+const HELP_HEADER_ZH = '可用指令：'
+
+const HELP_FEATURE_LINES_EN: Record<ReplyFeatureKey, string> = {
+  points: '• POINTS / 積分 — Check your balance',
+  rewards: '• REWARDS / 獎賞 — View rewards',
+  redeem: '• REDEEM <code> / 兌換 <代碼> — Use a coupon',
+  card: '• CARD / 我的會員碼 — Get your stamp-card QR',
+}
+const HELP_FEATURE_LINES_ZH: Record<ReplyFeatureKey, string> = {
+  points: '• POINTS / 積分 — 查詢餘額',
+  rewards: '• REWARDS / 獎賞 — 查看獎賞',
+  redeem: '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券',
+  card: '• CARD / 我的會員碼 — 取得您的儲印花會員碼',
+}
+
+const HELP_ALWAYS_EN = [
+  '• STOP / 退訂 — Unsubscribe',
+  '• LANG EN / 語言 中文 — Change language',
+]
+const HELP_ALWAYS_ZH = [
+  '• STOP / 退訂 — 停止接收訊息',
+  '• LANG EN / 語言 中文 — 切換語言',
+]
+
+const HELP_FEATURE_ORDER: ReplyFeatureKey[] = ['points', 'rewards', 'redeem', 'card']
+
+/**
+ * Build the default HELP body for a language, listing only enabled functions.
+ * Pure — the tenant's optional custom HELP override is resolved by the caller.
+ */
+export function buildHelpText(isEn: boolean, features: ReplyFeatures): string {
+  const header = isEn ? HELP_HEADER_EN : HELP_HEADER_ZH
+  const featureLines = isEn ? HELP_FEATURE_LINES_EN : HELP_FEATURE_LINES_ZH
+  const alwaysLines = isEn ? HELP_ALWAYS_EN : HELP_ALWAYS_ZH
+  const enabled = HELP_FEATURE_ORDER.filter((key) => features[key]).map(
+    (key) => featureLines[key]
+  )
+  return [header, ...enabled, ...alwaysLines].join('\n')
+}
 
 /**
  * Choose buttons vs list purely by option count:

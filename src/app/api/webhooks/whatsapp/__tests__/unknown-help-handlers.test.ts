@@ -12,6 +12,7 @@ vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
 }))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantRedirect: vi.fn(),
+  getReplyConfig: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/reward-repository', () => ({
   hasActiveRewards: vi.fn(),
@@ -26,8 +27,12 @@ import {
   sendInteractiveList,
 } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getRestaurantRedirect,
+  getReplyConfig,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import { resolveReplyConfig } from '@/domain/services/reply-config'
 import { resolveLanguageForMember } from '../resolve-language'
 
 const PHONE_NUMBER_ID = 'pn-1'
@@ -46,6 +51,8 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
       redirectLabel: 'Contact us',
     })
     vi.mocked(hasActiveRewards).mockResolvedValue(true)
+    // Default: all functions ON, no custom copy (today's behavior).
+    vi.mocked(getReplyConfig).mockResolvedValue(resolveReplyConfig(undefined))
   })
 
   it('(a) member + redirect set → interactive LIST with 4 rows, Contact last', async () => {
@@ -200,5 +207,63 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
     await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
 
     expect(hasActiveRewards).not.toHaveBeenCalled()
+  })
+
+  // REPLY-003: per-restaurant function toggles + custom copy
+  it('points disabled → menu omits the Check Points row', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { points: false } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([
+      { id: 'REWARDS', title: 'View Rewards' },
+      { id: 'HELP', title: 'Help' },
+    ])
+    expect(buttons.map((b) => b.id)).not.toContain('POINTS')
+  })
+
+  it('rewards disabled → menu omits REWARDS even when active rewards exist, and skips the hasActiveRewards query', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { rewards: false } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([
+      { id: 'POINTS', title: 'Check Points' },
+      { id: 'HELP', title: 'Help' },
+    ])
+    expect(hasActiveRewards).not.toHaveBeenCalled()
+  })
+
+  it('custom "unknown" text overrides the default body for a member', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ text: { unknown: { en: 'Type MENU for help 🙂' } } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , body] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(body).toBe('Type MENU for help 🙂')
+  })
+
+  it('custom "join" text overrides the default welcome body for a non-member', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ text: { join: { en: 'Be our VIP — reply JOIN' } } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , body] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(body).toBe('Be our VIP — reply JOIN')
   })
 })

@@ -50,7 +50,8 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect, getReplyConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { resolveReplyConfig } from '@/domain/services/reply-config'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards, hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
@@ -108,6 +109,77 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
     vi.mocked(revokeConsent).mockResolvedValue(0)
     vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  describe('REPLY-003 function gating (disabled function → fallback)', () => {
+    const disabled = (key: 'points' | 'rewards' | 'redeem' | 'card') =>
+      resolveReplyConfig({ features: { [key]: false } })
+
+    it('POINTS disabled → member gets the fallback menu (no balance reply)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b', pointsBalance: 20, preferredLanguage: 'en',
+      })
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('points'))
+
+      await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
+
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+      expect(buttons.map((b: { id: string }) => b.id)).not.toContain('POINTS')
+    })
+
+    it('REWARDS disabled → non-member gets the Join fallback, not "not a member yet"', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('rewards'))
+
+      await routeMessage(makeMessage({ text: 'REWARDS' }), RESTAURANT_B)
+
+      expect(listActiveRewards).not.toHaveBeenCalled()
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Welcome!'),
+        [{ id: 'JOIN', title: 'Join Rewards' }]
+      )
+    })
+
+    it('REDEEM <code> disabled (redeem) → coupon redemption is not attempted', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b', pointsBalance: 0, preferredLanguage: 'en',
+      })
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('redeem'))
+
+      await routeMessage(makeMessage({ text: 'REDEEM ABC123' }), RESTAURANT_B)
+
+      expect(redeemCouponUseCase).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('bare REDEEM disabled (rewards) → view-rewards is not shown', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('rewards'))
+
+      await routeMessage(makeMessage({ text: 'REDEEM' }), RESTAURANT_B)
+
+      expect(listActiveRewards).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('CARD disabled (card) → handleMyCard is not called', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('card'))
+
+      await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+
+      expect(handleMyCard).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('CARD enabled → still dispatches to handleMyCard (gate passes through)', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(resolveReplyConfig(undefined))
+
+      await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+
+      expect(handleMyCard).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
   })
 
   describe('CLAIM dispatch wiring (CAMP-001)', () => {

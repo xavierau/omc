@@ -1,5 +1,9 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
+import {
+  resolveReplyConfig,
+  type ResolvedReplyConfig,
+} from '@/domain/services/reply-config'
 
 export interface RestaurantRow {
   id: string
@@ -218,6 +222,49 @@ export async function updateRestaurantRedirect(
 
   if (error) {
     throw new Error(`Failed to update redirect: ${error.message}`)
+  }
+}
+
+/**
+ * Resolve a tenant's fallback-reply configuration (REPLY-003): which functions
+ * are enabled and any custom EN/ZH copy. Runs in the webhook hot path, so it
+ * must never throw: on any error / not-found it degrades to "all functions ON,
+ * no custom text" (today's behavior), mirroring `getRestaurantRedirect` and
+ * `hasActiveRewards`. Selects ONLY `reply_config` — deliberately NOT part of the
+ * shared `RESTAURANT_COLUMNS` constant, so the hot-path webhook is not coupled
+ * to this migration.
+ */
+export async function getReplyConfig(
+  restaurantId: string
+): Promise<ResolvedReplyConfig> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('reply_config')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return resolveReplyConfig(undefined)
+    return resolveReplyConfig((data as { reply_config?: unknown }).reply_config)
+  } catch {
+    // Webhook hot path: degrade to defaults, never throw.
+    return resolveReplyConfig(undefined)
+  }
+}
+
+export async function updateReplyConfig(
+  restaurantId: string,
+  config: ResolvedReplyConfig
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ reply_config: config })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update reply config: ${error.message}`)
   }
 }
 

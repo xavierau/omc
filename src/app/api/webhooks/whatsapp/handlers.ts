@@ -1,5 +1,9 @@
-import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getRestaurantPhoneNumberId,
+  getReplyConfig,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import type { ReplyFeatureKey } from '@/domain/services/reply-config'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { handleRedeem, handleUnsubscribe, handleRewards, handleRewardRedeem } from './member-handlers'
@@ -8,7 +12,7 @@ import {
   maybeHandleLanguageCommand,
   maybeDetectLanguageForExistingMember,
 } from './language-handler'
-import { resolveRoute, type RouteResult } from './route-resolver'
+import { resolveRoute, type RouteResult, type ResolvedRoute } from './route-resolver'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleContact } from './contact-handler'
@@ -83,8 +87,31 @@ interface DispatchContext {
   log: LogFn
 }
 
+// REPLY-003: routes whose function a tenant can switch off. A disabled function
+// falls through to the "didn't understand" reply instead of its real handler.
+// Note the split: bare REDEEM / 兌換 ("view rewards") is a rewards route, while
+// REDEEM <code> ("use a coupon") is REDEEM_CODE.
+const ROUTE_FEATURE: Partial<Record<ResolvedRoute, ReplyFeatureKey>> = {
+  POINTS: 'points',
+  REWARDS: 'rewards',
+  REDEEM: 'rewards',
+  REWARD_REDEEM: 'rewards',
+  REDEEM_CODE: 'redeem',
+  MY_CARD: 'card',
+}
+
 async function dispatchByRoute(ctx: DispatchContext) {
   const { resolved, message, restaurantId, phone, phoneNumberId, log } = ctx
+
+  const gatedFeature = ROUTE_FEATURE[resolved.route]
+  if (gatedFeature) {
+    const config = await getReplyConfig(restaurantId)
+    // Gate only on an explicit disable; a missing/degraded config leaves the
+    // function enabled (fail toward today's behavior).
+    if (config?.features?.[gatedFeature] === false) {
+      return handleUnknown(phoneNumberId, phone, restaurantId)
+    }
+  }
 
   switch (resolved.route) {
     case 'JOIN':
