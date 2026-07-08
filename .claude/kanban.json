@@ -1276,20 +1276,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "REPLY-003",
-          "title": "Configurable fallback reply text + per-restaurant function toggles (POINTS/REWARDS/REDEEM/CARD)",
-          "description": "Follow-up to REPLY-001/002. Tenants can now (a) override the three no-keyword fallback messages — 'didn't understand', HELP command list, Welcome/Join invite — in EN + ZH, and (b) switch POINTS / REWARDS / REDEEM / CARD on or off. A disabled function is FULLY off: dropped from the interactive fallback menu AND the HELP list, and its keyword returns the 'didn't understand' fallback instead of a real reply. Storage: single JSONB restaurants.reply_config (migration 055, DEFAULT '{}' => existing rows read all-ON + stock copy, zero behavior change). New domain/services/reply-config.ts owns the pure shape/merge/validate logic; restaurant-repository.getReplyConfig is a dedicated degrade-safe query (NOT added to RESTAURANT_COLUMNS, per the shared-select coupling principle) that fails toward all-ON + default text. Gate lives in handlers.ts dispatchByRoute via a route→feature map (bare REDEEM/兌換=rewards, REDEEM <code>=redeem). HELP refactored into composable buildHelpText(lang, features). Settings UI: new FallbackReplySection on dashboard/setup + PATCH /api/dashboard/settings/reply-config (validateReplyConfig rejects over-length, coerces flags). tsc + eslint clean; full suite 2698 pass; next build OK.",
-          "priority": "medium",
-          "labels": [
-            "feature",
-            "whatsapp",
-            "webhook",
-            "fullstack"
-          ],
-          "workspace_artifacts": [],
-          "related": []
         }
       ]
     },
@@ -1300,6 +1286,22 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "REPLY-003",
+          "title": "Configurable fallback reply text + per-restaurant function toggles (POINTS/REWARDS/REDEEM/CARD)",
+          "description": "Follow-up to REPLY-001/002. Tenants can now (a) override the three no-keyword fallback messages — 'didn't understand', HELP command list, Welcome/Join invite — in EN + ZH, and (b) switch POINTS / REWARDS / REDEEM / CARD on or off. A disabled function is FULLY off: dropped from the interactive fallback menu AND the HELP list, and its keyword returns the 'didn't understand' fallback instead of a real reply. Storage: single JSONB restaurants.reply_config (migration 055, DEFAULT '{}' => existing rows read all-ON + stock copy, zero behavior change). New domain/services/reply-config.ts owns the pure shape/merge/validate logic; restaurant-repository.getReplyConfig is a dedicated degrade-safe query (NOT added to RESTAURANT_COLUMNS, per the shared-select coupling principle) that fails toward all-ON + default text. Gate lives in handlers.ts dispatchByRoute via a route→feature map (bare REDEEM/兌換=rewards, REDEEM <code>=redeem). HELP refactored into composable buildHelpText(lang, features). Settings UI: new FallbackReplySection on dashboard/setup + PATCH /api/dashboard/settings/reply-config (validateReplyConfig rejects over-length, coerces flags). Reviewed: code-review-analyzer APPROVED (no Critical/High); xhigh /code-review surfaced 4 real deploy.sh findings (all fixed) + 1 latent PATCH-full-replace note on the feature (UI-safe, deferred). tsc + eslint clean; full suite 2698 pass; next build OK. PR #57 squash-merged to develop (bundled the #56 deploy-restart fix per request).",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "webhook",
+            "fullstack"
+          ],
+          "completed_at": "2026-07-08",
+          "merged_at": "2026-07-08",
+          "pr": 57,
+          "merged_into": "develop"
+        },
         {
           "id": "REPLY-002",
           "title": "Hide View Rewards from the fallback menu when the restaurant has no active rewards",
