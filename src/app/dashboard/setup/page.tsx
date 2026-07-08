@@ -5,9 +5,11 @@ import { ReceiptTemplateSection } from '@/components/dashboard/receipt-template-
 import { FlaggedReceiptsPanel } from '@/components/dashboard/flagged-receipts-panel'
 import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
 import { ContactRedirectSection } from '@/components/dashboard/contact-redirect-section'
+import { FallbackReplySection } from '@/components/dashboard/fallback-reply-section'
 import { Separator } from '@/components/ui/separator'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
+import { resolveReplyConfig } from '@/domain/services/reply-config'
 
 export default async function SetupPage() {
   const t = await getTranslations('qr')
@@ -17,7 +19,7 @@ export default async function SetupPage() {
   const supabase = createServerSupabaseClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('logo_url, redirect_number, redirect_label')
+    .select('logo_url, redirect_number, redirect_label, reply_config')
     .eq('id', restaurantId)
     .single()
 
@@ -34,6 +36,12 @@ export default async function SetupPage() {
       <ContactRedirectSection
         initialRedirectNumber={restaurant?.redirect_number ?? null}
         initialRedirectLabel={restaurant?.redirect_label ?? 'Contact us'}
+      />
+
+      <Separator />
+
+      <FallbackReplySection
+        initialConfig={resolveReplyConfig(restaurant?.reply_config)}
       />
 
       <Separator />
