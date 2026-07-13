@@ -8,7 +8,7 @@
  * webhook handlers depend on the feature type without importing Supabase.
  */
 
-export type ReplyFeatureKey = 'points' | 'rewards' | 'redeem' | 'card'
+export type ReplyFeatureKey = 'points' | 'rewards' | 'redeem' | 'card' | 'help'
 export type ReplyFeatures = Record<ReplyFeatureKey, boolean>
 
 /** Every function is ON by default => existing tenants are unchanged. */
@@ -17,6 +17,9 @@ export const DEFAULT_REPLY_FEATURES: ReplyFeatures = {
   rewards: true,
   redeem: true,
   card: true,
+  // Unlike the others, `help` gates only the HELP menu button — the typed
+  // HELP / 幫助 command always works. It has no line in the HELP command list.
+  help: true,
 }
 
 export type ReplyTextKey = 'unknown' | 'help' | 'join'

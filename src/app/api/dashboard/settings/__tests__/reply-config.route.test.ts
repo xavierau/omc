@@ -47,7 +47,7 @@ describe('PATCH /api/dashboard/settings/reply-config', () => {
     expect(res.status).toBe(200)
     expect(json).toEqual({ success: true })
     expect(updateReplyConfig).toHaveBeenCalledWith(RESTAURANT_ID, {
-      features: { points: false, rewards: true, redeem: true, card: false },
+      features: { points: false, rewards: true, redeem: true, card: false, help: true },
       text: {
         unknown: { en: 'Try MENU', zh: null },
         help: { en: null, zh: null },

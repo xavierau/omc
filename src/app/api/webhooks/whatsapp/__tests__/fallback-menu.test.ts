@@ -110,4 +110,13 @@ describe('buildHelpText (REPLY-003)', () => {
         '• LANG EN / 語言 中文 — Change language'
     )
   })
+
+  // REPLY-004: `help` gates the menu button only — it contributes no command line
+  // to the HELP body, whether on or off.
+  it('the help feature adds no line to the HELP body', () => {
+    const withHelp = buildHelpText(true, only('help'))
+    const withoutHelp = buildHelpText(true, only())
+    expect(withHelp).toBe(withoutHelp)
+    expect(withHelp).not.toMatch(/help/i)
+  })
 })

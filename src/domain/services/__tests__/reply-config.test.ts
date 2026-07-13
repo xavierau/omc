@@ -22,7 +22,19 @@ describe('resolveReplyConfig — features', () => {
       rewards: true,
       redeem: true,
       card: true,
+      help: true,
     })
+  })
+
+  it('includes help (default ON) and disables it only when explicitly false', () => {
+    expect(DEFAULT_REPLY_FEATURES.help).toBe(true)
+    expect(resolveReplyConfig({ features: { help: false } }).features.help).toBe(
+      false
+    )
+    // A missing help key (legacy blob predating REPLY-004) stays ON.
+    expect(resolveReplyConfig({ features: { points: false } }).features.help).toBe(
+      true
+    )
   })
 
   it('leaves a feature ON for non-boolean/missing values', () => {
