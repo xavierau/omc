@@ -21,8 +21,9 @@ vi.mock('../resolve-language', () => ({
   resolveLanguageForMember: vi.fn(),
 }))
 
-import { handleUnknown } from '../unknown-help-handlers'
+import { handleUnknown, handleHelp } from '../unknown-help-handlers'
 import {
+  sendTextMessage,
   sendInteractiveButtons,
   sendInteractiveList,
 } from '@/infrastructure/whatsapp/messaging'
@@ -260,6 +261,23 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
 
     await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
 
+    expect(getFallbackHelpEnabled).not.toHaveBeenCalled()
+  })
+
+  // REPLY-003: hiding the menu button must NOT disable the typed HELP command.
+  it('typed HELP still replies with the command list when help is disabled', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getFallbackHelpEnabled).mockResolvedValue(false)
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+
+    await handleHelp(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      expect.stringContaining('Available commands')
+    )
+    // The typed command is structurally independent of the menu-button toggle.
     expect(getFallbackHelpEnabled).not.toHaveBeenCalled()
   })
 })

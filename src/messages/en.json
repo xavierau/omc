@@ -589,6 +589,7 @@
     "helpOptionTitle": "Help Menu Option",
     "helpOptionDescription": "Shows a \"Help\" option in the automatic reply menu that lists the available commands. Turning this off hides the option from the menu; customers can still get help by typing HELP.",
     "helpOptionToggleLabel": "Show the Help option in the reply menu",
+    "helpSaved": "Saved",
     "helpSaveFailed": "Could not save. Please try again.",
     "save": "Save",
     "saving": "Saving..."

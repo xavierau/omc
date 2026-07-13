@@ -61,7 +61,7 @@ export function FallbackHelpSection({ initialHelpEnabled }: Props) {
             {saving ? t('saving') : t('save')}
           </Button>
           {saved && (
-            <p className="text-xs text-muted-foreground">{t('redirectSaved')}</p>
+            <p className="text-xs text-muted-foreground">{t('helpSaved')}</p>
           )}
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
