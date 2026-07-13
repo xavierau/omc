@@ -50,7 +50,7 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect, getFallbackHelpEnabled } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
 import { listActiveRewards, hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
@@ -100,6 +100,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       redirectLabel: 'Contact us',
     })
     vi.mocked(hasActiveRewards).mockResolvedValue(true)
+    vi.mocked(getFallbackHelpEnabled).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
@@ -1187,6 +1188,7 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
       redirectLabel: 'Contact us',
     })
     vi.mocked(hasActiveRewards).mockResolvedValue(true)
+    vi.mocked(getFallbackHelpEnabled).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())

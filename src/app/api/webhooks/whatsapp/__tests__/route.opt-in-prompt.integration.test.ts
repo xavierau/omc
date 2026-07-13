@@ -26,6 +26,9 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
     redirectNumber: null,
     redirectLabel: 'Contact us',
   })),
+  // REPLY-003: handleUnknown reads the Help toggle. Default ON preserves the
+  // existing menu here.
+  getFallbackHelpEnabled: vi.fn(async () => true),
 }))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository', () => ({
   getRestaurantDefaultLanguage: vi.fn(),

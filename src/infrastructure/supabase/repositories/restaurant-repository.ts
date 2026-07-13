@@ -221,3 +221,45 @@ export async function updateRestaurantRedirect(
   }
 }
 
+/**
+ * Whether the tenant shows the "Help" option in the no-keyword fallback menu
+ * (REPLY-003). Runs in the webhook hot path, so it must never throw: on any
+ * error / not-found it degrades the option ON (returns true) — matching the
+ * historical always-shown behaviour, so a read failure never silently strips a
+ * menu option.
+ */
+export async function getFallbackHelpEnabled(
+  restaurantId: string
+): Promise<boolean> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('fallback_help_enabled')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return true
+    // Coalesce null/undefined to true: a legacy row predating the column, or a
+    // direct-DB NULL, keeps today's always-shown Help option.
+    return (data.fallback_help_enabled as boolean | null) ?? true
+  } catch {
+    return true
+  }
+}
+
+export async function updateFallbackHelpEnabled(
+  restaurantId: string,
+  enabled: boolean
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ fallback_help_enabled: enabled })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update fallback help toggle: ${error.message}`)
+  }
+}
+

@@ -4,7 +4,10 @@ import {
   sendInteractiveList,
 } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantRedirect } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getRestaurantRedirect,
+  getFallbackHelpEnabled,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { Language } from '@/domain/value-objects/language'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
@@ -85,6 +88,12 @@ export async function handleUnknown(
   // would otherwise lead only to a dead "no rewards" reply.
   if (member && !(await hasActiveRewards(restaurantId))) {
     baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
+  }
+
+  // Hide the "Help" option when the tenant disables it (REPLY-003). Button only:
+  // the typed HELP / 幫助 command still routes to handleHelp regardless.
+  if (member && !(await getFallbackHelpEnabled(restaurantId))) {
+    baseOptions = baseOptions.filter((o) => o.id !== 'HELP')
   }
 
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]

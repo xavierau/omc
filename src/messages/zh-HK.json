@@ -586,6 +586,10 @@
     "redirectInvalid": "請輸入有效電話號碼（只限數字，8 至 15 位，可加 +）。",
     "redirectSaved": "已儲存",
     "redirectSaveFailed": "儲存失敗，請再試一次。",
+    "helpOptionTitle": "說明選單選項",
+    "helpOptionDescription": "在自動回覆選單中顯示「幫助」選項，列出可用指令。關閉後選單將隱藏此選項；客人仍可輸入 HELP 取得說明。",
+    "helpOptionToggleLabel": "在回覆選單中顯示「幫助」選項",
+    "helpSaveFailed": "儲存失敗，請再試一次。",
     "save": "儲存",
     "saving": "儲存中..."
   },

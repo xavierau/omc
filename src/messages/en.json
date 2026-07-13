@@ -586,6 +586,10 @@
     "redirectInvalid": "Enter a valid phone number (digits only, 8–15 long, optional +).",
     "redirectSaved": "Saved",
     "redirectSaveFailed": "Could not save. Please try again.",
+    "helpOptionTitle": "Help Menu Option",
+    "helpOptionDescription": "Shows a \"Help\" option in the automatic reply menu that lists the available commands. Turning this off hides the option from the menu; customers can still get help by typing HELP.",
+    "helpOptionToggleLabel": "Show the Help option in the reply menu",
+    "helpSaveFailed": "Could not save. Please try again.",
     "save": "Save",
     "saving": "Saving..."
   },

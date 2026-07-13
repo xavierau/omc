@@ -5,6 +5,7 @@ import { ReceiptTemplateSection } from '@/components/dashboard/receipt-template-
 import { FlaggedReceiptsPanel } from '@/components/dashboard/flagged-receipts-panel'
 import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
 import { ContactRedirectSection } from '@/components/dashboard/contact-redirect-section'
+import { FallbackHelpSection } from '@/components/dashboard/fallback-help-section'
 import { Separator } from '@/components/ui/separator'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -17,7 +18,7 @@ export default async function SetupPage() {
   const supabase = createServerSupabaseClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('logo_url, redirect_number, redirect_label')
+    .select('logo_url, redirect_number, redirect_label, fallback_help_enabled')
     .eq('id', restaurantId)
     .single()
 
@@ -34,6 +35,12 @@ export default async function SetupPage() {
       <ContactRedirectSection
         initialRedirectNumber={restaurant?.redirect_number ?? null}
         initialRedirectLabel={restaurant?.redirect_label ?? 'Contact us'}
+      />
+
+      <Separator />
+
+      <FallbackHelpSection
+        initialHelpEnabled={restaurant?.fallback_help_enabled ?? true}
       />
 
       <Separator />
