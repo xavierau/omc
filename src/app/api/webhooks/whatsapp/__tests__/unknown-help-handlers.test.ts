@@ -289,6 +289,24 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
     )
   })
 
+  it('member with every menu function disabled + no contact → plain text body (no empty interactive)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { points: false, rewards: false, help: false } })
+    )
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendInteractiveButtons).not.toHaveBeenCalled()
+    expect(sendInteractiveList).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
+    const [pnId, to, body] = vi.mocked(sendTextMessage).mock.calls[0]
+    expect(pnId).toBe(PHONE_NUMBER_ID)
+    expect(to).toBe(PHONE)
+    expect(body).toContain("didn't understand")
+  })
+
   it('custom "unknown" text overrides the default body for a member', async () => {
     vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
     vi.mocked(getReplyConfig).mockResolvedValue(

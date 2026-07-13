@@ -102,6 +102,14 @@ export async function handleUnknown(
   }
 
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]
+
+  // A member who disabled every menu function (points + rewards + help) with no
+  // contact CTA would leave zero options — an interactive message with no buttons
+  // is rejected by Meta. Degrade to a plain-text body so the reply still lands.
+  if (options.length === 0) {
+    return sendTextMessage(phoneNumberId, phone, body)
+  }
+
   const buttonText = isEn ? OPTIONS_BUTTON_EN : OPTIONS_BUTTON_ZH
 
   const menu = buildFallbackMenu(body, buttonText, options)
