@@ -40,7 +40,7 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   // REPLY-003: dispatch reads the reply config. Default = all functions ON,
   // no custom copy, preserving the existing fallback behavior here.
   getReplyConfig: vi.fn(async () => ({
-    features: { points: true, rewards: true, redeem: true, card: true },
+    features: { points: true, rewards: true, redeem: true, card: true, help: true },
     text: {
       unknown: { en: null, zh: null },
       help: { en: null, zh: null },

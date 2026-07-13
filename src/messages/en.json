@@ -593,6 +593,7 @@
     "featureRewards": "Rewards",
     "featureRedeem": "Coupon redemption",
     "featureCard": "Stamp-card QR",
+    "featureHelp": "Help option in menu",
     "unknownTextLabel": "\"Didn't understand\" reply",
     "helpTextLabel": "HELP command reply",
     "joinTextLabel": "Welcome / join invite",

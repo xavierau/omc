@@ -94,6 +94,11 @@ export async function handleUnknown(
     if (!config.features.rewards || !(await hasActiveRewards(restaurantId))) {
       baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
     }
+    // Hide the HELP button when disabled (REPLY-004). Button only: the typed
+    // HELP / 幫助 command still routes to handleHelp regardless.
+    if (!config.features.help) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'HELP')
+    }
   }
 
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]

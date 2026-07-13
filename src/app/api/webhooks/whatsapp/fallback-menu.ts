@@ -62,13 +62,17 @@ export const JOIN_OPTION_ZH: MenuOption = { id: 'JOIN', title: '加入會員' }
 const HELP_HEADER_EN = 'Available commands:'
 const HELP_HEADER_ZH = '可用指令：'
 
-const HELP_FEATURE_LINES_EN: Record<ReplyFeatureKey, string> = {
+// Only functions with a real command belong in the HELP body. `help` is a
+// ReplyFeatureKey that gates the menu button, not a command, so it is excluded.
+type HelpCommandKey = Exclude<ReplyFeatureKey, 'help'>
+
+const HELP_FEATURE_LINES_EN: Record<HelpCommandKey, string> = {
   points: '• POINTS / 積分 — Check your balance',
   rewards: '• REWARDS / 獎賞 — View rewards',
   redeem: '• REDEEM <code> / 兌換 <代碼> — Use a coupon',
   card: '• CARD / 我的會員碼 — Get your stamp-card QR',
 }
-const HELP_FEATURE_LINES_ZH: Record<ReplyFeatureKey, string> = {
+const HELP_FEATURE_LINES_ZH: Record<HelpCommandKey, string> = {
   points: '• POINTS / 積分 — 查詢餘額',
   rewards: '• REWARDS / 獎賞 — 查看獎賞',
   redeem: '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券',
@@ -84,7 +88,7 @@ const HELP_ALWAYS_ZH = [
   '• LANG EN / 語言 中文 — 切換語言',
 ]
 
-const HELP_FEATURE_ORDER: ReplyFeatureKey[] = ['points', 'rewards', 'redeem', 'card']
+const HELP_FEATURE_ORDER: HelpCommandKey[] = ['points', 'rewards', 'redeem', 'card']
 
 /**
  * Build the default HELP body for a language, listing only enabled functions.
