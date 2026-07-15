@@ -17,6 +17,11 @@ import {
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createMetaTemplate, resolveWabaId } from '@/infrastructure/whatsapp/templates'
+import {
+  normalizeTemplateComponents,
+  prepareTemplateComponents,
+} from '@/domain/services/prepare-template-components'
+import { validateTemplateComponents } from '@/domain/services/validate-template-components'
 
 interface CreateTemplateParams {
   restaurantId: string
@@ -29,6 +34,7 @@ interface CreateTemplateParams {
 interface CreateTemplateResult {
   template: WhatsAppTemplate
   error?: string
+  errorCode?: 'meta_rejected' | 'provider_not_configured'
 }
 
 export async function createWhatsAppTemplate(
@@ -47,12 +53,19 @@ export async function createWhatsAppTemplate(
     throw new Error(`Template "${params.name}" with language "${params.language}" already exists`)
   }
 
+  const validationError = validateTemplateComponents(params.components)
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const components = normalizeTemplateComponents(params.components)
+
   const template = await createTemplate({
     restaurantId: params.restaurantId,
     name: params.name,
     language: params.language,
     category: params.category,
-    components: params.components,
+    components,
   })
 
   const businessAccountId = await getMetaBusinessAccountId(params.restaurantId)
@@ -62,7 +75,7 @@ export async function createWhatsAppTemplate(
     return { template }
   }
 
-  return submitToMeta(template, businessAccountId, params)
+  return submitToMeta(template, businessAccountId, { ...params, components })
 }
 
 async function autoResolveWabaId(
@@ -87,18 +100,32 @@ async function submitToMeta(
     name: params.name,
     language: params.language,
     category: params.category,
-    components: params.components as Array<{ type: string; [k: string]: unknown }>,
+    components: prepareTemplateComponents(params.components),
     parameterFormat: 'NAMED',
   })
 
-  if (!metaResult) {
-    return { template, error: 'Failed to submit template to Meta' }
+  if (metaResult.ok) {
+    const updated = await updateTemplate(template.id, {
+      metaTemplateId: metaResult.templateId,
+      status: 'pending',
+    })
+    return { template: updated }
   }
 
+  // Nothing reached Meta, so the draft stands as-is — a skip is not a rejection.
+  if (metaResult.error?.title === 'kapso_no_api_key') {
+    return {
+      template,
+      error: 'WhatsApp provider not configured',
+      errorCode: 'provider_not_configured',
+    }
+  }
+
+  const details = metaResult.error?.details ?? 'Failed to submit template to Meta'
   const updated = await updateTemplate(template.id, {
-    metaTemplateId: metaResult.id,
-    status: 'pending',
+    status: 'rejected',
+    rejectionReason: details,
   })
 
-  return { template: updated }
+  return { template: updated, error: details, errorCode: 'meta_rejected' }
 }

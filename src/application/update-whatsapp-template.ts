@@ -13,6 +13,11 @@ import {
   createMetaTemplate,
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
+import {
+  normalizeTemplateComponents,
+  prepareTemplateComponents,
+} from '@/domain/services/prepare-template-components'
+import { validateTemplateComponents } from '@/domain/services/validate-template-components'
 
 interface UpdateTemplateInput {
   name?: string
@@ -24,6 +29,7 @@ interface UpdateTemplateInput {
 interface UpdateTemplateResult {
   template: WhatsAppTemplate
   error?: string
+  errorCode?: 'meta_rejected' | 'provider_not_configured'
 }
 
 export async function updateWhatsAppTemplate(
@@ -37,51 +43,85 @@ export async function updateWhatsAppTemplate(
     throw new Error('Invalid template name: must be lowercase alphanumeric and underscores only')
   }
 
-  // Delete old Meta template first — Meta requires delete before re-create
-  // for templates with the same name
-  await deleteOldMetaTemplate(existing)
+  const merged = { ...existing, ...input }
 
-  // Attempt to create the new template on Meta before updating local DB
+  // Runs BEFORE the delete below: a payload Meta is certain to refuse must not
+  // cost the caller their live template.
+  const validationError = validateTemplateComponents(merged.components)
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const changes = normalizeChanges(input)
+
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
-  let metaTemplateId: string | null = null
-  let metaError: string | undefined
+  if (!businessAccountId) {
+    // Any remote template is still live, so keep the pointer to it.
+    return { template: await updateTemplate(templateId, changes) }
+  }
 
-  if (businessAccountId) {
-    const merged = { ...existing, ...input }
-    const metaResult = await createMetaTemplate(businessAccountId, {
-      name: merged.name,
-      language: merged.language,
-      category: merged.category,
-      components: merged.components as Array<{ type: string; [k: string]: unknown }>,
-      parameterFormat: 'NAMED',
+  // Meta requires delete before re-create for templates with the same name
+  await deleteOldMetaTemplate(existing, businessAccountId)
+
+  return resubmitToMeta(templateId, merged, changes, businessAccountId)
+}
+
+function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
+  if (input.components === undefined) return input
+  return { ...input, components: normalizeTemplateComponents(input.components) }
+}
+
+async function resubmitToMeta(
+  templateId: string,
+  merged: WhatsAppTemplate,
+  changes: UpdateTemplateInput,
+  businessAccountId: string
+): Promise<UpdateTemplateResult> {
+  const metaResult = await createMetaTemplate(businessAccountId, {
+    name: merged.name,
+    language: merged.language,
+    category: merged.category,
+    components: prepareTemplateComponents(merged.components),
+    parameterFormat: 'NAMED',
+  })
+
+  if (metaResult.ok) {
+    const updated = await updateTemplate(templateId, {
+      ...changes,
+      status: 'pending',
+      metaTemplateId: metaResult.templateId,
+      rejectionReason: null,
     })
+    return { template: updated }
+  }
 
-    if (metaResult) {
-      metaTemplateId = metaResult.id
-    } else {
-      metaError = 'Updated locally but failed to re-submit to Meta'
+  // Without a client the delete above was a no-op, so nothing remote changed.
+  if (metaResult.error?.title === 'kapso_no_api_key') {
+    const updated = await updateTemplate(templateId, changes)
+    return {
+      template: updated,
+      error: 'WhatsApp provider not configured',
+      errorCode: 'provider_not_configured',
     }
   }
 
-  // Now persist locally — metaTemplateId is only cleared if we got a new one
-  // or if we genuinely couldn't recreate it
+  // The old template is genuinely gone from Meta now — record that honestly.
+  const details = metaResult.error?.details ?? 'Updated locally but failed to re-submit to Meta'
   const updated = await updateTemplate(templateId, {
-    ...input,
-    status: metaTemplateId ? 'pending' : 'draft',
-    metaTemplateId,
-    rejectionReason: null,
+    ...changes,
+    status: 'rejected',
+    metaTemplateId: null,
+    rejectionReason: details,
   })
 
-  return { template: updated, ...(metaError && { error: metaError }) }
+  return { template: updated, error: details, errorCode: 'meta_rejected' }
 }
 
 async function deleteOldMetaTemplate(
-  template: WhatsAppTemplate
+  template: WhatsAppTemplate,
+  businessAccountId: string
 ): Promise<void> {
   if (!template.metaTemplateId) return
-
-  const businessAccountId = await getMetaBusinessAccountId(template.restaurantId)
-  if (!businessAccountId) return
 
   await deleteMetaTemplate(businessAccountId, template.name)
 }

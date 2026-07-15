@@ -30,7 +30,14 @@ export interface TemplateComponent {
   format?: HeaderFormat
   text?: string
   example?: {
+    /**
+     * Media header handle. Stored rows carry it under either key: `headerHandle`
+     * from this entity, `header_handle` from the dashboard form
+     * (wa-template-form-types.ts). Readers must accept both; submitters emit only
+     * the camelCase shape, which the Kapso SDK snake-cases onto the wire.
+     */
     headerHandle?: string[]
+    header_handle?: string[]
     bodyText?: string[][]
   }
   buttons?: TemplateButton[]

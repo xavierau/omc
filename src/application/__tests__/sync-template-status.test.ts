@@ -69,6 +69,80 @@ describe('syncTemplateStatus', () => {
     ])
   })
 
+  it('persists the reason Meta gives when a template is rejected', async () => {
+    const local = makeLocalTemplate({ status: 'pending' })
+    vi.mocked(listTemplates).mockResolvedValue({ templates: [local], total: 1 })
+    vi.mocked(listMetaTemplates).mockResolvedValue([
+      {
+        name: 'welcome_msg',
+        language: 'en',
+        status: 'REJECTED',
+        id: 'meta-tpl-1',
+        category: 'UTILITY',
+        rejectedReason: 'INVALID_FORMAT',
+      },
+    ])
+
+    const result = await syncTemplateStatus('rest-1')
+
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      status: 'rejected',
+      rejectionReason: 'INVALID_FORMAT',
+    })
+    expect(result.updated).toEqual([
+      { id: 'tpl-1', oldStatus: 'pending', newStatus: 'rejected' },
+    ])
+  })
+
+  it('falls back to a placeholder when Meta reports no rejection reason', async () => {
+    const local = makeLocalTemplate({ status: 'pending' })
+    vi.mocked(listTemplates).mockResolvedValue({ templates: [local], total: 1 })
+    vi.mocked(listMetaTemplates).mockResolvedValue([
+      { name: 'welcome_msg', language: 'en', status: 'REJECTED', id: 'meta-tpl-1', category: 'UTILITY' },
+    ])
+
+    await syncTemplateStatus('rest-1')
+
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      status: 'rejected',
+      rejectionReason: 'Rejected by Meta (no reason provided)',
+    })
+  })
+
+  it('reads the snake_case rejection reason shape too', async () => {
+    const local = makeLocalTemplate({ status: 'pending' })
+    vi.mocked(listTemplates).mockResolvedValue({ templates: [local], total: 1 })
+    vi.mocked(listMetaTemplates).mockResolvedValue([
+      {
+        name: 'welcome_msg',
+        language: 'en',
+        status: 'REJECTED',
+        id: 'meta-tpl-1',
+        category: 'UTILITY',
+        rejected_reason: 'SCAM',
+      },
+    ] as never)
+
+    await syncTemplateStatus('rest-1')
+
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      status: 'rejected',
+      rejectionReason: 'SCAM',
+    })
+  })
+
+  it('does not write a rejectionReason on a non-rejected transition', async () => {
+    const local = makeLocalTemplate({ status: 'pending' })
+    vi.mocked(listTemplates).mockResolvedValue({ templates: [local], total: 1 })
+    vi.mocked(listMetaTemplates).mockResolvedValue([
+      { name: 'welcome_msg', language: 'en', status: 'APPROVED', id: 'meta-tpl-1', category: 'UTILITY' },
+    ])
+
+    await syncTemplateStatus('rest-1')
+
+    expect(vi.mocked(updateTemplate).mock.calls[0][1]).not.toHaveProperty('rejectionReason')
+  })
+
   it('does not update when status is unchanged', async () => {
     const local = makeLocalTemplate({ status: 'approved' })
     vi.mocked(listTemplates).mockResolvedValue({ templates: [local], total: 1 })

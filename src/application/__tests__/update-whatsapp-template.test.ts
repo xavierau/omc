@@ -18,7 +18,19 @@ import {
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
 import { updateWhatsAppTemplate } from '../update-whatsapp-template'
-import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
+import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
+
+const META_REJECTION =
+  'Invalid parameter: BODY is missing expected field(s) (example) (code 100, subcode 2388043)'
+
+const RAW_URL_IMAGE_HEADER: TemplateComponent[] = [
+  {
+    type: 'HEADER',
+    format: 'IMAGE',
+    example: { header_handle: ['https://example.com/img.png'] },
+  },
+]
 
 const TEMPLATE_BASE: WhatsAppTemplate = {
   id: 'tpl-1',
@@ -56,28 +68,33 @@ describe('updateWhatsAppTemplate', () => {
     ).rejects.toThrow('Invalid template name')
   })
 
-  it('resets status to draft and returns template without Meta when no businessAccountId', async () => {
-    const draftTemplate = {
-      ...TEMPLATE_BASE,
-      name: 'updated_name',
-      status: 'draft' as const,
-      metaTemplateId: null,
-      rejectionReason: null,
-    }
-    vi.mocked(updateTemplate).mockResolvedValue(draftTemplate)
+  it('persists local changes without touching status when no businessAccountId', async () => {
+    const renamed = { ...TEMPLATE_BASE, name: 'updated_name' }
+    vi.mocked(updateTemplate).mockResolvedValue(renamed)
 
     const result = await updateWhatsAppTemplate('tpl-1', {
       name: 'updated_name',
     })
 
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
-      name: 'updated_name',
-      status: 'draft',
-      metaTemplateId: null,
-      rejectionReason: null,
-    })
-    expect(result).toEqual({ template: draftTemplate })
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { name: 'updated_name' })
+    expect(result).toEqual({ template: renamed })
     expect(createMetaTemplate).not.toHaveBeenCalled()
+  })
+
+  it('preserves an existing metaTemplateId when no businessAccountId', async () => {
+    // Nulling the link here would orphan a template that is still live on Meta.
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
+
+    await updateWhatsAppTemplate('tpl-1', { name: 'updated_name' })
+
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { name: 'updated_name' })
+    const payload = vi.mocked(updateTemplate).mock.calls[0][1]
+    expect(payload).not.toHaveProperty('metaTemplateId')
+    expect(payload).not.toHaveProperty('status')
   })
 
   it('deletes old Meta template and resubmits when existing had metaTemplateId', async () => {
@@ -88,7 +105,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(findTemplateById).mockResolvedValue(existingWithMeta)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
-    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 'new-meta-id', status: 'PENDING' })
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
 
     const pendingTemplate = {
       ...TEMPLATE_BASE,
@@ -125,35 +142,111 @@ describe('updateWhatsAppTemplate', () => {
     expect(result).toEqual({ template: pendingTemplate })
   })
 
-  it('returns error when Meta create fails after delete', async () => {
-    const existingWithMeta = {
+  it('submits prepared components but persists them without examples', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
-    }
-    vi.mocked(findTemplateById).mockResolvedValue(existingWithMeta)
+    })
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
-    vi.mocked(createMetaTemplate).mockResolvedValue(null)
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
-    const draftTemplate = {
+    await updateWhatsAppTemplate('tpl-1', {
+      components: [{ type: 'BODY', text: 'Hi ｛｛customer_name｝｝' }],
+    })
+
+    expect(createMetaTemplate).toHaveBeenCalledWith(
+      'biz-1',
+      expect.objectContaining({
+        components: [
+          {
+            type: 'BODY',
+            text: 'Hi {{customer_name}}',
+            example: { bodyTextNamedParams: [{ paramName: 'customer_name', example: 'John' }] },
+          },
+        ],
+      })
+    )
+    expect(updateTemplate).toHaveBeenCalledWith(
+      'tpl-1',
+      expect.objectContaining({
+        components: [{ type: 'BODY', text: 'Hi {{customer_name}}' }],
+      })
+    )
+  })
+
+  it('records the rejection honestly when Meta rejects after the delete', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
+    vi.mocked(createMetaTemplate).mockResolvedValue(
+      failedSubmit('meta_rejected', META_REJECTION)
+    )
+
+    const rejectedTemplate = {
       ...TEMPLATE_BASE,
       category: 'UTILITY' as const,
-      status: 'draft' as const,
+      status: 'rejected' as const,
       metaTemplateId: null,
-      rejectionReason: null,
+      rejectionReason: META_REJECTION,
     }
-    vi.mocked(updateTemplate).mockResolvedValue(draftTemplate)
+    vi.mocked(updateTemplate).mockResolvedValue(rejectedTemplate)
 
-    const result = await updateWhatsAppTemplate('tpl-1', {
-      category: 'UTILITY',
-    })
+    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
 
-    expect(result.error).toBe('Updated locally but failed to re-submit to Meta')
+    // The old template is genuinely gone from Meta — record that, don't pretend it's a draft.
     expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
       category: 'UTILITY',
-      status: 'draft',
+      status: 'rejected',
       metaTemplateId: null,
-      rejectionReason: null,
+      rejectionReason: META_REJECTION,
     })
+    expect(result).toEqual({
+      template: rejectedTemplate,
+      error: META_REJECTION,
+      errorCode: 'meta_rejected',
+    })
+  })
+
+  it('preserves the Meta link when the provider is unconfigured', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(deleteMetaTemplate).mockResolvedValue(false)
+    vi.mocked(createMetaTemplate).mockResolvedValue(failedSubmit('kapso_no_api_key'))
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
+
+    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
+
+    // Without a client the delete was a no-op, so nothing remote changed.
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { category: 'UTILITY' })
+    const payload = vi.mocked(updateTemplate).mock.calls[0][1]
+    expect(payload).not.toHaveProperty('metaTemplateId')
+    expect(payload).not.toHaveProperty('status')
+    expect(result.errorCode).toBe('provider_not_configured')
+  })
+
+  it('rejects a raw-URL image header WITHOUT deleting the live Meta template', async () => {
+    // The regression test for the destructive edit: an approved template must
+    // survive a payload Meta would refuse.
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+
+    await expect(
+      updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+    ).rejects.toThrow(/resumable-upload handle/)
+
+    expect(deleteMetaTemplate).not.toHaveBeenCalled()
+    expect(createMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
   })
 })

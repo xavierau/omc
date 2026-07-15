@@ -31,6 +31,34 @@ function formatDate(iso: string | undefined): string {
   })
 }
 
+function rejectionReason(tmpl: WaTemplate): string | null {
+  return tmpl.status === 'rejected' ? (tmpl.rejectionReason ?? null) : null
+}
+
+function StatusCell({ template, label }: { template: WaTemplate; label: string }) {
+  const reason = rejectionReason(template)
+  return (
+    <>
+      <Badge
+        variant={statusVariant[template.status] ?? 'secondary'}
+        className={statusClass[template.status] ?? ''}
+        title={reason ?? undefined}
+      >
+        {template.status}
+      </Badge>
+      {reason && (
+        <p
+          data-testid="rejection-reason"
+          title={reason}
+          className="text-xs text-muted-foreground mt-1 max-w-[240px] truncate"
+        >
+          {label}: {reason}
+        </p>
+      )}
+    </>
+  )
+}
+
 interface Props {
   templates: WaTemplate[]
   onEdit?: (template: WaTemplate) => void
@@ -58,12 +86,7 @@ export function WaTemplateTable({ templates, onEdit }: Props) {
             <TableCell>{tmpl.language}</TableCell>
             <TableCell>{tmpl.category}</TableCell>
             <TableCell>
-              <Badge
-                variant={statusVariant[tmpl.status] ?? 'secondary'}
-                className={statusClass[tmpl.status] ?? ''}
-              >
-                {tmpl.status}
-              </Badge>
+              <StatusCell template={tmpl} label={t('rejectionReasonLabel')} />
             </TableCell>
             <TableCell>{formatDate(tmpl.createdAt)}</TableCell>
             {onEdit && (

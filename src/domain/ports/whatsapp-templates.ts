@@ -1,4 +1,5 @@
 import type { SendResult } from '@/domain/value-objects/send-result'
+import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
 
 export interface TemplateComponent { type: string; [k: string]: unknown }
 export interface TemplateBodyParam { type: 'text'; text: string; parameterName: string }
@@ -16,7 +17,6 @@ export type TemplateButtonParam =
       index: number | string
       parameters: Array<{ type: 'payload'; payload: string }>
     }
-export interface CreateTemplateResult { id: string; status: string }
 export interface TemplateListItem { id: string; name: string; status: string; [k: string]: unknown }
 
 export interface WhatsAppTemplatePort {
@@ -26,7 +26,7 @@ export interface WhatsAppTemplatePort {
     category: string
     components: TemplateComponent[]
     parameterFormat?: 'NAMED' | 'POSITIONAL'
-  }): Promise<CreateTemplateResult | null>
+  }): Promise<TemplateSubmitResult>
 
   listTemplates(wabaId: string): Promise<TemplateListItem[] | null>
   getTemplate(wabaId: string, templateId: string): Promise<Record<string, unknown> | null>
