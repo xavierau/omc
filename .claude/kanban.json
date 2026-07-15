@@ -1412,20 +1412,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "TPL-003",
-          "title": "WhatsApp templates stuck in draft: Meta rejection swallowed; components never prepared (#64)",
-          "description": "Prod bug #64. Create/edit submit raw components to Meta with no NAMED-param example injection -> Meta 400 (code 100 / subcode 2388043, 'component of type BODY is missing expected field(s) (example)'). Error is swallowed to null (template-client.ts:46-49) and create returns HTTP 201 with a warning field, so the UI shows success while the row stays draft forever. Sync excludes drafts so it can never self-heal. INVESTIGATION CORRECTION: issue #64 says to wire in an existing prepareTemplateComponents helper -- that helper has NEVER existed in this repo (git log --all -S = 0 hits), nor has scripts/resubmit-wa-template.ts. It must be written from scratch. The only example-injection code is injectNamedParamExamples, inline in the resubmit route, which does NOT ingest image headers (contrary to the issue). ALSO FOUND (not in issue): update-whatsapp-template.ts:42 deletes the live Meta template BEFORE re-creating, so editing an approved template with a rejected payload destroys it and clears rejectionReason. BLOCKED/OUT OF SCOPE: image header 4: handle ingestion needs Meta's App-level Resumable Upload API (POST /{APP_ID}/uploads); we hold only KAPSO_API_KEY and the Kapso proxy does not expose it -> instead validate and block raw-URL image headers at save. No migration needed: rejection_reason already exists end-to-end.",
-          "priority": "high",
-          "labels": [
-            "bug",
-            "production",
-            "whatsapp",
-            "templates"
-          ],
-          "github_issue": 64,
-          "branch": "fix/TPL-003-template-meta-submission"
         }
       ]
     },
@@ -2412,6 +2398,23 @@
           "merged_at": "2026-07-13",
           "pr": 63,
           "merged_into": "develop"
+        },
+        {
+          "id": "TPL-003",
+          "title": "WhatsApp templates stuck in draft: Meta rejection swallowed; components never prepared (#64)",
+          "description": "Prod bug #64. Create/edit submit raw components to Meta with no NAMED-param example injection -> Meta 400 (code 100 / subcode 2388043, 'component of type BODY is missing expected field(s) (example)'). Error is swallowed to null (template-client.ts:46-49) and create returns HTTP 201 with a warning field, so the UI shows success while the row stays draft forever. Sync excludes drafts so it can never self-heal. INVESTIGATION CORRECTION: issue #64 says to wire in an existing prepareTemplateComponents helper -- that helper has NEVER existed in this repo (git log --all -S = 0 hits), nor has scripts/resubmit-wa-template.ts. It must be written from scratch. The only example-injection code is injectNamedParamExamples, inline in the resubmit route, which does NOT ingest image headers (contrary to the issue). ALSO FOUND (not in issue): update-whatsapp-template.ts:42 deletes the live Meta template BEFORE re-creating, so editing an approved template with a rejected payload destroys it and clears rejectionReason. BLOCKED/OUT OF SCOPE: image header 4: handle ingestion needs Meta's App-level Resumable Upload API (POST /{APP_ID}/uploads); we hold only KAPSO_API_KEY and the Kapso proxy does not expose it -> instead validate and block raw-URL image headers at save. No migration needed: rejection_reason already exists end-to-end.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates"
+          ],
+          "github_issue": 64,
+          "branch": "fix/TPL-003-template-meta-submission",
+          "completed": "2026-07-16",
+          "pr": 65,
+          "notes": "Merged via PR #65. Does NOT fully close #64: image-header templates remain unsubmittable (TPL-004 is the blocker — needs Meta's App-level resumable upload for a 4: handle). Text-only templates now submit; image-header ones fail loudly with Meta's real reason instead of silently. Follow-ups logged: TPL-004..TPL-008, SEC-001 (cross-tenant IDOR, pre-existing, found during /review)."
         }
       ]
     },
