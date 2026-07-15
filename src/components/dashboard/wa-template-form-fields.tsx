@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { ImageUploader } from '@/components/dashboard/image-uploader'
 import { WaTemplateButtonsSection } from './wa-template-buttons-section'
@@ -66,6 +67,7 @@ function CategoryField({ category, onChange }: { category: string; onChange: OnC
 }
 
 function HeaderSection({ form, onChange }: { form: WaTemplateFormState; onChange: OnChange }) {
+  const t = useTranslations('waTemplates')
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">Header (optional)</legend>
@@ -78,12 +80,17 @@ function HeaderSection({ form, onChange }: { form: WaTemplateFormState; onChange
         <Input value={form.headerText} onChange={(e) => onChange('headerText', e.target.value)} placeholder="Header text with {{param}}" />
       )}
       {form.headerType === 'image' && (
-        <ImageUploader
-          bucket="wa-template-media"
-          currentUrl={form.headerImageUrl}
-          onUploaded={(url) => onChange('headerImageUrl', url)}
-          onRemoved={() => onChange('headerImageUrl', '')}
-        />
+        <>
+          <ImageUploader
+            bucket="wa-template-media"
+            currentUrl={form.headerImageUrl}
+            onUploaded={(url) => onChange('headerImageUrl', url)}
+            onRemoved={() => onChange('headerImageUrl', '')}
+          />
+          <p className="text-xs text-amber-600 dark:text-amber-500" data-testid="image-header-hint">
+            {t('imageHeaderHint')}
+          </p>
+        </>
       )}
     </fieldset>
   )

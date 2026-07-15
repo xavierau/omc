@@ -20,6 +20,7 @@ import {
 } from '@/infrastructure/kapso/template-client'
 import type { WhatsAppTemplatePort } from '@/domain/ports/whatsapp-templates'
 import { okResult } from '@/test-utils/send-result'
+import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
 
 describe('kapsoTemplateAdapter', () => {
   it('satisfies WhatsAppTemplatePort interface', () => {
@@ -27,20 +28,22 @@ describe('kapsoTemplateAdapter', () => {
     expect(port).toBeDefined()
   })
 
-  it('createTemplate maps result to { id, status }', async () => {
-    vi.mocked(createMetaTemplate).mockResolvedValue({ id: 't1', status: 'APPROVED', category: 'MARKETING' } as never)
+  it('createTemplate passes an ok result through unchanged', async () => {
+    const ok = okSubmit('t1', 'APPROVED')
+    vi.mocked(createMetaTemplate).mockResolvedValue(ok)
     const result = await kapsoTemplateAdapter.createTemplate('waba1', {
       name: 'tpl', language: 'en', category: 'MARKETING', components: [],
     })
-    expect(result).toEqual({ id: 't1', status: 'APPROVED' })
+    expect(result).toEqual(ok)
   })
 
-  it('createTemplate returns null when underlying returns null', async () => {
-    vi.mocked(createMetaTemplate).mockResolvedValue(null as never)
+  it('createTemplate passes a failed result through unchanged', async () => {
+    const failed = failedSubmit('meta_rejected', 'BODY is missing expected field(s) (example)')
+    vi.mocked(createMetaTemplate).mockResolvedValue(failed)
     const result = await kapsoTemplateAdapter.createTemplate('waba1', {
       name: 'tpl', language: 'en', category: 'MARKETING', components: [],
     })
-    expect(result).toBeNull()
+    expect(result).toEqual(failed)
   })
 
   it('listTemplates maps to TemplateListItem[]', async () => {

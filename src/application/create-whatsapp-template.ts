@@ -17,6 +17,11 @@ import {
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createMetaTemplate, resolveWabaId } from '@/infrastructure/whatsapp/templates'
+import {
+  normalizeTemplateComponents,
+  prepareTemplateComponents,
+} from '@/domain/services/prepare-template-components'
+import { validateTemplateComponents } from '@/domain/services/validate-template-components'
 
 interface CreateTemplateParams {
   restaurantId: string
@@ -29,6 +34,7 @@ interface CreateTemplateParams {
 interface CreateTemplateResult {
   template: WhatsAppTemplate
   error?: string
+  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
 }
 
 export async function createWhatsAppTemplate(
@@ -47,22 +53,31 @@ export async function createWhatsAppTemplate(
     throw new Error(`Template "${params.name}" with language "${params.language}" already exists`)
   }
 
+  const validationError = validateTemplateComponents(params.components)
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const components = normalizeTemplateComponents(params.components)
+
   const template = await createTemplate({
     restaurantId: params.restaurantId,
     name: params.name,
     language: params.language,
     category: params.category,
-    components: params.components,
+    components,
   })
 
+  // `||`, not `??`: an unset WABA is stored as '' rather than NULL, and '' must
+  // still fall through to auto-resolution or the draft is never submitted at all.
   const businessAccountId = await getMetaBusinessAccountId(params.restaurantId)
-    ?? await autoResolveWabaId(params.restaurantId)
+    || await autoResolveWabaId(params.restaurantId)
 
   if (!businessAccountId) {
     return { template }
   }
 
-  return submitToMeta(template, businessAccountId, params)
+  return submitToMeta(template, businessAccountId, { ...params, components })
 }
 
 async function autoResolveWabaId(
@@ -87,18 +102,41 @@ async function submitToMeta(
     name: params.name,
     language: params.language,
     category: params.category,
-    components: params.components as Array<{ type: string; [k: string]: unknown }>,
+    components: prepareTemplateComponents(params.components),
     parameterFormat: 'NAMED',
   })
 
-  if (!metaResult) {
-    return { template, error: 'Failed to submit template to Meta' }
+  if (metaResult.ok) {
+    const updated = await updateTemplate(template.id, {
+      metaTemplateId: metaResult.templateId,
+      status: 'pending',
+    })
+    return { template: updated }
   }
 
-  const updated = await updateTemplate(template.id, {
-    metaTemplateId: metaResult.id,
-    status: 'pending',
-  })
+  // Only Meta refusing the content is a rejection. A missing client or a transient
+  // failure means the draft was never judged — leave it alone so the operator
+  // retries instead of hunting for a content problem that doesn't exist.
+  if (metaResult.error?.title === 'meta_rejected') {
+    const details = metaResult.error.details ?? 'Meta rejected the template'
+    const updated = await updateTemplate(template.id, {
+      status: 'rejected',
+      rejectionReason: details,
+    })
+    return { template: updated, error: details, errorCode: 'meta_rejected' }
+  }
 
-  return { template: updated }
+  if (metaResult.error?.title === 'kapso_no_api_key') {
+    return {
+      template,
+      error: 'WhatsApp provider not configured',
+      errorCode: 'provider_not_configured',
+    }
+  }
+
+  return {
+    template,
+    error: metaResult.error?.details ?? 'Failed to submit template to Meta',
+    errorCode: 'provider_error',
+  }
 }

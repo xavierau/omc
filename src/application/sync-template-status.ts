@@ -15,6 +15,8 @@ interface StatusChange {
 
 const SYNCABLE_STATUSES: TemplateStatus[] = ['pending', 'approved', 'paused']
 
+const NO_REJECTION_REASON = 'Rejected by Meta (no reason provided)'
+
 const META_STATUS_MAP: Record<string, TemplateStatus> = {
   APPROVED: 'approved',
   REJECTED: 'rejected',
@@ -64,6 +66,19 @@ async function syncSingleTemplate(
   const newStatus = META_STATUS_MAP[meta.status]
   if (!newStatus || newStatus === local.status) return null
 
-  await updateTemplate(local.id, { status: newStatus })
+  await updateTemplate(local.id, {
+    status: newStatus,
+    ...(newStatus === 'rejected' && { rejectionReason: readRejectedReason(meta) }),
+  })
   return { id: local.id, oldStatus: local.status, newStatus }
+}
+
+/**
+ * Meta's rejection reason is not in the SDK's list-item type; it arrives
+ * camelized at runtime when present, so both shapes are read defensively.
+ */
+function readRejectedReason(meta: MetaTemplateListItem): string {
+  const candidates = [meta.rejectedReason, meta.rejected_reason]
+  const reason = candidates.find((c) => typeof c === 'string' && c.length > 0)
+  return (reason as string) ?? NO_REJECTION_REASON
 }

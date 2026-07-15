@@ -11,6 +11,7 @@ export interface WaTemplate {
   status: string
   components: Record<string, unknown>[]
   createdAt: string
+  rejectionReason?: string | null
 }
 
 interface Filters {

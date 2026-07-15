@@ -10,6 +10,9 @@ import {
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
+import { prepareTemplateComponents } from '@/domain/services/prepare-template-components'
+import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 export async function POST() {
   try {
@@ -41,28 +44,38 @@ export async function POST() {
 }
 
 async function submitDrafts(
-  drafts: Array<{ id: string; name: string; language: string; category: string; components: unknown }>,
+  drafts: Array<{ id: string; name: string; language: string; category: string; components: TemplateComponent[] }>,
   wabaId: string
 ) {
   const results: Array<{ name: string; success: boolean; metaId?: string; error?: string }> = []
 
   for (const t of drafts) {
     try {
-      const components = injectNamedParamExamples(
-        t.components as Array<{ type: string; text?: string; [k: string]: unknown }>
-      )
+      const validationError = validateTemplateComponents(t.components)
+      if (validationError) {
+        results.push({ name: t.name, success: false, error: validationError })
+        continue
+      }
+
       const result = await createMetaTemplate(wabaId, {
         name: t.name,
         language: t.language,
         category: t.category,
-        components,
+        components: prepareTemplateComponents(t.components),
         parameterFormat: 'NAMED',
       })
-      if (result) {
-        await updateTemplate(t.id, { metaTemplateId: result.id, status: 'pending' })
-        results.push({ name: t.name, success: true, metaId: result.id })
+      if (result.ok) {
+        await updateTemplate(t.id, { metaTemplateId: result.templateId, status: 'pending' })
+        results.push({ name: t.name, success: true, metaId: result.templateId ?? undefined })
       } else {
-        results.push({ name: t.name, success: false, error: 'Meta returned null' })
+        const error =
+          result.error?.details ?? result.error?.title ?? 'Failed to submit template to Meta'
+        // Only a refusal Meta actually issued brands the row; a skip or a transient
+        // failure leaves the draft untouched.
+        if (result.error?.title === 'meta_rejected') {
+          await updateTemplate(t.id, { status: 'rejected', rejectionReason: error })
+        }
+        results.push({ name: t.name, success: false, error })
       }
     } catch (err) {
       results.push({ name: t.name, success: false, error: (err as Error).message })
@@ -70,51 +83,4 @@ async function submitDrafts(
   }
 
   return results
-}
-
-const EXAMPLE_VALUES: Record<string, string> = {
-  customer_name: 'John',
-  name: 'John',
-  code: 'ABC123',
-  discount: '20%',
-}
-
-function injectNamedParamExamples(
-  components: Array<{ type: string; text?: string; example?: unknown; [k: string]: unknown }>
-): Array<{ type: string; [k: string]: unknown }> {
-  return components.map((c) => {
-    if (c.type === 'BUTTONS') return injectButtonExamples(c)
-    if (!c.text) return c
-    return injectTextExamples(c)
-  })
-}
-
-function injectButtonExamples(
-  c: { type: string; buttons?: unknown; [k: string]: unknown }
-) {
-  const buttons = (c.buttons as Array<{ type: string; text: string; [k: string]: unknown }>) ?? []
-  return {
-    ...c,
-    buttons: buttons.map((b) =>
-      b.type === 'COPY_CODE' ? { ...b, text: 'Copy offer code' } : b
-    ),
-  }
-}
-
-function injectTextExamples(
-  c: { type: string; text?: string; [k: string]: unknown }
-) {
-  const params = [...(c.text ?? '').matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])
-  if (params.length === 0) return c
-
-  const key = c.type === 'HEADER' ? 'headerTextNamedParams' : 'bodyTextNamedParams'
-  return {
-    ...c,
-    example: {
-      [key]: params.map((p) => ({
-        paramName: p,
-        example: EXAMPLE_VALUES[p] ?? 'example',
-      })),
-    },
-  }
 }

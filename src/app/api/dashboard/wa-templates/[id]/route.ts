@@ -43,10 +43,10 @@ export async function PATCH(
       components: body.components,
     })
 
-    if (result.error) {
+    if (result.errorCode) {
       return NextResponse.json(
-        { template: result.template, warning: result.error },
-        { status: 200 }
+        { template: result.template, error: result.error },
+        { status: result.errorCode === 'meta_rejected' ? 422 : 502 }
       )
     }
     return NextResponse.json(result.template)
