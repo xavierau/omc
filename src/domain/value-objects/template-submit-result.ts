@@ -13,9 +13,14 @@
  * - `meta_rejected`         — Meta refused the payload; `details` carries its reason
  * - `template_create_error` — any other failure; `details` carries the message
  */
+export type TemplateSubmitErrorTitle =
+  | 'kapso_no_api_key'
+  | 'meta_rejected'
+  | 'template_create_error'
+
 export interface TemplateSubmitResult {
   ok: boolean
   templateId: string | null
   status: string | null
-  error?: { title: string; details?: string }
+  error?: { title: TemplateSubmitErrorTitle; details?: string }
 }

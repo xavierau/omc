@@ -68,11 +68,14 @@ async function submitDrafts(
         await updateTemplate(t.id, { metaTemplateId: result.templateId, status: 'pending' })
         results.push({ name: t.name, success: true, metaId: result.templateId ?? undefined })
       } else {
-        results.push({
-          name: t.name,
-          success: false,
-          error: result.error?.details ?? result.error?.title ?? 'Failed to submit template to Meta',
-        })
+        const error =
+          result.error?.details ?? result.error?.title ?? 'Failed to submit template to Meta'
+        // Only a refusal Meta actually issued brands the row; a skip or a transient
+        // failure leaves the draft untouched.
+        if (result.error?.title === 'meta_rejected') {
+          await updateTemplate(t.id, { status: 'rejected', rejectionReason: error })
+        }
+        results.push({ name: t.name, success: false, error })
       }
     } catch (err) {
       results.push({ name: t.name, success: false, error: (err as Error).message })

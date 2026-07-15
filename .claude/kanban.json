@@ -1293,6 +1293,79 @@
             "WAQ-013"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §8"
+        },
+        {
+          "id": "TPL-004",
+          "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
+          "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
+          "priority": "high",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "blocked",
+            "external-dependency"
+          ],
+          "related": [
+            "kanban:TPL-003",
+            "github:64"
+          ]
+        },
+        {
+          "id": "TPL-005",
+          "title": "Resubmit route hardcodes a WABA id and writes it into the tenant's restaurant row",
+          "description": "src/app/api/dashboard/wa-templates/resubmit/route.ts:20-26 falls back to a hardcoded KAPSO_WABA_ID ('1352084526373366') when a tenant has no WABA, and PERSISTS it onto that tenant's restaurant row via updateMetaBusinessAccountId. Cross-tenant attribution hazard: one tenant's templates get created under a shared/foreign WABA. Contradicts create-whatsapp-template.ts which resolves the WABA properly via resolveWabaId(phoneNumberId). Found during TPL-003 investigation; deliberately left untouched there per Surgical Changes. Gemini review also raised concurrent-tenant Meta rate-limit exposure on this path.",
+          "priority": "high",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "security",
+            "multi-tenant"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-006",
+          "title": "Edit with rename/language change should create-first, not delete-first",
+          "description": "From TPL-003 gemini review (Important). update-whatsapp-template.ts deletes the old Meta template unconditionally before re-creating. That ordering is mandatory only for SAME-name edits (Meta enforces name+language uniqueness). A rename or language change targets a DISTINCT Meta template, so the constraint does not bind and the destruction is unnecessary: if the newly-named template is then rejected, the user loses their old approved template for nothing. Fix: when merged.name !== existing.name || merged.language !== existing.language, create FIRST and only delete the old on success. Deferred from TPL-003 because it is pre-existing behavior (not a regression introduced there) and doubles the ordering matrix in a prod-bound hotfix.",
+          "priority": "medium",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "data-loss"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-007",
+          "title": "Template edit residual: Meta can reject on policy grounds after the delete (R2)",
+          "description": "Accepted residual from TPL-003 (plan risk R2, confirmed by both reviewers). validate-before-delete closes the KNOWN failure class (missing named-param examples), but Meta can still reject an edit for policy/content reasons AFTER the old template was deleted — destroying a live approved template. Create-then-delete is impossible for same-name edits under Meta's name+language uniqueness. Grok: 'necessary and not sufficient... do not block the PR solely on R2'; residual volume should drop now that examples are injected. Optional mitigations: operator confirmation before editing an approved template; version-by-new-name instead of in-place edit; a post-failure recovery runbook.",
+          "priority": "medium",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "data-loss"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-008",
+          "title": "wa-templates hygiene: PATCH AuthError branch, resubmit loop timeout, VO discriminated union",
+          "description": "Three low-priority items deferred from TPL-003. (1) PATCH /api/dashboard/wa-templates/[id] has no AuthError branch, so auth failures return 400 instead of 401/403 — POST handles it correctly (pre-existing). (2) Gemini: resubmit's submitDrafts loop awaits Meta sequentially over up to 100 drafts, risking an API route timeout; NOTE parallelizing risks Meta template-creation rate limits, so bound concurrency rather than using a bare Promise.all, or lower pageSize. (3) Grok: TemplateSubmitResult is not a discriminated union, so ok:true does not type-require a non-null templateId; TPL-003 deliberately mirrored the flat SendResult precedent instead.",
+          "priority": "low",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "tech-debt"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
         }
       ]
     },

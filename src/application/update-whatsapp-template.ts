@@ -29,7 +29,7 @@ interface UpdateTemplateInput {
 interface UpdateTemplateResult {
   template: WhatsAppTemplate
   error?: string
-  errorCode?: 'meta_rejected' | 'provider_not_configured'
+  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
 }
 
 export async function updateWhatsAppTemplate(
@@ -55,13 +55,34 @@ export async function updateWhatsAppTemplate(
   const changes = normalizeChanges(input)
 
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
+
+  // A template that lives on Meta may only be edited when we can actually re-submit
+  // it. Persisting without a re-submit would leave an approved row sendable
+  // (isTemplateSendable) against a Meta definition it no longer matches.
   if (!businessAccountId) {
-    // Any remote template is still live, so keep the pointer to it.
+    if (existing.metaTemplateId) {
+      return {
+        template: existing,
+        error: 'WhatsApp provider not configured',
+        errorCode: 'provider_not_configured',
+      }
+    }
     return { template: await updateTemplate(templateId, changes) }
   }
 
-  // Meta requires delete before re-create for templates with the same name
-  await deleteOldMetaTemplate(existing, businessAccountId)
+  if (existing.metaTemplateId) {
+    // Meta requires delete before re-create for templates with the same name.
+    // If it fails the create would fail on uniqueness anyway, and clearing the link
+    // afterwards would orphan a template that is still live and still sendable.
+    const deleted = await deleteMetaTemplate(businessAccountId, existing.name)
+    if (!deleted) {
+      return {
+        template: existing,
+        error: 'The existing template could not be removed from Meta, so no changes were saved',
+        errorCode: 'provider_error',
+      }
+    }
+  }
 
   return resubmitToMeta(templateId, merged, changes, businessAccountId)
 }
@@ -95,8 +116,23 @@ async function resubmitToMeta(
     return { template: updated }
   }
 
-  // Without a client the delete above was a no-op, so nothing remote changed.
-  if (metaResult.error?.title === 'kapso_no_api_key') {
+  // Meta refused the content: the old template is gone and the new one was judged
+  // and failed. Record both facts.
+  if (metaResult.error?.title === 'meta_rejected') {
+    const details = metaResult.error.details ?? 'Meta rejected the template'
+    const updated = await updateTemplate(templateId, {
+      ...changes,
+      status: 'rejected',
+      metaTemplateId: null,
+      rejectionReason: details,
+    })
+    return { template: updated, error: details, errorCode: 'meta_rejected' }
+  }
+
+  // No client, so nothing was submitted and nothing was deleted. Guarded on the
+  // link rather than trusting that a linked template already aborted at the delete:
+  // an unlinked row has no live counterpart its local edit could diverge from.
+  if (metaResult.error?.title === 'kapso_no_api_key' && !merged.metaTemplateId) {
     const updated = await updateTemplate(templateId, changes)
     return {
       template: updated,
@@ -105,23 +141,15 @@ async function resubmitToMeta(
     }
   }
 
-  // The old template is genuinely gone from Meta now — record that honestly.
-  const details = metaResult.error?.details ?? 'Updated locally but failed to re-submit to Meta'
+  // The submit failed before Meta could judge it. Any old template is already gone,
+  // so unlink honestly — but this is not a content rejection.
+  const details = metaResult.error?.details ?? 'Failed to submit template to Meta'
   const updated = await updateTemplate(templateId, {
     ...changes,
-    status: 'rejected',
+    status: 'draft',
     metaTemplateId: null,
     rejectionReason: details,
   })
 
-  return { template: updated, error: details, errorCode: 'meta_rejected' }
-}
-
-async function deleteOldMetaTemplate(
-  template: WhatsAppTemplate,
-  businessAccountId: string
-): Promise<void> {
-  if (!template.metaTemplateId) return
-
-  await deleteMetaTemplate(businessAccountId, template.name)
+  return { template: updated, error: details, errorCode: 'provider_error' }
 }

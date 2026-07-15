@@ -151,6 +151,24 @@ describe('createWhatsAppTemplate', () => {
     })
   })
 
+  it('does not brand a transient submit failure as a Meta rejection', async () => {
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(createMetaTemplate).mockResolvedValue(
+      failedSubmit('template_create_error', 'socket hang up')
+    )
+
+    const result = await createWhatsAppTemplate(VALID_PARAMS)
+
+    // A network blip is not Meta refusing the content: leave the draft alone so the
+    // operator retries instead of hunting for a content problem that doesn't exist.
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      template: TEMPLATE_BASE,
+      error: 'socket hang up',
+      errorCode: 'provider_error',
+    })
+  })
+
   it('persists components without examples but submits them with examples', async () => {
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-tpl-1', 'PENDING'))

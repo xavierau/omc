@@ -1,4 +1,7 @@
-import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
+import type {
+  TemplateSubmitResult,
+  TemplateSubmitErrorTitle,
+} from '@/domain/value-objects/template-submit-result'
 
 /** Test helper: an OK TemplateSubmitResult with a deterministic Meta id. */
 export function okSubmit(id = 'tpl.test', status = 'PENDING'): TemplateSubmitResult {
@@ -7,7 +10,7 @@ export function okSubmit(id = 'tpl.test', status = 'PENDING'): TemplateSubmitRes
 
 /** Test helper: a non-OK TemplateSubmitResult with a synthetic error title. */
 export function failedSubmit(
-  title = 'test_skip',
+  title: TemplateSubmitErrorTitle = 'template_create_error',
   details?: string
 ): TemplateSubmitResult {
   return {

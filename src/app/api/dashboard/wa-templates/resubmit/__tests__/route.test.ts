@@ -70,7 +70,7 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(body.submitted).toEqual([{ name: 'welcome_msg', success: true, metaId: 'meta-1' }])
   })
 
-  it('reports Metas real reason per draft instead of a null placeholder', async () => {
+  it('persists the rejection and reports Metas real reason per draft', async () => {
     vi.mocked(createMetaTemplate).mockResolvedValue(
       failedSubmit('meta_rejected', META_REJECTION)
     )
@@ -81,7 +81,11 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(body.submitted).toEqual([
       { name: 'welcome_msg', success: false, error: META_REJECTION },
     ])
-    expect(updateTemplate).not.toHaveBeenCalled()
+    // Without this the row stays draft with a NULL reason — the original bug.
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
+      status: 'rejected',
+      rejectionReason: META_REJECTION,
+    })
   })
 
   it('falls back to the error title when there are no details', async () => {
@@ -93,6 +97,26 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(body.submitted).toEqual([
       { name: 'welcome_msg', success: false, error: 'kapso_no_api_key' },
     ])
+  })
+
+  it('does not brand a draft rejected when nothing was submitted', async () => {
+    vi.mocked(createMetaTemplate).mockResolvedValue(failedSubmit('kapso_no_api_key'))
+
+    await POST()
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  it('does not brand a draft rejected on a transient submit failure', async () => {
+    vi.mocked(createMetaTemplate).mockResolvedValue(
+      failedSubmit('template_create_error', 'socket hang up')
+    )
+
+    const res = await POST()
+    const body = await res.json()
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(body.submitted[0].error).toBe('socket hang up')
   })
 
   it('skips submitting a draft whose image header is a raw URL', async () => {
@@ -115,6 +139,7 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     const body = await res.json()
 
     expect(createMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
     expect(body.submitted[0].success).toBe(false)
     expect(body.submitted[0].error).toMatch(/resumable-upload handle/)
   })

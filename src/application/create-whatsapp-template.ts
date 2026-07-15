@@ -34,7 +34,7 @@ interface CreateTemplateParams {
 interface CreateTemplateResult {
   template: WhatsAppTemplate
   error?: string
-  errorCode?: 'meta_rejected' | 'provider_not_configured'
+  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
 }
 
 export async function createWhatsAppTemplate(
@@ -112,7 +112,18 @@ async function submitToMeta(
     return { template: updated }
   }
 
-  // Nothing reached Meta, so the draft stands as-is — a skip is not a rejection.
+  // Only Meta refusing the content is a rejection. A missing client or a transient
+  // failure means the draft was never judged — leave it alone so the operator
+  // retries instead of hunting for a content problem that doesn't exist.
+  if (metaResult.error?.title === 'meta_rejected') {
+    const details = metaResult.error.details ?? 'Meta rejected the template'
+    const updated = await updateTemplate(template.id, {
+      status: 'rejected',
+      rejectionReason: details,
+    })
+    return { template: updated, error: details, errorCode: 'meta_rejected' }
+  }
+
   if (metaResult.error?.title === 'kapso_no_api_key') {
     return {
       template,
@@ -121,11 +132,9 @@ async function submitToMeta(
     }
   }
 
-  const details = metaResult.error?.details ?? 'Failed to submit template to Meta'
-  const updated = await updateTemplate(template.id, {
-    status: 'rejected',
-    rejectionReason: details,
-  })
-
-  return { template: updated, error: details, errorCode: 'meta_rejected' }
+  return {
+    template,
+    error: metaResult.error?.details ?? 'Failed to submit template to Meta',
+    errorCode: 'provider_error',
+  }
 }

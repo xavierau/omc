@@ -90,6 +90,19 @@ describe('PATCH /api/dashboard/wa-templates/[id]', () => {
     })
   })
 
+  it('returns 502 on a transient provider error, not 422', async () => {
+    vi.mocked(updateWhatsAppTemplate).mockResolvedValue({
+      template: TEMPLATE,
+      error: 'socket hang up',
+      errorCode: 'provider_error',
+    })
+
+    const res = await PATCH(req(), ctx())
+
+    expect(res.status).toBe(502)
+    expect(await res.json()).toEqual({ template: TEMPLATE, error: 'socket hang up' })
+  })
+
   it('returns 400 with the message when the use case throws a validation error', async () => {
     vi.mocked(updateWhatsAppTemplate).mockRejectedValue(
       new Error('Image, video and document headers must use a Meta resumable-upload handle')

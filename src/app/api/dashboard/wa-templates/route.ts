@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     if (result.errorCode) {
       return NextResponse.json(
         { template: result.template, error: result.error },
-        { status: result.errorCode === 'provider_not_configured' ? 502 : 422 }
+        { status: result.errorCode === 'meta_rejected' ? 422 : 502 }
       )
     }
     return NextResponse.json(result.template, { status: 201 })
