@@ -85,6 +85,25 @@ describe('createWhatsAppTemplate', () => {
     expect(createMetaTemplate).not.toHaveBeenCalled()
   })
 
+  // Real rows store '' rather than NULL for an unset WABA, and '' is not nullish —
+  // so `??` would skip auto-resolution and silently leave the draft unsubmitted.
+  it('auto-resolves the WABA when the stored businessAccountId is an empty string', async () => {
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('')
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-1')
+    vi.mocked(resolveWabaId).mockResolvedValue('resolved-waba')
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-1'))
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
+
+    await createWhatsAppTemplate(VALID_PARAMS)
+
+    expect(resolveWabaId).toHaveBeenCalledWith('phone-1')
+    expect(updateMetaBusinessAccountId).toHaveBeenCalledWith('rest-1', 'resolved-waba')
+    expect(createMetaTemplate).toHaveBeenCalledWith(
+      'resolved-waba',
+      expect.anything()
+    )
+  })
+
   it('submits to Meta and updates status to pending when businessAccountId is available', async () => {
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-tpl-1', 'PENDING'))

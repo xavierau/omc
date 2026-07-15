@@ -1371,7 +1371,24 @@
     },
     "todo": {
       "label": "To Do",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "SEC-001",
+          "title": "URGENT: cross-tenant IDOR on /api/dashboard/wa-templates/[id] (GET, PATCH, DELETE)",
+          "description": "Found during TPL-003 /review. PRE-EXISTING, not introduced by TPL-003 — but unpatched. findById (whatsapp-template-repository.ts:26-37) selects .eq('id', id) with NO .eq('restaurant_id', ...), and uses createServerSupabaseClient() (SERVICE ROLE — bypasses RLS). src/app/api/dashboard/wa-templates/[id]/route.ts calls `await getTenantContext()` but DISCARDS the returned restaurantId (GET :12, PATCH :36, DELETE :65) and never passes it down. Result: any authenticated tenant can read, edit or delete ANY other tenant's WhatsApp template by id. PATCH is the worst: it deletes the victim tenant's live template from Meta using the victim's WABA and re-creates it with the attacker's payload. Compare POST in ../route.ts:32, which correctly destructures and uses restaurantId. FIX: thread restaurantId from getTenantContext() into findById/update/softDelete and scope every query by it; add route tests asserting a foreign-tenant id returns 404. Deliberately NOT fixed inside TPL-003 (#64 hotfix) per Surgical Changes — it is unrelated to the stuck-draft bug and warrants its own focused change plus tests across all three verbs. Matches the standing principle: with a service-role client, app-level checks are the ONLY guard (see memory principle_lazy_flow_authorization_parity).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor",
+            "whatsapp",
+            "templates"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        }
+      ]
     },
     "in_progress": {
       "label": "In Progress",

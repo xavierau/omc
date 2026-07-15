@@ -68,8 +68,10 @@ export async function createWhatsAppTemplate(
     components,
   })
 
+  // `||`, not `??`: an unset WABA is stored as '' rather than NULL, and '' must
+  // still fall through to auto-resolution or the draft is never submitted at all.
   const businessAccountId = await getMetaBusinessAccountId(params.restaurantId)
-    ?? await autoResolveWabaId(params.restaurantId)
+    || await autoResolveWabaId(params.restaurantId)
 
   if (!businessAccountId) {
     return { template }

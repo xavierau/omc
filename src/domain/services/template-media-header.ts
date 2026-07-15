@@ -18,6 +18,12 @@ export function isMediaHeader(c: TemplateComponent): boolean {
  * doc on the entity). An empty list counts as absent.
  */
 export function readHeaderHandle(c: TemplateComponent): string[] | undefined {
-  const handle = c.example?.headerHandle ?? c.example?.header_handle
-  return handle?.length ? handle : undefined
+  // Checked by length rather than `??`/`||`: an empty array is neither nullish nor
+  // falsy, so either operator would stop at an empty camelCase key and miss a
+  // populated snake-case one.
+  const camel = c.example?.headerHandle
+  if (camel?.length) return camel
+
+  const snake = c.example?.header_handle
+  return snake?.length ? snake : undefined
 }

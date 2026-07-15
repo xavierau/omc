@@ -37,6 +37,18 @@ describe('validateTemplateComponents', () => {
     expect(message).toContain('4:')
   })
 
+  it('reads the snake-case handle when the camelCase key is present but empty', () => {
+    const message = validateTemplateComponents([
+      {
+        type: 'HEADER',
+        format: 'IMAGE',
+        example: { headerHandle: [], header_handle: ['4:validhandle'] },
+      },
+    ])
+
+    expect(message).toBeNull()
+  })
+
   it('applies the same rule to VIDEO and DOCUMENT headers', () => {
     const video = validateTemplateComponents([
       { type: 'HEADER', format: 'VIDEO', example: { header_handle: [IMAGE_URL] } },
