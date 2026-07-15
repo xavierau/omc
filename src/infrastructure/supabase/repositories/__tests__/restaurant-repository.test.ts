@@ -187,6 +187,7 @@ describe('getReplyConfig', () => {
       rewards: true,
       redeem: true,
       card: true,
+      help: true,
     })
     expect(result.text.unknown).toEqual({ en: 'Try POINTS', zh: null })
   })
@@ -213,7 +214,7 @@ describe('updateReplyConfig', () => {
   beforeEach(() => vi.clearAllMocks())
 
   const CONFIG = {
-    features: { points: false, rewards: true, redeem: true, card: false },
+    features: { points: false, rewards: true, redeem: true, card: false, help: true },
     text: {
       unknown: { en: 'Hi', zh: null },
       help: { en: null, zh: null },

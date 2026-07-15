@@ -593,6 +593,7 @@
     "featureRewards": "Rewards",
     "featureRedeem": "Coupon redemption",
     "featureCard": "Stamp-card QR",
+    "featureHelp": "Help option in menu",
     "unknownTextLabel": "\"Didn't understand\" reply",
     "helpTextLabel": "HELP command reply",
     "joinTextLabel": "Welcome / join invite",
@@ -774,7 +775,10 @@
     "status": "Status",
     "created": "Created",
     "actions": "Actions",
-    "edit": "Edit"
+    "edit": "Edit",
+    "submitFailed": "Couldn't submit this template to WhatsApp. Please try again.",
+    "rejectionReasonLabel": "Meta's reason",
+    "imageHeaderHint": "Image headers can't be submitted to WhatsApp yet. Meta only accepts an uploaded media handle (starting with \"4:\"), which we can't produce at the moment — a template with an image header will be rejected. Use a text header, or no header, for now."
   },
   "importWizard": {
     "heading": "Import contacts",

@@ -94,9 +94,22 @@ export async function handleUnknown(
     if (!config.features.rewards || !(await hasActiveRewards(restaurantId))) {
       baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
     }
+    // Hide the HELP button when disabled (REPLY-004). Button only: the typed
+    // HELP / 幫助 command still routes to handleHelp regardless.
+    if (!config.features.help) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'HELP')
+    }
   }
 
   const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]
+
+  // A member who disabled every menu function (points + rewards + help) with no
+  // contact CTA would leave zero options — an interactive message with no buttons
+  // is rejected by Meta. Degrade to a plain-text body so the reply still lands.
+  if (options.length === 0) {
+    return sendTextMessage(phoneNumberId, phone, body)
+  }
+
   const buttonText = isEn ? OPTIONS_BUTTON_EN : OPTIONS_BUTTON_ZH
 
   const menu = buildFallbackMenu(body, buttonText, options)

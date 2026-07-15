@@ -1,10 +1,11 @@
 import {
+  GraphApiError,
   type MessageTemplate,
-  type TemplateCreateResponse,
   WhatsAppClient,
   buildTemplateSendPayload,
 } from '@kapso/whatsapp-cloud-api'
 import type { SendResult } from '@/domain/value-objects/send-result'
+import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
 
@@ -25,6 +26,13 @@ function getClient(): WhatsAppClient | null {
 
 export type MetaTemplateListItem = MessageTemplate
 
+/** Meta's own words, plus the codes that identify the rejection class. */
+function describeGraphError(err: GraphApiError): string {
+  const subcode =
+    err.errorSubcode !== undefined ? `, subcode ${err.errorSubcode}` : ''
+  return `${err.message} (code ${err.code}${subcode})`
+}
+
 export async function createMetaTemplate(
   businessAccountId: string,
   params: {
@@ -34,18 +42,42 @@ export async function createMetaTemplate(
     components: Array<{ type: string; [k: string]: unknown }>
     parameterFormat?: 'NAMED' | 'POSITIONAL'
   }
-): Promise<TemplateCreateResponse | null> {
+): Promise<TemplateSubmitResult> {
   const client = getClient()
-  if (!client) return null
+  if (!client) {
+    return {
+      ok: false,
+      templateId: null,
+      status: null,
+      error: { title: 'kapso_no_api_key' },
+    }
+  }
 
   try {
-    return await client.templates.create({
+    const res = await client.templates.create({
       businessAccountId,
       ...params,
     })
+    return { ok: true, templateId: res.id, status: res.status }
   } catch (err) {
     console.warn('[Kapso] Error creating template:', (err as Error).message, JSON.stringify(err, null, 2))
-    return null
+    if (err instanceof GraphApiError) {
+      return {
+        ok: false,
+        templateId: null,
+        status: null,
+        error: { title: 'meta_rejected', details: describeGraphError(err) },
+      }
+    }
+    return {
+      ok: false,
+      templateId: null,
+      status: null,
+      error: {
+        title: 'template_create_error',
+        details: err instanceof Error ? err.message : String(err),
+      },
+    }
   }
 }
 

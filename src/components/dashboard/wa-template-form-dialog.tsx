@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { WaTemplateFormFields } from './wa-template-form-fields'
+import { readSubmitOutcome } from './wa-template-submit'
 import { initialWaTemplateForm, buildWaTemplateRequestBody, templateToFormState } from './wa-template-form-types'
 import type { WaTemplateFormState } from './wa-template-form-types'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
@@ -16,17 +18,29 @@ interface Props {
 }
 
 export function WaTemplateFormDialog({ open, onOpenChange, onSuccess, template }: Props) {
+  const t = useTranslations('waTemplates')
   const isEdit = Boolean(template)
   const [form, setForm] = useState<WaTemplateFormState>(initialWaTemplateForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refetchOnClose, setRefetchOnClose] = useState(false)
 
   useEffect(() => {
     if (open && template) setForm(templateToFormState(template))
     else if (open) setForm(initialWaTemplateForm)
   }, [open, template])
 
-  const handleClose = () => { setForm(initialWaTemplateForm); onOpenChange(false) }
+  const closeSheet = () => {
+    setForm(initialWaTemplateForm)
+    setError(null)
+    setRefetchOnClose(false)
+    onOpenChange(false)
+  }
+
+  const handleClose = () => {
+    if (refetchOnClose) onSuccess()
+    closeSheet()
+  }
 
   const handleChange = (key: keyof WaTemplateFormState, value: unknown) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -42,9 +56,13 @@ export function WaTemplateFormDialog({ open, onOpenChange, onSuccess, template }
       const url = isEdit ? `/api/dashboard/wa-templates/${template!.id}` : '/api/dashboard/wa-templates'
       const method = isEdit ? 'PATCH' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error(`Failed to ${isEdit ? 'update' : 'create'} template`)
-      onSuccess()
-      handleClose()
+      const outcome = await readSubmitOutcome(res, t('submitFailed'))
+      if (outcome.close) { onSuccess(); closeSheet(); return }
+      // A rejected/unconfigured submit still saved a row, but refetching now would
+      // unmount this sheet mid-error (the page swaps in a skeleton while loading)
+      // and take the reason with it — so refresh the list once the user closes.
+      if (outcome.refetch) setRefetchOnClose(true)
+      setError(outcome.error)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {

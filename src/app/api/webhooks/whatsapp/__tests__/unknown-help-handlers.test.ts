@@ -21,8 +21,9 @@ vi.mock('../resolve-language', () => ({
   resolveLanguageForMember: vi.fn(),
 }))
 
-import { handleUnknown } from '../unknown-help-handlers'
+import { handleUnknown, handleHelp } from '../unknown-help-handlers'
 import {
+  sendTextMessage,
   sendInteractiveButtons,
   sendInteractiveList,
 } from '@/infrastructure/whatsapp/messaging'
@@ -241,6 +242,69 @@ describe('handleUnknown — fallback menu (REPLY-001)', () => {
       { id: 'HELP', title: 'Help' },
     ])
     expect(hasActiveRewards).not.toHaveBeenCalled()
+  })
+
+  // REPLY-004: the HELP menu button is a per-tenant feature toggle too
+  it('help disabled → menu omits the Help row (button only)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { help: false } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([
+      { id: 'POINTS', title: 'Check Points' },
+      { id: 'REWARDS', title: 'View Rewards' },
+    ])
+    expect(buttons.map((b) => b.id)).not.toContain('HELP')
+  })
+
+  it('help disabled → non-member Join menu is unaffected (help is member-only)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { help: false } })
+    )
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+    expect(buttons).toEqual([{ id: 'JOIN', title: 'Join Rewards' }])
+  })
+
+  it('typed HELP still replies with the command list when the help button is disabled', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { help: false } })
+    )
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+
+    await handleHelp(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      PHONE_NUMBER_ID,
+      PHONE,
+      expect.stringContaining('Available commands')
+    )
+  })
+
+  it('member with every menu function disabled + no contact → plain text body (no empty interactive)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(MEMBER)
+    vi.mocked(getReplyConfig).mockResolvedValue(
+      resolveReplyConfig({ features: { points: false, rewards: false, help: false } })
+    )
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult())
+
+    await handleUnknown(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendInteractiveButtons).not.toHaveBeenCalled()
+    expect(sendInteractiveList).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
+    const [pnId, to, body] = vi.mocked(sendTextMessage).mock.calls[0]
+    expect(pnId).toBe(PHONE_NUMBER_ID)
+    expect(to).toBe(PHONE)
+    expect(body).toContain("didn't understand")
   })
 
   it('custom "unknown" text overrides the default body for a member', async () => {

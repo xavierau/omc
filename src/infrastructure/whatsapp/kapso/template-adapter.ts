@@ -8,15 +8,13 @@ import {
 } from '@/infrastructure/kapso/template-client'
 import type {
   WhatsAppTemplatePort,
-  CreateTemplateResult,
   TemplateListItem,
 } from '@/domain/ports/whatsapp-templates'
+import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
 
 export const kapsoTemplateAdapter: WhatsAppTemplatePort = {
-  async createTemplate(wabaId, params): Promise<CreateTemplateResult | null> {
-    const result = await createMetaTemplate(wabaId, params)
-    if (!result) return null
-    return { id: result.id, status: result.status }
+  async createTemplate(wabaId, params): Promise<TemplateSubmitResult> {
+    return createMetaTemplate(wabaId, params)
   },
 
   async listTemplates(wabaId): Promise<TemplateListItem[] | null> {

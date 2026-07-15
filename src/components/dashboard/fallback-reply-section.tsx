@@ -32,6 +32,7 @@ const FEATURE_ROWS: { key: ReplyFeatureKey; labelKey: string }[] = [
   { key: 'rewards', labelKey: 'featureRewards' },
   { key: 'redeem', labelKey: 'featureRedeem' },
   { key: 'card', labelKey: 'featureCard' },
+  { key: 'help', labelKey: 'featureHelp' },
 ]
 
 const MESSAGE_ROWS: { key: ReplyTextKey; labelKey: string }[] = [
