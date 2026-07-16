@@ -123,8 +123,22 @@ function supabaseStorageHost(): string | null {
 }
 
 function isPrivateHost(hostname: string): boolean {
-  const host = hostname.toLowerCase()
+  // Strip brackets and a trailing FQDN dot so `127.0.0.1.` / `localhost.` cannot
+  // slip past the literal checks below.
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
   if (host === 'localhost' || host.endsWith('.localhost')) return true
+
+  // IPv4-mapped IPv6 — evaluate the embedded IPv4 so a mapped metadata address
+  // cannot slip past the v4 checks. WHATWG serialises these in hex
+  // (::ffff:a9fe:a9fe), but accept the dotted form too for robustness.
+  const mappedDotted = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (mappedDotted) return isPrivateHost(mappedDotted[1])
+  const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+  if (mappedHex) {
+    const hi = parseInt(mappedHex[1], 16)
+    const lo = parseInt(mappedHex[2], 16)
+    return isPrivateHost(`${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`)
+  }
 
   const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (v4) {
@@ -137,9 +151,8 @@ function isPrivateHost(hostname: string): boolean {
   }
 
   // IPv6 loopback / link-local / unique-local literals.
-  if (host === '::1' || host === '[::1]') return true
-  const v6 = host.replace(/^\[|\]$/g, '')
-  return v6.startsWith('fe80:') || v6.startsWith('fc') || v6.startsWith('fd')
+  if (host === '::1') return true
+  return host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')
 }
 
 /** Reads the body but aborts once it exceeds `max`, so a lying/huge source cannot OOM us. */

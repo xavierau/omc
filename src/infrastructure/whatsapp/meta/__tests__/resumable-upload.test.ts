@@ -22,6 +22,33 @@ function jsonResponse(body: unknown, ok = true) {
   return { ok, status: ok ? 200 : 400, json: async () => body, text: async () => JSON.stringify(body) }
 }
 
+/**
+ * A streaming body (no content-length) that yields `chunkBytes`-sized chunks up
+ * to `totalBytes`, so the size cap must be enforced mid-stream, not post-hoc.
+ */
+function streamingResponse(totalBytes: number, chunkBytes: number, contentType = 'image/png') {
+  const cancel = vi.fn(async () => {})
+  let served = 0
+  const reader = {
+    read: async () => {
+      if (served >= totalBytes) return { done: true, value: undefined }
+      const size = Math.min(chunkBytes, totalBytes - served)
+      served += size
+      return { done: false, value: new Uint8Array(size) }
+    },
+    cancel,
+  }
+  return {
+    response: {
+      ok: true,
+      headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? contentType : null) },
+      body: { getReader: () => reader },
+      arrayBuffer: async () => new ArrayBuffer(totalBytes),
+    },
+    cancel,
+  }
+}
+
 const IMAGE_URL = 'https://cdn.example.com/restaurant/123/header.jpg'
 
 describe('uploadHeaderMediaFromUrl', () => {
@@ -70,6 +97,31 @@ describe('uploadHeaderMediaFromUrl', () => {
 
     expect(result.error?.title).toBe('fetch_failed')
     expect(fetchMock()).not.toHaveBeenCalled()
+  })
+
+  it('refuses an IPv4-mapped IPv6 metadata address (SSRF guard)', async () => {
+    const result = await uploadHeaderMediaFromUrl('https://[::ffff:169.254.169.254]/latest/meta-data/')
+
+    expect(result.error?.title).toBe('fetch_failed')
+    expect(fetchMock()).not.toHaveBeenCalled()
+  })
+
+  it('refuses a trailing-dot loopback FQDN (SSRF guard)', async () => {
+    const result = await uploadHeaderMediaFromUrl('https://127.0.0.1./x.jpg')
+
+    expect(result.error?.title).toBe('fetch_failed')
+    expect(fetchMock()).not.toHaveBeenCalled()
+  })
+
+  it('aborts a streaming body mid-read once it exceeds 5MB, without buffering it all', async () => {
+    const { response, cancel } = streamingResponse(6 * 1024 * 1024, 1024 * 1024)
+    fetchMock().mockResolvedValueOnce(response)
+
+    const result = await uploadHeaderMediaFromUrl(IMAGE_URL)
+
+    expect(result.error?.title).toBe('fetch_failed')
+    expect(cancel).toHaveBeenCalled() // reader was cancelled, not drained
+    expect(fetchMock()).toHaveBeenCalledTimes(1) // never reached the upload calls
   })
 
   it('refuses a host that is not the configured Supabase host', async () => {

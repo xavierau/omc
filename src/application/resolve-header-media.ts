@@ -24,7 +24,7 @@ export type ResolveHeaderMediaResult =
   | { ok: false; error: MediaHandleError }
 
 function isHttpUrl(value: string): boolean {
-  return value.startsWith('http://') || value.startsWith('https://')
+  return /^https?:\/\//i.test(value)
 }
 
 export async function resolveHeaderMedia(
