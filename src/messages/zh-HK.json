@@ -778,7 +778,7 @@
     "edit": "編輯",
     "submitFailed": "無法將此範本提交至 WhatsApp，請再試一次。",
     "rejectionReasonLabel": "Meta 拒絕原因",
-    "imageHeaderHint": "圖片標題暫時無法提交至 WhatsApp。Meta 只接受已上載的媒體 handle（以「4:」開頭），我們暫時未能產生 — 使用圖片標題的範本會被拒絕。請暫時改用文字標題或不設標題。"
+    "imageHeaderHint": "JPEG 或 PNG，最大 5MB。提交範本時圖片會上載至 WhatsApp，並由 Meta 審核後方可使用。"
   },
   "importWizard": {
     "heading": "匯入聯絡人",

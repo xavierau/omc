@@ -22,6 +22,8 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia } from '@/application/resolve-header-media'
+import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
 
 interface CreateTemplateParams {
   restaurantId: string
@@ -53,11 +55,9 @@ export async function createWhatsAppTemplate(
     throw new Error(`Template "${params.name}" with language "${params.language}" already exists`)
   }
 
-  const validationError = validateTemplateComponents(params.components)
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
+  // Components are stored with the image URL the dashboard uploaded; the Meta
+  // resumable-upload handle is minted later, at submit time only (see
+  // submitToMeta). Storing the handle would be wrong — it expires in ~24h.
   const components = normalizeTemplateComponents(params.components)
 
   const template = await createTemplate({
@@ -98,11 +98,25 @@ async function submitToMeta(
   businessAccountId: string,
   params: CreateTemplateParams
 ): Promise<CreateTemplateResult> {
+  // Turn any image-header URL into a Meta handle before submitting. Runs on a
+  // copy: the stored draft keeps the URL.
+  const resolved = await resolveHeaderMedia(params.components)
+  if (!resolved.ok) {
+    return mediaUploadError(template, resolved.error.title, resolved.error.details)
+  }
+
+  // Belt-and-suspenders: a media header that could not be minted (e.g. no source
+  // URL at all) must never reach Meta as an un-approvable payload.
+  const validationError = validateTemplateComponents(resolved.components)
+  if (validationError) {
+    return { template, error: validationError, errorCode: 'provider_error' }
+  }
+
   const metaResult = await createMetaTemplate(businessAccountId, {
     name: params.name,
     language: params.language,
     category: params.category,
-    components: prepareTemplateComponents(params.components),
+    components: prepareTemplateComponents(resolved.components),
     parameterFormat: 'NAMED',
   })
 
@@ -137,6 +151,30 @@ async function submitToMeta(
   return {
     template,
     error: metaResult.error?.details ?? 'Failed to submit template to Meta',
+    errorCode: 'provider_error',
+  }
+}
+
+/**
+ * A header image that could not be turned into a Meta handle. `meta_not_configured`
+ * is a skip (no credentials) — the draft is kept, never branded a failure — so it
+ * maps to provider_not_configured; a real fetch/upload error is a provider_error.
+ */
+function mediaUploadError(
+  template: WhatsAppTemplate,
+  title: MediaHandleErrorTitle,
+  details?: string
+): CreateTemplateResult {
+  if (title === 'meta_not_configured') {
+    return {
+      template,
+      error: 'Image upload is not configured',
+      errorCode: 'provider_not_configured',
+    }
+  }
+  return {
+    template,
+    error: details ?? 'Could not upload the header image to Meta',
     errorCode: 'provider_error',
   }
 }

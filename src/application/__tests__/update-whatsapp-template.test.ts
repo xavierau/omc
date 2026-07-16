@@ -7,6 +7,7 @@ vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
 vi.mock('@/infrastructure/whatsapp/templates')
+vi.mock('@/infrastructure/whatsapp/meta/resumable-upload')
 
 import {
   findTemplateById,
@@ -17,6 +18,7 @@ import {
   createMetaTemplate,
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
 import { updateWhatsAppTemplate } from '../update-whatsapp-template'
 import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { isTemplateSendable } from '@/domain/entities/whatsapp-template'
@@ -53,6 +55,12 @@ describe('updateWhatsAppTemplate', () => {
     vi.clearAllMocks()
     vi.mocked(findTemplateById).mockResolvedValue(TEMPLATE_BASE)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue(null)
+    // Default: no Meta app credentials, so header-image minting is a skip.
+    vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
+      ok: false,
+      handle: null,
+      error: { title: 'meta_not_configured' },
+    })
   })
 
   it('throws when template is not found', async () => {
@@ -272,21 +280,75 @@ describe('updateWhatsAppTemplate', () => {
     expect(result.errorCode).toBe('provider_error')
   })
 
-  it('rejects a raw-URL image header WITHOUT deleting the live Meta template', async () => {
+  it('refuses a URL image header WITHOUT deleting the live Meta template when upload is unconfigured', async () => {
     // The regression test for the destructive edit: an approved template must
-    // survive a payload Meta would refuse.
+    // survive when the header image cannot be minted (here: no Meta credentials).
     vi.mocked(findTemplateById).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
 
-    await expect(
-      updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
-    ).rejects.toThrow(/resumable-upload handle/)
+    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
 
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(updateTemplate).not.toHaveBeenCalled()
+    expect(result.errorCode).toBe('provider_not_configured')
+    expect(result.template.metaTemplateId).toBe('old-meta-id')
+  })
+
+  it('aborts BEFORE the delete when the header image upload fails', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
+      ok: false,
+      handle: null,
+      error: { title: 'upload_failed', details: 'Meta upload failed (400)' },
+    })
+
+    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+
+    // Live template survives: no delete, no local write.
+    expect(deleteMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(result.errorCode).toBe('provider_error')
+    expect(result.error).toBe('Meta upload failed (400)')
+  })
+
+  it('mints the handle, deletes, and resubmits an image header when configured', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE_BASE,
+      metaTemplateId: 'old-meta-id',
+    })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({ ok: true, handle: '4:minted:handle' })
+    vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
+
+    await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+
+    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('https://example.com/img.png')
+    expect(deleteMetaTemplate).toHaveBeenCalledWith('biz-1', 'welcome_msg')
+    // Submitted with the minted handle, not the URL.
+    expect(createMetaTemplate).toHaveBeenCalledWith(
+      'biz-1',
+      expect.objectContaining({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { headerHandle: ['4:minted:handle'] },
+          },
+        ],
+      })
+    )
+    // The stored row keeps the URL, not the ephemeral handle.
+    const persisted = vi.mocked(updateTemplate).mock.calls[0][1]
+    expect(persisted.components).toEqual(RAW_URL_IMAGE_HEADER)
   })
 })

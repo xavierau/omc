@@ -18,6 +18,8 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia } from '@/application/resolve-header-media'
+import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
 
 interface UpdateTemplateInput {
   name?: string
@@ -44,14 +46,6 @@ export async function updateWhatsAppTemplate(
   }
 
   const merged = { ...existing, ...input }
-
-  // Runs BEFORE the delete below: a payload Meta is certain to refuse must not
-  // cost the caller their live template.
-  const validationError = validateTemplateComponents(merged.components)
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
   const changes = normalizeChanges(input)
 
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
@@ -70,6 +64,19 @@ export async function updateWhatsAppTemplate(
     return { template: await updateTemplate(templateId, changes) }
   }
 
+  // Mint header-image handles and validate the payload BEFORE the destructive
+  // delete: a mint failure, or a payload Meta is certain to refuse, must never
+  // cost the caller their live template. Both run on a copy — the stored row
+  // keeps the image URL (changes), not the ~24h handle.
+  const resolved = await resolveHeaderMedia(merged.components)
+  if (!resolved.ok) {
+    return mediaUploadError(existing, resolved.error.title, resolved.error.details)
+  }
+  const validationError = validateTemplateComponents(resolved.components)
+  if (validationError) {
+    return { template: existing, error: validationError, errorCode: 'provider_error' }
+  }
+
   if (existing.metaTemplateId) {
     // Meta requires delete before re-create for templates with the same name.
     // If it fails the create would fail on uniqueness anyway, and clearing the link
@@ -84,7 +91,32 @@ export async function updateWhatsAppTemplate(
     }
   }
 
-  return resubmitToMeta(templateId, merged, changes, businessAccountId)
+  return resubmitToMeta(templateId, merged, changes, businessAccountId, resolved.components)
+}
+
+/**
+ * A header image that could not be turned into a Meta handle, reported BEFORE the
+ * delete so the live template is untouched. `meta_not_configured` is a skip (no
+ * credentials) → provider_not_configured; a real fetch/upload error →
+ * provider_error. Either way the existing row is returned unchanged.
+ */
+function mediaUploadError(
+  existing: WhatsAppTemplate,
+  title: MediaHandleErrorTitle,
+  details?: string
+): UpdateTemplateResult {
+  if (title === 'meta_not_configured') {
+    return {
+      template: existing,
+      error: 'Image upload is not configured',
+      errorCode: 'provider_not_configured',
+    }
+  }
+  return {
+    template: existing,
+    error: details ?? 'Could not upload the header image to Meta',
+    errorCode: 'provider_error',
+  }
 }
 
 function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
@@ -96,13 +128,14 @@ async function resubmitToMeta(
   templateId: string,
   merged: WhatsAppTemplate,
   changes: UpdateTemplateInput,
-  businessAccountId: string
+  businessAccountId: string,
+  submitComponents: TemplateComponent[]
 ): Promise<UpdateTemplateResult> {
   const metaResult = await createMetaTemplate(businessAccountId, {
     name: merged.name,
     language: merged.language,
     category: merged.category,
-    components: prepareTemplateComponents(merged.components),
+    components: prepareTemplateComponents(submitComponents),
     parameterFormat: 'NAMED',
   })
 
