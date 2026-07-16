@@ -4,6 +4,7 @@ vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository')
 vi.mock('@/infrastructure/whatsapp/templates')
+vi.mock('@/infrastructure/whatsapp/meta/resumable-upload')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
@@ -12,6 +13,7 @@ import {
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
 import { POST } from '../route'
@@ -42,7 +44,17 @@ beforeEach(() => {
   vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
   vi.mocked(updateTemplate).mockResolvedValue(undefined as never)
   vi.mocked(listTemplates).mockResolvedValue({ templates: [draft()], total: 1 })
+  // Default: no Meta app credentials, so header-image minting is a skip.
+  vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
+    ok: false,
+    handle: null,
+    error: { title: 'meta_not_configured' },
+  })
 })
+
+const IMAGE_DRAFT_COMPONENTS = [
+  { type: 'HEADER' as const, format: 'IMAGE' as const, example: { header_handle: ['https://example.com/img.png'] } },
+]
 
 describe('POST /api/dashboard/wa-templates/resubmit', () => {
   it('submits drafts with named-param examples injected by the shared helper', async () => {
@@ -119,19 +131,9 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(body.submitted[0].error).toBe('socket hang up')
   })
 
-  it('skips submitting a draft whose image header is a raw URL', async () => {
+  it('skips submitting an image-header draft when Meta upload is unconfigured', async () => {
     vi.mocked(listTemplates).mockResolvedValue({
-      templates: [
-        draft({
-          components: [
-            {
-              type: 'HEADER',
-              format: 'IMAGE',
-              example: { header_handle: ['https://example.com/img.png'] },
-            },
-          ],
-        }),
-      ],
+      templates: [draft({ components: IMAGE_DRAFT_COMPONENTS })],
       total: 1,
     })
 
@@ -141,6 +143,29 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(updateTemplate).not.toHaveBeenCalled()
     expect(body.submitted[0].success).toBe(false)
-    expect(body.submitted[0].error).toMatch(/resumable-upload handle/)
+    expect(body.submitted[0].error).toBe('Image upload is not configured')
+  })
+
+  it('mints a handle and submits an image-header draft when configured', async () => {
+    vi.mocked(listTemplates).mockResolvedValue({
+      templates: [draft({ components: IMAGE_DRAFT_COMPONENTS })],
+      total: 1,
+    })
+    vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({ ok: true, handle: '4:minted:handle' })
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-1', 'PENDING'))
+
+    const res = await POST()
+    const body = await res.json()
+
+    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('https://example.com/img.png')
+    expect(createMetaTemplate).toHaveBeenCalledWith(
+      'biz-1',
+      expect.objectContaining({
+        components: [
+          { type: 'HEADER', format: 'IMAGE', example: { headerHandle: ['4:minted:handle'] } },
+        ],
+      })
+    )
+    expect(body.submitted[0].success).toBe(true)
   })
 })

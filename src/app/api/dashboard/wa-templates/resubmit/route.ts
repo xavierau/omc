@@ -12,6 +12,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { prepareTemplateComponents } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 export async function POST() {
@@ -51,7 +52,15 @@ async function submitDrafts(
 
   for (const t of drafts) {
     try {
-      const validationError = validateTemplateComponents(t.components)
+      // Mint header-image handles first, mirroring the create/edit submit paths;
+      // a draft that stored an image URL is otherwise un-submittable here.
+      const resolved = await resolveHeaderMedia(t.components)
+      if (!resolved.ok) {
+        results.push({ name: t.name, success: false, error: mapMediaHandleError(resolved.error).message })
+        continue
+      }
+
+      const validationError = validateTemplateComponents(resolved.components)
       if (validationError) {
         results.push({ name: t.name, success: false, error: validationError })
         continue
@@ -61,7 +70,7 @@ async function submitDrafts(
         name: t.name,
         language: t.language,
         category: t.category,
-        components: prepareTemplateComponents(t.components),
+        components: prepareTemplateComponents(resolved.components),
         parameterFormat: 'NAMED',
       })
       if (result.ok) {

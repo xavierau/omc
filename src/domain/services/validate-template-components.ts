@@ -10,11 +10,13 @@ import { isMediaHeader, readHeaderHandle } from './template-media-header'
 /** Meta accepts media headers only as resumable-upload handles, which start with '4:'. */
 const RESUMABLE_HANDLE_PREFIX = '4:'
 
+// Reached only after the submit paths mint a handle from the uploaded image, so
+// hitting this means the media header carries no usable image (empty, or a value
+// that is neither an uploaded handle nor a fetchable URL) — not that media
+// headers are unsupported.
 const MEDIA_HANDLE_REQUIRED =
-  'Image, video and document headers must use a Meta resumable-upload handle ' +
-  '(a value starting with "4:"), not an image URL — Meta rejects the template ' +
-  'otherwise. Uploading media headers from the dashboard is not supported yet, ' +
-  'so please use a text header instead.'
+  'This image, video or document header has no valid uploaded media. ' +
+  'Please re-upload the header image and try again.'
 
 export function validateTemplateComponents(
   components: TemplateComponent[]

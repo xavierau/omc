@@ -22,8 +22,7 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
-import { resolveHeaderMedia } from '@/application/resolve-header-media'
-import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 
 interface CreateTemplateParams {
   restaurantId: string
@@ -102,7 +101,8 @@ async function submitToMeta(
   // copy: the stored draft keeps the URL.
   const resolved = await resolveHeaderMedia(params.components)
   if (!resolved.ok) {
-    return mediaUploadError(template, resolved.error.title, resolved.error.details)
+    const { message, errorCode } = mapMediaHandleError(resolved.error)
+    return { template, error: message, errorCode }
   }
 
   // Belt-and-suspenders: a media header that could not be minted (e.g. no source
@@ -151,30 +151,6 @@ async function submitToMeta(
   return {
     template,
     error: metaResult.error?.details ?? 'Failed to submit template to Meta',
-    errorCode: 'provider_error',
-  }
-}
-
-/**
- * A header image that could not be turned into a Meta handle. `meta_not_configured`
- * is a skip (no credentials) — the draft is kept, never branded a failure — so it
- * maps to provider_not_configured; a real fetch/upload error is a provider_error.
- */
-function mediaUploadError(
-  template: WhatsAppTemplate,
-  title: MediaHandleErrorTitle,
-  details?: string
-): CreateTemplateResult {
-  if (title === 'meta_not_configured') {
-    return {
-      template,
-      error: 'Image upload is not configured',
-      errorCode: 'provider_not_configured',
-    }
-  }
-  return {
-    template,
-    error: details ?? 'Could not upload the header image to Meta',
     errorCode: 'provider_error',
   }
 }

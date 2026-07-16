@@ -18,8 +18,7 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
-import { resolveHeaderMedia } from '@/application/resolve-header-media'
-import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 
 interface UpdateTemplateInput {
   name?: string
@@ -70,7 +69,8 @@ export async function updateWhatsAppTemplate(
   // keeps the image URL (changes), not the ~24h handle.
   const resolved = await resolveHeaderMedia(merged.components)
   if (!resolved.ok) {
-    return mediaUploadError(existing, resolved.error.title, resolved.error.details)
+    const { message, errorCode } = mapMediaHandleError(resolved.error)
+    return { template: existing, error: message, errorCode }
   }
   const validationError = validateTemplateComponents(resolved.components)
   if (validationError) {
@@ -92,31 +92,6 @@ export async function updateWhatsAppTemplate(
   }
 
   return resubmitToMeta(templateId, merged, changes, businessAccountId, resolved.components)
-}
-
-/**
- * A header image that could not be turned into a Meta handle, reported BEFORE the
- * delete so the live template is untouched. `meta_not_configured` is a skip (no
- * credentials) → provider_not_configured; a real fetch/upload error →
- * provider_error. Either way the existing row is returned unchanged.
- */
-function mediaUploadError(
-  existing: WhatsAppTemplate,
-  title: MediaHandleErrorTitle,
-  details?: string
-): UpdateTemplateResult {
-  if (title === 'meta_not_configured') {
-    return {
-      template: existing,
-      error: 'Image upload is not configured',
-      errorCode: 'provider_not_configured',
-    }
-  }
-  return {
-    template: existing,
-    error: details ?? 'Could not upload the header image to Meta',
-    errorCode: 'provider_error',
-  }
 }
 
 function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
