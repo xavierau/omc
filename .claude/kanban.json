@@ -1408,9 +1408,9 @@
           "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
           "priority": "high",
           "labels": [
-            "whatsapp",
             "templates",
             "blocked",
+            "whatsapp",
             "external-dependency"
           ],
           "related": [
@@ -1423,7 +1423,8 @@
             "reviews/2026-07-17-tpl-004-image-header-upload-grok-round2.md",
             "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
           ],
-          "pr": "https://github.com/xavierau/omc/pull/68"
+          "pr": "https://github.com/xavierau/omc/pull/68",
+          "blocked_on": "Kapso to expose resumable upload (/uploads) for template header handle — emailed 2026-07-17, awaiting reply. Direct-to-Meta ruled out: tenants WABAs are Kapso-managed, no customer Meta app, cross-app handle rejection risk. 360dialog does expose this (waba-v2.360dialog.io/uploads, D360-API-KEY) — cited as the reference. PR #68 mint-at-submit adapter is swappable to Kapso /uploads (+ existing KAPSO_API_KEY) once available; no Meta creds needed then."
         }
       ]
     },
