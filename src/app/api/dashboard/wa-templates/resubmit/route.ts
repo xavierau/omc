@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
@@ -12,6 +13,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { prepareTemplateComponents } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 export async function POST() {
@@ -31,8 +33,9 @@ export async function POST() {
       pageSize: 100,
     })
 
+    const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
     const drafts = templates.filter((t) => !t.metaTemplateId)
-    const results = await submitDrafts(drafts, wabaId)
+    const results = await submitDrafts(drafts, wabaId, phoneNumberId ?? '')
 
     return NextResponse.json({ wabaId, submitted: results })
   } catch (error) {
@@ -45,13 +48,22 @@ export async function POST() {
 
 async function submitDrafts(
   drafts: Array<{ id: string; name: string; language: string; category: string; components: TemplateComponent[] }>,
-  wabaId: string
+  wabaId: string,
+  phoneNumberId: string
 ) {
   const results: Array<{ name: string; success: boolean; metaId?: string; error?: string }> = []
 
   for (const t of drafts) {
     try {
-      const validationError = validateTemplateComponents(t.components)
+      // Mint header-image handles first, mirroring the create/edit submit paths;
+      // a draft that stored an image URL is otherwise un-submittable here.
+      const resolved = await resolveHeaderMedia(t.components, phoneNumberId)
+      if (!resolved.ok) {
+        results.push({ name: t.name, success: false, error: mapMediaHandleError(resolved.error).message })
+        continue
+      }
+
+      const validationError = validateTemplateComponents(resolved.components)
       if (validationError) {
         results.push({ name: t.name, success: false, error: validationError })
         continue
@@ -61,7 +73,7 @@ async function submitDrafts(
         name: t.name,
         language: t.language,
         category: t.category,
-        components: prepareTemplateComponents(t.components),
+        components: prepareTemplateComponents(resolved.components),
         parameterFormat: 'NAMED',
       })
       if (result.ok) {

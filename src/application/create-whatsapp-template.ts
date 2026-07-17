@@ -22,6 +22,7 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 
 interface CreateTemplateParams {
   restaurantId: string
@@ -53,11 +54,9 @@ export async function createWhatsAppTemplate(
     throw new Error(`Template "${params.name}" with language "${params.language}" already exists`)
   }
 
-  const validationError = validateTemplateComponents(params.components)
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
+  // Components are stored with the image URL the dashboard uploaded; the Meta
+  // resumable-upload handle is minted later, at submit time only (see
+  // submitToMeta). Storing the handle would be wrong — it expires in ~24h.
   const components = normalizeTemplateComponents(params.components)
 
   const template = await createTemplate({
@@ -98,11 +97,28 @@ async function submitToMeta(
   businessAccountId: string,
   params: CreateTemplateParams
 ): Promise<CreateTemplateResult> {
+  // Turn any image-header URL into a Meta handle (via Kapso, bound to this
+  // tenant's phone number) before submitting. Runs on a copy: the stored draft
+  // keeps the URL.
+  const phoneNumberId = await getRestaurantPhoneNumberId(params.restaurantId)
+  const resolved = await resolveHeaderMedia(params.components, phoneNumberId ?? '')
+  if (!resolved.ok) {
+    const { message, errorCode } = mapMediaHandleError(resolved.error)
+    return { template, error: message, errorCode }
+  }
+
+  // Belt-and-suspenders: a media header that could not be minted (e.g. no source
+  // URL at all) must never reach Meta as an un-approvable payload.
+  const validationError = validateTemplateComponents(resolved.components)
+  if (validationError) {
+    return { template, error: validationError, errorCode: 'provider_error' }
+  }
+
   const metaResult = await createMetaTemplate(businessAccountId, {
     name: params.name,
     language: params.language,
     category: params.category,
-    components: prepareTemplateComponents(params.components),
+    components: prepareTemplateComponents(resolved.components),
     parameterFormat: 'NAMED',
   })
 

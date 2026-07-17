@@ -778,7 +778,7 @@
     "edit": "Edit",
     "submitFailed": "Couldn't submit this template to WhatsApp. Please try again.",
     "rejectionReasonLabel": "Meta's reason",
-    "imageHeaderHint": "Image headers can't be submitted to WhatsApp yet. Meta only accepts an uploaded media handle (starting with \"4:\"), which we can't produce at the moment — a template with an image header will be rejected. Use a text header, or no header, for now."
+    "imageHeaderHint": "JPEG or PNG, up to 5MB. The image is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used."
   },
   "importWizard": {
     "heading": "Import contacts",
