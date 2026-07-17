@@ -301,6 +301,21 @@ describe('updateWhatsAppTemplate', () => {
     expect(result.template.metaTemplateId).toBe('old-meta-id')
   })
 
+  it('keeps an UNLINKED draft as a draft when the header image cannot be minted', async () => {
+    // metaTemplateId: null → no live template to protect, but the image URL still
+    // cannot be submitted unconfigured, so it must not reach Meta.
+    vi.mocked(findTemplateById).mockResolvedValue({ ...TEMPLATE_BASE, metaTemplateId: null })
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    // uploadHeaderMediaFromUrl defaults to not_configured.
+
+    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+
+    expect(deleteMetaTemplate).not.toHaveBeenCalled()
+    expect(createMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(result.errorCode).toBe('provider_not_configured')
+  })
+
   it('aborts BEFORE the delete when the header image upload fails', async () => {
     vi.mocked(findTemplateById).mockResolvedValue({
       ...TEMPLATE_BASE,

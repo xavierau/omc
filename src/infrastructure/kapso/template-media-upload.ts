@@ -103,8 +103,19 @@ function filenameFromUrl(rawUrl: string): string {
   }
 }
 
+// Covers the image types the dashboard upload route accepts (jpeg/png/webp);
+// header media in this product is always an image, so an unknown extension
+// falls back to jpeg rather than guessing a video/document type.
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  webp: 'image/webp',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+}
+
 function mimeFromUrl(rawUrl: string): string {
-  return /\.png($|\?)/i.test(rawUrl) ? 'image/png' : 'image/jpeg'
+  const ext = rawUrl.split('?')[0].split('.').pop()?.toLowerCase() ?? ''
+  return MIME_BY_EXT[ext] ?? 'image/jpeg'
 }
 
 async function describeFailure(res: {

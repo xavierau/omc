@@ -81,6 +81,17 @@ describe('uploadHeaderMediaFromUrl (Kapso Platform Media API)', () => {
     expect(body.media_ingest.filename).toBe('header.png')
   })
 
+  it('derives the mime type from the URL extension (webp)', async () => {
+    fetchMock().mockResolvedValueOnce(
+      jsonResponse({ data: { target: { handle: '4:aW1n' } } })
+    )
+
+    await uploadHeaderMediaFromUrl(PHONE, 'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.webp')
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('image/webp')
+  })
+
   it('returns upload_failed when Kapso responds non-2xx', async () => {
     fetchMock().mockResolvedValueOnce(jsonResponse({ error: 'bad source' }, false))
 

@@ -16,7 +16,7 @@ const RESUMABLE_HANDLE_PREFIX = '4:'
 // headers are unsupported.
 const MEDIA_HANDLE_REQUIRED =
   'This image, video or document header has no valid uploaded media. ' +
-  'Please re-upload the header image and try again.'
+  'Please re-upload the header file and try again.'
 
 export function validateTemplateComponents(
   components: TemplateComponent[]
