@@ -1401,29 +1401,7 @@
     },
     "review": {
       "label": "Review",
-      "tasks": [
-        {
-          "id": "TPL-004",
-          "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
-          "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
-          "priority": "high",
-          "labels": [
-            "templates",
-            "whatsapp"
-          ],
-          "related": [
-            "kanban:TPL-003",
-            "github:64",
-            "github:64"
-          ],
-          "status_note": "RESOLVED via Kapso Platform Media API (support-confirmed 2026-07-17). PR #68 @ 7cce47a: dashboard uploads image to public wa-template-media bucket; at submit resolveHeaderMedia POSTs {phone_number_id, source:URL, delivery:meta_resumable_asset} to api.kapso.ai/platform/v1/whatsapp/media with X-API-Key -> data.target.handle -> submitted to Kapso. Works with existing KAPSO_API_KEY, no Meta creds, no cross-app risk (handle minted under the phone_number_id app). Store URL not handle; mint before destructive delete; degrade to provider_not_configured draft; text templates untouched. Adapter src/infrastructure/kapso/template-media-upload.ts. AWAITING: user /review + merge (also ships the #64 fix).",
-          "workspace_artifacts": [
-            "reviews/2026-07-17-tpl-004-image-header-upload-grok-round2.md",
-            "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
-          ],
-          "pr": "https://github.com/xavierau/omc/pull/68"
-        }
-      ]
+      "tasks": []
     },
     "done": {
       "label": "Done",
@@ -2421,6 +2399,28 @@
           "completed": "2026-07-16",
           "pr": 65,
           "notes": "Merged via PR #65. Does NOT fully close #64: image-header templates remain unsubmittable (TPL-004 is the blocker — needs Meta's App-level resumable upload for a 4: handle). Text-only templates now submit; image-header ones fail loudly with Meta's real reason instead of silently. Follow-ups logged: TPL-004..TPL-008, SEC-001 (cross-tenant IDOR, pre-existing, found during /review)."
+        },
+        {
+          "id": "TPL-004",
+          "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
+          "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
+          "priority": "high",
+          "labels": [
+            "templates",
+            "whatsapp"
+          ],
+          "related": [
+            "kanban:TPL-003",
+            "github:64",
+            "github:64"
+          ],
+          "status_note": "DONE — merged PR #68 (merge commit b09270f) 2026-07-17; ships TPL-004 image-header minting via Kapso Platform Media API + the #64 fix. Works with existing KAPSO_API_KEY, no Meta creds. Verify: create/edit an image-header template -> should reach pending.",
+          "workspace_artifacts": [
+            "reviews/2026-07-17-tpl-004-image-header-upload-grok-round2.md",
+            "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/68",
+          "completed_at": "2026-07-17"
         }
       ]
     },
