@@ -2,15 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { resolveHeaderMedia } from '@/application/resolve-header-media'
 import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
-vi.mock('@/infrastructure/whatsapp/meta/resumable-upload', () => ({
+vi.mock('@/infrastructure/kapso/template-media-upload', () => ({
   uploadHeaderMediaFromUrl: vi.fn(),
 }))
 
-import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
 
 const upload = uploadHeaderMediaFromUrl as unknown as ReturnType<typeof vi.fn>
 
 const URL = 'https://cdn.example.com/h.jpg'
+const PHONE = 'phone-1'
 
 function imageHeader(handleOrUrl: string): TemplateComponent {
   return { type: 'HEADER', format: 'IMAGE', example: { header_handle: [handleOrUrl] } }
@@ -25,7 +26,7 @@ describe('resolveHeaderMedia', () => {
       { type: 'BODY', text: 'Body' },
     ]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
     expect(result).toEqual({ ok: true, components })
     expect(upload).not.toHaveBeenCalled()
@@ -35,9 +36,9 @@ describe('resolveHeaderMedia', () => {
     upload.mockResolvedValueOnce({ ok: true, handle: '4:minted:handle' })
     const components = [imageHeader(URL), { type: 'BODY', text: 'B' } as TemplateComponent]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
-    expect(upload).toHaveBeenCalledWith(URL)
+    expect(upload).toHaveBeenCalledWith(PHONE, URL)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
     expect(result.components[0].example?.header_handle).toEqual(['4:minted:handle'])
@@ -51,9 +52,9 @@ describe('resolveHeaderMedia', () => {
       { type: 'HEADER', format: 'IMAGE', example: { headerHandle: [URL] } },
     ]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
-    expect(upload).toHaveBeenCalledWith(URL)
+    expect(upload).toHaveBeenCalledWith(PHONE, URL)
     if (!result.ok) throw new Error('expected ok')
     // Minted handle lives under snake_case only — no stale camel URL survives.
     expect(result.components[0].example?.header_handle).toEqual(['4:minted:handle'])
@@ -63,26 +64,26 @@ describe('resolveHeaderMedia', () => {
   it('leaves an image header that already carries a 4: handle and does not re-upload', async () => {
     const components = [imageHeader('4:already:handle')]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
     expect(upload).not.toHaveBeenCalled()
     expect(result).toEqual({ ok: true, components })
   })
 
   it('propagates the uploader error and stops (no partial submit)', async () => {
-    upload.mockResolvedValueOnce({ ok: false, handle: null, error: { title: 'meta_not_configured' } })
+    upload.mockResolvedValueOnce({ ok: false, handle: null, error: { title: 'not_configured' } })
     const components = [imageHeader(URL)]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
-    expect(result).toEqual({ ok: false, error: { title: 'meta_not_configured' } })
+    expect(result).toEqual({ ok: false, error: { title: 'not_configured' } })
   })
 
   it('surfaces an upload_failed error with its details', async () => {
     upload.mockResolvedValueOnce({ ok: false, handle: null, error: { title: 'upload_failed', details: 'boom' } })
     const components = [imageHeader(URL)]
 
-    const result = await resolveHeaderMedia(components)
+    const result = await resolveHeaderMedia(components, PHONE)
 
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected not ok')

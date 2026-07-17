@@ -8,7 +8,10 @@ import {
   findTemplateById,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   createMetaTemplate,
   deleteMetaTemplate,
@@ -67,7 +70,8 @@ export async function updateWhatsAppTemplate(
   // delete: a mint failure, or a payload Meta is certain to refuse, must never
   // cost the caller their live template. Both run on a copy — the stored row
   // keeps the image URL (changes), not the ~24h handle.
-  const resolved = await resolveHeaderMedia(merged.components)
+  const phoneNumberId = await getRestaurantPhoneNumberId(existing.restaurantId)
+  const resolved = await resolveHeaderMedia(merged.components, phoneNumberId ?? '')
   if (!resolved.ok) {
     const { message, errorCode } = mapMediaHandleError(resolved.error)
     return { template: existing, error: message, errorCode }

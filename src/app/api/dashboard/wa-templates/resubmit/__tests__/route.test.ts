@@ -4,16 +4,19 @@ vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository')
 vi.mock('@/infrastructure/whatsapp/templates')
-vi.mock('@/infrastructure/whatsapp/meta/resumable-upload')
+vi.mock('@/infrastructure/kapso/template-media-upload')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
-import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   listTemplates,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
-import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
 import { POST } from '../route'
@@ -42,13 +45,14 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getTenantContext).mockResolvedValue({ restaurantId: 'rest-1' } as never)
   vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+  vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-1')
   vi.mocked(updateTemplate).mockResolvedValue(undefined as never)
   vi.mocked(listTemplates).mockResolvedValue({ templates: [draft()], total: 1 })
   // Default: no Meta app credentials, so header-image minting is a skip.
   vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
     ok: false,
     handle: null,
-    error: { title: 'meta_not_configured' },
+    error: { title: 'not_configured' },
   })
 })
 
@@ -157,7 +161,7 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     const res = await POST()
     const body = await res.json()
 
-    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('https://example.com/img.png')
+    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('phone-1', 'https://example.com/img.png')
     expect(createMetaTemplate).toHaveBeenCalledWith(
       'biz-1',
       expect.objectContaining({

@@ -7,7 +7,7 @@ vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
 vi.mock('@/infrastructure/whatsapp/templates')
-vi.mock('@/infrastructure/whatsapp/meta/resumable-upload')
+vi.mock('@/infrastructure/kapso/template-media-upload')
 
 import {
   createTemplate,
@@ -23,7 +23,7 @@ import {
   createMetaTemplate,
   resolveWabaId,
 } from '@/infrastructure/whatsapp/templates'
-import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
 import { createWhatsAppTemplate } from '../create-whatsapp-template'
 import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
@@ -66,7 +66,7 @@ describe('createWhatsAppTemplate', () => {
     vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
       ok: false,
       handle: null,
-      error: { title: 'meta_not_configured' },
+      error: { title: 'not_configured' },
     })
   })
 
@@ -250,13 +250,14 @@ describe('createWhatsAppTemplate', () => {
 
   it('mints a Meta handle for a URL image header and submits it when configured', async () => {
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-1')
     vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({ ok: true, handle: '4:minted:handle' })
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-tpl-1', 'PENDING'))
     vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
     await createWhatsAppTemplate({ ...VALID_PARAMS, components: IMAGE_URL_COMPONENTS })
 
-    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('https://example.com/img.png')
+    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('phone-1', 'https://example.com/img.png')
     // Submitted with the minted handle (camelCased for the wire), not the URL.
     expect(createMetaTemplate).toHaveBeenCalledWith(
       'biz-1',
@@ -278,7 +279,7 @@ describe('createWhatsAppTemplate', () => {
 
   it('refuses to submit a URL image header when Meta upload is unconfigured', async () => {
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
-    // uploadHeaderMediaFromUrl defaults to meta_not_configured.
+    // uploadHeaderMediaFromUrl defaults to not_configured.
 
     const result = await createWhatsAppTemplate({ ...VALID_PARAMS, components: IMAGE_URL_COMPONENTS })
 

@@ -97,9 +97,11 @@ async function submitToMeta(
   businessAccountId: string,
   params: CreateTemplateParams
 ): Promise<CreateTemplateResult> {
-  // Turn any image-header URL into a Meta handle before submitting. Runs on a
-  // copy: the stored draft keeps the URL.
-  const resolved = await resolveHeaderMedia(params.components)
+  // Turn any image-header URL into a Meta handle (via Kapso, bound to this
+  // tenant's phone number) before submitting. Runs on a copy: the stored draft
+  // keeps the URL.
+  const phoneNumberId = await getRestaurantPhoneNumberId(params.restaurantId)
+  const resolved = await resolveHeaderMedia(params.components, phoneNumberId ?? '')
   if (!resolved.ok) {
     const { message, errorCode } = mapMediaHandleError(resolved.error)
     return { template, error: message, errorCode }

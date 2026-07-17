@@ -1,17 +1,17 @@
 /**
  * Outcome of turning an uploaded image into a Meta resumable-upload handle.
  *
- * Mirrors the flat Result shape of {@link ./send-result} and
- * {@link ./template-submit-result}: the three failure modes must stay distinct
- * because the caller reacts to each differently —
- * - `meta_not_configured` — a SKIP: no Meta app credentials, nothing was
- *   attempted; the template stays a draft, never branded a failure.
- * - `fetch_failed` — the source image URL could not be read; the operator's
- *   own storage is the problem, not Meta.
- * - `upload_failed` — Meta's resumable-upload API refused or errored; retryable.
+ * Kapso's Platform Media API mints the handle server-side from a public URL, so
+ * the three failure modes stay distinct because the caller reacts to each
+ * differently —
+ * - `not_configured` — a SKIP: no Kapso API key (or no phone number to bind the
+ *   upload to); nothing was attempted, the template stays a draft.
+ * - `fetch_failed` — the source URL is unusable (not an allowed storage URL);
+ *   the operator's own input is the problem, not the provider.
+ * - `upload_failed` — Kapso/Meta refused or errored while minting; retryable.
  */
 export type MediaHandleErrorTitle =
-  | 'meta_not_configured'
+  | 'not_configured'
   | 'fetch_failed'
   | 'upload_failed'
 

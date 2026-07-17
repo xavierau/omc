@@ -1,6 +1,6 @@
 import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { isMediaHeader, readHeaderHandle } from '@/domain/services/template-media-header'
-import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
 import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
 
 /**
@@ -15,6 +15,9 @@ import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-
  *
  * The first failed upload short-circuits: a media template must not be
  * submitted with some headers minted and others still URLs.
+ *
+ * `phoneNumberId` binds the upload to the WABA's app context (Kapso mints the
+ * handle under that app), so it is threaded from the caller's tenant.
  */
 
 type MediaHandleError = { title: MediaHandleErrorTitle; details?: string }
@@ -28,12 +31,13 @@ function isHttpUrl(value: string): boolean {
 }
 
 export async function resolveHeaderMedia(
-  components: TemplateComponent[]
+  components: TemplateComponent[],
+  phoneNumberId: string
 ): Promise<ResolveHeaderMediaResult> {
   const resolved: TemplateComponent[] = []
 
   for (const c of components) {
-    const minted = await mintHeaderIfNeeded(c)
+    const minted = await mintHeaderIfNeeded(c, phoneNumberId)
     if (!minted.ok) return minted
     resolved.push(minted.component)
   }
@@ -42,7 +46,8 @@ export async function resolveHeaderMedia(
 }
 
 async function mintHeaderIfNeeded(
-  c: TemplateComponent
+  c: TemplateComponent,
+  phoneNumberId: string
 ): Promise<{ ok: true; component: TemplateComponent } | { ok: false; error: MediaHandleError }> {
   if (!isMediaHeader(c)) return { ok: true, component: c }
 
@@ -51,7 +56,7 @@ async function mintHeaderIfNeeded(
   // decides whether an unmintable value is submittable.
   if (!source || !isHttpUrl(source)) return { ok: true, component: c }
 
-  const upload = await uploadHeaderMediaFromUrl(source)
+  const upload = await uploadHeaderMediaFromUrl(phoneNumberId, source)
   if (!upload.ok || !upload.handle) {
     return { ok: false, error: upload.error ?? { title: 'upload_failed' } }
   }
@@ -67,13 +72,13 @@ async function mintHeaderIfNeeded(
 /**
  * Maps a media-upload failure to the API's provider error contract. Shared by
  * every submit path (create / update / resubmit) so they can never drift.
- * `meta_not_configured` is a skip (no credentials), not a content failure.
+ * `not_configured` is a skip (no Kapso key / no phone number), not a content failure.
  */
 export function mapMediaHandleError(error: MediaHandleError): {
   message: string
   errorCode: 'provider_not_configured' | 'provider_error'
 } {
-  if (error.title === 'meta_not_configured') {
+  if (error.title === 'not_configured') {
     return { message: 'Image upload is not configured', errorCode: 'provider_not_configured' }
   }
   return {

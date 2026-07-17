@@ -7,18 +7,21 @@ vi.mock(
   '@/infrastructure/supabase/repositories/restaurant-repository'
 )
 vi.mock('@/infrastructure/whatsapp/templates')
-vi.mock('@/infrastructure/whatsapp/meta/resumable-upload')
+vi.mock('@/infrastructure/kapso/template-media-upload')
 
 import {
   findTemplateById,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   createMetaTemplate,
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
-import { uploadHeaderMediaFromUrl } from '@/infrastructure/whatsapp/meta/resumable-upload'
+import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
 import { updateWhatsAppTemplate } from '../update-whatsapp-template'
 import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { isTemplateSendable } from '@/domain/entities/whatsapp-template'
@@ -59,7 +62,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
       ok: false,
       handle: null,
-      error: { title: 'meta_not_configured' },
+      error: { title: 'not_configured' },
     })
   })
 
@@ -325,6 +328,7 @@ describe('updateWhatsAppTemplate', () => {
       metaTemplateId: 'old-meta-id',
     })
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-1')
     vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({ ok: true, handle: '4:minted:handle' })
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
@@ -332,7 +336,7 @@ describe('updateWhatsAppTemplate', () => {
 
     await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
 
-    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('https://example.com/img.png')
+    expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('phone-1', 'https://example.com/img.png')
     expect(deleteMetaTemplate).toHaveBeenCalledWith('biz-1', 'welcome_msg')
     // Submitted with the minted handle, not the URL.
     expect(createMetaTemplate).toHaveBeenCalledWith(

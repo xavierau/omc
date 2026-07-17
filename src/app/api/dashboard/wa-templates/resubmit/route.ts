@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
   updateMetaBusinessAccountId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
@@ -32,8 +33,9 @@ export async function POST() {
       pageSize: 100,
     })
 
+    const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
     const drafts = templates.filter((t) => !t.metaTemplateId)
-    const results = await submitDrafts(drafts, wabaId)
+    const results = await submitDrafts(drafts, wabaId, phoneNumberId ?? '')
 
     return NextResponse.json({ wabaId, submitted: results })
   } catch (error) {
@@ -46,7 +48,8 @@ export async function POST() {
 
 async function submitDrafts(
   drafts: Array<{ id: string; name: string; language: string; category: string; components: TemplateComponent[] }>,
-  wabaId: string
+  wabaId: string,
+  phoneNumberId: string
 ) {
   const results: Array<{ name: string; success: boolean; metaId?: string; error?: string }> = []
 
@@ -54,7 +57,7 @@ async function submitDrafts(
     try {
       // Mint header-image handles first, mirroring the create/edit submit paths;
       // a draft that stored an image URL is otherwise un-submittable here.
-      const resolved = await resolveHeaderMedia(t.components)
+      const resolved = await resolveHeaderMedia(t.components, phoneNumberId)
       if (!resolved.ok) {
         results.push({ name: t.name, success: false, error: mapMediaHandleError(resolved.error).message })
         continue
