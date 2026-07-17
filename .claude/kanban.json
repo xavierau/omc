@@ -1409,22 +1409,19 @@
           "priority": "high",
           "labels": [
             "templates",
-            "blocked",
-            "whatsapp",
-            "external-dependency"
+            "whatsapp"
           ],
           "related": [
             "kanban:TPL-003",
             "github:64",
             "github:64"
           ],
-          "status_note": "PR #68 open (branch feature/tpl-004-image-header-upload). Backend minting: dashboard image URL -> Meta 4: handle via graph.facebook.com (META_APP_ID + META_ACCESS_TOKEN) at submit; DB keeps URL; mint before destructive delete; unconfigured -> provider_not_configured draft; text templates unaffected; wired into create/edit/resubmit. Review gate: grok APPROVED (round2); gemini CONDITIONAL (round2) - both criticals (SSRF+size, resubmit wiring) fixed + hardened (host allowlist, private/mapped-IPv6/trailing-dot block, redirect:error, 5MB streaming cap, jpeg/png only, Bearer/OAuth split). Open non-blocking disagreement: gemini wants MediaUploaderPort, grok says layering sound - not added. AWAITING: user /review + merge; user to set META_APP_ID/META_ACCESS_TOKEN in prod; cross-app handle acceptance (our app mints, Kapso app creates) needs one live confirmation.",
+          "status_note": "RESOLVED via Kapso Platform Media API (support-confirmed 2026-07-17). PR #68 @ 7cce47a: dashboard uploads image to public wa-template-media bucket; at submit resolveHeaderMedia POSTs {phone_number_id, source:URL, delivery:meta_resumable_asset} to api.kapso.ai/platform/v1/whatsapp/media with X-API-Key -> data.target.handle -> submitted to Kapso. Works with existing KAPSO_API_KEY, no Meta creds, no cross-app risk (handle minted under the phone_number_id app). Store URL not handle; mint before destructive delete; degrade to provider_not_configured draft; text templates untouched. Adapter src/infrastructure/kapso/template-media-upload.ts. AWAITING: user /review + merge (also ships the #64 fix).",
           "workspace_artifacts": [
             "reviews/2026-07-17-tpl-004-image-header-upload-grok-round2.md",
             "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
           ],
-          "pr": "https://github.com/xavierau/omc/pull/68",
-          "blocked_on": "Kapso to expose resumable upload (/uploads) for template header handle — emailed 2026-07-17, awaiting reply. Direct-to-Meta ruled out: tenants WABAs are Kapso-managed, no customer Meta app, cross-app handle rejection risk. 360dialog does expose this (waba-v2.360dialog.io/uploads, D360-API-KEY) — cited as the reference. PR #68 mint-at-submit adapter is swappable to Kapso /uploads (+ existing KAPSO_API_KEY) once available; no Meta creds needed then."
+          "pr": "https://github.com/xavierau/omc/pull/68"
         }
       ]
     },
