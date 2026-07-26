@@ -75,23 +75,17 @@ describe('submitContactWebForm', () => {
     expect(sendTextMessage).not.toHaveBeenCalled()
   })
 
-  // The token's phone is the AUTHENTICATED sender and is always reported as
-  // such; the typed number is declared callback info, carried alongside it.
-  // Both appear, and the formatter flags the mismatch.
-  it('reports the token phone as sender and the typed number as the callback', async () => {
+  // Two sections describing two people: the form carries whoever the enquiry
+  // is about, the sender section carries the authenticated handset. A member
+  // enquiring for someone else is ordinary and is never flagged.
+  it('reports the typed number in the form and the token phone as the sender', async () => {
     await submitContactWebForm(TOKEN, { ...BODY, clientWhatsapp: '+85299999999' })
 
     const emailText = mockSend.mock.calls[0][0].text as string
-    expect(emailText).toContain(PHONE)
-    expect(emailText).toContain('+85299999999')
-    expect(emailText).toContain('填寫號碼與傳送號碼不同')
-  })
-
-  it('does not flag a mismatch when the customer keeps the prefilled number', async () => {
-    await submitContactWebForm(TOKEN, { ...BODY, clientWhatsapp: PHONE })
-
-    const emailText = mockSend.mock.calls[0][0].text as string
-    expect(emailText).not.toContain('填寫號碼與傳送號碼不同')
+    const [form, sender] = emailText.split('提交查詢的會員:')
+    expect(form).toContain('+85299999999')
+    expect(sender).toContain(PHONE)
+    expect(emailText).not.toContain('⚠️')
   })
 
   // A web submission carries no WhatsApp profile name, but the sender is
