@@ -34,6 +34,9 @@ vi.mock('../claim-handler', () => ({
 vi.mock('../contact-handler', () => ({
   handleContact: vi.fn(),
 }))
+vi.mock('../contact-form-handler', () => ({
+  handleContactFormSubmission: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -70,6 +73,7 @@ import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { handleMyCard } from '../my-card-handler'
 import { handleClaim } from '../claim-handler'
 import { handleContact } from '../contact-handler'
+import { handleContactFormSubmission } from '../contact-form-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { okResult } from '@/test-utils/send-result'
@@ -217,6 +221,43 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       await routeMessage(makeMessage({ text: '客服' }), RESTAURANT_A)
 
       expect(handleContact).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
+  })
+
+  describe('WhatsApp Flow submission dispatch wiring (REPLY-005, AD-7)', () => {
+    it('a message with flowResponse is routed to handleContactFormSubmission, bypassing resolveRoute', async () => {
+      vi.mocked(handleContactFormSubmission).mockResolvedValue(undefined)
+
+      await routeMessage(
+        makeMessage({
+          type: 'interactive',
+          flowResponse: { clientName: 'Alice', clientWhatsapp: PHONE, topic: '訂座查詢' },
+          flowToken: `cf.v1.${RESTAURANT_A}.abc`,
+        }),
+        RESTAURANT_A
+      )
+
+      expect(handleContactFormSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: RESTAURANT_A,
+          phoneNumberId: PHONE_NUMBER_ID,
+          phone: PHONE,
+        })
+      )
+      // Bypassed the ordinary CONTACT/button routing entirely.
+      expect(handleContact).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).not.toHaveBeenCalled()
+      expect(sendTextMessage).not.toHaveBeenCalled()
+    })
+
+    it('an ordinary interactive message without flowResponse still routes normally (regression)', async () => {
+      await routeMessage(
+        makeMessage({ type: 'button', text: 'CLAIM_camp-1' }),
+        RESTAURANT_A
+      )
+
+      expect(handleContactFormSubmission).not.toHaveBeenCalled()
+      expect(handleClaim).toHaveBeenCalled()
     })
   })
 

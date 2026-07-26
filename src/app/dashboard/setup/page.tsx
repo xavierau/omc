@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { resolveReplyConfig } from '@/domain/services/reply-config'
+import { resolveContactConfig } from '@/domain/services/contact-config'
 
 export default async function SetupPage() {
   const t = await getTranslations('qr')
@@ -17,11 +18,22 @@ export default async function SetupPage() {
   const st = await getTranslations('settings')
   const { restaurantId } = await getTenantContext()
   const supabase = createServerSupabaseClient()
-  const { data: restaurant } = await supabase
+  const { data: restaurant, error: restaurantError } = await supabase
     .from('restaurants')
-    .select('logo_url, redirect_number, redirect_label, reply_config')
+    .select('logo_url, redirect_number, redirect_label, reply_config, contact_config')
     .eq('id', restaurantId)
     .single()
+
+  // Fail loudly rather than rendering the redirect/reply/contact-config forms
+  // primed with defaults: a silent fallback here would let an unrelated Save
+  // PATCH real tenant config (REPLY-001 redirect, REPLY-003 toggles,
+  // REPLY-005 contact settings) away with defaults on every query error —
+  // most likely a deploy landing ahead of migration 058_restaurant_contact_config.sql.
+  if (restaurantError) {
+    throw new Error(
+      `Failed to load restaurant settings for ${restaurantId}: ${restaurantError.message}`
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -36,6 +48,7 @@ export default async function SetupPage() {
       <ContactRedirectSection
         initialRedirectNumber={restaurant?.redirect_number ?? null}
         initialRedirectLabel={restaurant?.redirect_label ?? 'Contact us'}
+        initialContactConfig={resolveContactConfig(restaurant?.contact_config)}
       />
 
       <Separator />

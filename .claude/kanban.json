@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-17",
+  "updated_at": "2026-07-26",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1396,6 +1396,40 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
+        },
+        {
+          "id": "REPLY-005",
+          "title": "Form-capture mode for the fallback Contact action (WhatsApp Flow -> email)",
+          "description": "Extends REPLY-001 (per-tenant wa.me contact redirect, migration 054) and REPLY-003 (per-tenant reply_config JSONB, migration 057). Tenant admins choose the fallback Contact action per restaurant: (a) redirect — existing wa.me CTA button, unchanged default; or (b) form — send a native WhatsApp Flow capturing Client name, Client WhatsApp number (pre-filled with sender wa_id) and Topic (dropdown, 5 per-tenant configurable options, Traditional Chinese). On nfm_reply submission, email the results to the restaurant notification address via Resend, then reply with a per-tenant configurable acknowledgement (default zh-HK, CS will get back to you asap). ONE shared published Flow for all tenants; per-tenant topics injected at send time via flow_action_payload with flowAction=navigate + screen-level data binding — no data_exchange endpoint, no encryption. Email is greenfield: no email dependency, code, port or env var exists in the repo today.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "flows",
+            "webhook",
+            "email",
+            "fullstack",
+            "multi-tenant"
+          ],
+          "acceptance_criteria": [
+            "Tenant admin can set fallback contact mode to redirect or form per restaurant; existing tenants default to redirect with zero behaviour change",
+            "In form mode, the Contact action sends a WhatsApp Flow with 3 fields: Client name, Client WhatsApp number (pre-filled from sender wa_id), Topic (5 per-tenant options)",
+            "Topic options are configurable per restaurant and injected at send time from a single shared published Flow",
+            "On submission the webhook parses nfm_reply and emails the 3 fields plus WhatsApp context: sender wa_id, contact profile name, receiving restaurant + its business WhatsApp number, timestamp, message id",
+            "Sender wa_id and the typed Client WhatsApp number are shown distinctly in the email (they may differ)",
+            "Notification email recipient is stored per restaurant in the DB and editable in admin",
+            "After a successful submission the contact receives a per-tenant configurable acknowledgement, default Traditional Chinese",
+            "Email send failure does not prevent the contact acknowledgement, and is logged",
+            "Config read failure degrades to redirect mode, never to a broken form",
+            "Tenants in redirect mode are completely unaffected"
+          ],
+          "related": [
+            "kanban:REPLY-001",
+            "kanban:REPLY-003"
+          ],
+          "branch": "feature/reply-005",
+          "base": "main",
+          "started_at": "2026-07-26"
         }
       ]
     },

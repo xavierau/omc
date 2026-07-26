@@ -8,8 +8,12 @@ import {
   updateRestaurantRedirect,
   getReplyConfig,
   updateReplyConfig,
+  getContactConfig,
+  updateContactConfig,
+  getRestaurantEmailContext,
 } from '../restaurant-repository'
 import { DEFAULT_REPLY_FEATURES } from '@/domain/services/reply-config'
+import { DEFAULT_TOPICS } from '@/domain/services/contact-config'
 
 function mockReadChain(result: { data: unknown; error: unknown }) {
   const single = vi.fn().mockResolvedValue(result)
@@ -236,5 +240,181 @@ describe('updateReplyConfig', () => {
     mockWriteChain({ error: { message: 'nope' } })
 
     await expect(updateReplyConfig('restaurant-1', CONFIG)).rejects.toThrow('nope')
+  })
+})
+
+describe('getContactConfig', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('selects only contact_config by id', async () => {
+    const { from, select, eq } = mockReadChain({
+      data: { contact_config: {} },
+      error: null,
+    })
+
+    await getContactConfig('restaurant-1')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(select).toHaveBeenCalledWith('contact_config')
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('returns redirect defaults for an empty blob', async () => {
+    mockReadChain({ data: { contact_config: {} }, error: null })
+
+    const result = await getContactConfig('restaurant-1')
+
+    expect(result).toEqual({
+      mode: 'redirect',
+      notificationEmail: null,
+      topics: DEFAULT_TOPICS,
+      ackText: null,
+    })
+  })
+
+  it('resolves a fully-configured stored blob', async () => {
+    const topics = ['A', 'B', 'C', 'D', 'E']
+    mockReadChain({
+      data: {
+        contact_config: {
+          mode: 'form',
+          notificationEmail: 'owner@restaurant.hk',
+          topics,
+          ackText: 'Thanks!',
+        },
+      },
+      error: null,
+    })
+
+    const result = await getContactConfig('restaurant-1')
+
+    expect(result).toEqual({
+      mode: 'form',
+      notificationEmail: 'owner@restaurant.hk',
+      topics,
+      ackText: 'Thanks!',
+    })
+  })
+
+  it('degrades to redirect defaults when the query errors', async () => {
+    mockReadChain({ data: null, error: { message: 'boom' } })
+
+    const result = await getContactConfig('restaurant-1')
+
+    expect(result.mode).toBe('redirect')
+    expect(result.topics).toEqual(DEFAULT_TOPICS)
+  })
+
+  it('degrades to redirect defaults when the restaurant is not found', async () => {
+    mockReadChain({ data: null, error: null })
+
+    const result = await getContactConfig('missing')
+
+    expect(result.mode).toBe('redirect')
+  })
+
+  it('degrades to redirect defaults instead of throwing when the client itself throws', async () => {
+    vi.mocked(createServerSupabaseClient).mockImplementation(() => {
+      throw new Error('connection failed')
+    })
+
+    const result = await getContactConfig('restaurant-1')
+
+    expect(result).toEqual({
+      mode: 'redirect',
+      notificationEmail: null,
+      topics: DEFAULT_TOPICS,
+      ackText: null,
+    })
+  })
+
+  it('degrades to redirect defaults on a malformed (non-object) blob', async () => {
+    mockReadChain({ data: { contact_config: 'garbage' }, error: null })
+
+    const result = await getContactConfig('restaurant-1')
+
+    expect(result.mode).toBe('redirect')
+    expect(result.topics).toEqual(DEFAULT_TOPICS)
+  })
+})
+
+describe('updateContactConfig', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const CONFIG = {
+    mode: 'form' as const,
+    notificationEmail: 'owner@restaurant.hk',
+    topics: ['A', 'B', 'C', 'D', 'E'],
+    ackText: 'Thanks!',
+  }
+
+  it('writes the contact_config blob by id', async () => {
+    const { from, update, eq } = mockWriteChain({ error: null })
+
+    await updateContactConfig('restaurant-1', CONFIG)
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(update).toHaveBeenCalledWith({ contact_config: CONFIG })
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('throws when the update fails', async () => {
+    mockWriteChain({ error: { message: 'nope' } })
+
+    await expect(updateContactConfig('restaurant-1', CONFIG)).rejects.toThrow('nope')
+  })
+})
+
+describe('getRestaurantEmailContext', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('selects only name and whatsapp_number by id', async () => {
+    const { from, select, eq } = mockReadChain({
+      data: { name: 'Golden Dragon', whatsapp_number: '+85291234567' },
+      error: null,
+    })
+
+    await getRestaurantEmailContext('restaurant-1')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(select).toHaveBeenCalledWith('name, whatsapp_number')
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it("returns the row's name and whatsapp number", async () => {
+    mockReadChain({
+      data: { name: 'Golden Dragon', whatsapp_number: '+85291234567' },
+      error: null,
+    })
+
+    const result = await getRestaurantEmailContext('restaurant-1')
+
+    expect(result).toEqual({ name: 'Golden Dragon', whatsappNumber: '+85291234567' })
+  })
+
+  it('degrades to empty defaults when the query errors', async () => {
+    mockReadChain({ data: null, error: { message: 'boom' } })
+
+    const result = await getRestaurantEmailContext('restaurant-1')
+
+    expect(result).toEqual({ name: '', whatsappNumber: null })
+  })
+
+  it('degrades to empty defaults when the restaurant is not found', async () => {
+    mockReadChain({ data: null, error: null })
+
+    const result = await getRestaurantEmailContext('missing')
+
+    expect(result).toEqual({ name: '', whatsappNumber: null })
+  })
+
+  it('degrades to empty defaults instead of throwing when the client itself throws', async () => {
+    vi.mocked(createServerSupabaseClient).mockImplementation(() => {
+      throw new Error('connection failed')
+    })
+
+    const result = await getRestaurantEmailContext('restaurant-1')
+
+    expect(result).toEqual({ name: '', whatsappNumber: null })
   })
 })
