@@ -13,6 +13,11 @@ export interface KapsoMessage {
   imageId?: string
   timestamp: string
   contactName?: string
+  // WhatsApp Flow submission (interactive.type === 'nfm_reply'). See AD-7:
+  // raw response_json is the reliable contract; kapso.* extension fields are
+  // an optimisation-only fallback (REPLY-005 plan, Open Question Q1).
+  flowResponse?: Record<string, unknown>
+  flowToken?: string
 }
 
 export function parseKapsoWebhook(
@@ -91,6 +96,7 @@ function buildMessage(
   if (typeof msg.from !== 'string' || msg.from.trim() === '') return null
 
   const textContent = msg.text as Record<string, string> | string | undefined
+  const { flowResponse, flowToken } = extractFlowSubmission(msg.interactive, msg.kapso)
 
   return {
     messageId: (msg.id as string) ?? fallbackId,
@@ -103,6 +109,8 @@ function buildMessage(
     imageId: extractImageId(msg.image),
     timestamp: (msg.timestamp as string) ?? new Date().toISOString(),
     contactName,
+    flowResponse,
+    flowToken,
   }
 }
 
@@ -148,6 +156,81 @@ function extractButtonPayload(button: unknown): string | undefined {
   if (!button || typeof button !== 'object') return undefined
   const b = button as Record<string, unknown>
   return typeof b.payload === 'string' ? b.payload : undefined
+}
+
+// WhatsApp Flow submission (AD-7, REPLY-005). The raw `response_json` string
+// on `interactive.nfm_reply` is the reliable contract per Meta; this must
+// never throw on malformed/unexpected payloads (webhook hot path — see the
+// comments at src/app/api/webhooks/whatsapp/route.ts:90-94). Kapso's
+// pre-parsed `kapso.flow_response` / `kapso.flow_token` extension fields
+// (unverified whether this app's subscription requests them — plan Open
+// Question Q1) are used only as a fallback when the raw path yields nothing.
+//
+// `hasNfmReplySignal` is the SINGLE gate for both paths (code review H1):
+// without it, `kapso.flow_response` was accepted on ANY interactive message
+// (including `{}`), so a stray Kapso field on a button/list reply would
+// hijack it into the flow-submission handler app-wide. Requiring the same
+// nfm_reply signal the raw path already needs, plus a non-empty object,
+// closes that.
+function extractFlowSubmission(
+  interactive: unknown,
+  kapso: unknown
+): { flowResponse?: Record<string, unknown>; flowToken?: string } {
+  if (!hasNfmReplySignal(interactive)) return {}
+
+  const flowResponse = parseNfmResponseJson(interactive) ?? extractKapsoFlowResponse(kapso)
+  const flowToken = extractFlowTokenFromResponse(flowResponse) ?? extractKapsoFlowToken(kapso)
+  return { flowResponse, flowToken }
+}
+
+function hasNfmReplySignal(interactive: unknown): boolean {
+  if (!interactive || typeof interactive !== 'object') return false
+  const obj = interactive as Record<string, unknown>
+  const nfmReply = obj.nfm_reply as Record<string, unknown> | undefined
+  return obj.type === 'nfm_reply' || !!nfmReply
+}
+
+function parseNfmResponseJson(interactive: unknown): Record<string, unknown> | undefined {
+  const obj = interactive as Record<string, unknown>
+  const nfmReply = obj.nfm_reply as Record<string, unknown> | undefined
+  const responseJson = nfmReply?.response_json
+  if (typeof responseJson !== 'string') return undefined
+
+  try {
+    const parsed: unknown = JSON.parse(responseJson)
+    return isNonEmptyPlainObject(parsed) ? parsed : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function extractKapsoFlowResponse(kapso: unknown): Record<string, unknown> | undefined {
+  if (!kapso || typeof kapso !== 'object') return undefined
+  const flowResponse = (kapso as Record<string, unknown>).flow_response
+  return isNonEmptyPlainObject(flowResponse) ? flowResponse : undefined
+}
+
+function extractFlowTokenFromResponse(
+  flowResponse: Record<string, unknown> | undefined
+): string | undefined {
+  const token = flowResponse?.flow_token
+  return typeof token === 'string' ? token : undefined
+}
+
+function extractKapsoFlowToken(kapso: unknown): string | undefined {
+  if (!kapso || typeof kapso !== 'object') return undefined
+  const token = (kapso as Record<string, unknown>).flow_token
+  return typeof token === 'string' ? token : undefined
+}
+
+// Non-empty: `{}` must not be treated as a flow submission — see H1 above.
+function isNonEmptyPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length > 0
+  )
 }
 
 function extractImageUrl(image: unknown): string | undefined {

@@ -8,7 +8,10 @@ import {
   findTemplateById,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   createMetaTemplate,
   deleteMetaTemplate,
@@ -18,6 +21,7 @@ import {
   prepareTemplateComponents,
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 
 interface UpdateTemplateInput {
   name?: string
@@ -44,14 +48,6 @@ export async function updateWhatsAppTemplate(
   }
 
   const merged = { ...existing, ...input }
-
-  // Runs BEFORE the delete below: a payload Meta is certain to refuse must not
-  // cost the caller their live template.
-  const validationError = validateTemplateComponents(merged.components)
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
   const changes = normalizeChanges(input)
 
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
@@ -70,6 +66,21 @@ export async function updateWhatsAppTemplate(
     return { template: await updateTemplate(templateId, changes) }
   }
 
+  // Mint header-image handles and validate the payload BEFORE the destructive
+  // delete: a mint failure, or a payload Meta is certain to refuse, must never
+  // cost the caller their live template. Both run on a copy — the stored row
+  // keeps the image URL (changes), not the ~24h handle.
+  const phoneNumberId = await getRestaurantPhoneNumberId(existing.restaurantId)
+  const resolved = await resolveHeaderMedia(merged.components, phoneNumberId ?? '')
+  if (!resolved.ok) {
+    const { message, errorCode } = mapMediaHandleError(resolved.error)
+    return { template: existing, error: message, errorCode }
+  }
+  const validationError = validateTemplateComponents(resolved.components)
+  if (validationError) {
+    return { template: existing, error: validationError, errorCode: 'provider_error' }
+  }
+
   if (existing.metaTemplateId) {
     // Meta requires delete before re-create for templates with the same name.
     // If it fails the create would fail on uniqueness anyway, and clearing the link
@@ -84,7 +95,7 @@ export async function updateWhatsAppTemplate(
     }
   }
 
-  return resubmitToMeta(templateId, merged, changes, businessAccountId)
+  return resubmitToMeta(templateId, merged, changes, businessAccountId, resolved.components)
 }
 
 function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
@@ -96,13 +107,14 @@ async function resubmitToMeta(
   templateId: string,
   merged: WhatsAppTemplate,
   changes: UpdateTemplateInput,
-  businessAccountId: string
+  businessAccountId: string,
+  submitComponents: TemplateComponent[]
 ): Promise<UpdateTemplateResult> {
   const metaResult = await createMetaTemplate(businessAccountId, {
     name: merged.name,
     language: merged.language,
     category: merged.category,
-    components: prepareTemplateComponents(merged.components),
+    components: prepareTemplateComponents(submitComponents),
     parameterFormat: 'NAMED',
   })
 

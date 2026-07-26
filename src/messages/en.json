@@ -586,6 +586,8 @@
     "redirectInvalid": "Enter a valid phone number (digits only, 8–15 long, optional +).",
     "redirectSaved": "Saved",
     "redirectSaveFailed": "Could not save. Please try again.",
+    "contactConfigInvalid": "Please check the contact form settings below.",
+    "contactConfigSaveFailedDetail": "Could not save: {error}",
     "fallbackReplyTitle": "Automatic Reply",
     "fallbackReplyDescription": "Choose which functions customers can use, and customize the automatic reply messages. A disabled function is removed from the menu and stops responding to its keyword. Leave a message blank to use the default shown.",
     "featuresLabel": "Enabled functions",
@@ -603,7 +605,16 @@
     "replySaved": "Saved",
     "replySaveFailed": "Could not save. Please try again.",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "contactModeLabel": "Contact us behavior",
+    "contactModeRedirect": "Redirect to WhatsApp number",
+    "contactModeForm": "In-chat form",
+    "contactNotificationEmailLabel": "Notification email",
+    "contactNotificationEmailPlaceholder": "owner@example.com",
+    "contactNotificationEmailRequired": "A notification email is required for form mode.",
+    "contactTopicsLabel": "Topics (5)",
+    "contactTopicPlaceholder": "Topic {n}",
+    "contactAckTextLabel": "Acknowledgement message"
   },
   "scan": {
     "heading": "Scan QR Code",
@@ -778,7 +789,7 @@
     "edit": "Edit",
     "submitFailed": "Couldn't submit this template to WhatsApp. Please try again.",
     "rejectionReasonLabel": "Meta's reason",
-    "imageHeaderHint": "Image headers can't be submitted to WhatsApp yet. Meta only accepts an uploaded media handle (starting with \"4:\"), which we can't produce at the moment — a template with an image header will be rejected. Use a text header, or no header, for now."
+    "imageHeaderHint": "JPEG or PNG, up to 5MB. The image is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used."
   },
   "importWizard": {
     "heading": "Import contacts",

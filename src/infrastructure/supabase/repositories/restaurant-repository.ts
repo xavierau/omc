@@ -4,6 +4,10 @@ import {
   resolveReplyConfig,
   type ResolvedReplyConfig,
 } from '@/domain/services/reply-config'
+import {
+  resolveContactConfig,
+  type ResolvedContactConfig,
+} from '@/domain/services/contact-config'
 
 export interface RestaurantRow {
   id: string
@@ -265,6 +269,83 @@ export async function updateReplyConfig(
 
   if (error) {
     throw new Error(`Failed to update reply config: ${error.message}`)
+  }
+}
+
+/**
+ * Resolve a tenant's contact-us configuration (REPLY-005): redirect vs form
+ * mode, notification email, topics, and acknowledgement text. Runs in the
+ * webhook hot path, so it must never throw: on any error / not-found /
+ * malformed blob it degrades to `{ mode: 'redirect', ... }` (today's
+ * behavior), mirroring `getReplyConfig`. Selects ONLY `contact_config` —
+ * deliberately NOT part of the shared `RESTAURANT_COLUMNS` constant, so the
+ * hot-path webhook is not coupled to this migration.
+ */
+export async function getContactConfig(
+  restaurantId: string
+): Promise<ResolvedContactConfig> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('contact_config')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return resolveContactConfig(undefined)
+    return resolveContactConfig((data as { contact_config?: unknown }).contact_config)
+  } catch {
+    // Webhook hot path: degrade to redirect defaults, never throw.
+    return resolveContactConfig(undefined)
+  }
+}
+
+export async function updateContactConfig(
+  restaurantId: string,
+  config: ResolvedContactConfig
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ contact_config: config })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update contact config: ${error.message}`)
+  }
+}
+
+export interface RestaurantEmailContext {
+  name: string
+  whatsappNumber: string | null
+}
+
+/**
+ * Resolve the tenant name + business WhatsApp number used to build the
+ * REPLY-005 contact-form notification email. Dedicated select (`name,
+ * whatsapp_number` only) so the notification path doesn't pull the full
+ * `RESTAURANT_COLUMNS` set; degrade-safe (never throws) since it can run in
+ * the webhook hot path alongside `getContactConfig`.
+ */
+export async function getRestaurantEmailContext(
+  restaurantId: string
+): Promise<RestaurantEmailContext> {
+  const DEFAULT: RestaurantEmailContext = { name: '', whatsappNumber: null }
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('name, whatsapp_number')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return DEFAULT
+    return {
+      name: (data.name as string | null) ?? '',
+      whatsappNumber: (data.whatsapp_number as string | null) ?? null,
+    }
+  } catch {
+    return DEFAULT
   }
 }
 

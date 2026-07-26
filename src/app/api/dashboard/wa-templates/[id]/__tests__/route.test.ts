@@ -105,14 +105,14 @@ describe('PATCH /api/dashboard/wa-templates/[id]', () => {
 
   it('returns 400 with the message when the use case throws a validation error', async () => {
     vi.mocked(updateWhatsAppTemplate).mockRejectedValue(
-      new Error('Image, video and document headers must use a Meta resumable-upload handle')
+      new Error('Invalid template name: must be lowercase alphanumeric and underscores only')
     )
 
     const res = await PATCH(req(), ctx())
 
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({
-      error: 'Image, video and document headers must use a Meta resumable-upload handle',
+      error: 'Invalid template name: must be lowercase alphanumeric and underscores only',
     })
   })
 })

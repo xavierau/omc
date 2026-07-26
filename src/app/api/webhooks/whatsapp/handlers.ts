@@ -16,6 +16,7 @@ import { resolveRoute, type RouteResult, type ResolvedRoute } from './route-reso
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleContact } from './contact-handler'
+import { handleContactFormSubmission } from './contact-form-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
@@ -72,6 +73,14 @@ async function dispatchRoute(message: KapsoMessage, restaurantId: string, log: L
   const text = message.text ?? ''
   const phone = PhoneNumber.create(message.from).value
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
+
+  // REPLY-005: a WhatsApp Flow submission carries a structured payload, not
+  // free text — route it before `resolveRoute` (pure (text,type) classifier;
+  // a structured object has no place in its signature, AD-7).
+  if (message.flowResponse) {
+    return handleContactFormSubmission({ message, restaurantId, phoneNumberId, phone, log })
+  }
+
   const resolved = resolveRoute(text, message.type)
   log('info', 'handler.route', { route: resolved.route, phone: maskPhone(phone) })
 

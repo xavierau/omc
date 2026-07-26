@@ -586,6 +586,8 @@
     "redirectInvalid": "請輸入有效電話號碼（只限數字，8 至 15 位，可加 +）。",
     "redirectSaved": "已儲存",
     "redirectSaveFailed": "儲存失敗，請再試一次。",
+    "contactConfigInvalid": "請檢查以下的聯絡表格設定。",
+    "contactConfigSaveFailedDetail": "儲存失敗：{error}",
     "fallbackReplyTitle": "自動回覆",
     "fallbackReplyDescription": "選擇客人可使用的功能，並自訂自動回覆訊息。停用的功能會從選單移除，並停止回應其關鍵字。訊息留空則使用下方顯示的預設內容。",
     "featuresLabel": "已啟用功能",
@@ -603,7 +605,16 @@
     "replySaved": "已儲存",
     "replySaveFailed": "儲存失敗，請再試一次。",
     "save": "儲存",
-    "saving": "儲存中..."
+    "saving": "儲存中...",
+    "contactModeLabel": "「聯絡我們」方式",
+    "contactModeRedirect": "轉駁至 WhatsApp 號碼",
+    "contactModeForm": "訊息內表格",
+    "contactNotificationEmailLabel": "通知電郵",
+    "contactNotificationEmailPlaceholder": "owner@example.com",
+    "contactNotificationEmailRequired": "表格模式需要通知電郵。",
+    "contactTopicsLabel": "查詢主題（5 個）",
+    "contactTopicPlaceholder": "主題 {n}",
+    "contactAckTextLabel": "確認訊息"
   },
   "scan": {
     "heading": "掃描 QR 碼",
@@ -778,7 +789,7 @@
     "edit": "編輯",
     "submitFailed": "無法將此範本提交至 WhatsApp，請再試一次。",
     "rejectionReasonLabel": "Meta 拒絕原因",
-    "imageHeaderHint": "圖片標題暫時無法提交至 WhatsApp。Meta 只接受已上載的媒體 handle（以「4:」開頭），我們暫時未能產生 — 使用圖片標題的範本會被拒絕。請暫時改用文字標題或不設標題。"
+    "imageHeaderHint": "JPEG 或 PNG，最大 5MB。提交範本時圖片會上載至 WhatsApp，並由 Meta 審核後方可使用。"
   },
   "importWizard": {
     "heading": "匯入聯絡人",

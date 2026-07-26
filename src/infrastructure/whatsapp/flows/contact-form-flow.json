@@ -1,0 +1,75 @@
+{
+  "version": "7.2",
+  "screens": [
+    {
+      "id": "CONTACT_FORM",
+      "title": "聯絡我們",
+      "terminal": true,
+      "data": {
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "訂座查詢", "title": "訂座查詢" },
+            { "id": "其他查詢", "title": "其他查詢" }
+          ]
+        },
+        "phone": {
+          "type": "string",
+          "__example__": "+85291234567"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "contact_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "clientName",
+                "label": "姓名",
+                "inputType": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "clientWhatsapp",
+                "label": "WhatsApp 號碼",
+                "inputType": "phone",
+                "required": true,
+                "initValue": "${data.phone}"
+              },
+              {
+                "type": "Dropdown",
+                "name": "topic",
+                "label": "查詢主題",
+                "required": true,
+                "dataSource": "${data.topics}"
+              },
+              {
+                "type": "Footer",
+                "label": "提交",
+                "onClickAction": {
+                  "name": "complete",
+                  "payload": {
+                    "clientName": "${form.clientName}",
+                    "clientWhatsapp": "${form.clientWhatsapp}",
+                    "topic": "${form.topic}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

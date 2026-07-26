@@ -38,4 +38,17 @@ export interface WhatsAppMessagingPort {
     url: string,
     footerText?: string
   ): Promise<SendResult>
+  sendInteractiveFlow(
+    phoneNumberId: string,
+    to: string,
+    bodyText: string,
+    params: {
+      flowId: string
+      flowCta: string
+      flowToken: string
+      screen: string
+      data: Record<string, unknown>
+    },
+    footerText?: string
+  ): Promise<SendResult>
 }
