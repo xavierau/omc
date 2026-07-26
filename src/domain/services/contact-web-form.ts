@@ -41,7 +41,9 @@ export const CLIENT_PHONE_MAX_LEN = 30
  * work line, a relative's handset — and `buildContactEmail` already exists to
  * flag the difference (⚠️ 填寫號碼與傳送號碼不同). An earlier cut derived this
  * field from the token instead, which forced the two equal and made that
- * mismatch marker unreachable dead code.
+ * mismatch marker unreachable dead code. The web form asks for it outright
+ * (no prefill), so the answer is a deliberate one rather than an unread
+ * default echoing the sending handset.
  *
  * This costs nothing in trust: the AUTHENTICATED sender still comes from the
  * token and is reported separately as `senderWaId`. The typed value is
@@ -74,10 +76,12 @@ export function parseWebFormSubmission(
     return { ok: false, reason: 'clientName_too_long' }
   }
 
-  // Falls back to the token's phone rather than failing when absent: the field
-  // is prefilled with exactly that value, so an empty one means the customer
-  // cleared it, and the number they messaged from is a better answer than
-  // rejecting the whole enquiry. Bounded because it reaches an inbox.
+  // The form starts this field empty and marks it required, so a missing
+  // value means a client that bypassed the form rather than a customer who
+  // skipped it. Falling back to the authenticated sender still beats
+  // rejecting a real enquiry, and it can only ever resolve to the number we
+  // already know — never to something a caller supplied. Bounded because it
+  // reaches an inbox.
   const clientWhatsapp = cleanString(record.clientWhatsapp) ?? tokenPhone
   if (clientWhatsapp.length > CLIENT_PHONE_MAX_LEN) {
     return { ok: false, reason: 'clientWhatsapp_too_long' }

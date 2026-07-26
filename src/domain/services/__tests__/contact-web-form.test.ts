@@ -40,8 +40,10 @@ describe('parseWebFormSubmission', () => {
     if (result.ok) expect(result.submission.clientWhatsapp).toBe('+85299999999')
   })
 
-  // The field ships prefilled with the token's phone, so an empty one means
-  // the customer cleared it — a better answer than rejecting the enquiry.
+  // The form starts this field empty and required, so an absent value means a
+  // client that bypassed the form. Falling back to the authenticated sender
+  // still beats rejecting a real enquiry, and can only resolve to the number
+  // we already know.
   it.each([[undefined], [''], ['   ']])(
     'falls back to the token phone when the body value is %s',
     (value) => {
