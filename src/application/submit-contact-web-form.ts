@@ -61,10 +61,7 @@ export async function submitContactWebForm(
     // rather than reporting "(未提供)" about someone we already know.
     contactName: await resolveContactName(owner.restaurantId, owner.phone),
     timestamp: new Date(),
-    // No WhatsApp message id exists for a web submission — the enquiry did not
-    // arrive as a message. Labelled rather than blanked so a restaurant
-    // reading the email knows which channel it came from.
-    messageId: 'web-form',
+    labels: config.labels,
   })
 
   if (!config.notificationEmail) {
