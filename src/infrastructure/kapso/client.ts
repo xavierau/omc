@@ -1,5 +1,6 @@
 import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
 import type { SendResult } from '@/domain/value-objects/send-result'
+import { maskPhone } from '@/infrastructure/logging/logger'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
 
@@ -192,12 +193,12 @@ export async function sendInteractiveFlow(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — flow not sent:', { to, bodyText })
+    console.warn('[Kapso] No API key — flow not sent:', { to: maskPhone(to), bodyText })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
     console.warn('[Kapso] No phoneNumberId — flow not sent:', {
-      to,
+      to: maskPhone(to),
       bodyText,
     })
     return skipResult('kapso_no_phone_number_id')

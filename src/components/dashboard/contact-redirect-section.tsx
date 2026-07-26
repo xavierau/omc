@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button'
 import { isValidPhoneE164 } from '@/infrastructure/validation/validators'
 import { ContactFormSettings, type ContactFormSettingsProps } from '@/components/dashboard/contact-form-settings'
 import type { ContactMode, ResolvedContactConfig } from '@/domain/services/contact-config'
-import { buildContactConfigPayload, canSaveContactConfig } from '@/components/dashboard/contact-config-payload'
+import {
+  buildContactConfigPayload,
+  canSaveContactConfig,
+  isContactEmailInvalid,
+} from '@/components/dashboard/contact-config-payload'
 
 /** Both `/contact-redirect` and `/contact-config` PATCH routes return `{ error: string }` on failure. */
 export async function firstErrorDetail(res: Response): Promise<string | null> {
@@ -45,7 +49,7 @@ export function ContactRedirectSection({
 
   const trimmedNumber = number.trim()
   const numberInvalid = trimmedNumber !== '' && !isValidPhoneE164(trimmedNumber)
-  const emailInvalid = mode === 'form' && notificationEmail.trim() === ''
+  const emailInvalid = isContactEmailInvalid(mode, notificationEmail)
 
   function onModeChange(next: ContactMode) {
     setMode(next)

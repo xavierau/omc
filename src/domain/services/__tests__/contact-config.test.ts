@@ -114,6 +114,32 @@ describe('resolveContactConfig — ackText', () => {
   })
 })
 
+describe('validateContactConfig — non-object payloads', () => {
+  // A PATCH body that isn't a JSON object must be rejected outright — unlike
+  // `resolveContactConfig` (the read side, tested above), which must keep
+  // degrading silently to redirect-mode defaults so a malformed stored blob
+  // never breaks a read. Silently accepting a malformed *write* here would
+  // overwrite a tenant's real settings with defaults.
+  it.each([
+    ['null', null],
+    ['a number', 42],
+    ['an array', []],
+    ['a bare string', 'str'],
+  ])('rejects %s', (_label, raw) => {
+    const result = validateContactConfig(raw)
+    expect(result.ok).toBe(false)
+  })
+
+  it('resolveContactConfig still degrades the same non-object inputs to redirect-mode defaults', () => {
+    for (const raw of [null, 42, [], 'str']) {
+      const config = resolveContactConfig(raw)
+      expect(config.mode).toBe('redirect')
+      expect(config.notificationEmail).toBeNull()
+      expect(config.topics).toEqual(DEFAULT_TOPICS)
+    }
+  })
+})
+
 describe('validateContactConfig', () => {
   it('accepts a fully valid form config', () => {
     const result = validateContactConfig({

@@ -115,7 +115,10 @@ function isTopicsOmitted(value: unknown): boolean {
  * Otherwise normalize via `resolveContactConfig`.
  */
 export function validateContactConfig(raw: unknown): ContactConfigValidation {
-  const obj = isRecord(raw) ? raw : {}
+  if (!isRecord(raw)) {
+    return { ok: false, error: 'request body must be a JSON object' }
+  }
+  const obj = raw
   const mode = resolveMode(obj.mode)
   const email = normalizeEmail(obj.notificationEmail)
 

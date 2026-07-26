@@ -54,6 +54,16 @@ describe('sendInteractiveFlow (kapso client)', () => {
     expect(mockSendInteractiveFlow).not.toHaveBeenCalled()
   })
 
+  it('masks the recipient number in the no-API-key warn log', async () => {
+    delete process.env.KAPSO_API_KEY
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { sendInteractiveFlow } = await importClient()
+    await sendInteractiveFlow('phone1', '+85291234567', 'body', FLOW_PARAMS)
+    for (const call of warnSpy.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain('+85291234567')
+    }
+  })
+
   it('returns skipResult when phoneNumberId is empty', async () => {
     process.env.KAPSO_API_KEY = 'key'
     const { sendInteractiveFlow } = await importClient()
@@ -67,6 +77,16 @@ describe('sendInteractiveFlow (kapso client)', () => {
       error: { title: 'kapso_no_phone_number_id' },
     })
     expect(mockSendInteractiveFlow).not.toHaveBeenCalled()
+  })
+
+  it('masks the recipient number in the no-phoneNumberId warn log', async () => {
+    process.env.KAPSO_API_KEY = 'key'
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { sendInteractiveFlow } = await importClient()
+    await sendInteractiveFlow('', '+85291234567', 'body', FLOW_PARAMS)
+    for (const call of warnSpy.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain('+85291234567')
+    }
   })
 
   it('maps SDK success and sends flowAction:navigate with exact flowActionPayload shape', async () => {

@@ -206,4 +206,60 @@ describe('resendEmailAdapter.send', () => {
       error: { title: 'resend_no_message_id' },
     })
   })
+
+  it('sends an AbortSignal with the request so a stalled request is bounded', async () => {
+    configureEnv()
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'resend-msg-1' }), { status: 200 })
+    )
+    const { resendEmailAdapter } = await importAdapter()
+
+    await resendEmailAdapter.send(MESSAGE)
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('maps a timed-out/aborted request to ok:false with a distinguishable title, never rejecting', async () => {
+    configureEnv()
+    const timeoutError = new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(timeoutError)
+    const { resendEmailAdapter } = await importAdapter()
+
+    await expect(resendEmailAdapter.send(MESSAGE)).resolves.toEqual({
+      ok: false,
+      providerMessageId: null,
+      raw: null,
+      error: { title: 'resend_timeout', details: timeoutError.message },
+    })
+  })
+
+  it('does not log the recipient address when Resend is not configured', async () => {
+    delete process.env.RESEND_API_KEY
+    process.env.RESEND_FROM_EMAIL = 'noreply@ohmyclient.io'
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { resendEmailAdapter } = await importAdapter()
+
+    await resendEmailAdapter.send(MESSAGE)
+
+    for (const call of warnSpy.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain(MESSAGE.to)
+    }
+  })
+
+  it('bounds and redacts an email address reflected back in a non-2xx provider body', async () => {
+    configureEnv()
+    const reflectedBody = JSON.stringify({
+      message: `invalid recipient ${MESSAGE.to}`,
+      padding: 'x'.repeat(400),
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(reflectedBody, { status: 422 }))
+    const { resendEmailAdapter } = await importAdapter()
+
+    const result = await resendEmailAdapter.send(MESSAGE)
+
+    expect(result.error?.details).toContain('422')
+    expect(result.error?.details).not.toContain(MESSAGE.to)
+    expect(result.error?.details?.length).toBeLessThan(reflectedBody.length)
+  })
 })
