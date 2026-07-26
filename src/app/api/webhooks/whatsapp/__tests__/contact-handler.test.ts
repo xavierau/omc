@@ -10,6 +10,13 @@ vi.mock('@/infrastructure/whatsapp/messaging', () => ({
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantRedirect: vi.fn(),
   getContactConfig: vi.fn(),
+  getContactFlowId: vi.fn(),
+  // Not imported by contact-handler.ts, but mocked here so test (g2) can
+  // assert the send path never writes to the repository — a real write
+  // import would fail loudly (undefined is not a function) rather than
+  // silently no-op if this guard weren't in place.
+  updateContactFlowId: vi.fn(),
+  updateContactConfig: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
   findMemberByPhone: vi.fn(),
@@ -20,20 +27,20 @@ vi.mock('../resolve-language', () => ({
 vi.mock('../unknown-help-handlers', () => ({
   handleHelp: vi.fn(),
 }))
-vi.mock('@/infrastructure/whatsapp/flows/contact-flow-id', () => ({
-  resolveContactFlowId: vi.fn(),
-}))
 
-import { handleContact } from '../contact-handler'
+import flow from '@/infrastructure/whatsapp/flows/contact-form-flow.json'
+import { handleContact, FLOW_LABEL_DATA_KEYS } from '../contact-handler'
 import { sendCtaUrlButton, sendInteractiveFlow } from '@/infrastructure/whatsapp/messaging'
 import {
   getRestaurantRedirect,
   getContactConfig,
+  getContactFlowId,
+  updateContactFlowId,
+  updateContactConfig,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { resolveLanguageForMember } from '../resolve-language'
 import { handleHelp } from '../unknown-help-handlers'
-import { resolveContactFlowId } from '@/infrastructure/whatsapp/flows/contact-flow-id'
 
 const PHONE_NUMBER_ID = 'pn-1'
 // Code review M3: production always dispatches E.164 WITH the leading `+`
@@ -44,11 +51,18 @@ const PHONE = '+85291234567'
 const RESTAURANT_ID = 'r-1'
 
 const REDIRECT_CONFIG = resolveContactConfig(undefined)
+// Mix of custom (title, nameLabel) and default (phoneLabel, topicLabel,
+// submitLabel — omitted here so the resolver falls back to DEFAULT_LABELS)
+// labels, so test (f) exercises both branches of the resolver in one config.
 const FORM_CONFIG = resolveContactConfig({
   mode: 'form',
   notificationEmail: 'owner@example.com',
   topics: ['訂座查詢', '外賣及自取', '會員及積分查詢', '意見及投訴', '其他查詢'],
   ackText: null,
+  labels: {
+    title: '歡迎查詢',
+    nameLabel: '您的姓名',
+  },
 })
 
 describe('handleContact', () => {
@@ -64,7 +78,7 @@ describe('handleContact', () => {
     })
     vi.mocked(resolveLanguageForMember).mockResolvedValue(Language.EN)
     vi.mocked(getContactConfig).mockResolvedValue(REDIRECT_CONFIG)
-    vi.mocked(resolveContactFlowId).mockReturnValue('flow-123')
+    vi.mocked(getContactFlowId).mockResolvedValue('flow-123')
   })
 
   it('(a) sends a CTA-URL button to wa.me with displayText = redirectLabel', async () => {
@@ -150,6 +164,7 @@ describe('handleContact', () => {
       expect(sendInteractiveFlow).toHaveBeenCalledTimes(1)
       expect(sendCtaUrlButton).not.toHaveBeenCalled()
       expect(handleHelp).not.toHaveBeenCalled()
+      expect(getContactFlowId).toHaveBeenCalledWith(RESTAURANT_ID)
 
       const [pnId, to, body, params] = vi.mocked(sendInteractiveFlow).mock.calls[0]
       expect(pnId).toBe(PHONE_NUMBER_ID)
@@ -167,14 +182,44 @@ describe('handleContact', () => {
       )
     })
 
-    it('(g) falls back to redirect when the flow id env is unset', async () => {
-      vi.mocked(resolveContactFlowId).mockReturnValue(null)
+    it('(f2) always sends all five label keys, mixing tenant-custom and resolver-default values', async () => {
+      await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+      const [, , , params] = vi.mocked(sendInteractiveFlow).mock.calls[0]
+      // FORM_CONFIG customises title + nameLabel only; phone/topic/submit
+      // labels fall through resolveContactConfig to DEFAULT_LABELS — this
+      // asserts the send payload reflects that same mix, not just defaults.
+      expect(FORM_CONFIG.labels.title).toBe('歡迎查詢')
+      expect(FORM_CONFIG.labels.nameLabel).toBe('您的姓名')
+      expect(params.data[FLOW_LABEL_DATA_KEYS.title]).toBe(FORM_CONFIG.labels.title)
+      expect(params.data[FLOW_LABEL_DATA_KEYS.nameLabel]).toBe(FORM_CONFIG.labels.nameLabel)
+      expect(params.data[FLOW_LABEL_DATA_KEYS.phoneLabel]).toBe(FORM_CONFIG.labels.phoneLabel)
+      expect(params.data[FLOW_LABEL_DATA_KEYS.topicLabel]).toBe(FORM_CONFIG.labels.topicLabel)
+      expect(params.data[FLOW_LABEL_DATA_KEYS.submitLabel]).toBe(FORM_CONFIG.labels.submitLabel)
+    })
+
+    it('(f3) the outbound data key set equals the Flow JSON screen data key set (M3 — pins the payload, not just the JSON, to the contract)', async () => {
+      await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+      const [, , , params] = vi.mocked(sendInteractiveFlow).mock.calls[0]
+      expect(new Set(Object.keys(params.data))).toEqual(new Set(Object.keys(flow.screens[0].data)))
+    })
+
+    it('(g) falls back to redirect when the tenant has no deployed flow id', async () => {
+      vi.mocked(getContactFlowId).mockResolvedValue(null)
 
       await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
 
       expect(sendInteractiveFlow).not.toHaveBeenCalled()
       expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
       expect(handleHelp).not.toHaveBeenCalled()
+    })
+
+    it('(g2) the send path never writes to the repository', async () => {
+      await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+      expect(updateContactFlowId).not.toHaveBeenCalled()
+      expect(updateContactConfig).not.toHaveBeenCalled()
     })
 
     it('(h) falls back to redirect when notificationEmail is null', async () => {
@@ -212,5 +257,66 @@ describe('handleContact', () => {
       expect(sendCtaUrlButton).not.toHaveBeenCalled()
       expect(handleHelp).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
     })
+  })
+})
+
+// REPLY-007 AD-5: the global env scheme this file used to mock
+// (`resolveContactFlowId` / `WHATSAPP_CONTACT_FLOW_ID`) is hard-removed, not
+// deprecated — a fallback to it would ship a guaranteed-failing foreign flow
+// id for every tenant except the one that env var happened to target. This
+// guards the removal mechanically rather than relying on humans to notice a
+// stray reference creep back in.
+//
+// Scoped to `src/` — `scripts/deploy-contact-flow.ts` is Stream B3's own env
+// scheme rework (out of this task's boundaries) and is expected to still
+// reference the var until that stream lands.
+describe('WHATSAPP_CONTACT_FLOW_ID removal (AD-5)', () => {
+  it('no file under src/ references the retired env var or its module', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+
+    const srcRoot = path.resolve(__dirname, '../../../../../')
+    // This file itself documents the removal (comments + assertion strings
+    // below) and must not flag itself.
+    const selfPath = path.resolve(__filename)
+    const offenders: string[] = []
+
+    function walk(dir: string) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          walk(full)
+          continue
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue
+        if (full === selfPath) continue
+        const contents = fs.readFileSync(full, 'utf8')
+        if (
+          contents.includes('WHATSAPP_CONTACT_FLOW_ID') ||
+          contents.includes('resolveContactFlowId') ||
+          contents.includes("flows/contact-flow-id")
+        ) {
+          offenders.push(full)
+        }
+      }
+    }
+
+    walk(srcRoot)
+
+    expect(offenders).toEqual([])
+  })
+
+  it('the deleted contact-flow-id module and its test no longer exist', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+
+    const moduleFile = path.resolve(__dirname, '../../../../../infrastructure/whatsapp/flows/contact-flow-id.ts')
+    const testFile = path.resolve(
+      __dirname,
+      '../../../../../infrastructure/whatsapp/flows/__tests__/contact-flow-id.test.ts'
+    )
+
+    expect(fs.existsSync(moduleFile)).toBe(false)
+    expect(fs.existsSync(testFile)).toBe(false)
   })
 })

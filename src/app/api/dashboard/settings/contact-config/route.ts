@@ -3,6 +3,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { updateContactConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { validateContactConfig } from '@/domain/services/contact-config'
+import { ensureContactFlowDeployed } from '@/application/ensure-contact-flow-deployed'
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -17,6 +18,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     await updateContactConfig(restaurantId, result.config)
+
+    // REPLY-007 AD-4: form-mode save self-serves the per-tenant Flow deploy.
+    // A deploy failure must NOT fail this response — the config above is
+    // already persisted, and retrying the save here would just re-store the
+    // same config while the runtime safely degrades to the redirect CTA
+    // until a later deploy succeeds.
+    if (result.config.mode === 'form') {
+      const deployResult = await ensureContactFlowDeployed(restaurantId)
+      const flowDeploy = deployResult.ok
+        ? { ok: true as const }
+        : { ok: false as const, error: deployResult.error }
+      return NextResponse.json({ success: true, flowDeploy })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

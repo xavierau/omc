@@ -1,10 +1,16 @@
-import { validateContactConfig, DEFAULT_TOPICS, type ContactMode } from '@/domain/services/contact-config'
+import {
+  validateContactConfig,
+  DEFAULT_TOPICS,
+  type ContactMode,
+  type ContactLabels,
+} from '@/domain/services/contact-config'
 
 export interface ContactFormState {
   mode: ContactMode
   notificationEmail: string
   topics: string[]
   ackText: string
+  labels: ContactLabels
 }
 
 export interface ContactConfigPayload {
@@ -12,6 +18,7 @@ export interface ContactConfigPayload {
   notificationEmail: string | null
   topics: string[]
   ackText: string | null
+  labels: Record<string, string>
 }
 
 /**
@@ -34,7 +41,7 @@ export function contactConfigValidationError(state: ContactFormState): string | 
 
 /**
  * Shapes the full PATCH body for `/api/dashboard/settings/contact-config`.
- * The route full-replaces the stored object, so all four keys are always
+ * The route full-replaces the stored object, so all five keys are always
  * included (see route contract). Topics are only ever edited through the
  * UI while `mode === 'form'` (the topic inputs aren't rendered otherwise),
  * so any topics value left over in redirect mode is stale leftover state
@@ -52,6 +59,22 @@ export function buildContactConfigPayload(state: ContactFormState): ContactConfi
     notificationEmail: state.notificationEmail.trim() || null,
     topics,
     ackText: state.ackText.trim() || null,
+    labels: trimLabels(state.labels),
+  }
+}
+
+/**
+ * Trims each label field; an empty result is sent as `''` rather than
+ * omitted, so the server's `resolveContactConfig` falls back to that field's
+ * default (`normalizeText` treats a blank string the same as absent).
+ */
+function trimLabels(labels: ContactLabels): Record<string, string> {
+  return {
+    title: labels.title.trim(),
+    nameLabel: labels.nameLabel.trim(),
+    phoneLabel: labels.phoneLabel.trim(),
+    topicLabel: labels.topicLabel.trim(),
+    submitLabel: labels.submitLabel.trim(),
   }
 }
 

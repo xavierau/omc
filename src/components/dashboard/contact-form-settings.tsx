@@ -3,7 +3,8 @@
 import { type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
-import { DEFAULT_ACK_TEXT, ACK_MAX_LEN, TOPIC_MAX_LEN } from '@/domain/services/contact-config'
+import { DEFAULT_ACK_TEXT, ACK_MAX_LEN, TOPIC_MAX_LEN, type ContactLabels } from '@/domain/services/contact-config'
+import { ContactFormLabelFields } from '@/components/dashboard/contact-form-label-fields'
 
 export interface ContactFormSettingsProps {
   notificationEmail: string
@@ -13,9 +14,11 @@ export interface ContactFormSettingsProps {
   onTopicChange: (index: number, value: string) => void
   ackText: string
   onAckTextChange: (value: string) => void
+  labels: ContactLabels
+  onLabelChange: (field: keyof ContactLabels, value: string) => void
 }
 
-/** Form-mode fields: notification email, exactly 5 topics, ack text. Pure/props-driven. */
+/** Form-mode fields: notification email, exactly 5 topics, ack text, form-copy labels. Pure/props-driven. */
 export function ContactFormSettings({
   notificationEmail,
   onNotificationEmailChange,
@@ -24,6 +27,8 @@ export function ContactFormSettings({
   onTopicChange,
   ackText,
   onAckTextChange,
+  labels,
+  onLabelChange,
 }: ContactFormSettingsProps) {
   const t = useTranslations('settings')
   return (
@@ -62,6 +67,7 @@ export function ContactFormSettings({
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </Field>
+      <ContactFormLabelFields labels={labels} onLabelChange={onLabelChange} />
     </div>
   )
 }

@@ -315,6 +315,108 @@ export async function updateContactConfig(
   }
 }
 
+/**
+ * Resolve a tenant's deployed WhatsApp Flow id for the contact-us form
+ * (REPLY-007). Each tenant has its own WABA, so this is per-tenant deployment
+ * state written only by `updateContactFlowId` — deliberately NOT part of
+ * `contact_config` (that JSONB is admin-owned and full-replaced by its PATCH;
+ * co-locating would let a settings save clobber a deployed flow id). Runs in
+ * the webhook hot path (inside contact-handler's form-mode branch), so it
+ * must never throw: on any error (including a pre-059 database where the
+ * column doesn't exist yet) or not-found it returns null, which the caller
+ * degrades to the redirect path. Selects ONLY whatsapp_contact_flow_id —
+ * deliberately NOT part of the shared `RESTAURANT_COLUMNS` constant, so the
+ * hot-path webhook is not coupled to this migration.
+ *
+ * Do NOT use this as a deploy-time idempotency guard — see
+ * `getContactFlowIdStrict` below, which the deploy path uses instead.
+ */
+export async function getContactFlowId(restaurantId: string): Promise<string | null> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('whatsapp_contact_flow_id')
+      .eq('id', restaurantId)
+      .single()
+
+    if (error || !data) return null
+    return (
+      (data as { whatsapp_contact_flow_id?: string | null }).whatsapp_contact_flow_id ?? null
+    )
+  } catch {
+    // Webhook hot path: degrade to "never deployed", never throw.
+    return null
+  }
+}
+
+/**
+ * Strict counterpart to `getContactFlowId`, for the deploy path only
+ * (`ensure-contact-flow-deployed.ts`'s idempotency guard). The webhook-safe
+ * reader collapses every error — query error, missing pre-059 column, a
+ * thrown client — to `null`, which is correct for "degrade to redirect" but
+ * wrong for "should I deploy a new Flow at Meta": a `null` here must mean
+ * "genuinely never deployed", not "the read failed". This throws instead,
+ * so a read failure becomes the caller's `ok:false` without ever reaching
+ * Meta.
+ */
+export async function getContactFlowIdStrict(restaurantId: string): Promise<string | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('whatsapp_contact_flow_id')
+    .eq('id', restaurantId)
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to read contact flow id: ${error.message}`)
+  }
+  if (!data) {
+    throw new Error(`Restaurant not found: ${restaurantId}`)
+  }
+  return (data as { whatsapp_contact_flow_id?: string | null }).whatsapp_contact_flow_id ?? null
+}
+
+export async function updateContactFlowId(restaurantId: string, flowId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ whatsapp_contact_flow_id: flowId })
+    .eq('id', restaurantId)
+
+  if (error) {
+    throw new Error(`Failed to update contact flow id: ${error.message}`)
+  }
+}
+
+/**
+ * Conditional write used by the deploy path's concurrent-deploy guard (M1):
+ * only persists when the column is still empty, so two racing deploys can't
+ * both "win". Returns whether THIS call was the writer that won — `false`
+ * means a concurrent deploy already persisted its flow id first, and the
+ * caller is responsible for treating its own now-orphaned flow accordingly
+ * (best-effort deprecate at Meta). Unlike `updateContactFlowId`, this never
+ * overwrites an existing value — the `--force` script path still needs the
+ * unconditional overwrite and continues to use `updateContactFlowId`.
+ */
+export async function updateContactFlowIdIfEmpty(
+  restaurantId: string,
+  flowId: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .update({ whatsapp_contact_flow_id: flowId })
+    .eq('id', restaurantId)
+    .is('whatsapp_contact_flow_id', null)
+    .select('id')
+
+  if (error) {
+    throw new Error(`Failed to update contact flow id: ${error.message}`)
+  }
+  return Boolean(data && data.length > 0)
+}
+
 export interface RestaurantEmailContext {
   name: string
   whatsappNumber: string | null
