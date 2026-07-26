@@ -59,6 +59,27 @@ export async function getRestaurantName(restaurantId: string): Promise<string> {
   return data.name ?? ''
 }
 
+/**
+ * REPLY-008: the slug that addresses a tenant's public pages. Degrade-safe
+ * (`null`, never throws) because its only caller is the webhook's contact
+ * ladder, where an unresolvable slug must fall to the next rung rather than
+ * break the reply.
+ */
+export async function getRestaurantSlug(restaurantId: string): Promise<string | null> {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('slug')
+      .eq('id', restaurantId)
+      .single()
+    if (error || !data) return null
+    return (data.slug as string | null) ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function getMetaBusinessAccountId(restaurantId: string): Promise<string | null> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
