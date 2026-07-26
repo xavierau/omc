@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { okResult, failResult } from '@/test-utils/send-result'
 import { Language } from '@/domain/value-objects/language'
 import { resolveContactConfig } from '@/domain/services/contact-config'
@@ -11,12 +11,16 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantRedirect: vi.fn(),
   getContactConfig: vi.fn(),
   getContactFlowId: vi.fn(),
+  getRestaurantSlug: vi.fn(),
   // Not imported by contact-handler.ts, but mocked here so test (g2) can
   // assert the send path never writes to the repository — a real write
   // import would fail loudly (undefined is not a function) rather than
   // silently no-op if this guard weren't in place.
   updateContactFlowId: vi.fn(),
   updateContactConfig: vi.fn(),
+}))
+vi.mock('@/infrastructure/supabase/repositories/contact-form-token-repository', () => ({
+  createContactFormToken: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/member-repository', () => ({
   findMemberByPhone: vi.fn(),
@@ -35,9 +39,11 @@ import {
   getRestaurantRedirect,
   getContactConfig,
   getContactFlowId,
+  getRestaurantSlug,
   updateContactFlowId,
   updateContactConfig,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { createContactFormToken } from '@/infrastructure/supabase/repositories/contact-form-token-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { resolveLanguageForMember } from '../resolve-language'
 import { handleHelp } from '../unknown-help-handlers'
@@ -79,6 +85,10 @@ describe('handleContact', () => {
     vi.mocked(resolveLanguageForMember).mockResolvedValue(Language.EN)
     vi.mocked(getContactConfig).mockResolvedValue(REDIRECT_CONFIG)
     vi.mocked(getContactFlowId).mockResolvedValue('flow-123')
+    // Web-form rung (REPLY-008) off by default: these tests predate it and
+    // assert the Flow/redirect rungs. Its own describe block below opts in.
+    vi.mocked(getRestaurantSlug).mockResolvedValue(null)
+    vi.mocked(createContactFormToken).mockResolvedValue(null)
   })
 
   it('(a) sends a CTA-URL button to wa.me with displayText = redirectLabel', async () => {
@@ -318,5 +328,127 @@ describe('WHATSAPP_CONTACT_FLOW_ID removal (AD-5)', () => {
 
     expect(fs.existsSync(moduleFile)).toBe(false)
     expect(fs.existsSync(testFile)).toBe(false)
+  })
+})
+
+/**
+ * REPLY-008: the web-form rung sits between the Flow and the wa.me redirect.
+ * These tests pin the ladder ORDER, because that ordering is the whole design:
+ * the Flow must still win when available (so the rung disappears by itself the
+ * day Meta approves), and the redirect must still catch everything below.
+ */
+describe('handleContact — web form fallback (REPLY-008)', () => {
+  const APP_URL = 'https://app.ohmyclient.io'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', APP_URL)
+    vi.mocked(sendCtaUrlButton).mockResolvedValue(okResult())
+    vi.mocked(sendInteractiveFlow).mockResolvedValue(okResult())
+    vi.mocked(handleHelp).mockResolvedValue(okResult())
+    vi.mocked(findMemberByPhone).mockResolvedValue(null)
+    vi.mocked(resolveLanguageForMember).mockResolvedValue(Language.EN)
+    vi.mocked(getContactConfig).mockResolvedValue(FORM_CONFIG)
+    vi.mocked(getRestaurantSlug).mockResolvedValue('kushiro')
+    vi.mocked(createContactFormToken).mockResolvedValue('tok-abc')
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: '+85298765432',
+      redirectLabel: 'Call Us',
+    })
+    // No deployed Flow — the state every tenant is in while publishing is
+    // blocked account-side (issue #78).
+    vi.mocked(getContactFlowId).mockResolvedValue(null)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('sends a token-bearing form link when no Flow is deployed', async () => {
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(createContactFormToken).toHaveBeenCalledWith(RESTAURANT_ID, PHONE)
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    const [, to, , displayText, url] = vi.mocked(sendCtaUrlButton).mock.calls[0]
+    expect(to).toBe(PHONE)
+    expect(url).toBe(`${APP_URL}/contact/kushiro?t=tok-abc`)
+    // CTA label is the tenant's own title, so the button reads the same as the
+    // Flow it stands in for.
+    expect(displayText).toBe(FORM_CONFIG.labels.title)
+  })
+
+  it('tells the customer up front that the link expires', async () => {
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    const footer = vi.mocked(sendCtaUrlButton).mock.calls[0][5]
+    expect(footer).toContain('30')
+  })
+
+  // The rung must be invisible once Flows work again — no config change, no
+  // migration back.
+  it('never reaches the web form when a Flow is deployed and sends', async () => {
+    vi.mocked(getContactFlowId).mockResolvedValue('flow-123')
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendInteractiveFlow).toHaveBeenCalledTimes(1)
+    expect(createContactFormToken).not.toHaveBeenCalled()
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+  })
+
+  it('falls to the web form when a deployed Flow fails to send', async () => {
+    vi.mocked(getContactFlowId).mockResolvedValue('flow-123')
+    vi.mocked(sendInteractiveFlow).mockResolvedValue(failResult('flow send failed'))
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(createContactFormToken).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendCtaUrlButton).mock.calls[0][4]).toContain('/contact/kushiro')
+  })
+
+  it.each([
+    ['the token cannot be minted', () => vi.mocked(createContactFormToken).mockResolvedValue(null)],
+    ['the tenant has no slug', () => vi.mocked(getRestaurantSlug).mockResolvedValue(null)],
+    ['no app url is configured', () => vi.stubEnv('NEXT_PUBLIC_APP_URL', '')],
+  ])('degrades to the wa.me redirect when %s', async (_label, arrange) => {
+    arrange()
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendCtaUrlButton).mock.calls[0][4]).toContain('wa.me/85298765432')
+  })
+
+  it('degrades to the wa.me redirect when the form link itself fails to send', async () => {
+    vi.mocked(sendCtaUrlButton)
+      .mockResolvedValueOnce(failResult('cta send failed'))
+      .mockResolvedValueOnce(okResult())
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(sendCtaUrlButton).mock.calls[1][4]).toContain('wa.me/85298765432')
+  })
+
+  // A tenant in redirect mode never opted into collecting form submissions.
+  it('is not offered to a tenant in redirect mode', async () => {
+    vi.mocked(getContactConfig).mockResolvedValue(REDIRECT_CONFIG)
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(createContactFormToken).not.toHaveBeenCalled()
+    expect(vi.mocked(sendCtaUrlButton).mock.calls[0][4]).toContain('wa.me/')
+  })
+
+  // Without a notification address the submission has nowhere to go, so
+  // offering the form would collect an enquiry no one ever reads.
+  it('is not offered to a form-mode tenant with no notification email', async () => {
+    vi.mocked(getContactConfig).mockResolvedValue(
+      resolveContactConfig({ mode: 'form', notificationEmail: null })
+    )
+
+    await handleContact(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+
+    expect(createContactFormToken).not.toHaveBeenCalled()
   })
 })
