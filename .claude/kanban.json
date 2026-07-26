@@ -1403,6 +1403,21 @@
           "related": [
             "kanban:REPLY-005"
           ]
+        },
+        {
+          "id": "FLOW-001",
+          "title": "Orphan WhatsApp Flow cleanup + inventory per WABA",
+          "description": "Fallout from REPLY-007 (#72). Flow names are now minted uniquely per create attempt, which makes name collisions impossible but means a create that succeeds at Meta while its DB persist fails leaves a silent orphan Flow in the tenant WABA that nothing references. Same for the deliberate timeout path: flow-client abandons the in-flight promise at 15s, so Meta may still complete a flow we never record. Not tenant-blocking (retry always succeeds now) and purely cosmetic clutter at Meta today, but it accumulates and there is currently no inventory. Wanted: a script listing flows per tenant WABA via the SDK flows.list, cross-referencing restaurants.whatsapp_contact_flow_id, and reporting/deprecating unreferenced ohmyclient_contact_form_* flows. A list-based recovery path was deliberately NOT built into the deploy use-case during #72 — the SDK list() is loosely typed and, with per-attempt unique names, there is no stable name to reconcile by.",
+          "priority": "low",
+          "labels": [
+            "whatsapp",
+            "flows",
+            "cleanup",
+            "ops"
+          ],
+          "related": [
+            "kanban:REPLY-007"
+          ]
         }
       ]
     },
@@ -1428,35 +1443,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "REPLY-007",
-          "title": "Per-tenant contact Flow: per-WABA flow id + per-tenant form labels",
-          "description": "Corrects a disproven assumption in REPLY-005 (PR #70), which shipped ONE shared Flow with a global WHATSAPP_CONTACT_FLOW_ID env var. VERIFIED: each tenant has their own WABA (kanban decision 2026-05-04; every WABA call site resolves meta_business_account_id per restaurant). A Flow is WABA-scoped, so the global id only ever works for ONE tenant — every other tenant's flow send fails and silently degrades to the redirect button. As merged, form mode is therefore single-tenant only. Two changes: (a) per-tenant flow id in a dedicated restaurants.whatsapp_contact_flow_id column beside meta_business_account_id — deliberately NOT in contact_config, because the flow id is machine-written by the deploy routine while contact_config is admin-owned and full-replaced by its PATCH; (b) all form copy (screen title, 3 input labels, submit label) becomes per-tenant, injected at send time as dynamic data bindings alongside topics, so a wording change never requires re-publishing. The Flow stays ONE standard 3-input form and one committed JSON asset — only its registration is per-WABA. Meta marks TextInput.label / TextHeading.text / TextBody.text / Footer.label as dynamic; Dropdown.label is NOT explicitly marked and needs deploy-time validation. All new screen-data keys must be single lowercase tokens (namelabel, not nameLabel) per the two-converter trap that already caused one silent bug in #70.",
-          "priority": "high",
-          "labels": [
-            "feature",
-            "whatsapp",
-            "flows",
-            "multi-tenant",
-            "fullstack"
-          ],
-          "acceptance_criteria": [
-            "Flow id is stored and read per restaurant; a tenant whose Flow was never deployed degrades to redirect, never a broken form",
-            "The same committed Flow JSON deploys to each tenant WABA, resolving the WABA per restaurant like create-whatsapp-template.ts does",
-            "Screen title, 3 input labels and submit label are per-tenant and injected at send time with no re-publish",
-            "A tenant who customises nothing sees exactly the copy shipped in REPLY-005",
-            "All new screen-data keys are single lowercase tokens, pinned by the extended contract test",
-            "Obsolete WHATSAPP_CONTACT_FLOW_ID env var and its single reader are removed or given a deprecation path",
-            "Redirect-mode tenants remain completely unaffected"
-          ],
-          "related": [
-            "kanban:REPLY-005",
-            "kanban:REPLY-006"
-          ],
-          "branch": "feature/reply-007",
-          "base": "main",
-          "started_at": "2026-07-26"
         }
       ]
     },
@@ -1489,6 +1475,39 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "REPLY-007",
+          "title": "Per-tenant contact Flow: per-WABA flow id + per-tenant form labels",
+          "description": "Corrects a disproven assumption in REPLY-005 (PR #70), which shipped ONE shared Flow with a global WHATSAPP_CONTACT_FLOW_ID env var. VERIFIED: each tenant has their own WABA (kanban decision 2026-05-04; every WABA call site resolves meta_business_account_id per restaurant). A Flow is WABA-scoped, so the global id only ever works for ONE tenant — every other tenant's flow send fails and silently degrades to the redirect button. As merged, form mode is therefore single-tenant only. Two changes: (a) per-tenant flow id in a dedicated restaurants.whatsapp_contact_flow_id column beside meta_business_account_id — deliberately NOT in contact_config, because the flow id is machine-written by the deploy routine while contact_config is admin-owned and full-replaced by its PATCH; (b) all form copy (screen title, 3 input labels, submit label) becomes per-tenant, injected at send time as dynamic data bindings alongside topics, so a wording change never requires re-publishing. The Flow stays ONE standard 3-input form and one committed JSON asset — only its registration is per-WABA. Meta marks TextInput.label / TextHeading.text / TextBody.text / Footer.label as dynamic; Dropdown.label is NOT explicitly marked and needs deploy-time validation. All new screen-data keys must be single lowercase tokens (namelabel, not nameLabel) per the two-converter trap that already caused one silent bug in #70. SHIPPED: PR #72 squash-merged to main (e70632b). WABA resolution ended up DERIVE-ONLY, not derive-first: resolveWabaId returns null for both \"no phone number\" and \"network error\", so a stored-value fallback meant one transient blip on a row poisoned by the resubmit route could deploy a tenant flow into foreign WABA 1352084526373366 — reporting success, skipping the mismatch warning (nested inside the derived branch), and latching that tenant into redirect permanently. Flow names are now minted uniquely per create: WhatsApp requires names unique within a WABA and a deprecated flow occupies its name forever (Meta error 100), so the previous fixed name made --force permanently broken after first use and could wedge a tenant whose create succeeded but whose persist failed. Reviewed by code-review-analyzer (CONDITIONAL -> 3 High fixed: unbounded WABA lookup holding the admin save open since the SDK has no timeouts at all; the degrade-safe null read used as the deploy idempotency guard, minting orphan Meta flows on a pre-migration DB; the cross-tenant deploy above) and CodeRabbit (1 Critical flow-name collision, 1 Minor empty-parenthetical banner). 3127 tests green, tsc/eslint/next build clean. STILL NOT LIVE — see REPLY-006: per-tenant Meta business verification, migrations 058+059, Resend domain, and the backfill for tenants already in form mode. Known gap: the admin-save deploy-warning state ordering is covered only at predicate level (no jsdom in this repo).",
+          "priority": "high",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "flows",
+            "multi-tenant",
+            "fullstack"
+          ],
+          "acceptance_criteria": [
+            "Flow id is stored and read per restaurant; a tenant whose Flow was never deployed degrades to redirect, never a broken form",
+            "The same committed Flow JSON deploys to each tenant WABA, resolving the WABA per restaurant like create-whatsapp-template.ts does",
+            "Screen title, 3 input labels and submit label are per-tenant and injected at send time with no re-publish",
+            "A tenant who customises nothing sees exactly the copy shipped in REPLY-005",
+            "All new screen-data keys are single lowercase tokens, pinned by the extended contract test",
+            "Obsolete WHATSAPP_CONTACT_FLOW_ID env var and its single reader are removed or given a deprecation path",
+            "Redirect-mode tenants remain completely unaffected"
+          ],
+          "related": [
+            "kanban:REPLY-005",
+            "kanban:REPLY-006"
+          ],
+          "branch": "feature/reply-007",
+          "base": "main",
+          "started_at": "2026-07-26",
+          "completed_at": "2026-07-26",
+          "merged_at": "2026-07-26",
+          "pr": 72,
+          "merged_into": "main"
+        },
         {
           "id": "REPLY-005",
           "title": "Form-capture mode for the fallback Contact action (WhatsApp Flow -> email)",
