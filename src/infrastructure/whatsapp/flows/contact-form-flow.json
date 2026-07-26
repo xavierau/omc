@@ -51,6 +51,9 @@
           {
             "type": "Form",
             "name": "contact_form",
+            "initValues": {
+              "clientWhatsapp": "${data.phone}"
+            },
             "children": [
               {
                 "type": "TextInput",
@@ -64,8 +67,7 @@
                 "name": "clientWhatsapp",
                 "label": "${data.phonelabel}",
                 "inputType": "phone",
-                "required": true,
-                "initValue": "${data.phone}"
+                "required": true
               },
               {
                 "type": "Dropdown",

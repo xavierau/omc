@@ -161,10 +161,10 @@ async function deprecateOldFlow(oldFlowId: string, kapsoApiKey: string): Promise
 
 export async function forceDeploy(restaurantId: string, kapsoApiKey: string): Promise<DeployOutcome> {
   const oldFlowId = await getContactFlowId(restaurantId)
-  const wabaId = await resolveWaba(restaurantId)
-  if (!wabaId) return { ok: false, failure: { error: 'contact_flow.no_waba_id' } }
+  const resolved = await resolveWaba(restaurantId)
+  if (!resolved) return { ok: false, failure: { error: 'contact_flow.no_waba_id' } }
 
-  const deployResult = await deployContactFlow(wabaId)
+  const deployResult = await deployContactFlow(resolved.wabaId, resolved.phoneNumberId)
   if (!deployResult.ok || !deployResult.flowId) {
     return { ok: false, failure: describeDeployFailure(deployResult) }
   }

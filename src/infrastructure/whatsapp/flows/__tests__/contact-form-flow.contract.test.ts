@@ -23,6 +23,7 @@ interface FlowNode {
   children?: FlowNode[]
   onClickAction?: { payload?: Record<string, unknown> }
   initValue?: string
+  initValues?: Record<string, string>
 }
 
 function findNodesByType(node: FlowNode, type: string): FlowNode[] {
@@ -47,12 +48,22 @@ describe('contact-form-flow.json contract', () => {
     expect(screen.data).toHaveProperty(FLOW_PREFILL_PHONE_KEY)
   })
 
-  it('the clientWhatsapp TextInput is prefilled from the same data key', () => {
+  // Issue #78: the prefill lives on the Form's `initValues` map, keyed by the
+  // child input's name — NOT on the TextInput itself. Meta rejects the latter
+  // with `INVALID_PROPERTY_KEY: Property 'init-value' is not allowed in
+  // 'TextInput' component`, which silently made every contact Flow
+  // unpublishable. Asserting the key equals the input's real `name` keeps the
+  // two halves of the binding from drifting apart.
+  it('the clientWhatsapp input is prefilled via the Form initValues map, not the TextInput', () => {
     const [phoneInput] = findNodesByType(form, 'TextInput').filter(
       (node) => node.name === 'clientWhatsapp'
     )
     expect(phoneInput).toBeDefined()
-    expect(phoneInput.initValue).toBe(`\${data.${FLOW_PREFILL_PHONE_KEY}}`)
+    expect(phoneInput.initValue).toBeUndefined()
+
+    const [formNode] = findNodesByType(form, 'Form')
+    expect(formNode).toBeDefined()
+    expect(formNode.initValues?.[phoneInput.name!]).toBe(`\${data.${FLOW_PREFILL_PHONE_KEY}}`)
   })
 
   // REPLY-007 AD-6: every screen-data key is a fixed point of BOTH the SDK's
