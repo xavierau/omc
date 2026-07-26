@@ -14,7 +14,7 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import { getEmailProvider } from '@/infrastructure/email/provider-factory'
 import { parseContactFormSubmission } from '@/domain/services/contact-form-submission'
 import { buildContactEmail, type ContactFormSubmission } from '@/domain/services/contact-email'
-import { DEFAULT_ACK_TEXT } from '@/domain/services/contact-config'
+import { DEFAULT_ACK_TEXT, type ContactLabels } from '@/domain/services/contact-config'
 import { handleUnknown } from './unknown-help-handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 
@@ -56,7 +56,7 @@ async function process(ctx: ContactFormSubmissionCtx) {
 
   const config = await getContactConfig(restaurantId)
   await sendAck(phoneNumberId, phone, config.ackText, log)
-  await sendNotification(parsed.submission, config.notificationEmail, ctx)
+  await sendNotification(parsed.submission, config.notificationEmail, config.labels, ctx)
 }
 
 type TokenCheck = 'ok' | 'mismatch' | 'foreign'
@@ -101,6 +101,7 @@ async function sendAck(
 async function sendNotification(
   submission: ContactFormSubmission,
   notificationEmail: string | null,
+  labels: ContactLabels,
   ctx: ContactFormSubmissionCtx
 ): Promise<void> {
   const { restaurantId, message, log } = ctx
@@ -117,7 +118,7 @@ async function sendNotification(
     // reporting "(未提供)" for a known member was a routine wrong answer.
     contactName: message.contactName ?? (await memberName(restaurantId, ctx.phone)),
     timestamp: new Date(),
-    messageId: message.messageId,
+    labels,
   })
 
   const result = await getEmailProvider().send({ to: notificationEmail, subject, text })
