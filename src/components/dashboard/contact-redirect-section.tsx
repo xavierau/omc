@@ -7,12 +7,42 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { isValidPhoneE164 } from '@/infrastructure/validation/validators'
 import { ContactFormSettings, type ContactFormSettingsProps } from '@/components/dashboard/contact-form-settings'
-import type { ContactMode, ResolvedContactConfig } from '@/domain/services/contact-config'
+import type { ContactLabels, ContactMode, ResolvedContactConfig } from '@/domain/services/contact-config'
 import {
   buildContactConfigPayload,
   canSaveContactConfig,
   isContactEmailInvalid,
 } from '@/components/dashboard/contact-config-payload'
+
+/** Shape of the `/api/dashboard/settings/contact-config` PATCH success body (REPLY-007). */
+interface ContactConfigSaveBody {
+  flowDeploy?: { ok: boolean; error?: string }
+}
+
+/** `flowDeploy.ok === false` on an otherwise-successful save => non-blocking warning. */
+export async function readDeployWarning(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.json()) as ContactConfigSaveBody
+    return body.flowDeploy && !body.flowDeploy.ok ? body.flowDeploy.error ?? '' : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Deploy-warning banner visibility (acceptance criterion 3: "the admin saw a
+ * warning at save time") — shown only once the save itself succeeded AND a
+ * warning was captured. Extracted to a pure function so this exact condition
+ * is unit-testable without rendering `ContactRedirectSection` itself, which
+ * uses real `useState` and can't be exercised by this repo's no-jsdom render
+ * trick (see `contact-redirect-section.test.tsx`).
+ */
+export function shouldShowDeployWarning(
+  saved: boolean,
+  deployWarning: string | null
+): deployWarning is string {
+  return saved && deployWarning !== null
+}
 
 /** Both `/contact-redirect` and `/contact-config` PATCH routes return `{ error: string }` on failure. */
 export async function firstErrorDetail(res: Response): Promise<string | null> {
@@ -43,9 +73,11 @@ export function ContactRedirectSection({
   const [notificationEmail, setNotificationEmail] = useState(initialContactConfig.notificationEmail ?? '')
   const [topics, setTopics] = useState<string[]>(initialContactConfig.topics)
   const [ackText, setAckText] = useState(initialContactConfig.ackText ?? '')
+  const [labels, setLabels] = useState<ContactLabels>(initialContactConfig.labels)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deployWarning, setDeployWarning] = useState<string | null>(null)
 
   const trimmedNumber = number.trim()
   const numberInvalid = trimmedNumber !== '' && !isValidPhoneE164(trimmedNumber)
@@ -73,17 +105,23 @@ export function ContactRedirectSection({
     setSaved(false)
   }
 
+  function onLabelChange(field: keyof ContactLabels, value: string) {
+    setLabels((prev) => ({ ...prev, [field]: value }))
+    setSaved(false)
+  }
+
   async function save() {
     if (numberInvalid) {
       setError(t('redirectInvalid'))
       return
     }
-    if (!canSaveContactConfig({ mode, notificationEmail, topics, ackText })) {
+    if (!canSaveContactConfig({ mode, notificationEmail, topics, ackText, labels })) {
       setError(t('contactConfigInvalid'))
       return
     }
     setError(null)
     setSaved(false)
+    setDeployWarning(null)
     setSaving(true)
     try {
       const [redirectRes, contactConfigRes] = await Promise.all([
@@ -98,7 +136,7 @@ export function ContactRedirectSection({
         fetch('/api/dashboard/settings/contact-config', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildContactConfigPayload({ mode, notificationEmail, topics, ackText })),
+          body: JSON.stringify(buildContactConfigPayload({ mode, notificationEmail, topics, ackText, labels })),
         }),
       ])
       if (!redirectRes.ok || !contactConfigRes.ok) {
@@ -109,6 +147,11 @@ export function ContactRedirectSection({
         const detail = await firstErrorDetail(!contactConfigRes.ok ? contactConfigRes : redirectRes)
         throw new Error(detail ?? undefined)
       }
+      // The config save itself succeeded even when the Meta Flow deploy
+      // behind it failed — that failure only degrades the runtime to the
+      // redirect CTA until a later save retries it, so it is surfaced as a
+      // non-blocking warning, never as a save failure.
+      setDeployWarning(await readDeployWarning(contactConfigRes))
       setSaved(true)
     } catch (err) {
       const detail = err instanceof Error ? err.message : ''
@@ -166,6 +209,8 @@ export function ContactRedirectSection({
             onTopicChange,
             ackText,
             onAckTextChange,
+            labels,
+            onLabelChange,
           }}
         />
         <div className="flex items-center gap-3">
@@ -179,6 +224,11 @@ export function ContactRedirectSection({
             <p className="text-xs text-destructive">{error}</p>
           )}
         </div>
+        {shouldShowDeployWarning(saved, deployWarning) && (
+          <p className="text-xs text-amber-600" data-testid="contact-flow-deploy-warning">
+            {t('contactFlowDeployFailed', { error: deployWarning })}
+          </p>
+        )}
       </CardContent>
     </Card>
   )

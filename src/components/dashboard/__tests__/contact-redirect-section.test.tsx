@@ -11,8 +11,14 @@ vi.mock('next-intl', () => ({
     vars ? `t:${key}:${JSON.stringify(vars)}` : `t:${key}`,
 }))
 
-import { ContactSettingsPanel, firstErrorDetail } from '@/components/dashboard/contact-redirect-section'
+import {
+  ContactSettingsPanel,
+  firstErrorDetail,
+  readDeployWarning,
+  shouldShowDeployWarning,
+} from '@/components/dashboard/contact-redirect-section'
 import type { ContactFormSettingsProps } from '@/components/dashboard/contact-form-settings'
+import { DEFAULT_LABELS } from '@/domain/services/contact-config'
 
 function flatten(node: ReactNode): ReactElement[] {
   const out: ReactElement[] = []
@@ -44,6 +50,8 @@ function formSettingsProps(): ContactFormSettingsProps {
     onTopicChange: vi.fn(),
     ackText: '',
     onAckTextChange: vi.fn(),
+    labels: DEFAULT_LABELS,
+    onLabelChange: vi.fn(),
   }
 }
 
@@ -64,6 +72,20 @@ describe('ContactSettingsPanel', () => {
       <ContactSettingsPanel mode="redirect" onModeChange={vi.fn()} formSettingsProps={formSettingsProps()} />
     )
     expect(byTestId(tree, 'contact-form-settings')).toBeUndefined()
+  })
+
+  it('reveals the label fields (inside form settings) when mode is form', () => {
+    const tree = renderTree(
+      <ContactSettingsPanel mode="form" onModeChange={vi.fn()} formSettingsProps={formSettingsProps()} />
+    )
+    expect(byTestId(tree, 'contact-form-label-fields')).toBeDefined()
+  })
+
+  it('hides the label fields when mode is redirect', () => {
+    const tree = renderTree(
+      <ContactSettingsPanel mode="redirect" onModeChange={vi.fn()} formSettingsProps={formSettingsProps()} />
+    )
+    expect(byTestId(tree, 'contact-form-label-fields')).toBeUndefined()
   })
 
   it('marks the redirect radio checked in redirect mode', () => {
@@ -124,5 +146,57 @@ describe('firstErrorDetail', () => {
   it('returns null when the body is not JSON', async () => {
     const res = { json: async () => { throw new Error('not json') } } as unknown as Response
     expect(await firstErrorDetail(res)).toBeNull()
+  })
+})
+
+describe('readDeployWarning', () => {
+  function jsonResponse(body: unknown): Response {
+    return { json: async () => body } as unknown as Response
+  }
+
+  it('returns the error detail when flowDeploy.ok is false — the save itself still succeeded', async () => {
+    expect(
+      await readDeployWarning(jsonResponse({ success: true, flowDeploy: { ok: false, error: 'validation failed' } }))
+    ).toBe('validation failed')
+  })
+
+  it('returns an empty string when flowDeploy.ok is false with no error detail', async () => {
+    expect(await readDeployWarning(jsonResponse({ success: true, flowDeploy: { ok: false } }))).toBe('')
+  })
+
+  it('returns null when flowDeploy.ok is true', async () => {
+    expect(await readDeployWarning(jsonResponse({ success: true, flowDeploy: { ok: true, flowId: 'abc' } }))).toBeNull()
+  })
+
+  it('returns null when the response carries no flowDeploy field (e.g. redirect-mode save)', async () => {
+    expect(await readDeployWarning(jsonResponse({ success: true }))).toBeNull()
+  })
+
+  it('returns null when the body is not JSON', async () => {
+    const res = { json: async () => { throw new Error('not json') } } as unknown as Response
+    expect(await readDeployWarning(res)).toBeNull()
+  })
+})
+
+// code review M4: pins the exact render-gate expression for acceptance
+// criterion 3 ("the admin saw a warning at save time"). This does NOT prove
+// the setDeployWarning/setSaved call ordering inside the component's async
+// save() — that requires an interactive re-render across a real DOM (jsdom +
+// RTL), which this repo intentionally doesn't have; see the backend artifact
+// hand-off for what that would take.
+describe('shouldShowDeployWarning', () => {
+  it('is false before any save (saved=false), regardless of deployWarning', () => {
+    expect(shouldShowDeployWarning(false, null)).toBe(false)
+    expect(shouldShowDeployWarning(false, 'some warning')).toBe(false)
+    expect(shouldShowDeployWarning(false, '')).toBe(false)
+  })
+
+  it('is false after a save with no captured warning (deployWarning=null)', () => {
+    expect(shouldShowDeployWarning(true, null)).toBe(false)
+  })
+
+  it('is true after a save that captured a warning, including an empty-string detail', () => {
+    expect(shouldShowDeployWarning(true, 'validation failed')).toBe(true)
+    expect(shouldShowDeployWarning(true, '')).toBe(true)
   })
 })

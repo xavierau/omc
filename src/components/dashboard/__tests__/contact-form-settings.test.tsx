@@ -12,7 +12,7 @@ vi.mock('next-intl', () => ({
 }))
 
 import { ContactFormSettings } from '@/components/dashboard/contact-form-settings'
-import { DEFAULT_ACK_TEXT, TOPIC_MAX_LEN } from '@/domain/services/contact-config'
+import { DEFAULT_ACK_TEXT, TOPIC_MAX_LEN, DEFAULT_LABELS } from '@/domain/services/contact-config'
 
 function flatten(node: ReactNode): ReactElement[] {
   const out: ReactElement[] = []
@@ -46,6 +46,8 @@ function baseProps() {
     onTopicChange: vi.fn(),
     ackText: '',
     onAckTextChange: vi.fn(),
+    labels: DEFAULT_LABELS,
+    onLabelChange: vi.fn(),
   }
 }
 
@@ -56,7 +58,13 @@ function inputs(tree: ReactElement[]): ReactElement[] {
 describe('ContactFormSettings', () => {
   it('renders exactly five topic inputs with the stored values', () => {
     const tree = renderTree(<ContactFormSettings {...baseProps()} />)
-    const topicInputs = inputs(tree).filter((el) => (el.props as { maxLength?: number }).maxLength === TOPIC_MAX_LEN)
+    const topicInputs = inputs(tree).filter((el) => {
+      const props = el.props as { maxLength?: number; placeholder?: string }
+      // maxLength alone is ambiguous now that the title label field also caps
+      // at LABEL_TITLE_MAX_LEN (30, same as TOPIC_MAX_LEN) — disambiguate by
+      // the topic-specific placeholder.
+      return props.maxLength === TOPIC_MAX_LEN && props.placeholder?.startsWith('t:contactTopicPlaceholder')
+    })
     expect(topicInputs).toHaveLength(5)
     expect(topicInputs.map((el) => (el.props as { value: string }).value)).toEqual(TOPICS)
   })
@@ -64,7 +72,13 @@ describe('ContactFormSettings', () => {
   it('fires onTopicChange with the index and new value', () => {
     const onTopicChange = vi.fn()
     const tree = renderTree(<ContactFormSettings {...baseProps()} onTopicChange={onTopicChange} />)
-    const topicInputs = inputs(tree).filter((el) => (el.props as { maxLength?: number }).maxLength === TOPIC_MAX_LEN)
+    const topicInputs = inputs(tree).filter((el) => {
+      const props = el.props as { maxLength?: number; placeholder?: string }
+      // maxLength alone is ambiguous now that the title label field also caps
+      // at LABEL_TITLE_MAX_LEN (30, same as TOPIC_MAX_LEN) — disambiguate by
+      // the topic-specific placeholder.
+      return props.maxLength === TOPIC_MAX_LEN && props.placeholder?.startsWith('t:contactTopicPlaceholder')
+    })
     const onChange = (topicInputs[2].props as { onChange: (e: unknown) => void }).onChange
     onChange({ target: { value: '新主題' } })
     expect(onTopicChange).toHaveBeenCalledWith(2, '新主題')
@@ -114,5 +128,13 @@ describe('ContactFormSettings', () => {
     expect((textarea?.props as { value: string }).value).toBe('謝謝查詢')
     ;(textarea?.props as { onChange: (e: unknown) => void }).onChange({ target: { value: '更新' } })
     expect(onAckTextChange).toHaveBeenCalledWith('更新')
+  })
+
+  it('mounts the label fields fieldset with the resolved labels', () => {
+    const tree = renderTree(<ContactFormSettings {...baseProps()} />)
+    const fieldset = tree.find(
+      (el) => (el.props as Record<string, unknown>)['data-testid'] === 'contact-form-label-fields'
+    )
+    expect(fieldset).toBeDefined()
   })
 })

@@ -24,7 +24,7 @@ import {
 import { getEmailProvider } from '@/infrastructure/email/provider-factory'
 import { handleUnknown } from '../unknown-help-handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
-import type { ResolvedContactConfig } from '@/domain/services/contact-config'
+import { DEFAULT_LABELS, type ResolvedContactConfig } from '@/domain/services/contact-config'
 
 const PHONE_NUMBER_ID = 'pn-1'
 const PHONE = '85291234567'
@@ -56,6 +56,7 @@ function config(overrides: Partial<ResolvedContactConfig> = {}): ResolvedContact
     notificationEmail: 'owner@example.com',
     topics: ['a', 'b', 'c', 'd', 'e'],
     ackText: null,
+    labels: DEFAULT_LABELS,
     ...overrides,
   }
 }

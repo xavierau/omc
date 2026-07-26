@@ -10,10 +10,14 @@ import {
   updateReplyConfig,
   getContactConfig,
   updateContactConfig,
+  getContactFlowId,
+  getContactFlowIdStrict,
+  updateContactFlowId,
+  updateContactFlowIdIfEmpty,
   getRestaurantEmailContext,
 } from '../restaurant-repository'
 import { DEFAULT_REPLY_FEATURES } from '@/domain/services/reply-config'
-import { DEFAULT_TOPICS } from '@/domain/services/contact-config'
+import { DEFAULT_TOPICS, DEFAULT_LABELS } from '@/domain/services/contact-config'
 
 function mockReadChain(result: { data: unknown; error: unknown }) {
   const single = vi.fn().mockResolvedValue(result)
@@ -30,6 +34,16 @@ function mockWriteChain(result: { error: unknown }) {
   const from = vi.fn().mockReturnValue({ update })
   vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
   return { from, update, eq }
+}
+
+function mockConditionalWriteChain(result: { data: unknown; error: unknown }) {
+  const select = vi.fn().mockResolvedValue(result)
+  const is = vi.fn().mockReturnValue({ select })
+  const eq = vi.fn().mockReturnValue({ is })
+  const update = vi.fn().mockReturnValue({ eq })
+  const from = vi.fn().mockReturnValue({ update })
+  vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+  return { from, update, eq, is, select }
 }
 
 describe('getRestaurantRedirect', () => {
@@ -269,6 +283,7 @@ describe('getContactConfig', () => {
       notificationEmail: null,
       topics: DEFAULT_TOPICS,
       ackText: null,
+      labels: DEFAULT_LABELS,
     })
   })
 
@@ -293,6 +308,7 @@ describe('getContactConfig', () => {
       notificationEmail: 'owner@restaurant.hk',
       topics,
       ackText: 'Thanks!',
+      labels: DEFAULT_LABELS,
     })
   })
 
@@ -325,6 +341,7 @@ describe('getContactConfig', () => {
       notificationEmail: null,
       topics: DEFAULT_TOPICS,
       ackText: null,
+      labels: DEFAULT_LABELS,
     })
   })
 
@@ -346,6 +363,7 @@ describe('updateContactConfig', () => {
     notificationEmail: 'owner@restaurant.hk',
     topics: ['A', 'B', 'C', 'D', 'E'],
     ackText: 'Thanks!',
+    labels: DEFAULT_LABELS,
   }
 
   it('writes the contact_config blob by id', async () => {
@@ -362,6 +380,173 @@ describe('updateContactConfig', () => {
     mockWriteChain({ error: { message: 'nope' } })
 
     await expect(updateContactConfig('restaurant-1', CONFIG)).rejects.toThrow('nope')
+  })
+})
+
+describe('getContactFlowId', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('selects only whatsapp_contact_flow_id by id', async () => {
+    const { from, select, eq } = mockReadChain({
+      data: { whatsapp_contact_flow_id: 'flow-123' },
+      error: null,
+    })
+
+    await getContactFlowId('restaurant-1')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(select).toHaveBeenCalledWith('whatsapp_contact_flow_id')
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('returns the stored flow id', async () => {
+    mockReadChain({ data: { whatsapp_contact_flow_id: 'flow-123' }, error: null })
+
+    const result = await getContactFlowId('restaurant-1')
+
+    expect(result).toBe('flow-123')
+  })
+
+  it('returns null when never deployed (column present, value null)', async () => {
+    mockReadChain({ data: { whatsapp_contact_flow_id: null }, error: null })
+
+    const result = await getContactFlowId('restaurant-1')
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null when the query errors', async () => {
+    mockReadChain({ data: null, error: { message: 'boom' } })
+
+    const result = await getContactFlowId('restaurant-1')
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null when the restaurant is not found', async () => {
+    mockReadChain({ data: null, error: null })
+
+    const result = await getContactFlowId('missing')
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null instead of throwing on a pre-059 database (column does not exist)', async () => {
+    mockReadChain({
+      data: null,
+      error: { message: 'column restaurants.whatsapp_contact_flow_id does not exist' },
+    })
+
+    const result = await getContactFlowId('restaurant-1')
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null instead of throwing when the client itself throws', async () => {
+    vi.mocked(createServerSupabaseClient).mockImplementation(() => {
+      throw new Error('connection failed')
+    })
+
+    const result = await getContactFlowId('restaurant-1')
+
+    expect(result).toBeNull()
+  })
+})
+
+describe('updateContactFlowId', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('writes whatsapp_contact_flow_id by id', async () => {
+    const { from, update, eq } = mockWriteChain({ error: null })
+
+    await updateContactFlowId('restaurant-1', 'flow-123')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(update).toHaveBeenCalledWith({ whatsapp_contact_flow_id: 'flow-123' })
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+  })
+
+  it('throws when the update fails', async () => {
+    mockWriteChain({ error: { message: 'nope' } })
+
+    await expect(updateContactFlowId('restaurant-1', 'flow-123')).rejects.toThrow('nope')
+  })
+})
+
+describe('getContactFlowIdStrict', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns the stored flow id', async () => {
+    mockReadChain({ data: { whatsapp_contact_flow_id: 'flow-123' }, error: null })
+
+    const result = await getContactFlowIdStrict('restaurant-1')
+
+    expect(result).toBe('flow-123')
+  })
+
+  it('returns null when never deployed (column present, value null)', async () => {
+    mockReadChain({ data: { whatsapp_contact_flow_id: null }, error: null })
+
+    const result = await getContactFlowIdStrict('restaurant-1')
+
+    expect(result).toBeNull()
+  })
+
+  it('throws instead of degrading to null when the query errors', async () => {
+    mockReadChain({ data: null, error: { message: 'boom' } })
+
+    await expect(getContactFlowIdStrict('restaurant-1')).rejects.toThrow('boom')
+  })
+
+  it('throws instead of degrading to null on a pre-059 database (column does not exist)', async () => {
+    mockReadChain({
+      data: null,
+      error: { message: 'column restaurants.whatsapp_contact_flow_id does not exist' },
+    })
+
+    await expect(getContactFlowIdStrict('restaurant-1')).rejects.toThrow(
+      'column restaurants.whatsapp_contact_flow_id does not exist'
+    )
+  })
+
+  it('throws when the restaurant is not found', async () => {
+    mockReadChain({ data: null, error: null })
+
+    await expect(getContactFlowIdStrict('missing')).rejects.toThrow('Restaurant not found')
+  })
+})
+
+describe('updateContactFlowIdIfEmpty', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('writes whatsapp_contact_flow_id only when it is still null, and reports the win', async () => {
+    const { from, update, eq, is, select } = mockConditionalWriteChain({
+      data: [{ id: 'restaurant-1' }],
+      error: null,
+    })
+
+    const won = await updateContactFlowIdIfEmpty('restaurant-1', 'flow-123')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(update).toHaveBeenCalledWith({ whatsapp_contact_flow_id: 'flow-123' })
+    expect(eq).toHaveBeenCalledWith('id', 'restaurant-1')
+    expect(is).toHaveBeenCalledWith('whatsapp_contact_flow_id', null)
+    expect(select).toHaveBeenCalledWith('id')
+    expect(won).toBe(true)
+  })
+
+  it('reports losing the race when a concurrent writer already persisted a flow id', async () => {
+    mockConditionalWriteChain({ data: [], error: null })
+
+    const won = await updateContactFlowIdIfEmpty('restaurant-1', 'flow-123')
+
+    expect(won).toBe(false)
+  })
+
+  it('throws when the update fails', async () => {
+    mockConditionalWriteChain({ data: null, error: { message: 'nope' } })
+
+    await expect(updateContactFlowIdIfEmpty('restaurant-1', 'flow-123')).rejects.toThrow('nope')
   })
 })
 

@@ -1,15 +1,24 @@
 import './load-env'
 import { parseArgs } from 'node:util'
 import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
-import type { DeployResult, FlowValidationError } from '@kapso/whatsapp-cloud-api'
-import flowJson from '@/infrastructure/whatsapp/flows/contact-form-flow.json'
+import type { FlowValidationError } from '@kapso/whatsapp-cloud-api'
+import {
+  ensureContactFlowDeployed,
+  resolveWaba,
+  type EnsureContactFlowDeployedResult,
+} from '@/application/ensure-contact-flow-deployed'
+import {
+  getContactFlowId,
+  updateContactFlowId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { deployContactFlow, describeDeployFailure } from '@/infrastructure/kapso/flow-client'
 
 // contact-form-flow.json's screen `data` field for the sender's WhatsApp number
 // is named `phone`, NOT `waNumber`/`phoneNumber`. This is load-bearing, not a
 // style choice — the SDK has TWO independent camelCase<->wire-case converters:
 //   1. `toFlowJsonWireCase` (flows.deploy/create/updateAsset, strictCamel: true)
 //      — throws on authoring keys with `_`/`-`; keys with no uppercase pass
-//      through unchanged. This is what THIS script's flowJson goes through.
+//      through unchanged. This is what the deployed flowJson goes through.
 //   2. `toSnakeCaseDeep` (every outbound message body via client.request(),
 //      including `sendInteractiveFlow`'s `flowActionPayload.data`) — silently
 //      snake_cases every key with an uppercase letter, deep, no allow-list.
@@ -26,58 +35,63 @@ import flowJson from '@/infrastructure/whatsapp/flows/contact-form-flow.json'
 // breaking the binding inside the deployed Flow itself. Do not rename `phone`.
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
-const FLOW_NAME = 'ohmyclient_contact_form'
 
-const USAGE = `Usage: tsx scripts/deploy-contact-flow.ts --waba-id <waba_id>
+const USAGE = `Usage: tsx scripts/deploy-contact-flow.ts --restaurant-id <uuid> [--force]
 
-Deploys and publishes the shared WhatsApp Flow used by REPLY-005's
-"contact us" form mode (AD-3: one Flow shared across all tenants).
+Deploys REPLY-007's per-tenant WhatsApp contact-form Flow for one tenant and
+stores the resulting flow id on restaurants.whatsapp_contact_flow_id. The
+tenant's WABA is resolved from its own phone number — no --waba-id needed.
 
---waba-id can also be supplied via the KAPSO_WABA_ID env var.
-Requires KAPSO_API_KEY in the environment (.env.local or shell env).
+The normal path is AUTOMATIC: saving contact-config in "form" mode from the
+admin dashboard deploys the flow for that tenant on its own. Run this script
+only for ops backfill (a tenant whose save-triggered deploy failed) or an
+upgrade (--force, after a structural change to contact-form-flow.json).
 
-On success, prints the returned flowId — set it as WHATSAPP_CONTACT_FLOW_ID
-in the target deploy environment.`
+--force deploys a brand-new flow and overwrites the stored flow id even when
+one already exists — published flows are assumed immutable, so this is the
+only way to roll out a structural Flow JSON change. The previous flow id is
+then best-effort deprecated; a deprecate failure is logged, never fatal.
 
-export interface DeployConfig {
-  wabaId: string
+Requires KAPSO_API_KEY in the environment (.env.local or shell env).`
+
+export interface ScriptConfig {
+  restaurantId: string
+  force: boolean
   kapsoApiKey: string
 }
 
-export type DeployConfigResult =
-  | { ok: true; config: DeployConfig }
+export type ScriptConfigResult =
+  | { ok: true; config: ScriptConfig }
   | { ok: false; error: string }
 
-export function resolveDeployConfig(
+export function resolveScriptConfig(
   argv: string[],
   env: Record<string, string | undefined>
-): DeployConfigResult {
-  let wabaIdFlag: string | undefined
+): ScriptConfigResult {
+  let restaurantIdFlag: string | undefined
+  let force = false
   try {
     const { values } = parseArgs({
       args: argv,
-      options: { 'waba-id': { type: 'string' } },
+      options: {
+        'restaurant-id': { type: 'string' },
+        force: { type: 'boolean', default: false },
+      },
       allowPositionals: false,
     })
-    wabaIdFlag = values['waba-id']
+    restaurantIdFlag = values['restaurant-id']
+    force = Boolean(values.force)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return { ok: false, error: `Invalid arguments: ${message}` }
   }
 
-  const wabaId = wabaIdFlag ?? env.KAPSO_WABA_ID
-  if (!wabaId) return { ok: false, error: 'Missing --waba-id (or KAPSO_WABA_ID env var).' }
+  if (!restaurantIdFlag) return { ok: false, error: 'Missing --restaurant-id.' }
 
   const kapsoApiKey = env.KAPSO_API_KEY
   if (!kapsoApiKey) return { ok: false, error: 'Missing KAPSO_API_KEY in the environment.' }
 
-  return { ok: true, config: { wabaId, kapsoApiKey } }
-}
-
-export function hasValidationErrors(
-  result: Pick<DeployResult, 'validationErrors'>
-): boolean {
-  return Boolean(result.validationErrors && result.validationErrors.length > 0)
+  return { ok: true, config: { restaurantId: restaurantIdFlag, force, kapsoApiKey } }
 }
 
 function formatLocation(
@@ -113,42 +127,82 @@ export function formatValidationErrors(errors: FlowValidationError[]): string[] 
   return errors.flatMap((err, i) => formatOneValidationError(err, i + 1))
 }
 
+interface DeployFailure {
+  error: string
+  validationErrors?: FlowValidationError[]
+}
+
+type DeployOutcome = { ok: true; flowId: string } | { ok: false; failure: DeployFailure }
+
+/**
+ * `ensureContactFlowDeployed`'s Result now carries `validationErrors`
+ * structurally (M2 review finding) — no more JSON round-trip through the
+ * error string, so this is a straight field copy.
+ */
+export function toDeployOutcome(result: EnsureContactFlowDeployedResult): DeployOutcome {
+  if (result.ok) return { ok: true, flowId: result.flowId }
+  return {
+    ok: false,
+    failure: { error: result.error, validationErrors: result.validationErrors },
+  }
+}
+
+async function deprecateOldFlow(oldFlowId: string, kapsoApiKey: string): Promise<void> {
+  try {
+    const client = new WhatsAppClient({ kapsoApiKey, baseUrl: KAPSO_BASE_URL })
+    await client.flows.deprecate({ flowId: oldFlowId })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    process.stderr.write(
+      `Warning: best-effort deprecate of previous flow ${oldFlowId} failed: ${message}\n`
+    )
+  }
+}
+
+export async function forceDeploy(restaurantId: string, kapsoApiKey: string): Promise<DeployOutcome> {
+  const oldFlowId = await getContactFlowId(restaurantId)
+  const wabaId = await resolveWaba(restaurantId)
+  if (!wabaId) return { ok: false, failure: { error: 'contact_flow.no_waba_id' } }
+
+  const deployResult = await deployContactFlow(wabaId)
+  if (!deployResult.ok || !deployResult.flowId) {
+    return { ok: false, failure: describeDeployFailure(deployResult) }
+  }
+
+  await updateContactFlowId(restaurantId, deployResult.flowId)
+  if (oldFlowId) await deprecateOldFlow(oldFlowId, kapsoApiKey)
+
+  return { ok: true, flowId: deployResult.flowId }
+}
+
+function reportFailure(failure: DeployFailure): void {
+  process.stderr.write(`Contact flow deploy failed: ${failure.error}\n`)
+  if (failure.validationErrors && failure.validationErrors.length > 0) {
+    process.stderr.write('\nMeta rejected the Flow JSON:\n\n')
+    for (const line of formatValidationErrors(failure.validationErrors)) {
+      process.stderr.write(`${line}\n`)
+    }
+  }
+}
+
 async function main(): Promise<void> {
-  const configResult = resolveDeployConfig(process.argv.slice(2), process.env)
+  const configResult = resolveScriptConfig(process.argv.slice(2), process.env)
   if (!configResult.ok) {
     process.stderr.write(`${configResult.error}\n\n${USAGE}\n`)
     process.exit(1)
   }
-  const { wabaId, kapsoApiKey } = configResult.config
+  const { restaurantId, force, kapsoApiKey } = configResult.config
 
-  const client = new WhatsAppClient({ kapsoApiKey, baseUrl: KAPSO_BASE_URL })
+  const outcome = force
+    ? await forceDeploy(restaurantId, kapsoApiKey)
+    : toDeployOutcome(await ensureContactFlowDeployed(restaurantId))
 
-  let result: DeployResult
-  try {
-    result = await client.flows.deploy(flowJson, {
-      name: FLOW_NAME,
-      wabaId,
-      publish: true,
-    })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    process.stderr.write(`Flow deploy failed: ${message}\n`)
+  if (!outcome.ok) {
+    reportFailure(outcome.failure)
     process.exit(1)
   }
 
-  if (hasValidationErrors(result)) {
-    process.stderr.write('Meta rejected the Flow JSON:\n\n')
-    for (const line of formatValidationErrors(result.validationErrors ?? [])) {
-      process.stderr.write(`${line}\n`)
-    }
-    process.exit(1)
-  }
-
-  process.stdout.write(`Flow deployed and published. flowId=${result.flowId}\n`)
-  if (result.versionId) process.stdout.write(`versionId=${result.versionId}\n`)
-  process.stdout.write(
-    `\nSet WHATSAPP_CONTACT_FLOW_ID=${result.flowId} in the target deploy environment.\n`
-  )
+  process.stdout.write(`Flow deployed. restaurantId=${restaurantId} flowId=${outcome.flowId}\n`)
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}`

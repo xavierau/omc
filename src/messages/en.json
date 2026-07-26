@@ -614,7 +614,14 @@
     "contactNotificationEmailRequired": "A notification email is required for form mode.",
     "contactTopicsLabel": "Topics (5)",
     "contactTopicPlaceholder": "Topic {n}",
-    "contactAckTextLabel": "Acknowledgement message"
+    "contactAckTextLabel": "Acknowledgement message",
+    "contactLabelsLegend": "Form text",
+    "contactLabelTitle": "Screen title",
+    "contactLabelName": "Name field label",
+    "contactLabelPhone": "Phone field label",
+    "contactLabelTopic": "Topic field label",
+    "contactLabelSubmit": "Submit button label",
+    "contactFlowDeployFailed": "Saved, but the form could not be deployed to WhatsApp yet ({error}). Contacts will use the redirect button until this succeeds — try saving again."
   },
   "scan": {
     "heading": "Scan QR Code",
