@@ -9,16 +9,33 @@
 
 export type ContactMode = 'redirect' | 'form'
 
+/**
+ * Per-tenant copy for the contact-us Flow (REPLY-007): screen title, the 3
+ * input labels, and the submit button label. Keys stay camelCase — this is
+ * DB-internal JSONB shape and never crosses the SDK's wire converters; the
+ * lowercase send-time data keys live at the contact-handler send site.
+ */
+export interface ContactLabels {
+  title: string
+  nameLabel: string
+  phoneLabel: string
+  topicLabel: string
+  submitLabel: string
+}
+
 export interface ResolvedContactConfig {
   mode: ContactMode
   notificationEmail: string | null
   topics: string[]
   ackText: string | null
+  labels: ContactLabels
 }
 
 export const TOPIC_COUNT = 5
 export const TOPIC_MAX_LEN = 30
 export const ACK_MAX_LEN = 1024
+export const LABEL_TITLE_MAX_LEN = 30
+export const LABEL_MAX_LEN = 20
 
 /** Seed for new tenants and for any stored topic list that resolves invalid. */
 export const DEFAULT_TOPICS: string[] = [
@@ -30,6 +47,18 @@ export const DEFAULT_TOPICS: string[] = [
 ]
 
 export const DEFAULT_ACK_TEXT = '多謝您的查詢!我們的客戶服務團隊會盡快與您聯絡。'
+
+/**
+ * Shipped Flow JSON literals, verbatim — a tenant who customises nothing
+ * sees byte-identical output to today's form.
+ */
+export const DEFAULT_LABELS: ContactLabels = {
+  title: '聯絡我們',
+  nameLabel: '姓名',
+  phoneLabel: 'WhatsApp 號碼',
+  topicLabel: '查詢主題',
+  submitLabel: '提交',
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -77,6 +106,30 @@ function resolveTopics(raw: unknown): string[] {
   return raw.map((topic) => topic.trim())
 }
 
+/** Per-field cap used by both the resolver (clamp) and validator (reject). */
+const LABEL_FIELD_CAPS: Record<keyof ContactLabels, number> = {
+  title: LABEL_TITLE_MAX_LEN,
+  nameLabel: LABEL_MAX_LEN,
+  phoneLabel: LABEL_MAX_LEN,
+  topicLabel: LABEL_MAX_LEN,
+  submitLabel: LABEL_MAX_LEN,
+}
+
+/**
+ * Resolve each of the five label fields independently: absent/empty/
+ * whitespace/non-string falls back to that field's default; an over-length
+ * value is clamped, not dropped. The Flow binds all five dynamically, so the
+ * result must always be a complete set of concrete strings.
+ */
+function resolveLabels(raw: unknown): ContactLabels {
+  const obj = isRecord(raw) ? raw : {}
+  const result = {} as ContactLabels
+  for (const field of Object.keys(LABEL_FIELD_CAPS) as (keyof ContactLabels)[]) {
+    result[field] = normalizeText(obj[field], LABEL_FIELD_CAPS[field]) ?? DEFAULT_LABELS[field]
+  }
+  return result
+}
+
 /**
  * Merge an arbitrary stored/inbound value over the defaults into a fully-shaped
  * config. Tolerates `undefined`, `null`, malformed JSON, wrong types — anything
@@ -90,6 +143,7 @@ export function resolveContactConfig(raw: unknown): ResolvedContactConfig {
     notificationEmail: normalizeEmail(obj.notificationEmail),
     topics: resolveTopics(obj.topics),
     ackText: normalizeText(obj.ackText, ACK_MAX_LEN),
+    labels: resolveLabels(obj.labels),
   }
 }
 
@@ -142,5 +196,33 @@ export function validateContactConfig(raw: unknown): ContactConfigValidation {
     return { ok: false, error: `ackText exceeds ${ACK_MAX_LEN} characters` }
   }
 
+  const labelError = validateLabels(obj.labels)
+  if (labelError) {
+    return { ok: false, error: labelError }
+  }
+
   return { ok: true, config: resolveContactConfig(raw) }
+}
+
+/**
+ * Labels omitted entirely => ok (nothing to validate). A field left
+ * `undefined` (not supplied) is likewise fine — `resolveContactConfig` falls
+ * back to its default. A field that IS supplied but isn't a string (e.g.
+ * `{ title: 123 }`) is rejected outright, matching how topics reject a
+ * wrong-shaped entry rather than silently defaulting it (code review L4).
+ */
+function validateLabels(raw: unknown): string | null {
+  if (!isRecord(raw)) return null
+  for (const field of Object.keys(LABEL_FIELD_CAPS) as (keyof ContactLabels)[]) {
+    const value = raw[field]
+    if (value === undefined) continue
+    if (typeof value !== 'string') {
+      return `${field} must be a string`
+    }
+    const max = LABEL_FIELD_CAPS[field]
+    if (value.trim().length > max) {
+      return `${field} exceeds ${max} characters`
+    }
+  }
+  return null
 }

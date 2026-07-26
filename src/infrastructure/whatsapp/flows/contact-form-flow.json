@@ -3,7 +3,7 @@
   "screens": [
     {
       "id": "CONTACT_FORM",
-      "title": "聯絡我們",
+      "title": "${data.title}",
       "terminal": true,
       "data": {
         "topics": {
@@ -23,6 +23,26 @@
         "phone": {
           "type": "string",
           "__example__": "+85291234567"
+        },
+        "title": {
+          "type": "string",
+          "__example__": "聯絡我們"
+        },
+        "namelabel": {
+          "type": "string",
+          "__example__": "姓名"
+        },
+        "phonelabel": {
+          "type": "string",
+          "__example__": "WhatsApp 號碼"
+        },
+        "topiclabel": {
+          "type": "string",
+          "__example__": "查詢主題"
+        },
+        "submitlabel": {
+          "type": "string",
+          "__example__": "提交"
         }
       },
       "layout": {
@@ -35,14 +55,14 @@
               {
                 "type": "TextInput",
                 "name": "clientName",
-                "label": "姓名",
+                "label": "${data.namelabel}",
                 "inputType": "text",
                 "required": true
               },
               {
                 "type": "TextInput",
                 "name": "clientWhatsapp",
-                "label": "WhatsApp 號碼",
+                "label": "${data.phonelabel}",
                 "inputType": "phone",
                 "required": true,
                 "initValue": "${data.phone}"
@@ -50,13 +70,13 @@
               {
                 "type": "Dropdown",
                 "name": "topic",
-                "label": "查詢主題",
+                "label": "${data.topiclabel}",
                 "required": true,
                 "dataSource": "${data.topics}"
               },
               {
                 "type": "Footer",
-                "label": "提交",
+                "label": "${data.submitlabel}",
                 "onClickAction": {
                   "name": "complete",
                   "payload": {

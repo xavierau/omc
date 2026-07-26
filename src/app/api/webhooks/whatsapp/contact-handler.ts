@@ -4,10 +4,11 @@ import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member
 import {
   getRestaurantRedirect,
   getContactConfig,
+  getContactFlowId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { Language } from '@/domain/value-objects/language'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
-import { resolveContactFlowId } from '@/infrastructure/whatsapp/flows/contact-flow-id'
+import type { ContactLabels } from '@/domain/services/contact-config'
 import { resolveLanguageForMember } from './resolve-language'
 import { handleHelp } from './unknown-help-handlers'
 
@@ -23,6 +24,25 @@ const FORM_SCREEN = 'CONTACT_FORM'
 // test (`contact-form-flow.contract.test.ts`) asserts against this constant
 // rather than a re-typed literal.
 export const FLOW_PREFILL_PHONE_KEY = 'phone'
+
+// REPLY-007 AD-6: the Flow JSON's per-tenant label bindings (`${data.<key>}`
+// on screen `title`, both TextInput `label`s, the Dropdown `label`, and the
+// Footer `label`). Values are deliberately lowercase single tokens, NOT
+// camelCase like the object keys naming them — the SDK deep-snake_cases
+// every outbound message body (including this data's payload) while leaving
+// Flow JSON keys verbatim, so e.g. `nameLabel` would ship on the wire as
+// `name_label` and silently break the binding to the deployed Flow's
+// `namelabel` schema key (see the two-converter comment in
+// `scripts/deploy-contact-flow.ts`). Single source of truth for both the
+// send payload (contact-handler.ts) and the contract test
+// (`contact-form-flow.contract.test.ts`).
+export const FLOW_LABEL_DATA_KEYS = {
+  title: 'title',
+  nameLabel: 'namelabel',
+  phoneLabel: 'phonelabel',
+  topicLabel: 'topiclabel',
+  submitLabel: 'submitlabel',
+} as const
 
 /**
  * Handle a CONTACT command (typed keyword or tapped Contact row).
@@ -41,9 +61,16 @@ export async function handleContact(
 ) {
   const config = await getContactConfig(restaurantId)
   if (config.mode === 'form' && config.notificationEmail) {
-    const flowId = resolveContactFlowId()
+    const flowId = await getContactFlowId(restaurantId)
     if (flowId) {
-      const result = await sendContactFlow(phoneNumberId, phone, restaurantId, flowId, config.topics)
+      const result = await sendContactFlow(
+        phoneNumberId,
+        phone,
+        restaurantId,
+        flowId,
+        config.topics,
+        config.labels
+      )
       if (result.ok) return result
     }
   }
@@ -56,7 +83,8 @@ function sendContactFlow(
   phone: string,
   restaurantId: string,
   flowId: string,
-  topics: string[]
+  topics: string[],
+  labels: ContactLabels
 ) {
   const flowToken = `cf.v1.${restaurantId}.${crypto.randomUUID()}`
   return sendInteractiveFlow(phoneNumberId, phone, FORM_BODY_ZH, {
@@ -82,6 +110,16 @@ function sendContactFlow(
       // `inputType: "phone"` TextInput is verified at deploy/live-test time
       // (not offline, per the Flow JSON's own `__example__`).
       [FLOW_PREFILL_PHONE_KEY]: phone,
+      // REPLY-007 AD-6/AD-7: all five label keys are always sent — the Flow
+      // binds them dynamically (`${data.<key>}`), so a missing key breaks
+      // rendering. `resolveContactConfig` guarantees `labels` is a complete
+      // set of concrete strings (defaults on anything unresolved), so there
+      // is nothing to defend against here beyond sending them.
+      [FLOW_LABEL_DATA_KEYS.title]: labels.title,
+      [FLOW_LABEL_DATA_KEYS.nameLabel]: labels.nameLabel,
+      [FLOW_LABEL_DATA_KEYS.phoneLabel]: labels.phoneLabel,
+      [FLOW_LABEL_DATA_KEYS.topicLabel]: labels.topicLabel,
+      [FLOW_LABEL_DATA_KEYS.submitLabel]: labels.submitLabel,
     },
   })
 }

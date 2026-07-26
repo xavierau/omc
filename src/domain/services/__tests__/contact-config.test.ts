@@ -4,9 +4,12 @@ import {
   validateContactConfig,
   DEFAULT_TOPICS,
   DEFAULT_ACK_TEXT,
+  DEFAULT_LABELS,
   TOPIC_MAX_LEN,
   ACK_MAX_LEN,
   TOPIC_COUNT,
+  LABEL_TITLE_MAX_LEN,
+  LABEL_MAX_LEN,
 } from '../contact-config'
 
 const VALID_TOPICS = ['訂座', '外賣', '會員', '意見', '其他']
@@ -155,6 +158,7 @@ describe('validateContactConfig', () => {
       notificationEmail: 'owner@restaurant.hk',
       topics: VALID_TOPICS,
       ackText: '多謝查詢',
+      labels: DEFAULT_LABELS,
     })
   })
 
@@ -235,12 +239,173 @@ describe('validateContactConfig', () => {
   })
 })
 
+describe('resolveContactConfig — labels', () => {
+  it('defaults to DEFAULT_LABELS when absent', () => {
+    expect(resolveContactConfig({}).labels).toEqual(DEFAULT_LABELS)
+  })
+
+  it('defaults to DEFAULT_LABELS for a non-object labels value', () => {
+    for (const labels of ['nope', 42, null, []]) {
+      expect(resolveContactConfig({ labels }).labels).toEqual(DEFAULT_LABELS)
+    }
+  })
+
+  it('defaults to DEFAULT_LABELS for an empty object', () => {
+    expect(resolveContactConfig({ labels: {} }).labels).toEqual(DEFAULT_LABELS)
+  })
+
+  it.each(['title', 'nameLabel', 'phoneLabel', 'topicLabel', 'submitLabel'] as const)(
+    'falls back to the default %s only, leaving sibling fields untouched, when that field is empty/whitespace/non-string',
+    (field) => {
+      const sibling = field === 'nameLabel' ? 'phoneLabel' : 'nameLabel'
+      for (const value of ['', '   ', 42, null]) {
+        const labels = resolveContactConfig({
+          labels: { [field]: value, [sibling]: '自訂值' },
+        }).labels
+        expect(labels[field]).toBe(DEFAULT_LABELS[field])
+        expect(labels[sibling]).toBe('自訂值')
+      }
+    }
+  )
+
+  it('trims and keeps a valid custom label per field', () => {
+    const custom = {
+      title: '  歡迎查詢  ',
+      nameLabel: '  客戶姓名  ',
+      phoneLabel: '  電話號碼  ',
+      topicLabel: '  查詢類別  ',
+      submitLabel: '  送出  ',
+    }
+    expect(resolveContactConfig({ labels: custom }).labels).toEqual({
+      title: '歡迎查詢',
+      nameLabel: '客戶姓名',
+      phoneLabel: '電話號碼',
+      topicLabel: '查詢類別',
+      submitLabel: '送出',
+    })
+  })
+
+  it('clamps an over-length title to LABEL_TITLE_MAX_LEN', () => {
+    const long = 'x'.repeat(LABEL_TITLE_MAX_LEN + 10)
+    expect(resolveContactConfig({ labels: { title: long } }).labels.title).toHaveLength(
+      LABEL_TITLE_MAX_LEN
+    )
+  })
+
+  it.each(['nameLabel', 'phoneLabel', 'topicLabel', 'submitLabel'] as const)(
+    'clamps an over-length %s to LABEL_MAX_LEN',
+    (field) => {
+      const long = 'x'.repeat(LABEL_MAX_LEN + 10)
+      expect(resolveContactConfig({ labels: { [field]: long } }).labels[field]).toHaveLength(
+        LABEL_MAX_LEN
+      )
+    }
+  )
+
+  it('a stored config with no labels key (pre-REPLY-007) resolves to DEFAULT_LABELS', () => {
+    const legacyStoredBlob = {
+      mode: 'form',
+      notificationEmail: 'owner@restaurant.hk',
+      topics: VALID_TOPICS,
+      ackText: '多謝查詢',
+    }
+    expect(resolveContactConfig(legacyStoredBlob).labels).toEqual(DEFAULT_LABELS)
+  })
+})
+
+describe('validateContactConfig — labels', () => {
+  it('accepts a payload with labels omitted entirely', () => {
+    const result = validateContactConfig({ mode: 'redirect', topics: VALID_TOPICS })
+    expect(result.ok).toBe(true)
+  })
+
+  it('accepts valid custom labels and round-trips them', () => {
+    const labels = {
+      title: '歡迎查詢',
+      nameLabel: '客戶姓名',
+      phoneLabel: '電話號碼',
+      topicLabel: '查詢類別',
+      submitLabel: '送出',
+    }
+    const result = validateContactConfig({ mode: 'redirect', topics: VALID_TOPICS, labels })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.config.labels).toEqual(labels)
+  })
+
+  it.each([
+    ['title', LABEL_TITLE_MAX_LEN],
+    ['nameLabel', LABEL_MAX_LEN],
+    ['phoneLabel', LABEL_MAX_LEN],
+    ['topicLabel', LABEL_MAX_LEN],
+    ['submitLabel', LABEL_MAX_LEN],
+  ] as const)('rejects an over-length %s naming the field', (field, max) => {
+    const result = validateContactConfig({
+      mode: 'redirect',
+      topics: VALID_TOPICS,
+      labels: { [field]: 'x'.repeat(max + 1) },
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toContain(field)
+  })
+
+  it('allows a label exactly at its max length', () => {
+    const result = validateContactConfig({
+      mode: 'redirect',
+      topics: VALID_TOPICS,
+      labels: { title: 'x'.repeat(LABEL_TITLE_MAX_LEN) },
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it.each([
+    ['title', 123],
+    ['nameLabel', true],
+    ['phoneLabel', null],
+    ['topicLabel', {}],
+    ['submitLabel', ['x']],
+  ] as const)(
+    'rejects a non-string %s naming the field, instead of silently defaulting it (code review L4)',
+    (field, value) => {
+      const result = validateContactConfig({
+        mode: 'redirect',
+        topics: VALID_TOPICS,
+        labels: { [field]: value },
+      })
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error).toContain(field)
+    }
+  )
+
+  it('a field left undefined (not supplied) is still fine — only a wrong-typed present value is rejected', () => {
+    const result = validateContactConfig({
+      mode: 'redirect',
+      topics: VALID_TOPICS,
+      labels: { title: '自訂標題', nameLabel: undefined },
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.config.labels.nameLabel).toBe(DEFAULT_LABELS.nameLabel)
+  })
+})
+
 describe('constants', () => {
   it('exposes the expected caps', () => {
     expect(TOPIC_COUNT).toBe(5)
     expect(TOPIC_MAX_LEN).toBe(30)
     expect(ACK_MAX_LEN).toBe(1024)
+    expect(LABEL_TITLE_MAX_LEN).toBe(30)
+    expect(LABEL_MAX_LEN).toBe(20)
     expect(DEFAULT_TOPICS).toHaveLength(5)
     expect(typeof DEFAULT_ACK_TEXT).toBe('string')
+    expect(DEFAULT_LABELS).toEqual({
+      title: '聯絡我們',
+      nameLabel: '姓名',
+      phoneLabel: 'WhatsApp 號碼',
+      topicLabel: '查詢主題',
+      submitLabel: '提交',
+    })
   })
 })

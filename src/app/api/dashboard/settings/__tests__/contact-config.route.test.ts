@@ -3,11 +3,13 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
+vi.mock('@/application/ensure-contact-flow-deployed')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { updateContactConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { TOPIC_COUNT, TOPIC_MAX_LEN, ACK_MAX_LEN } from '@/domain/services/contact-config'
+import { ensureContactFlowDeployed } from '@/application/ensure-contact-flow-deployed'
+import { TOPIC_COUNT, TOPIC_MAX_LEN, ACK_MAX_LEN, DEFAULT_LABELS } from '@/domain/services/contact-config'
 import { PATCH } from '../contact-config/route'
 
 const RESTAURANT_ID = 'rest-1'
@@ -33,7 +35,7 @@ function tenantOk() {
 describe('PATCH /api/dashboard/settings/contact-config', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('persists a normalized redirect-mode config, tenant-scoped', async () => {
+  it('persists a normalized redirect-mode config, tenant-scoped, and skips the deploy hook', async () => {
     tenantOk()
     vi.mocked(updateContactConfig).mockResolvedValue()
 
@@ -47,12 +49,19 @@ describe('PATCH /api/dashboard/settings/contact-config', () => {
       notificationEmail: null,
       topics: VALID_TOPICS,
       ackText: null,
+      labels: DEFAULT_LABELS,
     })
+    expect(ensureContactFlowDeployed).not.toHaveBeenCalled()
   })
 
-  it('persists a normalized form-mode config', async () => {
+  it('persists a normalized form-mode config and deploys the contact flow', async () => {
     tenantOk()
     vi.mocked(updateContactConfig).mockResolvedValue()
+    vi.mocked(ensureContactFlowDeployed).mockResolvedValue({
+      ok: true,
+      flowId: 'flow-1',
+      created: true,
+    })
 
     const res = await PATCH(
       req({
@@ -65,12 +74,40 @@ describe('PATCH /api/dashboard/settings/contact-config', () => {
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json).toEqual({ success: true })
+    expect(json).toEqual({ success: true, flowDeploy: { ok: true } })
     expect(updateContactConfig).toHaveBeenCalledWith(RESTAURANT_ID, {
       mode: 'form',
       notificationEmail: 'owner@example.com',
       topics: VALID_TOPICS,
       ackText: 'Thanks!',
+      labels: DEFAULT_LABELS,
+    })
+    expect(ensureContactFlowDeployed).toHaveBeenCalledTimes(1)
+    expect(ensureContactFlowDeployed).toHaveBeenCalledWith(RESTAURANT_ID)
+  })
+
+  it('still saves and returns 200 when the flow deploy fails', async () => {
+    tenantOk()
+    vi.mocked(updateContactConfig).mockResolvedValue()
+    vi.mocked(ensureContactFlowDeployed).mockResolvedValue({
+      ok: false,
+      error: 'flow_validation_error: [...]',
+    })
+
+    const res = await PATCH(
+      req({
+        mode: 'form',
+        notificationEmail: 'owner@example.com',
+        topics: VALID_TOPICS,
+      })
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(updateContactConfig).toHaveBeenCalledTimes(1)
+    expect(json).toEqual({
+      success: true,
+      flowDeploy: { ok: false, error: 'flow_validation_error: [...]' },
     })
   })
 

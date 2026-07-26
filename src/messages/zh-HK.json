@@ -614,7 +614,15 @@
     "contactNotificationEmailRequired": "表格模式需要通知電郵。",
     "contactTopicsLabel": "查詢主題（5 個）",
     "contactTopicPlaceholder": "主題 {n}",
-    "contactAckTextLabel": "確認訊息"
+    "contactAckTextLabel": "確認訊息",
+    "contactLabelsLegend": "表格文字",
+    "contactLabelTitle": "畫面標題",
+    "contactLabelName": "姓名欄位文字",
+    "contactLabelPhone": "電話欄位文字",
+    "contactLabelTopic": "主題欄位文字",
+    "contactLabelSubmit": "提交按鈕文字",
+    "contactFlowDeployFailed": "已儲存，但表格尚未成功部署至 WhatsApp（{error}）。在此之前，客人會使用轉駁按鈕，請稍後再儲存一次。",
+    "contactFlowDeployFailedGeneric": "已儲存，但表格尚未成功部署至 WhatsApp。在此之前，客人會使用轉駁按鈕，請稍後再儲存一次。"
   },
   "scan": {
     "heading": "掃描 QR 碼",
