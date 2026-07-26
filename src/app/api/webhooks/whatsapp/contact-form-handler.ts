@@ -9,10 +9,8 @@
  * instead of an unhandled rejection.
  */
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
-import {
-  getContactConfig,
-  getRestaurantEmailContext,
-} from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getContactConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getEmailProvider } from '@/infrastructure/email/provider-factory'
 import { parseContactFormSubmission } from '@/domain/services/contact-form-submission'
 import { buildContactEmail, type ContactFormSubmission } from '@/domain/services/contact-email'
@@ -112,12 +110,12 @@ async function sendNotification(
     return
   }
 
-  const restaurant = await getRestaurantEmailContext(restaurantId)
   const { subject, text } = buildContactEmail(submission, {
     senderWaId: ctx.phone,
-    contactName: message.contactName,
-    restaurantName: restaurant.name,
-    restaurantWhatsappNumber: restaurant.whatsappNumber ?? '',
+    // WhatsApp's profile name when it supplied one, otherwise the member
+    // record — Meta omits `contacts[].profile.name` often enough that
+    // reporting "(未提供)" for a known member was a routine wrong answer.
+    contactName: message.contactName ?? (await memberName(restaurantId, ctx.phone)),
     timestamp: new Date(),
     messageId: message.messageId,
   })
@@ -125,5 +123,15 @@ async function sendNotification(
   const result = await getEmailProvider().send({ to: notificationEmail, subject, text })
   if (!result.ok) {
     log('error', 'contact_form.email_failed', { error: result.error, restaurantId })
+  }
+}
+
+/** Best-effort: an unknown sender is simply an unnamed one, never an error. */
+async function memberName(restaurantId: string, phone: string): Promise<string | undefined> {
+  try {
+    const member = await findMemberByPhone(restaurantId, phone)
+    return member?.name ?? undefined
+  } catch {
+    return undefined
   }
 }

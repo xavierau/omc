@@ -39,7 +39,7 @@ import { resolveLanguageForMember } from '../resolve-language'
 const PHONE_NUMBER_ID = 'pn-1'
 const PHONE = '85291234567'
 const RESTAURANT_ID = 'r-1'
-const MEMBER = { id: 'm-1', pointsBalance: 10, preferredLanguage: 'en' }
+const MEMBER = { id: 'm-1', name: null, pointsBalance: 10, preferredLanguage: 'en' }
 
 describe('handleUnknown — fallback menu (REPLY-001)', () => {
   beforeEach(() => {

@@ -79,7 +79,7 @@ describe('handleContact', () => {
     vi.mocked(handleHelp).mockResolvedValue(okResult())
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-1',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: 'en',
     })
     vi.mocked(resolveLanguageForMember).mockResolvedValue(Language.EN)

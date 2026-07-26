@@ -25,10 +25,11 @@ describe('parseWebFormSubmission', () => {
     })
   })
 
-  // The security property the whole design rests on: a public POST cannot
-  // choose whose enquiry this is. The body value is ignored, not rejected, so
-  // a stale or tampered field silently loses to the token.
-  it('always takes the phone from the token, ignoring any posted value', () => {
+  // Matches the Flow's editable phone TextInput: a customer may want the
+  // callback on a different number than the handset they messaged from. The
+  // AUTHENTICATED sender is still the token's phone, reported separately as
+  // senderWaId, and buildContactEmail flags the difference.
+  it('takes the callback number from the body when supplied', () => {
     const result = parseWebFormSubmission(
       { clientName: '陳大文', topic: '訂座查詢', clientWhatsapp: '+85299999999' },
       PHONE,
@@ -36,7 +37,32 @@ describe('parseWebFormSubmission', () => {
     )
 
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.submission.clientWhatsapp).toBe(PHONE)
+    if (result.ok) expect(result.submission.clientWhatsapp).toBe('+85299999999')
+  })
+
+  // The field ships prefilled with the token's phone, so an empty one means
+  // the customer cleared it — a better answer than rejecting the enquiry.
+  it.each([[undefined], [''], ['   ']])(
+    'falls back to the token phone when the body value is %s',
+    (value) => {
+      const result = parseWebFormSubmission(
+        { clientName: '陳大文', topic: '訂座查詢', clientWhatsapp: value },
+        PHONE,
+        TOPICS
+      )
+
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.submission.clientWhatsapp).toBe(PHONE)
+    }
+  )
+
+  it('rejects an over-long callback number', () => {
+    const result = parseWebFormSubmission(
+      { clientName: '陳大文', topic: '訂座查詢', clientWhatsapp: '9'.repeat(31) },
+      PHONE,
+      TOPICS
+    )
+    expect(result).toEqual({ ok: false, reason: 'clientWhatsapp_too_long' })
   })
 
   it('trims whitespace on the accepted fields', () => {
@@ -81,11 +107,11 @@ describe('parseWebFormSubmission', () => {
 })
 
 describe('WEB_FORM_POST_KEYS', () => {
-  it('is the Flow submission keys minus the one the client may never supply', () => {
-    expect(WEB_FORM_POST_KEYS).toEqual(
-      CONTACT_FORM_SUBMISSION_KEYS.filter((k) => k !== 'clientWhatsapp')
-    )
-    expect(WEB_FORM_POST_KEYS).not.toContain('clientWhatsapp')
+  // The web form and the Flow must collect the same three fields, or the two
+  // channels produce different enquiries for the same tenant.
+  it('is exactly the Flow submission keys', () => {
+    expect(WEB_FORM_POST_KEYS).toEqual(CONTACT_FORM_SUBMISSION_KEYS)
+    expect(WEB_FORM_POST_KEYS).toContain('clientWhatsapp')
   })
 })
 

@@ -29,16 +29,24 @@ export const CONTACT_FORM_TOKEN_TTL_MS = 30 * 60 * 1000
 export type ContactTokenState = 'valid' | 'expired' | 'consumed' | 'unknown'
 
 export const CLIENT_NAME_MAX_LEN = 60
+export const CLIENT_PHONE_MAX_LEN = 30
 
 /**
  * Parse a web form POST body into the SAME domain type the Flow path
  * produces, so notification/email formatting stays single-sourced.
  *
- * `clientWhatsapp` is NOT taken from the body: it is derived server-side from
- * the token, which is the only authenticated fact about a public web
- * submission. A body value for it is accepted and ignored rather than
- * rejected, so a stale or tampered field can never change who the enquiry
- * appears to come from.
+ * `clientWhatsapp` IS taken from the body, matching the Flow's editable phone
+ * TextInput. The number a customer wants to be called back on is not
+ * necessarily the one they happen to be messaging from — a shared phone, a
+ * work line, a relative's handset — and `buildContactEmail` already exists to
+ * flag the difference (⚠️ 填寫號碼與傳送號碼不同). An earlier cut derived this
+ * field from the token instead, which forced the two equal and made that
+ * mismatch marker unreachable dead code.
+ *
+ * This costs nothing in trust: the AUTHENTICATED sender still comes from the
+ * token and is reported separately as `senderWaId`. The typed value is
+ * declared contact information, exactly as it is on the Flow — never an
+ * identity claim.
  */
 export type ParsedWebFormSubmission =
   | { ok: true; submission: ContactFormSubmission }
@@ -66,6 +74,15 @@ export function parseWebFormSubmission(
     return { ok: false, reason: 'clientName_too_long' }
   }
 
+  // Falls back to the token's phone rather than failing when absent: the field
+  // is prefilled with exactly that value, so an empty one means the customer
+  // cleared it, and the number they messaged from is a better answer than
+  // rejecting the whole enquiry. Bounded because it reaches an inbox.
+  const clientWhatsapp = cleanString(record.clientWhatsapp) ?? tokenPhone
+  if (clientWhatsapp.length > CLIENT_PHONE_MAX_LEN) {
+    return { ok: false, reason: 'clientWhatsapp_too_long' }
+  }
+
   const topic = cleanString(record.topic)
   if (!topic) return { ok: false, reason: 'missing_topic' }
   // Closed set, not free text: the topic reaches the restaurant's inbox, and
@@ -76,18 +93,16 @@ export function parseWebFormSubmission(
     return { ok: false, reason: 'topic_not_allowed' }
   }
 
-  return { ok: true, submission: { clientName, clientWhatsapp: tokenPhone, topic } }
+  return { ok: true, submission: { clientName, clientWhatsapp, topic } }
 }
 
 /**
- * Keys the web form posts. Exported so the page, the parser, and their tests
- * agree by construction — the same reason `CONTACT_FORM_SUBMISSION_KEYS`
- * exists for the Flow JSON contract. `clientWhatsapp` is intentionally absent:
- * it is never posted.
+ * Keys the web form posts — the same three the Flow's Footer payload carries,
+ * so the two channels stay in lockstep. Exported so the page, the parser, and
+ * their tests agree by construction, the same reason
+ * `CONTACT_FORM_SUBMISSION_KEYS` exists for the Flow JSON contract.
  */
-export const WEB_FORM_POST_KEYS = CONTACT_FORM_SUBMISSION_KEYS.filter(
-  (key) => key !== 'clientWhatsapp'
-)
+export const WEB_FORM_POST_KEYS = CONTACT_FORM_SUBMISSION_KEYS
 
 /**
  * Build the public URL for an issued token.

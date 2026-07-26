@@ -10,11 +10,21 @@ export interface ContactFormSubmission {
   topic: string
 }
 
+/**
+ * Deliberately carries NO tenant identity (name / WhatsApp number). The
+ * notification is sent to one tenant's own configured address, so naming the
+ * restaurant back to itself is noise in every line it appears — including the
+ * subject, which read "[OhMyClient] 新客戶查詢 — OhMyClient" for a tenant whose
+ * name matches the product's.
+ */
 export interface ContactEmailContext {
   senderWaId: string
+  /**
+   * The customer's name as WE know it, independent of what they typed:
+   * the WhatsApp profile name on the Flow path, the member record on the web
+   * path. Optional because a non-member with no profile name has neither.
+   */
   contactName?: string
-  restaurantName: string
-  restaurantWhatsappNumber: string
   timestamp: Date
   messageId: string
 }
@@ -52,8 +62,7 @@ function whatsappContextSection(context: ContactEmailContext, marker: string): s
   return [
     'WhatsApp 對話資訊:',
     `傳送訊息的 WhatsApp 號碼: ${context.senderWaId}${marker}`,
-    `WhatsApp 個人資料名稱: ${context.contactName ?? '(未提供)'}`,
-    `餐廳: ${context.restaurantName} (${context.restaurantWhatsappNumber})`,
+    `客戶名稱: ${context.contactName ?? '(未提供)'}`,
     `提交時間: ${formatHkTimestamp(context.timestamp)}`,
     `WhatsApp 訊息 ID: ${context.messageId}`,
   ].join('\n')
@@ -68,7 +77,7 @@ export function buildContactEmail(
   const marker = isMismatch ? ` ${MISMATCH_MARKER}` : ''
 
   return {
-    subject: `[OhMyClient] 新客戶查詢 — ${context.restaurantName}`,
+    subject: '新客戶查詢',
     text: [
       submittedFieldsSection(submission, marker),
       '',

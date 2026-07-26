@@ -37,7 +37,7 @@ describe('rejectMarketingOptin', () => {
     vi.clearAllMocks()
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-1',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: null,
     })
     vi.mocked(emitEvent).mockResolvedValue('evt-1')

@@ -55,7 +55,7 @@ describe('maybeHandleLanguageCommand', () => {
   it('existing member + LANG EN → persists en + replies in EN', async () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-1',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: 'zh_hk',
     })
 
@@ -76,7 +76,7 @@ describe('maybeHandleLanguageCommand', () => {
   it('existing member + 語言 中文 → persists zh_hk + replies in ZH', async () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-2',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: 'en',
     })
 

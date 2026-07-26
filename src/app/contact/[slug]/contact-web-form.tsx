@@ -7,17 +7,20 @@
  * values the WhatsApp Flow binds — so a tenant who customised their Flow copy
  * sees that copy here too.
  *
- * The customer's phone number is deliberately NOT an input and is never
- * posted: the server derives it from the one-off token, which is the only
- * authenticated fact about a public web submission. It is shown read-only so
- * the customer can see which number the reply will go to.
+ * Three inputs, matching the Flow exactly: name, WhatsApp number, topic. The
+ * number is PREFILLED from the one-off token but editable, because the number
+ * a customer wants to be called back on is not necessarily the one they
+ * happen to be messaging from. The authenticated sender is still the token's
+ * phone and is reported separately in the notification, which flags any
+ * difference (⚠️ 填寫號碼與傳送號碼不同) — a marker an earlier cut of this form
+ * made unreachable by dropping the field and forcing the two equal.
  */
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { ContactLabels } from '@/domain/services/contact-config'
-import { CLIENT_NAME_MAX_LEN } from '@/domain/services/contact-web-form'
+import { CLIENT_NAME_MAX_LEN, CLIENT_PHONE_MAX_LEN } from '@/domain/services/contact-web-form'
 
 type Phase = 'form' | 'submitting' | 'done' | 'dismissed'
 
@@ -28,6 +31,7 @@ export function ContactWebForm({
   logoUrl,
   labels,
   topics,
+  prefillPhone,
   retryUrl,
   returnUrl,
 }: {
@@ -37,11 +41,13 @@ export function ContactWebForm({
   logoUrl: string | null
   labels: ContactLabels
   topics: string[]
+  prefillPhone: string
   retryUrl: string | null
   returnUrl: string | null
 }) {
   const [phase, setPhase] = useState<Phase>('form')
   const [clientName, setClientName] = useState('')
+  const [clientWhatsapp, setClientWhatsapp] = useState(prefillPhone)
   const [topic, setTopic] = useState(topics[0] ?? '')
   const [error, setError] = useState('')
   // A token rejected at submit time (expired between load and submit, or
@@ -52,7 +58,7 @@ export function ContactWebForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!clientName.trim() || !topic) {
+    if (!clientName.trim() || !clientWhatsapp.trim() || !topic) {
       setError('請填寫所有欄位。')
       return
     }
@@ -62,7 +68,12 @@ export function ContactWebForm({
       const res = await fetch(`/api/contact/${encodeURIComponent(slug)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, clientName: clientName.trim(), topic }),
+        body: JSON.stringify({
+          token,
+          clientName: clientName.trim(),
+          clientWhatsapp: clientWhatsapp.trim(),
+          topic,
+        }),
       })
 
       if (res.ok) {
@@ -142,6 +153,18 @@ export function ContactWebForm({
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               maxLength={CLIENT_NAME_MAX_LEN}
+              required
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            {labels.phoneLabel}
+            <Input
+              type="tel"
+              inputMode="tel"
+              value={clientWhatsapp}
+              onChange={(e) => setClientWhatsapp(e.target.value)}
+              maxLength={CLIENT_PHONE_MAX_LEN}
               required
             />
           </label>

@@ -175,7 +175,7 @@ describe('routeMessage — WONB-007 inbound-first opt-in', () => {
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-1',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: null,
     })
     vi.mocked(findActiveConsent).mockResolvedValue(null)
