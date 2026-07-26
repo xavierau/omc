@@ -7,6 +7,11 @@ export interface InboundMessage {
   imageId?: string
   timestamp: string
   contactName?: string
+  // REPLY-005: WhatsApp Flow (nfm_reply) submission carrier. Populated by
+  // the kapso adapter's `KapsoMessage` (`webhook-parser.ts`) when the
+  // interactive message is a flow response; `type` stays 'interactive'.
+  flowResponse?: Record<string, unknown>
+  flowToken?: string
 }
 
 // 'critical' was added in WAQ-003 for policy-violation alerts (132xxx codes

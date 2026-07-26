@@ -60,3 +60,21 @@ export function sendCtaUrlButton(
     phoneNumberId, to, bodyText, displayText, url, footerText
   )
 }
+
+export function sendInteractiveFlow(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  params: {
+    flowId: string
+    flowCta: string
+    flowToken: string
+    screen: string
+    data: Record<string, unknown>
+  },
+  footerText?: string
+): Promise<SendResult> {
+  return getMessagingProvider().sendInteractiveFlow(
+    phoneNumberId, to, bodyText, params, footerText
+  )
+}

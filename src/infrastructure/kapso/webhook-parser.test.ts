@@ -164,6 +164,51 @@ describe('parseKapsoWebhook', () => {
       expect(result!.type).toBe('interactive')
       expect(result!.text).toBe('list-1')
     })
+
+    // Regression (code review H1): a stray `kapso.flow_response` on a
+    // non-flow interactive message must NOT hijack the message into the
+    // flow-submission path. Only an `nfm_reply` signal on `interactive`
+    // may populate `flowResponse` — see `hasNfmReplySignal` in
+    // webhook-parser.ts.
+    it('button_reply with a stray kapso.flow_response:{} still routes as a button reply, flowResponse undefined', () => {
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.btn-kapso',
+          type: 'interactive',
+          interactive: { button_reply: { id: 'btn-1' } },
+          kapso: { flow_response: {} },
+          timestamp: '1774685162',
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('interactive')
+      expect(result!.text).toBe('btn-1')
+      expect(result!.flowResponse).toBeUndefined()
+    })
+
+    it('list_reply with a stray kapso.flow_response:{} still routes as a list reply, flowResponse undefined', () => {
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.list-kapso',
+          type: 'interactive',
+          interactive: { list_reply: { id: 'list-1' } },
+          kapso: { flow_response: {} },
+          timestamp: '1774685162',
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('interactive')
+      expect(result!.text).toBe('list-1')
+      expect(result!.flowResponse).toBeUndefined()
+    })
   })
 
   describe('button template tap (CAMP-001 claim button)', () => {
@@ -414,6 +459,149 @@ describe('parseKapsoWebhook', () => {
 
       expect(result).not.toBeNull()
       expect(result!.text).toBe('plain string')
+    })
+  })
+
+  describe('WhatsApp Flow submission (nfm_reply) — REPLY-005 AD-7', () => {
+    function metaNfmReplyPayload(interactive: Record<string, unknown>) {
+      return {
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      from: '85266281556',
+                      id: 'wamid.nfm',
+                      type: 'interactive',
+                      interactive,
+                      timestamp: '1774685162',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }
+    }
+
+    it('Meta envelope: decodes response_json into flowResponse and reads flow_token from it', () => {
+      const submission = {
+        clientName: 'Xavier',
+        clientWhatsapp: '85291234567',
+        topic: '訂座查詢',
+        flow_token: 'cf.v1.rid-1.abc123',
+      }
+      const payload = metaNfmReplyPayload({
+        type: 'nfm_reply',
+        nfm_reply: {
+          name: 'flow',
+          body: 'Sent',
+          response_json: JSON.stringify(submission),
+        },
+      })
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('interactive')
+      expect(result!.flowResponse).toEqual(submission)
+      expect(result!.flowToken).toBe('cf.v1.rid-1.abc123')
+    })
+
+    it('malformed response_json → flowResponse undefined, does not throw', () => {
+      const payload = metaNfmReplyPayload({
+        type: 'nfm_reply',
+        nfm_reply: {
+          name: 'flow',
+          body: 'Sent',
+          response_json: '{not valid json',
+        },
+      })
+
+      let result: ReturnType<typeof parseKapsoWebhook>
+      expect(() => {
+        result = parseKapsoWebhook(payload)
+      }).not.toThrow()
+
+      expect(result!).not.toBeNull()
+      expect(result!.flowResponse).toBeUndefined()
+      expect(result!.flowToken).toBeUndefined()
+    })
+
+    it('response_json parses to a non-object (array) → flowResponse undefined, does not throw', () => {
+      const payload = metaNfmReplyPayload({
+        type: 'nfm_reply',
+        nfm_reply: { name: 'flow', body: 'Sent', response_json: '[]' },
+      })
+
+      expect(() => parseKapsoWebhook(payload)).not.toThrow()
+      const result = parseKapsoWebhook(payload)
+      expect(result!.flowResponse).toBeUndefined()
+    })
+
+    it('response_json parses to a non-object (number) → flowResponse undefined, does not throw', () => {
+      const payload = metaNfmReplyPayload({
+        type: 'nfm_reply',
+        nfm_reply: { name: 'flow', body: 'Sent', response_json: '3' },
+      })
+
+      expect(() => parseKapsoWebhook(payload)).not.toThrow()
+      const result = parseKapsoWebhook(payload)
+      expect(result!.flowResponse).toBeUndefined()
+    })
+
+    // Code review H1: the Kapso fallback is gated on the same nfm_reply
+    // signal as the raw path (`hasNfmReplySignal`) — it fires when the
+    // signal says "this is a flow submission" but the raw `response_json`
+    // didn't yield a value, NOT on the mere presence of `kapso.flow_response`
+    // anywhere on the message (that was the ungated-hijack bug).
+    it('Kapso flat format: falls back to kapso.flow_response when the nfm_reply signal is present but response_json is absent', () => {
+      const flowResponse = {
+        clientName: 'Xavier',
+        clientWhatsapp: '85291234567',
+        topic: '其他查詢',
+      }
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.kapso-nfm',
+          type: 'interactive',
+          interactive: { type: 'nfm_reply' },
+          timestamp: '1774685162',
+          kapso: {
+            flow_response: flowResponse,
+            flow_token: 'cf.v1.rid-2.def456',
+          },
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.flowResponse).toEqual(flowResponse)
+      expect(result!.flowToken).toBe('cf.v1.rid-2.def456')
+    })
+
+    it('non-flow message: flowResponse and flowToken stay undefined', () => {
+      const payload = {
+        message: {
+          from: '85266281556',
+          id: 'wamid.plain',
+          type: 'text',
+          text: { body: 'hi' },
+          timestamp: '1774685162',
+        },
+      }
+
+      const result = parseKapsoWebhook(payload)
+
+      expect(result).not.toBeNull()
+      expect(result!.flowResponse).toBeUndefined()
+      expect(result!.flowToken).toBeUndefined()
     })
   })
 })
