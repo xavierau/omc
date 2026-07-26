@@ -7,13 +7,18 @@
  * values the WhatsApp Flow binds — so a tenant who customised their Flow copy
  * sees that copy here too.
  *
- * Three inputs, matching the Flow exactly: name, WhatsApp number, topic. The
- * number is PREFILLED from the one-off token but editable, because the number
- * a customer wants to be called back on is not necessarily the one they
- * happen to be messaging from. The authenticated sender is still the token's
- * phone and is reported separately in the notification, which flags any
- * difference (⚠️ 填寫號碼與傳送號碼不同) — a marker an earlier cut of this form
- * made unreachable by dropping the field and forcing the two equal.
+ * Three inputs, matching the Flow: name, WhatsApp number, topic.
+ *
+ * The number starts EMPTY and the customer types it. It is deliberately not
+ * prefilled from the token: a prefilled number is the one people accept
+ * without reading, so the field would mostly echo the sending handset back —
+ * exactly the value the notification already reports as `senderWaId`. Asking
+ * for it makes the answer a deliberate one, which is the point of collecting
+ * a callback number at all, and any difference from the sender is flagged in
+ * the email (⚠️ 填寫號碼與傳送號碼不同).
+ *
+ * A consequence worth keeping: the customer's phone number is now absent from
+ * the page entirely — not in the URL, and not in the rendered HTML.
  */
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +36,6 @@ export function ContactWebForm({
   logoUrl,
   labels,
   topics,
-  prefillPhone,
   retryUrl,
   returnUrl,
 }: {
@@ -41,13 +45,12 @@ export function ContactWebForm({
   logoUrl: string | null
   labels: ContactLabels
   topics: string[]
-  prefillPhone: string
   retryUrl: string | null
   returnUrl: string | null
 }) {
   const [phase, setPhase] = useState<Phase>('form')
   const [clientName, setClientName] = useState('')
-  const [clientWhatsapp, setClientWhatsapp] = useState(prefillPhone)
+  const [clientWhatsapp, setClientWhatsapp] = useState('')
   const [topic, setTopic] = useState(topics[0] ?? '')
   const [error, setError] = useState('')
   // A token rejected at submit time (expired between load and submit, or
