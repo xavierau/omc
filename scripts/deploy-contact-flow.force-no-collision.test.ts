@@ -13,7 +13,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/kapso/template-client')
 
-const mockDeploy = vi.fn()
+const mockCreate = vi.fn()
+const mockPublish = vi.fn()
 const mockDeprecate = vi.fn()
 vi.mock('@kapso/whatsapp-cloud-api', async () => {
   const actual = await vi.importActual<typeof import('@kapso/whatsapp-cloud-api')>(
@@ -22,7 +23,7 @@ vi.mock('@kapso/whatsapp-cloud-api', async () => {
   return {
     ...actual,
     WhatsAppClient: class {
-      flows = { deploy: mockDeploy, deprecate: mockDeprecate }
+      flows = { create: mockCreate, publish: mockPublish, deprecate: mockDeprecate }
     },
   }
 })
@@ -49,9 +50,10 @@ describe('forceDeploy — real flow-client, no name collision across repeated up
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('stored-waba')
     vi.mocked(updateMetaBusinessAccountId).mockResolvedValue(undefined)
     vi.mocked(updateContactFlowId).mockResolvedValue(undefined)
-    mockDeploy.mockImplementation(async (_flowJson, options: { name: string }) => ({
-      flowId: `flow-${options.name}`,
+    mockCreate.mockImplementation(async (options: { name: string }) => ({
+      id: `flow-${options.name}`,
     }))
+    mockPublish.mockResolvedValue(undefined)
     mockDeprecate.mockResolvedValue(undefined)
   })
 
@@ -70,9 +72,9 @@ describe('forceDeploy — real flow-client, no name collision across repeated up
     const second = await forceDeploy(RESTAURANT_ID, KAPSO_API_KEY)
 
     expect(second.ok).toBe(true)
-    expect(mockDeploy).toHaveBeenCalledTimes(2)
-    const firstName = mockDeploy.mock.calls[0][1].name
-    const secondName = mockDeploy.mock.calls[1][1].name
+    expect(mockCreate).toHaveBeenCalledTimes(2)
+    const firstName = mockCreate.mock.calls[0][0].name
+    const secondName = mockCreate.mock.calls[1][0].name
     expect(firstName).not.toBe(secondName)
     expect(mockDeprecate).toHaveBeenCalledTimes(1)
   })

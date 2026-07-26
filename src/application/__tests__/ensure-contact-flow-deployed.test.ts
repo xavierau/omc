@@ -81,7 +81,7 @@ describe('ensureContactFlowDeployed', () => {
 
     const result = await ensureContactFlowDeployed(RESTAURANT_ID)
 
-    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba')
+    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba', 'phone-1')
     expect(result).toEqual({ ok: true, flowId: 'flow-new', created: true })
     expect(console.warn).toHaveBeenCalledWith(
       '[ContactFlow] contact_flow.waba_mismatch',
@@ -165,7 +165,7 @@ describe('ensureContactFlowDeployed', () => {
 
     const result = await ensureContactFlowDeployed(RESTAURANT_ID)
 
-    expect(deprecateContactFlow).toHaveBeenCalledWith('flow-loser')
+    expect(deprecateContactFlow).toHaveBeenCalledWith('flow-loser', 'phone-1')
     expect(result).toEqual({ ok: true, flowId: 'flow-winner', created: false })
   })
 
@@ -242,7 +242,7 @@ describe('resolveWaba', () => {
 
     const result = await resolveWaba(RESTAURANT_ID)
 
-    expect(result).toBe('derived-waba')
+    expect(result).toEqual({ wabaId: 'derived-waba', phoneNumberId: 'phone-1' })
     expect(updateMetaBusinessAccountId).toHaveBeenCalledWith(RESTAURANT_ID, 'derived-waba')
     expect(console.warn).not.toHaveBeenCalled()
   })
@@ -253,7 +253,7 @@ describe('resolveWaba', () => {
 
     const result = await resolveWaba(RESTAURANT_ID)
 
-    expect(result).toBe('derived-waba')
+    expect(result).toEqual({ wabaId: 'derived-waba', phoneNumberId: 'phone-1' })
     expect(updateMetaBusinessAccountId).not.toHaveBeenCalled()
     expect(console.warn).toHaveBeenCalledWith(
       '[ContactFlow] contact_flow.waba_mismatch',
@@ -267,7 +267,7 @@ describe('resolveWaba', () => {
 
     const result = await resolveWaba(RESTAURANT_ID)
 
-    expect(result).toBe('same-waba')
+    expect(result).toEqual({ wabaId: 'same-waba', phoneNumberId: 'phone-1' })
     expect(updateMetaBusinessAccountId).not.toHaveBeenCalled()
     expect(console.warn).not.toHaveBeenCalled()
   })
@@ -289,7 +289,7 @@ describe('resolveWaba', () => {
 
     const result = await resolveWaba(RESTAURANT_ID)
 
-    expect(result).toBe('derived-waba')
+    expect(result).toEqual({ wabaId: 'derived-waba', phoneNumberId: 'phone-1' })
     expect(updateMetaBusinessAccountId).toHaveBeenCalledWith(RESTAURANT_ID, 'derived-waba')
   })
 })
