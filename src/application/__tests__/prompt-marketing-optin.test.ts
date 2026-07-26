@@ -44,7 +44,7 @@ import { ConsentRecord } from '@/domain/entities/consent-record'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
-const MEMBER = { id: 'm-1', pointsBalance: 0, preferredLanguage: null }
+const MEMBER = { id: 'm-1', name: null, pointsBalance: 0, preferredLanguage: null }
 const TEMPLATE: WhatsAppTemplate = {
   id: 't-default',
   restaurantId: 'r-1',

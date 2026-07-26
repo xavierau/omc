@@ -44,9 +44,12 @@ export default async function ContactFormPage({
   const { whatsappNumber } = await getRestaurantEmailContext(restaurant.id)
   const retryUrl = whatsappNumber ? buildContactUrl(whatsappNumber, CONTACT_KEYWORD) : null
 
-  const state = token ? (await peekContactFormToken(token)).state : 'unknown'
+  const peeked = token
+    ? await peekContactFormToken(token)
+    : { state: 'unknown' as const, owner: null }
+  const { state, owner } = peeked
 
-  if (state !== 'valid' || !token) {
+  if (state !== 'valid' || !token || !owner) {
     return (
       <Shell>
         <ContactFormUnavailable
@@ -70,6 +73,11 @@ export default async function ContactFormPage({
         logoUrl={restaurant.logo_url}
         labels={config.labels}
         topics={config.topics}
+        // The sender's own number, prefilled into the editable phone field —
+        // the same prefill the Flow does via its Form init-values. It reaches
+        // the browser only inside the page body for the holder of a one-off
+        // link, never in the URL.
+        prefillPhone={owner.phone}
         retryUrl={retryUrl}
         returnUrl={whatsappNumber ? buildContactUrl(whatsappNumber) : null}
       />

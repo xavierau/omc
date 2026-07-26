@@ -101,7 +101,7 @@ describe('handleContactFormSubmission', () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'owner@example.com',
-        subject: expect.stringContaining('Demo Cafe'),
+        subject: '新客戶查詢',
         text: expect.stringContaining('Alice'),
       })
     )

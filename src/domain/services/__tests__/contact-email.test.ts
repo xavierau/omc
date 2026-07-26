@@ -10,16 +10,18 @@ const SUBMISSION = {
 const CONTEXT = {
   senderWaId: '85291234567',
   contactName: 'Tai Man Chan',
-  restaurantName: 'Cafe Latte',
-  restaurantWhatsappNumber: '+852 2345 6789',
   timestamp: new Date('2026-07-26T10:30:00Z'),
   messageId: 'wamid.HBgLODUyOTEyMzQ1NjcVAgARGBI',
 }
 
 describe('buildContactEmail', () => {
-  it('sets the subject with the restaurant name', () => {
+  // The notification goes to one tenant's own configured address, so naming
+  // the restaurant back to itself is noise — it read
+  // "[OhMyClient] 新客戶查詢 — OhMyClient" for a tenant whose name matches the
+  // product's.
+  it('uses a plain subject carrying no tenant identity', () => {
     const { subject } = buildContactEmail(SUBMISSION, CONTEXT)
-    expect(subject).toBe('[OhMyClient] 新客戶查詢 — Cafe Latte')
+    expect(subject).toBe('新客戶查詢')
   })
 
   it('includes every submitted field', () => {
@@ -33,12 +35,15 @@ describe('buildContactEmail', () => {
     const { text } = buildContactEmail(SUBMISSION, CONTEXT)
     expect(text).toContain('85291234567')
     expect(text).toContain('Tai Man Chan')
-    expect(text).toContain('Cafe Latte')
-    expect(text).toContain('+852 2345 6789')
     expect(text).toContain('wamid.HBgLODUyOTEyMzQ1NjcVAgARGBI')
     // HK-local rendering of 2026-07-26T10:30:00Z => 2026-07-26 18:30 HKT
     expect(text).toContain('2026-07-26')
     expect(text).toContain('18:30')
+  })
+
+  it('names no restaurant anywhere in the body', () => {
+    const { text } = buildContactEmail(SUBMISSION, CONTEXT)
+    expect(text).not.toContain('餐廳')
   })
 
   it('omits the profile name gracefully when not provided', () => {
