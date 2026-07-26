@@ -115,13 +115,14 @@ export async function findMemberByPhone(
   phone: string
 ): Promise<{
   id: string
+  name: string | null
   pointsBalance: number
   preferredLanguage: string | null
 } | null> {
   const supabase = createServerSupabaseClient()
   const { data } = await supabase
     .from('members')
-    .select('id, points_balance, preferred_language')
+    .select('id, name, points_balance, preferred_language')
     .eq('restaurant_id', restaurantId)
     .eq('phone', phone)
     .single()
@@ -129,6 +130,10 @@ export async function findMemberByPhone(
   if (!data) return null
   return {
     id: data.id,
+    // Selected so the contact-us notification can name a customer we already
+    // know: a web-form submission has no WhatsApp profile name to fall back
+    // on, and reporting "(未提供)" for an existing member is simply wrong.
+    name: (data.name as string | null) ?? null,
     pointsBalance: data.points_balance,
     preferredLanguage: (data.preferred_language as string | null) ?? null,
   }

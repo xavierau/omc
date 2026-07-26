@@ -13,9 +13,9 @@
  */
 import {
   getContactConfig,
-  getRestaurantEmailContext,
   getRestaurantPhoneNumberId,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { consumeContactFormToken } from '@/infrastructure/supabase/repositories/contact-form-token-repository'
 import { getEmailProvider } from '@/infrastructure/email/provider-factory'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
@@ -54,11 +54,12 @@ export async function submitContactWebForm(
     return { ok: false, reason: 'invalid_submission', detail: parsed.reason }
   }
 
-  const restaurant = await getRestaurantEmailContext(owner.restaurantId)
   const { subject, text } = buildContactEmail(parsed.submission, {
     senderWaId: owner.phone,
-    restaurantName: restaurant.name,
-    restaurantWhatsappNumber: restaurant.whatsappNumber ?? '',
+    // A web submission has no WhatsApp profile name to carry, but the sender
+    // is very often an existing member — so name them from our own records
+    // rather than reporting "(未提供)" about someone we already know.
+    contactName: await resolveContactName(owner.restaurantId, owner.phone),
     timestamp: new Date(),
     // No WhatsApp message id exists for a web submission — the enquiry did not
     // arrive as a message. Labelled rather than blanked so a restaurant
@@ -77,6 +78,19 @@ export async function submitContactWebForm(
 
   await sendAckBestEffort(owner.restaurantId, owner.phone, config.ackText)
   return { ok: true }
+}
+
+/** Best-effort: an unknown sender is simply an unnamed one, never an error. */
+async function resolveContactName(
+  restaurantId: string,
+  phone: string
+): Promise<string | undefined> {
+  try {
+    const member = await findMemberByPhone(restaurantId, phone)
+    return member?.name ?? undefined
+  } catch {
+    return undefined
+  }
 }
 
 /**
