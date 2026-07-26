@@ -49,7 +49,7 @@ describe('deployContactFlow', () => {
     expect(mockDeploy).not.toHaveBeenCalled()
   })
 
-  it('deploys with no flowId option so each WABA gets a freshly created flow', async () => {
+  it('deploys with no flowId option, using a name that carries the identifiable prefix', async () => {
     vi.stubEnv('KAPSO_API_KEY', 'test-key')
     mockDeploy.mockResolvedValue({ flowId: 'flow-123' })
     const { deployContactFlow } = await importClient()
@@ -59,12 +59,74 @@ describe('deployContactFlow', () => {
     expect(result).toEqual({ ok: true, flowId: 'flow-123' })
     expect(mockDeploy).toHaveBeenCalledTimes(1)
     const [, options] = mockDeploy.mock.calls[0]
-    expect(options).toMatchObject({
-      name: 'ohmyclient_contact_form',
-      wabaId: 'waba-1',
-      publish: true,
-    })
+    expect(options).toMatchObject({ wabaId: 'waba-1', publish: true })
+    expect(options.name).toMatch(/^ohmyclient_contact_form_/)
     expect(options.flowId).toBeUndefined()
+  })
+
+  it('requests a different name on each successive create — a collision is structurally impossible', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    mockDeploy.mockResolvedValue({ flowId: 'flow-123' })
+    const { deployContactFlow } = await importClient()
+
+    await deployContactFlow('waba-1')
+    await deployContactFlow('waba-1')
+
+    expect(mockDeploy).toHaveBeenCalledTimes(2)
+    const firstName = mockDeploy.mock.calls[0][1].name
+    const secondName = mockDeploy.mock.calls[1][1].name
+    expect(firstName).toMatch(/^ohmyclient_contact_form_/)
+    expect(secondName).toMatch(/^ohmyclient_contact_form_/)
+    expect(firstName).not.toBe(secondName)
+  })
+
+  it('maps a Meta name-uniqueness collision to a clear, actionable failure Result, never throwing', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    const { GraphApiError } = await vi.importActual<typeof import('@kapso/whatsapp-cloud-api')>(
+      '@kapso/whatsapp-cloud-api'
+    )
+    const collisionError = new GraphApiError({
+      message: 'Flow name is not unique',
+      httpStatus: 400,
+      code: 100,
+      type: 'OAuthException',
+      category: 'parameter',
+      retry: { action: 'fix_and_retry' },
+      raw: {},
+    })
+    mockDeploy.mockRejectedValue(collisionError)
+    const { deployContactFlow } = await importClient()
+
+    const result = await deployContactFlow('waba-1')
+
+    expect(result.ok).toBe(false)
+    expect(result.flowId).toBeNull()
+    expect(result.error?.title).toBe('flow_name_not_unique')
+    expect(result.error?.details).toMatch(/retry/i)
+    expect(result.error?.details).not.toMatch(/is not unique/i)
+  })
+
+  it('does not misclassify an unrelated code-100 parameter error as a name collision', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    const { GraphApiError } = await vi.importActual<typeof import('@kapso/whatsapp-cloud-api')>(
+      '@kapso/whatsapp-cloud-api'
+    )
+    const unrelatedError = new GraphApiError({
+      message: 'Invalid parameter',
+      httpStatus: 400,
+      code: 100,
+      type: 'OAuthException',
+      category: 'parameter',
+      retry: { action: 'fix_and_retry' },
+      raw: {},
+    })
+    mockDeploy.mockRejectedValue(unrelatedError)
+    const { deployContactFlow } = await importClient()
+
+    const result = await deployContactFlow('waba-1')
+
+    expect(result.error?.title).toBe('flow_deploy_error')
+    expect(result.error?.details).toBe('Invalid parameter')
   })
 
   it('returns ok:false with validationErrors when Meta rejects the Flow JSON', async () => {

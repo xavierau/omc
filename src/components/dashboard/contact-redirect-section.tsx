@@ -44,6 +44,18 @@ export function shouldShowDeployWarning(
   return saved && deployWarning !== null
 }
 
+/**
+ * Selects the i18n key (and any interpolation values) for the deploy-warning
+ * banner. `readDeployWarning` returns `''` when `flowDeploy.ok:false` carries
+ * no `error` text — that's still a failed deploy the admin needs to see, but
+ * with nothing to interpolate it renders a detail-less generic message
+ * instead of a message with a dangling `()`.
+ */
+export function deployWarningMessageArgs(deployWarning: string): { key: string; values?: { error: string } } {
+  const trimmed = deployWarning.trim()
+  return trimmed === '' ? { key: 'contactFlowDeployFailedGeneric' } : { key: 'contactFlowDeployFailed', values: { error: trimmed } }
+}
+
 /** Both `/contact-redirect` and `/contact-config` PATCH routes return `{ error: string }` on failure. */
 export async function firstErrorDetail(res: Response): Promise<string | null> {
   try {
@@ -82,6 +94,7 @@ export function ContactRedirectSection({
   const trimmedNumber = number.trim()
   const numberInvalid = trimmedNumber !== '' && !isValidPhoneE164(trimmedNumber)
   const emailInvalid = isContactEmailInvalid(mode, notificationEmail)
+  const deployWarningMessage = deployWarning !== null ? deployWarningMessageArgs(deployWarning) : null
 
   function onModeChange(next: ContactMode) {
     setMode(next)
@@ -224,9 +237,9 @@ export function ContactRedirectSection({
             <p className="text-xs text-destructive">{error}</p>
           )}
         </div>
-        {shouldShowDeployWarning(saved, deployWarning) && (
+        {shouldShowDeployWarning(saved, deployWarning) && deployWarningMessage && (
           <p className="text-xs text-amber-600" data-testid="contact-flow-deploy-warning">
-            {t('contactFlowDeployFailed', { error: deployWarning })}
+            {t(deployWarningMessage.key, deployWarningMessage.values)}
           </p>
         )}
       </CardContent>

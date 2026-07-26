@@ -13,6 +13,7 @@ vi.mock('next-intl', () => ({
 
 import {
   ContactSettingsPanel,
+  deployWarningMessageArgs,
   firstErrorDetail,
   readDeployWarning,
   shouldShowDeployWarning,
@@ -198,5 +199,27 @@ describe('shouldShowDeployWarning', () => {
   it('is true after a save that captured a warning, including an empty-string detail', () => {
     expect(shouldShowDeployWarning(true, 'validation failed')).toBe(true)
     expect(shouldShowDeployWarning(true, '')).toBe(true)
+  })
+})
+
+// CodeRabbit (PR #72): flowDeploy.ok:false with no error field made
+// readDeployWarning return '' (not null), so the banner still rendered but
+// interpolated an empty {error} — a dangling "()" in the message. These
+// pin the key/values switch that avoids it without changing the
+// ok:false-with-no-error => '' contract of readDeployWarning above.
+describe('deployWarningMessageArgs', () => {
+  it('picks the generic detail-less key for an empty-string warning', () => {
+    expect(deployWarningMessageArgs('')).toEqual({ key: 'contactFlowDeployFailedGeneric' })
+  })
+
+  it('picks the generic detail-less key for a whitespace-only warning', () => {
+    expect(deployWarningMessageArgs('   ')).toEqual({ key: 'contactFlowDeployFailedGeneric' })
+  })
+
+  it('picks the detailed key with the trimmed error when a warning has text', () => {
+    expect(deployWarningMessageArgs('validation failed')).toEqual({
+      key: 'contactFlowDeployFailed',
+      values: { error: 'validation failed' },
+    })
   })
 })

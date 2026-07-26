@@ -621,7 +621,8 @@
     "contactLabelPhone": "電話欄位文字",
     "contactLabelTopic": "主題欄位文字",
     "contactLabelSubmit": "提交按鈕文字",
-    "contactFlowDeployFailed": "已儲存，但表格尚未成功部署至 WhatsApp（{error}）。在此之前，客人會使用轉駁按鈕，請稍後再儲存一次。"
+    "contactFlowDeployFailed": "已儲存，但表格尚未成功部署至 WhatsApp（{error}）。在此之前，客人會使用轉駁按鈕，請稍後再儲存一次。",
+    "contactFlowDeployFailedGeneric": "已儲存，但表格尚未成功部署至 WhatsApp。在此之前，客人會使用轉駁按鈕，請稍後再儲存一次。"
   },
   "scan": {
     "heading": "掃描 QR 碼",

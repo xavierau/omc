@@ -10,13 +10,39 @@
 // update path — it cannot help across runs, so it plays no role here; the
 // real idempotency guard is `getContactFlowIdStrict` in the caller (AD-3
 // step 1).
+//
+// Flow names must be unique within a WABA, and a deprecated Flow permanently
+// occupies its name — reusing it returns Meta error 100, "Flow name is not
+// unique" (developers.facebook.com/docs/whatsapp/flows/reference/error-codes).
+// Nothing in this system looks a flow up by name (the id persisted to
+// `restaurants.whatsapp_contact_flow_id` is the source of truth), so
+// `generateFlowName()` mints a fresh name — identifiable prefix + timestamp +
+// random suffix — on every create. That makes a collision structurally
+// impossible: `--force` redeploys no longer collide with the flow they just
+// deprecated, and a retry after an unpersisted-but-Meta-succeeded create
+// always gets a brand-new name instead of re-hitting the same one.
 
-import { WhatsAppClient } from '@kapso/whatsapp-cloud-api'
+import { WhatsAppClient, GraphApiError } from '@kapso/whatsapp-cloud-api'
 import type { FlowValidationError } from '@kapso/whatsapp-cloud-api'
+import { randomUUID } from 'crypto'
 import flowJson from '@/infrastructure/whatsapp/flows/contact-form-flow.json'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
-const CONTACT_FLOW_NAME = 'ohmyclient_contact_form'
+const CONTACT_FLOW_NAME_PREFIX = 'ohmyclient_contact_form'
+
+/** Fresh, human-identifiable name per create attempt — see module doc above. */
+function generateFlowName(): string {
+  return `${CONTACT_FLOW_NAME_PREFIX}_${Date.now()}_${randomUUID().slice(0, 8)}`
+}
+
+/**
+ * Meta error 100 is a generic "invalid parameter" code shared by many
+ * unrelated validation failures, so the message text is also required
+ * before treating it as the specific name-collision case.
+ */
+function isFlowNameCollision(err: unknown): err is GraphApiError {
+  return err instanceof GraphApiError && err.code === 100 && /not unique/i.test(err.message)
+}
 
 // Bounds how long a stalled Meta flow-deploy round-trip can hold the caller
 // open. This use-case is invoked synchronously from an admin save (never the
@@ -44,6 +70,7 @@ export type DeployContactFlowErrorTitle =
   | 'kapso_no_api_key'
   | 'flow_validation_error'
   | 'flow_deploy_timeout'
+  | 'flow_name_not_unique'
   | 'flow_deploy_error'
 
 export interface DeployContactFlowResult {
@@ -89,7 +116,7 @@ export async function deployContactFlow(wabaId: string): Promise<DeployContactFl
 
   try {
     const result = await withTimeout(
-      client.flows.deploy(flowJson, { name: CONTACT_FLOW_NAME, wabaId, publish: true }),
+      client.flows.deploy(flowJson, { name: generateFlowName(), wabaId, publish: true }),
       DEPLOY_TIMEOUT_MS
     )
 
@@ -106,6 +133,18 @@ export async function deployContactFlow(wabaId: string): Promise<DeployContactFl
     if (err instanceof TimeoutError) {
       console.warn(`[Kapso] Flow deploy timed out after ${DEPLOY_TIMEOUT_MS}ms`)
       return { ok: false, flowId: null, error: { title: 'flow_deploy_timeout' } }
+    }
+    if (isFlowNameCollision(err)) {
+      console.warn('[Kapso] Flow name collision on create (unexpected — names are unique per attempt):', err.message)
+      return {
+        ok: false,
+        flowId: null,
+        error: {
+          title: 'flow_name_not_unique',
+          details:
+            'Meta rejected the flow name as already in use. This should not recur — retry, which will generate a new unique name automatically.',
+        },
+      }
     }
     const message = err instanceof Error ? err.message : String(err)
     console.warn('[Kapso] Error deploying contact flow:', message)
