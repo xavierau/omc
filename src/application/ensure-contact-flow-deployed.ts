@@ -37,6 +37,15 @@ import {
 } from '@/infrastructure/kapso/flow-client'
 import type { FlowValidationError } from '@kapso/whatsapp-cloud-api'
 
+/**
+ * The WABA and the phone number it was derived FROM, returned together
+ * deliberately (issue #78). Every flow-scoped Kapso route needs a phone
+ * number id to resolve a WhatsApp config, and it must be the same number the
+ * WABA came from — re-reading it separately would let a concurrent tenant
+ * edit pair a WABA with a number that no longer belongs to it.
+ */
+export type ResolvedWaba = { wabaId: string; phoneNumberId: string }
+
 export type EnsureContactFlowDeployedResult =
   | { ok: true; flowId: string; created: boolean }
   | { ok: false; error: string; validationErrors?: FlowValidationError[] }
@@ -79,17 +88,18 @@ async function runEnsureContactFlowDeployed(
 }
 
 async function deployNewFlow(restaurantId: string): Promise<EnsureContactFlowDeployedResult> {
-  const wabaId = await resolveWaba(restaurantId)
-  if (!wabaId) {
+  const resolved = await resolveWaba(restaurantId)
+  if (!resolved) {
     return { ok: false, error: 'contact_flow.no_waba_id' }
   }
 
-  const deployResult = await deployContactFlow(wabaId)
+  const { wabaId, phoneNumberId } = resolved
+  const deployResult = await deployContactFlow(wabaId, phoneNumberId)
   if (!deployResult.ok || !deployResult.flowId) {
     return { ok: false, ...describeDeployFailure(deployResult) }
   }
 
-  return persistDeployedFlow(restaurantId, deployResult.flowId)
+  return persistDeployedFlow(restaurantId, deployResult.flowId, phoneNumberId)
 }
 
 /**
@@ -103,14 +113,15 @@ async function deployNewFlow(restaurantId: string): Promise<EnsureContactFlowDep
  */
 async function persistDeployedFlow(
   restaurantId: string,
-  flowId: string
+  flowId: string,
+  phoneNumberId: string
 ): Promise<EnsureContactFlowDeployedResult> {
   const won = await updateContactFlowIdIfEmpty(restaurantId, flowId)
   if (won) {
     return { ok: true, flowId, created: true }
   }
 
-  await deprecateContactFlow(flowId)
+  await deprecateContactFlow(flowId, phoneNumberId)
   const winningFlowId = await getContactFlowId(restaurantId)
   return { ok: true, flowId: winningFlowId ?? flowId, created: false }
 }
@@ -140,7 +151,7 @@ async function persistDeployedFlow(
  * this file's module doc comment for why divergence here is a security
  * concern, not just duplication.
  */
-export async function resolveWaba(restaurantId: string): Promise<string | null> {
+export async function resolveWaba(restaurantId: string): Promise<ResolvedWaba | null> {
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
   const derived = await resolveWabaId(phoneNumberId)
   if (!derived) return null
@@ -151,5 +162,5 @@ export async function resolveWaba(restaurantId: string): Promise<string | null> 
   } else if (stored !== derived) {
     console.warn('[ContactFlow] contact_flow.waba_mismatch', { restaurantId, derived, stored })
   }
-  return derived
+  return { wabaId: derived, phoneNumberId }
 }

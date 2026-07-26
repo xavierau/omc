@@ -179,7 +179,7 @@ describe('forceDeploy', () => {
     const outcome = await forceDeploy(RESTAURANT_ID, KAPSO_API_KEY)
 
     expect(resolveWabaId).toHaveBeenCalledWith('phone-1')
-    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba')
+    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba', 'phone-1')
     expect(outcome).toEqual({ ok: true, flowId: 'flow-new' })
   })
 
@@ -197,7 +197,7 @@ describe('forceDeploy', () => {
     await forceDeploy(RESTAURANT_ID, KAPSO_API_KEY)
 
     expect(updateMetaBusinessAccountId).not.toHaveBeenCalled()
-    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba')
+    expect(deployContactFlow).toHaveBeenCalledWith('derived-waba', 'phone-1')
   })
 
   it('fails without deploying when both derived and stored WABA are unavailable', async () => {
