@@ -156,6 +156,46 @@ export async function transitionCampaignStatus(
   return (data?.length ?? 0) > 0
 }
 
+/** How long a campaign stays leased after the cron enqueues a job for it. */
+export const ENQUEUE_THROTTLE_MS = 5 * 60_000
+
+/**
+ * Take the enqueue lease on a still-`active` campaign (issue #95).
+ *
+ * Compare-and-swap, not read-then-write: the cron runs every minute and a
+ * slow tick can overlap the next one. Returns false when another tick already
+ * holds the lease, so the caller skips instead of enqueueing a duplicate.
+ *
+ * The lease expires on its own, which is the point — a campaign that fails
+ * before `executeCampaign`'s active->sending claim stays `active` and would
+ * otherwise be re-enqueued on every tick forever.
+ *
+ * Throws rather than returning false on a query error, unlike the sibling
+ * `transitionCampaignStatus` above: a swallowed error here is indistinguishable
+ * from "lease held" and would silently stop every scheduled send — which is
+ * issue #95 all over again. Migration 056 documents the same swallow costing
+ * exactly that. Let it reach the cron route, which 500s so the Forge job
+ * turns red.
+ */
+export async function claimCampaignForEnqueue(
+  id: string,
+  throttleMs: number = ENQUEUE_THROTTLE_MS
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const now = Date.now()
+  const cutoff = new Date(now - throttleMs).toISOString()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ last_enqueued_at: new Date(now).toISOString() })
+    .eq('id', id)
+    .eq('status', 'active')
+    .or(`last_enqueued_at.is.null,last_enqueued_at.lt.${cutoff}`)
+    .select('id')
+
+  if (error) throw new Error(`claimCampaignForEnqueue: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
 export async function getDueCampaigns(): Promise<Campaign[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
