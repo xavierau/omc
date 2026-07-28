@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-26",
+  "updated_at": "2026-07-28",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1425,24 +1425,6 @@
       "label": "In Progress",
       "tasks": [
         {
-          "id": "TPL-009",
-          "title": "Template status never syncs from Meta: /api/cron/sync-templates is never called in prod (#93)",
-          "description": "Prod bug #93. Two code paths can move a template out of 'pending' and neither runs: (1) the cron route /api/cron/sync-templates has NO scheduler on the Forge box (no crontab, no cron.d, no timer, no vercel.json, zero /api/cron hits across the entire retained nginx log window); (2) there is no message_template_status_update webhook handler — only message_template_quality_update is handled. So only a human pressing the dashboard sync button ever fixes a status. Meta-approved templates read as 'pending' and check-template-review.ts blocks sending on status !== 'approved', silently killing campaigns for every tenant. Victim: 釧 Kushiro offer_promotion/zh_HK (meta id 1029650636326514) stuck pending ~18 days while Meta says APPROVED. Fix is two-pronged: a fail-loud Forge Scheduled Job wrapper (scripts/cron/sync-templates.sh, */15) for guaranteed convergence, plus a message_template_status_update webhook path (new WebhookKind, WABA->tenant resolution via entry[].id, shared Meta status map) for near-real-time. Sync logic itself is correct and unchanged.",
-          "priority": "high",
-          "labels": [
-            "bug",
-            "production",
-            "whatsapp",
-            "templates",
-            "ops"
-          ],
-          "github_issue": 93,
-          "branch": "fix/issue-93-template-status-sync",
-          "workspace_artifacts": [
-            "plans/2026-07-28-tpl-009-template-status-sync"
-          ]
-        },
-        {
           "id": "WONB-008",
           "mvp_critical": true,
           "title": "Re-confirmation campaign type — Strong-grade only, hard pacing, Green-rating gate",
@@ -2557,6 +2539,27 @@
           "completed": "2026-07-16",
           "pr": 65,
           "notes": "Merged via PR #65. Does NOT fully close #64: image-header templates remain unsubmittable (TPL-004 is the blocker — needs Meta's App-level resumable upload for a 4: handle). Text-only templates now submit; image-header ones fail loudly with Meta's real reason instead of silently. Follow-ups logged: TPL-004..TPL-008, SEC-001 (cross-tenant IDOR, pre-existing, found during /review)."
+        },
+        {
+          "id": "TPL-009",
+          "title": "Template status never syncs from Meta: /api/cron/sync-templates is never called in prod (#93)",
+          "description": "Prod bug #93. Two code paths can move a template out of 'pending' and neither runs: (1) the cron route /api/cron/sync-templates has NO scheduler on the Forge box (no crontab, no cron.d, no timer, no vercel.json, zero /api/cron hits across the entire retained nginx log window); (2) there is no message_template_status_update webhook handler — only message_template_quality_update is handled. So only a human pressing the dashboard sync button ever fixes a status. Meta-approved templates read as 'pending' and check-template-review.ts blocks sending on status !== 'approved', silently killing campaigns for every tenant. Victim: 釧 Kushiro offer_promotion/zh_HK (meta id 1029650636326514) stuck pending ~18 days while Meta says APPROVED. Fix is two-pronged: a fail-loud Forge Scheduled Job wrapper (scripts/cron/sync-templates.sh, */15) for guaranteed convergence, plus a message_template_status_update webhook path (new WebhookKind, WABA->tenant resolution via entry[].id, shared Meta status map) for near-real-time. Sync logic itself is correct and unchanged.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates",
+            "ops"
+          ],
+          "github_issue": 93,
+          "branch": "fix/issue-93-template-status-sync",
+          "workspace_artifacts": [
+            "plans/2026-07-28-tpl-009-template-status-sync"
+          ],
+          "completed": "2026-07-28",
+          "pr": 94,
+          "notes": "Merged via PR #94 into main and develop. Two prongs: scripts/cron/sync-templates.sh (fail-loud Forge Scheduled Job wrapper, */15) + a real message_template_status_update webhook path (new WebhookKind, WABA->tenant rung via entry[].id, shared Meta status map in domain/services/meta-template-status.ts). Review-driven corrections: the webhook only writes cron-syncable statuses (a terminal write would drop the row out of the cron's reach permanently and a stale REJECTED after a real APPROVED would brick the template); the meta-id lookup is authoritative with no name+language fallback on a miss (a miss means a DIFFERENT Meta template); foreign-WABA entries in a batch are skipped (cross-tenant write); and template-status changes are dispatched even when a mixed batch classifies as 'status'. OPEN OPS FOLLOW-UPS, prong 1 is inert until (1) is done: (1) create the Scheduled Job in the Forge UI per deploy/README.md 'Forge Scheduled Jobs' and verify the first run returns restaurants/results JSON; (2) confirm Kushiro offer_promotion flips to approved; (3) confirm whether Kapso forwards message_template_status_update at all (evidence: webhook.kind {kind:'template_status'} log lines) — the Kapso-flat payload shapes remain unverified guesses. grok-cli-reviewer could not run (HTTP 402 quota); code-review-analyzer stood in as second lane."
         }
       ]
     },
