@@ -6,10 +6,17 @@ import {
   hasMetaQuality,
   type QualityWebhookEntry,
 } from './webhooks-quality'
+import {
+  extractTemplateStatusEvents,
+  extractTemplateStatusWabaId,
+  hasKapsoFlatTemplateStatus,
+  hasMetaTemplateStatus,
+  type TemplateStatusWebhookEntry,
+} from './webhooks-template-status'
 import type { InboundMessage, LogFn } from '@/domain/ports/whatsapp-webhooks'
 
-export { extractQualityEvent }
-export type { QualityWebhookEntry, InboundMessage, LogFn }
+export { extractQualityEvent, extractTemplateStatusEvents, extractTemplateStatusWabaId }
+export type { QualityWebhookEntry, TemplateStatusWebhookEntry, InboundMessage, LogFn }
 export type KapsoMessage = InboundMessage
 
 export function parseKapsoWebhook(
@@ -28,18 +35,27 @@ export function verifyKapsoSignature(
   return getWebhookProvider().verifySignature(body, signature, secret)
 }
 
-export type WebhookKind = 'inbound' | 'status' | 'quality' | 'other'
+export type WebhookKind =
+  | 'inbound'
+  | 'status'
+  | 'template_status'
+  | 'quality'
+  | 'other'
 
 /**
- * Pure dispatch discriminator. Status/inbound take precedence over quality
- * so a payload with mixed signals is not silently downgraded. Quality
- * helpers live in webhooks-quality.ts (WAQ-006).
+ * Pure dispatch discriminator. Status/inbound take precedence over
+ * template_status/quality so a payload with mixed signals is not silently
+ * downgraded. Quality helpers live in webhooks-quality.ts (WAQ-006);
+ * template-status helpers live in webhooks-template-status.ts (TPL-009).
  */
 export function classifyWebhookKind(body: unknown): WebhookKind {
   if (!body || typeof body !== 'object') return 'other'
   const obj = body as Record<string, unknown>
   if (hasMetaStatuses(obj) || hasKapsoFlatStatus(obj)) return 'status'
   if (hasMetaMessages(obj) || hasKapsoFlatMessage(obj)) return 'inbound'
+  if (hasMetaTemplateStatus(obj) || hasKapsoFlatTemplateStatus(obj)) {
+    return 'template_status'
+  }
   if (hasMetaQuality(obj) || hasKapsoFlatQuality(obj)) return 'quality'
   return 'other'
 }
