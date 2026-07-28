@@ -111,9 +111,13 @@ new route is added under `src/app/api/cron/`, it ships with a wrapper in
 `scripts/cron/` and a row in this section, or it does nothing.
 
 Each wrapper delegates to `scripts/cron/run-cron-endpoint.sh`, which reads
-`CRON_SECRET`/`APP_URL` from the site `.env`, fails loud (non-zero exit) if
-either is missing or the endpoint returns non-2xx, and echoes the response
-JSON into Forge's scheduler log.
+`CRON_SECRET`/`APP_URL` from the site `.env`, echoes the response JSON into
+Forge's scheduler log, and fails loud (non-zero exit, response body on stderr)
+on anything that is not a 2xx — including a **3xx**. Redirects are treated as
+failures and not followed on purpose: an `http://` `APP_URL` that nginx
+redirects to https would otherwise return an empty 302 that `curl -f` reports
+as success, so every run would look green while the route was never invoked.
+If a job fails with `HTTP 301`/`HTTP 308`, fix `APP_URL` — don't add `-L`.
 
 ### `campaigns`
 

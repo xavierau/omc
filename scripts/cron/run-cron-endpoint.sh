@@ -65,16 +65,29 @@ fi
 
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ${JOB_NAME}: requesting ${APP_URL}${ENDPOINT}"
 
-# `-f` is load-bearing: without it, curl exits 0 on a 4xx/5xx response body
-# and the Forge scheduler log shows a green "success" for a request that
-# actually failed server-side — the same silently-green failure mode as
-# deploy.sh's pre-#56 restart step. `-f` makes any non-2xx a non-zero exit
-# so Forge marks the job FAILED and it's visible.
+BODY_FILE="$(mktemp)"
+trap 'rm -f "$BODY_FILE"' EXIT
+
+# Status is checked explicitly instead of relying on `curl -f`, because `-f`
+# only fails on 4xx/5xx: a 3xx exits 0 with an empty body. An `http://`
+# APP_URL that nginx redirects to https, or a trailing-slash redirect, would
+# then paint the Forge run green for a route that was never invoked — the
+# exact silently-green failure this file exists to prevent (#56/#83), and the
+# one that let #93 and #95 hide for months. Redirects are deliberately NOT
+# followed: a misconfigured APP_URL should be loud, not quietly papered over.
 #
 # The secret goes in via `-K -` (config on stdin) rather than `-H` on the
 # command line: this Forge box hosts several sites, and anything in argv is
 # readable by any local user through `ps`.
-response="$(printf 'header = "Authorization: Bearer %s"\n' "$CRON_SECRET" |
-  curl -fsS --max-time "$MAX_TIME" -K - "${APP_URL}${ENDPOINT}")"
+http_code="$(printf 'header = "Authorization: Bearer %s"\n' "$CRON_SECRET" |
+  curl -sS --max-time "$MAX_TIME" -K - \
+    -o "$BODY_FILE" -w '%{http_code}' "${APP_URL}${ENDPOINT}")"
 
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ${JOB_NAME}: ${response}"
+if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+  echo "${JOB_NAME}: HTTP ${http_code} from ${APP_URL}${ENDPOINT}" >&2
+  sed -e 's/^/  /' "$BODY_FILE" >&2
+  echo >&2
+  exit 1
+fi
+
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ${JOB_NAME}: $(cat "$BODY_FILE")"
