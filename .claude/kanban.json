@@ -1443,39 +1443,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "OPS-002",
-          "title": "Scheduled broadcasts never fire: schedule /api/cron/campaigns in prod + make enqueue idempotent",
-          "description": "GitHub issue #95. /api/cron/campaigns is the ONLY producer of scheduled-campaign jobs (getDueCampaigns has no other caller; ohmyclient-worker is a consumer only), and nothing in production ever called it — no forge crontab, no site-level Forge Scheduled Job, no in-process scheduler. Scheduled broadcasts had never fired, ever; only manually-executed campaigns sent. Surfaced by tenant 釧 Kushiro. Same failure class as #93. deploy/README.md actively forbade the fix on a wrong premise (\"risks double-sends\" — the worker owns execution, not scheduling). Issue item 3 was also wrong: executeCampaign DOES compare-and-swap active→sending before sending, so duplicates can't double-send. The real hazard of a per-minute tick is an enqueue storm — executeCampaign throws before that claim (unapproved template, missing phone_number_id, execution-time guardrail), leaving the campaign active with a past scheduled_at and re-enqueued on all 1440 ticks/day. Fixed with a self-expiring enqueue lease (campaigns.last_enqueued_at), not an enqueue-time status claim, which would strand the row outside getDueCampaigns' filter if the job were lost. Also wired /api/cron/reconcile-orphan-messages (issue item 4, same un-wired status). Third cron wrapper → shared scripts/cron/run-cron-endpoint.sh.",
-          "priority": "critical",
-          "labels": [
-            "ops",
-            "cron",
-            "campaigns",
-            "reliability",
-            "deploy"
-          ],
-          "acceptance_criteria": [
-            "A Forge Scheduled Job invokes scripts/cron/campaigns.sh every minute and its first run is verified in the Forge scheduler log",
-            "A due active campaign is enqueued within ~60s of its scheduled_at",
-            "Overlapping cron ticks cannot enqueue the same campaign twice (lease CAS, not read-then-write)",
-            "A campaign that fails before executeCampaign's active→sending claim re-enqueues at most once per 5 min, never once per tick",
-            "The enqueue lease expires on its own — a lost job never strands a campaign outside getDueCampaigns' filter",
-            "The manual send-now path is unaffected by the lease",
-            "deploy/README.md's 'do not schedule /api/cron/campaigns' guidance is corrected and every /api/cron/* route is listed with a scheduler entry",
-            "sync-templates.sh keeps an identical Forge command and identical behavior after the shared-helper extraction",
-            "reconcile-orphan-messages is scheduled */10"
-          ],
-          "related": [
-            "kanban:CAMP-002",
-            "kanban:TPL-009",
-            "github:95",
-            "github:93"
-          ],
-          "branch": "fix/issue-95-campaign-scheduler",
-          "base": "main",
-          "started_at": "2026-07-28"
         }
       ]
     },
@@ -1508,6 +1475,44 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "OPS-002",
+          "title": "Scheduled broadcasts never fire: schedule /api/cron/campaigns in prod + make enqueue idempotent",
+          "description": "GitHub issue #95. /api/cron/campaigns is the ONLY producer of scheduled-campaign jobs (getDueCampaigns has no other caller; ohmyclient-worker is a consumer only), and nothing in production ever called it — no forge crontab, no site-level Forge Scheduled Job, no in-process scheduler. Scheduled broadcasts had never fired, ever; only manually-executed campaigns sent. Surfaced by tenant 釧 Kushiro. Same failure class as #93. deploy/README.md actively forbade the fix on a wrong premise (\"risks double-sends\" — the worker owns execution, not scheduling). Issue item 3 was also wrong: executeCampaign DOES compare-and-swap active→sending before sending, so duplicates can't double-send. The real hazard of a per-minute tick is an enqueue storm — executeCampaign throws before that claim (unapproved template, missing phone_number_id, execution-time guardrail), leaving the campaign active with a past scheduled_at and re-enqueued on all 1440 ticks/day. Fixed with a self-expiring enqueue lease (campaigns.last_enqueued_at), not an enqueue-time status claim, which would strand the row outside getDueCampaigns' filter if the job were lost. Also wired /api/cron/reconcile-orphan-messages (issue item 4, same un-wired status). Third cron wrapper → shared scripts/cron/run-cron-endpoint.sh.",
+          "priority": "critical",
+          "labels": [
+            "ops",
+            "cron",
+            "campaigns",
+            "reliability",
+            "deploy"
+          ],
+          "acceptance_criteria": [
+            "A Forge Scheduled Job invokes scripts/cron/campaigns.sh every minute and its first run is verified in the Forge scheduler log",
+            "A due active campaign is enqueued within ~60s of its scheduled_at",
+            "Overlapping cron ticks cannot enqueue the same campaign twice (lease CAS, not read-then-write)",
+            "A campaign that fails before executeCampaign's active→sending claim re-enqueues at most once per 5 min, never once per tick",
+            "The enqueue lease expires on its own — a lost job never strands a campaign outside getDueCampaigns' filter",
+            "The manual send-now path is unaffected by the lease",
+            "deploy/README.md's 'do not schedule /api/cron/campaigns' guidance is corrected and every /api/cron/* route is listed with a scheduler entry",
+            "sync-templates.sh keeps an identical Forge command and identical behavior after the shared-helper extraction",
+            "reconcile-orphan-messages is scheduled */10"
+          ],
+          "related": [
+            "kanban:CAMP-002",
+            "kanban:TPL-009",
+            "github:95",
+            "github:93"
+          ],
+          "branch": "fix/issue-95-campaign-scheduler",
+          "base": "main",
+          "started_at": "2026-07-28",
+          "completed_at": "2026-07-28",
+          "merged_at": "2026-07-28",
+          "pr": 96,
+          "merged_into": "main + develop",
+          "notes": "Forge Scheduled Jobs created on server 1149990 (site app.ohmyclient.io): campaigns id=2090251 (* * * * *), sync-templates id=2090252 (*/15) — the #93 job that had never been created — and reconcile-orphan-messages id=2090253 (*/10). Prod CRON_SECRET was EMPTY in .env, so every cron endpoint was unreachable; a 64-char secret was generated, written via the Forge env API, and the app daemon restarted. Verified end-to-end: the cron produced campaign job 11 for the 釧 Kushiro campaign — the first scheduled-campaign job ever produced in prod — and the worker consumed it. It then failed on the WAQ-011 platform-review gate ('offer_promotion' needs platform approval), which is working as designed and is a separate action, NOT part of this fix. That failure is also a live confirmation of the pre-claim-failure case the enqueue lease was built for: without it that campaign would re-enqueue every tick forever."
+        },
         {
           "id": "REPLY-007",
           "title": "Per-tenant contact Flow: per-WABA flow id + per-tenant form labels",
