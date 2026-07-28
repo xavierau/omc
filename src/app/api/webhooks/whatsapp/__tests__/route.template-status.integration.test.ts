@@ -433,9 +433,11 @@ describe('POST /api/webhooks/whatsapp — template status events (TPL-009)', () 
   })
 
   it('a draft row is never mutated by the webhook', async () => {
-    // meta_template_id null forces the name+language fallback — the path
-    // that can surface a re-drafted row (plan: write-guard invariant).
-    seedTemplate({ status: 'draft', meta_template_id: null })
+    // Seeded WITH the fixture's meta id so the row is genuinely resolved and
+    // the FROM-guard (draft ∉ SYNCABLE_STATUSES) is what stops the write.
+    // With meta_template_id null the lookup would simply miss and the test
+    // would pass without ever reaching the guard it claims to cover.
+    seedTemplate({ status: 'draft' })
 
     const { status, json } = await postWebhook(
       loadFixture('meta-template-status-approved.json')
@@ -455,6 +457,45 @@ describe('POST /api/webhooks/whatsapp — template status events (TPL-009)', () 
     expect(status).toBe(200)
     expect(json).toEqual({ status: 'ok' })
     expect(state.templateUpdates).toHaveLength(0)
+  })
+
+  // classifyWebhookKind returns ONE kind by precedence, so a batch carrying
+  // both statuses and a template-status change classifies as 'status'. The
+  // template transition must still be applied, not silently dropped until
+  // the cron notices 15 minutes later.
+  it('applies the template transition in a batch that also carries statuses', async () => {
+    vi.mocked(findByPhoneNumberId).mockResolvedValue({ id: 'rest-1' } as never)
+    seedTemplate({ status: 'pending' })
+
+    const templateFixture = loadFixture('meta-template-status-approved.json')
+    const statusEntry = {
+      id: WABA_ID,
+      changes: [
+        {
+          field: 'statuses',
+          value: {
+            metadata: { phone_number_id: 'PN-1' },
+            statuses: [
+              { id: 'wamid.MIXED', status: 'delivered', timestamp: '1785283200' },
+            ],
+          },
+        },
+      ],
+    }
+    const mixed = {
+      ...templateFixture,
+      entry: [statusEntry, ...(templateFixture.entry as unknown[])],
+    }
+
+    const { classifyWebhookKind } = await import(
+      '@/infrastructure/whatsapp/webhooks'
+    )
+    expect(classifyWebhookKind(mixed)).toBe('status')
+
+    const { status } = await postWebhook(mixed)
+
+    expect(status).toBe(200)
+    expect(state.templates.get('tpl-1')!.status).toBe('approved')
   })
 
   describe('anti-regression through the new third resolver rung', () => {

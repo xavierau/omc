@@ -49,6 +49,13 @@ export async function POST(request: NextRequest) {
     const kind = classifyWebhookKind(body)
     log('info', 'webhook.kind', { kind })
 
+    // One POST can batch entries of different fields, but classifyWebhookKind
+    // returns exactly ONE kind by precedence — so a template-status change
+    // riding along with statuses or messages would be dropped, and only the
+    // 15-min cron would eventually notice. Dispatching it up front covers
+    // every combination at once; it no-ops when the payload has none.
+    await routeTemplateStatusEvent(body, restaurantId, log)
+
     if (kind === 'status') {
       await routeStatusEvent(body, restaurantId, log)
       log('info', 'webhook.response', { status: 200, kind })
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (kind === 'template_status') {
-      await routeTemplateStatusEvent(body, restaurantId, log)
+      // Already dispatched above — this branch only shapes the response.
       log('info', 'webhook.response', { status: 200, kind })
       return NextResponse.json({ status: 'ok' })
     }

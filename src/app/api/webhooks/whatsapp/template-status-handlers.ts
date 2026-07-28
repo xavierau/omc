@@ -43,6 +43,10 @@ export async function routeTemplateStatusEvent(
   log: LogFn
 ): Promise<void> {
   const events = extractTemplateStatusEvents(body)
+  // Called on every webhook (see route.ts) so mixed batches aren't dropped —
+  // return before logging when there is nothing here, or every inbound and
+  // status webhook would emit a spurious count line.
+  if (events.length === 0) return
   log('info', 'webhook.template_status_count', { count: events.length })
   // The tenant was resolved from entry[0]'s WABA, but Meta may batch
   // changes from several entries. Any entry naming a DIFFERENT WABA belongs
