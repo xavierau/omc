@@ -129,6 +129,26 @@ export async function findByPhoneNumberId(
 }
 
 /**
+ * TPL-009: resolve a tenant by WABA id (`entry[].id` on Meta's
+ * `message_template_status_update` webhook — the only tenant key that
+ * payload carries, since it has neither `phone_number_id` nor
+ * `display_phone_number`).
+ */
+export async function findByBusinessAccountId(
+  wabaId: string
+): Promise<RestaurantRow | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select(RESTAURANT_COLUMNS)
+    .eq('meta_business_account_id', wabaId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return data as RestaurantRow
+}
+
+/**
  * Resolve a tenant by Meta's `display_phone_number` (e.g. "85291234567").
  * Used by webhooks like `phone_number_quality_update` that ship ONLY the
  * display number, not the numeric `phone_number_id`. We try the value

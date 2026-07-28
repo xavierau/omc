@@ -55,6 +55,23 @@ export async function findByNameAndLanguage(
   return mapRowToTemplate(data)
 }
 
+export async function findByMetaTemplateId(
+  restaurantId: string,
+  metaTemplateId: string,
+): Promise<WhatsAppTemplate | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('meta_template_id', metaTemplateId)
+    .neq('status', 'deleted')
+    .single()
+
+  if (error || !data) return null
+  return mapRowToTemplate(data)
+}
+
 export async function list(params: ListTemplatesParams): Promise<ListTemplatesResult> {
   const supabase = createServerSupabaseClient()
   const { restaurantId, page, pageSize, status, category } = params
@@ -125,6 +142,7 @@ export {
   create as createTemplate,
   findById as findTemplateById,
   findByNameAndLanguage as findTemplateByNameAndLanguage,
+  findByMetaTemplateId as findTemplateByMetaTemplateId,
   list as listTemplates,
   update as updateTemplate,
   softDelete as softDeleteTemplate,
@@ -134,6 +152,7 @@ export const whatsappTemplateRepository: WhatsAppTemplateRepository = {
   create,
   findById,
   findByNameAndLanguage,
+  findByMetaTemplateId,
   list,
   update,
   softDelete,

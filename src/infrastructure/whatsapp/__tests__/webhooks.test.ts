@@ -85,6 +85,50 @@ describe('classifyWebhookKind', () => {
   })
 })
 
+describe('classifyWebhookKind — template status (TPL-009)', () => {
+  it("classifies a message_template_status_update payload as template_status", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: {
+                event: 'APPROVED',
+                message_template_id: 1029650636326514,
+                message_template_name: 'offer_promotion',
+                message_template_language: 'zh_HK',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('template_status')
+  })
+
+  it('classifies a mixed statuses+template payload as status (precedence)', () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            { value: { statuses: [{ id: 'wamid.X', status: 'delivered' }] } },
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED' },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('status')
+  })
+})
+
 describe('normalizeStatusPayload', () => {
   it('extracts statuses from a Meta envelope via the Kapso SDK', () => {
     const body = {

@@ -11,6 +11,7 @@ import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { routeMessage } from './handlers'
 import { routeStatusEvent } from './status-handlers'
 import { routeQualityEvent } from './quality-handlers'
+import { routeTemplateStatusEvent } from './template-status-handlers'
 import { resolveRestaurant } from './resolve-tenant'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
@@ -56,6 +57,12 @@ export async function POST(request: NextRequest) {
 
     if (kind === 'quality') {
       await routeQualityEvent(body, restaurantId, log)
+      log('info', 'webhook.response', { status: 200, kind })
+      return NextResponse.json({ status: 'ok' })
+    }
+
+    if (kind === 'template_status') {
+      await routeTemplateStatusEvent(body, restaurantId, log)
       log('info', 'webhook.response', { status: 200, kind })
       return NextResponse.json({ status: 'ok' })
     }

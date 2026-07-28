@@ -5,24 +5,17 @@ import {
   listTemplates,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import type { WhatsAppTemplate, TemplateStatus } from '@/domain/entities/whatsapp-template'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import {
+  mapMetaTemplateStatus,
+  SYNCABLE_STATUSES,
+  NO_REJECTION_REASON,
+} from '@/domain/services/meta-template-status'
 
 interface StatusChange {
   id: string
   oldStatus: string
   newStatus: string
-}
-
-const SYNCABLE_STATUSES: TemplateStatus[] = ['pending', 'approved', 'paused']
-
-const NO_REJECTION_REASON = 'Rejected by Meta (no reason provided)'
-
-const META_STATUS_MAP: Record<string, TemplateStatus> = {
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-  PENDING: 'pending',
-  PAUSED: 'paused',
-  DISABLED: 'disabled',
 }
 
 export async function syncTemplateStatus(
@@ -63,7 +56,7 @@ async function syncSingleTemplate(
   if (!meta) return null
 
   if (!meta.status) return null
-  const newStatus = META_STATUS_MAP[meta.status]
+  const newStatus = mapMetaTemplateStatus(meta.status)
   if (!newStatus || newStatus === local.status) return null
 
   await updateTemplate(local.id, {
