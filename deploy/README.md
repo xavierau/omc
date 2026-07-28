@@ -98,6 +98,37 @@ This worker boots the BullMQ workers for `campaign-execution`,
 broadcasts and event listeners depend on the first two; receipt verification
 depends on the third.
 
+## Forge Scheduled Jobs
+
+Create under **Site → Scheduler**. Unlike Daemons (long-running processes),
+Scheduled Jobs are cron-style: Forge invokes the command on the given
+frequency and captures its output.
+
+### `sync-templates`
+
+- **Command**: `bash /home/forge/<site-dir>/scripts/cron/sync-templates.sh`
+- **User**: `forge`
+- **Frequency**: Custom — `*/15 * * * *`
+
+Wraps `GET /api/cron/sync-templates`, which has existed for months with
+nothing calling it in production (issue #93) — templates Meta approved sat
+`pending` forever and silently blocked campaigns. The script reads
+`CRON_SECRET`/`APP_URL` from the site `.env`, fails loud (non-zero exit) if
+either is missing or the endpoint returns non-2xx, and echoes the response
+JSON so Forge's scheduler log records per-tenant sync counts.
+
+**Verify the first run**: Forge UI → site → **Scheduler** → click the job →
+job output. Expect a line with an ISO timestamp followed by JSON containing
+`restaurants` and `results` keys. A `FAILED` run or missing `Bearer` output
+means `CRON_SECRET`/`APP_URL` aren't set for the `forge` user's environment —
+check the site's `.env`.
+
+**Do not** schedule `/api/cron/campaigns` this way — campaign execution is
+already owned end-to-end by the `ohmyclient-worker` BullMQ daemon above;
+blind-scheduling the same endpoint on top of that risks double-sends.
+`/api/cron/reconcile-orphan-messages` is likewise out of scope for scheduled
+jobs.
+
 ## First Deploy
 
 1. Push to `main` — Forge auto-pulls and runs `deploy.sh`
