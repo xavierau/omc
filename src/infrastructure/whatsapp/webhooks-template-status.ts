@@ -81,7 +81,11 @@ function extractKapsoFlatTemplateStatus(
     return toTemplateStatusEntry(data, undefined, undefined)
   }
   if (obj.field === TEMPLATE_STATUS_FIELD) {
-    return toTemplateStatusEntry(obj, undefined, undefined)
+    // A bare change object: the payload fields live under `value` when the
+    // change is passed through verbatim, and at the top level when it has
+    // been flattened. Reading `obj` alone would yield an all-null entry.
+    const value = (obj.value as Record<string, unknown> | undefined) ?? obj
+    return toTemplateStatusEntry(value, undefined, undefined)
   }
   return null
 }

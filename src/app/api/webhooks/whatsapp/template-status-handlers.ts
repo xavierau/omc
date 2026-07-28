@@ -44,7 +44,23 @@ export async function routeTemplateStatusEvent(
 ): Promise<void> {
   const events = extractTemplateStatusEvents(body)
   log('info', 'webhook.template_status_count', { count: events.length })
+  // The tenant was resolved from entry[0]'s WABA, but Meta may batch
+  // changes from several entries. Any entry naming a DIFFERENT WABA belongs
+  // to another tenant and must not be processed under this restaurantId:
+  // its meta-id lookup would miss and — template names being tenant-scoped
+  // and highly collision-prone (`offer_promotion`, `hello_world`) — a
+  // name-keyed match would write another tenant's row. The wamid-keyed
+  // status/inbound handlers can't collide this way; this path can.
+  const resolvingWabaId = events[0]?.wabaId ?? null
   for (const entry of events) {
+    if (entry.wabaId !== resolvingWabaId) {
+      log('warn', 'webhook.template_status_foreign_waba', {
+        entryWabaId: entry.wabaId,
+        resolvingWabaId,
+        metaTemplateId: entry.metaTemplateId,
+      })
+      continue
+    }
     try {
       await handleTemplateStatusEntry(entry, restaurantId, log)
     } catch (err) {
@@ -93,13 +109,25 @@ async function handleTemplateStatusEntry(
   await applyStatusUpdate(template, newStatus, log)
 }
 
+/**
+ * The name+language fallback is gated on the payload carrying NO meta id —
+ * never on a meta-id *miss*. Every write that puts a row into a syncable
+ * status also sets `meta_template_id` in the same statement (create /
+ * update / resubmit); the only rows without one are `draft` and `rejected`,
+ * which the FROM-guard already blocks. So a miss does not mean "the id
+ * hasn't landed yet" — it means this event belongs to a DIFFERENT Meta
+ * template, and falling back on name+language would attach it to the wrong
+ * row. Concretely: editing an approved template submits a new Meta id Y and
+ * resets the row to pending/Y; a late APPROVED for the old id X would
+ * otherwise flip that row to approved and let campaigns send on a template
+ * Meta never approved.
+ */
 async function resolveTemplate(
   entry: TemplateStatusWebhookEntry,
   restaurantId: string
 ): Promise<WhatsAppTemplate | null> {
   if (entry.metaTemplateId) {
-    const byMetaId = await findByMetaTemplateId(restaurantId, entry.metaTemplateId)
-    if (byMetaId) return byMetaId
+    return findByMetaTemplateId(restaurantId, entry.metaTemplateId)
   }
   if (entry.templateName && entry.language) {
     return findByNameAndLanguage(restaurantId, entry.templateName, entry.language)
@@ -129,14 +157,33 @@ async function resolveTemplate(
  * Terminal transitions are therefore logged and left to the cron, which
  * reads authoritative live state and so can never persist a stale one
  * (it also owns the rejection_reason write — see sync-template-status.ts).
+ *
+ * The cron's reach has two further preconditions worth stating, because
+ * this design leans on them: it only considers rows whose
+ * `metaTemplateId` is non-null, and `syncSingleTemplate` matches Meta's
+ * list by NAME+LANGUAGE rather than by meta id. If Meta ever stops
+ * listing a template it has DISABLED, a deferred DISABLED would never be
+ * persisted and the row would sit locally `approved` and sendable. Both
+ * hold today; neither is enforced here.
  */
 async function applyStatusUpdate(
   template: WhatsAppTemplate,
   newStatus: TemplateStatus,
   log: LogFn
 ): Promise<void> {
-  if (!SYNCABLE_STATUSES.includes(template.status)) return
-  if (newStatus === template.status) return
+  // Logged, not silent: without this an operator asking "why didn't my
+  // template update?" sees template_status_count:1 and then nothing at all.
+  if (
+    !SYNCABLE_STATUSES.includes(template.status) ||
+    newStatus === template.status
+  ) {
+    log('info', 'webhook.template_status_skipped', {
+      templateId: template.id,
+      oldStatus: template.status,
+      newStatus,
+    })
+    return
+  }
 
   if (!SYNCABLE_STATUSES.includes(newStatus)) {
     log('info', 'webhook.template_status_deferred_to_cron', {

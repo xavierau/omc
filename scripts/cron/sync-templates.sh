@@ -32,8 +32,11 @@ read_env_var() {
   # Strip one layer of surrounding quotes: `.env` files in the wild carry
   # both CRON_SECRET=abc and CRON_SECRET="abc", and a literal quote inside
   # the Bearer token yields a 401 that looks like a wrong secret.
+  # `\r` is stripped too: a CRLF .env leaves a carriage return on the value,
+  # and one inside the Bearer header comes back as a 401 that reads exactly
+  # like a wrong secret.
   if [ -f "$ENV_FILE" ]; then
-    grep -m1 "^${key}=" "$ENV_FILE" | cut -d '=' -f2- |
+    grep -m1 "^${key}=" "$ENV_FILE" | cut -d '=' -f2- | tr -d '\r' |
       sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" || true
   fi
 }
@@ -57,6 +60,11 @@ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) sync-templates: requesting ${APP_URL}/api/c
 # actually failed server-side — the same silently-green failure mode as
 # deploy.sh's pre-#56 restart step. `-f` makes any non-2xx a non-zero exit
 # so Forge marks the job FAILED and it's visible.
-response="$(curl -fsS --max-time 300 -H "Authorization: Bearer ${CRON_SECRET}" "${APP_URL}/api/cron/sync-templates")"
+#
+# The secret goes in via `-K -` (config on stdin) rather than `-H` on the
+# command line: this Forge box hosts several sites, and anything in argv is
+# readable by any local user through `ps`.
+response="$(printf 'header = "Authorization: Bearer %s"\n' "$CRON_SECRET" |
+  curl -fsS --max-time 300 -K - "${APP_URL}/api/cron/sync-templates")"
 
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) sync-templates: ${response}"

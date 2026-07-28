@@ -162,7 +162,10 @@ describe('routeTemplateStatusEvent', () => {
     expect(updateTemplate).not.toHaveBeenCalled()
   })
 
-  it('meta-id miss falls back to name+language lookup and applies the update', async () => {
+  // Guards the wrong-row write: a same-name row exists and would be found by
+  // the fallback, but the event named a meta id we don't hold — that row is a
+  // different Meta template (e.g. an edit re-submitted under a new id).
+  it('a meta-id miss does NOT fall back onto a same-name row', async () => {
     vi.mocked(findByMetaTemplateId).mockResolvedValue(null)
     vi.mocked(findByNameAndLanguage).mockResolvedValue(
       templateFixture({ status: 'pending' })
@@ -170,12 +173,8 @@ describe('routeTemplateStatusEvent', () => {
 
     await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
 
-    expect(findByNameAndLanguage).toHaveBeenCalledWith(
-      'rest-1',
-      'offer_promotion',
-      'zh_HK'
-    )
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'approved' })
+    expect(findByNameAndLanguage).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
   })
 
   it('null meta id goes straight to the name+language fallback (meta-id lookup skipped)', async () => {
@@ -309,20 +308,76 @@ describe('routeTemplateStatusEvent', () => {
     ).toBe(true)
   })
 
-  it('every status the webhook does write stays within the cron reach', async () => {
-    for (const event of ['APPROVED', 'PENDING', 'PAUSED'] as const) {
-      vi.clearAllMocks()
-      vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+  // Guards the invariant the whole LWW design rests on, across EVERY event
+  // Meta can send — including the terminal ones, which is what makes this
+  // fail if the TO-guard is removed.
+  it.each(['APPROVED', 'PENDING', 'PAUSED', 'REJECTED', 'DISABLED'])(
+    'never writes a status outside the cron reach (%s)',
+    async (event) => {
       vi.mocked(findByMetaTemplateId).mockResolvedValue(
-        // 'paused' differs from all three targets except PAUSED, which the
-        // no-op guard suppresses; both outcomes keep the row cron-reachable.
-        templateFixture({ status: 'paused' })
+        templateFixture({ status: 'pending' })
       )
 
       await routeTemplateStatusEvent(singleChangeBody({ event }), 'rest-1', log)
 
-      const written = vi.mocked(updateTemplate).mock.calls[0]?.[1]?.status
-      if (written) expect(SYNCABLE_STATUSES).toContain(written)
+      for (const call of vi.mocked(updateTemplate).mock.calls) {
+        expect(SYNCABLE_STATUSES).toContain(call[1].status)
+      }
     }
+  )
+
+  // The meta-id lookup is authoritative: a miss means the event names a
+  // DIFFERENT Meta template, so falling back on name+language would attach
+  // it to the wrong row (e.g. an edited template's re-submitted row).
+  it('a meta-id miss is a no-op — it never falls back to name+language', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(null)
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(findByNameAndLanguage).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(logs.some((l) => l[1] === 'webhook.template_not_found')).toBe(true)
+  })
+
+  // Meta may batch entries from several WABAs; the tenant was resolved from
+  // entry[0] only. Names are tenant-scoped and collision-prone, so a foreign
+  // entry processed under this tenant could write the wrong tenant's row.
+  it('skips entries whose WABA differs from the one that resolved the tenant', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    const body = {
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED', message_template_id: 111 },
+            },
+          ],
+        },
+        {
+          id: 'WABA-OTHER-TENANT',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED', message_template_id: 222 },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeTemplateStatusEvent(body, 'rest-1', log)
+
+    expect(findByMetaTemplateId).toHaveBeenCalledTimes(1)
+    expect(findByMetaTemplateId).toHaveBeenCalledWith('rest-1', '111')
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+    const foreign = logs.find(
+      (l) => l[1] === 'webhook.template_status_foreign_waba'
+    )
+    expect(foreign?.[2]).toMatchObject({ entryWabaId: 'WABA-OTHER-TENANT' })
   })
 })

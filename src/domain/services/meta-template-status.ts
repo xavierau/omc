@@ -17,7 +17,11 @@ const META_STATUS_MAP: Record<string, TemplateStatus> = {
 }
 
 /** Local statuses eligible to be overwritten by a Meta-sourced update. */
-export const SYNCABLE_STATUSES: TemplateStatus[] = ['pending', 'approved', 'paused']
+export const SYNCABLE_STATUSES: readonly TemplateStatus[] = [
+  'pending',
+  'approved',
+  'paused',
+] as const
 
 export const NO_REJECTION_REASON = 'Rejected by Meta (no reason provided)'
 
