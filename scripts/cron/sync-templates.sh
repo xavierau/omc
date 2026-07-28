@@ -29,8 +29,12 @@ read_env_var() {
   # would kill the script inside the `$(...)` assignment below — exiting 1
   # with NO diagnostic, the exact silent failure this script exists to avoid.
   # Swallow it here so the explicit empty-value check reports what is missing.
+  # Strip one layer of surrounding quotes: `.env` files in the wild carry
+  # both CRON_SECRET=abc and CRON_SECRET="abc", and a literal quote inside
+  # the Bearer token yields a 401 that looks like a wrong secret.
   if [ -f "$ENV_FILE" ]; then
-    grep -m1 "^${key}=" "$ENV_FILE" | cut -d '=' -f2- || true
+    grep -m1 "^${key}=" "$ENV_FILE" | cut -d '=' -f2- |
+      sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" || true
   fi
 }
 

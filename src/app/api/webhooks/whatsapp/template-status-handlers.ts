@@ -27,7 +27,6 @@ import type { TemplateStatusWebhookEntry } from '@/infrastructure/whatsapp/webho
 import {
   mapMetaTemplateStatus,
   SYNCABLE_STATUSES,
-  NO_REJECTION_REASON,
 } from '@/domain/services/meta-template-status'
 import type {
   TemplateStatus,
@@ -91,7 +90,7 @@ async function handleTemplateStatusEntry(
     return
   }
 
-  await applyStatusUpdate(template, newStatus, entry, log)
+  await applyStatusUpdate(template, newStatus, log)
 }
 
 async function resolveTemplate(
@@ -109,28 +108,46 @@ async function resolveTemplate(
 }
 
 /**
- * Write-guard invariant: a status write is applied ONLY when the resolved
- * row's current status is syncable (pending/approved/paused) AND the
- * mapped status differs. This keeps draft/rejected/disabled/deleted rows
- * untouchable and suppresses no-op writes. Plain last-write-wins — no
- * event-time guard — because the 15-min cron re-reads live Meta state and
- * self-heals any webhook misordering (plan: Ordering/staleness rule).
+ * Write-guard invariant, BOTH directions:
+ *
+ *   FROM — the resolved row's current status must be syncable
+ *   (pending/approved/paused), keeping draft/rejected/disabled/deleted rows
+ *   untouchable, and no-op writes suppressed.
+ *
+ *   TO — the mapped status must ALSO be syncable. This is what makes plain
+ *   last-write-wins safe. LWW is only defensible because the 15-min cron
+ *   re-reads LIVE Meta state and repairs any webhook misordering — but the
+ *   cron itself only considers syncable rows. A webhook writing a terminal
+ *   status (rejected/disabled) would therefore drop the row out of the
+ *   cron's reach permanently: one stale REJECTED landing after a real
+ *   APPROVED would brick that template forever, with Meta saying APPROVED
+ *   and us refusing to send. Restricting webhook writes to statuses the
+ *   cron can still revisit keeps the self-healing property true by
+ *   construction, at the cost of ≤15 min latency on rejections — which
+ *   unblock nothing, unlike approvals.
+ *
+ * Terminal transitions are therefore logged and left to the cron, which
+ * reads authoritative live state and so can never persist a stale one
+ * (it also owns the rejection_reason write — see sync-template-status.ts).
  */
 async function applyStatusUpdate(
   template: WhatsAppTemplate,
   newStatus: TemplateStatus,
-  entry: TemplateStatusWebhookEntry,
   log: LogFn
 ): Promise<void> {
   if (!SYNCABLE_STATUSES.includes(template.status)) return
   if (newStatus === template.status) return
 
-  await updateTemplate(template.id, {
-    status: newStatus,
-    ...(newStatus === 'rejected' && {
-      rejectionReason: entry.reason ?? NO_REJECTION_REASON,
-    }),
-  })
+  if (!SYNCABLE_STATUSES.includes(newStatus)) {
+    log('info', 'webhook.template_status_deferred_to_cron', {
+      templateId: template.id,
+      oldStatus: template.status,
+      newStatus,
+    })
+    return
+  }
+
+  await updateTemplate(template.id, { status: newStatus })
   log('info', 'webhook.template_status_updated', {
     templateId: template.id,
     oldStatus: template.status,

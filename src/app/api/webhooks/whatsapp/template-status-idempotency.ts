@@ -12,6 +12,15 @@
 //     legitimate re-transitions through the same state (approved -> paused
 //     -> approved) stay distinct.
 //
+// Known, bounded gap: when eventTimestamp is absent the fingerprint cannot
+// tell a replay from a genuine return to the same state, and the second
+// transition is swallowed as a duplicate. Meta's envelope always carries
+// `entry[].time`, so this only reaches the (unverified) Kapso-flat shape.
+// It is left unfixed deliberately: a nonce would defeat replay protection
+// outright, and the handler only ever writes cron-syncable statuses, so a
+// swallowed transition is repaired by the next sync (≤15 min) rather than
+// persisting.
+//
 // Key shape: `template_status:<keyPrefix>:<sha256_16>` where keyPrefix is
 // `wabaId` > `restaurant:<restaurantId>`.
 

@@ -19,6 +19,7 @@ import {
   update as updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { routeTemplateStatusEvent } from '../template-status-handlers'
+import { SYNCABLE_STATUSES } from '@/domain/services/meta-template-status'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 import type {
   TemplateStatus,
@@ -120,7 +121,12 @@ describe('routeTemplateStatusEvent', () => {
     })
   })
 
-  it('REJECTED with a textual reason persists rejectionReason', async () => {
+  // A webhook must never write a status the cron cannot revisit: rejected /
+  // disabled are outside SYNCABLE_STATUSES, so persisting one here would put
+  // the row permanently beyond the cron's reach. One stale REJECTED landing
+  // after a real APPROVED would then brick the template forever. These
+  // transitions are logged and left to the cron, which reads live Meta state.
+  it('REJECTED with a textual reason is deferred to the cron, not written', async () => {
     vi.mocked(findByMetaTemplateId).mockResolvedValue(
       templateFixture({ status: 'pending' })
     )
@@ -131,15 +137,20 @@ describe('routeTemplateStatusEvent', () => {
       log
     )
 
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
-      status: 'rejected',
-      rejectionReason: 'Sample media mismatch',
+    expect(updateTemplate).not.toHaveBeenCalled()
+    const deferred = logs.find(
+      (l) => l[1] === 'webhook.template_status_deferred_to_cron'
+    )
+    expect(deferred?.[2]).toMatchObject({
+      templateId: 'tpl-1',
+      oldStatus: 'pending',
+      newStatus: 'rejected',
     })
   })
 
-  it('REJECTED with reason "NONE" persists the NO_REJECTION_REASON default', async () => {
+  it('REJECTED never strands an approved row outside the cron reach', async () => {
     vi.mocked(findByMetaTemplateId).mockResolvedValue(
-      templateFixture({ status: 'pending' })
+      templateFixture({ status: 'approved' })
     )
 
     await routeTemplateStatusEvent(
@@ -148,27 +159,7 @@ describe('routeTemplateStatusEvent', () => {
       log
     )
 
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
-      status: 'rejected',
-      rejectionReason: 'Rejected by Meta (no reason provided)',
-    })
-  })
-
-  it('REJECTED with absent reason persists the NO_REJECTION_REASON default', async () => {
-    vi.mocked(findByMetaTemplateId).mockResolvedValue(
-      templateFixture({ status: 'pending' })
-    )
-
-    await routeTemplateStatusEvent(
-      singleChangeBody({ event: 'REJECTED' }),
-      'rest-1',
-      log
-    )
-
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
-      status: 'rejected',
-      rejectionReason: 'Rejected by Meta (no reason provided)',
-    })
+    expect(updateTemplate).not.toHaveBeenCalled()
   })
 
   it('meta-id miss falls back to name+language lookup and applies the update', async () => {
@@ -305,13 +296,33 @@ describe('routeTemplateStatusEvent', () => {
     expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'paused' })
   })
 
-  it('DISABLED event maps and applies per the write-guard', async () => {
+  it('DISABLED is deferred to the cron rather than written', async () => {
     vi.mocked(findByMetaTemplateId).mockResolvedValue(
       templateFixture({ status: 'paused' })
     )
 
     await routeTemplateStatusEvent(singleChangeBody({ event: 'DISABLED' }), 'rest-1', log)
 
-    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'disabled' })
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(
+      logs.some((l) => l[1] === 'webhook.template_status_deferred_to_cron')
+    ).toBe(true)
+  })
+
+  it('every status the webhook does write stays within the cron reach', async () => {
+    for (const event of ['APPROVED', 'PENDING', 'PAUSED'] as const) {
+      vi.clearAllMocks()
+      vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+      vi.mocked(findByMetaTemplateId).mockResolvedValue(
+        // 'paused' differs from all three targets except PAUSED, which the
+        // no-op guard suppresses; both outcomes keep the row cron-reachable.
+        templateFixture({ status: 'paused' })
+      )
+
+      await routeTemplateStatusEvent(singleChangeBody({ event }), 'rest-1', log)
+
+      const written = vi.mocked(updateTemplate).mock.calls[0]?.[1]?.status
+      if (written) expect(SYNCABLE_STATUSES).toContain(written)
+    }
   })
 })

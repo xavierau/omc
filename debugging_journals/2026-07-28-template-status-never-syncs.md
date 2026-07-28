@@ -63,6 +63,19 @@ state, so it cannot write stale data and repairs any webhook misordering within 
 cycle. A persisted event-time guard would have needed a new column and migration for a
 rare, self-healing case.
 
+That reasoning has a sharp edge, caught in review: the cron only ever *looks at*
+`SYNCABLE_STATUSES` rows (`pending`/`approved`/`paused`). So a webhook writing a
+terminal status (`rejected`/`disabled`) would drop the row out of the cron's reach
+permanently — one stale REJECTED landing after a real APPROVED would brick that
+template forever, Meta saying APPROVED while we refuse to send. The self-healing
+property only holds if the webhook can never write a status the cron cannot revisit,
+so the write-guard now checks **both** ends: the row's current status must be
+syncable, and so must the target. Terminal transitions are logged
+(`webhook.template_status_deferred_to_cron`) and left to the cron, which reads
+authoritative live state and therefore cannot persist a stale one — it also owns the
+`rejection_reason` write. Cost: ≤15 min latency on rejections, which unblock nothing,
+unlike approvals.
+
 ## Prevention
 
 - **A documented env var is not a scheduled job.** `CRON_SECRET` sat in the deploy
@@ -80,6 +93,10 @@ rare, self-healing case.
   When adding a Meta event type, check which identifiers it actually ships before
   assuming the existing resolver covers it — `message_template_status_update` ships
   neither phone identifier.
+- **"A later process will repair it" is only true within that process's filter.** The
+  last-write-wins design leaned on the cron as a self-healing backstop without checking
+  *which rows the cron actually reads*. Whenever a fix is justified by "X will fix it
+  up later", state X's selection criteria and prove the write keeps the row inside them.
 - **Silent status gates deserve alarms.** A template stuck `pending` for 18 days
   produced no signal anywhere; the bug surfaced only because someone compared our DB to
   Meta by hand.
