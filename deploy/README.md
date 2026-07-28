@@ -104,30 +104,79 @@ Create under **Site → Scheduler**. Unlike Daemons (long-running processes),
 Scheduled Jobs are cron-style: Forge invokes the command on the given
 frequency and captures its output.
 
+**Every `/api/cron/*` route must have a job here.** A cron route with no
+caller is inert and invisible — it has bitten this project twice (#93
+sync-templates, #95 campaigns). The full list is exactly the three below; if a
+new route is added under `src/app/api/cron/`, it ships with a wrapper in
+`scripts/cron/` and a row in this section, or it does nothing.
+
+Each wrapper delegates to `scripts/cron/run-cron-endpoint.sh`, which reads
+`CRON_SECRET`/`APP_URL` from the site `.env`, fails loud (non-zero exit) if
+either is missing or the endpoint returns non-2xx, and echoes the response
+JSON into Forge's scheduler log.
+
+### `campaigns`
+
+- **Command**: `bash /home/forge/<site-dir>/scripts/cron/campaigns.sh`
+- **User**: `forge`
+- **Frequency**: Custom — `* * * * *`
+
+Wraps `GET /api/cron/campaigns`. **This is the only producer of
+scheduled-campaign jobs** — `getDueCampaigns()` has no other caller, and the
+`ohmyclient-worker` daemon above is a *consumer*. Without this job the
+`campaign-execution` queue has a consumer and no producer: scheduled
+broadcasts never fire and only manually-executed campaigns send (issue #95).
+
+Every minute, because a broadcast scheduled for 09:02 should go out at 09:02.
+
+Double-send safety, for the record — an earlier revision of this file claimed
+scheduling this endpoint "risks double-sends" and told you not to. That was
+wrong, and it kept the bug alive. Two independent guards:
+
+1. `executeCampaign` claims the row with a compare-and-swap (`active` →
+   `sending`) before it sends anything. A second job for the same campaign
+   loses the CAS and aborts.
+2. The route leases each campaign (`campaigns.last_enqueued_at`, 5 min) before
+   enqueueing, so overlapping ticks can't double-enqueue and a campaign that
+   fails *before* the CAS — unapproved template, missing `phone_number_id`,
+   execution-time guardrail — can't re-enqueue on all 1440 ticks a day.
+
+**Verify the first run**: expect JSON with `enqueued`, `skipped`, `throttled`.
+An all-zero response just means nothing was due.
+
 ### `sync-templates`
 
 - **Command**: `bash /home/forge/<site-dir>/scripts/cron/sync-templates.sh`
 - **User**: `forge`
 - **Frequency**: Custom — `*/15 * * * *`
 
-Wraps `GET /api/cron/sync-templates`, which has existed for months with
-nothing calling it in production (issue #93) — templates Meta approved sat
-`pending` forever and silently blocked campaigns. The script reads
-`CRON_SECRET`/`APP_URL` from the site `.env`, fails loud (non-zero exit) if
-either is missing or the endpoint returns non-2xx, and echoes the response
-JSON so Forge's scheduler log records per-tenant sync counts.
+Wraps `GET /api/cron/sync-templates`, which existed for months with nothing
+calling it in production (issue #93) — templates Meta approved sat `pending`
+forever and silently blocked campaigns.
 
-**Verify the first run**: Forge UI → site → **Scheduler** → click the job →
-job output. Expect a line with an ISO timestamp followed by JSON containing
-`restaurants` and `results` keys. A `FAILED` run or missing `Bearer` output
-means `CRON_SECRET`/`APP_URL` aren't set for the `forge` user's environment —
-check the site's `.env`.
+**Verify the first run**: expect JSON containing `restaurants` and `results`.
 
-**Do not** schedule `/api/cron/campaigns` this way — campaign execution is
-already owned end-to-end by the `ohmyclient-worker` BullMQ daemon above;
-blind-scheduling the same endpoint on top of that risks double-sends.
-`/api/cron/reconcile-orphan-messages` is likewise out of scope for scheduled
-jobs.
+### `reconcile-orphan-messages`
+
+- **Command**: `bash /home/forge/<site-dir>/scripts/cron/reconcile-orphan-messages.sh`
+- **User**: `forge`
+- **Frequency**: Custom — `*/10 * * * *`
+
+Wraps `GET /api/cron/reconcile-orphan-messages`. Sweeps `whatsapp_messages`
+rows stuck at `queued` with no `kapso_message_id` for over 5 minutes to
+`failed`/`internal_orphan` — the two-phase send pattern strands rows there
+whenever the worker dies mid-send, and unswept they skew every delivery-rate
+report. Idempotent and bounded: one age-filtered UPDATE.
+
+**Verify the first run**: expect JSON with `swept`. Zero is the normal steady
+state.
+
+### Verifying any of them
+
+Forge UI → site → **Scheduler** → click the job → job output. Every run logs
+an ISO timestamp, the URL it requested, and the response JSON. A `FAILED` run
+means non-2xx or missing config — check `CRON_SECRET`/`APP_URL` in the site
+`.env`, which is what the `forge` user's environment falls back to.
 
 ## First Deploy
 

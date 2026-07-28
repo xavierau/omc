@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDueCampaigns } from '@/infrastructure/supabase/repositories/campaign-repository'
+import {
+  getDueCampaigns,
+  claimCampaignForEnqueue,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
 import { addCampaignJob } from '@/infrastructure/queue/campaign-queue'
 import { checkCampaignGuardrails } from '@/application/check-campaign-guardrails'
 
@@ -15,11 +18,20 @@ export async function GET(request: NextRequest) {
     const campaigns = await getDueCampaigns()
     let enqueued = 0
     let skipped = 0
+    let throttled = 0
 
     for (const campaign of campaigns) {
       const canSend = await isGuardrailAllowed(campaign.restaurantId)
       if (!canSend) {
         skipped++
+        continue
+      }
+      // Lease before enqueue, never after: a crash between the two would
+      // otherwise leave the campaign unleased and re-enqueued next tick.
+      // Losing the race means another tick already has a job in flight.
+      const claimed = await claimCampaignForEnqueue(campaign.id)
+      if (!claimed) {
+        throttled++
         continue
       }
       await addCampaignJob({
@@ -29,7 +41,7 @@ export async function GET(request: NextRequest) {
       enqueued++
     }
 
-    return NextResponse.json({ enqueued, skipped })
+    return NextResponse.json({ enqueued, skipped, throttled })
   } catch (error) {
     console.error('[Cron] Campaign scheduling error:', error)
     return NextResponse.json(
