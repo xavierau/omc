@@ -23,12 +23,33 @@ export async function create(params: CreateTemplateParams): Promise<WhatsAppTemp
   return mapRowToTemplate(data)
 }
 
+// Unscoped lookup: this client is service-role, so it crosses tenants. Only use it
+// where the id came from a row that is already tenant-scoped (a campaign, a
+// restaurant setting). For anything derived from a request, use
+// findByIdForRestaurant.
 export async function findById(id: string): Promise<WhatsAppTemplate | null> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
     .eq('id', id)
+    .neq('status', 'deleted')
+    .single()
+
+  if (error || !data) return null
+  return mapRowToTemplate(data)
+}
+
+export async function findByIdForRestaurant(
+  id: string,
+  restaurantId: string,
+): Promise<WhatsAppTemplate | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
     .neq('status', 'deleted')
     .single()
 
@@ -127,12 +148,16 @@ export async function update(
   return mapRowToTemplate(data)
 }
 
-export async function softDelete(id: string): Promise<void> {
+export async function softDelete(
+  id: string,
+  restaurantId: string,
+): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from(TABLE)
     .update({ status: 'deleted' })
     .eq('id', id)
+    .eq('restaurant_id', restaurantId)
 
   if (error) throw new Error(`softDeleteTemplate: ${error.message}`)
 }
@@ -141,6 +166,7 @@ export async function softDelete(id: string): Promise<void> {
 export {
   create as createTemplate,
   findById as findTemplateById,
+  findByIdForRestaurant as findTemplateByIdForRestaurant,
   findByNameAndLanguage as findTemplateByNameAndLanguage,
   findByMetaTemplateId as findTemplateByMetaTemplateId,
   list as listTemplates,
@@ -151,6 +177,7 @@ export {
 export const whatsappTemplateRepository: WhatsAppTemplateRepository = {
   create,
   findById,
+  findByIdForRestaurant,
   findByNameAndLanguage,
   findByMetaTemplateId,
   list,
