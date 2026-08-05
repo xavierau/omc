@@ -1,6 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { applyTemplateButtonChange, createTemplateButton } from './wa-template-form-types'
 import type { TemplateButton, WaTemplateFormState } from './wa-template-form-types'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -10,10 +11,10 @@ type OnChange = (key: keyof WaTemplateFormState, value: unknown) => void
 export function WaTemplateButtonsSection({ buttons, onChange }: { buttons: TemplateButton[]; onChange: OnChange }) {
   const addButton = () => {
     if (buttons.length >= 3) return
-    onChange('buttons', [...buttons, { type: 'URL', text: '', url: '' }])
+    onChange('buttons', [...buttons, createTemplateButton()])
   }
   const updateButton = (i: number, key: keyof TemplateButton, value: string) => {
-    const next = buttons.map((b, idx) => idx === i ? { ...b, [key]: value } : b)
+    const next = buttons.map((b, idx) => idx === i ? applyTemplateButtonChange(b, key, value) : b)
     onChange('buttons', next)
   }
   const removeButton = (i: number) => {
@@ -60,24 +61,30 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
           Remove
         </button>
       </div>
-      <Input
-        value={btn.text}
-        onChange={(e) => onUpdate(index, 'text', e.target.value)}
-        placeholder="Button label"
-      />
-      {btn.type === 'URL' && (
+      <Labeled label={`Button ${index + 1} label`}>
         <Input
-          value={btn.url}
-          onChange={(e) => onUpdate(index, 'url', e.target.value)}
-          placeholder="https://..."
+          value={btn.text}
+          onChange={(e) => onUpdate(index, 'text', e.target.value)}
+          placeholder="Button label"
         />
+      </Labeled>
+      {btn.type === 'URL' && (
+        <Labeled label="Link URL">
+          <Input
+            value={btn.url}
+            onChange={(e) => onUpdate(index, 'url', e.target.value)}
+            placeholder="https://..."
+          />
+        </Labeled>
       )}
       {btn.type === 'PHONE_NUMBER' && (
-        <Input
-          value={btn.phoneNumber ?? ''}
-          onChange={(e) => onUpdate(index, 'phoneNumber', e.target.value)}
-          placeholder="+852 1234 5678"
-        />
+        <Labeled label="Phone number, with country code">
+          <Input
+            value={btn.phoneNumber ?? ''}
+            onChange={(e) => onUpdate(index, 'phoneNumber', e.target.value)}
+            placeholder="+852 1234 5678"
+          />
+        </Labeled>
       )}
       {btn.type === 'COUPON_URL' && (
         <p className="text-xs text-muted-foreground">
@@ -85,5 +92,15 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
         </p>
       )}
     </div>
+  )
+}
+
+// Two bare inputs is what let a phone number land in the label box (#97).
+function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-muted-foreground mb-1 block">{label}</span>
+      {children}
+    </label>
   )
 }

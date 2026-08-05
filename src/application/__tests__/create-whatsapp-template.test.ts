@@ -236,6 +236,47 @@ describe('createWhatsAppTemplate', () => {
     )
   })
 
+  // #97: the number reached the API but nothing carried it to Meta — proof that
+  // normalize → resolveHeaderMedia → prepare leaves a phone button intact.
+  it('submits a phone button with its number', async () => {
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('meta-tpl-1', 'PENDING'))
+    vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
+    const components: TemplateComponent[] = [
+      { type: 'BODY', text: 'Hi' },
+      { type: 'BUTTONS', buttons: [{ type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85296283521' }] },
+    ]
+
+    await createWhatsAppTemplate({ ...VALID_PARAMS, components })
+
+    expect(createMetaTemplate).toHaveBeenCalledWith(
+      'biz-1',
+      expect.objectContaining({
+        components: expect.arrayContaining([
+          {
+            type: 'BUTTONS',
+            buttons: [{ type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85296283521' }],
+          },
+        ]),
+      })
+    )
+  })
+
+  it('refuses to submit a phone button with no number, without branding the draft rejected', async () => {
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    const components: TemplateComponent[] = [
+      { type: 'BODY', text: 'Hi' },
+      { type: 'BUTTONS', buttons: [{ type: 'PHONE_NUMBER', text: '+85296283521' }] },
+    ]
+
+    const result = await createWhatsAppTemplate({ ...VALID_PARAMS, components })
+
+    expect(createMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(result.errorCode).toBe('provider_error')
+    expect(result.error).toContain('phone number')
+  })
+
   it('saves a raw-URL image header as a draft when there is no WABA, deferring the mint', async () => {
     const result = await createWhatsAppTemplate({ ...VALID_PARAMS, components: IMAGE_URL_COMPONENTS })
 

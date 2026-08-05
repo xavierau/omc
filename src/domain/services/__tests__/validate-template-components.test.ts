@@ -86,4 +86,88 @@ describe('validateTemplateComponents', () => {
 
     expect(message).toBeNull()
   })
+
+  it('rejects a phone button carrying no phone number (#97)', () => {
+    const message = validateTemplateComponents([
+      { type: 'BODY', text: 'Hi' },
+      { type: 'BUTTONS', buttons: [{ type: 'PHONE_NUMBER', text: '+85296283521' }] },
+    ])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('phone number')
+  })
+
+  it('rejects a phone button whose number is blank', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '  ' }] },
+    ])
+
+    expect(message).toBeTruthy()
+  })
+
+  it('rejects a url button carrying no url', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Order now' }] },
+    ])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('link')
+  })
+
+  it('rejects a button with no label', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'URL', text: '', url: 'https://a.test' }] },
+    ])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('label')
+  })
+
+  it('names the offending button', () => {
+    const message = validateTemplateComponents([
+      {
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'URL', text: 'Order now', url: 'https://a.test' },
+          { type: 'PHONE_NUMBER', text: 'Call us' },
+        ],
+      },
+    ])
+
+    expect(message).toContain('Button 2')
+  })
+
+  it('rejects any other button type with no label', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: ' ' }] },
+    ])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('label')
+  })
+
+  // prepareTemplateComponents rewrites a COPY_CODE label on the way out, so a
+  // blank one never reaches Meta blank — blocking it here would be a false refusal.
+  it('exempts COPY_CODE from the label rule', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'COPY_CODE', text: '' }] },
+    ])
+
+    expect(message).toBeNull()
+  })
+
+  it('accepts fully specified url and phone buttons', () => {
+    const message = validateTemplateComponents([
+      { type: 'BODY', text: 'Hi {{customer_name}}' },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'URL', text: 'Order now', url: 'https://a.test' },
+          { type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85296283521' },
+        ],
+      },
+    ])
+
+    expect(message).toBeNull()
+  })
 })

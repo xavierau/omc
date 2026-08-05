@@ -1,4 +1,4 @@
-import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
+import type { TemplateButton, TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { isMediaHeader, readHeaderHandle } from './template-media-header'
 
 /**
@@ -22,9 +22,38 @@ export function validateTemplateComponents(
   components: TemplateComponent[]
 ): string | null {
   for (const c of components) {
+    if (c.type === 'BUTTONS') {
+      const buttonError = validateButtons(c.buttons ?? [])
+      if (buttonError) return buttonError
+      continue
+    }
     if (!isMediaHeader(c)) continue
     const handle = readHeaderHandle(c)
     if (!handle?.[0]?.startsWith(RESUMABLE_HANDLE_PREFIX)) return MEDIA_HANDLE_REQUIRED
+  }
+
+  return null
+}
+
+/**
+ * Meta refuses a button missing its label, and a URL or phone button missing its
+ * own field (code 100 / subcode 2388050), naming it only as "Button at index N".
+ *
+ * COPY_CODE is exempt from the label rule: prepareTemplateComponents replaces
+ * its text on the way out, so a blank one never reaches Meta blank.
+ */
+function validateButtons(buttons: TemplateButton[]): string | null {
+  for (const [i, b] of buttons.entries()) {
+    const name = `Button ${i + 1}`
+    if (b.type !== 'COPY_CODE' && !b.text?.trim()) {
+      return `${name} has no label. Add the text shown on the button and try again.`
+    }
+    if (b.type === 'URL' && !b.url?.trim()) {
+      return `${name} is a link button with no URL. Add the link and try again.`
+    }
+    if (b.type === 'PHONE_NUMBER' && !b.phoneNumber?.trim()) {
+      return `${name} is a phone button with no phone number. Add the number, including its country code, and try again.`
+    }
   }
 
   return null

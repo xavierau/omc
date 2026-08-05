@@ -6,7 +6,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button'
 import { WaTemplateFormFields } from './wa-template-form-fields'
 import { readSubmitOutcome } from './wa-template-submit'
-import { initialWaTemplateForm, buildWaTemplateRequestBody, templateToFormState } from './wa-template-form-types'
+import {
+  initialWaTemplateForm,
+  buildWaTemplateRequestBody,
+  templateToFormState,
+  validateWaTemplateButtons,
+} from './wa-template-form-types'
 import type { WaTemplateFormState } from './wa-template-form-types'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
 
@@ -49,6 +54,8 @@ export function WaTemplateFormDialog({ open, onOpenChange, onSuccess, template }
   const handleSubmit = async () => {
     if (!form.name.trim()) { setError('Name is required'); return }
     if (!form.body.trim()) { setError('Body is required'); return }
+    const buttonError = validateWaTemplateButtons(form.buttons)
+    if (buttonError) { setError(buttonError); return }
     setSaving(true)
     setError(null)
     try {
