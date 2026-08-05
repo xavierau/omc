@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-28",
+  "updated_at": "2026-08-05",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -2598,6 +2598,24 @@
           "completed": "2026-07-28",
           "pr": 94,
           "notes": "Merged via PR #94 into main and develop. Two prongs: scripts/cron/sync-templates.sh (fail-loud Forge Scheduled Job wrapper, */15) + a real message_template_status_update webhook path (new WebhookKind, WABA->tenant rung via entry[].id, shared Meta status map in domain/services/meta-template-status.ts). Review-driven corrections: the webhook only writes cron-syncable statuses (a terminal write would drop the row out of the cron's reach permanently and a stale REJECTED after a real APPROVED would brick the template); the meta-id lookup is authoritative with no name+language fallback on a miss (a miss means a DIFFERENT Meta template); foreign-WABA entries in a batch are skipped (cross-tenant write); and template-status changes are dispatched even when a mixed batch classifies as 'status'. OPEN OPS FOLLOW-UPS, prong 1 is inert until (1) is done: (1) create the Scheduled Job in the Forge UI per deploy/README.md 'Forge Scheduled Jobs' and verify the first run returns restaurants/results JSON; (2) confirm Kushiro offer_promotion flips to approved; (3) confirm whether Kapso forwards message_template_status_update at all (evidence: webhook.kind {kind:'template_status'} log lines) — the Kapso-flat payload shapes remain unverified guesses. grok-cli-reviewer could not run (HTTP 402 quota); code-review-analyzer stood in as second lane."
+        },
+        {
+          "id": "TPL-010",
+          "title": "Phone button never sent phone_number; template creation failed with an opaque Meta error (#97)",
+          "description": "Prod bug #97 (app.ohmyclient.io, 2026-08-05 03:13 UTC). Every Phone-button template was unsubmittable: addButton() seeded no `phoneNumber`, a type switch never created one, and the payload builder's conditional spread dropped the key once the value was undefined — so the number the admin typed landed in the button label and the wire payload was {type, text}. Nothing between the form and Meta validated buttons (dialog checked name/body only; validateCreateBody checked only that components is an array; validateTemplateComponents covered media headers only), and describeGraphError discarded Meta's errorUserTitle/errorUserMsg, leaving the operator with 'Invalid parameter (code 100, subcode 2388050)'. The Kapso SDK was innocent — it snake-cases phoneNumber correctly. Fixed at four layers: seeded/typed button factory + type-switch clearing + client validation, real labels on the two bare inputs, a server backstop in validateTemplateComponents shared by create/edit/resubmit, and Meta's own explanation in the error text (which also makes the 12 other rejection classes in the prod log legible).",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates",
+            "dashboard"
+          ],
+          "github_issue": 97,
+          "branch": "fix/issue-97-phone-button",
+          "completed": "2026-08-05",
+          "pr": 98,
+          "notes": "Merged via PR #98 into main (merge commit b8ffd8f), Forge auto-deploy. CodeRabbit finding addressed in f99abd1: label now required for every button type EXCEPT COPY_CODE, whose text prepareTemplateComponents rewrites on the way out (blocking it would be a false refusal). Follow-ups from the issue, not done here: pre-validating variables at the start/end of the body, missing BODY examples, image-header samples, and WhatsApp links in buttons — all now legible via Meta's own message. Journal: debugging_journals/2026-08-05-phone-button-number-never-sent.md"
         }
       ]
     },
