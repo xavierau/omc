@@ -35,7 +35,25 @@ export type MetaTemplateListItem = MessageTemplate
 function describeGraphError(err: GraphApiError): string {
   const subcode =
     err.errorSubcode !== undefined ? `, subcode ${err.errorSubcode}` : ''
-  return `${err.message} (code ${err.code}${subcode})`
+  return `${err.message}${readUserFacingReason(err)} (code ${err.code}${subcode})`
+}
+
+/**
+ * `message` is often just "Invalid parameter"; Meta names the offending field
+ * in error_user_title / error_user_msg (camel-cased by the SDK onto `raw`).
+ * Dropping them left the operator with a bare code to interpret (#97).
+ */
+function readUserFacingReason(err: GraphApiError): string {
+  const raw = err.raw
+  if (!raw || typeof raw !== 'object') return ''
+  const error = (raw as { error?: unknown }).error
+  if (!error || typeof error !== 'object') return ''
+
+  const { errorUserTitle, errorUserMsg } = error as Record<string, unknown>
+  const parts = [errorUserTitle, errorUserMsg].filter(
+    (p): p is string => typeof p === 'string' && p.trim().length > 0
+  )
+  return parts.length > 0 ? ` — ${parts.join(': ')}` : ''
 }
 
 export async function createMetaTemplate(

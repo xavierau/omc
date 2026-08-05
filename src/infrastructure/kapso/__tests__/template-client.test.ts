@@ -37,7 +37,12 @@ const PARAMS = {
   components: [{ type: 'BODY', text: 'Hi' }],
 }
 
-function graphApiError(message: string, code: number, errorSubcode?: number) {
+function graphApiError(
+  message: string,
+  code: number,
+  errorSubcode?: number,
+  raw: unknown = null
+) {
   return new GraphApiError({
     message,
     code: code as never,
@@ -46,7 +51,7 @@ function graphApiError(message: string, code: number, errorSubcode?: number) {
     httpStatus: 400,
     category: 'invalid_request' as never,
     retry: { action: 'none' } as never,
-    raw: null,
+    raw,
   })
 }
 
@@ -108,6 +113,43 @@ describe('createMetaTemplate', () => {
     )
     expect(result.error?.details).toContain('100')
     expect(result.error?.details).toContain('2388043')
+  })
+
+  // #97: Meta names the offending field in error_user_title / error_user_msg.
+  // Dropping them left operators with a bare "Invalid parameter (code 100...)".
+  it('surfaces Meta\'s own explanation of the rejection', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    mockCreate.mockRejectedValue(
+      graphApiError('Invalid parameter', 100, 2388050, {
+        error: {
+          message: 'Invalid parameter',
+          errorUserTitle: 'Message template button is missing field(s)',
+          errorUserMsg: 'Button at index 1 is missing expected field(s) (phone_number)',
+        },
+      })
+    )
+    const { createMetaTemplate } = await importClient()
+
+    const result = await createMetaTemplate('waba1', PARAMS)
+
+    expect(result.error?.title).toBe('meta_rejected')
+    expect(result.error?.details).toContain('Message template button is missing field(s)')
+    expect(result.error?.details).toContain(
+      'Button at index 1 is missing expected field(s) (phone_number)'
+    )
+    expect(result.error?.details).toContain('2388050')
+  })
+
+  it('falls back to the bare message when Meta sends no user-facing text', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    mockCreate.mockRejectedValue(
+      graphApiError('Invalid parameter', 100, 2388050, 'not a json body')
+    )
+    const { createMetaTemplate } = await importClient()
+
+    const result = await createMetaTemplate('waba1', PARAMS)
+
+    expect(result.error?.details).toBe('Invalid parameter (code 100, subcode 2388050)')
   })
 
   it('reports a generic thrown error as template_create_error', async () => {
