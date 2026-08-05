@@ -10,7 +10,7 @@ vi.mock('@/infrastructure/whatsapp/templates')
 vi.mock('@/infrastructure/kapso/template-media-upload')
 
 import {
-  findTemplateById,
+  findTemplateByIdForRestaurant,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import {
@@ -22,7 +22,10 @@ import {
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
 import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-upload'
-import { updateWhatsAppTemplate } from '../update-whatsapp-template'
+import {
+  updateWhatsAppTemplate,
+  TemplateNotFoundError,
+} from '../update-whatsapp-template'
 import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
 import { isTemplateSendable } from '@/domain/entities/whatsapp-template'
 import { okSubmit, failedSubmit } from '@/test-utils/template-submit-result'
@@ -56,7 +59,7 @@ const TEMPLATE_BASE: WhatsAppTemplate = {
 describe('updateWhatsAppTemplate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(findTemplateById).mockResolvedValue(TEMPLATE_BASE)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(TEMPLATE_BASE)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue(null)
     // Default: no Meta app credentials, so header-image minting is a skip.
     vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({
@@ -66,17 +69,36 @@ describe('updateWhatsAppTemplate', () => {
     })
   })
 
-  it('throws when template is not found', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue(null)
+  it('throws TemplateNotFoundError when template is not found', async () => {
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(null)
 
     await expect(
-      updateWhatsAppTemplate('tpl-missing', { name: 'new_name' })
-    ).rejects.toThrow('Template not found')
+      updateWhatsAppTemplate('tpl-missing', 'rest-1', { name: 'new_name' })
+    ).rejects.toThrow(TemplateNotFoundError)
+  })
+
+  it('scopes the lookup by restaurant so another tenant cannot edit the row', async () => {
+    // The scoped lookup finds nothing for a foreign id, so the victim's live Meta
+    // template is never deleted and never re-created with the caller's payload.
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(null)
+    vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+
+    await expect(
+      updateWhatsAppTemplate('tpl-of-rest-1', 'rest-2', { category: 'UTILITY' })
+    ).rejects.toThrow(TemplateNotFoundError)
+
+    expect(findTemplateByIdForRestaurant).toHaveBeenCalledWith(
+      'tpl-of-rest-1',
+      'rest-2'
+    )
+    expect(deleteMetaTemplate).not.toHaveBeenCalled()
+    expect(createMetaTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
   })
 
   it('throws when updated name is invalid', async () => {
     await expect(
-      updateWhatsAppTemplate('tpl-1', { name: 'INVALID' })
+      updateWhatsAppTemplate('tpl-1', 'rest-1', { name: 'INVALID' })
     ).rejects.toThrow('Invalid template name')
   })
 
@@ -84,7 +106,7 @@ describe('updateWhatsAppTemplate', () => {
     const renamed = { ...TEMPLATE_BASE, name: 'updated_name' }
     vi.mocked(updateTemplate).mockResolvedValue(renamed)
 
-    const result = await updateWhatsAppTemplate('tpl-1', {
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
       name: 'updated_name',
     })
 
@@ -97,9 +119,9 @@ describe('updateWhatsAppTemplate', () => {
     // Persisting here would leave an approved row sendable with content Meta has
     // never seen. Nulling the link would orphan a live template. So: refuse.
     const linked = { ...TEMPLATE_BASE, metaTemplateId: 'old-meta-id' }
-    vi.mocked(findTemplateById).mockResolvedValue(linked)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
 
-    const result = await updateWhatsAppTemplate('tpl-1', {
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
       components: [{ type: 'BODY', text: 'Hi {{customer_name}}' }],
     })
 
@@ -116,7 +138,7 @@ describe('updateWhatsAppTemplate', () => {
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     }
-    vi.mocked(findTemplateById).mockResolvedValue(existingWithMeta)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(existingWithMeta)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(deleteMetaTemplate).mockResolvedValue(true)
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
@@ -130,7 +152,7 @@ describe('updateWhatsAppTemplate', () => {
     }
     vi.mocked(updateTemplate).mockResolvedValue(pendingTemplate)
 
-    const result = await updateWhatsAppTemplate('tpl-1', {
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
       category: 'UTILITY',
     })
 
@@ -157,7 +179,7 @@ describe('updateWhatsAppTemplate', () => {
   })
 
   it('submits prepared components but persists them without examples', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
@@ -166,7 +188,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
     vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
-    await updateWhatsAppTemplate('tpl-1', {
+    await updateWhatsAppTemplate('tpl-1', 'rest-1', {
       components: [{ type: 'BODY', text: 'Hi ｛｛customer_name｝｝' }],
     })
 
@@ -191,7 +213,7 @@ describe('updateWhatsAppTemplate', () => {
   })
 
   it('records the rejection honestly when Meta rejects after the delete', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
@@ -210,7 +232,7 @@ describe('updateWhatsAppTemplate', () => {
     }
     vi.mocked(updateTemplate).mockResolvedValue(rejectedTemplate)
 
-    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'UTILITY' })
 
     // The old template is genuinely gone from Meta — record that, don't pretend it's a draft.
     expect(updateTemplate).toHaveBeenCalledWith('tpl-1', {
@@ -230,11 +252,11 @@ describe('updateWhatsAppTemplate', () => {
     // Creating anyway would fail on name+language uniqueness, and the failure path
     // would then null the link while the template is still live on Meta.
     const linked = { ...TEMPLATE_BASE, metaTemplateId: 'old-meta-id' }
-    vi.mocked(findTemplateById).mockResolvedValue(linked)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     vi.mocked(deleteMetaTemplate).mockResolvedValue(false)
 
-    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'UTILITY' })
 
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(updateTemplate).not.toHaveBeenCalled()
@@ -248,7 +270,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(createMetaTemplate).mockResolvedValue(failedSubmit('kapso_no_api_key'))
     vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
-    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'UTILITY' })
 
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
     expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { category: 'UTILITY' })
@@ -259,7 +281,7 @@ describe('updateWhatsAppTemplate', () => {
   })
 
   it('does not brand a transient submit failure as a Meta rejection', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
@@ -270,7 +292,7 @@ describe('updateWhatsAppTemplate', () => {
     )
     vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
-    const result = await updateWhatsAppTemplate('tpl-1', { category: 'UTILITY' })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'UTILITY' })
 
     // The delete succeeded, so the old template really is gone — unlink honestly,
     // but a network blip is not Meta refusing the content.
@@ -286,13 +308,13 @@ describe('updateWhatsAppTemplate', () => {
   it('refuses a URL image header WITHOUT deleting the live Meta template when upload is unconfigured', async () => {
     // The regression test for the destructive edit: an approved template must
     // survive when the header image cannot be minted (here: no Meta credentials).
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
 
-    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: RAW_URL_IMAGE_HEADER })
 
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
     expect(createMetaTemplate).not.toHaveBeenCalled()
@@ -304,11 +326,11 @@ describe('updateWhatsAppTemplate', () => {
   it('keeps an UNLINKED draft as a draft when the header image cannot be minted', async () => {
     // metaTemplateId: null → no live template to protect, but the image URL still
     // cannot be submitted unconfigured, so it must not reach Meta.
-    vi.mocked(findTemplateById).mockResolvedValue({ ...TEMPLATE_BASE, metaTemplateId: null })
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({ ...TEMPLATE_BASE, metaTemplateId: null })
     vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
     // uploadHeaderMediaFromUrl defaults to not_configured.
 
-    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: RAW_URL_IMAGE_HEADER })
 
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
     expect(createMetaTemplate).not.toHaveBeenCalled()
@@ -317,7 +339,7 @@ describe('updateWhatsAppTemplate', () => {
   })
 
   it('aborts BEFORE the delete when the header image upload fails', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
@@ -328,7 +350,7 @@ describe('updateWhatsAppTemplate', () => {
       error: { title: 'upload_failed', details: 'Meta upload failed (400)' },
     })
 
-    const result = await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+    const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: RAW_URL_IMAGE_HEADER })
 
     // Live template survives: no delete, no local write.
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
@@ -338,7 +360,7 @@ describe('updateWhatsAppTemplate', () => {
   })
 
   it('mints the handle, deletes, and resubmits an image header when configured', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'old-meta-id',
     })
@@ -349,7 +371,7 @@ describe('updateWhatsAppTemplate', () => {
     vi.mocked(createMetaTemplate).mockResolvedValue(okSubmit('new-meta-id', 'PENDING'))
     vi.mocked(updateTemplate).mockResolvedValue(TEMPLATE_BASE)
 
-    await updateWhatsAppTemplate('tpl-1', { components: RAW_URL_IMAGE_HEADER })
+    await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: RAW_URL_IMAGE_HEADER })
 
     expect(uploadHeaderMediaFromUrl).toHaveBeenCalledWith('phone-1', 'https://example.com/img.png')
     expect(deleteMetaTemplate).toHaveBeenCalledWith('biz-1', 'welcome_msg')

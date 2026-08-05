@@ -9,7 +9,7 @@ vi.mock(
 vi.mock('@/infrastructure/whatsapp/templates')
 
 import {
-  findTemplateById,
+  findTemplateByIdForRestaurant,
   softDeleteTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
@@ -39,9 +39,9 @@ describe('deleteWhatsAppTemplate', () => {
   })
 
   it('returns error when template not found', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue(null)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(null)
 
-    const result = await deleteWhatsAppTemplate('tpl-missing')
+    const result = await deleteWhatsAppTemplate('tpl-missing', 'rest-1')
 
     expect(result).toEqual({
       success: false,
@@ -51,29 +51,45 @@ describe('deleteWhatsAppTemplate', () => {
   })
 
   it('soft deletes only when no metaTemplateId', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: null,
     })
 
-    const result = await deleteWhatsAppTemplate('tpl-1')
+    const result = await deleteWhatsAppTemplate('tpl-1', 'rest-1')
 
     expect(result).toEqual({ success: true })
-    expect(softDeleteTemplate).toHaveBeenCalledWith('tpl-1')
+    expect(softDeleteTemplate).toHaveBeenCalledWith('tpl-1', 'rest-1')
     expect(deleteMetaTemplate).not.toHaveBeenCalled()
   })
 
   it('deletes from Meta then soft deletes when metaTemplateId exists', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...TEMPLATE_BASE,
       metaTemplateId: 'meta-tpl-1',
     })
 
-    const result = await deleteWhatsAppTemplate('tpl-1')
+    const result = await deleteWhatsAppTemplate('tpl-1', 'rest-1')
 
     expect(result).toEqual({ success: true })
     expect(getMetaBusinessAccountId).toHaveBeenCalledWith('rest-1')
     expect(deleteMetaTemplate).toHaveBeenCalledWith('biz-1', 'welcome_msg')
-    expect(softDeleteTemplate).toHaveBeenCalledWith('tpl-1')
+    expect(softDeleteTemplate).toHaveBeenCalledWith('tpl-1', 'rest-1')
+  })
+
+  it('scopes the lookup by restaurant so another tenant cannot reach the row', async () => {
+    // The scoped lookup finds nothing for a foreign id, so the victim's template is
+    // never deleted at Meta and never soft-deleted locally.
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(null)
+
+    const result = await deleteWhatsAppTemplate('tpl-of-rest-1', 'rest-2')
+
+    expect(findTemplateByIdForRestaurant).toHaveBeenCalledWith(
+      'tpl-of-rest-1',
+      'rest-2'
+    )
+    expect(result).toEqual({ success: false, error: 'Template not found' })
+    expect(deleteMetaTemplate).not.toHaveBeenCalled()
+    expect(softDeleteTemplate).not.toHaveBeenCalled()
   })
 })
