@@ -137,7 +137,18 @@ describe('validateTemplateComponents', () => {
     expect(message).toContain('Button 2')
   })
 
-  it('leaves button types it does not own alone', () => {
+  it('rejects any other button type with no label', () => {
+    const message = validateTemplateComponents([
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: ' ' }] },
+    ])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('label')
+  })
+
+  // prepareTemplateComponents rewrites a COPY_CODE label on the way out, so a
+  // blank one never reaches Meta blank — blocking it here would be a false refusal.
+  it('exempts COPY_CODE from the label rule', () => {
     const message = validateTemplateComponents([
       { type: 'BUTTONS', buttons: [{ type: 'COPY_CODE', text: '' }] },
     ])

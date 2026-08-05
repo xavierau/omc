@@ -36,15 +36,18 @@ export function validateTemplateComponents(
 }
 
 /**
- * Meta refuses a URL or phone button whose own field is missing (code 100 /
- * subcode 2388050) and names it only as "Button at index N". Other button
- * types carry no such field, so they pass through untouched.
+ * Meta refuses a button missing its label, and a URL or phone button missing its
+ * own field (code 100 / subcode 2388050), naming it only as "Button at index N".
+ *
+ * COPY_CODE is exempt from the label rule: prepareTemplateComponents replaces
+ * its text on the way out, so a blank one never reaches Meta blank.
  */
 function validateButtons(buttons: TemplateButton[]): string | null {
   for (const [i, b] of buttons.entries()) {
-    if (b.type !== 'URL' && b.type !== 'PHONE_NUMBER') continue
     const name = `Button ${i + 1}`
-    if (!b.text?.trim()) return `${name} has no label. Add the text shown on the button and try again.`
+    if (b.type !== 'COPY_CODE' && !b.text?.trim()) {
+      return `${name} has no label. Add the text shown on the button and try again.`
+    }
     if (b.type === 'URL' && !b.url?.trim()) {
       return `${name} is a link button with no URL. Add the link and try again.`
     }
