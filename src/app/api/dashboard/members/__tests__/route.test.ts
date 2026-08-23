@@ -102,4 +102,13 @@ describe('GET /api/dashboard/members pageSize', () => {
       expect.objectContaining({ search: 'wong', pageSize: 200 })
     )
   })
+
+  it('scopes the repo query to the caller\'s tenant, regardless of pageSize', async () => {
+    tenantOk()
+    membersOk()
+
+    await GET(req('?pageSize=200'))
+
+    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ restaurantId: RESTAURANT_ID }))
+  })
 })

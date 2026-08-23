@@ -88,6 +88,7 @@ const baseProps = {
   loading: false,
   loadingMore: false,
   hasMore: false,
+  error: false,
   search: '',
   selectedIds: [] as string[],
   onSearchChange: vi.fn(),
@@ -146,6 +147,28 @@ describe('CampaignMemberPickerView member rows', () => {
   it('shows the no-match empty state when no members are loaded', () => {
     const tree = renderTree(<CampaignMemberPickerView {...baseProps} members={[]} total={0} />)
     expect(hasText(tree, 't:noMatch')).toBe(true)
+  })
+})
+
+describe('CampaignMemberPickerView error state', () => {
+  it('shows a load-error message instead of the empty-search noMatch text', () => {
+    const tree = renderTree(<CampaignMemberPickerView {...baseProps} members={[]} total={0} error />)
+    expect(hasText(tree, 't:loadError')).toBe(true)
+    expect(hasText(tree, 't:noMatch')).toBe(false)
+  })
+
+  it('does not show the error message when the load succeeded', () => {
+    const tree = renderTree(<CampaignMemberPickerView {...baseProps} members={[]} total={0} error={false} />)
+    expect(hasText(tree, 't:noMatch')).toBe(true)
+    expect(hasText(tree, 't:loadError')).toBe(false)
+  })
+
+  it('surfaces a load-more failure without hiding the already-loaded rows', () => {
+    const tree = renderTree(
+      <CampaignMemberPickerView {...baseProps} members={[member(), member({ id: 'm-2' })]} error hasMore />
+    )
+    expect(hasText(tree, 't:loadError')).toBe(true)
+    expect(byType(tree, 'MemberRow')).toHaveLength(2)
   })
 })
 

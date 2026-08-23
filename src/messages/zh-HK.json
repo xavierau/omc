@@ -242,7 +242,8 @@
     "imageUploading": "上傳中…",
     "noMatch": "沒有符合搜尋條件的會員",
     "selectAllLoaded": "全選已載入的 {count} 位",
-    "loadMore": "載入更多"
+    "loadMore": "載入更多",
+    "loadError": "無法載入會員，請重試。"
   },
   "events": {
     "join": "已加入",

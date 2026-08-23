@@ -242,7 +242,8 @@
     "imageUploading": "Uploading…",
     "noMatch": "No members match your search",
     "selectAllLoaded": "Select all {count} loaded",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "loadError": "Couldn't load members. Try again."
   },
   "events": {
     "join": "joined",

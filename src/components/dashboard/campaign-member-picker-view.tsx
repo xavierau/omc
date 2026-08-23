@@ -11,6 +11,7 @@ interface CampaignMemberPickerViewProps {
   loading: boolean
   loadingMore: boolean
   hasMore: boolean
+  error: boolean
   search: string
   selectedIds: string[]
   onSearchChange: (value: string) => void
@@ -23,7 +24,7 @@ interface CampaignMemberPickerViewProps {
 // Pure presentational picker (no internal state) — the stateful container
 // (campaign-member-picker) owns search debounce + page fetching (GH #103).
 export function CampaignMemberPickerView({
-  members, total, loading, loadingMore, hasMore, search, selectedIds,
+  members, total, loading, loadingMore, hasMore, error, search, selectedIds,
   onSearchChange, onToggle, onSelectAll, onDeselectAll, onLoadMore,
 }: CampaignMemberPickerViewProps) {
   const t = useTranslations('campaigns')
@@ -56,7 +57,10 @@ export function CampaignMemberPickerView({
           <MemberRow key={m.id} member={m} checked={selectedIds.includes(m.id)} onToggle={onToggle} unknownLabel={tc('unknown')} />
         ))}
         {members.length === 0 && (
-          <p className="text-sm text-muted-foreground p-3">{t('noMatch')}</p>
+          <p className="text-sm text-muted-foreground p-3">{error ? t('loadError') : t('noMatch')}</p>
+        )}
+        {error && members.length > 0 && (
+          <p className="text-xs text-destructive px-3 py-1">{t('loadError')}</p>
         )}
         {hasMore && (
           <div className="p-2 text-center">
