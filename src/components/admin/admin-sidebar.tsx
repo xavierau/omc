@@ -54,6 +54,7 @@ export function AdminSidebar() {
     { label: t('overview'), href: '/admin' },
     { label: t('tenants'), href: '/admin/tenants' },
     { label: t('quality'), href: '/admin/quality' },
+    { label: t('templateReviews'), href: '/admin/template-reviews' },
     { label: t('billing'), href: '/admin/billing' },
     { label: t('referrers'), href: '/admin/referrers' },
     { label: t('commissionReport'), href: '/admin/referrers/report' },
