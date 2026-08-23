@@ -56,7 +56,7 @@ function buildCampaign(o: Partial<Campaign> = {}): Campaign {
     id: 'camp-1', restaurantId: 'r-1', name: 'Promo', type: 'promo',
     template: '', templateEn: null, templateZhHk: null, imageUrlEn: null,
     imageUrlZhHk: null, couponConfig: null, schedule: null, scheduledAt: null,
-    status: 'active', isChargeable: true, chargeableSentCount: 0,
+    status: 'active', failureReason: null, isChargeable: true, chargeableSentCount: 0,
     nonChargeableSentCount: 0, redeemedCount: 0, whatsappTemplateId: null,
     targetAudience: 'all', createdAt: '2024-01-01T00:00:00Z', ...o,
   }

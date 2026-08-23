@@ -16,6 +16,8 @@ import {
 } from './template-helpers'
 import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
 import { CampaignBodyError } from '../parse-create-body-errors'
+import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
+import { withTemplateReview } from '../with-template-review'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 export async function GET(
@@ -32,7 +34,15 @@ export async function GET(
         { status: 404 }
       )
     }
-    const result: Record<string, unknown> = { ...campaign }
+    // Issue #102 fix 4: let the UI explain a disabled Send button instead
+    // of failing silently.
+    const reviewStates = await buildCampaignTemplateReviewStates(
+      campaign.restaurantId,
+      [campaign]
+    )
+    const result: Record<string, unknown> = {
+      ...withTemplateReview(campaign, reviewStates),
+    }
     if (campaign.targetAudience === 'selected') {
       result.memberIds = await getCampaignMemberIds(id)
     }

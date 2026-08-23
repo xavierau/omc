@@ -18,12 +18,16 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/application/build-campaign-template-review-states', () => ({
+  buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
+}))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
   getCampaignById,
   updateCampaign,
   setCampaignMembers,
+  getCampaignMemberIds,
   remapWelcomeCampaign,
   CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
@@ -31,7 +35,8 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { PATCH } from '../route'
+import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
+import { GET, PATCH } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
 const RESTAURANT_ID = 'rest-1'
@@ -59,6 +64,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'draft',
+    failureReason: null,
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
@@ -572,6 +578,81 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
         imageUrlEn: null,
         imageUrlZhHk: null,
       })
+    )
+  })
+})
+
+// Issue #102 fix 4: single-campaign GET also gains the optional
+// failureReason/templateReview fields, so the campaign-detail view can
+// explain a blocked/failed send the same way the list view does.
+describe('GET /api/dashboard/campaigns/[id]', () => {
+  beforeEach(() => {
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(getCampaignMemberIds).mockReset()
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(buildCampaignTemplateReviewStates).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign())
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(new Map())
+  })
+
+  function getRequest(): NextRequest {
+    return new NextRequest(
+      `http://localhost/api/dashboard/campaigns/${CAMPAIGN_ID}`
+    )
+  }
+
+  it('returns 404 when the campaign does not exist', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(null)
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(r.status).toBe(404)
+  })
+
+  it('includes failureReason from the campaign entity', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ status: 'failed', failureReason: 'boom' })
+    )
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(body.failureReason).toBe('boom')
+  })
+
+  it('attaches templateReview when the state map has an entry for this campaign', async () => {
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(
+      new Map([[CAMPAIGN_ID, { required: true, status: 'pending' }]])
+    )
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(body.templateReview).toEqual({ required: true, status: 'pending' })
+  })
+
+  it('omits templateReview when no state applies (no MARKETING template)', async () => {
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect('templateReview' in body).toBe(false)
+  })
+
+  it('computes review state scoped to the campaign owner restaurantId', async () => {
+    const campaign = buildCampaign()
+    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+
+    await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(buildCampaignTemplateReviewStates).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      [campaign]
     )
   })
 })

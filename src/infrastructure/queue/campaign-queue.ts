@@ -43,7 +43,37 @@ export async function addCampaignJob(
   await q.add('execute-campaign', data, {
     attempts: 3,
     backoff: { type: 'exponential', delay: 2000 },
+    // #102 Part B fix 1: bound Redis retention — an unbounded failed/
+    // completed set grows forever (observed: 6,642 stuck jobs against one
+    // campaign in prod, from a single 26-day-stuck send).
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 1000 },
   })
+}
+
+// #102 Part B fix 2: a campaign whose send exhausts every configured retry
+// attempt must leave getDueCampaigns()'s status='active' filter, or the
+// cron re-enqueues it on every tick forever (the prod incident this issue
+// diagnoses). Mirrors event-dispatch-queue.ts's handleFailedJob pattern —
+// dynamic import keeps the worker module's static dependency surface thin.
+const FAILURE_REASON_MAX_LEN = 500
+
+function truncateFailureReason(message: string): string {
+  if (message.length <= FAILURE_REASON_MAX_LEN) return message
+  return `${message.slice(0, FAILURE_REASON_MAX_LEN)}…`
+}
+
+async function handleFailedJob(
+  job: { data: CampaignJobData; attemptsMade: number; opts: { attempts?: number } },
+  err: Error
+): Promise<void> {
+  const maxAttempts = job.opts.attempts ?? 1
+  if (job.attemptsMade < maxAttempts) return
+
+  const { markCampaignFailed } = await import(
+    '@/infrastructure/supabase/repositories/campaign-repository'
+  )
+  await markCampaignFailed(job.data.campaignId, truncateFailureReason(err.message))
 }
 
 function createWorker(): Worker<CampaignJobData> {
@@ -65,6 +95,11 @@ function createWorker(): Worker<CampaignJobData> {
       `[CampaignQueue] Job ${job?.id} failed:`,
       err.message
     )
+    if (job) {
+      handleFailedJob(job, err).catch((e) =>
+        console.error('[CampaignQueue] Error marking campaign failed:', e)
+      )
+    }
   })
 
   return worker

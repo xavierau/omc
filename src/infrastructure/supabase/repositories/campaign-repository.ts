@@ -196,6 +196,29 @@ export async function claimCampaignForEnqueue(
   return (data?.length ?? 0) > 0
 }
 
+/**
+ * Terminal transition for a campaign whose send has exhausted every queue
+ * retry attempt (issue #102 Part B). Compare-and-swap on `status='active'`,
+ * same reasoning as `claimCampaignForEnqueue`: only an active campaign can
+ * still be sitting in `getDueCampaigns()`, and CAS avoids clobbering a row
+ * a concurrent path already moved (e.g. a manual pause).
+ */
+export async function markCampaignFailed(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'active')
+    .select('id')
+
+  if (error) throw new Error(`markCampaignFailed: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
 export async function getDueCampaigns(): Promise<Campaign[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase

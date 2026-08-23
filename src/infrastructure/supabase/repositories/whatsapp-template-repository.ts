@@ -57,6 +57,27 @@ export async function findByIdForRestaurant(
   return mapRowToTemplate(data)
 }
 
+// #102 fix 4: batch lookup for the campaigns API's template-review
+// enrichment — ONE query for every distinct whatsappTemplateId a
+// restaurant's campaign list references, instead of one findById per
+// campaign (N+1).
+export async function findManyByIdsForRestaurant(
+  ids: string[],
+  restaurantId: string,
+): Promise<WhatsAppTemplate[]> {
+  if (ids.length === 0) return []
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .in('id', ids)
+    .neq('status', 'deleted')
+
+  if (error) throw new Error(`findManyByIdsForRestaurant: ${error.message}`)
+  return (data ?? []).map(mapRowToTemplate)
+}
+
 export async function findByNameAndLanguage(
   restaurantId: string,
   name: string,
@@ -167,6 +188,7 @@ export {
   create as createTemplate,
   findById as findTemplateById,
   findByIdForRestaurant as findTemplateByIdForRestaurant,
+  findManyByIdsForRestaurant as findManyTemplatesByIdsForRestaurant,
   findByNameAndLanguage as findTemplateByNameAndLanguage,
   findByMetaTemplateId as findTemplateByMetaTemplateId,
   list as listTemplates,

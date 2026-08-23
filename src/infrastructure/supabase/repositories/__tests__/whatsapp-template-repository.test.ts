@@ -5,7 +5,11 @@ vi.mock('../../client', () => ({
 }))
 
 import { createServerSupabaseClient } from '../../client'
-import { findByIdForRestaurant, softDelete } from '../whatsapp-template-repository'
+import {
+  findByIdForRestaurant,
+  softDelete,
+  findManyByIdsForRestaurant,
+} from '../whatsapp-template-repository'
 
 const mockClient = vi.mocked(createServerSupabaseClient)
 
@@ -22,6 +26,10 @@ function builder(result: unknown) {
     },
     neq: (column: string, value: unknown) => {
       filters.push(['neq', column, value])
+      return chain
+    },
+    in: (column: string, value: unknown) => {
+      filters.push(['in', column, value])
       return chain
     },
     single: () => Promise.resolve(result),
@@ -99,5 +107,45 @@ describe('softDelete', () => {
     } as unknown as ReturnType<typeof createServerSupabaseClient>)
 
     await expect(softDelete('tpl-1', 'rest-1')).rejects.toThrow('softDeleteTemplate: boom')
+  })
+})
+
+// #102 fix 4: batch fetch used by the campaigns API to enrich campaigns
+// with template-review state — ONE query for however many distinct
+// whatsappTemplateIds the campaign list references, not one per campaign
+// (N+1 prevention).
+describe('findManyByIdsForRestaurant', () => {
+  it('scopes by restaurant_id, filters by id list, and excludes deleted', async () => {
+    const { chain, filters } = builder({ data: [ROW], error: null })
+    mockClient.mockReturnValue({
+      from: () => ({ select: () => chain }),
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const templates = await findManyByIdsForRestaurant(['tpl-1', 'tpl-2'], 'rest-1')
+
+    expect(filters).toEqual([
+      ['eq', 'restaurant_id', 'rest-1'],
+      ['in', 'id', ['tpl-1', 'tpl-2']],
+      ['neq', 'status', 'deleted'],
+    ])
+    expect(templates).toHaveLength(1)
+    expect(templates[0].id).toBe('tpl-1')
+  })
+
+  it('returns [] without querying when ids is empty', async () => {
+    const result = await findManyByIdsForRestaurant([], 'rest-1')
+    expect(result).toEqual([])
+    expect(mockClient).not.toHaveBeenCalled()
+  })
+
+  it('throws when the query errors', async () => {
+    const { chain } = builder({ data: null, error: { message: 'boom' } })
+    mockClient.mockReturnValue({
+      from: () => ({ select: () => chain }),
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(findManyByIdsForRestaurant(['tpl-1'], 'rest-1')).rejects.toThrow(
+      'findManyByIdsForRestaurant: boom'
+    )
   })
 })

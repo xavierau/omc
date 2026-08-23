@@ -4,6 +4,8 @@ import { addCampaignJob } from '@/infrastructure/queue/campaign-queue'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { CampaignGuardrailError } from '@/application/campaign-guardrail-error'
+import { resolveWhatsAppTemplate } from '@/application/resolve-whatsapp-template'
+import { enforceTemplateReview } from '@/application/enforce-template-review'
 
 export async function POST(
   _request: NextRequest,
@@ -26,6 +28,19 @@ export async function POST(
         { status: 400 }
       )
     }
+
+    // Issue #102 Part A fix 2: run the WAQ-011 gate synchronously, BEFORE
+    // enqueueing, so a blocked send returns 403 with the violation in the
+    // response instead of `200 {"status":"queued"}` while the real failure
+    // only ever surfaced in the worker log. Loads the same template the
+    // worker would (resolveWhatsAppTemplate), so this can't drift from the
+    // actual send-time check.
+    const template = await resolveWhatsAppTemplate(campaign)
+    await enforceTemplateReview({
+      campaign,
+      restaurantId: campaign.restaurantId,
+      template,
+    })
 
     await addCampaignJob({
       campaignId: campaign.id,

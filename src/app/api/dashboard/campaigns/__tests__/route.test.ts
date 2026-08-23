@@ -17,6 +17,9 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/application/build-campaign-template-review-states', () => ({
+  buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
+}))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -30,6 +33,7 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
 import { POST, GET } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -57,6 +61,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'draft',
+    failureReason: null,
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
@@ -448,10 +453,55 @@ describe('GET /api/dashboard/campaigns', () => {
       tenantStatus: 'active',
     })
     vi.mocked(listCampaigns).mockResolvedValue([])
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(new Map())
   })
 
   it('returns campaigns list', async () => {
     const r = await GET()
     expect(r.status).toBe(200)
+  })
+
+  // Issue #102 fix 4: dashboard campaigns API gains optional
+  // `failureReason` (from the Campaign entity) and `templateReview`
+  // (computed per-campaign) fields so the UI can explain a blocked/failed
+  // send instead of failing silently.
+  it('includes failureReason from the campaign entity', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', status: 'failed', failureReason: 'boom' }),
+    ])
+
+    const r = await GET()
+    const body = await r.json()
+    expect(body.campaigns[0].failureReason).toBe('boom')
+  })
+
+  it('attaches templateReview only to campaigns present in the computed state map', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', whatsappTemplateId: 'tpl-1' }),
+      buildCampaign({ id: 'c-2', whatsappTemplateId: null }),
+    ])
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(
+      new Map([['c-1', { required: true, status: 'pending' }]])
+    )
+
+    const r = await GET()
+    const body = await r.json()
+    const byId = Object.fromEntries(
+      body.campaigns.map((c: { id: string }) => [c.id, c])
+    )
+    expect(byId['c-1'].templateReview).toEqual({ required: true, status: 'pending' })
+    expect('templateReview' in byId['c-2']).toBe(false)
+  })
+
+  it('computes review states using the tenant restaurantId and the fetched campaigns', async () => {
+    const campaigns = [buildCampaign({ id: 'c-1' })]
+    vi.mocked(listCampaigns).mockResolvedValue(campaigns)
+
+    await GET()
+
+    expect(buildCampaignTemplateReviewStates).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      campaigns
+    )
   })
 })

@@ -44,6 +44,8 @@ export interface UpdateCampaignParams {
   whatsappTemplateId?: string | null
   targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
+  /** Set alongside status: 'failed' by the queue worker (issue #102). */
+  failureReason?: string | null
 }
 
 export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
@@ -61,6 +63,7 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     schedule: (row.schedule as Record<string, unknown>) ?? null,
     scheduledAt: (row.scheduled_at as string) ?? null,
     status: row.status as Campaign['status'],
+    failureReason: (row.failure_reason as string | null) ?? null,
     isChargeable: (row.is_chargeable as boolean | undefined) ?? true,
     chargeableSentCount: Number(row.chargeable_sent_count ?? 0),
     nonChargeableSentCount: Number(row.non_chargeable_sent_count ?? 0),
@@ -97,6 +100,7 @@ export function buildCampaignUpdateRow(
   if (changes.whatsappTemplateId !== undefined) update.whatsapp_template_id = changes.whatsappTemplateId
   if (changes.targetAudience !== undefined) update.target_audience = changes.targetAudience
   if (changes.status !== undefined) update.status = changes.status
+  if (changes.failureReason !== undefined) update.failure_reason = changes.failureReason
 
   if (changes.template !== undefined) {
     update.template = changes.template

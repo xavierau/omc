@@ -30,6 +30,7 @@ function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'completed',
+    failureReason: null,
     isChargeable: true,
     chargeableSentCount: 100,
     nonChargeableSentCount: 0,

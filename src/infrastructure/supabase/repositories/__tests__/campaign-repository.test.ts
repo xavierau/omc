@@ -9,6 +9,7 @@ import {
   mapRowToCampaign,
   incrementCampaignSent,
   createCampaign,
+  markCampaignFailed,
 } from '../campaign-repository'
 
 function buildRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -216,6 +217,59 @@ describe('createCampaign — INSERT row payload (FIX 9)', () => {
 
     expect(campaign.imageUrlEn).toBe('https://cdn/en.png')
     expect(campaign.imageUrlZhHk).toBe('https://cdn/zh.png')
+  })
+})
+
+// #102 Part B fix 2: terminal state so a campaign that exhausts every
+// queue retry attempt leaves getDueCampaigns()'s status='active' filter
+// instead of being re-enqueued forever.
+function buildUpdateSpyClient(
+  data: { id: string }[] | null,
+  error: { message: string } | null = null
+) {
+  const select = vi.fn().mockResolvedValue({ data, error })
+  const eqStatus = vi.fn().mockReturnValue({ select })
+  const eqId = vi.fn().mockReturnValue({ eq: eqStatus })
+  const update = vi.fn().mockReturnValue({ eq: eqId })
+  const from = vi.fn().mockReturnValue({ update })
+  return { from, update, eqId, eqStatus, select }
+}
+
+describe('markCampaignFailed', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('transitions an active campaign to failed and records the reason (CAS on status=active)', async () => {
+    const spy = buildUpdateSpyClient([{ id: 'camp-1' }])
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    const result = await markCampaignFailed('camp-1', 'boom')
+
+    expect(spy.from).toHaveBeenCalledWith('campaigns')
+    expect(spy.update).toHaveBeenCalledWith({
+      status: 'failed',
+      failure_reason: 'boom',
+    })
+    expect(spy.eqId).toHaveBeenCalledWith('id', 'camp-1')
+    expect(spy.eqStatus).toHaveBeenCalledWith('status', 'active')
+    expect(result).toBe(true)
+  })
+
+  it('returns false when no active row matches (already left status=active)', async () => {
+    const spy = buildUpdateSpyClient([])
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    const result = await markCampaignFailed('camp-1', 'boom')
+
+    expect(result).toBe(false)
+  })
+
+  it('throws when the update errors', async () => {
+    const spy = buildUpdateSpyClient(null, { message: 'db down' })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    await expect(markCampaignFailed('camp-1', 'boom')).rejects.toThrow(
+      'markCampaignFailed: db down'
+    )
   })
 })
 

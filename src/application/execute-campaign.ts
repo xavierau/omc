@@ -5,12 +5,12 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Language } from '@/domain/value-objects/language'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
+import { resolveWhatsAppTemplate } from './resolve-whatsapp-template'
 import { checkCampaignGuardrails } from './check-campaign-guardrails'
 import { enforceTemplateReview } from './enforce-template-review'
 import { CampaignGuardrailError } from './campaign-guardrail-error'
@@ -117,20 +117,6 @@ function assertHasAnyInlineTemplate(
   const hasEn = resolveCampaignTemplate(campaign, Language.EN) !== null
   const hasZh = resolveCampaignTemplate(campaign, Language.ZH_HK) !== null
   if (!hasEn && !hasZh) throw new NoTemplateError(campaign.id)
-}
-
-async function resolveWhatsAppTemplate(
-  campaign: Campaign
-): Promise<WhatsAppTemplate | null> {
-  if (!campaign.whatsappTemplateId) return null
-  const template = await findTemplateById(campaign.whatsappTemplateId)
-  if (!template) {
-    throw new Error(`WhatsApp template ${campaign.whatsappTemplateId} not found`)
-  }
-  if (!isTemplateSendable(template)) {
-    throw new Error(`WhatsApp template ${template.name} is not approved`)
-  }
-  return template
 }
 
 async function enforceGuardrails(

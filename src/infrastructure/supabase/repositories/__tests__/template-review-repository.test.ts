@@ -12,6 +12,7 @@ import {
   listTemplateReviewsForRestaurant,
   listTemplateReviewsByStatus,
   findTemplateReviewById,
+  findLatestTemplateReviewsByNames,
   templateReviewRepository,
 } from '../template-review-repository'
 import { TemplateReview } from '@/domain/entities/template-review'
@@ -277,6 +278,72 @@ describe('findTemplateReviewById', () => {
     } as unknown as ReturnType<typeof createServerSupabaseClient>)
 
     expect(await findTemplateReviewById('nope')).toBeNull()
+  })
+})
+
+// #102 fix 4: unlike findActiveTemplateReviewByName (pending/approved
+// only), this returns the latest row per template name REGARDLESS of
+// status — a rejected or changes-requested submission still needs to be
+// visible on the campaigns API instead of reporting `status: 'none'`.
+describe('findLatestTemplateReviewsByNames', () => {
+  it('queries by restaurant_id + template_name IN (...), ordered submitted_at desc', async () => {
+    const rows = [
+      makeRow({ id: 'rev-2', template_name: 'promo_summer', status: 'rejected', submitted_at: '2026-04-02T00:00:00.000Z' }),
+      makeRow({ id: 'rev-1', template_name: 'promo_summer', status: 'pending', submitted_at: '2026-04-01T00:00:00.000Z' }),
+    ]
+    const eqs: Array<{ col: string; val: unknown }> = []
+    const ins: Array<{ col: string; vals: unknown[] }> = []
+    const order = vi.fn().mockResolvedValue({ data: rows, error: null })
+    const inFn = vi.fn((col: string, vals: unknown[]) => {
+      ins.push({ col, vals })
+      return { order }
+    })
+    const eqChain = { eq: vi.fn(), in: inFn }
+    eqChain.eq.mockImplementation((col: string, val: unknown) => {
+      eqs.push({ col, val })
+      return eqChain
+    })
+    const select = vi.fn().mockReturnValue(eqChain)
+    mockClient.mockReturnValue({
+      from: () => ({ select }),
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const out = await findLatestTemplateReviewsByNames({
+      restaurantId: 'rest-1',
+      templateNames: ['promo_summer'],
+    })
+
+    expect(eqs).toEqual([{ col: 'restaurant_id', val: 'rest-1' }])
+    expect(ins[0]).toEqual({ col: 'template_name', vals: ['promo_summer'] })
+    expect(order).toHaveBeenCalledWith('submitted_at', { ascending: false })
+    // Only the LATEST row for the name survives — the rejected one, since
+    // it sorts first (submitted_at desc).
+    expect(out).toHaveLength(1)
+    expect(out[0].snapshot.id).toBe('rev-2')
+    expect(out[0].snapshot.status).toBe('rejected')
+  })
+
+  it('returns [] without querying when templateNames is empty', async () => {
+    const out = await findLatestTemplateReviewsByNames({
+      restaurantId: 'rest-1',
+      templateNames: [],
+    })
+    expect(out).toEqual([])
+    expect(mockClient).not.toHaveBeenCalled()
+  })
+
+  it('throws when supabase errors', async () => {
+    const order = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
+    const inFn = vi.fn().mockReturnValue({ order })
+    const eq = vi.fn().mockReturnValue({ in: inFn })
+    const select = vi.fn().mockReturnValue({ eq })
+    mockClient.mockReturnValue({
+      from: () => ({ select }),
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(
+      findLatestTemplateReviewsByNames({ restaurantId: 'rest-1', templateNames: ['x'] })
+    ).rejects.toThrow(/boom/)
   })
 })
 
