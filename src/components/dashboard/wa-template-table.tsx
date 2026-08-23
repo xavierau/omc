@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
+import { WaTemplateReviewAction } from './wa-template-review-action'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
 
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -91,12 +92,15 @@ export function WaTemplateTable({ templates, onEdit }: Props) {
             <TableCell>{formatDate(tmpl.createdAt)}</TableCell>
             {onEdit && (
               <TableCell>
-                <button
-                  onClick={() => onEdit(tmpl)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  {t('edit')}
-                </button>
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    onClick={() => onEdit(tmpl)}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {t('edit')}
+                  </button>
+                  {tmpl.category === 'MARKETING' && <WaTemplateReviewAction template={tmpl} />}
+                </div>
               </TableCell>
             )}
           </TableRow>

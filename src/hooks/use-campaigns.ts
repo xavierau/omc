@@ -3,12 +3,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTenant } from '@/hooks/use-tenant'
 import type { Campaign } from '@/domain/entities/campaign'
+import type { CampaignTemplateReviewGate } from '@/components/dashboard/campaign-send-gate'
 
 export type { Campaign }
 
+// Issue #102: the campaigns API is gaining `failureReason` and
+// `templateReview` alongside a `status: 'failed'` value (parallel backend
+// change, contract only — both fields optional so this reads fine whether or
+// not that PR has landed yet). Widening here, not on the domain entity,
+// keeps this a presentation-layer concern.
+export type DashboardCampaign = Campaign & {
+  failureReason?: string | null
+  templateReview?: CampaignTemplateReviewGate | null
+}
+
 export function useCampaigns() {
   const { restaurantId } = useTenant()
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

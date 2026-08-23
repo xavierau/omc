@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCampaigns } from '@/hooks/use-campaigns'
-import type { Campaign } from '@/hooks/use-campaigns'
+import type { Campaign, DashboardCampaign } from '@/hooks/use-campaigns'
 import { useCampaignGuardrails } from '@/hooks/use-campaign-guardrails'
 import { CampaignCard } from '@/components/dashboard/campaign-card'
 import { CampaignGuardrailBanner } from '@/components/dashboard/campaign-guardrail-banner'
@@ -44,7 +44,7 @@ export default function CampaignsPage() {
 }
 
 function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: {
-  title: string; campaigns: Campaign[]; onExecute: () => void; onEdit: (c: Campaign) => void; sendDisabled: boolean
+  title: string; campaigns: DashboardCampaign[]; onExecute: () => void; onEdit: (c: Campaign) => void; sendDisabled: boolean
 }) {
   return (
     <div>
@@ -60,6 +60,8 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             sentCount={c.chargeableSentCount + c.nonChargeableSentCount}
             redeemedCount={c.redeemedCount}
             scheduledAt={c.scheduledAt}
+            failureReason={c.failureReason}
+            templateReview={c.templateReview}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
             sendDisabled={sendDisabled}

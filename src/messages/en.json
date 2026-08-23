@@ -363,6 +363,7 @@
     "referrers": "Referrers",
     "auditLogs": "Audit Logs",
     "commissionReport": "Commission Report",
+    "templateReviews": "Template Reviews",
     "logout": "Log Out"
   },
   "admin": {
@@ -798,6 +799,51 @@
     "submitFailed": "Couldn't submit this template to WhatsApp. Please try again.",
     "rejectionReasonLabel": "Meta's reason",
     "imageHeaderHint": "JPEG or PNG, up to 5MB. The image is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used."
+  },
+  "templateReview": {
+    "submitAction": "Submit for review",
+    "submitting": "Submitting...",
+    "submitted": "Submitted — pending review",
+    "alreadySubmitted": "Already submitted for review",
+    "submitFailed": "Couldn't submit for review. Please try again."
+  },
+  "adminTemplateReviews": {
+    "heading": "Template Reviews",
+    "couldntLoad": "Couldn't load template reviews.",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "statusChangesRequested": "Changes requested",
+    "tenant": "Tenant",
+    "template": "Template",
+    "audienceSize": "Audience",
+    "contentPreview": "Content preview",
+    "submittedAt": "Submitted",
+    "actions": "Actions",
+    "noReviews": "No reviews with this status.",
+    "review": "Review",
+    "panelTitle": "Review template",
+    "panelTenant": "Tenant",
+    "panelTemplate": "Template",
+    "panelAudience": "Target audience",
+    "panelContent": "Content preview",
+    "panelSubmitted": "Submitted",
+    "panelSubmittedBy": "Submitted by",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Required for reject or request changes",
+    "notesRequired": "Notes are required for this action",
+    "approve": "Approve",
+    "reject": "Reject",
+    "requestChanges": "Request changes",
+    "submitting": "Submitting...",
+    "decisionError": "Couldn't submit the decision. Please try again."
+  },
+  "campaignSendGate": {
+    "failedTitle": "Send failed",
+    "failedReasonFallback": "The last send attempt failed. Contact support if this keeps happening.",
+    "reviewRequiredPending": "Template pending platform approval",
+    "reviewRequiredSubmit": "Template review required — submit it for review",
+    "executeErrorFallback": "Couldn't send this campaign. Please try again."
   },
   "importWizard": {
     "heading": "Import contacts",
