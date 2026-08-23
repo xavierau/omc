@@ -239,7 +239,10 @@
     "imageRemove": "Remove",
     "imageUploadError": "Upload failed",
     "imageTooLarge": "File too large (max 5MB)",
-    "imageUploading": "Uploading…"
+    "imageUploading": "Uploading…",
+    "noMatch": "No members match your search",
+    "selectAllLoaded": "Select all {count} loaded",
+    "loadMore": "Load more"
   },
   "events": {
     "join": "joined",

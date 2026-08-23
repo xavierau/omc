@@ -1,95 +1,73 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useTranslations } from 'next-intl'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { CampaignMemberPickerView } from './campaign-member-picker-view'
+import { fetchMemberPage, PICKER_PAGE_SIZE, type PickerMember } from '@/hooks/campaign-member-picker-client'
 
-interface Member {
-  id: string
-  name: string | null
-  phone: string
-}
+const SEARCH_DEBOUNCE_MS = 300
 
 interface CampaignMemberPickerProps {
   selectedIds: string[]
   onChange: (ids: string[]) => void
 }
 
+// Stateful container — owns search debounce + server-side page fetching.
+// Search now hits GET /api/dashboard/members?search=... instead of filtering
+// a single client-loaded page, and members accumulate across "Load more"
+// pages so "Select all" can honestly cover the full loaded result (GH #103).
 export function CampaignMemberPicker({ selectedIds, onChange }: CampaignMemberPickerProps) {
-  const t = useTranslations('campaigns')
-  const tc = useTranslations('common')
-  const [members, setMembers] = useState<Member[]>([])
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [members, setMembers] = useState<PickerMember[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard/members')
-      .then((res) => res.json())
-      .then((data) => setMembers(data.members ?? []))
-      .catch(() => setMembers([]))
-      .finally(() => setLoading(false))
+  const load = useCallback((targetPage: number, term: string, append: boolean) => {
+    if (append) setLoadingMore(true)
+    else setLoading(true)
+    fetchMemberPage({ search: term, page: targetPage, pageSize: PICKER_PAGE_SIZE })
+      .then((result) => {
+        setMembers((prev) => (append ? [...prev, ...result.members] : result.members))
+        setTotal(result.total)
+        setPage(result.page)
+        setTotalPages(result.totalPages)
+      })
+      .catch(() => { if (!append) setMembers([]) })
+      .finally(() => (append ? setLoadingMore(false) : setLoading(false)))
   }, [])
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return members
-    const q = search.toLowerCase()
-    return members.filter(
-      (m) =>
-        (m.name ?? '').toLowerCase().includes(q) ||
-        m.phone.includes(q)
-    )
-  }, [members, search])
+  useEffect(() => {
+    load(1, debouncedSearch, false)
+  }, [debouncedSearch, load])
 
-  const toggle = (id: string) => {
-    onChange(
-      selectedIds.includes(id)
-        ? selectedIds.filter((sid) => sid !== id)
-        : [...selectedIds, id]
-    )
-  }
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setDebouncedSearch(value), SEARCH_DEBOUNCE_MS)
+  }, [])
 
-  const selectAll = () => onChange(filtered.map((m) => m.id))
-  const deselectAll = () => onChange([])
-
-  if (loading) return <p className="text-sm text-muted-foreground">{tc('loading')}</p>
+  const toggle = (id: string) => onChange(
+    selectedIds.includes(id) ? selectedIds.filter((sid) => sid !== id) : [...selectedIds, id]
+  )
 
   return (
-    <div className="space-y-2">
-      <Input
-        placeholder={t('searchMembers')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {t('selectedCount', { count: selectedIds.length })}
-        </span>
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={selectAll}>
-            {t('selectAll')}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={deselectAll}>
-            {t('deselectAll')}
-          </Button>
-        </div>
-      </div>
-      <div className="max-h-48 overflow-y-auto border rounded-md divide-y">
-        {filtered.map((m) => (
-          <label key={m.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(m.id)}
-              onChange={() => toggle(m.id)}
-            />
-            <span className="font-medium">{m.name ?? tc('unknown')}</span>
-            <span className="text-muted-foreground ml-auto">{m.phone}</span>
-          </label>
-        ))}
-        {filtered.length === 0 && (
-          <p className="text-sm text-muted-foreground p-3">{t('noMatch')}</p>
-        )}
-      </div>
-    </div>
+    <CampaignMemberPickerView
+      members={members}
+      total={total}
+      loading={loading}
+      loadingMore={loadingMore}
+      hasMore={page < totalPages}
+      search={search}
+      selectedIds={selectedIds}
+      onSearchChange={handleSearchChange}
+      onToggle={toggle}
+      onSelectAll={() => onChange(members.map((m) => m.id))}
+      onDeselectAll={() => onChange([])}
+      onLoadMore={() => load(page + 1, debouncedSearch, true)}
+    />
   )
 }

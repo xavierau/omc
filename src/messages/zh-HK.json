@@ -239,7 +239,10 @@
     "imageRemove": "移除",
     "imageUploadError": "上傳失敗",
     "imageTooLarge": "檔案過大（最多 5MB）",
-    "imageUploading": "上傳中…"
+    "imageUploading": "上傳中…",
+    "noMatch": "沒有符合搜尋條件的會員",
+    "selectAllLoaded": "全選已載入的 {count} 位",
+    "loadMore": "載入更多"
   },
   "events": {
     "join": "已加入",
