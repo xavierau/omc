@@ -11,10 +11,10 @@
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { getContactConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getEmailProvider } from '@/infrastructure/email/provider-factory'
+import { addEmailJob, type EmailJobData } from '@/infrastructure/queue/email-queue'
 import { parseContactFormSubmission } from '@/domain/services/contact-form-submission'
-import { buildContactEmail, type ContactFormSubmission } from '@/domain/services/contact-email'
-import { DEFAULT_ACK_TEXT, type ContactLabels } from '@/domain/services/contact-config'
+import type { ContactFormSubmission } from '@/domain/services/contact-email'
+import { DEFAULT_ACK_TEXT } from '@/domain/services/contact-config'
 import { handleUnknown } from './unknown-help-handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 
@@ -56,7 +56,7 @@ async function process(ctx: ContactFormSubmissionCtx) {
 
   const config = await getContactConfig(restaurantId)
   await sendAck(phoneNumberId, phone, config.ackText, log)
-  await sendNotification(parsed.submission, config.notificationEmail, config.labels, ctx)
+  await sendNotification(parsed.submission, config.notificationEmail, ctx)
 }
 
 type TokenCheck = 'ok' | 'mismatch' | 'foreign'
@@ -97,11 +97,15 @@ async function sendAck(
   }
 }
 
-/** Never affects the ack (already sent) and never throws — logged at 'error'. */
+/**
+ * Never affects the ack (already sent) and never throws — enqueue failure
+ * (e.g. Redis down) is caught and logged, matching the never-throw contract
+ * this file's header documents. The actual send (and its retry/dead-letter
+ * handling) happens in the `email-send` queue worker, not here.
+ */
 async function sendNotification(
   submission: ContactFormSubmission,
   notificationEmail: string | null,
-  labels: ContactLabels,
   ctx: ContactFormSubmissionCtx
 ): Promise<void> {
   const { restaurantId, message, log } = ctx
@@ -111,19 +115,29 @@ async function sendNotification(
     return
   }
 
-  const { subject, text } = buildContactEmail(submission, {
+  const jobData: EmailJobData = {
+    restaurantId,
+    notificationEmail,
+    submission,
     senderWaId: ctx.phone,
     // WhatsApp's profile name when it supplied one, otherwise the member
     // record — Meta omits `contacts[].profile.name` often enough that
     // reporting "(未提供)" for a known member was a routine wrong answer.
     contactName: message.contactName ?? (await memberName(restaurantId, ctx.phone)),
-    timestamp: new Date(),
-    labels,
-  })
+    messageId: message.messageId,
+    // Captured now (submission time), not in the worker — a retry under
+    // backoff must still report when the customer submitted, not when the
+    // job happened to be processed.
+    submittedAt: new Date().toISOString(),
+  }
 
-  const result = await getEmailProvider().send({ to: notificationEmail, subject, text })
-  if (!result.ok) {
-    log('error', 'contact_form.email_failed', { error: result.error, restaurantId })
+  try {
+    await addEmailJob(jobData)
+  } catch (err) {
+    log('error', 'contact_form.enqueue_failed', {
+      error: err instanceof Error ? err.message : String(err),
+      restaurantId,
+    })
   }
 }
 
