@@ -13,6 +13,47 @@ set -euo pipefail
 #
 # What remains is cheap and bounded: deps, migrations, seeder, restart.
 
+# Sync with the published release before anything else. Forge's stock deploy
+# script consumes the site branch with `git pull` — and a pull can NEVER land
+# this repo's `release` branch: it is an orphan commit force-pushed on every
+# release, so each new tip shares no history with the one before it. The pull
+# exits 128 ("refusing to merge unrelated histories") and, because the stock
+# script does not `set -e`, the deploy carries on against the STALE checkout —
+# silently redeploying the previous release while the log claims success.
+# deploy/README.md documents the fetch+checkout deploy script that avoids
+# this; the block below makes the deploy correct even where that script edit
+# is missing or gets reverted.
+#
+# Deliberately scoped to a checkout already ON the release branch: a
+# main/develop checkout must keep failing at the RELEASE.json guard below with
+# instructions, not be silently switched to a branch Forge was not told to
+# deploy. The first cutover therefore still needs the README's deploy-script
+# step; this handles every deploy after it.
+if [ "${OMC_DEPLOY_SYNCED:-0}" != "1" ] && [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)" = "release" ]; then
+  echo "→ Syncing checkout with origin/release"
+  remote_tip=$(git ls-remote --heads origin refs/heads/release | awk '{print $1}')
+  if [ -z "$remote_tip" ]; then
+    echo "  ✗ origin has no 'release' branch — publish one first (npm run build:release)." >&2
+    exit 1
+  fi
+  if [ "$(git rev-parse HEAD)" = "$remote_tip" ]; then
+    echo "  already at ${remote_tip:0:7}"
+  else
+    # Fetch the branch explicitly: this checkout's refspec may only track
+    # develop (the production box's does), so remote-tracking refs are not
+    # trustworthy — FETCH_HEAD is exact. reset --hard rather than merge or
+    # checkout because the new tip shares no history with HEAD and must also
+    # overwrite anything stale at tracked paths.
+    git fetch origin refs/heads/release
+    git reset --hard FETCH_HEAD
+    echo "  reset to ${remote_tip:0:7}"
+    # deploy.sh itself may have just changed on disk, and bash reads the file
+    # incrementally — continuing in this process would execute a byte-offset
+    # mix of the old and new script. Re-exec the synced copy exactly once.
+    OMC_DEPLOY_SYNCED=1 exec bash "$0"
+  fi
+fi
+
 # Free space required before we touch anything (issue #83). A deploy that
 # refuses to start is far cheaper than one that half-succeeds: when the disk
 # filled mid-`npm ci`, npm reported "added 840 packages" while writing a
@@ -84,18 +125,42 @@ for required in .next/BUILD_ID .next/prerender-manifest.json .next/routes-manife
     exit 1
   fi
 done
-# The bundle must never carry a .env: `output: 'standalone'` copies the build
-# machine's one into .next/standalone/.env, and this repo is public. release.sh
-# scrubs it, but a bundle published before that guard existed — or by hand —
-# would not be scrubbed, so re-check on arrival. The server's own .env, in the
-# site root, is the one that counts and is untouched by this.
-if [ -f .next/standalone/.env ]; then
-  echo "  ✗ .next/standalone/.env is present in the deployed bundle." >&2
-  echo "    That file is a verbatim copy of the BUILD MACHINE's .env and this" >&2
-  echo "    repo is public. Treat any credential in it as compromised and" >&2
-  echo "    rotate it. Rebuild with scripts/release.sh, which scrubs it." >&2
+# The bundle must never CARRY an env file: `output: 'standalone'` copies the
+# build machine's .env verbatim into .next/standalone/.env, and this repo is
+# public. release.sh scrubs it, but a bundle published before that guard
+# existed — or by hand — would not be scrubbed, so re-check on arrival.
+#
+# Check what the COMMIT tracks, not what is on disk: the deploy itself places
+# a local copy of the server's own .env at that exact path (below), and a
+# leftover from the in-place-build era may sit there untracked too. Only a
+# TRACKED env file means the public branch is carrying credentials. Matches
+# any .env / .env.* under .next/, sparing .env.example — the same set
+# release.sh scrubs.
+tracked_env=$(git ls-files -- .next | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -v '\.env\.example$' || true)
+if [ -n "$tracked_env" ]; then
+  echo "  ✗ The release bundle carries env file(s) in git:" >&2
+  printf '%s\n' "$tracked_env" | sed 's/^/      /' >&2
+  echo "    Those are copies of the BUILD MACHINE's .env and this repo is" >&2
+  echo "    public. Treat every credential in them as compromised and rotate" >&2
+  echo "    them all. Rebuild with scripts/release.sh, which scrubs them." >&2
   exit 1
 fi
+# The standalone server reads env ONLY from its own directory: server.js does
+# process.chdir(__dirname) and @next/env then loads .env from there — the
+# site-root .env is invisible to the app process. The in-place build used to
+# create this copy as a side effect (it is what production ran on all along);
+# now that release.sh scrubs it from the bundle, the deploy must place it.
+# Refreshed on every deploy so edits in Forge UI → Environment propagate.
+echo "→ Installing runtime env for the standalone server"
+if [ ! -f .env ]; then
+  echo "  ✗ No .env in the site root — the app cannot boot without one." >&2
+  echo "    Forge UI → Site → Environment writes it." >&2
+  exit 1
+fi
+mkdir -p .next/standalone
+cp .env .next/standalone/.env
+chmod 600 .next/standalone/.env
+echo "  site .env → .next/standalone/.env"
 # Provenance matters more than usual here: `release` is an orphan branch
 # rewritten on every deploy, so its own git history cannot tell you what is
 # running. RELEASE.json is the only link back to a real commit.
