@@ -50,11 +50,28 @@ echo "  ${free_mb}MB free (minimum ${DEPLOY_MIN_FREE_MB}MB)"
 # nobody was watching. Fail here, loudly, with the app still serving the
 # previous release — rather than restart into a bundle that cannot boot.
 echo "→ Verifying prebuilt bundle"
+# RELEASE.json is the marker, NOT the presence of .next/ — that distinction is
+# load-bearing. A server that used to build in place still has a .next/ lying
+# around from the last such build, so "a .next exists" does not mean "this
+# checkout carries a release". Keying off .next/ would let a deploy of
+# main/develop sail past this check and restart the app against a STALE build,
+# silently serving the previous release while the log claims success. Only
+# release.sh writes RELEASE.json, and only into the bundle it just built.
+if [ ! -f RELEASE.json ]; then
+  echo "  ✗ This checkout is not a release bundle (no RELEASE.json)." >&2
+  if [ -d .next ]; then
+    echo "    There IS a .next/ here, but it is a leftover from when this host" >&2
+    echo "    built in place — deploying it would restart into a stale build." >&2
+  fi
+  echo "    Forge must deploy the 'release' branch, which scripts/release.sh" >&2
+  echo "    publishes — not main/develop." >&2
+  echo "    Fix: build a release from a dev machine (npm run build:release)," >&2
+  echo "    then set Site → Repository → Branch to 'release' in the Forge UI." >&2
+  exit 1
+fi
 if [ ! -d .next ]; then
-  echo "  ✗ No .next/ in the checkout." >&2
-  echo "    This branch does not carry a build. Forge must deploy the 'release'" >&2
-  echo "    branch, which scripts/release.sh publishes — not main/develop." >&2
-  echo "    Check Site → Repository → Branch in the Forge UI." >&2
+  echo "  ✗ RELEASE.json is present but there is no .next/." >&2
+  echo "    The published bundle is broken — re-run scripts/release.sh." >&2
   exit 1
 fi
 # BUILD_ID and prerender-manifest.json are written late by `next build`, so
@@ -79,22 +96,32 @@ if [ -f .next/standalone/.env ]; then
   echo "    rotate it. Rebuild with scripts/release.sh, which scrubs it." >&2
   exit 1
 fi
-if [ -f RELEASE.json ]; then
-  echo "  BUILD_ID $(cat .next/BUILD_ID)"
-  # Provenance matters more than usual here: `release` is an orphan branch
-  # rewritten on every deploy, so its own git history cannot tell you what is
-  # running. RELEASE.json is the only link back to a real commit.
-  #
-  # Plain `node`, not tsx: this runs BEFORE the install step, so node_modules
-  # may not exist yet (and on a first deploy to this branch, definitely does
-  # not). Node itself is a given — it is what serves the app.
-  node -e '
-    const r = JSON.parse(require("fs").readFileSync("RELEASE.json", "utf8"));
-    console.log(`  from ${r.source_ref} @ ${String(r.source_commit).slice(0, 7)} — ${r.source_subject}`);
-    console.log(`  built ${r.built_at} by ${r.built_by} on node ${r.node}`);
-  ' 2>/dev/null || sed -n 's/^\s*/  /p' RELEASE.json
-else
-  echo "  BUILD_ID $(cat .next/BUILD_ID) (no RELEASE.json — bundle predates release.sh)"
+# Provenance matters more than usual here: `release` is an orphan branch
+# rewritten on every deploy, so its own git history cannot tell you what is
+# running. RELEASE.json is the only link back to a real commit.
+#
+# The BUILD_ID cross-check catches a bundle assembled from mismatched parts —
+# a RELEASE.json from one build next to a .next/ from another, which is what a
+# half-applied git pull or a hand-edited branch looks like.
+#
+# Plain `node`, not tsx: this runs BEFORE the install step, so node_modules may
+# not exist yet (and on a first deploy to this branch, definitely does not).
+# Node itself is a given — it is what serves the app.
+echo "  BUILD_ID $(cat .next/BUILD_ID)"
+if ! node -e '
+  const fs = require("fs");
+  const r = JSON.parse(fs.readFileSync("RELEASE.json", "utf8"));
+  const onDisk = fs.readFileSync(".next/BUILD_ID", "utf8").trim();
+  if (r.build_id !== onDisk) {
+    console.error(`  ✗ RELEASE.json says BUILD_ID ${r.build_id}, but .next/BUILD_ID is ${onDisk}.`);
+    console.error("    This bundle is assembled from two different builds — do not deploy it.");
+    console.error("    Re-run scripts/release.sh on a dev machine.");
+    process.exit(1);
+  }
+  console.log(`  from ${r.source_ref} @ ${String(r.source_commit).slice(0, 7)} — ${r.source_subject}`);
+  console.log(`  built ${r.built_at} by ${r.built_by} on node ${r.node}`);
+'; then
+  exit 1
 fi
 
 # `npm ci` deletes node_modules before repopulating it. That window is not

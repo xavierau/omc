@@ -76,7 +76,7 @@ RELEASE_DRY_RUN=1 RELEASE_SKIP_BUILD=1 npm run build:release   # reuse .next/, p
 - Ubuntu 22.04+ provisioned via Laravel Forge
 - Site provisioned with **Node.js 22+** and `npm`
 - Repo connected via Forge UI to the **`release`** branch — *not* `main` (`deploy.sh`
-  aborts on a branch with no `.next/`, rather than restarting into a stale build)
+  aborts on a branch with no `RELEASE.json`, rather than restarting into a stale build)
 - Redis available locally (or via `REDIS_URL`)
 
 ## One-Time Server Setup
@@ -267,9 +267,19 @@ means non-2xx or missing config — check `CRON_SECRET`/`APP_URL` in the site
 
 ## Cutting Over to the Release Branch
 
-One-time, in this order. Until step 2 the site keeps deploying from `main` exactly as
-before, so there is no window where production is pointed at a branch that does not
-exist yet.
+One-time, in this order.
+
+**There is a gap between merging this to `main` and finishing step 2, and deploys fail
+during it.** Once the new `deploy.sh` is on `main`, a deploy of `main` aborts at
+`→ Verifying prebuilt bundle` with *"This checkout is not a release bundle"*, because
+`main` carries no `RELEASE.json`. That is the designed behaviour and it is safe — the
+guard runs before `npm ci`, before migrations and before any restart, so **the running
+app is untouched and keeps serving**. Forge will mark the deploy failed; that is the
+correct signal, not damage. Close the gap by doing steps 1–2 promptly.
+
+Note the guard keys off `RELEASE.json`, not `.next/`. A host that used to build in place
+still has a stale `.next/` sitting on disk, and treating that as "a build is present"
+would restart the app into the *previous* release while reporting success.
 
 1. **Publish the first release** from a dev machine:
    ```bash
@@ -314,7 +324,8 @@ worse).
 | Issue | Where to look |
 |-------|---------------|
 | Deploy step failed | Forge UI → site → Deploy log |
-| `✗ No .next/ in the checkout` | Forge is deploying `main`, not `release`. Site → Repository → Branch |
+| `✗ This checkout is not a release bundle` | Forge is deploying `main`/`develop`, not `release`. Site → Repository → Branch |
+| `✗ RELEASE.json says BUILD_ID x, but .next/BUILD_ID is y` | Bundle assembled from two builds — re-run `npm run build:release` |
 | `✗ Incomplete build: ... is missing` | The published bundle is truncated. Re-run `npm run build:release` |
 | `✗ .next/standalone/.env is present` | **Rotate every credential in it**, then rebuild with `release.sh` |
 | `✗ Supervisor has no program for the app` | Daemon was deleted/recreated — check Forge UI → Daemons, update the fallback id in `deploy.sh` |
