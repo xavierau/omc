@@ -59,9 +59,21 @@ else
     the release records the source commit, so the build must match it exactly."
   fi
 
-  git fetch --quiet "$REMOTE" "$SOURCE_REF"
-  if [ "$(git rev-parse "$SOURCE_REF")" != "$(git rev-parse "$REMOTE/$SOURCE_REF")" ]; then
-    die "$SOURCE_REF is not in sync with $REMOTE/$SOURCE_REF.
+  # Ask the server, rather than trusting refs/remotes/$REMOTE/$SOURCE_REF.
+  # A remote-tracking ref is only as fresh as the fetch refspec that maintains
+  # it, and that is per-clone configuration this script does not control: the
+  # production checkout, for one, is configured
+  # `+refs/heads/develop:refs/remotes/origin/develop` and nothing else, so its
+  # `origin/main` has been frozen at a months-old commit and `git fetch origin
+  # main` only moves FETCH_HEAD. Comparing against it reported main as
+  # 54 commits out of sync when it was in fact identical to the remote.
+  # `git ls-remote` cannot go stale.
+  remote_sha=$(git ls-remote --heads "$REMOTE" "refs/heads/$SOURCE_REF" | awk '{print $1}')
+  if [ -z "$remote_sha" ]; then
+    die "$REMOTE has no branch '$SOURCE_REF'."
+  fi
+  if [ "$(git rev-parse "$SOURCE_REF")" != "$remote_sha" ]; then
+    die "$SOURCE_REF is not in sync with $REMOTE (local $(git rev-parse --short "$SOURCE_REF"), remote ${remote_sha:0:7}).
     Pull or push first — deploying a bundle built from an unpushed commit
     leaves production running code nobody else can check out."
   fi
