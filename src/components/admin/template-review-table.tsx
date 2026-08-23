@@ -52,7 +52,7 @@ export function TemplateReviewTable({ reviews, onReview }: Props) {
             <TableCell>{formatDate(r.submittedAt)}</TableCell>
             <TableCell>
               <Button variant="outline" size="sm" onClick={() => onReview(r)}>
-                {t('review')}
+                {r.status === 'pending' ? t('review') : t('view')}
               </Button>
             </TableCell>
           </TableRow>

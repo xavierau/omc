@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   decisionNeedsNotes,
   submitTemplateReviewDecision,
+  runTemplateReviewDecision,
 } from '@/components/admin/template-review-decision'
 
 const FALLBACK = "Couldn't submit the decision."
@@ -74,5 +75,35 @@ describe('submitTemplateReviewDecision', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
     const outcome = await submitTemplateReviewDecision('review-1', 'approve', '', FALLBACK)
     expect(outcome).toEqual({ ok: false, error: FALLBACK })
+  })
+})
+
+describe('runTemplateReviewDecision', () => {
+  it('refetches the list on success', async () => {
+    const onDecided = vi.fn()
+    const submit = vi.fn().mockResolvedValue({ ok: true, error: null })
+    const result = await runTemplateReviewDecision({
+      reviewId: 'review-1', action: 'approve', notes: '', fallback: FALLBACK, submit, onDecided,
+    })
+    expect(onDecided).toHaveBeenCalledOnce()
+    expect(result).toEqual({ ok: true, error: null })
+  })
+
+  it('still refetches the list when the decision fails (the two-admins race self-corrects)', async () => {
+    const onDecided = vi.fn()
+    const submit = vi.fn().mockResolvedValue({ ok: false, error: 'TemplateReview: cannot approve from status=\'approved\'' })
+    const result = await runTemplateReviewDecision({
+      reviewId: 'review-1', action: 'approve', notes: '', fallback: FALLBACK, submit, onDecided,
+    })
+    expect(onDecided).toHaveBeenCalledOnce()
+    expect(result).toEqual({ ok: false, error: "TemplateReview: cannot approve from status='approved'" })
+  })
+
+  it('passes the reviewId/action/notes/fallback through to submit', async () => {
+    const submit = vi.fn().mockResolvedValue({ ok: true, error: null })
+    await runTemplateReviewDecision({
+      reviewId: 'review-9', action: 'reject', notes: 'bad copy', fallback: FALLBACK, submit, onDecided: () => {},
+    })
+    expect(submit).toHaveBeenCalledWith('review-9', 'reject', 'bad copy', FALLBACK)
   })
 })

@@ -61,6 +61,7 @@ function StatusFilter({ status, onChange, t }: {
     <select
       value={status}
       onChange={(e) => onChange(e.target.value as TemplateReviewStatus)}
+      aria-label={t('statusLabel')}
       className="h-8 rounded-md border border-input bg-background px-3 text-sm"
     >
       <option value="pending">{t('statusPending')}</option>

@@ -89,4 +89,32 @@ describe('TemplateReviewTable', () => {
     ;(button?.props as { onClick: () => void }).onClick()
     expect(onReview).toHaveBeenCalledWith(r)
   })
+
+  it('labels a pending row "review" (an action is available)', () => {
+    const tree = renderTree(
+      <TemplateReviewTable reviews={[review({ status: 'pending' })]} onReview={() => {}} />
+    )
+    const button = tree.find((el) => typeof el.type === 'function' && el.type.name === 'Button')
+    expect((button?.props as { children?: unknown }).children).toBe('t:review')
+  })
+
+  it.each(['approved', 'rejected', 'changes_requested'] as const)(
+    'labels a %s row "view" (already decided, read-only)',
+    (status) => {
+      const tree = renderTree(
+        <TemplateReviewTable reviews={[review({ status })]} onReview={() => {}} />
+      )
+      const button = tree.find((el) => typeof el.type === 'function' && el.type.name === 'Button')
+      expect((button?.props as { children?: unknown }).children).toBe('t:view')
+    }
+  )
+
+  it('still calls onReview for a decided row so its details can be viewed', () => {
+    const onReview = vi.fn()
+    const r = review({ status: 'approved' })
+    const tree = renderTree(<TemplateReviewTable reviews={[r]} onReview={onReview} />)
+    const button = tree.find((el) => typeof el.type === 'function' && el.type.name === 'Button')
+    ;(button?.props as { onClick: () => void }).onClick()
+    expect(onReview).toHaveBeenCalledWith(r)
+  })
 })

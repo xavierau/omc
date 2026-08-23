@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import {
   submitTemplateReviewDecision,
+  runTemplateReviewDecision,
   decisionNeedsNotes,
   type ReviewDecisionAction,
 } from './template-review-decision'
@@ -18,9 +19,11 @@ interface Props {
 }
 
 // Stateful container — owns the notes field + in-flight action, delegating the
-// read-only summary to ReviewSummary. Not unit-tested directly (useState makes
-// it opaque to the shallow renderTree helper); its fetch logic is covered by
-// template-review-decision.test.ts.
+// read-only summary to ReviewSummary / DecisionOutcomeSummary. Not unit-tested
+// directly (useState makes it opaque to the shallow renderTree helper); its
+// pending-vs-decided branch is a plain `review.status === 'pending'` read (no
+// independent logic to test), and the failure-refetch behavior is covered via
+// runTemplateReviewDecision in template-review-decision.test.ts.
 export function TemplateReviewDecisionSheet({ review, onOpenChange, onDecided }: Props) {
   const t = useTranslations('adminTemplateReviews')
   const [notes, setNotes] = useState('')
@@ -42,28 +45,43 @@ export function TemplateReviewDecisionSheet({ review, onOpenChange, onDecided }:
     }
     setSubmittingAction(action)
     setError(null)
-    const outcome = await submitTemplateReviewDecision(review.id, action, notes, t('decisionError'))
+    const outcome = await runTemplateReviewDecision({
+      reviewId: review.id,
+      action,
+      notes,
+      fallback: t('decisionError'),
+      submit: submitTemplateReviewDecision,
+      onDecided,
+    })
     setSubmittingAction(null)
     if (!outcome.ok) { setError(outcome.error); return }
-    onDecided()
     onOpenChange(false)
   }
+
+  const isPending = review.status === 'pending'
 
   return (
     <Sheet open={Boolean(review)} onOpenChange={onOpenChange}>
       <SheetContent className="w-[400px] sm:w-[480px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t('panelTitle')}</SheetTitle>
+          <SheetDescription>{t('panelDescription')}</SheetDescription>
         </SheetHeader>
         <div className="px-4 pb-4 space-y-4 text-sm">
           <ReviewSummary review={review} t={t} />
-          <NotesField notes={notes} onChange={setNotes} t={t} />
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DecisionButtons
-            submittingAction={submittingAction}
-            onDecide={handleDecide}
-            t={t}
-          />
+          {isPending ? (
+            <>
+              <NotesField notes={notes} onChange={setNotes} t={t} />
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <DecisionButtons
+                submittingAction={submittingAction}
+                onDecide={handleDecide}
+                t={t}
+              />
+            </>
+          ) : (
+            <DecisionOutcomeSummary review={review} t={t} />
+          )}
         </div>
       </SheetContent>
     </Sheet>
@@ -92,18 +110,40 @@ function ReviewSummary({ review, t }: { review: TemplateReviewItem; t: T }) {
   )
 }
 
+const NOTES_MAX_LEN = 2000
+
 function NotesField({ notes, onChange, t }: { notes: string; onChange: (v: string) => void; t: T }) {
   return (
     <div>
-      <label className="text-sm font-medium text-foreground block mb-1">{t('notesLabel')}</label>
+      <label htmlFor="template-review-notes" className="text-sm font-medium text-foreground block mb-1">
+        {t('notesLabel')}
+      </label>
       <textarea
+        id="template-review-notes"
         value={notes}
         onChange={(e) => onChange(e.target.value)}
         placeholder={t('notesPlaceholder')}
         rows={3}
+        maxLength={NOTES_MAX_LEN}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       />
     </div>
+  )
+}
+
+// Renders in place of NotesField + DecisionButtons once a decision exists —
+// review.status !== 'pending' means a second decision would 500 (the domain
+// entity only transitions out of 'pending' once), so no action UI is offered.
+function DecisionOutcomeSummary({ review, t }: { review: TemplateReviewItem; t: T }) {
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+      <dt className="text-muted-foreground">{t('panelReviewedBy')}</dt>
+      <dd>{review.reviewedBy ?? '—'}</dd>
+      <dt className="text-muted-foreground">{t('panelReviewedAt')}</dt>
+      <dd>{review.reviewedAt ? new Date(review.reviewedAt).toLocaleString('en-HK') : '—'}</dd>
+      <dt className="text-muted-foreground">{t('panelReviewNotes')}</dt>
+      <dd className="whitespace-pre-wrap">{review.reviewNotes || t('panelNoNotes')}</dd>
+    </dl>
   )
 }
 
