@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCampaigns } from '@/hooks/use-campaigns'
-import type { Campaign } from '@/hooks/use-campaigns'
+import type { Campaign, DashboardCampaign } from '@/hooks/use-campaigns'
 import { useCampaignGuardrails } from '@/hooks/use-campaign-guardrails'
 import { CampaignCard } from '@/components/dashboard/campaign-card'
 import { CampaignGuardrailBanner } from '@/components/dashboard/campaign-guardrail-banner'
@@ -27,7 +27,12 @@ export default function CampaignsPage() {
   if (campaigns.length === 0) return <EmptyCampaigns onCreate={() => setFormOpen(true)} formOpen={formOpen} setFormOpen={setFormOpen} refetch={refetch} />
 
   const active = campaigns.filter((c) => c.status === 'active')
-  const other = campaigns.filter((c) => c.status !== 'active')
+  // Issue #108 review: 'failed' (introduced by the #109 backend PR, not yet
+  // in the domain Campaign['status'] union — hence the `as string` reads
+  // below) used to fall into the "Scheduled & Draft" bucket, which lies
+  // about what the campaign is doing — give it its own section instead.
+  const failed = campaigns.filter((c) => (c.status as string) === 'failed')
+  const other = campaigns.filter((c) => c.status !== 'active' && (c.status as string) !== 'failed')
 
   return (
     <div className="space-y-6">
@@ -37,6 +42,7 @@ export default function CampaignsPage() {
       </div>
       {guardrails.data && <CampaignGuardrailBanner guardrails={guardrails.data} />}
       {active.length > 0 && <CampaignSection title={t('activeSectionTitle')} campaigns={active} onExecute={refetch} onEdit={handleEdit} sendDisabled={sendDisabled} />}
+      {failed.length > 0 && <CampaignSection title={t('failedSectionTitle')} campaigns={failed} onExecute={refetch} onEdit={handleEdit} sendDisabled={sendDisabled} />}
       {other.length > 0 && <CampaignSection title={t('scheduledSectionTitle')} campaigns={other} onExecute={refetch} onEdit={handleEdit} sendDisabled={sendDisabled} />}
       <CampaignFormDialog open={formOpen} onOpenChange={handleFormClose} onSuccess={refetch} campaign={editingCampaign} />
     </div>
@@ -44,7 +50,7 @@ export default function CampaignsPage() {
 }
 
 function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: {
-  title: string; campaigns: Campaign[]; onExecute: () => void; onEdit: (c: Campaign) => void; sendDisabled: boolean
+  title: string; campaigns: DashboardCampaign[]; onExecute: () => void; onEdit: (c: Campaign) => void; sendDisabled: boolean
 }) {
   return (
     <div>
@@ -60,6 +66,8 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             sentCount={c.chargeableSentCount + c.nonChargeableSentCount}
             redeemedCount={c.redeemedCount}
             scheduledAt={c.scheduledAt}
+            failureReason={c.failureReason}
+            templateReview={c.templateReview}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
             sendDisabled={sendDisabled}

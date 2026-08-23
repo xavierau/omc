@@ -184,6 +184,7 @@
     "noCampaignsTitle": "尚無推廣活動",
     "noCampaignsDescription": "回訪推廣活動可自動將顧客帶回。",
     "activeSectionTitle": "進行中",
+    "failedSectionTitle": "失敗",
     "scheduledSectionTitle": "已排程及草稿",
     "campaign": "推廣活動",
     "sent": "已發送",
@@ -239,7 +240,11 @@
     "imageRemove": "移除",
     "imageUploadError": "上傳失敗",
     "imageTooLarge": "檔案過大（最多 5MB）",
-    "imageUploading": "上傳中…"
+    "imageUploading": "上傳中…",
+    "noMatch": "沒有符合搜尋條件的會員",
+    "selectAllLoaded": "全選已載入的 {count} 位",
+    "loadMore": "載入更多",
+    "loadError": "無法載入會員，請重試。"
   },
   "events": {
     "join": "已加入",
@@ -363,6 +368,7 @@
     "referrers": "推薦人",
     "auditLogs": "審計日誌",
     "commissionReport": "佣金報告",
+    "templateReviews": "範本審核",
     "logout": "登出"
   },
   "admin": {
@@ -798,6 +804,58 @@
     "submitFailed": "無法將此範本提交至 WhatsApp，請再試一次。",
     "rejectionReasonLabel": "Meta 拒絕原因",
     "imageHeaderHint": "JPEG 或 PNG，最大 5MB。提交範本時圖片會上載至 WhatsApp，並由 Meta 審核後方可使用。"
+  },
+  "templateReview": {
+    "submitAction": "提交審核",
+    "submitting": "提交中...",
+    "submitted": "已提交 — 待審核",
+    "alreadySubmitted": "已提交審核",
+    "submitFailed": "無法提交審核，請再試一次。"
+  },
+  "adminTemplateReviews": {
+    "heading": "範本審核",
+    "couldntLoad": "無法載入範本審核。",
+    "statusLabel": "狀態",
+    "statusPending": "待審核",
+    "statusApproved": "已批准",
+    "statusRejected": "已拒絕",
+    "statusChangesRequested": "需要修改",
+    "tenant": "租戶",
+    "template": "範本",
+    "audienceSize": "目標人數",
+    "contentPreview": "內容預覽",
+    "submittedAt": "提交日期",
+    "actions": "操作",
+    "noReviews": "沒有此狀態的審核。",
+    "review": "審核",
+    "view": "查看",
+    "panelTitle": "審核範本",
+    "panelDescription": "查看已提交的範本並記錄您的決定。",
+    "panelTenant": "租戶",
+    "panelTemplate": "範本",
+    "panelAudience": "目標對象",
+    "panelContent": "內容預覽",
+    "panelSubmitted": "提交日期",
+    "panelSubmittedBy": "提交人",
+    "panelReviewedBy": "審核人",
+    "panelReviewedAt": "審核日期",
+    "panelReviewNotes": "審核備註",
+    "panelNoNotes": "沒有備註記錄",
+    "notesLabel": "備註",
+    "notesPlaceholder": "拒絕或要求修改時必填",
+    "notesRequired": "此操作需要填寫備註",
+    "approve": "批准",
+    "reject": "拒絕",
+    "requestChanges": "要求修改",
+    "submitting": "提交中...",
+    "decisionError": "無法提交決定，請再試一次。"
+  },
+  "campaignSendGate": {
+    "failedTitle": "發送失敗",
+    "failedReasonFallback": "最近一次發送失敗，如持續發生請聯絡客服。",
+    "reviewRequiredPending": "範本待平台審批",
+    "reviewRequiredSubmit": "範本需要審核 — 請提交審核",
+    "executeErrorFallback": "無法發送此活動，請再試一次。"
   },
   "importWizard": {
     "heading": "匯入聯絡人",
