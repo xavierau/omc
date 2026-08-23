@@ -108,7 +108,12 @@ export function createMemberPickerStore(deps: MemberPickerStoreDeps = {}) {
         // stale-response guard for both (round-3 review finding).
         if (gen !== generation) return
         busy = false
-        setState(append ? { loadingMore: false } : { loading: false })
+        // Clear BOTH flags, not just the one this fetch set: a settle of the
+        // current generation means nothing older can still be legitimately
+        // in flight, so an abandoned Load-more's `loadingMore: true` (set
+        // before a newer search superseded it) would otherwise never get
+        // reset — the button would show "loading" forever (round-3 follow-up).
+        setState({ loading: false, loadingMore: false })
       })
   }
 

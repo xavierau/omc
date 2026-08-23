@@ -218,6 +218,43 @@ describe('createMemberPickerStore — stale response guard', () => {
     expect(store.getState().total).toBe(1)
     expect(store.getState().loading).toBe(false)
   })
+
+  it('clears loadingMore once a newer search settles, even though the abandoned Load-more never got to clear it itself', async () => {
+    const staleLoadMore = deferred<MemberPageResult>()
+    const newSearchPage1 = deferred<MemberPageResult>()
+    const fetchPage = vi
+      .fn()
+      .mockResolvedValueOnce(page([m('1')], { total: 5, page: 1, totalPages: 3 })) // init
+      .mockReturnValueOnce(staleLoadMore.promise) // F0: loadMore for the '' search, gen 0
+      .mockReturnValueOnce(newSearchPage1.promise) // F1: new search page 1, gen 1
+    const store = createMemberPickerStore({ fetchPage, debounceMs: 1 })
+
+    store.init()
+    await tick()
+
+    store.loadMore() // F0 in flight — sets loadingMore: true
+    expect(store.getState().loadingMore).toBe(true)
+
+    store.setSearch('chan')
+    await wait(5) // debounce fires: generation -> 1, F1 in flight for gen 1
+
+    // F1 (gen 1, current) settles. Its own fetch was never an "append" fetch,
+    // so a naive `append ? { loadingMore: false } : { loading: false }` would
+    // never flip loadingMore back — a settle of the current generation means
+    // nothing older (including F0's abandoned loadMore) can still be
+    // legitimately in flight, so it must clear both flags.
+    newSearchPage1.resolve(page([m('c1')], { total: 1, page: 1, totalPages: 1 }))
+    await tick()
+
+    expect(store.getState().loadingMore).toBe(false)
+    expect(store.getState().loading).toBe(false)
+
+    // The stale F0 settling afterward must not resurrect either flag.
+    staleLoadMore.resolve(page([m('2')], { total: 5, page: 2, totalPages: 3 }))
+    await tick()
+    expect(store.getState().loadingMore).toBe(false)
+    expect(store.getState().loading).toBe(false)
+  })
 })
 
 describe('createMemberPickerStore — select all / deselect all', () => {
