@@ -5,7 +5,7 @@ import type {
   TemplateComponent,
 } from '@/domain/entities/whatsapp-template'
 import {
-  findTemplateById,
+  findTemplateByIdForRestaurant,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import {
@@ -36,12 +36,25 @@ interface UpdateTemplateResult {
   errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
 }
 
+// Distinguishes "no such template for this tenant" from a validation failure so the
+// route can answer 404 instead of 400. The route layer must map it to 404.
+export class TemplateNotFoundError extends Error {
+  constructor() {
+    super('Template not found')
+    this.name = 'TemplateNotFoundError'
+  }
+}
+
+// restaurantId scopes the lookup rather than being compared afterwards: a template
+// belonging to another tenant is simply not found, so its live Meta template can
+// never be deleted and re-created with this caller's payload.
 export async function updateWhatsAppTemplate(
   templateId: string,
+  restaurantId: string,
   input: UpdateTemplateInput
 ): Promise<UpdateTemplateResult> {
-  const existing = await findTemplateById(templateId)
-  if (!existing) throw new Error('Template not found')
+  const existing = await findTemplateByIdForRestaurant(templateId, restaurantId)
+  if (!existing) throw new TemplateNotFoundError()
 
   if (input.name !== undefined && !validateTemplateName(input.name)) {
     throw new Error('Invalid template name: must be lowercase alphanumeric and underscores only')

@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-28",
+  "updated_at": "2026-08-05",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1357,19 +1357,18 @@
       "label": "To Do",
       "tasks": [
         {
-          "id": "SEC-001",
-          "title": "URGENT: cross-tenant IDOR on /api/dashboard/wa-templates/[id] (GET, PATCH, DELETE)",
-          "description": "Found during TPL-003 /review. PRE-EXISTING, not introduced by TPL-003 — but unpatched. findById (whatsapp-template-repository.ts:26-37) selects .eq('id', id) with NO .eq('restaurant_id', ...), and uses createServerSupabaseClient() (SERVICE ROLE — bypasses RLS). src/app/api/dashboard/wa-templates/[id]/route.ts calls `await getTenantContext()` but DISCARDS the returned restaurantId (GET :12, PATCH :36, DELETE :65) and never passes it down. Result: any authenticated tenant can read, edit or delete ANY other tenant's WhatsApp template by id. PATCH is the worst: it deletes the victim tenant's live template from Meta using the victim's WABA and re-creates it with the attacker's payload. Compare POST in ../route.ts:32, which correctly destructures and uses restaurantId. FIX: thread restaurantId from getTenantContext() into findById/update/softDelete and scope every query by it; add route tests asserting a foreign-tenant id returns 404. Deliberately NOT fixed inside TPL-003 (#64 hotfix) per Surgical Changes — it is unrelated to the stuck-draft bug and warrants its own focused change plus tests across all three verbs. Matches the standing principle: with a service-role client, app-level checks are the ONLY guard (see memory principle_lazy_flow_authorization_parity).",
+          "id": "SEC-003",
+          "title": "Audit dashboard routes that assume RLS which is never enforced (service-role client)",
+          "description": "Follow-up from SEC-001 / issue #100. createServerSupabaseClient() is the SERVICE-ROLE key, so RLS is not a backstop anywhere in the repository layer — app-level scoping is the only guard. SEC-001 fixed one route; the class of bug is repo-wide. Sweep every route under src/app/api/dashboard/**: does each handler destructure restaurantId from getTenantContext() and scope EVERY repository call by it, or does it look up a request-supplied id unscoped? Same question for any repository findById-style function reachable from a request parameter. Also still open from SEC-001: whatsapp-template-repository update(id, changes) remains unscoped — ownership is proven by the scoped read immediately before it, and scoping it would touch 8 call sites (webhook status handlers, sync, create) that legitimately have no request tenant; revisit if a caller ever mutates by a request-supplied id without a preceding scoped read.",
           "priority": "high",
           "labels": [
             "security",
             "multi-tenant",
             "idor",
-            "whatsapp",
-            "templates"
+            "audit"
           ],
           "related": [
-            "kanban:TPL-003"
+            "kanban:SEC-001"
           ]
         },
         {
@@ -2598,6 +2597,45 @@
           "completed": "2026-07-28",
           "pr": 94,
           "notes": "Merged via PR #94 into main and develop. Two prongs: scripts/cron/sync-templates.sh (fail-loud Forge Scheduled Job wrapper, */15) + a real message_template_status_update webhook path (new WebhookKind, WABA->tenant rung via entry[].id, shared Meta status map in domain/services/meta-template-status.ts). Review-driven corrections: the webhook only writes cron-syncable statuses (a terminal write would drop the row out of the cron's reach permanently and a stale REJECTED after a real APPROVED would brick the template); the meta-id lookup is authoritative with no name+language fallback on a miss (a miss means a DIFFERENT Meta template); foreign-WABA entries in a batch are skipped (cross-tenant write); and template-status changes are dispatched even when a mixed batch classifies as 'status'. OPEN OPS FOLLOW-UPS, prong 1 is inert until (1) is done: (1) create the Scheduled Job in the Forge UI per deploy/README.md 'Forge Scheduled Jobs' and verify the first run returns restaurants/results JSON; (2) confirm Kushiro offer_promotion flips to approved; (3) confirm whether Kapso forwards message_template_status_update at all (evidence: webhook.kind {kind:'template_status'} log lines) — the Kapso-flat payload shapes remain unverified guesses. grok-cli-reviewer could not run (HTTP 402 quota); code-review-analyzer stood in as second lane."
+        },
+        {
+          "id": "TPL-010",
+          "title": "Phone button never sent phone_number; template creation failed with an opaque Meta error (#97)",
+          "description": "Prod bug #97 (app.ohmyclient.io, 2026-08-05 03:13 UTC). Every Phone-button template was unsubmittable: addButton() seeded no `phoneNumber`, a type switch never created one, and the payload builder's conditional spread dropped the key once the value was undefined — so the number the admin typed landed in the button label and the wire payload was {type, text}. Nothing between the form and Meta validated buttons (dialog checked name/body only; validateCreateBody checked only that components is an array; validateTemplateComponents covered media headers only), and describeGraphError discarded Meta's errorUserTitle/errorUserMsg, leaving the operator with 'Invalid parameter (code 100, subcode 2388050)'. The Kapso SDK was innocent — it snake-cases phoneNumber correctly. Fixed at four layers: seeded/typed button factory + type-switch clearing + client validation, real labels on the two bare inputs, a server backstop in validateTemplateComponents shared by create/edit/resubmit, and Meta's own explanation in the error text (which also makes the 12 other rejection classes in the prod log legible).",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates",
+            "dashboard"
+          ],
+          "github_issue": 97,
+          "branch": "fix/issue-97-phone-button",
+          "completed": "2026-08-05",
+          "pr": 98,
+          "notes": "Merged via PR #98 into main (merge commit b8ffd8f), Forge auto-deploy. CodeRabbit finding addressed in f99abd1: label now required for every button type EXCEPT COPY_CODE, whose text prepareTemplateComponents rewrites on the way out (blocking it would be a false refusal). Follow-ups from the issue, not done here: pre-validating variables at the start/end of the body, missing BODY examples, image-header samples, and WhatsApp links in buttons — all now legible via Meta's own message. Journal: debugging_journals/2026-08-05-phone-button-number-never-sent.md"
+        },
+        {
+          "id": "SEC-001",
+          "title": "URGENT: cross-tenant IDOR on /api/dashboard/wa-templates/[id] (GET, PATCH, DELETE)",
+          "description": "Found during TPL-003 /review. PRE-EXISTING, not introduced by TPL-003 — but unpatched. findById (whatsapp-template-repository.ts:26-37) selects .eq('id', id) with NO .eq('restaurant_id', ...), and uses createServerSupabaseClient() (SERVICE ROLE — bypasses RLS). src/app/api/dashboard/wa-templates/[id]/route.ts calls `await getTenantContext()` but DISCARDS the returned restaurantId (GET :12, PATCH :36, DELETE :65) and never passes it down. Result: any authenticated tenant can read, edit or delete ANY other tenant's WhatsApp template by id. PATCH is the worst: it deletes the victim tenant's live template from Meta using the victim's WABA and re-creates it with the attacker's payload. Compare POST in ../route.ts:32, which correctly destructures and uses restaurantId. FIX: thread restaurantId from getTenantContext() into findById/update/softDelete and scope every query by it; add route tests asserting a foreign-tenant id returns 404. Deliberately NOT fixed inside TPL-003 (#64 hotfix) per Surgical Changes — it is unrelated to the stuck-draft bug and warrants its own focused change plus tests across all three verbs. Matches the standing principle: with a service-role client, app-level checks are the ONLY guard (see memory principle_lazy_flow_authorization_parity).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor",
+            "whatsapp",
+            "templates"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ],
+          "github_issue": 100,
+          "branch": "fix/issue-100-template-idor",
+          "completed": "2026-08-05",
+          "pr": 101,
+          "notes": "Merged via PR #101 (squash 55941a1c) into main. Fixed by authorizing at query time rather than comparing ownership after the fact: new repository findByIdForRestaurant(id, restaurantId); softDelete scoped by restaurantId too (single caller, destructive path); deleteWhatsAppTemplate(id, restaurantId) and updateWhatsAppTemplate(id, restaurantId, input) now REQUIRE the tenant so a future caller cannot omit it; route threads restaurantId into GET/PATCH/DELETE and answers 404 for a foreign id, identical to a missing one, so ids stay non-enumerable. New typed TemplateNotFoundError lets PATCH answer 404 instead of a generic 400. All three handlers now map AuthError to its own status (a guard 403 previously surfaced as a 500; the sibling routes already did this). Sibling audit (issue item 3): sync, resubmit, resolve-waba and POST /wa-templates all already scope by restaurantId — clean. findById stays unscoped for callers whose id comes from an already tenant-scoped row (campaign, restaurant setting) and now carries a comment saying so. Tests: repository scoping assertions, both use cases refusing a foreign tenant without touching Meta, 404 on all three verbs. Full suite 3322 passed. Journal: debugging_journals/2026-08-05-wa-template-cross-tenant-idor.md. Residual logged as SEC-003."
         }
       ]
     },

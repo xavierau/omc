@@ -1,5 +1,5 @@
 import {
-  findTemplateById,
+  findTemplateByIdForRestaurant,
   softDeleteTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
@@ -10,10 +10,14 @@ interface DeleteResult {
   error?: string
 }
 
+// restaurantId scopes the lookup rather than being compared afterwards: a template
+// belonging to another tenant is simply not found, so ids stay non-enumerable and
+// the Meta delete can never run against a foreign WABA.
 export async function deleteWhatsAppTemplate(
-  templateId: string
+  templateId: string,
+  restaurantId: string
 ): Promise<DeleteResult> {
-  const template = await findTemplateById(templateId)
+  const template = await findTemplateByIdForRestaurant(templateId, restaurantId)
   if (!template) {
     return { success: false, error: 'Template not found' }
   }
@@ -22,7 +26,7 @@ export async function deleteWhatsAppTemplate(
     await deleteFromMeta(template.restaurantId, template.name)
   }
 
-  await softDeleteTemplate(templateId)
+  await softDeleteTemplate(templateId, restaurantId)
   return { success: true }
 }
 
