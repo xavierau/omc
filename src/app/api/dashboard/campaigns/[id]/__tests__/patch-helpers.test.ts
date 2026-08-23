@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyFailureReasonRevivalGuard } from '../patch-helpers'
+import { applyFailureReasonRevivalGuard, validatePatchStatus } from '../patch-helpers'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 // Review round 2 (#102 item 4): failure_reason must be non-null ONLY when
@@ -32,5 +32,28 @@ describe('applyFailureReasonRevivalGuard', () => {
     const changes: UpdateCampaignParams = { name: 'Renamed' }
     applyFailureReasonRevivalGuard(changes)
     expect('failureReason' in changes).toBe(false)
+  })
+})
+
+// Review round 3 (#102 item 3): 'failed' is a SYSTEM-managed terminal
+// status — only the queue worker (markCampaignFailed, on retry exhaustion)
+// may set it, always paired with a failure_reason. A direct PATCH setting
+// status='failed' would bypass that path and leave failureReason unset,
+// breaking the "failed implies a reason" invariant the UI relies on.
+describe('validatePatchStatus', () => {
+  it("rejects a PATCH body setting status to 'failed'", () => {
+    const error = validatePatchStatus({ status: 'failed' })
+    expect(error).toEqual(expect.any(String))
+    expect(error).toMatch(/failed/i)
+  })
+
+  it('allows every other status value', () => {
+    for (const status of ['draft', 'active', 'sending', 'paused', 'completed']) {
+      expect(validatePatchStatus({ status })).toBeNull()
+    }
+  })
+
+  it('allows a patch that does not touch status at all', () => {
+    expect(validatePatchStatus({ name: 'Renamed' })).toBeNull()
   })
 })

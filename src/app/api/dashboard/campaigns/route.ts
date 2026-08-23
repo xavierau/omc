@@ -14,11 +14,7 @@ import {
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { parseCreateBody, CampaignBodyError } from './parse-create-body'
-import {
-  buildCampaignTemplateReviewStates,
-  type CampaignTemplateReviewState,
-} from '@/application/build-campaign-template-review-states'
-import { withTemplateReview } from './with-template-review'
+import { withTemplateReview, safeCampaignTemplateReviewStates } from './with-template-review'
 import type { LanguageCode } from '@/domain/value-objects/language'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -27,32 +23,13 @@ export async function GET() {
     const { restaurantId } = await getTenantContext()
     const campaigns = await listCampaigns(restaurantId)
     // Issue #102 fix 4: let the UI explain a disabled Send button instead
-    // of failing silently.
+    // of failing silently. Degrades OFF on enrichment failure (item 2).
     const reviewStates = await safeCampaignTemplateReviewStates(restaurantId, campaigns)
     return NextResponse.json({
       campaigns: campaigns.map((c) => withTemplateReview(c, reviewStates)),
     })
   } catch (error) {
     return handleError(error, 'Campaigns API error', 'Failed to load campaigns')
-  }
-}
-
-/**
- * Degrade OFF (review round 2, item 9 — REPLY-001 precedent): the
- * Send-button explanation is a nice-to-have layered on top of the
- * campaigns list. If the enrichment subsystem (trust check / template
- * lookup / review-queue lookup) errors, the list itself must still load —
- * campaigns just come back without `templateReview` rather than a 500.
- */
-async function safeCampaignTemplateReviewStates(
-  restaurantId: string,
-  campaigns: Campaign[]
-): Promise<Map<string, CampaignTemplateReviewState>> {
-  try {
-    return await buildCampaignTemplateReviewStates(restaurantId, campaigns)
-  } catch (error) {
-    console.error('Campaign template-review enrichment failed (degrading OFF):', error)
-    return new Map()
   }
 }
 

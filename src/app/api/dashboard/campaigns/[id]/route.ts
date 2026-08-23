@@ -19,10 +19,10 @@ import {
   pickAllowed,
   applyImageScopeGuard,
   applyFailureReasonRevivalGuard,
+  validatePatchStatus,
 } from './patch-helpers'
 import { CampaignBodyError } from '../parse-create-body-errors'
-import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
-import { withTemplateReview } from '../with-template-review'
+import { withTemplateReview, safeCampaignTemplateReviewStates } from '../with-template-review'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 export async function GET(
@@ -43,8 +43,9 @@ export async function GET(
       )
     }
     // Issue #102 fix 4: let the UI explain a disabled Send button instead
-    // of failing silently.
-    const reviewStates = await buildCampaignTemplateReviewStates(
+    // of failing silently. Degrades OFF on enrichment failure (review
+    // round 3, item 2) — consistency with the list route.
+    const reviewStates = await safeCampaignTemplateReviewStates(
       campaign.restaurantId,
       [campaign]
     )
@@ -86,6 +87,12 @@ export async function PATCH(
     const templateError = validateTemplateLengths(body)
     if (templateError) {
       return NextResponse.json({ error: templateError }, { status: 400 })
+    }
+    // Review round 3, item 3: 'failed' is system-managed (queue worker
+    // only) — reject a direct PATCH before it ever reaches updateCampaign.
+    const statusError = validatePatchStatus(body)
+    if (statusError) {
+      return NextResponse.json({ error: statusError }, { status: 400 })
     }
     const changes: UpdateCampaignParams = pickAllowed(body)
     applyImageScopeGuard(changes, existing, restaurantId)

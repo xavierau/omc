@@ -169,6 +169,20 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
     expect('failureReason' in changes).toBe(false)
   })
 
+  // Review round 3, item 3: 'failed' is a system-managed terminal status —
+  // only the queue worker (markCampaignFailed, on retry exhaustion) may
+  // set it, always paired with a failureReason. A direct PATCH bypasses
+  // that and would leave failureReason unset.
+  it("rejects a PATCH setting status to 'failed' directly", async () => {
+    const r = await PATCH(patchRequest({ status: 'failed' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.error).toMatch(/failed/i)
+    expect(updateCampaign).not.toHaveBeenCalled()
+  })
+
   it('rejects oversize templateEn', async () => {
     const r = await PATCH(
       patchRequest({ templateEn: 'a'.repeat(1025) }),
@@ -716,6 +730,30 @@ describe('GET /api/dashboard/campaigns/[id]', () => {
     const body = await r.json()
 
     expect(body.failureReason).toBe('boom')
+  })
+
+  // Review round 3, item 2: the list route already degrades OFF (REPLY-001
+  // precedent) when the enrichment throws — the detail view must behave
+  // the same way instead of 500ing the whole campaign.
+  it('degrades OFF (still returns the campaign, minus templateReview) when the enrichment throws', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ id: CAMPAIGN_ID, status: 'failed', failureReason: 'boom' })
+    )
+    vi.mocked(buildCampaignTemplateReviewStates).mockRejectedValue(
+      new Error('template_review_queue unreachable')
+    )
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(r.status).toBe(200)
+    // failureReason still comes straight from the campaign entity — no
+    // extra query, so it survives the enrichment failure untouched.
+    expect(body.failureReason).toBe('boom')
+    expect('templateReview' in body).toBe(false)
+
+    errSpy.mockRestore()
   })
 
   it('attaches templateReview when the state map has an entry for this campaign', async () => {

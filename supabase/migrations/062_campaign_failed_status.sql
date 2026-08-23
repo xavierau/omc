@@ -14,15 +14,14 @@
 -- has something to display instead of only a console.error.
 
 -- ADD CONSTRAINT ... NOT VALID takes only a brief ACCESS EXCLUSIVE lock to
--- register the constraint (no existing-row scan). VALIDATE CONSTRAINT then
--- scans under SHARE UPDATE EXCLUSIVE, which does not block concurrent reads
--- or writes — avoids holding campaigns under ACCESS EXCLUSIVE for the
--- duration of a full-table validation scan (review round 2, #102).
+-- register the constraint (no existing-row scan). The VALIDATE CONSTRAINT
+-- step is deliberately NOT here — see migration 063: within the SAME
+-- migration transaction it would still run under the ACCESS EXCLUSIVE lock
+-- this statement takes, defeating the whole point (review round 3, #102).
 ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_status_check;
 ALTER TABLE campaigns ADD CONSTRAINT campaigns_status_check
   CHECK (status IN ('draft', 'active', 'sending', 'paused', 'completed', 'failed'))
   NOT VALID;
-ALTER TABLE campaigns VALIDATE CONSTRAINT campaigns_status_check;
 
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS failure_reason text;
 

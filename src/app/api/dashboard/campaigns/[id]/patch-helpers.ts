@@ -27,17 +27,6 @@ export function pickAllowed(body: Record<string, unknown>): UpdateCampaignParams
 }
 
 /**
- * Welcome-only image scope guard.
- *
- * - If the effective next type is NOT 'welcome', coerce both image URLs to
- *   null so a direct API caller can't leave stale welcome images attached
- *   to a winback/promo row.
- * - If the effective next type IS 'welcome', validate any non-null image
- *   URLs via `parseImageUrl` (tenant scope + https + host).
- *
- * Effective type = patch's `type` if present, else the existing row's type.
- */
-/**
  * Issue #102 review round 2, item 4: `failure_reason` is non-null ONLY
  * when status='failed' (the entity invariant — see campaign.ts). A PATCH
  * that moves status AWAY from 'failed' — most commonly an admin reviving a
@@ -60,6 +49,36 @@ export function applyFailureReasonRevivalGuard(
   }
 }
 
+/**
+ * Issue #102 review round 3, item 3: 'failed' is a SYSTEM-managed
+ * terminal status — only the queue worker sets it (via
+ * `markCampaignFailed`, on retry exhaustion), always paired with a
+ * `failureReason`. A direct PATCH setting status='failed' would bypass
+ * that path entirely and leave `failureReason` unset (nothing in the
+ * ALLOWED patch fields lets a caller set it directly either — see
+ * `pickAllowed`), breaking the "failed implies a reason" invariant the UI
+ * relies on (`applyFailureReasonRevivalGuard` above, campaign.ts).
+ */
+export function validatePatchStatus(
+  body: Record<string, unknown>
+): string | null {
+  if (body.status === 'failed') {
+    return "status cannot be set to 'failed' directly — it is a system-managed terminal state set by the queue worker"
+  }
+  return null
+}
+
+/**
+ * Welcome-only image scope guard.
+ *
+ * - If the effective next type is NOT 'welcome', coerce both image URLs to
+ *   null so a direct API caller can't leave stale welcome images attached
+ *   to a winback/promo row.
+ * - If the effective next type IS 'welcome', validate any non-null image
+ *   URLs via `parseImageUrl` (tenant scope + https + host).
+ *
+ * Effective type = patch's `type` if present, else the existing row's type.
+ */
 export function applyImageScopeGuard(
   changes: UpdateCampaignParams,
   existing: Campaign,
