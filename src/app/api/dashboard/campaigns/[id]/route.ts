@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getCampaignById,
+  getCampaignByIdForRestaurant,
   updateCampaign,
   setCampaignMembers,
   getCampaignMemberIds,
@@ -14,8 +15,14 @@ import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
 } from './template-helpers'
-import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
+import {
+  pickAllowed,
+  applyImageScopeGuard,
+  applyFailureReasonRevivalGuard,
+  validatePatchStatus,
+} from './patch-helpers'
 import { CampaignBodyError } from '../parse-create-body-errors'
+import { withTemplateReview, safeCampaignTemplateReviewStates } from '../with-template-review'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 
 export async function GET(
@@ -23,16 +30,28 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await getTenantContext()
+    // Review round 2, item 1: scoped query (SEC-001 pattern) — a
+    // cross-tenant id resolves to null exactly like a missing one, never
+    // fetch-then-compare-and-leak.
+    const { restaurantId } = await getTenantContext()
     const { id } = await params
-    const campaign = await getCampaignById(id)
+    const campaign = await getCampaignByIdForRestaurant(id, restaurantId)
     if (!campaign) {
       return NextResponse.json(
         { error: 'Campaign not found' },
         { status: 404 }
       )
     }
-    const result: Record<string, unknown> = { ...campaign }
+    // Issue #102 fix 4: let the UI explain a disabled Send button instead
+    // of failing silently. Degrades OFF on enrichment failure (review
+    // round 3, item 2) — consistency with the list route.
+    const reviewStates = await safeCampaignTemplateReviewStates(
+      campaign.restaurantId,
+      [campaign]
+    )
+    const result: Record<string, unknown> = {
+      ...withTemplateReview(campaign, reviewStates),
+    }
     if (campaign.targetAudience === 'selected') {
       result.memberIds = await getCampaignMemberIds(id)
     }
@@ -69,8 +88,15 @@ export async function PATCH(
     if (templateError) {
       return NextResponse.json({ error: templateError }, { status: 400 })
     }
+    // Review round 3, item 3: 'failed' is system-managed (queue worker
+    // only) — reject a direct PATCH before it ever reaches updateCampaign.
+    const statusError = validatePatchStatus(body)
+    if (statusError) {
+      return NextResponse.json({ error: statusError }, { status: 400 })
+    }
     const changes: UpdateCampaignParams = pickAllowed(body)
     applyImageScopeGuard(changes, existing, restaurantId)
+    applyFailureReasonRevivalGuard(changes)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
 
     const campaign = await updateCampaign(id, changes)

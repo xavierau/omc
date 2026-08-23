@@ -57,6 +57,10 @@ export async function createCampaign(
   return mapRowToCampaign(data)
 }
 
+// Unscoped lookup: this client is service-role, so it crosses tenants. Only
+// use it where the id came from a row that is already tenant-scoped (e.g. a
+// queue job enqueued with a known restaurantId). For anything derived from a
+// request, use getCampaignByIdForRestaurant.
 export async function getCampaignById(
   id: string
 ): Promise<Campaign | null> {
@@ -65,6 +69,28 @@ export async function getCampaignById(
     .from('campaigns')
     .select('*')
     .eq('id', id)
+    .single()
+
+  if (error || !data) return null
+  return mapRowToCampaign(data)
+}
+
+/**
+ * Scoped-query tenant isolation (review round 2, #102 item 1) — same
+ * pattern as SEC-001's `findByIdForRestaurant` for wa-templates. A foreign
+ * id resolves to null exactly like a missing one: no fetch-then-compare, no
+ * existence leak, ids stay non-enumerable across tenants.
+ */
+export async function getCampaignByIdForRestaurant(
+  id: string,
+  restaurantId: string
+): Promise<Campaign | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
     .single()
 
   if (error || !data) return null
@@ -193,6 +219,29 @@ export async function claimCampaignForEnqueue(
     .select('id')
 
   if (error) throw new Error(`claimCampaignForEnqueue: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal transition for a campaign whose send has exhausted every queue
+ * retry attempt (issue #102 Part B). Compare-and-swap on `status='active'`,
+ * same reasoning as `claimCampaignForEnqueue`: only an active campaign can
+ * still be sitting in `getDueCampaigns()`, and CAS avoids clobbering a row
+ * a concurrent path already moved (e.g. a manual pause).
+ */
+export async function markCampaignFailed(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'active')
+    .select('id')
+
+  if (error) throw new Error(`markCampaignFailed: ${error.message}`)
   return (data?.length ?? 0) > 0
 }
 

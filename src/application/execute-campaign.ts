@@ -5,15 +5,15 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Language } from '@/domain/value-objects/language'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
-import { checkCampaignGuardrails } from './check-campaign-guardrails'
+import { resolveWhatsAppTemplate } from './resolve-whatsapp-template'
+import { enforceCampaignGuardrails } from './enforce-campaign-guardrails'
 import { enforceTemplateReview } from './enforce-template-review'
-import { CampaignGuardrailError } from './campaign-guardrail-error'
+import { NoTemplateError } from './no-template-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
 import {
@@ -24,13 +24,6 @@ import {
   DEFAULT_PACING_CONFIG,
   type PacingConfig,
 } from '@/domain/value-objects/pacing-strategy'
-
-export class NoTemplateError extends Error {
-  constructor(campaignId: string) {
-    super(`Campaign ${campaignId} has no template in any language`)
-    this.name = 'NoTemplateError'
-  }
-}
 
 export async function executeCampaign(
   campaignId: string,
@@ -44,7 +37,7 @@ export async function executeCampaign(
 
   const members = await resolveTargetMembers(campaign, restaurantId)
   const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
-  await enforceGuardrails(restaurantId, activeMembers.length)
+  await enforceCampaignGuardrails(restaurantId, activeMembers.length)
 
   // Resolve template up-front so we fail fast (status unchanged) on a
   // misconfigured campaign — no state churn, no revert required.
@@ -119,31 +112,5 @@ function assertHasAnyInlineTemplate(
   if (!hasEn && !hasZh) throw new NoTemplateError(campaign.id)
 }
 
-async function resolveWhatsAppTemplate(
-  campaign: Campaign
-): Promise<WhatsAppTemplate | null> {
-  if (!campaign.whatsappTemplateId) return null
-  const template = await findTemplateById(campaign.whatsappTemplateId)
-  if (!template) {
-    throw new Error(`WhatsApp template ${campaign.whatsappTemplateId} not found`)
-  }
-  if (!isTemplateSendable(template)) {
-    throw new Error(`WhatsApp template ${template.name} is not approved`)
-  }
-  return template
-}
-
-async function enforceGuardrails(
-  restaurantId: string,
-  memberCount: number
-): Promise<void> {
-  const result = await checkCampaignGuardrails(restaurantId, memberCount)
-  if (!result.allowed) {
-    throw new CampaignGuardrailError(result.violations)
-  }
-  if (result.warnings.length > 0) {
-    console.warn('[Campaign] Guardrail warnings:', result.warnings)
-  }
-}
-
 export { CampaignGuardrailError } from './campaign-guardrail-error'
+export { NoTemplateError } from './no-template-error'

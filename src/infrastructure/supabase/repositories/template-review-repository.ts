@@ -51,6 +51,49 @@ export async function findActiveTemplateReviewByName(
   return toEntity(data as TemplateReviewRow)
 }
 
+interface FindLatestByNamesArgs {
+  restaurantId: string
+  templateNames: string[]
+}
+
+/**
+ * Latest (submitted_at DESC) review row per (restaurantId, templateName),
+ * REGARDLESS of status — unlike `findActiveTemplateReviewByName`, which
+ * only returns pending/approved rows. Used by the campaigns API (#102
+ * fix 4) to explain a disabled Send button: a rejected or
+ * changes-requested submission must stay visible, not read as `'none'`.
+ * ONE query for however many template names the caller passes — batched
+ * so campaign-list enrichment stays N+1-free.
+ */
+export async function findLatestTemplateReviewsByNames(
+  args: FindLatestByNamesArgs
+): Promise<TemplateReview[]> {
+  if (args.templateNames.length === 0) return []
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .in('template_name', args.templateNames)
+    .order('submitted_at', { ascending: false })
+
+  if (error) throw new Error(`findLatestTemplateReviewsByNames: ${error.message}`)
+  return dedupeLatestPerName((data ?? []) as TemplateReviewRow[])
+}
+
+// Rows arrive submitted_at DESC, so the first occurrence per template_name
+// is the latest — no need for a per-group window-function query.
+function dedupeLatestPerName(rows: TemplateReviewRow[]): TemplateReview[] {
+  const seen = new Set<string>()
+  const result: TemplateReview[] = []
+  for (const row of rows) {
+    if (seen.has(row.template_name)) continue
+    seen.add(row.template_name)
+    result.push(toEntity(row))
+  }
+  return result
+}
+
 export async function updateTemplateReview(
   review: TemplateReview
 ): Promise<void> {

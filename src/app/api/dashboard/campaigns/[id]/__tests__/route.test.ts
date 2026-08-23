@@ -11,6 +11,7 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   return {
     ...actual,
     getCampaignById: vi.fn(),
+    getCampaignByIdForRestaurant: vi.fn(),
     updateCampaign: vi.fn(),
     setCampaignMembers: vi.fn(),
     getCampaignMemberIds: vi.fn(),
@@ -18,12 +19,17 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/application/build-campaign-template-review-states', () => ({
+  buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
+}))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
   getCampaignById,
+  getCampaignByIdForRestaurant,
   updateCampaign,
   setCampaignMembers,
+  getCampaignMemberIds,
   remapWelcomeCampaign,
   CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
@@ -31,7 +37,8 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { PATCH } from '../route'
+import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
+import { GET, PATCH } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
 const RESTAURANT_ID = 'rest-1'
@@ -59,6 +66,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'draft',
+    failureReason: null,
     isChargeable: true,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
@@ -112,6 +120,67 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
       CAMPAIGN_ID,
       expect.objectContaining({ templateEn: 'Hi', templateZhHk: '你好' })
     )
+  })
+
+  // Review round 2, item 4: failure_reason is non-null ONLY when
+  // status='failed'. Reviving a failed campaign back to 'active' must
+  // clear the stale reason, or the UI would keep showing an old failure
+  // after a successful retry. A revived campaign with a stale (past)
+  // scheduledAt is deliberately left as-is: it becomes immediately due on
+  // the next cron tick, same as reactivating any other paused campaign —
+  // that is the intended "retry now" behavior, not a bug.
+  it("clears failureReason when PATCH revives a failed campaign to 'active'", async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({
+        status: 'failed',
+        failureReason: 'Template requires platform approval',
+        scheduledAt: '2026-01-01T00:00:00Z', // stale — intentionally untouched
+      })
+    )
+
+    const r = await PATCH(patchRequest({ status: 'active' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.objectContaining({ status: 'active', failureReason: null })
+    )
+    // scheduledAt was never part of this PATCH body, so it must not be
+    // touched by the revival guard — it stays whatever it was, and a
+    // stale past value makes the campaign immediately due again.
+    expect(updateCampaign).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      expect.not.objectContaining({ scheduledAt: expect.anything() })
+    )
+  })
+
+  it('does not set failureReason when PATCH does not touch status', async () => {
+    vi.mocked(getCampaignById).mockResolvedValueOnce(
+      buildCampaign({ status: 'active', failureReason: null })
+    )
+
+    await PATCH(patchRequest({ templateEn: 'Hi' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    const [, changes] = vi.mocked(updateCampaign).mock.calls[0]
+    expect('failureReason' in changes).toBe(false)
+  })
+
+  // Review round 3, item 3: 'failed' is a system-managed terminal status —
+  // only the queue worker (markCampaignFailed, on retry exhaustion) may
+  // set it, always paired with a failureReason. A direct PATCH bypasses
+  // that and would leave failureReason unset.
+  it("rejects a PATCH setting status to 'failed' directly", async () => {
+    const r = await PATCH(patchRequest({ status: 'failed' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.error).toMatch(/failed/i)
+    expect(updateCampaign).not.toHaveBeenCalled()
   })
 
   it('rejects oversize templateEn', async () => {
@@ -572,6 +641,148 @@ describe('PATCH /api/dashboard/campaigns/[id]', () => {
         imageUrlEn: null,
         imageUrlZhHk: null,
       })
+    )
+  })
+})
+
+// Issue #102 fix 4: single-campaign GET also gains the optional
+// failureReason/templateReview fields, so the campaign-detail view can
+// explain a blocked/failed send the same way the list view does.
+//
+// Review round 2, item 1: GET is now tenant-scoped via
+// getCampaignByIdForRestaurant (SEC-001 pattern) instead of
+// getCampaignById + fetch-then-compare — a foreign id answers 404
+// identically to a missing one.
+describe('GET /api/dashboard/campaigns/[id]', () => {
+  beforeEach(() => {
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(getCampaignByIdForRestaurant).mockReset()
+    vi.mocked(getCampaignMemberIds).mockReset()
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(buildCampaignTemplateReviewStates).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(buildCampaign())
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(new Map())
+  })
+
+  function getRequest(): NextRequest {
+    return new NextRequest(
+      `http://localhost/api/dashboard/campaigns/${CAMPAIGN_ID}`
+    )
+  }
+
+  it('returns 404 when the campaign does not exist', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(null)
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(r.status).toBe(404)
+  })
+
+  it('scopes the lookup by the caller restaurantId (never fetch-then-compare)', async () => {
+    await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(getCampaignByIdForRestaurant).toHaveBeenCalledWith(CAMPAIGN_ID, RESTAURANT_ID)
+    expect(getCampaignById).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 for a cross-tenant id (scoped query answers null, not a leak)', async () => {
+    // A caller from rest-2 requesting a campaign owned by rest-1: the
+    // scoped query can never return it, so this reads identically to a
+    // truly-missing id — no existence leak via a different status code.
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-2',
+      restaurantId: 'rest-2',
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(null)
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(r.status).toBe(404)
+    expect(getCampaignByIdForRestaurant).toHaveBeenCalledWith(CAMPAIGN_ID, 'rest-2')
+  })
+
+  it('returns the campaign normally for a same-tenant request', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID })
+    )
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(r.status).toBe(200)
+    expect(body.id).toBe(CAMPAIGN_ID)
+  })
+
+  it('includes failureReason from the campaign entity', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ status: 'failed', failureReason: 'boom' })
+    )
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(body.failureReason).toBe('boom')
+  })
+
+  // Review round 3, item 2: the list route already degrades OFF (REPLY-001
+  // precedent) when the enrichment throws — the detail view must behave
+  // the same way instead of 500ing the whole campaign.
+  it('degrades OFF (still returns the campaign, minus templateReview) when the enrichment throws', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ id: CAMPAIGN_ID, status: 'failed', failureReason: 'boom' })
+    )
+    vi.mocked(buildCampaignTemplateReviewStates).mockRejectedValue(
+      new Error('template_review_queue unreachable')
+    )
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(r.status).toBe(200)
+    // failureReason still comes straight from the campaign entity — no
+    // extra query, so it survives the enrichment failure untouched.
+    expect(body.failureReason).toBe('boom')
+    expect('templateReview' in body).toBe(false)
+
+    errSpy.mockRestore()
+  })
+
+  it('attaches templateReview when the state map has an entry for this campaign', async () => {
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(
+      new Map([[CAMPAIGN_ID, { required: true, status: 'pending' }]])
+    )
+
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect(body.templateReview).toEqual({ required: true, status: 'pending' })
+  })
+
+  it('omits templateReview when no state applies (no MARKETING template)', async () => {
+    const r = await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    const body = await r.json()
+
+    expect('templateReview' in body).toBe(false)
+  })
+
+  it('computes review state scoped to the campaign owner restaurantId', async () => {
+    const campaign = buildCampaign()
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(campaign)
+
+    await GET(getRequest(), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+
+    expect(buildCampaignTemplateReviewStates).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      [campaign]
     )
   })
 })

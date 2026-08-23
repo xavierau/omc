@@ -72,7 +72,10 @@ export async function getTodayCampaignCount(
     .from('campaigns')
     .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurantId)
-    .in('status', ['sending', 'completed'])
+    // 'failed' included: a failed send already consumed a daily attempt —
+    // dropping it here would let a tenant farm extra sends by failing on
+    // purpose (#102 review round 2, item 5b).
+    .in('status', ['sending', 'completed', 'failed'])
     .gte('created_at', startOfDay)
 
   if (error) throw new Error(`getTodayCampaignCount: ${error.message}`)

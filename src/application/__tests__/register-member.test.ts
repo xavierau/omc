@@ -61,6 +61,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     schedule: null,
     scheduledAt: null,
     status: 'active',
+    failureReason: null,
     isChargeable: false,
     chargeableSentCount: 0,
     nonChargeableSentCount: 0,
