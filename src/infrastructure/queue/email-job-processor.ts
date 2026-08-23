@@ -37,7 +37,15 @@ export async function processEmailJob(data: EmailJobData): Promise<void> {
 
 /** `submittedAt` was captured at enqueue time — never re-derive "now" here,
  * or a retried job reports when it was processed instead of when the
- * customer actually submitted the form. */
+ * customer actually submitted the form.
+ *
+ * `notificationEmail` is likewise taken from the job payload, not re-read
+ * from live config on each attempt (PR #106 review question) — kept
+ * point-in-time deliberately: a retry re-reading config could otherwise land
+ * a resend at an address the tenant switched to for unrelated reasons, with
+ * no context tying it back to this submission. `labels` IS re-read (below),
+ * since tenant copy has no "as of submission" meaning the way a recipient
+ * address does. */
 async function sendEmail(data: EmailJobData): Promise<EmailSendResult> {
   const config = await getContactConfig(data.restaurantId)
   const { subject, text } = buildContactEmail(data.submission, {
@@ -53,6 +61,11 @@ export function isPermanentFailure(result: EmailSendResult): boolean {
   const error = result.error
   if (!error) return false
   if (error.title === 'resend_not_configured') return true
+  // A 2xx with no parseable id means the request likely already reached
+  // Resend — retrying risks sending the notification twice. Treating this as
+  // permanent trades "needs a human to check Resend's dashboard" for "never
+  // silently double-sends" (PR #106 review finding).
+  if (error.title === 'resend_no_message_id') return true
   if (error.title !== 'resend_non_2xx') return false
 
   const status = parseHttpStatus(error.details)

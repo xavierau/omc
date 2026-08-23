@@ -161,12 +161,13 @@ describe('isPermanentFailure', () => {
     expect(isPermanentFailure(failResult('resend_not_configured'))).toBe(true)
   })
 
-  it.each(['resend_timeout', 'resend_send_error', 'resend_no_message_id'])(
-    'treats %s as transient',
-    (title) => {
-      expect(isPermanentFailure(failResult(title))).toBe(false)
-    }
-  )
+  it('treats resend_no_message_id as permanent — a 2xx with no id may have already sent, so a retry risks a duplicate', () => {
+    expect(isPermanentFailure(failResult('resend_no_message_id'))).toBe(true)
+  })
+
+  it.each(['resend_timeout', 'resend_send_error'])('treats %s as transient', (title) => {
+    expect(isPermanentFailure(failResult(title))).toBe(false)
+  })
 
   it('treats a successful result as not permanent', () => {
     expect(isPermanentFailure(okResult())).toBe(false)

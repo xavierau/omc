@@ -1,17 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const mockAdd = vi.fn().mockResolvedValue(undefined)
 const mockOn = vi.fn()
 let capturedProcessor: ((job: { data: unknown }) => Promise<void>) | undefined
+let capturedQueueConnection: Record<string, unknown> | undefined
+let capturedWorkerConnection: Record<string, unknown> | undefined
 
 class MockQueue {
   add = mockAdd
+  constructor(_name: string, opts: { connection: Record<string, unknown> }) {
+    capturedQueueConnection = opts.connection
+  }
 }
 
 class MockWorker {
   on = mockOn
-  constructor(_name: string, processor: (job: { data: unknown }) => Promise<void>) {
+  constructor(
+    _name: string,
+    processor: (job: { data: unknown }) => Promise<void>,
+    opts: { connection: Record<string, unknown> }
+  ) {
     capturedProcessor = processor
+    capturedWorkerConnection = opts.connection
   }
 }
 
@@ -46,6 +56,9 @@ describe('addEmailJob', () => {
   beforeEach(() => {
     vi.resetModules()
     mockAdd.mockClear()
+    mockAdd.mockResolvedValue(undefined)
+    capturedQueueConnection = undefined
+    capturedWorkerConnection = undefined
   })
 
   it('enqueues a job with correct data shape', async () => {
@@ -68,7 +81,7 @@ describe('addEmailJob', () => {
     expect(jobName).toBe('send-email')
   })
 
-  it('configures 3 retry attempts with exponential backoff, retention, and messageId dedupe', async () => {
+  it('configures 3 retry attempts with exponential backoff, bounded retention, and messageId dedupe', async () => {
     const { addEmailJob } = await import('../email-queue')
     const jobData = buildJobData({ messageId: 'wamid.dedupe-key' })
 
@@ -79,9 +92,67 @@ describe('addEmailJob', () => {
       attempts: 3,
       backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: { count: 100 },
-      removeOnFail: { count: 1000 },
+      // Age-bounded: failed jobs carry submission PII and must not sit in
+      // Redis indefinitely at low failure volume just because the count cap
+      // (1000) hasn't been hit (PR #106 review finding).
+      removeOnFail: { count: 1000, age: 7 * 24 * 3600 },
       jobId: 'wamid.dedupe-key',
     })
+  })
+
+  it('constructs the producer (Queue) connection to fail fast instead of queueing offline', async () => {
+    const { addEmailJob } = await import('../email-queue')
+    await addEmailJob(buildJobData())
+
+    expect(capturedQueueConnection).toMatchObject({
+      enableOfflineQueue: false,
+      connectTimeout: expect.any(Number),
+    })
+    // Finite — NOT null. null (the worker's setting) means "retry forever",
+    // which is exactly the hang this connection must avoid.
+    expect(capturedQueueConnection?.maxRetriesPerRequest).not.toBeNull()
+    expect(typeof capturedQueueConnection?.maxRetriesPerRequest).toBe('number')
+  })
+
+  it('keeps maxRetriesPerRequest: null on the worker connection (required for blocking commands)', async () => {
+    const { ensureWorkerStarted } = await import('../email-queue')
+
+    ensureWorkerStarted()
+
+    expect(capturedWorkerConnection?.maxRetriesPerRequest).toBeNull()
+  })
+})
+
+describe('addEmailJob — bounded against a hang (not just a rejection)', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    mockAdd.mockReset()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('rejects within the enqueue timeout when the underlying add() never resolves', async () => {
+    // Simulates the real failure mode a mocked rejection can't: Redis
+    // unreachable + an offline/blackholed connection means the ioredis
+    // command promise never settles at all, not that it rejects promptly.
+    mockAdd.mockReturnValue(new Promise(() => {}))
+    const { addEmailJob } = await import('../email-queue')
+
+    const result = addEmailJob(buildJobData())
+    const assertion = expect(result).rejects.toThrow(/timed out/)
+
+    await vi.advanceTimersByTimeAsync(5000)
+    await assertion
+  })
+
+  it('does not wait the full timeout when add() resolves quickly', async () => {
+    mockAdd.mockResolvedValue(undefined)
+    const { addEmailJob } = await import('../email-queue')
+
+    await expect(addEmailJob(buildJobData())).resolves.toBeUndefined()
   })
 })
 
