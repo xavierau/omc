@@ -2,13 +2,81 @@
 
 Production runs on a Laravel Forge–managed Ubuntu server. Forge handles git pull, working
 directory, nginx config, and TLS. The repo's `deploy.sh` only handles app concerns: deps,
-migrations, seeder, build, daemon restart.
+migrations, seeder, daemon restart.
+
+**The build does not run on the server.** See [Release Pipeline](#release-pipeline).
+
+## Release Pipeline
+
+`next build` is the only deploy step that needs gigabytes, and this host cannot spare
+them: an e2-medium (2 vCPU / **4 GB RAM** / 1 GB swap) shared by 17 Forge sites. It took
+production down twice —
+
+- **2026-08-05**: an in-place build drove available memory from 2074 MB to ~1000 MB and
+  swap from 0 to 1001 MB of 1024. The kernel thrashed until sshd stopped answering and
+  *every site on the box* went dark for ~40 minutes. Recovered by a GCP hard reset.
+- **2026-08-23**: the TypeScript phase alone ran **64.6 minutes** and was still going
+  when the VM rebooted, leaving a `.next/` with no `prerender-manifest.json`. The app
+  daemon crash-looped eleven times, supervisor gave up (`FATAL`), and the next deploy —
+  which built fine — aborted at the restart step because it will not restart a dead
+  daemon. Site was 502 until someone ran `supervisorctl start` by hand.
+
+So the build moved to the developer machine:
+
+```
+  you: git push origin main          ← source of truth, as always
+  you: npm run build:release         ← builds locally, publishes the `release` branch
+       └─ Forge sees release change  ← auto-deploy fires
+          └─ deploy.sh on prod: install deps → migrate → seed → restart
+```
+
+`release` is an **orphan branch, force-pushed on every release**. It carries the source
+tree at the released commit plus a complete `.next/`. It has no history on purpose: the
+bundle is ~136 MB and this repo is public, so retaining every release would grow it
+without bound. `RELEASE.json` at the branch root is the link back to the real commit —
+`git log` on `release` cannot tell you what is running, but `RELEASE.json` can, and
+`deploy.sh` echoes it into the deploy log.
+
+### Secrets — read this before touching release.sh
+
+`output: 'standalone'` copies the build machine's `.env` **verbatim** into
+`.next/standalone/.env`. On 2026-08-23 that file on production was byte-identical to the
+production `.env`: service role key, Kapso API key and webhook secret, Resend and Gemini
+keys, the platform admin password — 24 variables. **`xavierau/omc` is public.**
+
+`scripts/release.sh` deletes every `.env` from the bundle and then scans the result for
+service_role JWTs and `sb_secret_`/`sbp_` keys, refusing to push if it finds any.
+`deploy.sh` re-checks on arrival. Verified against the real production bundle: no secret
+value from `.env` appears in it. The five variables that *do* appear are `APP_URL`,
+`NEXT_PUBLIC_APP_URL`, `REDIS_URL`, `LAYOUT_SERVICE_URL` and `RESEND_FROM_EMAIL` — all
+public or localhost, none carrying embedded credentials.
+
+The server keeps its own `.env`; the bundle never needs one.
+
+### Releasing
+
+```bash
+# on your machine, after your PR has merged to main
+git checkout main && git pull
+npm run build:release
+```
+
+The script refuses to run on a dirty tree or a `main` that is out of sync with the
+remote — the release records its source commit, so the build has to match it.
+
+Rehearse without publishing:
+
+```bash
+RELEASE_DRY_RUN=1 npm run build:release                        # build + scrub, no push
+RELEASE_DRY_RUN=1 RELEASE_SKIP_BUILD=1 npm run build:release   # reuse .next/, packaging only
+```
 
 ## Prerequisites
 
 - Ubuntu 22.04+ provisioned via Laravel Forge
 - Site provisioned with **Node.js 22+** and `npm`
-- Repo connected to GitHub `main` branch via Forge UI
+- Repo connected via Forge UI to the **`release`** branch — *not* `main` (`deploy.sh`
+  aborts on a branch with no `RELEASE.json`, rather than restarting into a stale build)
 - Redis available locally (or via `REDIS_URL`)
 
 ## One-Time Server Setup
@@ -44,8 +112,23 @@ sudo visudo -f /etc/sudoers.d/forge-supervisor
 Content:
 
 ```
+forge ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl status
+forge ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl status *
+forge ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl start *
 forge ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl restart *
+forge ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl stop *
 ```
+
+`restart` alone is not enough — an earlier revision of this file listed only that, and
+`deploy.sh` also needs `status` (to decide whether a daemon is up) and `start` (to revive
+one that supervisor has given up on). A missing entry does not fail loudly: `sudo -n`
+just exits 1 with "a password is required", which the script reads as "daemon not found".
+
+Note `deploy.sh` reads `/etc/supervisor/conf.d/` with a **plain** `grep`, not `sudo grep`.
+That directory is world-readable (755 root:root) and `grep` is deliberately *not* in the
+sudoers list — granting `sudo grep` would hand out read access to every file on the host.
+An earlier revision used `sudo -n grep` there and silently matched nothing on every
+deploy, quietly disabling the daemon-renumbering robustness it was written to provide.
 
 Save with strict perms — `visudo` validates before writing.
 
@@ -182,24 +265,72 @@ an ISO timestamp, the URL it requested, and the response JSON. A `FAILED` run
 means non-2xx or missing config — check `CRON_SECRET`/`APP_URL` in the site
 `.env`, which is what the `forge` user's environment falls back to.
 
-## First Deploy
+## Cutting Over to the Release Branch
 
-1. Push to `main` — Forge auto-pulls and runs `deploy.sh`
-2. Watch the Forge deploy log — look for `✓ Deploy complete`
-3. Verify health: `curl https://app.ohmyclient.io/api/health`
-4. Log in as `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD` and confirm platform
-   admin access (multi-tenant dashboard)
+One-time, in this order.
+
+**There is a gap between merging this to `main` and finishing step 2, and deploys fail
+during it.** Once the new `deploy.sh` is on `main`, a deploy of `main` aborts at
+`→ Verifying prebuilt bundle` with *"This checkout is not a release bundle"*, because
+`main` carries no `RELEASE.json`. That is the designed behaviour and it is safe — the
+guard runs before `npm ci`, before migrations and before any restart, so **the running
+app is untouched and keeps serving**. Forge will mark the deploy failed; that is the
+correct signal, not damage. Close the gap by doing steps 1–2 promptly.
+
+Note the guard keys off `RELEASE.json`, not `.next/`. A host that used to build in place
+still has a stale `.next/` sitting on disk, and treating that as "a build is present"
+would restart the app into the *previous* release while reporting success.
+
+1. **Publish the first release** from a dev machine:
+   ```bash
+   git checkout main && git pull
+   npm run build:release
+   ```
+   Confirm the branch exists and carries a build:
+   ```bash
+   git ls-remote --heads origin release
+   ```
+2. **Repoint Forge**: Site → Repository → Branch → `release`. Leave *Quick Deploy*
+   enabled — a push to `release` is what now triggers a deploy.
+3. **Deploy once** from the Forge UI and watch the log. Expect `→ Verifying prebuilt
+   bundle` to echo the source commit, and **no** `→ Building Next.js` step.
+4. **Verify**: `curl -sf https://app.ohmyclient.io/api/health`, then log in as
+   `PLATFORM_ADMIN_EMAIL` and confirm platform admin access.
+
+**Rolling back the cutover** is repointing Forge at `main` — but note `deploy.sh` will
+then abort at the bundle check, because `main` carries no `.next/`. To genuinely revert
+to building on the server you also need the previous `deploy.sh` (`git show
+<pre-cutover-sha>:deploy.sh`). Rolling back a *release* is the easy direction: check out
+the last good commit and re-run `npm run build:release`.
 
 ## Routine Deploys
 
-Push to `main`. Migrations are idempotent (Supabase tracks applied) and the platform
-admin seeder is idempotent (no-op when the row exists). Every deploy is safe.
+```bash
+git checkout main && git pull    # after your PR merges
+npm run build:release            # builds locally, force-pushes `release`, Forge deploys
+```
+
+Migrations are idempotent (Supabase tracks applied) and the platform admin seeder is
+idempotent (no-op when the row exists). Every deploy is safe.
+
+`npm ci` now runs only when `package-lock.json` actually changed — the installed tree is
+stamped with the lockfile hash at `node_modules/.omc-lock-hash`. This skips ~1 GB of
+churn on most deploys, and closes the window in which an interrupted install leaves the
+box with no `node_modules` and a crash-looping daemon (which is how 2026-08-05 got
+worse).
 
 ## Troubleshooting
 
 | Issue | Where to look |
 |-------|---------------|
 | Deploy step failed | Forge UI → site → Deploy log |
+| `✗ This checkout is not a release bundle` | Forge is deploying `main`/`develop`, not `release`. Site → Repository → Branch |
+| `✗ RELEASE.json says BUILD_ID x, but .next/BUILD_ID is y` | Bundle assembled from two builds — re-run `npm run build:release` |
+| `✗ Incomplete build: ... is missing` | The published bundle is truncated. Re-run `npm run build:release` |
+| `✗ .next/standalone/.env is present` | **Rotate every credential in it**, then rebuild with `release.sh` |
+| `✗ Supervisor has no program for the app` | Daemon was deleted/recreated — check Forge UI → Daemons, update the fallback id in `deploy.sh` |
+| Daemon `FATAL` after deploy | `tail -50 /home/forge/.forge/<daemon-id>.log`. `deploy.sh` now starts a FATAL daemon rather than aborting, so this means it crash-looped on the *new* bundle |
+| Disk full mid-deploy | `npm cache clean --force`; `sudo journalctl --vacuum-size=200M`; `sudo apt-get clean` |
 | Migration error | `supabase/migrations/`; check Supabase project logs |
 | Worker not processing jobs | `journalctl -u supervisord -f` and worker daemon log |
 | App 5xx | App daemon log; `journalctl -u supervisord -f` |
