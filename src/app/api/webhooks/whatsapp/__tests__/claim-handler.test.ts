@@ -80,12 +80,20 @@ function params(o: Partial<Parameters<typeof handleClaim>[0]> = {}) {
 }
 
 describe('isCampaignClaimable', () => {
-  it.each(['active', 'sending', 'completed'] as const)(
-    '%s is claimable (window open while live or done)',
+  it.each(['active', 'sending', 'completed', 'failed'] as const)(
+    '%s is claimable (window open while live, done, or terminally failed)',
     (status) => {
       expect(isCampaignClaimable(status)).toBe(true)
     }
   )
+  // Review round 2, item 5c: a 'failed' campaign is typically PARTIALLY
+  // sent — some members already received the message (and its claim
+  // button) before the send exhausted retries. Marking the campaign
+  // 'failed' as a whole must not retroactively break the claim button for
+  // members who already got it.
+  it('failed is claimable for the same reason completed is (already-delivered claims keep working)', () => {
+    expect(isCampaignClaimable('failed')).toBe(true)
+  })
   it.each(['draft', 'paused'] as const)('%s is NOT claimable', (status) => {
     expect(isCampaignClaimable(status)).toBe(false)
   })

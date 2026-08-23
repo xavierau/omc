@@ -18,7 +18,11 @@ export async function getCampaignsForTenantMonth(
     .from('campaigns')
     .select('*')
     .eq('restaurant_id', restaurantId)
-    .in('status', ['sending', 'completed'])
+    // 'failed' included: a failed campaign is typically PARTIALLY sent —
+    // some members already got the chargeable message before the send
+    // exhausted retries (#102 review round 2, item 5a). Dropping it here
+    // would silently under-bill.
+    .in('status', ['sending', 'completed', 'failed'])
     .gte('created_at', monthStart)
     .lt('created_at', monthEnd)
     .order('created_at', { ascending: false })
@@ -37,7 +41,11 @@ export async function getAllTenantsUsageForMonth(
   const { data, error } = await supabase
     .from('campaigns')
     .select('restaurant_id, chargeable_sent_count')
-    .in('status', ['sending', 'completed'])
+    // 'failed' included: a failed campaign is typically PARTIALLY sent —
+    // some members already got the chargeable message before the send
+    // exhausted retries (#102 review round 2, item 5a). Dropping it here
+    // would silently under-bill.
+    .in('status', ['sending', 'completed', 'failed'])
     .gte('created_at', monthStart)
     .lt('created_at', monthEnd)
 

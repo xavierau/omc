@@ -12,7 +12,11 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', (
   findTemplateById: vi.fn(),
 }))
 
-import { resolveWhatsAppTemplate } from '../resolve-whatsapp-template'
+import {
+  resolveWhatsAppTemplate,
+  WhatsAppTemplateNotFoundError,
+  WhatsAppTemplateNotApprovedError,
+} from '../resolve-whatsapp-template'
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 
 function campaign(overrides: Partial<Campaign> = {}): Campaign {
@@ -30,15 +34,21 @@ describe('resolveWhatsAppTemplate', () => {
     expect(findTemplateById).not.toHaveBeenCalled()
   })
 
-  it('throws when the referenced template is not found', async () => {
+  // Review round 2 (#102 item 3): typed errors so the synchronous execute
+  // route can map them to 400/409 with the real message instead of falling
+  // through to a generic 500 — a user-caused state must explain itself.
+  it('throws WhatsAppTemplateNotFoundError when the referenced template is not found', async () => {
     vi.mocked(findTemplateById).mockResolvedValue(null)
 
     await expect(
       resolveWhatsAppTemplate(campaign({ whatsappTemplateId: 'tpl-missing' }))
     ).rejects.toThrow('WhatsApp template tpl-missing not found')
+    await expect(
+      resolveWhatsAppTemplate(campaign({ whatsappTemplateId: 'tpl-missing' }))
+    ).rejects.toBeInstanceOf(WhatsAppTemplateNotFoundError)
   })
 
-  it('throws when the referenced template is not approved', async () => {
+  it('throws WhatsAppTemplateNotApprovedError when the referenced template is not approved', async () => {
     vi.mocked(findTemplateById).mockResolvedValue({
       id: 'tpl-pending',
       restaurantId: 'r-1',
@@ -57,6 +67,9 @@ describe('resolveWhatsAppTemplate', () => {
     await expect(
       resolveWhatsAppTemplate(campaign({ whatsappTemplateId: 'tpl-pending' }))
     ).rejects.toThrow('WhatsApp template pending_template is not approved')
+    await expect(
+      resolveWhatsAppTemplate(campaign({ whatsappTemplateId: 'tpl-pending' }))
+    ).rejects.toBeInstanceOf(WhatsAppTemplateNotApprovedError)
   })
 
   it('returns the template when approved', async () => {

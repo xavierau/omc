@@ -5,7 +5,7 @@ vi.mock('../../client', () => ({
 }))
 
 import { createServerSupabaseClient } from '../../client'
-import { getMonthlyTenantSends } from '../campaign-settings-repository'
+import { getMonthlyTenantSends, getTodayCampaignCount } from '../campaign-settings-repository'
 
 type Row = {
   chargeable_sent_count: number | null
@@ -81,5 +81,38 @@ describe('getMonthlyTenantSends', () => {
     vi.mocked(createServerSupabaseClient).mockReturnValue({ from: client.from } as never)
 
     await expect(getMonthlyTenantSends('r-1')).rejects.toThrow('getMonthlyTenantSends: db down')
+  })
+})
+
+// Review round 2, item 5b: a failed campaign already consumed a "send
+// attempt" for the day — it must still count toward the daily campaign
+// cap, or a tenant could exhaust every send failing on purpose to farm
+// extra daily attempts.
+describe('getTodayCampaignCount', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("includes 'failed' in the status filter", async () => {
+    const filters: Array<[string, unknown]> = []
+    const chain = {
+      eq: (col: string, val: unknown) => {
+        filters.push([col, val])
+        return chain
+      },
+      in: (col: string, val: unknown) => {
+        filters.push([col, val])
+        return chain
+      },
+      gte: (col: string, val: unknown) => {
+        filters.push([col, val])
+        return Promise.resolve({ count: 0, error: null })
+      },
+    }
+    const select = vi.fn().mockReturnValue(chain)
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    await getTodayCampaignCount('r-1')
+
+    expect(filters).toContainEqual(['status', ['sending', 'completed', 'failed']])
   })
 })

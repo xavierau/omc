@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getCampaignById,
+  getCampaignByIdForRestaurant,
   updateCampaign,
   setCampaignMembers,
   getCampaignMemberIds,
@@ -14,7 +15,11 @@ import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
 } from './template-helpers'
-import { pickAllowed, applyImageScopeGuard } from './patch-helpers'
+import {
+  pickAllowed,
+  applyImageScopeGuard,
+  applyFailureReasonRevivalGuard,
+} from './patch-helpers'
 import { CampaignBodyError } from '../parse-create-body-errors'
 import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
 import { withTemplateReview } from '../with-template-review'
@@ -25,9 +30,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await getTenantContext()
+    // Review round 2, item 1: scoped query (SEC-001 pattern) — a
+    // cross-tenant id resolves to null exactly like a missing one, never
+    // fetch-then-compare-and-leak.
+    const { restaurantId } = await getTenantContext()
     const { id } = await params
-    const campaign = await getCampaignById(id)
+    const campaign = await getCampaignByIdForRestaurant(id, restaurantId)
     if (!campaign) {
       return NextResponse.json(
         { error: 'Campaign not found' },
@@ -81,6 +89,7 @@ export async function PATCH(
     }
     const changes: UpdateCampaignParams = pickAllowed(body)
     applyImageScopeGuard(changes, existing, restaurantId)
+    applyFailureReasonRevivalGuard(changes)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
 
     const campaign = await updateCampaign(id, changes)

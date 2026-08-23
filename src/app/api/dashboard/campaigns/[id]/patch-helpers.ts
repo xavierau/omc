@@ -37,6 +37,29 @@ export function pickAllowed(body: Record<string, unknown>): UpdateCampaignParams
  *
  * Effective type = patch's `type` if present, else the existing row's type.
  */
+/**
+ * Issue #102 review round 2, item 4: `failure_reason` is non-null ONLY
+ * when status='failed' (the entity invariant — see campaign.ts). A PATCH
+ * that moves status AWAY from 'failed' — most commonly an admin reviving a
+ * stuck campaign back to 'active' — must clear the stale reason, or a UI
+ * reading failureReason after a successful revival would still show the
+ * old failure.
+ *
+ * Deliberately NOT clearing/advancing `scheduledAt` on revival: a campaign
+ * revived with a scheduled_at still in the past becomes immediately due on
+ * the next cron tick — the same semantics as reactivating any other
+ * paused campaign with a stale scheduled_at. That is intentional: an admin
+ * reviving a stuck send expects it to go out, not silently wait for a new
+ * schedule.
+ */
+export function applyFailureReasonRevivalGuard(
+  changes: UpdateCampaignParams
+): void {
+  if (changes.status !== undefined && changes.status !== 'failed') {
+    changes.failureReason = null
+  }
+}
+
 export function applyImageScopeGuard(
   changes: UpdateCampaignParams,
   existing: Campaign,

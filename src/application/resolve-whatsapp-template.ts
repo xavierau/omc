@@ -10,16 +10,35 @@ import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsap
 import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 
+// Typed so the synchronous execute route (#102 item 3) can map each case to
+// the right HTTP status with the real message, instead of falling through
+// to a generic 500 — a user-caused state (misconfigured campaign) must
+// explain itself. Also tenant-meaningful for the queue worker's terminal
+// failure_reason (item 8): these are safe to store/display verbatim.
+export class WhatsAppTemplateNotFoundError extends Error {
+  constructor(templateId: string) {
+    super(`WhatsApp template ${templateId} not found`)
+    this.name = 'WhatsAppTemplateNotFoundError'
+  }
+}
+
+export class WhatsAppTemplateNotApprovedError extends Error {
+  constructor(templateName: string) {
+    super(`WhatsApp template ${templateName} is not approved`)
+    this.name = 'WhatsAppTemplateNotApprovedError'
+  }
+}
+
 export async function resolveWhatsAppTemplate(
   campaign: Campaign
 ): Promise<WhatsAppTemplate | null> {
   if (!campaign.whatsappTemplateId) return null
   const template = await findTemplateById(campaign.whatsappTemplateId)
   if (!template) {
-    throw new Error(`WhatsApp template ${campaign.whatsappTemplateId} not found`)
+    throw new WhatsAppTemplateNotFoundError(campaign.whatsappTemplateId)
   }
   if (!isTemplateSendable(template)) {
-    throw new Error(`WhatsApp template ${template.name} is not approved`)
+    throw new WhatsAppTemplateNotApprovedError(template.name)
   }
   return template
 }

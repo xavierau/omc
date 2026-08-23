@@ -504,4 +504,30 @@ describe('GET /api/dashboard/campaigns', () => {
       campaigns
     )
   })
+
+  // Review round 2, item 9: degrade OFF (REPLY-001 precedent) — the
+  // Send-button explanation is a nice-to-have; the list itself must stay
+  // available even when the enrichment subsystem (trust check / template
+  // lookup / review-queue lookup) errors.
+  it('degrades OFF (still returns the list, minus templateReview) when the enrichment throws', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', status: 'failed', failureReason: 'boom' }),
+    ])
+    vi.mocked(buildCampaignTemplateReviewStates).mockRejectedValue(
+      new Error('template_review_queue unreachable')
+    )
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const r = await GET()
+    const body = await r.json()
+
+    expect(r.status).toBe(200)
+    expect(body.campaigns).toHaveLength(1)
+    // failureReason still comes straight from the campaign entity — no
+    // extra query, so it survives the enrichment failure untouched.
+    expect(body.campaigns[0].failureReason).toBe('boom')
+    expect('templateReview' in body.campaigns[0]).toBe(false)
+
+    errSpy.mockRestore()
+  })
 })

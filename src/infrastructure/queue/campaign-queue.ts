@@ -1,5 +1,11 @@
 import { Queue, Worker } from 'bullmq'
 import { executeCampaign } from '@/application/execute-campaign'
+import { CampaignGuardrailError } from '@/application/campaign-guardrail-error'
+import { NoTemplateError } from '@/application/no-template-error'
+import {
+  WhatsAppTemplateNotFoundError,
+  WhatsAppTemplateNotApprovedError,
+} from '@/application/resolve-whatsapp-template'
 
 const QUEUE_NAME = 'campaign-execution'
 
@@ -63,6 +69,27 @@ function truncateFailureReason(message: string): string {
   return `${message.slice(0, FAILURE_REASON_MAX_LEN)}…`
 }
 
+// Review round 2, item 8: failure_reason is a TENANT-VISIBLE field.
+// Allowlist of error classes whose message is safe/meaningful to show a
+// tenant verbatim; anything else (Supabase/API/network errors, stray
+// throws) gets a generic message instead of leaking internals.
+const GENERIC_FAILURE_REASON =
+  'Campaign send failed due to an unexpected error. Contact support if this persists.'
+
+function isTenantMeaningfulError(err: Error): boolean {
+  return (
+    err instanceof CampaignGuardrailError ||
+    err instanceof NoTemplateError ||
+    err instanceof WhatsAppTemplateNotFoundError ||
+    err instanceof WhatsAppTemplateNotApprovedError
+  )
+}
+
+function resolveFailureReason(err: Error): string {
+  if (isTenantMeaningfulError(err)) return truncateFailureReason(err.message)
+  return GENERIC_FAILURE_REASON
+}
+
 async function handleFailedJob(
   job: { data: CampaignJobData; attemptsMade: number; opts: { attempts?: number } },
   err: Error
@@ -73,7 +100,7 @@ async function handleFailedJob(
   const { markCampaignFailed } = await import(
     '@/infrastructure/supabase/repositories/campaign-repository'
   )
-  await markCampaignFailed(job.data.campaignId, truncateFailureReason(err.message))
+  await markCampaignFailed(job.data.campaignId, resolveFailureReason(err))
 }
 
 function createWorker(): Worker<CampaignJobData> {

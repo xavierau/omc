@@ -1,29 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Issue #102 Part A fix 2: `enforceTemplateReview` must run BEFORE
-// enqueueing, synchronously in the request, so a blocked send returns 403
-// with the violation in the response body instead of `200 {"status":
-// "queued"}` while the real failure only ever surfaces in the worker log.
+// Issue #102 Part A fix 2 + review round 2 (items 1, 2, 3): the execute
+// route now runs every send-time gate synchronously, in the SAME order the
+// worker does, BEFORE enqueueing — so a blocked send returns a typed
+// 4xx with the real reason instead of `200 {"status":"queued"}` while the
+// real failure only ever surfaced in the worker log or (worse) permanently
+// failed the campaign after 3 blind retries.
+//
+// Order mirrors executeCampaign: guardrails (item 2, count=0 like the cron)
+// -> resolve template (item 3, typed errors) -> WAQ-011 template review.
+// The campaign lookup itself is tenant-scoped (item 1) so a cross-tenant id
+// 404s instead of leaking another tenant's guardrail violations.
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
-  getCampaignById: vi.fn(),
+  getCampaignByIdForRestaurant: vi.fn(),
 }))
 vi.mock('@/infrastructure/queue/campaign-queue', () => ({
   addCampaignJob: vi.fn(),
 }))
-vi.mock('@/application/resolve-whatsapp-template', () => ({
-  resolveWhatsAppTemplate: vi.fn(),
-}))
+vi.mock('@/application/resolve-whatsapp-template', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/application/resolve-whatsapp-template')
+  >('@/application/resolve-whatsapp-template')
+  return {
+    ...actual,
+    resolveWhatsAppTemplate: vi.fn(),
+  }
+})
 vi.mock('@/application/enforce-template-review', () => ({
   enforceTemplateReview: vi.fn(),
 }))
+vi.mock('@/application/enforce-campaign-guardrails', () => ({
+  enforceCampaignGuardrails: vi.fn(),
+}))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
-import { getCampaignById } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getCampaignByIdForRestaurant } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { addCampaignJob } from '@/infrastructure/queue/campaign-queue'
-import { resolveWhatsAppTemplate } from '@/application/resolve-whatsapp-template'
+import {
+  resolveWhatsAppTemplate,
+  WhatsAppTemplateNotFoundError,
+  WhatsAppTemplateNotApprovedError,
+} from '@/application/resolve-whatsapp-template'
 import { enforceTemplateReview } from '@/application/enforce-template-review'
+import { enforceCampaignGuardrails } from '@/application/enforce-campaign-guardrails'
 import { CampaignGuardrailError } from '@/application/campaign-guardrail-error'
 import { POST } from '../route'
 import { buildCampaign } from '@/test-utils/builders'
@@ -44,15 +65,16 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
       role: 'admin',
       tenantStatus: 'active',
     })
-    vi.mocked(getCampaignById).mockResolvedValue(
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
       buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
     )
+    vi.mocked(enforceCampaignGuardrails).mockResolvedValue(undefined)
     vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(null)
     vi.mocked(enforceTemplateReview).mockResolvedValue(undefined)
     vi.mocked(addCampaignJob).mockResolvedValue(undefined)
   })
 
-  it('enqueues and returns 200 when the template-review gate allows the send', async () => {
+  it('enqueues and returns 200 when every gate allows the send', async () => {
     const r = await POST(new Request('http://x') as never, params())
     expect(r.status).toBe(200)
     const body = await r.json()
@@ -63,12 +85,19 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     })
   })
 
-  it('runs enforceTemplateReview with the resolved template BEFORE enqueueing', async () => {
+  it('runs guardrails -> template resolution -> template review -> enqueue, in that order', async () => {
     const campaign = buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
-    vi.mocked(getCampaignById).mockResolvedValue(campaign)
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(campaign)
     const order: string[] = []
+    vi.mocked(enforceCampaignGuardrails).mockImplementation(async () => {
+      order.push('guardrails')
+    })
+    vi.mocked(resolveWhatsAppTemplate).mockImplementation(async () => {
+      order.push('resolve-template')
+      return null
+    })
     vi.mocked(enforceTemplateReview).mockImplementation(async () => {
-      order.push('enforce')
+      order.push('template-review')
     })
     vi.mocked(addCampaignJob).mockImplementation(async () => {
       order.push('enqueue')
@@ -76,7 +105,7 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
 
     await POST(new Request('http://x') as never, params())
 
-    expect(order).toEqual(['enforce', 'enqueue'])
+    expect(order).toEqual(['guardrails', 'resolve-template', 'template-review', 'enqueue'])
     expect(enforceTemplateReview).toHaveBeenCalledWith({
       campaign,
       restaurantId: RESTAURANT_ID,
@@ -84,7 +113,35 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     })
   })
 
-  it('returns 403 with violations and does NOT enqueue when the gate blocks the send', async () => {
+  // Item 2: guardrails run synchronously with the cron's documented
+  // targetMemberCount=0 (see /api/cron/campaigns/route.ts) — the real
+  // count is unknown pre-enqueue; this still catches pause, daily-limit,
+  // and unsubscribe-rate violations immediately instead of letting a
+  // transient block burn 3 blind retries and permanently fail the campaign.
+  it('checks guardrails with targetMemberCount=0, same as the cron', async () => {
+    await POST(new Request('http://x') as never, params())
+
+    expect(enforceCampaignGuardrails).toHaveBeenCalledWith(RESTAURANT_ID, 0)
+  })
+
+  it('returns 403 with violations and does NOT enqueue when guardrails block the send', async () => {
+    vi.mocked(enforceCampaignGuardrails).mockRejectedValue(
+      new CampaignGuardrailError(['Campaigns auto-paused by quality monitor'])
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(403)
+    const body = await r.json()
+    expect(body).toEqual({
+      error: 'Campaign blocked by guardrails',
+      violations: ['Campaigns auto-paused by quality monitor'],
+    })
+    expect(resolveWhatsAppTemplate).not.toHaveBeenCalled()
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 with violations and does NOT enqueue when the template-review gate blocks the send', async () => {
     vi.mocked(enforceTemplateReview).mockRejectedValue(
       new CampaignGuardrailError([
         "Template '5th_anniversary' requires platform approval before sending (campaign camp-1)",
@@ -104,24 +161,91 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     expect(addCampaignJob).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when the campaign does not exist', async () => {
-    vi.mocked(getCampaignById).mockResolvedValue(null)
+  // Item 3: a user-caused state (misconfigured campaign) must explain
+  // itself instead of falling through to a generic 500.
+  it('returns 400 with the real message when the referenced template is missing', async () => {
+    vi.mocked(resolveWhatsAppTemplate).mockRejectedValue(
+      new WhatsAppTemplateNotFoundError('tpl-missing')
+    )
 
     const r = await POST(new Request('http://x') as never, params())
 
-    expect(r.status).toBe(404)
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body).toEqual({ error: 'WhatsApp template tpl-missing not found' })
     expect(enforceTemplateReview).not.toHaveBeenCalled()
     expect(addCampaignJob).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when the campaign is not active, without running the gate', async () => {
-    vi.mocked(getCampaignById).mockResolvedValue(
+  it('returns 409 with the real message when the referenced template is not approved', async () => {
+    vi.mocked(resolveWhatsAppTemplate).mockRejectedValue(
+      new WhatsAppTemplateNotApprovedError('5th_anniversary')
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body).toEqual({ error: 'WhatsApp template 5th_anniversary is not approved' })
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the campaign does not exist', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(null)
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(404)
+    expect(enforceCampaignGuardrails).not.toHaveBeenCalled()
+    expect(enforceTemplateReview).not.toHaveBeenCalled()
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
+  // Item 1: tenant scoping. A campaign owned by another restaurant must
+  // never be visible here — the scoped query resolves it to null exactly
+  // like a missing id, so a cross-tenant click can't leak that tenant's
+  // guardrail violations or template-review state in the 403/409 body.
+  it('scopes the lookup by the caller restaurantId (never fetch-then-compare)', async () => {
+    await POST(new Request('http://x') as never, params())
+
+    expect(getCampaignByIdForRestaurant).toHaveBeenCalledWith(CAMPAIGN_ID, RESTAURANT_ID)
+  })
+
+  it('returns 404 for a cross-tenant id instead of leaking another tenant state', async () => {
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-2',
+      restaurantId: 'rest-2',
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(null)
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(404)
+    expect(getCampaignByIdForRestaurant).toHaveBeenCalledWith(CAMPAIGN_ID, 'rest-2')
+    expect(enforceCampaignGuardrails).not.toHaveBeenCalled()
+  })
+
+  it('enqueues normally for a same-tenant request', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(200)
+  })
+
+  it('returns 400 when the campaign is not active, without running any gate', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
       buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'paused' })
     )
 
     const r = await POST(new Request('http://x') as never, params())
 
     expect(r.status).toBe(400)
+    expect(enforceCampaignGuardrails).not.toHaveBeenCalled()
     expect(enforceTemplateReview).not.toHaveBeenCalled()
     expect(addCampaignJob).not.toHaveBeenCalled()
   })

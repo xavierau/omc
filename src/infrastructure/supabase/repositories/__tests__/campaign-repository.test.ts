@@ -10,6 +10,8 @@ import {
   incrementCampaignSent,
   createCampaign,
   markCampaignFailed,
+  getCampaignByIdForRestaurant,
+  getDueCampaigns,
 } from '../campaign-repository'
 
 function buildRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -270,6 +272,88 @@ describe('markCampaignFailed', () => {
     await expect(markCampaignFailed('camp-1', 'boom')).rejects.toThrow(
       'markCampaignFailed: db down'
     )
+  })
+})
+
+// Review round 2, item 1: scoped-query tenant isolation, same pattern as
+// SEC-001's findByIdForRestaurant for wa-templates — a foreign id answers
+// null (route maps that to 404), identically to a truly missing row, so ids
+// stay non-enumerable. Never fetch-then-compare.
+describe('getCampaignByIdForRestaurant', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function selectSpyClient(result: { data: unknown; error: unknown }) {
+    const filters: Array<[string, unknown]> = []
+    const chain = {
+      eq: (col: string, val: unknown) => {
+        filters.push([col, val])
+        return chain
+      },
+      single: () => Promise.resolve(result),
+    }
+    const select = vi.fn().mockReturnValue(chain)
+    const from = vi.fn().mockReturnValue({ select })
+    return { from, select, filters }
+  }
+
+  it('scopes the query by id AND restaurant_id', async () => {
+    const spy = selectSpyClient({ data: buildRow(), error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    const campaign = await getCampaignByIdForRestaurant('camp-1', 'rest-1')
+
+    expect(spy.from).toHaveBeenCalledWith('campaigns')
+    expect(spy.filters).toEqual([
+      ['id', 'camp-1'],
+      ['restaurant_id', 'rest-1'],
+    ])
+    expect(campaign?.id).toBe('camp-1')
+  })
+
+  it('returns null (not the row) when the campaign belongs to another restaurant', async () => {
+    // PostgREST answers a no-match .single() with an error, not a row —
+    // same shape whether the id truly doesn't exist or just isn't this
+    // tenant's, which is the point: no existence leak.
+    const spy = selectSpyClient({ data: null, error: { message: 'no rows' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    expect(await getCampaignByIdForRestaurant('camp-of-rest-1', 'rest-2')).toBeNull()
+  })
+})
+
+// Review round 2, item 6: the single regression assertion pinning the
+// #102 Part B fix — a 'failed' campaign must never reappear in the due set,
+// or the whole terminal-status fix is silently undone.
+describe('getDueCampaigns', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("queries status='active' only — a 'failed' row can never match", async () => {
+    const filters: Array<{ op: string; args: unknown[] }> = []
+    const chain = {
+      eq: (...args: unknown[]) => {
+        filters.push({ op: 'eq', args })
+        return chain
+      },
+      not: (...args: unknown[]) => {
+        filters.push({ op: 'not', args })
+        return chain
+      },
+      lte: (...args: unknown[]) => {
+        filters.push({ op: 'lte', args })
+        return Promise.resolve({ data: [], error: null })
+      },
+    }
+    const select = vi.fn().mockReturnValue(chain)
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    await getDueCampaigns()
+
+    expect(filters[0]).toEqual({ op: 'eq', args: ['status', 'active'] })
+    // A campaign the worker already marked 'failed' does not satisfy this
+    // filter, so it cannot be re-enqueued no matter how stale its
+    // scheduled_at is — the exact loop #102 Part B fixes.
+    expect(filters.some((f) => f.args.includes('failed'))).toBe(false)
   })
 })
 
