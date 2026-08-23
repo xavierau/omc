@@ -8,8 +8,8 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getContactConfig: vi.fn(),
   getRestaurantEmailContext: vi.fn(),
 }))
-vi.mock('@/infrastructure/email/provider-factory', () => ({
-  getEmailProvider: vi.fn(),
+vi.mock('@/infrastructure/queue/email-queue', () => ({
+  addEmailJob: vi.fn(),
 }))
 vi.mock('../unknown-help-handlers', () => ({
   handleUnknown: vi.fn(),
@@ -21,7 +21,7 @@ import {
   getContactConfig,
   getRestaurantEmailContext,
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { getEmailProvider } from '@/infrastructure/email/provider-factory'
+import { addEmailJob } from '@/infrastructure/queue/email-queue'
 import { handleUnknown } from '../unknown-help-handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { DEFAULT_LABELS, type ResolvedContactConfig } from '@/domain/services/contact-config'
@@ -63,8 +63,6 @@ function config(overrides: Partial<ResolvedContactConfig> = {}): ResolvedContact
 
 type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) => void
 
-const sendEmail = vi.fn()
-
 async function run(overrides: {
   message?: Partial<KapsoMessage>
   log?: LogFn
@@ -89,25 +87,28 @@ describe('handleContactFormSubmission', () => {
       name: 'Demo Cafe',
       whatsappNumber: '+85299999999',
     })
-    sendEmail.mockResolvedValue({ ok: true, providerMessageId: 'em-1', raw: null })
-    vi.mocked(getEmailProvider).mockReturnValue({ send: sendEmail })
+    vi.mocked(addEmailJob).mockResolvedValue(undefined)
     vi.mocked(handleUnknown).mockResolvedValue(okResult())
   })
 
-  it('happy path: sends ack then email with correct recipient + submitted content', async () => {
+  it('happy path: sends ack, then enqueues the email job with correct recipient + submission', async () => {
     await run()
 
     expect(sendTextMessage).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, expect.any(String))
-    expect(sendEmail).toHaveBeenCalledWith(
+    expect(addEmailJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: 'owner@example.com',
-        subject: '新客戶查詢',
-        text: expect.stringContaining('Alice'),
+        restaurantId: RESTAURANT_ID,
+        notificationEmail: 'owner@example.com',
+        submission: expect.objectContaining({ clientName: 'Alice' }),
+        senderWaId: PHONE,
+        contactName: 'Alice Chan',
+        messageId: 'wamid.test',
+        submittedAt: expect.any(String),
       })
     )
     const ackOrder = vi.mocked(sendTextMessage).mock.invocationCallOrder[0]
-    const emailOrder = sendEmail.mock.invocationCallOrder[0]
-    expect(ackOrder).toBeLessThan(emailOrder)
+    const enqueueOrder = vi.mocked(addEmailJob).mock.invocationCallOrder[0]
+    expect(ackOrder).toBeLessThan(enqueueOrder)
     expect(handleUnknown).not.toHaveBeenCalled()
   })
 
@@ -122,7 +123,7 @@ describe('handleContactFormSubmission', () => {
 
     expect(handleUnknown).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
     expect(sendTextMessage).not.toHaveBeenCalled()
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(addEmailJob).not.toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(
       'warn',
       'contact_form.invalid_payload',
@@ -134,7 +135,7 @@ describe('handleContactFormSubmission', () => {
     const log = await run({ message: { flowToken: 'cf.v1.other-restaurant.xyz' } })
 
     expect(sendTextMessage).not.toHaveBeenCalled()
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(addEmailJob).not.toHaveBeenCalled()
     expect(handleUnknown).not.toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(
       'warn',
@@ -143,11 +144,11 @@ describe('handleContactFormSubmission', () => {
     )
   })
 
-  it('token missing: still processed (ack + email sent), warn logged', async () => {
+  it('token missing: still processed (ack sent + email enqueued), warn logged', async () => {
     const log = await run({ message: { flowToken: undefined } })
 
     expect(sendTextMessage).toHaveBeenCalled()
-    expect(sendEmail).toHaveBeenCalled()
+    expect(addEmailJob).toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(
       'warn',
       'contact_form.token_missing',
@@ -160,15 +161,15 @@ describe('handleContactFormSubmission', () => {
 
     expect(handleUnknown).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
     expect(sendTextMessage).not.toHaveBeenCalled()
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(addEmailJob).not.toHaveBeenCalled()
   })
 
-  it('notificationEmail null: ack sent, no email, logged', async () => {
+  it('notificationEmail null: ack sent, no email enqueued, logged', async () => {
     vi.mocked(getContactConfig).mockResolvedValue(config({ notificationEmail: null }))
     const log = await run()
 
     expect(sendTextMessage).toHaveBeenCalled()
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(addEmailJob).not.toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(
       'warn',
       'contact_form.no_notification_email',
@@ -176,13 +177,8 @@ describe('handleContactFormSubmission', () => {
     )
   })
 
-  it('email send failure: ack already sent, handler still resolves, error logged at "error" level', async () => {
-    sendEmail.mockResolvedValue({
-      ok: false,
-      providerMessageId: null,
-      raw: null,
-      error: { title: 'resend_failed' },
-    })
+  it('enqueue failure (Redis down): ack already sent, handler still resolves, error logged — never throws', async () => {
+    vi.mocked(addEmailJob).mockRejectedValue(new Error('ECONNREFUSED'))
 
     const log = vi.fn()
     await expect(run({ log })).resolves.toBeDefined()
@@ -190,16 +186,16 @@ describe('handleContactFormSubmission', () => {
     expect(sendTextMessage).toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(
       'error',
-      'contact_form.email_failed',
-      expect.objectContaining({ error: expect.objectContaining({ title: 'resend_failed' }) })
+      'contact_form.enqueue_failed',
+      expect.objectContaining({ error: expect.stringContaining('ECONNREFUSED') })
     )
   })
 
-  it('ack send failure: logged but does not prevent the email from being sent', async () => {
+  it('ack send failure: logged but does not prevent the email job from being enqueued', async () => {
     vi.mocked(sendTextMessage).mockResolvedValue(failResult('skip'))
     const log = await run()
 
-    expect(sendEmail).toHaveBeenCalled()
+    expect(addEmailJob).toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith('warn', 'contact_form.ack_send_failed', expect.anything())
   })
 
