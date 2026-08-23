@@ -99,8 +99,15 @@ export function createMemberPickerStore(deps: MemberPickerStoreDeps = {}) {
         setState({ error: true, ...(append ? {} : { members: [] }) })
       })
       .finally(() => {
-        busy = false
+        // Only the settle of the CURRENT generation's own fetch may clear
+        // `busy`. Clearing it unconditionally here would let a stale fetch
+        // (e.g. an abandoned "Load more") release the reentrancy guard
+        // while a newer, still-current fetch is in flight — a same-frame
+        // "Load more" click could then slip through and fire a second
+        // request sharing that newer fetch's generation, defeating the
+        // stale-response guard for both (round-3 review finding).
         if (gen !== generation) return
+        busy = false
         setState(append ? { loadingMore: false } : { loading: false })
       })
   }

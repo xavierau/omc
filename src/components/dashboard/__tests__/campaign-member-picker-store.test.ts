@@ -178,6 +178,46 @@ describe('createMemberPickerStore — stale response guard', () => {
     expect(store.getState().total).toBe(1)
     expect(store.getState().totalPages).toBe(1)
   })
+
+  it('does not let a stale Load-more settle release the busy guard while a newer search is still in flight (round-3 fix)', async () => {
+    const staleLoadMore = deferred<MemberPageResult>()
+    const newSearchPage1 = deferred<MemberPageResult>()
+    const fetchPage = vi
+      .fn()
+      .mockResolvedValueOnce(page([m('1')], { total: 5, page: 1, totalPages: 3 })) // init
+      .mockReturnValueOnce(staleLoadMore.promise) // F0: loadMore for the '' search, gen 0
+      .mockReturnValueOnce(newSearchPage1.promise) // F1: new search page 1, gen 1
+    const store = createMemberPickerStore({ fetchPage, debounceMs: 1 })
+
+    store.init()
+    await tick()
+
+    store.loadMore() // F0 in flight, busy = true
+    store.setSearch('chan')
+    await wait(5) // debounce fires: generation -> 1, F1 in flight for gen 1
+
+    expect(fetchPage).toHaveBeenCalledTimes(3)
+
+    // F0 (gen 0, now stale) settles while F1 (gen 1, current) is still pending.
+    staleLoadMore.resolve(page([m('2'), m('3')], { total: 5, page: 2, totalPages: 3 }))
+    await tick()
+
+    // Bug (pre-fix): F0's .finally() unconditionally cleared `busy`, so this
+    // Load-more click slipped past the reentrancy guard and fired a THIRD
+    // fetch sharing F1's generation — which the stale-response guard cannot
+    // distinguish from F1 itself (last-to-resolve wins arbitrarily).
+    store.loadMore()
+    expect(fetchPage).toHaveBeenCalledTimes(3) // still just init + F0 + F1 — no phantom F2
+
+    // The current generation's own fetch (F1) still releases busy correctly
+    // when it settles, and only its results land — no duplicate/dropped
+    // rows or reverted pagination from a phantom F2.
+    newSearchPage1.resolve(page([m('c1')], { total: 1, page: 1, totalPages: 1 }))
+    await tick()
+    expect(store.getState().members.map((x) => x.id)).toEqual(['c1'])
+    expect(store.getState().total).toBe(1)
+    expect(store.getState().loading).toBe(false)
+  })
 })
 
 describe('createMemberPickerStore — select all / deselect all', () => {
