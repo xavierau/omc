@@ -1,95 +1,46 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useTranslations } from 'next-intl'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-
-interface Member {
-  id: string
-  name: string | null
-  phone: string
-}
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { CampaignMemberPickerView } from './campaign-member-picker-view'
+import { createMemberPickerStore } from './campaign-member-picker-store'
 
 interface CampaignMemberPickerProps {
   selectedIds: string[]
   onChange: (ids: string[]) => void
 }
 
+// Stateful container — wires the framework-free campaign-member-picker-store
+// to React via useSyncExternalStore. All search-debounce, pagination, and
+// race-guard logic lives in the store (directly unit-tested there); this
+// component only wires state to JSX (GH #103).
 export function CampaignMemberPicker({ selectedIds, onChange }: CampaignMemberPickerProps) {
-  const t = useTranslations('campaigns')
-  const tc = useTranslations('common')
-  const [members, setMembers] = useState<Member[]>([])
-  const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [store] = useState(() => createMemberPickerStore())
+  const state = useSyncExternalStore(store.subscribe, store.getState)
 
   useEffect(() => {
-    fetch('/api/dashboard/members')
-      .then((res) => res.json())
-      .then((data) => setMembers(data.members ?? []))
-      .catch(() => setMembers([]))
-      .finally(() => setLoading(false))
-  }, [])
+    store.init()
+    return () => store.destroy()
+  }, [store])
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return members
-    const q = search.toLowerCase()
-    return members.filter(
-      (m) =>
-        (m.name ?? '').toLowerCase().includes(q) ||
-        m.phone.includes(q)
-    )
-  }, [members, search])
-
-  const toggle = (id: string) => {
-    onChange(
-      selectedIds.includes(id)
-        ? selectedIds.filter((sid) => sid !== id)
-        : [...selectedIds, id]
-    )
-  }
-
-  const selectAll = () => onChange(filtered.map((m) => m.id))
-  const deselectAll = () => onChange([])
-
-  if (loading) return <p className="text-sm text-muted-foreground">{tc('loading')}</p>
+  const toggle = (id: string) => onChange(
+    selectedIds.includes(id) ? selectedIds.filter((sid) => sid !== id) : [...selectedIds, id]
+  )
 
   return (
-    <div className="space-y-2">
-      <Input
-        placeholder={t('searchMembers')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {t('selectedCount', { count: selectedIds.length })}
-        </span>
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={selectAll}>
-            {t('selectAll')}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={deselectAll}>
-            {t('deselectAll')}
-          </Button>
-        </div>
-      </div>
-      <div className="max-h-48 overflow-y-auto border rounded-md divide-y">
-        {filtered.map((m) => (
-          <label key={m.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(m.id)}
-              onChange={() => toggle(m.id)}
-            />
-            <span className="font-medium">{m.name ?? tc('unknown')}</span>
-            <span className="text-muted-foreground ml-auto">{m.phone}</span>
-          </label>
-        ))}
-        {filtered.length === 0 && (
-          <p className="text-sm text-muted-foreground p-3">{t('noMatch')}</p>
-        )}
-      </div>
-    </div>
+    <CampaignMemberPickerView
+      members={state.members}
+      total={state.total}
+      loading={state.loading}
+      loadingMore={state.loadingMore}
+      hasMore={state.page < state.totalPages}
+      error={state.error}
+      search={state.search}
+      selectedIds={selectedIds}
+      onSearchChange={(value) => store.setSearch(value)}
+      onToggle={toggle}
+      onSelectAll={() => store.selectAll(selectedIds, onChange)}
+      onDeselectAll={() => store.deselectAll(selectedIds, onChange)}
+      onLoadMore={() => store.loadMore()}
+    />
   )
 }

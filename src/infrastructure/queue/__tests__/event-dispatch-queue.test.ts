@@ -66,7 +66,10 @@ describe('addEventDispatchJob', () => {
     expect(jobName).toBe('dispatch-event')
   })
 
-  it('configures 5 retry attempts with exponential backoff', async () => {
+  // #102 Part B fix 1: bound Redis retention alongside the retry config —
+  // an unbounded failed/completed set grows forever (observed: 6,642 stuck
+  // jobs on the sibling campaign-execution queue).
+  it('configures 5 retry attempts with exponential backoff plus bounded retention', async () => {
     const { addEventDispatchJob } = await import('../event-dispatch-queue')
 
     await addEventDispatchJob(buildJobData())
@@ -75,6 +78,8 @@ describe('addEventDispatchJob', () => {
     expect(options).toEqual({
       attempts: 5,
       backoff: { type: 'exponential', delay: 3000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 1000 },
     })
   })
 

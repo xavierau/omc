@@ -11,6 +11,7 @@ vi.mock('next-intl', () => ({
 }))
 
 import { WaTemplateTable } from '@/components/dashboard/wa-template-table'
+import { WaTemplateReviewAction } from '@/components/dashboard/wa-template-review-action'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
 
 function flatten(node: ReactNode): ReactElement[] {
@@ -18,6 +19,10 @@ function flatten(node: ReactNode): ReactElement[] {
   Children.forEach(node, (child) => {
     if (!isValidElement(child)) return
     out.push(child)
+    // WaTemplateReviewAction owns its own useState — calling it directly like a
+    // plain function (as the recursion below does) throws outside a real React
+    // render pass. Treat it as a leaf; its own logic is unit-tested separately.
+    if (child.type === WaTemplateReviewAction) return
     if (typeof child.type === 'function') {
       const fn = child.type as (p: unknown) => ReactNode
       out.push(...flatten(fn(child.props)))
@@ -99,5 +104,28 @@ describe('WaTemplateTable rejection reason', () => {
       <WaTemplateTable templates={[template({ status: 'pending', rejectionReason: REASON })]} />
     )
     expect(byTestId(tree, 'rejection-reason')).toBeUndefined()
+  })
+})
+
+describe('WaTemplateTable review action', () => {
+  it('shows the review action for a MARKETING template when edit is enabled', () => {
+    const tree = renderTree(
+      <WaTemplateTable templates={[template({ category: 'MARKETING' })]} onEdit={() => {}} />
+    )
+    const action = tree.find((el) => el.type === WaTemplateReviewAction)
+    expect(action).toBeDefined()
+    expect((action?.props as { template: WaTemplate }).template.category).toBe('MARKETING')
+  })
+
+  it('hides the review action for a UTILITY template', () => {
+    const tree = renderTree(
+      <WaTemplateTable templates={[template({ category: 'UTILITY' })]} onEdit={() => {}} />
+    )
+    expect(tree.find((el) => el.type === WaTemplateReviewAction)).toBeUndefined()
+  })
+
+  it('hides the review action entirely when there is no onEdit (no actions column)', () => {
+    const tree = renderTree(<WaTemplateTable templates={[template({ category: 'MARKETING' })]} />)
+    expect(tree.find((el) => el.type === WaTemplateReviewAction)).toBeUndefined()
   })
 })

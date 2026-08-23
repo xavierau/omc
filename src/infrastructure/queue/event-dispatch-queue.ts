@@ -50,6 +50,11 @@ export async function addEventDispatchJob(
   await q.add('dispatch-event', data, {
     attempts: 5,
     backoff: { type: 'exponential', delay: 3000 },
+    // #102 Part B fix 1: bound Redis retention — an unbounded failed/
+    // completed set grows forever (observed: 6,642 stuck jobs on the
+    // sibling campaign-execution queue).
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 1000 },
   })
 }
 

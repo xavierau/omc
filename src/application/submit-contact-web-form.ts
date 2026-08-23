@@ -68,6 +68,12 @@ export async function submitContactWebForm(
     return { ok: false, reason: 'email_failed', detail: 'no_notification_email' }
   }
 
+  // Deliberate exception to "getEmailProvider() only from the queue worker"
+  // (ISSUE-77 / PR #106): this path's failure contract is user-visible and
+  // retryable (the caller gets `email_failed` synchronously and the web form
+  // can prompt to retry), unlike the WhatsApp Flow path's fire-and-forget
+  // ack-first flow — routing it through `email-queue.ts` would need its own
+  // async-failure-surfacing design. Tracked as a follow-up: #110.
   const sent = await getEmailProvider().send({ to: config.notificationEmail, subject, text })
   if (!sent.ok) {
     return { ok: false, reason: 'email_failed', detail: String(sent.error ?? 'send_failed') }

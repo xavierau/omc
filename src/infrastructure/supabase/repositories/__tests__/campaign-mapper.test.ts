@@ -102,3 +102,53 @@ describe('mapRowToCampaign image fields', () => {
     expect(campaign.imageUrlZhHk).toBeNull()
   })
 })
+
+// #102 Part B: terminal 'failed' status + failure_reason (migration 062).
+describe('mapRowToCampaign failure_reason', () => {
+  it('maps failure_reason into camelCase failureReason', () => {
+    const campaign = mapRowToCampaign({
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'n',
+      type: 'promo',
+      template: '',
+      status: 'failed',
+      failure_reason: 'Template requires platform approval before sending',
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    })
+    expect(campaign.status).toBe('failed')
+    expect(campaign.failureReason).toBe(
+      'Template requires platform approval before sending'
+    )
+  })
+
+  it('defaults missing failure_reason to null', () => {
+    const campaign = mapRowToCampaign({
+      id: 'c-1',
+      restaurant_id: 'r-1',
+      name: 'n',
+      type: 'promo',
+      template: '',
+      status: 'active',
+      target_audience: 'all',
+      created_at: '2026-04-20T00:00:00Z',
+    })
+    expect(campaign.failureReason).toBeNull()
+  })
+})
+
+describe('buildCampaignUpdateRow failureReason', () => {
+  it('writes failure_reason when provided', () => {
+    const row = buildCampaignUpdateRow({
+      status: 'failed',
+      failureReason: 'boom',
+    })
+    expect(row).toEqual({ status: 'failed', failure_reason: 'boom' })
+  })
+
+  it('does not touch failure_reason when undefined', () => {
+    const row = buildCampaignUpdateRow({ name: 'x' })
+    expect('failure_reason' in row).toBe(false)
+  })
+})

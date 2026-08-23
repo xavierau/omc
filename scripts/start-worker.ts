@@ -11,16 +11,21 @@ import {
   ensureWorkerStarted as startReceiptWorker,
   getWorker as getReceiptWorker,
 } from '@/infrastructure/queue/receipt-queue'
+import {
+  ensureWorkerStarted as startEmailWorker,
+  getWorker as getEmailWorker,
+} from '@/infrastructure/queue/email-queue'
 
 function startAll(): void {
   startCampaignWorker()
   startEventDispatchWorker()
   startReceiptWorker()
-  console.log('Workers started: campaign, event-dispatch, receipt')
+  startEmailWorker()
+  console.log('Workers started: campaign, event-dispatch, receipt, email-send')
 }
 
 function activeWorkers(): Worker[] {
-  return [getCampaignWorker(), getEventDispatchWorker(), getReceiptWorker()]
+  return [getCampaignWorker(), getEventDispatchWorker(), getReceiptWorker(), getEmailWorker()]
     .filter((w): w is Worker => w !== null)
 }
 

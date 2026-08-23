@@ -5,6 +5,17 @@ import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 
+// Upper bound for a caller-supplied ?pageSize=. Lets high-volume consumers
+// (e.g. the campaign member picker, GH #103) request a larger single page
+// without opening the endpoint to unbounded requests.
+const MAX_MEMBERS_PAGE_SIZE = 200
+
+export function resolvePageSize(raw: string | null): number {
+  const parsed = parseInt(raw ?? '', 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return MEMBERS_PAGE_SIZE
+  return Math.min(parsed, MAX_MEMBERS_PAGE_SIZE)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { restaurantId } = await getTenantContext()
@@ -38,11 +49,12 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
   const search = searchParams.get('search') ?? undefined
   const sortBy = (searchParams.get('sortBy') ?? 'last_visit_at') as 'name' | 'points_balance' | 'last_visit_at' | 'joined_at'
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
+  const pageSize = resolvePageSize(searchParams.get('pageSize'))
 
   const result = await getMembers({
     restaurantId,
     page,
-    pageSize: MEMBERS_PAGE_SIZE,
+    pageSize,
     search,
     sortBy,
     sortOrder,
@@ -52,7 +64,7 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
     members: result.members,
     total: result.total,
     page,
-    pageSize: MEMBERS_PAGE_SIZE,
-    totalPages: Math.ceil(result.total / MEMBERS_PAGE_SIZE),
+    pageSize,
+    totalPages: Math.ceil(result.total / pageSize),
   })
 }
