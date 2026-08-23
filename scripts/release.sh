@@ -135,17 +135,24 @@ say "Staging release tree"
 git archive "$local_sha" | tar -x -C "$stage"
 
 # `.next` is gitignored (it is a build output), so it is absent from the
-# archive and gets copied in deliberately. `cache/` is excluded — it is
-# incremental-build scratch, useless on a server that never builds.
-# `standalone/logs/` is excluded because Next's file tracing copies the repo's
-# logs/ directory — dev-machine webhook payload logs carrying customer names
-# and phone numbers — into the standalone tree at build time, and this repo is
-# public. `trace`/`diagnostics` are build telemetry (absolute paths, timings),
-# useless to the server and not worth publishing.
+# archive and gets copied in deliberately.
 mkdir -p "$stage/.next"
-tar -c --exclude='./cache' --exclude='./standalone/logs' \
-       --exclude='./trace' --exclude='./diagnostics' \
-       -C .next . | tar -x -C "$stage/.next"
+tar -c -C .next . | tar -x -C "$stage/.next"
+# Prune AFTER staging, by exact path — never via tar --exclude: bsdtar exclude
+# patterns are UNANCHORED, so --exclude='./trace' also strips
+# node_modules/next/dist/trace (and server/lib/trace) out of the standalone
+# server — hard requires, so the shipped bundle would crash-loop at boot.
+# Verified on bsdtar 3.5.3 (macOS, the release platform). The same applies to
+# the old --exclude='./cache'. rm -rf on the stage is exact and inert if the
+# path is absent.
+#   cache/           — incremental-build scratch, useless on a server that never builds
+#   standalone/logs/ — build-machine webhook payload logs traced in at build
+#                      time: customer names + phone numbers, and this repo is
+#                      PUBLIC (exactly this leaked in the 2026-08-23 bootstrap
+#                      publish — 88 files of prod logs)
+#   trace, diagnostics — build telemetry (absolute paths, timings)
+rm -rf "$stage/.next/cache" "$stage/.next/standalone/logs" \
+       "$stage/.next/trace" "$stage/.next/diagnostics"
 
 # -------------------------------------------------------------------------
 # Secret scrub — the reason this script cannot be three lines
@@ -195,10 +202,16 @@ say "Scanning bundle for inlined credentials"
 # pipeline read as false, and the scan printed "clean" on exactly the bundles
 # with the most leaked copies. Reproduced deterministically at 3000 matching
 # files. -q exits 0 on the first match and the status is grep's own.
-if grep -rqIE 'sb_secret_[A-Za-z0-9_-]{8,}|sbp_[a-f0-9]{40}' "$stage" 2>/dev/null; then
+scan_status=0
+grep -rqIE 'sb_secret_[A-Za-z0-9_-]{8,}|sbp_[a-f0-9]{40}' "$stage" || scan_status=$?
+if [ "$scan_status" -eq 0 ]; then
   die "A Supabase secret/access key appears inside the built bundle.
     Do NOT push. Find it with:
       grep -rlIE 'sb_secret_|sbp_' <build dir>"
+elif [ "$scan_status" -ne 1 ]; then
+  # grep exit 2 = it could not scan something. An unscanned bundle must not
+  # read as clean — this gate is load-bearing for a public repo.
+  die "Secret scan errored (grep exit $scan_status) — refusing to publish an unscanned bundle."
 fi
 # service_role JWTs: decode each JWT payload found and look at the role claim.
 while read -r jwt; do

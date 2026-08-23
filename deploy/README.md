@@ -7,7 +7,7 @@ deps, migrations, seeder, daemon restart.
 > **The Forge deploy script must NOT `git pull`.** `release` is an orphan branch
 > force-pushed on every release — each tip shares no history with the previous one, so
 > `git pull` exits 128 (*"refusing to merge unrelated histories"*) on every deploy after
-> the first. See [Forge deploy script](#forge-deploy-script) for the required script.
+> the first. See [Forge deploy script](#4-forge-deploy-script) for the required script.
 > `deploy.sh` also self-heals a stale checkout when it is already on the `release`
 > branch, but the first cutover needs the script below.
 

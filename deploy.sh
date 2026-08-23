@@ -133,16 +133,33 @@ done
 # Check what the COMMIT tracks, not what is on disk: the deploy itself places
 # a local copy of the server's own .env at that exact path (below), and a
 # leftover from the in-place-build era may sit there untracked too. Only a
-# TRACKED env file means the public branch is carrying credentials. Matches
-# any .env / .env.* under .next/, sparing .env.example — the same set
-# release.sh scrubs.
-tracked_env=$(git ls-files -- .next | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -v '\.env\.example$' || true)
+# TRACKED env file means the public branch is carrying credentials. Scans the
+# WHOLE tracked tree (not just .next/) so a hand-published bundle with an env
+# file anywhere is caught; spares .env.example — the same set release.sh
+# scrubs.
+tracked_env=$(git ls-files | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -v '\.env\.example$' || true)
 if [ -n "$tracked_env" ]; then
   echo "  ✗ The release bundle carries env file(s) in git:" >&2
   printf '%s\n' "$tracked_env" | sed 's/^/      /' >&2
   echo "    Those are copies of the BUILD MACHINE's .env and this repo is" >&2
   echo "    public. Treat every credential in them as compromised and rotate" >&2
   echo "    them all. Rebuild with scripts/release.sh, which scrubs them." >&2
+  exit 1
+fi
+# Same idea for runtime logs. Next's file tracing copies the build machine's
+# logs/ directory (webhook payloads — customer names, phone numbers) into
+# .next/standalone/logs/, and a bundle published outside release.sh ships it:
+# the 2026-08-23 bootstrap publish put 88 files of PRODUCTION webhook logs on
+# the public release branch. release.sh prunes and refuses; this catches what
+# arrives anyway. The source tree tracks no *.log, so any hit is a leak.
+tracked_logs=$(git ls-files | grep -E '\.log$' || true)
+if [ -n "$tracked_logs" ]; then
+  echo "  ✗ The release bundle carries log file(s) in git (customer PII):" >&2
+  printf '%s\n' "$tracked_logs" | sed -n '1,5p' | sed 's/^/      /' >&2
+  echo "      ($(printf '%s\n' "$tracked_logs" | wc -l | tr -d ' ') total)" >&2
+  echo "    This repo is public — treat the data as exposed. Delete the" >&2
+  echo "    release branch, purge via GitHub Support, and republish with" >&2
+  echo "    scripts/release.sh (which prunes logs and refuses to push them)." >&2
   exit 1
 fi
 # The standalone server reads env ONLY from its own directory: server.js does
@@ -157,7 +174,13 @@ if [ ! -f .env ]; then
   echo "    Forge UI → Site → Environment writes it." >&2
   exit 1
 fi
-mkdir -p .next/standalone
+# No mkdir -p: a bundle without .next/standalone/ has no standalone build at
+# all, and inventing the directory would defer that to a FATAL daemon later.
+if [ ! -d .next/standalone ]; then
+  echo "  ✗ The bundle has no .next/standalone/ — the build was not made with" >&2
+  echo "    output: 'standalone'. Re-run scripts/release.sh on a dev machine." >&2
+  exit 1
+fi
 cp .env .next/standalone/.env
 chmod 600 .next/standalone/.env
 echo "  site .env → .next/standalone/.env"

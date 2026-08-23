@@ -1349,6 +1349,18 @@
       "security",
       "reliability"
      ]
+    },
+    {
+     "id": "SEC-002",
+     "title": "PII breach 2026-08-23 — prod webhook logs published to public release branch (bootstrap publish)",
+     "description": "The 14:52Z one-time bootstrap publish (hand-staged from the prod host's .next, NOT via release.sh) put 88 production webhook log files (.next/standalone/logs/webhook-2026-04-10.log … webhook-2026-08-23.log — customer names, phone numbers, message events) on the PUBLIC repo's release branch. Mitigated ~15:25Z: branch deleted via API, prod unaffected (health 200), no env/credential files were in the bundle (.env.example only). REMAINING WORK: (1) commit 4ba7099e37fc1eb70dae4e7f0ba7d9bcd5cb0ec5 is still fetchable by SHA until GitHub garbage-collects — open a GitHub Support ticket to purge unreachable objects, and check for forks/clones during the ~33-min exposure window (traffic API). (2) PDPO (HK) breach assessment: scope = whose data, volume, sensitivity, exposure window, notification obligations. (3) Root cause: prod webhook file-logging writes into the repo tree (logs/), so Next file tracing bundles it — relocate log output outside the repo (e.g. /home/forge/.logs) or disable file logging in prod. (4) Never publish bootstrap bundles outside release.sh — the follow-up PR's deploy.sh now aborts on tracked *.log/.env on arrival, and release.sh prunes + refuses at publish time. First release after the fix PR merges must be built by release.sh from a dev machine.",
+     "priority": "high",
+     "labels": [
+      "security",
+      "privacy",
+      "incident",
+      "devops"
+     ]
     }
    ]
   },
