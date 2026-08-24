@@ -30,6 +30,8 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Reviews
+- [2026-08-24-camp-007-media-header-analyzer](reviews/2026-08-24-camp-007-media-header-analyzer.md) — CAMP-007 second lane: CONDITIONAL — 2 Important (my-card post-claim throw; stale invariant doc) (code-review-analyzer)
+- [2026-08-24-camp-007-media-header-gemini](reviews/2026-08-24-camp-007-media-header-gemini.md) — CAMP-007 media-header send fix (#127): APPROVED, no Critical, 1 Important (no Integration Map) (gemini-cli-reviewer)
 - [2026-08-24-issue-111-idor-fix-second-lane](reviews/2026-08-24-issue-111-idor-fix-second-lane.md) — #111 IDOR fix second lane: APPROVED — 0 Critical/Important, 3 Minor noted (code-review-analyzer)
 - [2026-08-24-issue-111-idor-fix-gemini](reviews/2026-08-24-issue-111-idor-fix-gemini.md) — #111 member-detail cross-tenant IDOR fix: APPROVED, no Critical/Important/Minor findings (gemini-cli-reviewer)
 - [2026-08-24-waq-014-analyzer](reviews/2026-08-24-waq-014-analyzer.md) — WAQ-014 4552918 second lane: CONDITIONAL — 1 Important, length-guard swallow (code-review-analyzer)
