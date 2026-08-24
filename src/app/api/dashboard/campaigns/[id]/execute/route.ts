@@ -10,6 +10,10 @@ import {
   WhatsAppTemplateNotApprovedError,
 } from '@/application/resolve-whatsapp-template'
 import { enforceTemplateReview } from '@/application/enforce-template-review'
+import {
+  enforceHeaderMedia,
+  TemplateHeaderMediaMissingError,
+} from '@/application/enforce-header-media'
 import { enforceCampaignGuardrails } from '@/application/enforce-campaign-guardrails'
 
 export async function POST(
@@ -59,6 +63,9 @@ export async function POST(
       restaurantId: campaign.restaurantId,
       template,
     })
+    // #127 / CAMP-007: same order as executeCampaign — a media-header
+    // template with no usable stored URL fails every send with #132012.
+    enforceHeaderMedia(template)
 
     await addCampaignJob({
       campaignId: campaign.id,
@@ -80,6 +87,11 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error instanceof WhatsAppTemplateNotApprovedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    // #127 / CAMP-007: same class of problem as not-approved — the template
+    // is in a state that cannot send — so the same 409 contract.
+    if (error instanceof TemplateHeaderMediaMissingError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
     if (error instanceof AuthError) {

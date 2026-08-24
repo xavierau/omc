@@ -51,9 +51,10 @@ export function applyFailureReasonRevivalGuard(
 
 /**
  * Issue #102 review round 3, item 3: 'failed' is a SYSTEM-managed
- * terminal status — only the queue worker sets it (via
- * `markCampaignFailed`, on retry exhaustion), always paired with a
- * `failureReason`. A direct PATCH setting status='failed' would bypass
+ * terminal status — only the worker pipeline sets it (via
+ * `markCampaignFailed` on retry exhaustion, or `finalizeCampaignRun` in
+ * execute-campaign.ts when every send in a run fails — #127/CAMP-007),
+ * always paired with a `failureReason`. A direct PATCH setting status='failed' would bypass
  * that path entirely and leave `failureReason` unset (nothing in the
  * ALLOWED patch fields lets a caller set it directly either — see
  * `pickAllowed`), breaking the "failed implies a reason" invariant the UI

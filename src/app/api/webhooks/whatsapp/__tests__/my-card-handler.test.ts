@@ -95,6 +95,34 @@ describe('handleMyCard', () => {
     expect(sendImageMessage).not.toHaveBeenCalled()
   })
 
+  // #127 / CAMP-007: promptMarketingOptin can now throw a typed error (e.g.
+  // the opt-in template fails the media-header gate). A throw here lands
+  // after the webhook's idempotency claim — a 500 makes Meta's retry hit
+  // `duplicate` and the event is dropped (issue #45 class) — so the handler
+  // must swallow and log, mirroring optin-prompt.ts's never-throws contract.
+  it('does not propagate an opt-in prompt failure (never-throws contract)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(findMemberLoyaltyTokenByPhone).mockResolvedValue({
+      memberId: 'm-1',
+      loyaltyToken: 'abc123',
+    })
+    vi.mocked(checkMarketingConsent).mockResolvedValue({
+      allowed: false,
+      reason: 'pending',
+    })
+    vi.mocked(promptMarketingOptin).mockRejectedValue(
+      new Error('WhatsApp template optin_tpl declares a media header but has no usable public media URL stored')
+    )
+
+    await expect(
+      handleMyCard(PHONE_NUMBER_ID, PHONE, RESTAURANT_ID)
+    ).resolves.toBeUndefined()
+
+    expect(sendImageMessage).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('does nothing destructive for an unknown phone (no member) — no QR, no opt-in', async () => {
     vi.mocked(findMemberLoyaltyTokenByPhone).mockResolvedValue(null)
 

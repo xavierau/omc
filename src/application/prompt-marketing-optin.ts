@@ -11,6 +11,7 @@ import {
 import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
+import { enforceHeaderMedia } from '@/application/enforce-header-media'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import {
   shouldPromptOptin,
@@ -54,6 +55,12 @@ export async function promptMarketingOptin(
 
   const templateId = await resolveTemplateId(input.restaurantId)
   if (!templateId) return { promptSent: false, reason: 'template_unset' }
+  // Deliberately UNSCOPED lookup (unlike resolveWhatsAppTemplate, which the
+  // #127 review scoped by tenant): the id comes from the platform env
+  // fallback KAPSO_DEFAULT_OPTIN_TEMPLATE_ID — a cross-tenant template by
+  // design — or from tenant_campaign_settings, which has no tenant-reachable
+  // write path today. If a settings UI ever exposes the override, this must
+  // become a scoped lookup with a platform-default fallback.
   const template = await findTemplateById(templateId)
   if (!template) return { promptSent: false, reason: 'template_missing' }
   // AC #8 spam-safety: a MARKETING-category template must NEVER be the
@@ -63,6 +70,12 @@ export async function promptMarketingOptin(
   if (template.category !== 'UTILITY') {
     return { promptSent: false, reason: 'template_not_utility' }
   }
+  // #127 review: gate BEFORE insertPending. The send-layer gate throws for a
+  // media-header template with no usable URL; thrown after the insert, the
+  // orphaned pending row would trip the 7-day re-prompt cooldown and starve
+  // opt-ins with no signal. Throwing here reaches the callers' existing
+  // never-throws logging with no consent row written.
+  enforceHeaderMedia(template)
 
   const inserted = await insertPending(input, gate.memberId)
   if (!inserted) return { promptSent: false, reason: 'race_lost' }

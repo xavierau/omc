@@ -47,7 +47,7 @@ import { enforceTemplateReview } from '@/application/enforce-template-review'
 import { enforceCampaignGuardrails } from '@/application/enforce-campaign-guardrails'
 import { CampaignGuardrailError } from '@/application/campaign-guardrail-error'
 import { POST } from '../route'
-import { buildCampaign } from '@/test-utils/builders'
+import { buildCampaign, buildWhatsAppTemplate } from '@/test-utils/builders'
 
 const RESTAURANT_ID = 'rest-1'
 const CAMPAIGN_ID = 'camp-1'
@@ -188,6 +188,54 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     const body = await r.json()
     expect(body).toEqual({ error: 'WhatsApp template 5th_anniversary is not approved' })
     expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
+  // #127 / CAMP-007: a template declaring a media header with no usable
+  // stored URL is a guaranteed Meta #132012 on every send — surface it
+  // synchronously as a 409 (template state problem, like not-approved)
+  // instead of queueing a run that burns and fails.
+  it('returns 409 and does NOT enqueue when the template needs a media header with no stored URL', async () => {
+    vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
+      buildWhatsAppTemplate({
+        name: 'fifth_anniversary',
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['4:aBcDeF=='] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('fifth_anniversary')
+    expect(body.error).toContain('media header')
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
+  it('enqueues when the media header has a stored https URL', async () => {
+    vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
+      buildWhatsAppTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['https://cdn.example.com/pic.jpg'] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(200)
+    expect(addCampaignJob).toHaveBeenCalled()
   })
 
   it('returns 404 when the campaign does not exist', async () => {

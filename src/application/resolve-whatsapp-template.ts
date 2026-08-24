@@ -6,7 +6,7 @@
 // route pre-checks WAQ-011 with the SAME template the worker would use, so
 // the pre-check and the actual send can't drift apart.
 
-import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import { findTemplateByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 
@@ -33,7 +33,15 @@ export async function resolveWhatsAppTemplate(
   campaign: Campaign
 ): Promise<WhatsAppTemplate | null> {
   if (!campaign.whatsappTemplateId) return null
-  const template = await findTemplateById(campaign.whatsappTemplateId)
+  // Scoped-query tenant isolation (SEC-001 pattern, #127 review): campaign
+  // rows accept whatsappTemplateId without an ownership check, so the id's
+  // provenance is NOT tenant-scoped — and the send path now forwards the
+  // resolved row's stored header URL as member-visible media. A foreign id
+  // must resolve like a missing one.
+  const template = await findTemplateByIdForRestaurant(
+    campaign.whatsappTemplateId,
+    campaign.restaurantId
+  )
   if (!template) {
     throw new WhatsAppTemplateNotFoundError(campaign.whatsappTemplateId)
   }
