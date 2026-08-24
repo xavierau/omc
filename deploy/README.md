@@ -1,8 +1,15 @@
 # Forge Deploy — First-Time Bootstrap
 
-Production runs on a Laravel Forge–managed Ubuntu server. Forge handles git pull, working
-directory, nginx config, and TLS. The repo's `deploy.sh` only handles app concerns: deps,
-migrations, seeder, daemon restart.
+Production runs on a Laravel Forge–managed Ubuntu server. Forge handles the git checkout,
+working directory, nginx config, and TLS. The repo's `deploy.sh` only handles app concerns:
+deps, migrations, seeder, daemon restart.
+
+> **The Forge deploy script must NOT `git pull`.** `release` is an orphan branch
+> force-pushed on every release — each tip shares no history with the previous one, so
+> `git pull` exits 128 (*"refusing to merge unrelated histories"*) on every deploy after
+> the first. See [Forge deploy script](#4-forge-deploy-script) for the required script.
+> `deploy.sh` also self-heals a stale checkout when it is already on the `release`
+> branch, but the first cutover needs the script below.
 
 **The build does not run on the server.** See [Release Pipeline](#release-pipeline).
 
@@ -44,14 +51,21 @@ without bound. `RELEASE.json` at the branch root is the link back to the real co
 production `.env`: service role key, Kapso API key and webhook secret, Resend and Gemini
 keys, the platform admin password — 24 variables. **`xavierau/omc` is public.**
 
-`scripts/release.sh` deletes every `.env` from the bundle and then scans the result for
-service_role JWTs and `sb_secret_`/`sbp_` keys, refusing to push if it finds any.
-`deploy.sh` re-checks on arrival. Verified against the real production bundle: no secret
-value from `.env` appears in it. The five variables that *do* appear are `APP_URL`,
-`NEXT_PUBLIC_APP_URL`, `REDIS_URL`, `LAYOUT_SERVICE_URL` and `RESEND_FROM_EMAIL` — all
-public or localhost, none carrying embedded credentials.
+`scripts/release.sh` deletes every `.env` from the bundle, drops the traced-in
+`standalone/logs/` directory (dev-machine webhook logs — customer PII), refuses to push
+if any `*.log` survives, and then scans the result for service_role JWTs and
+`sb_secret_`/`sbp_` keys, refusing to push if it finds any. `deploy.sh` re-checks on
+arrival (against what the commit *tracks*). Verified against the real production bundle:
+no secret value from `.env` appears in it. The five variables that *do* appear are
+`APP_URL`, `NEXT_PUBLIC_APP_URL`, `REDIS_URL`, `LAYOUT_SERVICE_URL` and
+`RESEND_FROM_EMAIL` — all public or localhost, none carrying embedded credentials.
 
-The server keeps its own `.env`; the bundle never needs one.
+The bundle never *carries* an env file — but the standalone server can only read env
+from its own directory (`server.js` chdirs into `.next/standalone/` and `@next/env`
+loads `.env` from there; the site-root `.env` is invisible to it). So `deploy.sh`
+copies the server's own site-root `.env` to `.next/standalone/.env` on every deploy,
+before restarting the daemons. That copy is local to the server and untracked; editing
+env in Forge UI → Environment propagates on the next deploy.
 
 ### Releasing
 
@@ -131,6 +145,26 @@ An earlier revision used `sudo -n grep` there and silently matched nothing on ev
 deploy, quietly disabling the daemon-renumbering robustness it was written to provide.
 
 Save with strict perms — `visudo` validates before writing.
+
+### 4. Forge deploy script
+
+Forge UI → Site → **App** → Deploy Script. The stock script does `git pull origin
+$FORGE_SITE_BRANCH`, which cannot land a force-pushed orphan branch (see the warning at
+the top of this file) — and because the stock script has no `set -e`, the failed pull
+does not even stop the deploy: it carries on and re-deploys the **stale** checkout.
+Replace the git line so the script reads:
+
+```bash
+cd /home/forge/<site-dir>
+git fetch origin release
+git checkout -qB release FETCH_HEAD
+bash deploy.sh
+```
+
+`fetch` + `checkout -B` replaces the local branch with the fetched tip outright — no
+merge, which is exactly right for a branch that is rewritten on every release. As a
+second line of defence, `deploy.sh` itself re-syncs a stale checkout that is already on
+the `release` branch (and re-execs itself, since a sync may update `deploy.sh` too).
 
 ## Forge Environment Variables
 
@@ -290,12 +324,25 @@ would restart the app into the *previous* release while reporting success.
    ```bash
    git ls-remote --heads origin release
    ```
-2. **Repoint Forge**: Site → Repository → Branch → `release`. Leave *Quick Deploy*
+2. **Clear the in-place-build leftovers** on the server — the old `.next/` is untracked,
+   so no git operation will ever remove it, and its stale files (including the
+   credential-bearing `.next/standalone/.env` from the last on-server build) would
+   otherwise sit under the new checkout:
+   ```bash
+   cd /home/forge/<site-dir> && rm -rf .next
+   ```
+3. **Repoint Forge**: Site → Repository → Branch → `release`. Leave *Quick Deploy*
    enabled — a push to `release` is what now triggers a deploy.
-3. **Deploy once** from the Forge UI and watch the log. Expect `→ Verifying prebuilt
-   bundle` to echo the source commit, and **no** `→ Building Next.js` step.
-4. **Verify**: `curl -sf https://app.ohmyclient.io/api/health`, then log in as
-   `PLATFORM_ADMIN_EMAIL` and confirm platform admin access.
+4. **Replace the deploy script's `git pull`** with the fetch + checkout form — see
+   [Forge deploy script](#4-forge-deploy-script). Without this the first deploy cannot
+   even check out `release` (the fetch refspec only tracks the old branch), and every
+   later one fails or silently redeploys the stale tree.
+5. **Deploy once** from the Forge UI and watch the log. Expect `→ Verifying prebuilt
+   bundle` to echo the source commit, `→ Installing runtime env` to copy the site
+   `.env` into the standalone tree, and **no** `→ Building Next.js` step.
+6. **Verify**: `curl -sf https://app.ohmyclient.io/api/health`, then log in as
+   `PLATFORM_ADMIN_EMAIL` and confirm platform admin access — the login exercises the
+   service-role path, which is what breaks if the standalone server booted without env.
 
 **Rolling back the cutover** is repointing Forge at `main` — but note `deploy.sh` will
 then abort at the bundle check, because `main` carries no `.next/`. To genuinely revert
@@ -327,7 +374,8 @@ worse).
 | `✗ This checkout is not a release bundle` | Forge is deploying `main`/`develop`, not `release`. Site → Repository → Branch |
 | `✗ RELEASE.json says BUILD_ID x, but .next/BUILD_ID is y` | Bundle assembled from two builds — re-run `npm run build:release` |
 | `✗ Incomplete build: ... is missing` | The published bundle is truncated. Re-run `npm run build:release` |
-| `✗ .next/standalone/.env is present` | **Rotate every credential in it**, then rebuild with `release.sh` |
+| `✗ The release bundle carries env file(s) in git` | **Rotate every credential in them** — the public branch published a build machine's `.env`. Rebuild with `release.sh` |
+| `✗ No .env in the site root` | Forge UI → Site → Environment must be populated — the deploy copies it to `.next/standalone/.env` for the app |
 | `✗ Supervisor has no program for the app` | Daemon was deleted/recreated — check Forge UI → Daemons, update the fallback id in `deploy.sh` |
 | Daemon `FATAL` after deploy | `tail -50 /home/forge/.forge/<daemon-id>.log`. `deploy.sh` now starts a FATAL daemon rather than aborting, so this means it crash-looped on the *new* bundle |
 | Disk full mid-deploy | `npm cache clean --force`; `sudo journalctl --vacuum-size=200M`; `sudo apt-get clean` |

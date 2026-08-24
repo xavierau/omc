@@ -135,10 +135,24 @@ say "Staging release tree"
 git archive "$local_sha" | tar -x -C "$stage"
 
 # `.next` is gitignored (it is a build output), so it is absent from the
-# archive and gets copied in deliberately. `cache/` is excluded — it is
-# incremental-build scratch, useless on a server that never builds.
+# archive and gets copied in deliberately.
 mkdir -p "$stage/.next"
-tar -c --exclude='./cache' -C .next . | tar -x -C "$stage/.next"
+tar -c -C .next . | tar -x -C "$stage/.next"
+# Prune AFTER staging, by exact path — never via tar --exclude: bsdtar exclude
+# patterns are UNANCHORED, so --exclude='./trace' also strips
+# node_modules/next/dist/trace (and server/lib/trace) out of the standalone
+# server — hard requires, so the shipped bundle would crash-loop at boot.
+# Verified on bsdtar 3.5.3 (macOS, the release platform). The same applies to
+# the old --exclude='./cache'. rm -rf on the stage is exact and inert if the
+# path is absent.
+#   cache/           — incremental-build scratch, useless on a server that never builds
+#   standalone/logs/ — build-machine webhook payload logs traced in at build
+#                      time: customer names + phone numbers, and this repo is
+#                      PUBLIC (exactly this leaked in the 2026-08-23 bootstrap
+#                      publish — 88 files of prod logs)
+#   trace, diagnostics — build telemetry (absolute paths, timings)
+rm -rf "$stage/.next/cache" "$stage/.next/standalone/logs" \
+       "$stage/.next/trace" "$stage/.next/diagnostics"
 
 # -------------------------------------------------------------------------
 # Secret scrub — the reason this script cannot be three lines
@@ -167,16 +181,37 @@ done < <(find_env_files "$stage")
 leaked=$(find_env_files "$stage" | head -5)
 [ -z "$leaked" ] || die "env files survived the scrub: $leaked"
 
+# Runtime logs must never ship either — the tar excludes above drop the known
+# path, this catches any new one (a logger writing somewhere else, a traced
+# directory added by a Next upgrade). The repo tracks no *.log, so any hit is
+# a build-machine artifact. No pipe on the find: this list is what gates the
+# push, and it must reflect find's own exit status.
+stray_logs=$(find "$stage" -type f -name '*.log')
+[ -z "$stray_logs" ] || die "log files in the bundle (runtime logs carry customer PII — do NOT push):
+$stray_logs"
+
 # Belt and braces: the scrub above is name-based, so it cannot catch a secret
 # that got inlined into a compiled chunk. These two patterns are unambiguous —
 # a service_role JWT and a Supabase secret key are never legitimately present
 # in shippable output. (NEXT_PUBLIC_* values, including the anon key, ARE
 # inlined by design and are safe; they are public by definition.)
 say "Scanning bundle for inlined credentials"
-if grep -rlIE 'sb_secret_[A-Za-z0-9_-]{8,}|sbp_[a-f0-9]{40}' "$stage" 2>/dev/null | head -3 | grep -q .; then
+# grep -q directly, NO pipeline: the previous form (`grep -rl | head -3 |
+# grep -q .`) failed OPEN under pipefail — once matches were numerous, head's
+# early exit killed the upstream grep with SIGPIPE (exit 141), the whole
+# pipeline read as false, and the scan printed "clean" on exactly the bundles
+# with the most leaked copies. Reproduced deterministically at 3000 matching
+# files. -q exits 0 on the first match and the status is grep's own.
+scan_status=0
+grep -rqIE 'sb_secret_[A-Za-z0-9_-]{8,}|sbp_[a-f0-9]{40}' "$stage" || scan_status=$?
+if [ "$scan_status" -eq 0 ]; then
   die "A Supabase secret/access key appears inside the built bundle.
     Do NOT push. Find it with:
       grep -rlIE 'sb_secret_|sbp_' <build dir>"
+elif [ "$scan_status" -ne 1 ]; then
+  # grep exit 2 = it could not scan something. An unscanned bundle must not
+  # read as clean — this gate is load-bearing for a public repo.
+  die "Secret scan errored (grep exit $scan_status) — refusing to publish an unscanned bundle."
 fi
 # service_role JWTs: decode each JWT payload found and look at the role claim.
 while read -r jwt; do
