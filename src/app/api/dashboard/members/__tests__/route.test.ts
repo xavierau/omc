@@ -3,12 +3,16 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/member-repository')
+vi.mock('@/infrastructure/supabase/repositories/member-detail-repository')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
+import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { GET, resolvePageSize } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
+const MEMBER_ID = 'member-1'
 
 function req(query = ''): NextRequest {
   return new NextRequest(`http://localhost/api/dashboard/members${query}`)
@@ -110,5 +114,73 @@ describe('GET /api/dashboard/members pageSize', () => {
     await GET(req('?pageSize=200'))
 
     expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ restaurantId: RESTAURANT_ID }))
+  })
+})
+
+describe('GET /api/dashboard/members?id=', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const memberDetail = {
+    id: MEMBER_ID,
+    phone: '+85212345678',
+    name: 'Test Member',
+    points_balance: 10,
+    restaurant_id: RESTAURANT_ID,
+    receipts: [],
+    coupons: [],
+    visitCount: 0,
+  }
+
+  it("passes the caller's restaurantId to the detail lookup", async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(memberDetail as never)
+
+    await GET(req(`?id=${MEMBER_ID}`))
+
+    expect(getMemberDetailForRestaurant).toHaveBeenCalledWith(MEMBER_ID, RESTAURANT_ID)
+  })
+
+  it('returns 404 when the lookup misses (foreign or missing id)', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(null)
+
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+    const json = await res.json()
+
+    expect(res.status).toBe(404)
+    expect(json).toEqual({ error: 'Member not found' })
+    expect(json).not.toHaveProperty('phone')
+    expect(json).not.toHaveProperty('name')
+    expect(json).not.toHaveProperty('receipts')
+    expect(json).not.toHaveProperty('coupons')
+  })
+
+  it('returns 200 with the payload unchanged on the happy path', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(memberDetail as never)
+
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual(memberDetail)
+  })
+
+  it('never reaches the lookup when auth fails', async () => {
+    vi.mocked(getTenantContext).mockRejectedValue(new AuthError('Unauthorized', 401))
+
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+
+    expect(res.status).toBe(401)
+    expect(getMemberDetailForRestaurant).not.toHaveBeenCalled()
+  })
+
+  it('a malformed UUID answers 404, not 500', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(null)
+
+    const res = await GET(req('?id=not-a-uuid'))
+
+    expect(res.status).toBe(404)
   })
 })

@@ -1379,8 +1379,10 @@
             "audit"
           ],
           "related": [
-            "kanban:SEC-001"
-          ]
+            "kanban:SEC-001",
+            "kanban:SEC-004"
+          ],
+          "status_note": "SEC-004 (#111, member-detail GET/DELETE) was found and closed as a concrete instance of this exact class ahead of the full sweep — same fix shape as SEC-001 (scoped query, not fetch-then-compare). The sweep itself is still open."
         },
         {
           "id": "REPLY-006",
@@ -1485,6 +1487,33 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "SEC-004",
+          "title": "Cross-tenant IDOR on member-detail path (GET detail, DELETE) — scope all three queries by restaurant_id",
+          "description": "GitHub issue #111. Same shape as SEC-001 (#100): createServerSupabaseClient() is the service-role key so RLS is never a backstop; getMemberById(memberId) in member-detail-repository.ts filtered members/receipts/coupons by id alone. GET /api/dashboard/members?id= never passed restaurantId to the lookup at all (the leak: any tenant user could read another tenant's member PII, receipts and coupons). DELETE /api/dashboard/members/[id] did a fetch-then-compare (403 on mismatch) — the anti-pattern the repo principle forbids, and itself an existence oracle. Fixed by authorizing at query time: renamed to getMemberDetailForRestaurant(memberId, restaurantId) with restaurantId now required and .eq('restaurant_id', restaurantId) added to all three queries; no unscoped variant retained (no legitimate caller has an already-scoped id here). GET route threads the already-destructured restaurantId through. DELETE route's dead ownership-compare block deleted; a foreign id now falls into the same 404 as a missing id (deliberate 403->404 change, accepted — no client branches on the code, and a 403 confirms the id exists). Tests: repository-level filter-recording assertions (not just behaviour) for all three queries, cross-tenant/nonexistent/malformed-UUID/happy-path coverage, route-level restaurantId-forwarding and guard-before-lookup pins. Live-verified (I-1): cross-tenant GET and DELETE against a real foreign tenant's member both returned 404 {\"error\":\"Member not found\"} with no PII, and the DELETE did not remove the foreign member; same-tenant detail-panel-open + delete verified end-to-end in the browser. Full suite 3593 passed / 21 skipped, tsc clean, lint clean on all 6 changed files (149 pre-existing lint errors elsewhere in the repo, unrelated to this change, left untouched).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor"
+          ],
+          "related": [
+            "github:111",
+            "kanban:SEC-003",
+            "kanban:SEC-001"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-24-issue-111-member-detail-idor.md",
+            "artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md",
+            "artifacts/2026-08-24-issue-111-b2-get-detail-route-backend.md",
+            "artifacts/2026-08-24-issue-111-b3-delete-route-backend.md",
+            "artifacts/2026-08-24-issue-111-i1-integration-verification-backend.md"
+          ],
+          "started_at": "2026-08-24",
+          "tests": "32 new/changed tests across repository + both route test files; full suite 3593 passed, 21 skipped, 2 todo, 0 failing",
+          "status_note": "Journal: debugging_journals/2026-08-24-member-detail-cross-tenant-idor.md. PR not yet opened — orchestrator handles git/PR after I-1; review gate (gemini-cli-reviewer + grok-cli-reviewer, code-review-analyzer as Grok fallback per incident_review_cli_billing_exhausted) and qa-engineer acceptance verdict still pending as of this entry.",
+          "completed_at": "2026-08-24"
+        },
         {
           "id": "WAQ-014",
           "title": "Template-review gate diagnosability: surface trustReason, fix misleading 'platform approval' error",

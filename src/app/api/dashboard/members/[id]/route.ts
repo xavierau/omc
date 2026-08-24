@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { getMemberById } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
 import { deleteMemberAndCascade } from '@/infrastructure/supabase/repositories/member-delete-cascade'
 
 /**
@@ -28,12 +28,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const member = await getMemberById(id)
+    const member = await getMemberDetailForRestaurant(id, restaurantId)
     if (!member) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-    }
-    if (member.restaurant_id !== restaurantId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await deleteMemberAndCascade(id, restaurantId)
