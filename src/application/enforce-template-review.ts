@@ -39,10 +39,15 @@ const CAUSE_BY_REASON: Record<ReasonKey, string> = {
 const UNSPECIFIED_CAUSE =
   'this account is not yet trusted for unreviewed marketing'
 
-// Clamps to 56 chars (57 with the ellipsis) so the ≤500-char failure_reason
-// guarantee (see campaign-queue.ts FAILURE_REASON_MAX_LEN) holds for any name.
+// Keeps buildBlockedMessage within FAILURE_REASON_MAX_LEN for any template
+// name (56 chars + ellipsis = 57 max). Control chars are stripped first —
+// the name is tenant-supplied and failure_reason is rendered verbatim, so a
+// newline must not be able to forge extra message lines.
+const NAME_CLAMP_LEN = 56
+
 function clampName(name: string): string {
-  return name.length <= 56 ? name : `${name.slice(0, 56)}…`
+  const clean = name.replace(/[\u0000-\u001f\u007f]/g, ' ')
+  return clean.length <= NAME_CLAMP_LEN ? clean : `${clean.slice(0, NAME_CLAMP_LEN)}…`
 }
 
 function buildBlockedMessage(

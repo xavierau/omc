@@ -1,6 +1,9 @@
 import { Queue, Worker } from 'bullmq'
 import { executeCampaign } from '@/application/execute-campaign'
-import { CampaignGuardrailError } from '@/application/campaign-guardrail-error'
+import {
+  CampaignGuardrailError,
+  FAILURE_REASON_MAX_LEN,
+} from '@/application/campaign-guardrail-error'
 import { NoTemplateError } from '@/application/no-template-error'
 import {
   WhatsAppTemplateNotFoundError,
@@ -62,8 +65,8 @@ export async function addCampaignJob(
 // cron re-enqueues it on every tick forever (the prod incident this issue
 // diagnoses). Mirrors event-dispatch-queue.ts's handleFailedJob pattern —
 // dynamic import keeps the worker module's static dependency surface thin.
-const FAILURE_REASON_MAX_LEN = 500
-
+// FAILURE_REASON_MAX_LEN moved to campaign-guardrail-error.ts (WAQ-014) so
+// the message builder's length-guard test asserts against the same value.
 function truncateFailureReason(message: string): string {
   if (message.length <= FAILURE_REASON_MAX_LEN) return message
   return `${message.slice(0, FAILURE_REASON_MAX_LEN)}…`

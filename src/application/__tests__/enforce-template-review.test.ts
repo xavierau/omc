@@ -8,7 +8,11 @@ vi.mock('../check-template-review', () => ({
 
 import { enforceTemplateReview } from '../enforce-template-review'
 import { checkTemplateReview } from '../check-template-review'
-import { CampaignGuardrailError } from '../campaign-guardrail-error'
+import type { TemplateReviewCheckResult } from '../check-template-review'
+import {
+  CampaignGuardrailError,
+  FAILURE_REASON_MAX_LEN,
+} from '../campaign-guardrail-error'
 
 const mockCheck = vi.mocked(checkTemplateReview)
 
@@ -111,22 +115,34 @@ describe('enforceTemplateReview', () => {
   // WAQ-014: the gate's own decision (trustReason) must be rendered into the
   // thrown message, naming the real cause/approver instead of the generic
   // "platform approval" text that sent everyone diagnosing Meta/Kapso.
-  const TRUST_REASON_CASES = [
-    {
-      trustReason: 'too_new' as const,
+  // Keyed as a Record over the TrustReason union (mirroring CAUSE_BY_REASON)
+  // so adding a 4th reason fails to compile here until its wording is specced.
+  type ReasonKey = NonNullable<TemplateReviewCheckResult['trustReason']>
+  interface ReasonCase {
+    tokenSubstring: string
+    causeSubstring: string
+  }
+  const REASON_CASES: Record<ReasonKey, ReasonCase> = {
+    too_new: {
       tokenSubstring: 'trustReason=too_new',
       causeSubstring: 'less than 90 days old',
     },
-    {
-      trustReason: 'recent_quality_incident' as const,
+    recent_quality_incident: {
       tokenSubstring: 'trustReason=recent_quality_incident',
       causeSubstring: 'quality-rating incident',
     },
-    {
-      trustReason: 'auto_paused' as const,
+    auto_paused: {
       tokenSubstring: 'trustReason=auto_paused',
       causeSubstring: 'auto-paused',
     },
+  }
+  const TRUST_REASON_CASES = [
+    ...(Object.entries(REASON_CASES) as [ReasonKey, ReasonCase][]).map(
+      ([trustReason, c]) => ({
+        trustReason: trustReason as ReasonKey | undefined,
+        ...c,
+      })
+    ),
     {
       trustReason: undefined,
       tokenSubstring: 'trustReason=unspecified',
@@ -165,11 +181,11 @@ describe('enforceTemplateReview', () => {
     }
   )
 
-  it("stays inside the queue's 500-char failure_reason cap for every trustReason", async () => {
-    // Mirrors FAILURE_REASON_MAX_LEN in src/infrastructure/queue/campaign-queue.ts —
-    // the queue worker truncates campaigns.failure_reason at 500 chars, so
-    // err.message must never exceed that or the Meta-disambiguation clause
-    // (deliberately placed first) risks being chopped by a future edit.
+  it("stays inside the queue's failure_reason cap for every trustReason", async () => {
+    // The campaign-queue worker truncates campaigns.failure_reason past
+    // FAILURE_REASON_MAX_LEN, so err.message must never exceed it or the
+    // Meta-disambiguation clause (deliberately placed first) risks being
+    // chopped by a future edit.
     const longName = 'a'.repeat(200)
     const uuidCampaignId = '123e4567-e89b-12d3-a456-426614174000'
     const longCampaign = { id: uuidCampaignId } as Campaign
@@ -189,8 +205,46 @@ describe('enforceTemplateReview', () => {
         throw new Error('expected throw')
       } catch (err) {
         expect(err).toBeInstanceOf(CampaignGuardrailError)
-        expect((err as CampaignGuardrailError).message.length).toBeLessThanOrEqual(500)
+        expect(
+          (err as CampaignGuardrailError).message.length
+        ).toBeLessThanOrEqual(FAILURE_REASON_MAX_LEN)
       }
+    }
+  })
+
+  it('clamps template names at the 56-char boundary', async () => {
+    mockCheck.mockResolvedValue({
+      allowed: false,
+      reason: 'template_review_required',
+      trustReason: 'too_new',
+    })
+    const atLimit = 'x'.repeat(56)
+    const overLimit = 'y'.repeat(57)
+
+    try {
+      await enforceTemplateReview({
+        campaign: CAMPAIGN,
+        restaurantId: 'rest-1',
+        template: makeTemplate({ name: atLimit }),
+      })
+      throw new Error('expected throw')
+    } catch (err) {
+      expect(err).toBeInstanceOf(CampaignGuardrailError)
+      expect((err as CampaignGuardrailError).violations[0]).toContain(atLimit)
+    }
+
+    try {
+      await enforceTemplateReview({
+        campaign: CAMPAIGN,
+        restaurantId: 'rest-1',
+        template: makeTemplate({ name: overLimit }),
+      })
+      throw new Error('expected throw')
+    } catch (err) {
+      expect(err).toBeInstanceOf(CampaignGuardrailError)
+      const violation = (err as CampaignGuardrailError).violations[0]
+      expect(violation).toContain(`${'y'.repeat(56)}…`)
+      expect(violation).not.toContain(overLimit)
     }
   })
 })
