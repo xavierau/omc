@@ -1337,6 +1337,30 @@
      "related": [
       "kanban:TPL-003"
      ]
+    },
+    {
+     "id": "DEVOPS-004",
+     "title": "Release pipeline hardening — remaining /code-review findings from PR #113",
+     "description": "The 2026-08-23 high-effort review of PR #113 confirmed 15 findings; the 4 critical ones (standalone env delivery, Forge git-pull vs orphan branch, SIGPIPE fail-open secret scan, PII logs in bundle) are fixed in the follow-up PR. Still open, roughly by severity: (1) resolve_daemon greps ALL sites' supervisor confs with no site scoping — can restart another tenant's daemon and pass the poll (add directory=$PWD match). (2) NEXT_PUBLIC_* inlined from the releasing laptop's .env with no assertion they are prod values — wrong-Supabase-project frontend; also makes Forge UI NEXT_PUBLIC edits a silent no-op (assert expected values or build from pinned .env.production.local). (3) release.sh never checks HEAD == SOURCE_REF — builds the working tree, stamps main; breaks the documented rollback (add rev-parse guard; document rollback as revert+push). (4) RELEASE_BRANCH env knob unguarded — RELEASE_BRANCH=main force-pushes a parentless commit over main (refuse main/develop, use --force-with-lease). (5) arrival guard/scan coverage: content scan misses Kapso/Resend (re_)/Gemini (AIza)/admin-password families. (6) bundle completeness check omits .next/standalone/server.js in both scripts. (7) npm-ci skip stamp written before the supabase CLI probe and never invalidated on failure — corrupt tree gets permanently validated. (8) TOCTOU between ls-remote preflight and plain --force push — overlapping releases can roll prod backward (--force-with-lease). (9) restart poll is liveness-only — a failed restart RPC leaves the OLD pid RUNNING and passes; compare pid/uptime across restart. (10) daemon-exists probe treats any non-'no such' error (sudo password required, supervisord socket down) as a live program — match those texts and abort with the real cause. Also: README daemon section claims ohmyclient-app/-worker names while deploy.sh resolves daemon-NNNNNN — one is stale.",
+     "priority": "high",
+     "labels": [
+      "devops",
+      "infra",
+      "security",
+      "reliability"
+     ]
+    },
+    {
+     "id": "SEC-002",
+     "title": "PII breach 2026-08-23 — prod webhook logs published to public release branch (bootstrap publish)",
+     "description": "The 14:52Z one-time bootstrap publish (hand-staged from the prod host's .next, NOT via release.sh) put 88 production webhook log files (.next/standalone/logs/webhook-2026-04-10.log … webhook-2026-08-23.log — customer names, phone numbers, message events) on the PUBLIC repo's release branch. Mitigated ~15:25Z: branch deleted via API, prod unaffected (health 200), no env/credential files were in the bundle (.env.example only). REMAINING WORK: (1) commit 4ba7099e37fc1eb70dae4e7f0ba7d9bcd5cb0ec5 is still fetchable by SHA until GitHub garbage-collects — open a GitHub Support ticket to purge unreachable objects, and check for forks/clones during the ~33-min exposure window (traffic API). (2) PDPO (HK) breach assessment: scope = whose data, volume, sensitivity, exposure window, notification obligations. (3) Root cause: prod webhook file-logging writes into the repo tree (logs/), so Next file tracing bundles it — relocate log output outside the repo (e.g. /home/forge/.logs) or disable file logging in prod. (4) Never publish bootstrap bundles outside release.sh — the follow-up PR's deploy.sh now aborts on tracked *.log/.env on arrival, and release.sh prunes + refuses at publish time. First release after the fix PR merges must be built by release.sh from a dev machine.",
+     "priority": "high",
+     "labels": [
+      "security",
+      "privacy",
+      "incident",
+      "devops"
+     ]
     }
    ]
   },
