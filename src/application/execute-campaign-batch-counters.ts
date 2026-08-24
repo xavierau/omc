@@ -12,6 +12,9 @@ export type MemberOutcome =
   | 'skipped_unreachable'
 
 export interface SkipCounters {
+  // #127 / CAMP-007: successful sends are counted too, so the orchestrator
+  // can tell an all-failed run (failed > 0, sent === 0) from a partial one.
+  sent: number
   failed: number
   noConsent: number
   capExceeded: number
@@ -21,6 +24,7 @@ export interface SkipCounters {
 
 export function emptyCounters(): SkipCounters {
   return {
+    sent: 0,
     failed: 0,
     noConsent: 0,
     capExceeded: 0,
@@ -58,7 +62,8 @@ export function tally(
       console.error('[Campaign] Member send failed:', r.reason)
       continue
     }
-    if (r.value === 'skipped_no_consent') counters.noConsent++
+    if (r.value === 'sent') counters.sent++
+    else if (r.value === 'skipped_no_consent') counters.noConsent++
     else if (r.value === 'skipped_cap_exceeded') counters.capExceeded++
     else if (r.value === 'skipped_throttled') counters.throttled++
     else if (r.value === 'skipped_unreachable') counters.unreachable++

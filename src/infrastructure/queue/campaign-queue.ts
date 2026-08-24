@@ -9,6 +9,7 @@ import {
   WhatsAppTemplateNotFoundError,
   WhatsAppTemplateNotApprovedError,
 } from '@/application/resolve-whatsapp-template'
+import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
 
 const QUEUE_NAME = 'campaign-execution'
 
@@ -84,7 +85,10 @@ function isTenantMeaningfulError(err: Error): boolean {
     err instanceof CampaignGuardrailError ||
     err instanceof NoTemplateError ||
     err instanceof WhatsAppTemplateNotFoundError ||
-    err instanceof WhatsAppTemplateNotApprovedError
+    err instanceof WhatsAppTemplateNotApprovedError ||
+    // #127 / CAMP-007: user-actionable (resubmit the template with a hosted
+    // header image) — show verbatim.
+    err instanceof TemplateHeaderMediaMissingError
   )
 }
 

@@ -124,7 +124,8 @@ import { countMarketingSendsLast24hForPhones } from '@/infrastructure/supabase/r
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import type { TenantCampaignSettings } from '@/domain/services/campaign-guardrails'
-import { okResult } from '@/test-utils/send-result'
+import { okResult, failResult } from '@/test-utils/send-result'
+import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
@@ -1419,5 +1420,148 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
     // (i.e. not serialised). With 20 concurrent slots and 100 members the
     // peak should land at the ceiling, not at 1.
     expect(peakInFlight).toBeGreaterThan(1)
+  })
+})
+
+// #127 / CAMP-007: an all-failed run must never read `completed` (the prod
+// incident: 2/2 sends rejected by Meta with #132012 yet the dashboard showed
+// the campaign as completed with 0 sent and no failure_reason), and a
+// template that declares a media header we cannot supply must fail fast
+// before any member send is burned.
+describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-007)', () => {
+  const utilityTemplate = {
+    id: 'tpl-u',
+    restaurantId: 'r-1',
+    metaTemplateId: 'meta-9',
+    name: 'no_vars_template',
+    language: 'en',
+    category: 'UTILITY' as const,
+    status: 'approved' as const,
+    components: [{ type: 'BODY' as const, text: 'Hello!' }],
+    parameterFormat: 'NAMED' as const,
+    rejectionReason: null,
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(okResult('wamid.tpl'))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ whatsappTemplateId: 'tpl-u' })
+    )
+    vi.mocked(findTemplateById).mockResolvedValue(utilityTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      buildMember({ id: 'm-1', phone: '85291111111' }),
+      buildMember({ id: 'm-2', phone: '85292222222' }),
+    ])
+  })
+
+  it('marks the campaign failed with a tenant-visible reason when every send fails', async () => {
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(
+      failResult('kapso_send_error')
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'failed',
+      failureReason: expect.stringContaining('All 2'),
+    })
+    expect(updateCampaign).not.toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
+    // Terminal write, not a revert: the row must never bounce back to
+    // 'active' (which would re-enter the cron's due filter and burn
+    // blind retries) nor stay stuck in 'sending'.
+    expect(updateCampaign).not.toHaveBeenCalledWith('camp-1', {
+      status: 'active',
+    })
+  })
+
+  it('completes a run with zero target members (nothing failed, nothing sent)', async () => {
+    vi.mocked(resolveTargetMembers).mockResolvedValue([])
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
+  })
+
+  it('does not leak raw send-error internals into the failure reason', async () => {
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(
+      failResult('kapso_send_error')
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const failedCall = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(failedCall).toBeDefined()
+    expect(failedCall![1].failureReason).not.toContain('kapso')
+  })
+
+  it('still completes when only some sends fail', async () => {
+    vi.mocked(sendWhatsAppTemplateMessage)
+      .mockResolvedValueOnce(failResult('kapso_send_error'))
+      .mockResolvedValue(okResult('wamid.tpl'))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
+  })
+
+  it('fails fast BEFORE the status transition when the template needs a media header with no stored URL', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...utilityTemplate,
+      name: 'fifth_anniversary',
+      components: [
+        {
+          type: 'HEADER' as const,
+          format: 'IMAGE' as const,
+          example: { header_handle: ['4:aBcDeF=='] },
+        },
+        { type: 'BODY' as const, text: 'Hello!' },
+      ],
+    })
+
+    await expect(executeCampaign('camp-1', 'r-1')).rejects.toBeInstanceOf(
+      TemplateHeaderMediaMissingError
+    )
+
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+    expect(updateCampaign).not.toHaveBeenCalled()
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+  })
+
+  it('proceeds normally when the media header holds a stored https URL', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...utilityTemplate,
+      components: [
+        {
+          type: 'HEADER' as const,
+          format: 'IMAGE' as const,
+          example: { header_handle: ['https://cdn.example.com/pic.jpg'] },
+        },
+        { type: 'BODY' as const, text: 'Hello!' },
+      ],
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(2)
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
   })
 })

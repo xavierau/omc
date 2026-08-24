@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const mockCreate = vi.fn()
 const mockClientCtor = vi.fn()
 const mockFetch = vi.fn()
+const mockSendTemplate = vi.fn()
 
 // The real GraphApiError is kept (spread from actual) so `instanceof` in
 // template-client.ts matches the instances thrown below.
@@ -17,6 +18,7 @@ vi.mock('@kapso/whatsapp-cloud-api', async () => {
         mockClientCtor(config)
       }
       templates = { create: mockCreate }
+      messages = { sendTemplate: mockSendTemplate }
       fetch = mockFetch
     },
   }
@@ -283,6 +285,70 @@ describe('resolveWabaId', () => {
     expect(console.warn).toHaveBeenCalledWith(
       '[Kapso] Error resolving WABA ID:',
       'network down'
+    )
+  })
+})
+
+// #127 / CAMP-007: headerParams must survive the trip through the REAL
+// buildTemplateSendPayload (spread from actual above) — this is the layer
+// whose zod schema would reject a malformed media parameter, so passing
+// here proves the shape Meta receives carries the header component.
+describe('sendTemplateMessage — media header passthrough', () => {
+  it('threads an image headerParam into a header component of the wire payload', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    mockSendTemplate.mockResolvedValue({ messages: [{ id: 'wamid.hdr' }] })
+    const { sendTemplateMessage } = await importClient()
+
+    const result = await sendTemplateMessage('pn-1', '+85291234567', {
+      templateName: 'fifth_anniversary',
+      language: 'zh_HK',
+      bodyParams: [],
+      headerParams: [
+        { type: 'image', image: { link: 'https://cdn.example.com/h.jpg' } },
+      ],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.kapsoMessageId).toBe('wamid.hdr')
+    expect(mockSendTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template: expect.objectContaining({
+          name: 'fifth_anniversary',
+          components: [
+            {
+              type: 'header',
+              parameters: [
+                { type: 'image', image: { link: 'https://cdn.example.com/h.jpg' } },
+              ],
+            },
+          ],
+        }),
+      })
+    )
+  })
+
+  it('keeps text headerParams working through the same path', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    mockSendTemplate.mockResolvedValue({ messages: [{ id: 'wamid.txt' }] })
+    const { sendTemplateMessage } = await importClient()
+
+    const result = await sendTemplateMessage('pn-1', '+85291234567', {
+      templateName: 'text_header_tpl',
+      language: 'en',
+      headerParams: [{ type: 'text', text: 'Big News' }],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockSendTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        template: expect.objectContaining({
+          components: [
+            { type: 'header', parameters: [{ type: 'text', text: 'Big News' }] },
+          ],
+        }),
+      })
     )
   })
 })

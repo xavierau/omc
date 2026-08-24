@@ -5,6 +5,7 @@ import {
   buildTemplateSendPayload,
 } from '@kapso/whatsapp-cloud-api'
 import type { SendResult } from '@/domain/value-objects/send-result'
+import type { TemplateHeaderParam } from '@/domain/ports/whatsapp-templates'
 import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
 
 const KAPSO_BASE_URL = 'https://api.kapso.ai/meta/whatsapp'
@@ -249,7 +250,7 @@ export async function sendTemplateMessage(
     templateName: string
     language: string
     bodyParams?: Array<{ type: 'text'; text: string; parameterName: string }>
-    headerParams?: Array<{ type: 'text'; text: string; parameterName?: string }>
+    headerParams?: TemplateHeaderParam[]
     buttons?: Array<
       | {
           type: 'button'
