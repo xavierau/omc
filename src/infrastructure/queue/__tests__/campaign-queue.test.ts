@@ -60,6 +60,7 @@ import {
   WhatsAppTemplateNotFoundError,
   WhatsAppTemplateNotApprovedError,
 } from '@/application/resolve-whatsapp-template'
+import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
 
 function buildJobData(overrides: Partial<CampaignJobData> = {}): CampaignJobData {
   return {
@@ -189,6 +190,9 @@ describe("campaign worker 'failed' handler — terminal status (issue #102 Part 
       ['NoTemplateError', () => new NoTemplateError('camp-001')],
       ['WhatsAppTemplateNotFoundError', () => new WhatsAppTemplateNotFoundError('tpl-missing')],
       ['WhatsAppTemplateNotApprovedError', () => new WhatsAppTemplateNotApprovedError('promo_x')],
+      // #127 / CAMP-007: media-header guard errors are user-actionable
+      // (resubmit the template with a hosted image) — show them verbatim.
+      ['TemplateHeaderMediaMissingError', () => new TemplateHeaderMediaMissingError('fifth_anniversary')],
     ] as const)('passes %s message through verbatim (tenant-meaningful)', async (_name, buildErr) => {
       const failedHandler = registeredHandlers.get('failed')!
       const job = buildJob({ attemptsMade: 3, attempts: 3 })

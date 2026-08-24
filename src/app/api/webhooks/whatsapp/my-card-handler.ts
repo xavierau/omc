@@ -24,11 +24,20 @@ export async function handleMyCard(
 
   const consent = await checkMarketingConsent({ restaurantId, phoneE164: phone })
   if (!consent.allowed) {
-    await promptMarketingOptin({
-      restaurantId,
-      phoneE164: phone,
-      source: `my_card_${member.memberId}`,
-    })
+    // Never-throws contract, same as optin-prompt.ts (#127 / CAMP-007): the
+    // prompt path can throw (e.g. a misconfigured opt-in template failing the
+    // media-header gate), and a throw here lands after the webhook's
+    // idempotency claim — a 500 makes Meta's retry hit `duplicate` and the
+    // event is dropped (issue #45 class).
+    try {
+      await promptMarketingOptin({
+        restaurantId,
+        phoneE164: phone,
+        source: `my_card_${member.memberId}`,
+      })
+    } catch (err) {
+      console.warn('[MyCard] opt-in prompt failed:', String(err))
+    }
     return
   }
 

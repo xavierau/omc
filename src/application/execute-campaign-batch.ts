@@ -45,10 +45,12 @@ export interface SendContext {
   pacingConfig: PacingConfig
 }
 
+// #127 / CAMP-007: returns the tally so the orchestrator can distinguish an
+// all-failed run from a completed one instead of marking both `completed`.
 export async function sendInBatches(
   members: Member[],
   ctx: SendContext
-): Promise<void> {
+): Promise<SkipCounters> {
   const counters = emptyCounters()
   const ordered = orderForPacing(members, ctx.pacingConfig)
   const plan = planChunks(ordered, ctx.pacingConfig)
@@ -60,6 +62,7 @@ export async function sendInBatches(
     if (i < plan.length - 1) await delay(batchDelayMs())
   }
   logSummary(members.length, counters)
+  return counters
 }
 
 function orderForPacing(members: Member[], config: PacingConfig): Member[] {

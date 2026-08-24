@@ -13,8 +13,10 @@ import { resolveCampaignTemplate } from './resolve-campaign-template'
 import { resolveWhatsAppTemplate } from './resolve-whatsapp-template'
 import { enforceCampaignGuardrails } from './enforce-campaign-guardrails'
 import { enforceTemplateReview } from './enforce-template-review'
+import { enforceHeaderMedia } from './enforce-header-media'
 import { NoTemplateError } from './no-template-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
+import type { SkipCounters } from './execute-campaign-batch-counters'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
 import {
   DEFAULT_PER_USER_MARKETING_CAP,
@@ -45,18 +47,80 @@ export async function executeCampaign(
   assertHasAnyInlineTemplate(campaign, template)
   // WAQ-011: untrusted tenants need an approved review row for MARKETING.
   await enforceTemplateReview({ campaign, restaurantId, template })
+  // #127 / CAMP-007: a media-header template with no usable stored URL is a
+  // guaranteed Meta #132012 on every send — fail fast (status untouched)
+  // instead of burning the run.
+  enforceHeaderMedia(template)
 
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
 
   try {
     const ctx = await buildSendContext(campaign, restaurantId, template)
-    await sendInBatches(activeMembers, ctx)
-    await updateCampaign(campaignId, { status: 'completed' })
+    const counters = await sendInBatches(activeMembers, ctx)
+    await finalizeCampaignRun(campaignId, counters, template)
   } catch (err) {
     await updateCampaign(campaignId, { status: 'active' })
     throw err
   }
+}
+
+// #127 / CAMP-007: an all-failed run must not read `completed` — the prod
+// incident showed 2/2 Meta rejections as a completed campaign with 0 sent
+// and no failure_reason. Terminal `failed` + reason (not a throw): a throw
+// would revert to `active` and burn 3 blind BullMQ retries on what is
+// almost always a deterministic template mismatch; the operator can revive
+// via PATCH once the template is fixed (the revival guard clears the
+// reason). Skips don't count as failures, so an all-skipped run (e.g. no
+// consent) still completes as before. The reason is tenant-visible: fixed
+// wording only, never raw send-error internals — and it names the deciding
+// system (template vs connection vs unknown), never a look-alike.
+async function finalizeCampaignRun(
+  campaignId: string,
+  counters: SkipCounters,
+  template: WhatsAppTemplate | null
+): Promise<void> {
+  const nothingSent = counters.sent === 0
+  const anyBroken = counters.failed > 0 || counters.errored > 0
+  if (!nothingSent || !anyBroken) {
+    await updateCampaign(campaignId, { status: 'completed' })
+    return
+  }
+  await updateCampaign(campaignId, {
+    status: 'failed',
+    failureReason: totalFailureReason(counters, template),
+  })
+}
+
+// Wording deliberately names no revival mechanism: the dashboard has no
+// status control for failed campaigns (review #127, follow-up #129) —
+// reactivation is an operator PATCH today.
+function totalFailureReason(
+  counters: SkipCounters,
+  template: WhatsAppTemplate | null
+): string {
+  // Any `errored` member means delivery is UNKNOWN (the send may have gone
+  // out before bookkeeping broke) — never claim "all sends failed", and warn
+  // against a blind re-run that would double-send.
+  if (counters.errored > 0) {
+    const broken = counters.failed + counters.errored
+    return (
+      `${broken} message sends did not complete and delivery could not be ` +
+      `confirmed for ${counters.errored} of them. Contact support before ` +
+      're-running this campaign.'
+    )
+  }
+  if (template) {
+    return (
+      `All ${counters.failed} message sends failed. Check that the ` +
+      "campaign's WhatsApp template still matches its approved definition " +
+      '(including any media header) before retrying.'
+    )
+  }
+  return (
+    `All ${counters.failed} message sends failed. Check that WhatsApp is ` +
+    'connected for this restaurant before retrying.'
+  )
 }
 
 async function buildSendContext(

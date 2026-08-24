@@ -3,8 +3,16 @@ import {
   extractParameters,
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import {
+  isMediaHeader,
+  readHeaderLink,
+} from '@/domain/services/template-media-header'
+import { enforceHeaderMedia } from './enforce-header-media'
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
-import type { TemplateButtonParam } from '@/domain/ports/whatsapp-templates'
+import type {
+  TemplateButtonParam,
+  TemplateHeaderParam,
+} from '@/domain/ports/whatsapp-templates'
 import type { SendResult } from '@/domain/value-objects/send-result'
 
 interface SendParams {
@@ -25,6 +33,10 @@ export async function sendWhatsAppTemplateMessage(
   if (!isTemplateSendable(params.template)) {
     throw new Error('Template is not approved for sending')
   }
+  // #127 / CAMP-007: refuse to send a payload Meta is guaranteed to reject
+  // (#132012) — a media header we cannot supply must fail loudly here, not
+  // as an opaque kapso_send_error per recipient.
+  enforceHeaderMedia(params.template)
 
   const paramNames = extractParameters(params.template)
   const bodyParams = paramNames.map((name) => ({
@@ -37,8 +49,30 @@ export async function sendWhatsAppTemplateMessage(
     templateName: params.template.name,
     language: params.template.language,
     bodyParams,
+    headerParams: buildHeaderParams(params.template),
     buttons: buildButtonParams(params),
   })
+}
+
+// #127 / CAMP-007: a template declaring a media HEADER must carry a matching
+// send-time header parameter. The link is the template row's own stored
+// header URL (campaign image_url_* is welcome-only and never reaches this
+// path). enforceHeaderMedia above already threw when no link is resolvable.
+function buildHeaderParams(
+  template: WhatsAppTemplate
+): TemplateHeaderParam[] | undefined {
+  const header = template.components.find(isMediaHeader)
+  if (!header) return undefined
+  const link = readHeaderLink(header)
+  if (link === null) return undefined
+  switch (header.format) {
+    case 'VIDEO':
+      return [{ type: 'video', video: { link } }]
+    case 'DOCUMENT':
+      return [{ type: 'document', document: { link } }]
+    default:
+      return [{ type: 'image', image: { link } }]
+  }
 }
 
 function buildButtonParams(
