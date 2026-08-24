@@ -8,25 +8,63 @@ export interface MemberDetail extends MemberRow {
   visitCount: number
 }
 
-export async function getMemberById(memberId: string): Promise<MemberDetail | null> {
+// PGRST116 is PostgREST's "no rows" answer to `.single()`; 22P02 is
+// Postgres's invalid-uuid input error. Both mean the (member, restaurant)
+// pair does not resolve — a miss. Everything else (connection failures,
+// timeouts, schema drift) is a real error and must not read as 404.
+function isMissError(error: { code?: string }): boolean {
+  return error.code === 'PGRST116' || error.code === '22P02'
+}
+
+// Explicit column allowlist, mirroring getMembers: the full members row
+// also carries loyalty_token — a bearer secret the loyalty-card flow
+// authenticates by — plus internal ops columns, none of which may reach
+// the dashboard browser.
+const MEMBER_DETAIL_COLUMNS =
+  'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, restaurant_id'
+
+/**
+ * Scoped-query tenant isolation (#111) — same pattern as SEC-001's
+ * `findByIdForRestaurant` for wa-templates and #102's
+ * `getCampaignByIdForRestaurant`. A foreign id resolves to null exactly
+ * like a missing one: no fetch-then-compare, no existence leak, ids stay
+ * non-enumerable. Only a genuine miss maps to null — any other database
+ * error throws, so outages surface as 500s rather than "Member not found".
+ */
+export async function getMemberDetailForRestaurant(
+  memberId: string,
+  restaurantId: string
+): Promise<MemberDetail | null> {
   const supabase = createServerSupabaseClient()
 
   const [memberRes, receiptsRes, couponsRes] = await Promise.all([
-    supabase.from('members').select('*').eq('id', memberId).single(),
+    supabase.from('members').select(MEMBER_DETAIL_COLUMNS).eq('id', memberId).eq('restaurant_id', restaurantId).single(),
     supabase
       .from('receipts')
       .select('id, total_amount, points_awarded, created_at, status')
       .eq('member_id', memberId)
+      .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false })
       .limit(20),
     supabase
       .from('coupons')
       .select('id, code, type, status, redeemed_at')
       .eq('member_id', memberId)
+      .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false }),
   ])
 
-  if (memberRes.error || !memberRes.data) return null
+  if (memberRes.error) {
+    if (isMissError(memberRes.error)) return null
+    throw new Error(`getMemberDetailForRestaurant(members): ${memberRes.error.message}`)
+  }
+  if (!memberRes.data) return null
+  if (receiptsRes.error) {
+    throw new Error(`getMemberDetailForRestaurant(receipts): ${receiptsRes.error.message}`)
+  }
+  if (couponsRes.error) {
+    throw new Error(`getMemberDetailForRestaurant(coupons): ${couponsRes.error.message}`)
+  }
 
   return {
     ...(memberRes.data as MemberRow & { restaurant_id: string }),

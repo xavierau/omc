@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
-import { getMemberById } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -23,10 +23,13 @@ export async function GET(request: NextRequest) {
 
     const memberId = searchParams.get('id')
     if (memberId) {
-      return handleMemberDetail(memberId)
+      // `return await` (not bare `return`) so a rejection from the handler
+      // is caught below and answers the JSON 500 — a bare return lets it
+      // bypass this try/catch entirely.
+      return await handleMemberDetail(memberId, restaurantId)
     }
 
-    return handleMemberList(searchParams, restaurantId)
+    return await handleMemberList(searchParams, restaurantId)
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
@@ -36,8 +39,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function handleMemberDetail(memberId: string) {
-  const member = await getMemberById(memberId)
+async function handleMemberDetail(memberId: string, restaurantId: string) {
+  const member = await getMemberDetailForRestaurant(memberId, restaurantId)
   if (!member) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }

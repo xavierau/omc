@@ -7,12 +7,11 @@ vi.mock('@/infrastructure/supabase/repositories/member-delete-cascade')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { getMemberById } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
 import { deleteMemberAndCascade } from '@/infrastructure/supabase/repositories/member-delete-cascade'
 import { DELETE } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
-const OTHER_RESTAURANT_ID = 'rest-2'
 const MEMBER_ID = 'mem-1'
 
 function deleteRequest(): NextRequest {
@@ -22,7 +21,7 @@ function deleteRequest(): NextRequest {
   )
 }
 
-function buildMember(overrides: Partial<{ restaurant_id: string }> = {}) {
+function buildMember() {
   return {
     id: MEMBER_ID,
     restaurant_id: RESTAURANT_ID,
@@ -36,14 +35,13 @@ function buildMember(overrides: Partial<{ restaurant_id: string }> = {}) {
     receipts: [],
     coupons: [],
     visitCount: 0,
-    ...overrides,
   } as never
 }
 
 describe('DELETE /api/dashboard/members/[id]', () => {
   beforeEach(() => {
     vi.mocked(getTenantContext).mockReset()
-    vi.mocked(getMemberById).mockReset()
+    vi.mocked(getMemberDetailForRestaurant).mockReset()
     vi.mocked(deleteMemberAndCascade).mockReset()
 
     vi.mocked(getTenantContext).mockResolvedValue({
@@ -52,7 +50,7 @@ describe('DELETE /api/dashboard/members/[id]', () => {
       role: 'admin',
       tenantStatus: 'active',
     })
-    vi.mocked(getMemberById).mockResolvedValue(buildMember())
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(buildMember())
     vi.mocked(deleteMemberAndCascade).mockResolvedValue(undefined)
   })
 
@@ -70,7 +68,7 @@ describe('DELETE /api/dashboard/members/[id]', () => {
   })
 
   it('returns 404 when the member does not exist', async () => {
-    vi.mocked(getMemberById).mockResolvedValueOnce(null)
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValueOnce(null)
 
     const r = await DELETE(deleteRequest(), {
       params: Promise.resolve({ id: MEMBER_ID }),
@@ -80,17 +78,38 @@ describe('DELETE /api/dashboard/members/[id]', () => {
     expect(deleteMemberAndCascade).not.toHaveBeenCalled()
   })
 
-  it('returns 403 when the member belongs to another tenant', async () => {
-    vi.mocked(getMemberById).mockResolvedValueOnce(
-      buildMember({ restaurant_id: OTHER_RESTAURANT_ID })
-    )
+  it('returns 404 when the member belongs to another tenant (the scoped lookup misses)', async () => {
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValueOnce(null)
 
     const r = await DELETE(deleteRequest(), {
       params: Promise.resolve({ id: MEMBER_ID }),
     })
 
-    expect(r.status).toBe(403)
+    expect(r.status).toBe(404)
+    expect(await r.json()).toEqual({ error: 'Member not found' })
     expect(deleteMemberAndCascade).not.toHaveBeenCalled()
+  })
+
+  it('a lookup failure answers 500, not 404', async () => {
+    vi.mocked(getMemberDetailForRestaurant).mockRejectedValueOnce(new Error('db down'))
+
+    const r = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: MEMBER_ID }),
+    })
+
+    expect(r.status).toBe(500)
+    expect(deleteMemberAndCascade).not.toHaveBeenCalled()
+  })
+
+  it("scopes the lookup to the caller's tenant", async () => {
+    await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: MEMBER_ID }),
+    })
+
+    expect(getMemberDetailForRestaurant).toHaveBeenCalledWith(
+      MEMBER_ID,
+      RESTAURANT_ID
+    )
   })
 
   it('allows staff role (not just admin) to delete', async () => {
@@ -123,6 +142,7 @@ describe('DELETE /api/dashboard/members/[id]', () => {
 
     expect(r.status).toBe(403)
     expect(deleteMemberAndCascade).not.toHaveBeenCalled()
+    expect(getMemberDetailForRestaurant).not.toHaveBeenCalled()
   })
 
   it('returns 204 on successful delete and invokes the cascade RPC', async () => {
