@@ -68,7 +68,6 @@ export function mockRewardRepository() {
 
 export function mockMemberRepository() {
   return {
-    getMemberById: vi.fn().mockResolvedValue(null),
     adjustMemberPoints: vi.fn().mockResolvedValue(100),
     findMemberByPhone: vi.fn().mockResolvedValue(null),
   }

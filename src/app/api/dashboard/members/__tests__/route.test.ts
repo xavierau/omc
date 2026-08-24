@@ -167,7 +167,7 @@ describe('GET /api/dashboard/members?id=', () => {
   })
 
   it('never reaches the lookup when auth fails', async () => {
-    vi.mocked(getTenantContext).mockRejectedValue(new AuthError('Unauthorized', 401))
+    vi.mocked(getTenantContext).mockRejectedValueOnce(new AuthError('Unauthorized', 401))
 
     const res = await GET(req(`?id=${MEMBER_ID}`))
 
@@ -175,12 +175,33 @@ describe('GET /api/dashboard/members?id=', () => {
     expect(getMemberDetailForRestaurant).not.toHaveBeenCalled()
   })
 
-  it('a malformed UUID answers 404, not 500', async () => {
+  it('the route does not pre-validate id format — a repo miss answers 404 (malformed-UUID handling itself is pinned in the repository test)', async () => {
     tenantOk()
     vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(null)
 
     const res = await GET(req('?id=not-a-uuid'))
 
     expect(res.status).toBe(404)
+  })
+
+  it('a repository failure answers 500, not 404', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockRejectedValueOnce(new Error('db down'))
+
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json).toEqual({ error: 'Failed to load members' })
+  })
+
+  it('?id= (empty string) falls through to the list branch, not the detail lookup', async () => {
+    tenantOk()
+    membersOk()
+
+    await GET(req('?id='))
+
+    expect(getMemberDetailForRestaurant).not.toHaveBeenCalled()
+    expect(getMembers).toHaveBeenCalled()
   })
 })

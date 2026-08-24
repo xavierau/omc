@@ -99,12 +99,40 @@ Same-tenant flow re-verified live in the browser: member list → detail panel
   and now `member-detail-repository`) — at a call site, the scoped form is
   self-evidently scoped and the unscoped form is self-evidently not.
 
+## Review round (/review on PR #121)
+
+The specialist + adversarial + red-team review added four hardening changes
+on top of the core fix, all approved by the user and test-covered:
+
+- **Panel 404 crash fixed** (was plan R3, re-diagnosed by two independent
+  lanes as a render crash, not an empty state): the panel treated the
+  truthy 404 body `{ error: ... }` as a member and crashed in the receipts
+  renderer (`receipts.length` on `undefined`). Fetch logic now lives in
+  `member-detail-helpers.ts` (`fetchMemberDetail`), resolves null on any
+  non-ok response, and the panel's designed not-found state renders.
+- **`loyalty_token` no longer leaves the server**: the members detail query
+  selects an explicit column allowlist (mirroring `getMembers`) instead of
+  `select('*')`, which had been shipping `loyalty_token` — a bearer secret
+  the loyalty-card flow authenticates by — plus internal ops columns
+  (`pmm_throttled_until`, `unreachable_at`) to the dashboard browser on
+  every detail GET. A test pins the exact column list.
+- **Errors no longer read as 404**: only PGRST116 (no rows) and 22P02
+  (invalid uuid) map to null; any other members-query error, and any
+  receipts/coupons sub-query error, now throws and the routes answer 500.
+  A DB outage no longer reads as "Member not found", and a failed
+  sub-query no longer renders an authoritative-looking empty history.
+- **The GET route's catch was unreachable**: `return handleMemberDetail(...)`
+  inside the try block returned the promise without awaiting it, so a
+  rejection bypassed the catch — the JSON 500 was dead code for both the
+  detail and list branches. Now `return await`, found by the new 500-path
+  test the review added.
+
 ## Residual / follow-ups
 
 - SEC-003 (repo-wide sweep for other dashboard routes assuming RLS the
   service-role client never enforces) remains open; #111 was one concrete
   instance closed ahead of that sweep.
-- R3 from the plan, pre-existing and unrelated: `member-detail-panel.tsx`
-  does not check `res.ok` before treating the response body as the member,
-  so a 404 body renders as an empty panel instead of a not-found state. Not
-  touched here (out of scope, Surgical Changes) — worth its own issue.
+- Filed from the review round: #122 (scoped-miss logging — the 403→404
+  change removed the only server-side signal of cross-tenant probing),
+  #123 (GET vs DELETE role-allowlist asymmetry + backwards DELETE comment),
+  #124 (audit row inside `delete_member_cascade`).

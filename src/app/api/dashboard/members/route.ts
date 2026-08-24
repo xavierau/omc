@@ -23,10 +23,13 @@ export async function GET(request: NextRequest) {
 
     const memberId = searchParams.get('id')
     if (memberId) {
-      return handleMemberDetail(memberId, restaurantId)
+      // `return await` (not bare `return`) so a rejection from the handler
+      // is caught below and answers the JSON 500 — a bare return lets it
+      // bypass this try/catch entirely.
+      return await handleMemberDetail(memberId, restaurantId)
     }
 
-    return handleMemberList(searchParams, restaurantId)
+    return await handleMemberList(searchParams, restaurantId)
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })

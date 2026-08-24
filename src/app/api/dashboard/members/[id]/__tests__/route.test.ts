@@ -86,6 +86,18 @@ describe('DELETE /api/dashboard/members/[id]', () => {
     })
 
     expect(r.status).toBe(404)
+    expect(await r.json()).toEqual({ error: 'Member not found' })
+    expect(deleteMemberAndCascade).not.toHaveBeenCalled()
+  })
+
+  it('a lookup failure answers 500, not 404', async () => {
+    vi.mocked(getMemberDetailForRestaurant).mockRejectedValueOnce(new Error('db down'))
+
+    const r = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: MEMBER_ID }),
+    })
+
+    expect(r.status).toBe(500)
     expect(deleteMemberAndCascade).not.toHaveBeenCalled()
   })
 

@@ -1511,7 +1511,7 @@
           ],
           "started_at": "2026-08-24",
           "tests": "32 new/changed tests across repository + both route test files; full suite 3593 passed, 21 skipped, 2 todo, 0 failing",
-          "status_note": "Journal: debugging_journals/2026-08-24-member-detail-cross-tenant-idor.md. PR not yet opened — orchestrator handles git/PR after I-1; review gate (gemini-cli-reviewer + grok-cli-reviewer, code-review-analyzer as Grok fallback per incident_review_cli_billing_exhausted) and qa-engineer acceptance verdict still pending as of this entry.",
+          "status_note": "Journal: debugging_journals/2026-08-24-member-detail-cross-tenant-idor.md. PR #121. Gates: gemini APPROVED (0 findings) + code-review-analyzer second lane APPROVED (Grok 402 per incident_review_cli_billing_exhausted); qa-engineer verdict PASSED AC1-AC6 incl. a mutation test proving the scoping assertions have teeth. /review round (5 specialists + adversarial + red team, 0 critical / 16 informational) added user-approved hardening: panel 404 crash fixed via member-detail-helpers.ts (was plan R3 — it was a crash, not an empty state), explicit column allowlist on the detail query (select('*') was shipping loyalty_token, a bearer secret, to the browser), real error semantics (only PGRST116/22P02 map to 404; other DB + sub-query errors now 500), and a return-await fix in the GET route whose catch was previously unreachable. Follow-ups filed: #122 scoped-miss logging, #123 GET role-allowlist asymmetry, #124 delete-cascade audit row.",
           "completed_at": "2026-08-24"
         },
         {
