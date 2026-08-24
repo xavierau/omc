@@ -1,6 +1,6 @@
 {
  "project": "OhMyClient WhatsApp CRM",
- "updated_at": "2026-08-23",
+ "updated_at": "2026-08-24",
  "columns": {
   "backlog": {
    "label": "Backlog",
@@ -1460,18 +1460,6 @@
    "label": "Review",
    "tasks": [
     {
-     "id": "DEVOPS-003",
-     "title": "Move next build off the production host — release branch pipeline",
-     "description": "Second prod outage from an in-place next build (2026-08-05 VM thrash took all 17 sites down; 2026-08-23 the TypeScript phase ran 64.6min, was cut off by a reboot, and left a .next with no prerender-manifest.json -> app daemon crash-looped 11x -> supervisor FATAL -> site 502). scripts/release.sh now builds on a dev machine and force-pushes an orphan `release` branch carrying source + a complete .next; deploy.sh drops the build and only installs deps, migrates, seeds, restarts. Also fixed three latent bugs found while testing: (1) restart_daemon aborted on a FATAL daemon - the exact state a half-finished deploy leaves - so every recovery deploy was marked failed even when it worked; it now picks start vs restart by current state. (2) resolve_daemon used `sudo -n grep` on /etc/supervisor/conf.d, which is not in the forge sudoers allowlist, so the command-match silently never matched and always fell through to hardcoded daemon ids. (3) the `no such group` reply to a `name:*` status query was not recognised, so a nonexistent daemon resolved as live. SECURITY: output:standalone copies the build machine .env verbatim into .next/standalone/.env and this repo is PUBLIC - release.sh scrubs every .env and scans for service_role JWTs / sb_secret_ / sbp_ keys before pushing, deploy.sh re-checks on arrival. Verified against the real prod bundle: no secret value from .env is present.",
-     "priority": "high",
-     "labels": [
-      "devops",
-      "infra",
-      "security",
-      "reliability"
-     ]
-    },
-    {
      "id": "TPL-004",
      "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
      "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
@@ -1497,6 +1485,18 @@
   "done": {
    "label": "Done",
    "tasks": [
+    {
+     "id": "DEVOPS-003",
+     "title": "Move next build off the production host — release branch pipeline",
+     "description": "Second prod outage from an in-place next build (2026-08-05 VM thrash took all 17 sites down; 2026-08-23 the TypeScript phase ran 64.6min, was cut off by a reboot, and left a .next with no prerender-manifest.json -> app daemon crash-looped 11x -> supervisor FATAL -> site 502). scripts/release.sh now builds on a dev machine and force-pushes an orphan `release` branch carrying source + a complete .next; deploy.sh drops the build and only installs deps, migrates, seeds, restarts. Also fixed three latent bugs found while testing: (1) restart_daemon aborted on a FATAL daemon - the exact state a half-finished deploy leaves - so every recovery deploy was marked failed even when it worked; it now picks start vs restart by current state. (2) resolve_daemon used `sudo -n grep` on /etc/supervisor/conf.d, which is not in the forge sudoers allowlist, so the command-match silently never matched and always fell through to hardcoded daemon ids. (3) the `no such group` reply to a `name:*` status query was not recognised, so a nonexistent daemon resolved as live. SECURITY: output:standalone copies the build machine .env verbatim into .next/standalone/.env and this repo is PUBLIC - release.sh scrubs every .env and scans for service_role JWTs / sb_secret_ / sbp_ keys before pushing, deploy.sh re-checks on arrival. Verified against the real prod bundle: no secret value from .env is present. DONE: #113 merged to develop/main; critical review findings fixed in #115 (env delivery, orphan-branch sync, fail-closed scan, PII-log pruning + arrival guards); develop→main via #116. Remaining findings: DEVOPS-004. Leak incident: SEC-002. Cutover to the release branch is still pending (deploy/README.md checklist).",
+     "priority": "high",
+     "labels": [
+      "devops",
+      "infra",
+      "security",
+      "reliability"
+     ]
+    },
     {
      "id": "OPS-002",
      "title": "Scheduled broadcasts never fire: schedule /api/cron/campaigns in prod + make enqueue idempotent",
