@@ -151,6 +151,7 @@ describe('enforceTemplateReview', () => {
           })
           throw new Error('expected throw')
         } catch (err) {
+          expect(err).toBeInstanceOf(CampaignGuardrailError)
           const violations = (err as CampaignGuardrailError).violations
           expect(violations[0]).toContain(tokenSubstring)
           expect(violations[0]).toContain(causeSubstring)
@@ -187,6 +188,7 @@ describe('enforceTemplateReview', () => {
         })
         throw new Error('expected throw')
       } catch (err) {
+        expect(err).toBeInstanceOf(CampaignGuardrailError)
         expect((err as CampaignGuardrailError).message.length).toBeLessThanOrEqual(500)
       }
     }

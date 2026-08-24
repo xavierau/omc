@@ -39,8 +39,8 @@ const CAUSE_BY_REASON: Record<ReasonKey, string> = {
 const UNSPECIFIED_CAUSE =
   'this account is not yet trusted for unreviewed marketing'
 
-// Clamps to 56 chars so the ≤500-char failure_reason guarantee (see
-// campaign-queue.ts FAILURE_REASON_MAX_LEN) holds for any template name.
+// Clamps to 56 chars (57 with the ellipsis) so the ≤500-char failure_reason
+// guarantee (see campaign-queue.ts FAILURE_REASON_MAX_LEN) holds for any name.
 function clampName(name: string): string {
   return name.length <= 56 ? name : `${name.slice(0, 56)}…`
 }
