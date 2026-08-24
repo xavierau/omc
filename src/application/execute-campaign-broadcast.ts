@@ -14,6 +14,7 @@ import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
+import { SendFailedError } from './send-failed-error'
 import {
   createCampaignBroadcastCoupon,
   formatDiscount,
@@ -116,9 +117,12 @@ async function mintEagerCoupon(
 // Throwing is the observability mechanism: Promise.allSettled in the batch
 // tallies it as `failed` and recordOutboundSend has already persisted a failed
 // whatsapp_messages row (when tracking is on). No counter increment / event.
+// Typed (#127): `tally` counts ONLY this class as a send failure — any other
+// rejection in the member pipeline lands in `errored` so a delivered-but-
+// bookkeeping-broken run can't be terminally marked "all sends failed".
 function throwIfNotOk(result: SendResult, mode: string): void {
   if (result.ok) return
-  throw new Error(`${mode} send failed: ${result.error?.title ?? 'unknown'}`)
+  throw new SendFailedError(mode, result.error?.title ?? 'unknown')
 }
 
 function buildCouponDescription(

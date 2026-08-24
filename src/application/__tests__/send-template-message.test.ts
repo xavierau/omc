@@ -331,6 +331,34 @@ describe('sendWhatsAppTemplateMessage', () => {
       )
     })
 
+    // KNOWN LIMITATION (#127 journal, deliberately unfixed here): a TEXT
+    // header with a {{param}} folds its variable into bodyParams —
+    // extractParameters scans ALL components — while headerParams stays
+    // undefined, so Meta receives the header variable in the wrong
+    // component (same #132012 class). This pins today's behavior so the
+    // green suite doesn't read as "TEXT headers fully handled".
+    it('KNOWN LIMITATION: a parameterized TEXT header folds its param into bodyParams', async () => {
+      const template = buildTemplate({
+        components: [
+          { type: 'HEADER', format: 'TEXT', text: 'Hi {{name}}' },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: { name: 'Ada' },
+      })
+
+      const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+      expect(args.headerParams).toBeUndefined()
+      expect(args.bodyParams).toContainEqual(
+        expect.objectContaining({ parameterName: 'name' })
+      )
+    })
+
     it('sends no headerParams for a TEXT header', async () => {
       const template = buildTemplate({
         components: [

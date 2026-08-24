@@ -43,6 +43,7 @@ import { sendWhatsAppTemplateMessage } from '@/application/send-template-message
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
 
 const MEMBER = { id: 'm-1', name: null, pointsBalance: 0, preferredLanguage: null }
 const TEMPLATE: WhatsAppTemplate = {
@@ -77,6 +78,30 @@ describe('promptMarketingOptin', () => {
     vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue({
       success: true,
     } as never)
+  })
+
+  // #127 review: the media-header gate must fire BEFORE insertPending — an
+  // orphaned pending consent row would trip the 7-day re-prompt cooldown and
+  // silently starve opt-ins for a misconfigured media-header template.
+  it('throws for a media-header template with no usable URL BEFORE inserting the pending row', async () => {
+    vi.mocked(findTemplateById).mockResolvedValue({
+      ...TEMPLATE,
+      components: [
+        { type: 'HEADER', format: 'IMAGE', example: { header_handle: ['4:aBc'] } },
+        { type: 'BODY', text: 'Reply YES to receive offers.' },
+      ],
+    })
+
+    await expect(
+      promptMarketingOptin({
+        restaurantId: 'r-1',
+        phoneE164: '+85291234567',
+        source: 'inbound_first_wamid.1',
+      })
+    ).rejects.toBeInstanceOf(TemplateHeaderMediaMissingError)
+
+    expect(insertConsentRecord).not.toHaveBeenCalled()
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
   })
 
   afterEach(() => {

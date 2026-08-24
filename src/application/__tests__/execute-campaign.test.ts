@@ -75,7 +75,7 @@ vi.mock('@/application/send-template-message', () => ({
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', () => ({
-  findTemplateById: vi.fn(),
+  findTemplateByIdForRestaurant: vi.fn(),
 }))
 
 vi.mock('@/application/check-campaign-guardrails', () => ({
@@ -110,7 +110,7 @@ import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolveTargetMembers } from '@/application/resolve-campaign-members'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
-import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import { findTemplateByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import {
   insertQueued,
   attachKapsoMessageId,
@@ -292,7 +292,7 @@ describe('executeCampaign', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(null)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(null)
 
     await expect(executeCampaign('camp-1', 'r-1'))
       .rejects.toThrow('WhatsApp template tpl-missing not found')
@@ -321,7 +321,7 @@ describe('executeCampaign', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(pendingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(pendingTemplate)
 
     await expect(executeCampaign('camp-1', 'r-1'))
       .rejects.toThrow('WhatsApp template pending_template is not approved')
@@ -482,7 +482,7 @@ describe('executeCampaign', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(template)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(template)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
     // Marketing template runs are gated by consent (WAQ-004). Grant the
     // member opt-in so the existing send path remains exercised. The batch
@@ -596,7 +596,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
     // No consent records returned at all → bulk fetch resolves to empty Map.
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(new Map())
@@ -629,7 +629,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([member])
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
       new Map([
@@ -663,7 +663,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([opted, noConsent, opted2])
     // Bulk fetch returns a Map with the consenting two only — `noConsent`
     // is intentionally absent, mirroring how the real query works.
@@ -938,7 +938,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([throttled])
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
       consentMapFor([throttled.phone])
@@ -961,7 +961,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([m])
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
       consentMapFor([m.phone])
@@ -984,7 +984,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([dead])
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
       consentMapFor([dead.phone])
@@ -1024,7 +1024,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
     vi.mocked(getCampaignById).mockResolvedValue(campaign)
     vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
-    vi.mocked(findTemplateById).mockResolvedValue(marketingTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([m])
     vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
       consentMapFor([m.phone])
@@ -1361,13 +1361,18 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
       sent: number
       skipped: number
       failed: number
+      errored: number
     }
-    // Failed must NOT be double-counted in skipped.
-    expect(payload.failed).toBe(1)
+    // #127: a raw transport throw is `errored` (delivery unknown), not
+    // `failed` (BSP rejected) — and neither may be double-counted in skipped.
+    expect(payload.failed).toBe(0)
+    expect(payload.errored).toBe(1)
     expect(payload.skipped).toBe(0)
     expect(payload.sent).toBe(2)
     // The invariant Phase 2 KPI consumers depend on.
-    expect(payload.sent + payload.skipped + payload.failed).toBe(payload.probeSize)
+    expect(
+      payload.sent + payload.skipped + payload.failed + payload.errored
+    ).toBe(payload.probeSize)
     expect(payload.probeSize).toBe(3)
 
     logSpy.mockRestore()
@@ -1456,7 +1461,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(getCampaignById).mockResolvedValue(
       buildCampaign({ whatsappTemplateId: 'tpl-u' })
     )
-    vi.mocked(findTemplateById).mockResolvedValue(utilityTemplate)
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(utilityTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([
       buildMember({ id: 'm-1', phone: '85291111111' }),
       buildMember({ id: 'm-2', phone: '85292222222' }),
@@ -1522,7 +1527,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
   })
 
   it('fails fast BEFORE the status transition when the template needs a media header with no stored URL', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...utilityTemplate,
       name: 'fifth_anniversary',
       components: [
@@ -1544,8 +1549,109 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
   })
 
+  // Red-team pin (#127): a DELIVERED run whose post-send bookkeeping broke
+  // must never claim "all sends failed" — that wording invites a revival
+  // that would re-send to every member. Delivery is unknown, say so.
+  it('does not claim all-sends-failed when sends delivered but bookkeeping broke', async () => {
+    vi.mocked(incrementCampaignSent).mockRejectedValue(
+      new Error('increment_chargeable_sent RPC missing')
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const failedCall = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(failedCall).toBeDefined()
+    expect(failedCall![1].failureReason).toContain('could not be confirmed')
+    expect(failedCall![1].failureReason).not.toContain('All')
+  })
+
+  it('still completes when one member delivered fully and another broke post-send', async () => {
+    vi.mocked(incrementCampaignSent)
+      .mockRejectedValueOnce(new Error('transient RPC blip'))
+      .mockResolvedValue(undefined)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
+  })
+
+  // Red-team pin (#127): the failure reason must name the deciding system —
+  // an inline text campaign has no WhatsApp template to blame.
+  it('blames the WhatsApp connection, not a template, when an inline campaign all-fails', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ whatsappTemplateId: null })
+    )
+    vi.mocked(sendTextMessage).mockResolvedValue(
+      failResult('kapso_no_phone_number_id')
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const failedCall = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(failedCall).toBeDefined()
+    expect(failedCall![1].failureReason).toContain('WhatsApp is connected')
+    expect(failedCall![1].failureReason).not.toContain('approved definition')
+  })
+
+  // Boundary pin: skips must NOT rescue a run whose every ATTEMPTED send
+  // failed — allFailed is (failed > 0 && sent === 0), and gate skips count
+  // toward neither side.
+  it('marks failed when the only attempted send fails even though others were skipped', async () => {
+    const marketingTemplate = {
+      ...utilityTemplate,
+      id: 'tpl-m',
+      name: 'promo_template',
+      category: 'MARKETING' as const,
+    }
+    const consented = buildMember({ id: 'm-1', phone: '85291111111' })
+    const noConsent1 = buildMember({ id: 'm-2', phone: '85292222222' })
+    const noConsent2 = buildMember({ id: 'm-3', phone: '85293333333' })
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ whatsappTemplateId: 'tpl-m' })
+    )
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(marketingTemplate)
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      consented,
+      noConsent1,
+      noConsent2,
+    ])
+    vi.mocked(findActiveMarketingConsentForPhones).mockResolvedValue(
+      new Map([
+        [
+          consented.phone,
+          ConsentRecord.grant({
+            id: 'cr-1',
+            restaurantId: 'r-1',
+            memberId: 'm-1',
+            phoneE164: consented.phone,
+            category: 'marketing',
+            source: 'website_form',
+            grade: 'strong',
+          }),
+        ],
+      ])
+    )
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(
+      failResult('kapso_send_error')
+    )
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(1)
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'failed',
+      failureReason: expect.stringContaining('All 1'),
+    })
+  })
+
   it('proceeds normally when the media header holds a stored https URL', async () => {
-    vi.mocked(findTemplateById).mockResolvedValue({
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
       ...utilityTemplate,
       components: [
         {

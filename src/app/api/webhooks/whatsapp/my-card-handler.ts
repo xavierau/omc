@@ -36,7 +36,7 @@ export async function handleMyCard(
         source: `my_card_${member.memberId}`,
       })
     } catch (err) {
-      console.warn('[MyCard] opt-in prompt failed:', (err as Error).message)
+      console.warn('[MyCard] opt-in prompt failed:', String(err))
     }
     return
   }

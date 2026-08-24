@@ -58,7 +58,7 @@ export async function executeCampaign(
   try {
     const ctx = await buildSendContext(campaign, restaurantId, template)
     const counters = await sendInBatches(activeMembers, ctx)
-    await finalizeCampaignRun(campaignId, counters)
+    await finalizeCampaignRun(campaignId, counters, template)
   } catch (err) {
     await updateCampaign(campaignId, { status: 'active' })
     throw err
@@ -73,24 +73,54 @@ export async function executeCampaign(
 // via PATCH once the template is fixed (the revival guard clears the
 // reason). Skips don't count as failures, so an all-skipped run (e.g. no
 // consent) still completes as before. The reason is tenant-visible: fixed
-// wording only, never raw send-error internals.
+// wording only, never raw send-error internals — and it names the deciding
+// system (template vs connection vs unknown), never a look-alike.
 async function finalizeCampaignRun(
   campaignId: string,
-  counters: SkipCounters
+  counters: SkipCounters,
+  template: WhatsAppTemplate | null
 ): Promise<void> {
-  const allFailed = counters.failed > 0 && counters.sent === 0
-  if (!allFailed) {
+  const nothingSent = counters.sent === 0
+  const anyBroken = counters.failed > 0 || counters.errored > 0
+  if (!nothingSent || !anyBroken) {
     await updateCampaign(campaignId, { status: 'completed' })
     return
   }
   await updateCampaign(campaignId, {
     status: 'failed',
-    failureReason:
+    failureReason: totalFailureReason(counters, template),
+  })
+}
+
+// Wording deliberately names no revival mechanism: the dashboard has no
+// status control for failed campaigns (review #127, follow-up #129) —
+// reactivation is an operator PATCH today.
+function totalFailureReason(
+  counters: SkipCounters,
+  template: WhatsAppTemplate | null
+): string {
+  // Any `errored` member means delivery is UNKNOWN (the send may have gone
+  // out before bookkeeping broke) — never claim "all sends failed", and warn
+  // against a blind re-run that would double-send.
+  if (counters.errored > 0) {
+    const broken = counters.failed + counters.errored
+    return (
+      `${broken} message sends did not complete and delivery could not be ` +
+      `confirmed for ${counters.errored} of them. Contact support before ` +
+      're-running this campaign.'
+    )
+  }
+  if (template) {
+    return (
       `All ${counters.failed} message sends failed. Check that the ` +
       "campaign's WhatsApp template still matches its approved definition " +
-      '(including any media header), then set the campaign back to active ' +
-      'to retry.',
-  })
+      '(including any media header) before retrying.'
+    )
+  }
+  return (
+    `All ${counters.failed} message sends failed. Check that WhatsApp is ` +
+    'connected for this restaurant before retrying.'
+  )
 }
 
 async function buildSendContext(
