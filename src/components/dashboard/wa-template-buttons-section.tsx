@@ -41,6 +41,30 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
   onUpdate: (i: number, key: keyof TemplateButton, v: string) => void
   onRemove: (i: number) => void
 }) {
+  // Types this form has no editor for (e.g. COPY_CODE) round-trip read-only
+  // rather than risk silently rewriting a button Meta already accepted (#132).
+  if (btn.type === 'UNSUPPORTED') {
+    return (
+      <div className="space-y-2 rounded-md border border-muted p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            {(btn.raw?.type as string | undefined) ?? 'Unknown'} button{btn.text ? `: ${btn.text}` : ''}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="text-sm text-destructive hover:underline shrink-0"
+          >
+            Remove
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          This button type can&apos;t be edited here
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2 rounded-md border border-muted p-2">
       <div className="flex items-center justify-between gap-2">
@@ -52,6 +76,7 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
           <option value="URL">URL</option>
           <option value="PHONE_NUMBER">Phone</option>
           <option value="COUPON_URL">Coupon Link</option>
+          <option value="QUICK_REPLY">Quick reply</option>
         </select>
         <button
           type="button"
@@ -89,6 +114,11 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
       {btn.type === 'COUPON_URL' && (
         <p className="text-xs text-muted-foreground">
           Links to the coupon page for each member
+        </p>
+      )}
+      {btn.type === 'QUICK_REPLY' && (
+        <p className="text-xs text-muted-foreground">
+          Customers tap to reply — used by claim-mode campaigns
         </p>
       )}
     </div>

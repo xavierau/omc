@@ -1,8 +1,13 @@
 export interface TemplateButton {
-  type: 'URL' | 'PHONE_NUMBER' | 'COUPON_URL'
+  type: 'URL' | 'PHONE_NUMBER' | 'COUPON_URL' | 'QUICK_REPLY' | 'UNSUPPORTED'
   text: string
   url: string
   phoneNumber: string
+  /**
+   * Only set for UNSUPPORTED buttons: the original stored button object
+   * (e.g. COPY_CODE), re-emitted unchanged on save rather than rewritten.
+   */
+  raw?: Record<string, unknown>
 }
 
 /**
@@ -39,6 +44,7 @@ export function applyTemplateButtonChange(
  */
 export function validateWaTemplateButtons(buttons: TemplateButton[]): string | null {
   for (const [i, b] of buttons.entries()) {
+    if (b.type === 'UNSUPPORTED') continue
     const name = `Button ${i + 1}`
     if (!(b.text ?? '').trim()) return `${name}: enter the label shown on the button`
     if (b.type === 'URL' && !(b.url ?? '').trim()) return `${name}: enter the link URL`
@@ -87,16 +93,30 @@ function extractImageUrl(c: Record<string, unknown>): string {
   return handles?.[0] ?? ''
 }
 
+type StoredTemplateButton = {
+  type: string
+  text?: string
+  url?: string
+  phoneNumber?: string
+  [key: string]: unknown
+}
+
+/**
+ * Only maps stored types the form actually offers an editor for. Anything else
+ * (COPY_CODE, or any type Meta introduces that this form doesn't know) round-trips
+ * as UNSUPPORTED, carrying the original object so a save never rewrites it (#132).
+ */
 function parseButtons(c: Record<string, unknown>): TemplateButton[] {
-  const raw = c.buttons as { type: string; text: string; url?: string; phoneNumber?: string }[] | undefined
+  const raw = c.buttons as StoredTemplateButton[] | undefined
   return (raw ?? []).map((b) => {
     const isCouponUrl = b.type === 'URL' && b.url?.includes('/coupon/')
-    return {
-      type: (isCouponUrl ? 'COUPON_URL' : b.type) as TemplateButton['type'],
-      text: b.text ?? '',
-      url: isCouponUrl ? '' : (b.url ?? ''),
-      phoneNumber: b.phoneNumber ?? '',
+    if (isCouponUrl) return { type: 'COUPON_URL', text: b.text ?? '', url: '', phoneNumber: '' }
+    if (b.type === 'URL') return { type: 'URL', text: b.text ?? '', url: b.url ?? '', phoneNumber: '' }
+    if (b.type === 'PHONE_NUMBER') {
+      return { type: 'PHONE_NUMBER', text: b.text ?? '', url: '', phoneNumber: b.phoneNumber ?? '' }
     }
+    if (b.type === 'QUICK_REPLY') return { type: 'QUICK_REPLY', text: b.text ?? '', url: '', phoneNumber: '' }
+    return { type: 'UNSUPPORTED', text: b.text ?? '', url: '', phoneNumber: '', raw: b }
   })
 }
 
@@ -127,6 +147,7 @@ export function buildWaTemplateRequestBody(form: WaTemplateFormState) {
             example: [`${baseUrl}/coupon/SAMPLE123`],
           }
         }
+        if (b.type === 'UNSUPPORTED') return b.raw
         // `?? ''` keeps the key on the wire when the value is missing: an
         // undefined drops it entirely, and the server backstop then sees a
         // phone button that merely looks number-less by design (#97).
