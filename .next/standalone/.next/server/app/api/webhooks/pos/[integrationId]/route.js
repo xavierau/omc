@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/webhooks/pos/[integrationId]/route.js")
+R.c("server/chunks/[root-of-the-server]__057i.ev._.js")
+R.c("server/chunks/[root-of-the-server]__0j8-xkl._.js")
+R.c("server/chunks/node_modules_next_dist_esm_build_templates_app-route_13r1ft9.js")
+R.c("server/chunks/node_modules_0u5gdv7._.js")
+R.c("server/chunks/[root-of-the-server]__0~lrjic._.js")
+R.c("server/chunks/_0pct5af._.js")
+R.c("server/chunks/[root-of-the-server]__0a-1b3k._.js")
+R.c("server/chunks/_next-internal_server_app_api_webhooks_pos_[integrationId]_route_actions_0cexrf5.js")
+R.m(40441)
+module.exports=R.m(40441).exports

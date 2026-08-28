@@ -1,0 +1,143 @@
+{
+  "app": {
+    "[project]/src/app/_not-found/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/audit-logs/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/billing/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/quality/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/referrers/[id]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/referrers/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/referrers/report/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/template-reviews/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/tenants/[id]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/tenants/new/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/(dashboard)/tenants/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/admin/login/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/contact/[slug]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/coupon/[code]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/blocked/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/campaigns/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/campaigns/stamps/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/coupons/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/feed/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/members/import/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/members/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/rewards/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/scan/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/setup/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/tags/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/dashboard/wa-templates/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/join/[slug]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/join/[slug]/success/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/join/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/join/success/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/login/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ],
+    "[project]/src/app/page": [
+      "static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+      "static/media/30d7d2e0cdf4a190-s.p.12z5kffmobb31.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}

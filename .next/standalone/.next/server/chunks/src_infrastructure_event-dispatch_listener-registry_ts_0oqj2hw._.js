@@ -1,0 +1,3 @@
+module.exports=[97728,e=>{"use strict";var r=e.i(78665);let t=new Map;t.set("pos",e=>(0,r.createPosEventListener)(e)),e.s(["resolveListener",0,function(e){let r=e.indexOf(":");if(-1===r)throw Error(`Invalid listener key format: "${e}" (expected "prefix:id")`);let i=e.substring(0,r),n=e.substring(r+1),s=t.get(i);if(!s)throw Error(`Unknown listener prefix: "${i}"`);return s(n)}])}];
+
+//# sourceMappingURL=src_infrastructure_event-dispatch_listener-registry_ts_0oqj2hw._.js.map

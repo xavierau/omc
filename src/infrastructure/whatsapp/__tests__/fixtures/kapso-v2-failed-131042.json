@@ -1,0 +1,47 @@
+{
+  "message": {
+    "id": "wamid.HBgLODUyOTAwMDAwMDEVAgARGBRDRUI5QTEzNzg0MDQ3NjgyRTJCNwA=",
+    "timestamp": "1787839136",
+    "type": "template",
+    "to": "85290000001",
+    "kapso": {
+      "direction": "outbound",
+      "status": "failed",
+      "processing_status": "processed",
+      "origin": "cloud_api",
+      "phone_number": "85290000001",
+      "phone_number_id": "1122343674302649",
+      "has_media": false,
+      "whatsapp_conversation_id": "166d5944-da2e-481f-9ec6-8a44c14192c6",
+      "content": "[template body]",
+      "statuses": [
+        {
+          "id": "wamid.HBgLODUyOTAwMDAwMDEVAgARGBRDRUI5QTEzNzg0MDQ3NjgyRTJCNwA=",
+          "errors": [
+            {
+              "code": 131042,
+              "href": "https://business.facebook.com/billing_hub/accounts/details/?business_id=0&asset_id=0&wizard_name=CHANGE_COUNTRY_CURRENCY&account_type=whatsapp-business-account",
+              "title": "Business eligibility payment issue",
+              "message": "Business eligibility payment issue",
+              "error_data": {
+                "details": "Message failed to send because your WhatsApp Business account currency is not configured. Visit https://business.facebook.com/billing_hub/... to resolve this issue."
+              }
+            }
+          ],
+          "status": "failed",
+          "timestamp": "1787839140",
+          "recipient_id": "85290000001",
+          "recipient_user_id": "HK.1020505724070987"
+        }
+      ]
+    }
+  },
+  "conversation": {
+    "id": "166d5944-da2e-481f-9ec6-8a44c14192c6",
+    "phone_number": "85290000001",
+    "phone_number_id": "1122343674302649",
+    "status": "active"
+  },
+  "is_new_conversation": false,
+  "phone_number_id": "1122343674302649"
+}

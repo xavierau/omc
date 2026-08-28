@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/members/layout,_N_T_/dashboard/members/import/layout,_N_T_/dashboard/members/import/page,_N_T_/dashboard/members/import"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/members/import/__PAGE__",
+    "/dashboard/members/import",
+    "/dashboard/members",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

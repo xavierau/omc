@@ -1,0 +1,38 @@
+{
+  "_comment": "SYNTHETIC — replace with real Kapso sandbox capture before merge per addendum §5.2. Shape based on @kapso/whatsapp-cloud-api/dist/server.d.ts:21-30 (MessageStatusUpdate) + Meta Cloud API documented errors[] inner shape (`{ code, title, error_data: { details } }`). Kapso pass-through behaviour for the inner errors[] shape is unconfirmed and may differ in production.",
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-123",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "85291234567",
+              "phone_number_id": "WAQ002_TEST_PHONE_NUMBER_ID"
+            },
+            "statuses": [
+              {
+                "id": "wamid.WAQ002_FAILED",
+                "status": "failed",
+                "timestamp": "1762257610",
+                "recipient_id": "85299999999",
+                "errors": [
+                  {
+                    "code": 131049,
+                    "title": "Per-user marketing limit reached",
+                    "error_data": {
+                      "details": "Recipient has reached their 24h marketing message cap (PMM)."
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

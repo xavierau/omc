@@ -1,0 +1,152 @@
+import { createServerSupabaseClient } from '../client'
+import { Coupon } from '@/domain/entities/coupon'
+import { mapRowToCoupon, CreateCouponParams, ListCouponsParams, ListCouponsResult } from './coupon-mapper'
+
+export type { CreateCouponParams, ListCouponsParams, ListCouponsResult }
+
+// Re-export coupon factories for ergonomic imports — implementation lives in
+// coupon-factory.ts to keep this file under the 150-line limit.
+export { createWelcomeCoupon, createCampaignCoupon } from './coupon-factory'
+
+export async function createCoupon(params: CreateCouponParams): Promise<Coupon> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons')
+    .insert({
+      restaurant_id: params.restaurantId,
+      type: params.type,
+      code: params.code,
+      status: 'active',
+      member_id: params.memberId ?? null,
+      expires_at: params.expiresAt ?? null,
+      discount_type: params.discountType ?? null,
+      discount_value: params.discountValue ?? null,
+      max_uses: params.maxUses ?? null,
+      is_active: true,
+      is_chargeable: params.isChargeable ?? true,
+      title: params.title ?? null,
+      description: params.description ?? null,
+      campaign_id: params.campaignId ?? null,
+    })
+    .select('*')
+    .single()
+
+  if (error || !data) {
+    // Preserve the pg SQLSTATE so callers can classify a unique violation
+    // (23505) by code, not brittle message text — see isCouponUniqueViolation.
+    const wrapped = new Error(`createCoupon: ${error?.message}`) as Error & {
+      code?: string
+    }
+    if (error?.code) wrapped.code = error.code
+    throw wrapped
+  }
+  return mapRowToCoupon(data)
+}
+
+export async function findCouponById(id: string): Promise<Coupon | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons').select('*').eq('id', id).single()
+
+  if (error || !data) return null
+  return mapRowToCoupon(data)
+}
+
+export async function findCouponByCode(code: string): Promise<Coupon | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons').select('*').eq('code', code.toUpperCase()).single()
+
+  if (error || !data) return null
+  return mapRowToCoupon(data)
+}
+
+// CAMP-001: idempotency lookup for the lazy claim flow. A campaign-broadcast
+// coupon is a `promo` row keyed by (restaurant, campaign, member); at most one
+// should exist (enforced by the partial unique index in migration 053).
+export async function findCouponByMemberAndCampaign(
+  restaurantId: string,
+  memberId: string,
+  campaignId: string
+): Promise<Coupon | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
+    .eq('campaign_id', campaignId)
+    .eq('type', 'promo')
+    .maybeSingle()
+
+  if (error) throw new Error(`findCouponByMemberAndCampaign: ${error.message}`)
+  return data ? mapRowToCoupon(data) : null
+}
+
+export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {
+  const supabase = createServerSupabaseClient()
+  const { restaurantId, page, pageSize, type, isActive } = params
+  const from = (page - 1) * pageSize
+
+  let query = supabase.from('coupons').select('*', { count: 'exact' })
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .range(from, from + pageSize - 1)
+
+  if (type) query = query.eq('type', type)
+  if (isActive !== undefined) query = query.eq('is_active', isActive)
+
+  const { data, error, count } = await query
+  if (error) throw new Error(`listCoupons: ${error.message}`)
+
+  return { coupons: (data ?? []).map(mapRowToCoupon), total: count ?? 0 }
+}
+
+export async function updateCoupon(
+  id: string,
+  changes: Partial<Pick<Coupon, 'description' | 'discountType' | 'discountValue' | 'maxUses' | 'expiresAt' | 'isActive'>>
+): Promise<Coupon> {
+  const supabase = createServerSupabaseClient()
+  const update: Record<string, unknown> = {}
+
+  if (changes.description !== undefined) update.description = changes.description
+  if (changes.discountType !== undefined) update.discount_type = changes.discountType
+  if (changes.discountValue !== undefined) update.discount_value = changes.discountValue
+  if (changes.maxUses !== undefined) update.max_uses = changes.maxUses
+  if (changes.expiresAt !== undefined) update.expires_at = changes.expiresAt
+  if (changes.isActive !== undefined) update.is_active = changes.isActive
+
+  const { data, error } = await supabase
+    .from('coupons').update(update).eq('id', id).select('*').single()
+
+  if (error || !data) throw new Error(`updateCoupon: ${error?.message}`)
+  return mapRowToCoupon(data)
+}
+
+export async function incrementCouponUses(couponId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase.rpc('increment_coupon_uses', {
+    coupon_id_param: couponId,
+  })
+
+  if (error) throw new Error(`incrementCouponUses: ${error.message}`)
+}
+
+export async function decrementCouponUses(couponId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase.rpc('decrement_coupon_uses', {
+    coupon_id_param: couponId,
+  })
+
+  if (error) throw new Error(`decrementCouponUses: ${error.message}`)
+}
+
+export async function redeemCoupon(couponId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('coupons')
+    .update({ status: 'redeemed', redeemed_at: new Date().toISOString() })
+    .eq('id', couponId)
+
+  if (error) throw new Error(`redeemCoupon: ${error.message}`)
+}
