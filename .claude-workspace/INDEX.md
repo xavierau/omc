@@ -113,6 +113,7 @@ no artifact files were lost._
 - [2026-07-26-reply-005-coderabbit-fixes-frontend](artifacts/2026-07-26-reply-005-coderabbit-fixes-frontend.md) — CodeRabbit UI findings #1, #2, PR #70 (react-frontend-dev)
 
 **CAMP-009 — #136/#134 create auto-send + marketing-only broadcast**
+- [2026-08-28-camp-009-release-runbook](deploys/2026-08-28-camp-009-release-runbook.md) — release d4d7839 / build K_BSezxKjjMOgGpOtU8Pp, worktree-build notes, bundle verification (claude)
 - [2026-08-28-camp-009-create-autosend-and-marketing-only-broadcast](plans/2026-08-28-camp-009-create-autosend-and-marketing-only-broadcast.md) — plan: Streams A (#136) + B (#134), ACs, risk (claude)
 - [2026-08-28-camp-009-stream-a-create-autosend-frontend](artifacts/2026-08-28-camp-009-stream-a-create-autosend-frontend.md) — Stream A: auto-execute deleted, submitCampaign pinned, label rename (react-frontend-dev)
 - [2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend](artifacts/2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend.md) — Stream B: marketing-only send path, no mint/QR (senior-backend-dev)
