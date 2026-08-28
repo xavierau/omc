@@ -941,7 +941,7 @@
         "name": "name — 選填。欄名亦可用 fullname。姓名含逗號時請用雙引號包住：\"Chan, Tai Man\"。",
         "language": "preferred_language — 選填。只接受 en 或 zh_hk；其他值會當作空白匯入。欄名亦可用 language 或 lang。",
         "tags": "tags — 選填。多個標籤以分號分隔，例如 VIP;Lunch。每列最多 {maxTagsPerRow} 個標籤、每個標籤最多 40 個字元、每次匯入最多新增 50 個標籤。欄名亦可用 tag。",
-        "limits": "每個檔案最多 {maxRows} 列。欄位次序不限，欄名不分大小寫。"
+        "limits": "每個檔案最多 {maxRows, number} 列。欄位次序不限，欄名不分大小寫。"
       },
       "rejectedTitle": "{count} 列無法讀取，將不會匯入",
       "rejectLine": "第 {line} 行",

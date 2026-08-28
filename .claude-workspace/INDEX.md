@@ -96,6 +96,11 @@ no artifact files were lost._
 **WONB-018 / WONB-019 — #148 CSV column-shift bug + #147 import template**
 - [2026-08-28-wonb-018-tokenizer-backend](artifacts/2026-08-28-wonb-018-tokenizer-backend.md) — A1: RFC 4180 tokeniser + parseCsv rejection, 152 tests (senior-backend-dev)
 - [2026-08-28-wonb-019-upload-step-frontend](artifacts/2026-08-28-wonb-019-upload-step-frontend.md) — B1+A2: template download, format help, parse-rejections panel, upload-step wiring, 22 tests (react-frontend-dev)
+- [2026-08-28-wonb-018-019-gemini](reviews/2026-08-28-wonb-018-019-gemini.md) — Gemini CLI review: APPROVED, 0 findings (gemini-cli-reviewer)
+- [2026-08-28-wonb-018-019-grok](reviews/2026-08-28-wonb-018-019-grok.md) — Grok CLI review: CONDITIONAL — 1 Important (unterminated quote on the header line → fixed, T-A2.15/16), 4 Minor (grok-cli-reviewer)
+- [2026-08-28-wonb-018-019-acceptance](tests/2026-08-28-wonb-018-019-acceptance.md) — QA verdict ACCEPTED-WITH-GAPS: 11/12 ACs pass, perf 355/306 ms vs 500/750 budget, G-5 residual → issue #150 (qa-engineer)
+- [2026-08-28-wonb-018-019-ui-verification](tests/2026-08-28-wonb-018-019-ui-verification.md) — Browser walk on dev PASS: 7/7 checkpoints, desktop+mobile layout audit, 2 findings fixed (number grouping, touch target) (ui-test-runner)
+- [ui-map/flows/wonb-018-019-csv-import-upload-step](ui-map/flows/wonb-018-019-csv-import-upload-step.md) — confirmed flow + 9 selectors for the import upload step (ui-test-runner)
 
 **Issue #111 — member-detail cross-tenant IDOR**
 - [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests

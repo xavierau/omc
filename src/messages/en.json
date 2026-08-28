@@ -941,7 +941,7 @@
         "name": "name — optional. The header may also be fullname. If a name contains a comma, wrap it in double quotes: \"Chan, Tai Man\".",
         "language": "preferred_language — optional. Only en or zh_hk are accepted; any other value is imported as blank. The header may also be language or lang.",
         "tags": "tags — optional. Separate tags with a semicolon, e.g. VIP;Lunch. Up to {maxTagsPerRow} tags per row, 40 characters per tag, and 50 new tags per import. The header may also be tag.",
-        "limits": "Up to {maxRows} rows per file. Column order does not matter and header names are not case-sensitive."
+        "limits": "Up to {maxRows, number} rows per file. Column order does not matter and header names are not case-sensitive."
       },
       "rejectedTitle": "{count} rows could not be read and will not be imported",
       "rejectLine": "Line {line}",

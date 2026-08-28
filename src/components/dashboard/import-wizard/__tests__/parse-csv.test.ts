@@ -209,3 +209,18 @@ describe('parseCsv — column-count rejection (WONB-018 / #148)', () => {
     expect(allTags).not.toContain('zh_hk')
   })
 })
+
+describe('parseCsv — unterminated quote on the header line (grok review, Important)', () => {
+  it('T-A2.15 rejects line 1 with unterminated_quote instead of reporting the file as empty', () => {
+    const text = 'phone,"name\n+85291234567,Chan\n+85291234568,Tam\n'
+    expect(parseCsv(text)).toEqual({
+      phoneHeaderFound: true,
+      rows: [],
+      rejected: [{ line: 1, reason: 'unterminated_quote', expected: 2, actual: 2, phone: null }],
+    })
+  })
+
+  it('T-A2.16 still reports empty when the unterminated header has no phone alias', () => {
+    expect(parseCsv('"name,lang\n+85291234567,en\n')).toEqual({ phoneHeaderFound: false, rows: [], rejected: [] })
+  })
+})

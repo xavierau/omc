@@ -53,7 +53,7 @@ describe('importWizard.csv i18n keys (T-T0)', () => {
   it('help.tags and help.limits carry the interpolation params the component passes', () => {
     for (const messages of [en, zhHK]) {
       expect(readPath(messages, 'importWizard.csv.help.tags')).toContain('{maxTagsPerRow}')
-      expect(readPath(messages, 'importWizard.csv.help.limits')).toContain('{maxRows}')
+      expect(readPath(messages, 'importWizard.csv.help.limits')).toContain('{maxRows, number}')
       expect(readPath(messages, 'importWizard.csv.reason.column_count_mismatch')).toContain('{expected}')
       expect(readPath(messages, 'importWizard.csv.reason.column_count_mismatch')).toContain('{actual}')
     }

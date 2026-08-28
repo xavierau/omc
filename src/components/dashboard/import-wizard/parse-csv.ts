@@ -69,6 +69,7 @@ export function parseCsv(text: string): ParseCsvResult {
   if (!header) return { phoneHeaderFound: false, rows: [], rejected: [] }
 
   const expected = records[0].cells.length
+  if (records[0].unterminated) return headerUnterminated(records[0], expected)
   const rows: ParsedRow[] = []
   const rejected: CsvParseReject[] = []
   for (const record of records.slice(1)) {
@@ -77,6 +78,13 @@ export function parseCsv(text: string): ParseCsvResult {
     else if (outcome.kind === 'reject') rejected.push(outcome.reject)
   }
   return { phoneHeaderFound: true, rows, rejected }
+}
+
+/** An unterminated quote on the header line swallows the whole file into one
+ *  record: name the quote (line 1) instead of reporting the file as empty. */
+function headerUnterminated(header: CsvRecord, expected: number): ParseCsvResult {
+  const reject: CsvParseReject = { line: header.line, reason: 'unterminated_quote', expected, actual: expected, phone: null }
+  return { phoneHeaderFound: true, rows: [], rejected: [reject] }
 }
 
 function matchHeader(cells: string[]): HeaderIndexes | null {

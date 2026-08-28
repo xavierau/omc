@@ -21,7 +21,7 @@ export function CsvFormatHelp() {
           type="button"
           data-action="download-template"
           onClick={() => downloadImportTemplate()}
-          className="text-xs text-muted-foreground underline"
+          className="-my-2 inline-flex min-h-11 items-center text-xs text-muted-foreground underline"
         >
           {t('csv.downloadTemplate')}
         </button>
