@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { SelectAllHeaderCell, RowSelectCell } from './member-table-select-cell'
 
 interface Member {
   id: string
@@ -24,6 +25,9 @@ interface MemberTableProps {
   sortOrder: 'asc' | 'desc'
   onSort: (column: string) => void
   onSelectMember: (id: string) => void
+  selectedIds: string[]
+  onToggle: (id: string) => void
+  onToggleAll: (ids: string[]) => void
 }
 
 function formatDate(dateStr: string | null): string {
@@ -62,9 +66,15 @@ export function MemberTable({
   sortOrder,
   onSort,
   onSelectMember,
+  selectedIds,
+  onToggle,
+  onToggleAll,
 }: MemberTableProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
+
+  const allSelected = members.length > 0 && members.every((m) => selectedIds.includes(m.id))
+  const handleToggleAll = () => onToggleAll(allSelected ? [] : members.map((m) => m.id))
 
   const sortableColumns = [
     { key: 'name', label: t('name') },
@@ -87,6 +97,7 @@ export function MemberTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <SelectAllHeaderCell allSelected={allSelected} onToggleAll={handleToggleAll} />
               {sortableColumns.map((col) => (
                 <TableHead
                   key={col.key}
@@ -107,6 +118,11 @@ export function MemberTable({
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => onSelectMember(member.id)}
               >
+                <RowSelectCell
+                  memberId={member.id}
+                  checked={selectedIds.includes(member.id)}
+                  onToggle={onToggle}
+                />
                 <TableCell className="font-medium">{member.name || tc('unknown')}</TableCell>
                 <TableCell className="text-muted-foreground">{member.phone}</TableCell>
                 <TableCell>{member.points_balance}</TableCell>
