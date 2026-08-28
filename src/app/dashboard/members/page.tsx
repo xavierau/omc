@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
 import { MemberTable } from '@/components/dashboard/member-table'
 import { MemberTagFilter } from '@/components/dashboard/member-tag-filter'
+import { MemberBulkTagBar } from '@/components/dashboard/member-bulk-tag-bar'
 import { MemberDetailPanel } from '@/components/dashboard/member-detail-panel'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -21,15 +22,21 @@ export default function MembersPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [tagId, setTagId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
+  // Selection is page-scoped only; changing page, search or tag filter
+  // clears it directly at the point of change so the "{n} selected" count
+  // never lies about what's visible (cleared alongside setPage below, not
+  // via a state-syncing effect).
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       setDebouncedSearch(value)
       setPage(1)
+      setSelectedIds([])
     }, 300)
   }, [])
 
@@ -44,6 +51,7 @@ export default function MembersPage() {
   const handleTagFilter = useCallback((id: string | null) => {
     setTagId(id)
     setPage(1)
+    setSelectedIds([])
   }, [])
 
   const handleSort = (column: string) => {
@@ -58,6 +66,20 @@ export default function MembersPage() {
   const handleSelectMember = (id: string) => {
     setSelectedMemberId(id)
     setPanelOpen(true)
+  }
+
+  const handleToggle = (id: string) => {
+    setSelectedIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    setSelectedIds([])
+  }
+
+  const handleBulkTagSuccess = () => {
+    refetch()
+    setSelectedIds([])
   }
 
   if (error) {
@@ -81,6 +103,11 @@ export default function MembersPage() {
         </Link>
       </div>
       <MemberTagFilter tagId={tagId} onChange={handleTagFilter} />
+      <MemberBulkTagBar
+        selectedIds={selectedIds}
+        onClear={() => setSelectedIds([])}
+        onSuccess={handleBulkTagSuccess}
+      />
       <MembersContent
         data={data}
         isLoading={isLoading}
@@ -92,7 +119,10 @@ export default function MembersPage() {
         onSort={handleSort}
         onSelectMember={handleSelectMember}
         page={page}
-        onPageChange={setPage}
+        onPageChange={handlePageChange}
+        selectedIds={selectedIds}
+        onToggle={handleToggle}
+        onToggleAll={setSelectedIds}
       />
       <MemberDetailPanel
         memberId={selectedMemberId}
@@ -127,10 +157,14 @@ interface MembersContentProps {
   onSelectMember: (id: string) => void
   page: number
   onPageChange: (page: number) => void
+  selectedIds: string[]
+  onToggle: (id: string) => void
+  onToggleAll: (ids: string[]) => void
 }
 
 function MembersContent({
   data, isLoading, search, tagFiltered, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange,
+  selectedIds, onToggle, onToggleAll,
 }: MembersContentProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
@@ -171,6 +205,9 @@ function MembersContent({
         sortOrder={sortOrder}
         onSort={onSort}
         onSelectMember={onSelectMember}
+        selectedIds={selectedIds}
+        onToggle={onToggle}
+        onToggleAll={onToggleAll}
       />
       {data.totalPages > 1 && (
         <PaginationSection data={data} page={page} onPageChange={onPageChange} />
