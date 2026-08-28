@@ -148,6 +148,7 @@ import { ConsentRecord } from '@/domain/entities/consent-record'
 import type { TenantCampaignSettings } from '@/domain/services/campaign-guardrails'
 import { okResult, failResult } from '@/test-utils/send-result'
 import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
+import { CampaignCouponConfigMissingError } from '@/application/enforce-coupon-params'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
@@ -1649,6 +1650,28 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
 
     await expect(executeCampaign('camp-1', 'r-1')).rejects.toBeInstanceOf(
       TemplateHeaderMediaMissingError
+    )
+
+    expect(transitionCampaignStatus).not.toHaveBeenCalled()
+    expect(updateCampaign).not.toHaveBeenCalled()
+    expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+  })
+
+  // I-1 / #134: a scheduled (cron) run must fail fast the same way — before
+  // any member send is burned — when the campaign has no coupon config but
+  // its template still expects a code ({{code}} body variable here).
+  it('fails fast BEFORE the status transition when the campaign has no coupon config but the template expects a code', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ whatsappTemplateId: 'tpl-u', couponConfig: null })
+    )
+    vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
+      ...utilityTemplate,
+      name: 'free_drink',
+      components: [{ type: 'BODY' as const, text: 'Hi {{name}}, code {{code}}' }],
+    })
+
+    await expect(executeCampaign('camp-1', 'r-1')).rejects.toBeInstanceOf(
+      CampaignCouponConfigMissingError
     )
 
     expect(transitionCampaignStatus).not.toHaveBeenCalled()

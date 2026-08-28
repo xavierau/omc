@@ -36,7 +36,10 @@ export async function loadRerunPrefetch(
       ? findMemberIdsWithCountedSend({ campaignId, restaurantId, memberIds })
       : Promise.resolve(new Set<string>()),
     // Claim mode mints nothing at broadcast, so there is nothing to reuse.
-    isClaimTemplate(ctx.template)
+    // Claim mode mints lazily at tap time; marketing-only (couponConfig
+    // null — #134) never sends a code at all — sendToMember never reads
+    // existingCoupons in either case, so skip the query for both.
+    isClaimTemplate(ctx.template) || !ctx.campaign.couponConfig
       ? Promise.resolve(new Map<string, Coupon>())
       : findCouponsByMembersAndCampaign({ restaurantId, campaignId, memberIds }),
   ])

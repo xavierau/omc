@@ -66,7 +66,16 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
       tenantStatus: 'active',
     })
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
-      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+      // #134 / I-1 round 2 (R4): buildCampaign()'s default `template` field
+      // references {{code}} — override it so the baseline happy-path fixture
+      // doesn't trip the inline-copy coupon guard (couponConfig is null here
+      // and resolveWhatsAppTemplate defaults to null below).
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        template: 'Hi {{name}}, thanks for being a member!',
+      })
     )
     vi.mocked(enforceCampaignGuardrails).mockResolvedValue(undefined)
     vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(null)
@@ -86,7 +95,12 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
   })
 
   it('runs guardrails -> template resolution -> template review -> enqueue, in that order', async () => {
-    const campaign = buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+    const campaign = buildCampaign({
+      id: CAMPAIGN_ID,
+      restaurantId: RESTAURANT_ID,
+      status: 'active',
+      template: 'Hi {{name}}, thanks for being a member!',
+    })
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(campaign)
     const order: string[] = []
     vi.mocked(enforceCampaignGuardrails).mockImplementation(async () => {
@@ -218,6 +232,35 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     expect(addCampaignJob).not.toHaveBeenCalled()
   })
 
+  // I-1 / #134: a coupon-less campaign whose template still expects a code
+  // (a {{code}} body variable or a dynamic URL button) is a guaranteed Meta
+  // rejection on every send — surface it synchronously as a 409 instead of
+  // queueing a run that burns and fails.
+  it('returns 409 and does NOT enqueue when the campaign has no coupon config but the template expects a code', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        couponConfig: null,
+      })
+    )
+    vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
+      buildWhatsAppTemplate({
+        name: 'free_drink',
+        components: [{ type: 'BODY', text: 'Hi {{customer_name}}, code {{code}}' }],
+      })
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('free_drink')
+    expect(body.error).toContain('coupon')
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
   it('enqueues when the media header has a stored https URL', async () => {
     vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
       buildWhatsAppTemplate({
@@ -277,7 +320,12 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
 
   it('enqueues normally for a same-tenant request', async () => {
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
-      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        template: 'Hi {{name}}, thanks for being a member!',
+      })
     )
 
     const r = await POST(new Request('http://x') as never, params())
