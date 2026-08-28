@@ -52,5 +52,5 @@ export function maybeLogProbeBoundary(
 }
 
 function sumSkipped(c: SkipCounters): number {
-  return c.noConsent + c.capExceeded + c.throttled + c.unreachable
+  return c.noConsent + c.capExceeded + c.throttled + c.unreachable + c.alreadySent
 }

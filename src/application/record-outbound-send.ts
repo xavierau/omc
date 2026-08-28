@@ -26,8 +26,9 @@ export interface RecordOutboundSendArgs {
 
 /**
  * Two-phase send (insert queued row -> call BSP -> attach wamid). When
- * tracking is disabled (`WAQ_TRACK_MESSAGES != '1'`), short-circuits to
- * send() with no DB writes so prod is forward-compatible during rollout.
+ * tracking is disabled (`WAQ_TRACK_MESSAGES === '0'`, see
+ * `message-tracking-flag.ts` — opt-out since #131), short-circuits to
+ * send() with no DB writes.
  */
 export async function recordOutboundSend(
   args: RecordOutboundSendArgs

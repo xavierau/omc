@@ -91,6 +91,12 @@ no artifact files were lost._
 - [2026-07-26-reply-005-coderabbit-fixes-backend](artifacts/2026-07-26-reply-005-coderabbit-fixes-backend.md) — CodeRabbit review fixes, PR #70 (senior-backend-dev)
 - [2026-07-26-reply-005-coderabbit-fixes-frontend](artifacts/2026-07-26-reply-005-coderabbit-fixes-frontend.md) — CodeRabbit UI findings #1, #2, PR #70 (react-frontend-dev)
 
+**CAMP-008 — #131/#132 outbound status + claim-mode button**
+- [2026-08-27-camp-008-outbound-status-and-claim-button](plans/2026-08-27-camp-008-outbound-status-and-claim-button.md) — plan D1–D6 + advisor amendment A1–A9 (claude)
+- [2026-08-27-camp-008-stream-a-webhooks-v2-backend](artifacts/2026-08-27-camp-008-stream-a-webhooks-v2-backend.md) — Stream A: Kapso v2 outbound status classification + real 131042 fixture (senior-backend-dev)
+- [2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend](artifacts/2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend.md) — Streams B+C: tracking opt-out, retract RPC 064, finalize CAS, re-run ledger + coupon reuse (claude)
+- Stream D (#132 QUICK_REPLY) ships on its own branch/PR #133 — artifact lives there
+
 **Earlier**
 - [2026-07-16-tpl-003-template-meta-submission-backend](artifacts/2026-07-16-tpl-003-template-meta-submission-backend.md) — TPL-003 template Meta submission (B1 + B4 + B5 + B6) (senior-backend-dev)
 - [2026-06-10-stamp-collection-backend](artifacts/2026-06-10-stamp-collection-backend.md) — Stamp Collection Phase B: granting loop (senior-backend-dev)

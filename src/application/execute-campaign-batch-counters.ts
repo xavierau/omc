@@ -13,6 +13,9 @@ export type MemberOutcome =
   | 'skipped_cap_exceeded'
   | 'skipped_throttled'
   | 'skipped_unreachable'
+  // #131 / CAMP-002: re-run — the member already has a counted send (or a
+  // redeemed/dead coupon) for this campaign; never re-sent, never re-counted.
+  | 'skipped_already_sent'
 
 export interface SkipCounters {
   // #127 / CAMP-007: successful sends are counted too, so the orchestrator
@@ -28,6 +31,7 @@ export interface SkipCounters {
   capExceeded: number
   throttled: number
   unreachable: number
+  alreadySent: number
 }
 
 export function emptyCounters(): SkipCounters {
@@ -39,6 +43,7 @@ export function emptyCounters(): SkipCounters {
     capExceeded: 0,
     throttled: 0,
     unreachable: 0,
+    alreadySent: 0,
   }
 }
 
@@ -77,6 +82,7 @@ export function tally(
     else if (r.value === 'skipped_cap_exceeded') counters.capExceeded++
     else if (r.value === 'skipped_throttled') counters.throttled++
     else if (r.value === 'skipped_unreachable') counters.unreachable++
+    else if (r.value === 'skipped_already_sent') counters.alreadySent++
   }
 }
 
@@ -98,5 +104,8 @@ export function logSummary(total: number, c: SkipCounters): void {
   }
   if (c.unreachable > 0) {
     console.warn(`[Campaign] ${c.unreachable}/${total} skipped (unreachable)`)
+  }
+  if (c.alreadySent > 0) {
+    console.warn(`[Campaign] ${c.alreadySent}/${total} skipped (already sent in a previous run)`)
   }
 }

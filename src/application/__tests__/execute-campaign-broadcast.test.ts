@@ -271,7 +271,7 @@ describe('sendToMember — eager mode (no QUICK_REPLY button)', () => {
     )
     const ctx = buildCtx({ template: null })
 
-    await expect(sendToMember(buildMember(), ctx)).resolves.toBeUndefined()
+    await expect(sendToMember(buildMember(), ctx)).resolves.toBe('sent')
 
     expect(sendCouponQr).not.toHaveBeenCalled()
     expect(incrementCampaignSent).not.toHaveBeenCalled()
@@ -298,5 +298,106 @@ describe('sendToMember — eager mode (no QUICK_REPLY button)', () => {
     expect(sendClaimBody).not.toHaveBeenCalled()
     expect(sendCampaignBody).toHaveBeenCalledTimes(1)
     expect(createCampaignBroadcastCoupon).toHaveBeenCalledTimes(1)
+  })
+})
+
+// #131 §4 / CAMP-002: a campaign re-run after a Meta-side fix must reach the
+// members whose first send was rejected WITH the code they already hold —
+// the old path re-sent a body carrying a fresh code, hit migration 053 on
+// the mint, and then skipped the QR, the counter and the event.
+describe('sendToMember — eager mode re-run with an existing coupon (#131)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(generateCouponCode).mockReturnValue('NEWCODE')
+    vi.mocked(renderTemplate).mockReturnValue('desc')
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+  })
+
+  function prefetchWith(coupon: Coupon) {
+    return {
+      countedMemberIds: new Set<string>(),
+      existingCoupons: new Map([[coupon.memberId as string, coupon]]),
+    }
+  }
+
+  it('reuses the existing active coupon: body carries ITS code, no mint, then QR + count + event', async () => {
+    const existing = buildCoupon({ code: 'OLDCODE', memberId: 'm-1' })
+    const ctx = buildCtx({ template: null })
+
+    const outcome = await sendToMember(buildMember(), ctx, prefetchWith(existing))
+
+    expect(outcome).toBe('sent')
+    expect(generateCouponCode).not.toHaveBeenCalled()
+    expect(sendCampaignBody).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm-1' }),
+      ctx,
+      'OLDCODE',
+      expect.any(String)
+    )
+    expect(createCampaignBroadcastCoupon).not.toHaveBeenCalled()
+    expect(sendCouponQr).toHaveBeenCalledWith(expect.objectContaining({ id: 'm-1' }), ctx, 'OLDCODE')
+    expect(incrementCampaignSent).toHaveBeenCalledWith('camp-1', true)
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ dataJson: { campaignId: 'camp-1', couponCode: 'OLDCODE' } })
+    )
+  })
+
+  it('skips the member entirely when the existing coupon is redeemed', async () => {
+    const redeemed = buildCoupon({ status: 'redeemed', redeemedAt: '2026-08-01T00:00:00Z', currentUses: 1 })
+    const ctx = buildCtx({ template: null })
+
+    const outcome = await sendToMember(buildMember(), ctx, prefetchWith(redeemed))
+
+    expect(outcome).toBe('skipped_already_sent')
+    expect(sendCampaignBody).not.toHaveBeenCalled()
+    expect(sendCouponQr).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+    expect(emitEvent).not.toHaveBeenCalled()
+  })
+
+  it('skips the member when the existing coupon has expired', async () => {
+    const expired = buildCoupon({ expiresAt: '2020-01-01T00:00:00Z' })
+
+    const outcome = await sendToMember(buildMember(), buildCtx({ template: null }), prefetchWith(expired))
+
+    expect(outcome).toBe('skipped_already_sent')
+    expect(sendCampaignBody).not.toHaveBeenCalled()
+  })
+
+  it('mints a fresh coupon when the member holds none (first run unchanged)', async () => {
+    const ctx = buildCtx({ template: null })
+    vi.mocked(createCampaignBroadcastCoupon).mockResolvedValue(buildCoupon({ code: 'NEWCODE' }))
+
+    const outcome = await sendToMember(buildMember(), ctx, {
+      countedMemberIds: new Set(),
+      existingCoupons: new Map(),
+    })
+
+    expect(outcome).toBe('sent')
+    expect(sendCampaignBody).toHaveBeenCalledWith(expect.anything(), ctx, 'NEWCODE', expect.any(String))
+    expect(createCampaignBroadcastCoupon).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not send a body with a reused code when the send itself fails', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(failResult('kapso_send_error'))
+    const existing = buildCoupon({ code: 'OLDCODE' })
+
+    await expect(
+      sendToMember(buildMember(), buildCtx({ template: null }), prefetchWith(existing))
+    ).rejects.toThrow()
+
+    expect(sendCouponQr).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+  })
+
+  it('claim mode ignores existing coupons (nothing is minted at broadcast)', async () => {
+    vi.mocked(sendClaimBody).mockResolvedValue(okResult('wamid.claim'))
+    const existing = buildCoupon({ code: 'OLDCODE' })
+
+    const outcome = await sendToMember(buildMember(), buildCtx({ template: claimTemplate }), prefetchWith(existing))
+
+    expect(outcome).toBe('sent')
+    expect(sendClaimBody).toHaveBeenCalledTimes(1)
+    expect(sendCouponQr).not.toHaveBeenCalled()
   })
 })

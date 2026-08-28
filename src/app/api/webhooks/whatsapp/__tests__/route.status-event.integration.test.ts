@@ -17,6 +17,7 @@ import {
 } from 'vitest'
 import { readFileSync } from 'fs'
 import path from 'path'
+import kapsoV2Failed131042 from '@/infrastructure/whatsapp/__tests__/fixtures/kapso-v2-failed-131042.json'
 
 vi.mock('@/infrastructure/whatsapp/provider-factory', async () => {
   const actual = await vi.importActual<
@@ -71,11 +72,25 @@ interface EventRow extends Record<string, unknown> {
   data_json: Record<string, unknown>
 }
 
+interface CampaignRow extends Record<string, unknown> {
+  id: string
+  restaurant_id: string
+  status: string
+  is_chargeable: boolean
+  chargeable_sent_count: number
+  non_chargeable_sent_count: number
+  failure_reason: string | null
+}
+
 const state = {
   messages: new Map<string, Row>(),
   processed: new Set<string>(),
   members: new Map<string, MemberRow>(),
   events: [] as EventRow[],
+  // #131: campaigns + the retract_campaign_sent RPC (migration 064), so a
+  // failed webhook for a campaign body row can be asserted end-to-end.
+  campaigns: new Map<string, CampaignRow>(),
+  rpcCalls: [] as Array<{ fn: string; args: Record<string, unknown> }>,
   // When set, the next processed_webhooks insert returns this error (transient
   // DB failure simulation for the idempotency-error path).
   processedInsertError: null as { code: string; message: string } | null,
@@ -86,7 +101,48 @@ function reset(): void {
   state.processed.clear()
   state.members.clear()
   state.events.length = 0
+  state.campaigns.clear()
+  state.rpcCalls.length = 0
   state.processedInsertError = null
+}
+
+function seedCampaign(row: Partial<CampaignRow> & { id: string }): void {
+  state.campaigns.set(row.id, {
+    restaurant_id: 'rest-1',
+    status: 'completed',
+    is_chargeable: true,
+    chargeable_sent_count: 1,
+    non_chargeable_sent_count: 0,
+    failure_reason: null,
+    ...row,
+  } as CampaignRow)
+}
+
+// Mirrors migration 064: decrement the row's own bucket (GREATEST 0) and, if
+// the campaign was `completed` and both buckets drained, flip to `failed`.
+function retractCampaignSentRpc(args: Record<string, unknown>) {
+  const row = state.campaigns.get(args.p_campaign_id as string)
+  if (!row || row.restaurant_id !== args.p_restaurant_id) return { data: [], error: null }
+  if (row.is_chargeable) {
+    row.chargeable_sent_count = Math.max(0, row.chargeable_sent_count - 1)
+  } else {
+    row.non_chargeable_sent_count = Math.max(0, row.non_chargeable_sent_count - 1)
+  }
+  const drained = row.chargeable_sent_count === 0 && row.non_chargeable_sent_count === 0
+  if (row.status === 'completed' && drained) {
+    row.status = 'failed'
+    row.failure_reason = args.p_failure_reason as string
+  }
+  return {
+    data: [
+      {
+        status: row.status,
+        chargeable_sent_count: row.chargeable_sent_count,
+        non_chargeable_sent_count: row.non_chargeable_sent_count,
+      },
+    ],
+    error: null,
+  }
 }
 
 function seedMessage(row: Partial<Row> & { id: string; kapso_message_id: string }): void {
@@ -131,6 +187,11 @@ function fakeSupabase() {
       if (table === 'members') return membersOps()
       if (table === 'events') return eventsOps()
       throw new Error(`unexpected table: ${table}`)
+    },
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      state.rpcCalls.push({ fn, args })
+      if (fn === 'retract_campaign_sent') return retractCampaignSentRpc(args)
+      throw new Error(`unexpected rpc: ${fn}`)
     },
   }
 }
@@ -481,5 +542,84 @@ describe('POST /api/webhooks/whatsapp — status events', () => {
     const { status: secondStatus } = await postWebhook(fixture)
     expect(secondStatus).toBe(200)
     expect(state.messages.get('msg-late')!.status).toBe('delivered')
+  })
+})
+
+// #131 end-to-end: a Kapso payload-v2 `whatsapp.message.failed` for a
+// campaign template body (the real 131042 shape that was being dropped as
+// `inbound`) must reach the row, retract the campaign's sent counter ONCE,
+// and flip an all-failed `completed` campaign to `failed` with the reason.
+describe('POST /api/webhooks/whatsapp — Kapso v2 failed status → campaign retraction (#131)', () => {
+  const V2_ID = (kapsoV2Failed131042 as { message: { id: string } }).message.id
+
+  it('classifies v2 as status, fails the row with 131042, retracts once, flips the campaign', async () => {
+    seedMessage({
+      id: 'msg-v2',
+      kapso_message_id: V2_ID,
+      member_id: 'mem-9',
+      campaign_id: 'camp-9',
+      message_type: 'template',
+    })
+    seedMember('mem-9')
+    seedCampaign({ id: 'camp-9', status: 'completed', chargeable_sent_count: 1 })
+
+    const { status, json } = await postWebhook(kapsoV2Failed131042)
+
+    expect(status).toBe(200)
+    expect(json).toEqual({ status: 'ok' })
+    const row = state.messages.get('msg-v2')!
+    expect(row.status).toBe('failed')
+    expect(row.error_code).toBe('131042')
+    expect(row.error_title).toBe('Business eligibility payment issue')
+    expect(row.error_details).toContain('currency is not configured')
+
+    expect(state.rpcCalls).toHaveLength(1)
+    expect(state.rpcCalls[0]).toMatchObject({
+      fn: 'retract_campaign_sent',
+      args: { p_campaign_id: 'camp-9', p_restaurant_id: 'rest-1' },
+    })
+    const campaign = state.campaigns.get('camp-9')!
+    expect(campaign.chargeable_sent_count).toBe(0)
+    expect(campaign.status).toBe('failed')
+    expect(campaign.failure_reason).toContain('131042')
+    expect(campaign.failure_reason).toContain('not an OhMyClient')
+
+    // 131042 is log_only: no engineering-alert events row per failed message.
+    expect(state.events).toHaveLength(0)
+  })
+
+  it('re-POSTing the same v2 failed payload does not retract a second time', async () => {
+    seedMessage({
+      id: 'msg-v2',
+      kapso_message_id: V2_ID,
+      campaign_id: 'camp-9',
+      message_type: 'template',
+    })
+    seedCampaign({ id: 'camp-9', status: 'completed', chargeable_sent_count: 2 })
+
+    await postWebhook(kapsoV2Failed131042)
+    const { status } = await postWebhook(kapsoV2Failed131042)
+
+    expect(status).toBe(200)
+    expect(state.rpcCalls).toHaveLength(1)
+    expect(state.campaigns.get('camp-9')!.chargeable_sent_count).toBe(1)
+    expect(state.campaigns.get('camp-9')!.status).toBe('completed')
+  })
+
+  it('a failed coupon-QR image never retracts (it was never counted)', async () => {
+    seedMessage({
+      id: 'msg-qr',
+      kapso_message_id: V2_ID,
+      campaign_id: 'camp-9',
+      category: 'service',
+      message_type: 'image',
+    })
+    seedCampaign({ id: 'camp-9', status: 'completed', chargeable_sent_count: 1 })
+
+    await postWebhook(kapsoV2Failed131042)
+
+    expect(state.messages.get('msg-qr')!.status).toBe('failed')
+    expect(state.rpcCalls).toHaveLength(0)
+    expect(state.campaigns.get('camp-9')!.status).toBe('completed')
   })
 })

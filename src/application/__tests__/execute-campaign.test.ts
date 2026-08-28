@@ -7,10 +7,26 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   incrementCampaignSent: vi.fn(),
   updateCampaign: vi.fn(),
   transitionCampaignStatus: vi.fn(),
+  // #131: a run that tallied sends completes through this CAS (a sent bucket
+  // must still be > 0). Default true = no webhook retracted anything.
+  completeCampaignRunIfCounted: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries', () => ({
+  findLatestCampaignFailure: vi.fn().mockResolvedValue(null),
+  CAMPAIGN_BODY_MESSAGE_TYPES: ['template', 'text'],
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/coupon-repository', () => ({
   createCoupon: vi.fn(),
+}))
+
+// #131 / CAMP-002 re-run prefetch: default = first run (no ledger, no coupons).
+vi.mock('@/infrastructure/supabase/repositories/coupon-campaign-queries', () => ({
+  findCouponsByMembersAndCampaign: vi.fn().mockResolvedValue(new Map()),
+}))
+vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-ledger-queries', () => ({
+  findMemberIdsWithCountedSend: vi.fn().mockResolvedValue(new Set()),
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
@@ -100,7 +116,11 @@ import {
   incrementCampaignSent,
   updateCampaign,
   transitionCampaignStatus,
+  completeCampaignRunIfCounted,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
+import { findCouponsByMembersAndCampaign } from '@/infrastructure/supabase/repositories/coupon-campaign-queries'
+import { findMemberIdsWithCountedSend } from '@/infrastructure/supabase/repositories/whatsapp-message-ledger-queries'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { emitEvent } from '@/application/emit-event'
@@ -225,7 +245,7 @@ describe('executeCampaign', () => {
     expect(createCoupon).toHaveBeenCalledTimes(2)
     expect(incrementCampaignSent).toHaveBeenCalledTimes(2)
     expect(emitEvent).toHaveBeenCalledTimes(2)
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
   })
 
   it('filters out unsubscribed members', async () => {
@@ -345,7 +365,7 @@ describe('executeCampaign', () => {
     expect(createCoupon).toHaveBeenCalledTimes(25)
     expect(incrementCampaignSent).toHaveBeenCalledTimes(25)
     expect(emitEvent).toHaveBeenCalledTimes(25)
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
   })
 
   it('throws NoTemplateError BEFORE transitioning status — no revert needed', async () => {
@@ -839,7 +859,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
     // Failed body for m-2 went through markFailedNoBspId
     expect(markFailedNoBspId).toHaveBeenCalled()
     // Status still flips to completed because the batch tolerates failures
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
   })
 })
 
@@ -1316,6 +1336,10 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
   })
 
   it('probe-boundary log preserves sent+skipped+failed === probeSize when a send fails', async () => {
+    // Tracking OFF for this case: with tracking on, recordOutboundSend turns
+    // a transport throw into a recorded `failed` row (BSP-rejected), which is
+    // a different, already-covered tally. This test pins the raw-throw path.
+    process.env.WAQ_TRACK_MESSAGES = '0'
     // Review fix (gemini r1 + analyzer IMPORTANT): `failed` was previously
     // double-counted — once inside `skipped` and again as its own field.
     // Phase 2 KPI thresholds (delivery >=95%, error <0.5%) read these
@@ -1377,6 +1401,7 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
 
     logSpy.mockRestore()
     errSpy.mockRestore()
+    delete process.env.WAQ_TRACK_MESSAGES
   })
 
   it('caps in-flight sendTextMessage concurrency at 20 even within a 100-member chunk', async () => {
@@ -1461,6 +1486,8 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(getCampaignById).mockResolvedValue(
       buildCampaign({ whatsappTemplateId: 'tpl-u' })
     )
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(true)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue(null)
     vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(utilityTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([
       buildMember({ id: 'm-1', phone: '85291111111' }),
@@ -1500,6 +1527,59 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     })
   })
 
+  // #131: a synchronous ack is not delivery. When Meta's rejection webhooks
+  // retract every counted send before the finaliser runs, the CAS loses and
+  // the run must end `failed` with the Meta reason — never `completed`.
+  it('marks the run failed with the Meta reason when every counted send was retracted before finalize', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
+    expect(findLatestCampaignFailure).toHaveBeenCalledWith('camp-1', 'r-1')
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
+      status: 'failed',
+      failureReason: expect.stringContaining('131042'),
+    })
+    expect(updateCampaign).not.toHaveBeenCalledWith('camp-1', {
+      status: 'completed',
+    })
+  })
+
+  it('interleaving: a retraction landing between the batch and finalize still ends failed, never completed', async () => {
+    // Simulate the webhook zeroing the counters while sendInBatches is still
+    // running: the CAS observes the drained counters and refuses.
+    vi.mocked(sendWhatsAppTemplateMessage).mockImplementation(async () => {
+      vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+      return okResult('wamid.tpl')
+    })
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue(null)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(incrementCampaignSent).toHaveBeenCalledTimes(2)
+    const statuses = vi.mocked(updateCampaign).mock.calls.map(([, c]) => c.status)
+    expect(statuses).toContain('failed')
+    expect(statuses).not.toContain('completed')
+    const failedCall = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, c]) => c.status === 'failed')
+    expect(failedCall![1].failureReason).toContain('Meta')
+    expect(failedCall![1].failureReason).toContain('not an OhMyClient')
+  })
+
+  it('does not consult the CAS when nothing was attempted (all skipped)', async () => {
+    vi.mocked(resolveTargetMembers).mockResolvedValue([])
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(completeCampaignRunIfCounted).not.toHaveBeenCalled()
+  })
+
   it('does not leak raw send-error internals into the failure reason', async () => {
     vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(
       failResult('kapso_send_error')
@@ -1521,9 +1601,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
 
     await executeCampaign('camp-1', 'r-1')
 
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
-      status: 'completed',
-    })
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
   })
 
   it('fails fast BEFORE the status transition when the template needs a media header with no stored URL', async () => {
@@ -1574,9 +1652,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
 
     await executeCampaign('camp-1', 'r-1')
 
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
-      status: 'completed',
-    })
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
   })
 
   // Red-team pin (#127): the failure reason must name the deciding system —
@@ -1666,8 +1742,103 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     await executeCampaign('camp-1', 'r-1')
 
     expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(2)
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
-      status: 'completed',
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
+  })
+})
+
+// #131 §4 / CAMP-002: re-executing a campaign reaches ONLY the members whose
+// first send was rejected. Members with a counted (non-failed) body row are
+// skipped — never re-sent, never re-counted — via one ledger query per chunk.
+describe('executeCampaign — re-run ledger (#131 / CAMP-002)', () => {
+  const ORIGINAL_FLAG = process.env.WAQ_TRACK_MESSAGES
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    delete process.env.WAQ_TRACK_MESSAGES
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(renderTemplate).mockReturnValue('rendered text')
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(transitionCampaignStatus).mockResolvedValue(true)
+    vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-id-1')
+    vi.mocked(sendTextMessage).mockResolvedValue(okResult('wamid.text'))
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.img'))
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign())
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(true)
+    vi.mocked(findCouponsByMembersAndCampaign).mockResolvedValue(new Map())
+    vi.mocked(findMemberIdsWithCountedSend).mockResolvedValue(new Set())
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      buildMember({ id: 'm-1', phone: '85291111111' }),
+      buildMember({ id: 'm-2', phone: '85292222222' }),
+    ])
+  })
+
+  afterEach(() => {
+    if (ORIGINAL_FLAG === undefined) delete process.env.WAQ_TRACK_MESSAGES
+    else process.env.WAQ_TRACK_MESSAGES = ORIGINAL_FLAG
+  })
+
+  it('skips members with a counted prior send and re-sends only the rejected ones', async () => {
+    vi.mocked(findMemberIdsWithCountedSend).mockResolvedValue(new Set(['m-1']))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(findMemberIdsWithCountedSend).toHaveBeenCalledTimes(1)
+    expect(findMemberIdsWithCountedSend).toHaveBeenCalledWith({
+      campaignId: 'camp-1',
+      restaurantId: 'r-1',
+      memberIds: ['m-1', 'm-2'],
     })
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
+    expect(sendTextMessage).toHaveBeenCalledWith('phone-id-1', '85292222222', expect.any(String))
+    expect(incrementCampaignSent).toHaveBeenCalledTimes(1)
+    expect(emitEvent).toHaveBeenCalledTimes(1)
+    expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
+  })
+
+  it('completes (not failed) when every member was already reached', async () => {
+    vi.mocked(findMemberIdsWithCountedSend).mockResolvedValue(new Set(['m-1', 'm-2']))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(sendTextMessage).not.toHaveBeenCalled()
+    expect(updateCampaign).toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    expect(completeCampaignRunIfCounted).not.toHaveBeenCalled()
+  })
+
+  it('reuses each member\'s existing coupon code on the re-run body', async () => {
+    vi.mocked(findCouponsByMembersAndCampaign).mockResolvedValue(
+      new Map([
+        [
+          'm-2',
+          {
+            id: 'c-2', restaurantId: 'r-1', type: 'promo', code: 'KEPT01', status: 'active',
+            memberId: 'm-2', expiresAt: null, redeemedAt: null, discountType: 'percentage',
+            discountValue: 10, maxUses: 1, currentUses: 0, isActive: true, isChargeable: true,
+            title: null, description: null, campaignId: 'camp-1', createdAt: '2026-08-26T00:00:00Z',
+          },
+        ],
+      ])
+    )
+    vi.mocked(findMemberIdsWithCountedSend).mockResolvedValue(new Set(['m-1']))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(createCoupon).not.toHaveBeenCalled()
+    expect(renderTemplate).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ code: 'KEPT01' })
+    )
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ dataJson: { campaignId: 'camp-1', couponCode: 'KEPT01' } })
+    )
+  })
+
+  it('does not consult the ledger when tracking is off (pre-#131 behaviour)', async () => {
+    process.env.WAQ_TRACK_MESSAGES = '0'
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(findMemberIdsWithCountedSend).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledTimes(2)
   })
 })

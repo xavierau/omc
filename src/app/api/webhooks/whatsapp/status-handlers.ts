@@ -5,6 +5,7 @@ import {
 import { findMessageByKapsoIdWithRetry } from '@/application/find-message-by-kapso-id'
 import { applyStatusUpdate as applyStatusUpdateRepo } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
 import { dispatchErrorAction } from '@/application/dispatch-error-action'
+import { reconcileCampaignSendFailure } from '@/application/reconcile-campaign-send-failure'
 import { normalizeStatusPayload } from '@/infrastructure/whatsapp/webhooks'
 import { mapStatusUpdate, type KapsoStatusEntry } from './status-mapper'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
@@ -51,7 +52,10 @@ export async function routeStatusEvent(
  *   2. Look up the outbound row (one bounded retry; covers the §4.2 race).
  *   3. If missing: release the claim and log — Kapso's retry succeeds later.
  *   4. Otherwise: apply the status update via the repository.
- *   5. On `failed` with an errorCode: dispatch the §6 error action
+ *   5. On a campaign body flipping to `failed` (#131): retract the campaign's
+ *      sent counter — runs BEFORE the error action because it is the billing
+ *      write and never throws, whereas a throwing dispatch would skip it.
+ *   6. On `failed` with an errorCode: dispatch the §6 error action
  *      (member-state mutation or ops alert).
  */
 export async function handleStatusUpdate(
@@ -76,8 +80,11 @@ export async function handleStatusUpdate(
 
   const update = mapStatusUpdate(status)
   const updated = await applyStatusUpdateRepo(status.id, update, status.raw)
+  if (!updated) return
 
-  if (updated?.snapshot.status === 'failed' && updated.snapshot.errorCode) {
+  await reconcileCampaignSendFailure({ before: message, after: updated, log })
+
+  if (updated.snapshot.status === 'failed' && updated.snapshot.errorCode) {
     await dispatchErrorAction(updated, restaurantId, log)
   }
 }

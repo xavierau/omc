@@ -13,6 +13,7 @@ import {
   hasMetaTemplateStatus,
   type TemplateStatusWebhookEntry,
 } from './webhooks-template-status'
+import { extractKapsoV2Status, hasKapsoV2OutboundStatus } from './webhooks-kapso-v2'
 import type { InboundMessage, LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 export { extractQualityEvent, extractTemplateStatusEvents, extractTemplateStatusWabaId }
@@ -51,7 +52,9 @@ export type WebhookKind =
 export function classifyWebhookKind(body: unknown): WebhookKind {
   if (!body || typeof body !== 'object') return 'other'
   const obj = body as Record<string, unknown>
-  if (hasMetaStatuses(obj) || hasKapsoFlatStatus(obj)) return 'status'
+  if (hasMetaStatuses(obj) || hasKapsoFlatStatus(obj) || hasKapsoV2OutboundStatus(obj)) {
+    return 'status'
+  }
   if (hasMetaMessages(obj) || hasKapsoFlatMessage(obj)) return 'inbound'
   if (hasMetaTemplateStatus(obj) || hasKapsoFlatTemplateStatus(obj)) {
     return 'template_status'
@@ -84,7 +87,15 @@ export function normalizeStatusPayload(body: unknown): NormalizedStatus[] {
   const fromMeta = extractMetaStatuses(body)
   if (fromMeta.length > 0) return fromMeta
 
-  const fromKapso = extractKapsoFlatStatus(body as Record<string, unknown>)
+  const obj = body as Record<string, unknown>
+
+  const v2Raw = extractKapsoV2Status(obj)
+  if (v2Raw) {
+    const v2Status = toNormalizedStatus(v2Raw)
+    return v2Status ? [v2Status] : []
+  }
+
+  const fromKapso = extractKapsoFlatStatus(obj)
   return fromKapso ? [fromKapso] : []
 }
 

@@ -165,7 +165,12 @@ export async function updateCampaign(
 
 // Counter mutations + welcome-campaign remap RPC live in campaign-counters.ts;
 // campaign-members operations live in campaign-members-repository.ts.
-export { incrementCampaignSent, incrementCampaignRedeemed, remapWelcomeCampaign } from './campaign-counters'
+export {
+  incrementCampaignSent,
+  incrementCampaignRedeemed,
+  remapWelcomeCampaign,
+  retractCampaignSent,
+} from './campaign-counters'
 
 export async function transitionCampaignStatus(
   id: string,
@@ -178,6 +183,31 @@ export async function transitionCampaignStatus(
     .update({ status: toStatus })
     .eq('id', id)
     .eq('status', fromStatus)
+    .select('id')
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal CAS for a campaign run whose batch tallied at least one sent
+ * message (Amendment 1 / A1). Plain `updateCampaign(id, {status:'completed'})`
+ * would race a webhook-driven `retractCampaignSent` that lands between the
+ * batch finishing and this call: if a webhook zeroes both sent counters
+ * first, an unconditional write would still claim `completed` on a campaign
+ * whose every send was actually rejected by Meta. The `OR` on the sent
+ * counters is the guard — it only succeeds while at least one send is still
+ * counted. Zero rows updated (guard failed, or already left `sending`) →
+ * the caller falls back to marking the run `failed`.
+ */
+export async function completeCampaignRunIfCounted(
+  id: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data } = await supabase
+    .from('campaigns')
+    .update({ status: 'completed' })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .or('chargeable_sent_count.gt.0,non_chargeable_sent_count.gt.0')
     .select('id')
   return (data?.length ?? 0) > 0
 }

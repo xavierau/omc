@@ -30,6 +30,14 @@ describe('classifyErrorCode — §6.1 dispatch table', () => {
     })
   })
 
+  it('131042 → log_only / error (billing currency; tenant-visible via campaign failure_reason, #131)', () => {
+    expect(classifyErrorCode('131042')).toEqual({
+      code: '131042',
+      action: 'log_only',
+      severity: 'error',
+    })
+  })
+
   it('131047 → log_only / info (template expired)', () => {
     expect(classifyErrorCode('131047')).toEqual({
       code: '131047',
