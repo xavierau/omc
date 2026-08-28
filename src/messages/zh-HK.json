@@ -136,7 +136,18 @@
     "filterByTag": "按標籤篩選",
     "allTags": "所有標籤",
     "addTag": "新增標籤",
-    "noTags": "沒有標籤"
+    "noTags": "沒有標籤",
+    "selectAllOnPage": "選擇本頁全部",
+    "selectedCount": "已選擇 {count} 項",
+    "clearSelection": "清除",
+    "bulkAddTags": "新增標籤",
+    "bulkRemoveTags": "移除標籤",
+    "bulkWorking": "更新中…",
+    "bulkTagSuccess": "已為 {count} 位會員新增 {tags}。",
+    "bulkUntagSuccess": "已從 {count} 位會員移除 {tags}。",
+    "bulkTagTooMany": "最多只可選擇 500 位會員。",
+    "bulkTagForbidden": "一個或多個標籤無法使用。",
+    "bulkTagFailed": "無法更新標籤，請再試一次。"
   },
   "coupons": {
     "heading": "優惠券",
@@ -251,7 +262,13 @@
     "loadMore": "載入更多",
     "loadError": "無法載入會員，請重試。",
     "targetByTag": "按標籤指定對象",
-    "selectTag": "選擇標籤…"
+    "selectTag": "選擇標籤…",
+    "selectTags": "選擇一個或多個標籤…",
+    "tagOrHint": "凡持有任何一個所選標籤的會員都會收到此活動。",
+    "recipientCount": "{count} 位有效會員將會收到",
+    "recipientCountLoading": "正在計算收件人…",
+    "recipientCountZero": "沒有有效會員持有這些標籤——此活動不會傳送給任何人。",
+    "recipientCountError": "無法計算收件人數目。"
   },
   "tags": {
     "title": "標籤",
@@ -908,13 +925,15 @@
       "none": "無同意紀錄"
     },
     "csv": {
-      "description": "請上載至少包含 phone 欄位的 CSV，亦支援可選的 name 與 preferred_language 欄位。",
+      "description": "上載至少包含 phone 欄的 CSV。亦支援 name、preferred_language 及 tags 欄——多個標籤請以分號（;）分隔。",
       "pick": "選擇 CSV 檔案",
       "rowCount": "{count} 列已準備評級",
       "errors": {
         "empty": "CSV 為空或缺少 phone 欄位。",
         "tooManyRows": "每批次最多 {max} 列。"
-      }
+      },
+      "tagsFound": "此檔案中找到 {count} 個標籤",
+      "tagsIgnored": "已略過 {count} 個標籤值（空白或超過 40 個字元）"
     },
     "grade": {
       "strong": "強",
@@ -927,6 +946,27 @@
       "name": "姓名",
       "grade": "評級",
       "pageOf": "第 {page} 頁，共 {total} 頁"
+    },
+    "preview": {
+      "rejectedTitle": "{count} 列被拒絕——不會匯入",
+      "rejectedNone": "沒有被拒絕的資料列。{count} 個聯絡人可供匯入。",
+      "reason": {
+        "invalid_phone": "無效電話號碼",
+        "duplicate_phone_in_batch": "此檔案內重複的電話號碼",
+        "phone_already_member": "已是會員",
+        "duplicate_active": "已持有有效的行銷同意"
+      },
+      "warnAlreadyMemberSkip": "{count} 列已是會員，將被略過。勾選「與現有會員合併」以改為為他們記錄同意。",
+      "warnAlreadyMemberMerge": "{count} 列將合併至現有會員。",
+      "warnActiveConsent": "{count} 列已持有有效的行銷同意，無論如何都會被略過。",
+      "lookupSkipped": "資料列過多（{count}），無法預先檢查重複。重複項目將於提交後回報。",
+      "lookupFailed": "無法預先檢查重複。你仍可繼續——重複項目將於提交後回報。"
+    },
+    "tagSummary": {
+      "title": "此檔案中的標籤",
+      "perTag": "{name}——{count} 列",
+      "newBadge": "新",
+      "newCount": "將建立 {count} 個新標籤"
     },
     "mergeExistingMembers": "與現有會員合併（為已存在的電話寫入新的同意紀錄而不拒絕）",
     "proof": {
@@ -942,7 +982,12 @@
       "aboutToCommit": "確認後會建立批次、會員及同意紀錄，無法復原。",
       "successTitle": "匯入完成",
       "successDescription": "已寫入 {inserted} 條同意紀錄；新增 {members} 位會員。",
-      "rejected": "被拒絕"
+      "rejected": "被拒絕",
+      "rejectedTitle": "{total} 列中有 {count} 列被拒絕",
+      "copy": "複製清單",
+      "copied": "已複製",
+      "downloadCsv": "下載 CSV",
+      "taggedMembers": "已為 {count} 位會員加上標籤"
     },
     "actions": {
       "next": "下一步",

@@ -7,15 +7,19 @@
  * cells — when needed, swap in `papaparse`.
  */
 
+import { normalizeImportTags } from '@/domain/services/normalize-import-tags'
+
 export interface ParsedRow {
   phoneE164: string
   name: string | null
   preferredLanguage: 'en' | 'zh_hk' | null
+  tags: string[]
 }
 
 const PHONE_HEADERS = ['phone', 'phonee164', 'phone_e164']
 const NAME_HEADERS = ['name', 'fullname']
 const LANG_HEADERS = ['preferred_language', 'language', 'lang']
+const TAGS_HEADERS = ['tags', 'tag']
 
 export function parseCsv(text: string): ParsedRow[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -25,6 +29,7 @@ export function parseCsv(text: string): ParsedRow[] {
   if (idxPhone < 0) return []
   const idxName = findIndex(headers, NAME_HEADERS)
   const idxLang = findIndex(headers, LANG_HEADERS)
+  const idxTags = findIndex(headers, TAGS_HEADERS)
   const rows: ParsedRow[] = []
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(',').map((c) => c.trim())
@@ -34,6 +39,7 @@ export function parseCsv(text: string): ParsedRow[] {
       phoneE164: phone,
       name: idxName >= 0 ? cellOrNull(cells[idxName]) : null,
       preferredLanguage: idxLang >= 0 ? normaliseLang(cells[idxLang]) : null,
+      tags: idxTags >= 0 ? normalizeImportTags(cells[idxTags]).names : [],
     })
   }
   return rows

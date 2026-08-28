@@ -136,7 +136,18 @@
     "filterByTag": "Filter by tag",
     "allTags": "All tags",
     "addTag": "Add tag",
-    "noTags": "No tags"
+    "noTags": "No tags",
+    "selectAllOnPage": "Select all on this page",
+    "selectedCount": "{count} selected",
+    "clearSelection": "Clear",
+    "bulkAddTags": "Add tags",
+    "bulkRemoveTags": "Remove tags",
+    "bulkWorking": "Updating…",
+    "bulkTagSuccess": "Added {tags} to {count} members.",
+    "bulkUntagSuccess": "Removed {tags} from {count} members.",
+    "bulkTagTooMany": "Select at most 500 members.",
+    "bulkTagForbidden": "One or more tags are not available.",
+    "bulkTagFailed": "Couldn't update tags. Please try again."
   },
   "coupons": {
     "heading": "Coupons",
@@ -251,7 +262,13 @@
     "loadMore": "Load more",
     "loadError": "Couldn't load members. Try again.",
     "targetByTag": "Target by tag",
-    "selectTag": "Select a tag..."
+    "selectTag": "Select a tag...",
+    "selectTags": "Select one or more tags...",
+    "tagOrHint": "Members carrying ANY of the selected tags will receive this campaign.",
+    "recipientCount": "{count} active members will receive this",
+    "recipientCountLoading": "Counting recipients…",
+    "recipientCountZero": "No active members carry these tags — this campaign would reach nobody.",
+    "recipientCountError": "Couldn't count recipients."
   },
   "tags": {
     "title": "Tags",
@@ -908,13 +925,15 @@
       "none": "No consent recorded"
     },
     "csv": {
-      "description": "Upload a CSV with at least a phone column. Optional name and preferred_language columns are supported.",
+      "description": "Upload a CSV with at least a phone column. Optional name, preferred_language, and tags columns are supported — separate multiple tags with a semicolon (;).",
       "pick": "Choose CSV file",
       "rowCount": "{count} rows ready to grade",
       "errors": {
         "empty": "CSV is empty or missing the phone column.",
         "tooManyRows": "Batch limit is {max} rows."
-      }
+      },
+      "tagsFound": "{count} tags found in this file",
+      "tagsIgnored": "{count} tag values were ignored (blank, or longer than 40 characters)"
     },
     "grade": {
       "strong": "Strong",
@@ -927,6 +946,27 @@
       "name": "Name",
       "grade": "Grade",
       "pageOf": "Page {page} of {total}"
+    },
+    "preview": {
+      "rejectedTitle": "{count} rows rejected — they will not be imported",
+      "rejectedNone": "No rows rejected. {count} contacts ready to import.",
+      "reason": {
+        "invalid_phone": "Invalid phone number",
+        "duplicate_phone_in_batch": "Duplicate phone in this file",
+        "phone_already_member": "Already a member",
+        "duplicate_active": "Already has active marketing consent"
+      },
+      "warnAlreadyMemberSkip": "{count} rows are already members and will be skipped. Tick \"Merge with existing members\" to record consent for them instead.",
+      "warnAlreadyMemberMerge": "{count} rows will be merged into existing members.",
+      "warnActiveConsent": "{count} rows already hold active marketing consent and will be skipped either way.",
+      "lookupSkipped": "Too many rows ({count}) to pre-check for duplicates. Duplicates will be reported after commit.",
+      "lookupFailed": "Couldn't pre-check for duplicates. You can still continue — duplicates will be reported after commit."
+    },
+    "tagSummary": {
+      "title": "Tags in this file",
+      "perTag": "{name} — {count} rows",
+      "newBadge": "new",
+      "newCount": "{count} new tags will be created"
     },
     "mergeExistingMembers": "Merge with existing members (write a new consent record instead of rejecting)",
     "proof": {
@@ -942,7 +982,12 @@
       "aboutToCommit": "Once you confirm we will create the import batch, member rows, and consent records. This cannot be undone.",
       "successTitle": "Import committed",
       "successDescription": "{inserted} consent records written; {members} new members created.",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "rejectedTitle": "{count} of {total} rows were rejected",
+      "copy": "Copy list",
+      "copied": "Copied",
+      "downloadCsv": "Download CSV",
+      "taggedMembers": "{count} members tagged"
     },
     "actions": {
       "next": "Next",

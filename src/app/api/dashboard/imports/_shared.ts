@@ -52,6 +52,9 @@ export interface ImportBatchWireBody {
     phoneE164: string
     name?: string | null
     preferredLanguage?: 'en' | 'zh_hk' | null
+    // TAG-001 B1: per-row tag NAMES parsed from the CSV `tags`/`tag` column
+    // (AD-1). Distinct from the batch-level `tags` below, which is IDS.
+    tags?: string[]
   }>
   mergeExistingMembers?: boolean
   // TAG-001: tags selected in the wizard, applied to every member in the batch.
