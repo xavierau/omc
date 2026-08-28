@@ -95,6 +95,7 @@ no artifact files were lost._
 
 **WONB-018 / WONB-019 — #148 CSV column-shift bug + #147 import template**
 - [2026-08-28-wonb-018-tokenizer-backend](artifacts/2026-08-28-wonb-018-tokenizer-backend.md) — A1: RFC 4180 tokeniser + parseCsv rejection, 152 tests (senior-backend-dev)
+- [2026-08-28-wonb-019-upload-step-frontend](artifacts/2026-08-28-wonb-019-upload-step-frontend.md) — B1+A2: template download, format help, parse-rejections panel, upload-step wiring, 22 tests (react-frontend-dev)
 
 **Issue #111 — member-detail cross-tenant IDOR**
 - [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests
