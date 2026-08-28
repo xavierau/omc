@@ -1,5 +1,6 @@
 import { sendToMember } from './execute-campaign-broadcast'
 import { loadMarketingGateDecisions } from './execute-campaign-batch-gate'
+import { loadRerunPrefetch, type RerunPrefetch } from './execute-campaign-rerun-prefetch'
 import { sortByEngagementTier } from './sort-by-engagement-tier'
 import { planChunks, type ChunkPlan } from './execute-campaign-batch-chunker'
 import { maybeLogProbeBoundary } from './execute-campaign-batch-probe-log'
@@ -82,10 +83,12 @@ async function runChunk(
   // Bulk-load gate decisions once per chunk (WAQ-007 N+1 fix) — must stay
   // outside the inner sub-batch loop so we don't issue multiple DB queries.
   const decisions = isMarketing ? await loadDecisions(chunk.members, ctx) : null
+  // #131 / CAMP-002: same bulk-per-chunk discipline for the re-run ledger.
+  const prefetch = await loadRerunPrefetch(chunk.members, ctx)
   for (let i = 0; i < chunk.members.length; i += CONCURRENCY_LIMIT) {
     const subBatch = chunk.members.slice(i, i + CONCURRENCY_LIMIT)
     const results = await Promise.allSettled(
-      subBatch.map((m) => attemptMember(m, ctx, decisions))
+      subBatch.map((m) => attemptMember(m, ctx, decisions, prefetch))
     )
     tally(results, counters)
     if (i + CONCURRENCY_LIMIT < chunk.members.length) {
@@ -108,14 +111,17 @@ async function loadDecisions(
 async function attemptMember(
   member: Member,
   ctx: SendContext,
-  decisions: Map<string, SkipDecision> | null
+  decisions: Map<string, SkipDecision> | null,
+  prefetch: RerunPrefetch
 ): Promise<MemberOutcome> {
+  // A member this campaign already reached (non-failed body row) is done —
+  // a re-run only reaches the ones Meta rejected.
+  if (prefetch.countedMemberIds.has(member.id)) return 'skipped_already_sent'
   if (decisions !== null) {
     const outcome = outcomeFromDecision(decisions.get(member.phone))
     if (outcome !== 'allowed') return outcome
   }
-  await sendToMember(member, ctx)
-  return 'sent'
+  return sendToMember(member, ctx, prefetch)
 }
 
 function isMarketingRun(ctx: SendContext): boolean {

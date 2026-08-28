@@ -26,6 +26,8 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Reviews
+- [2026-08-27-camp-008-issue-131-gemini](reviews/2026-08-27-camp-008-issue-131-gemini.md) — #131 4831b5e: CONDITIONAL, 1 Critical (retract RPC lost-update) (gemini-cli-reviewer)
+- [2026-08-27-camp-008-issue-131-analyzer](reviews/2026-08-27-camp-008-issue-131-analyzer.md) — #131 1775d79: CONDITIONAL, 0 Critical, 3 Important (code-review-analyzer)
 - [2026-08-24-waq-014-analyzer](reviews/2026-08-24-waq-014-analyzer.md) — WAQ-014 4552918 second lane: CONDITIONAL — 1 Important, length-guard swallow (code-review-analyzer)
 - [2026-08-24-waq-014-gemini](reviews/2026-08-24-waq-014-gemini.md) — WAQ-014 gate error diagnosability (#117), 4552918: CONDITIONAL — 1 Critical (test swallows throw) (gemini-cli-reviewer)
 - [2026-08-23-release-pipeline-critical-fixes-analyzer](reviews/2026-08-23-release-pipeline-critical-fixes-analyzer.md) — 36dae48 second lane: BLOCKED — 2 Critical (tar excludes strip Next trace runtime; PII already public) (code-review-analyzer)
@@ -90,6 +92,12 @@ no artifact files were lost._
 - [2026-07-26-reply-005-review-fixes-frontend](artifacts/2026-07-26-reply-005-review-fixes-frontend.md) — CONDITIONAL review fixes, frontend (M1, M2) (react-frontend-dev)
 - [2026-07-26-reply-005-coderabbit-fixes-backend](artifacts/2026-07-26-reply-005-coderabbit-fixes-backend.md) — CodeRabbit review fixes, PR #70 (senior-backend-dev)
 - [2026-07-26-reply-005-coderabbit-fixes-frontend](artifacts/2026-07-26-reply-005-coderabbit-fixes-frontend.md) — CodeRabbit UI findings #1, #2, PR #70 (react-frontend-dev)
+
+**CAMP-008 — #131/#132 outbound status + claim-mode button**
+- [2026-08-27-camp-008-outbound-status-and-claim-button](plans/2026-08-27-camp-008-outbound-status-and-claim-button.md) — plan D1–D6 + advisor amendment A1–A9 (claude)
+- [2026-08-27-camp-008-stream-a-webhooks-v2-backend](artifacts/2026-08-27-camp-008-stream-a-webhooks-v2-backend.md) — Stream A: Kapso v2 outbound status classification + real 131042 fixture (senior-backend-dev)
+- [2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend](artifacts/2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend.md) — Streams B+C: tracking opt-out, retract RPC 064, finalize CAS, re-run ledger + coupon reuse (claude)
+- Stream D (#132 QUICK_REPLY) ships on its own branch/PR #133 — artifact lives there
 
 **Earlier**
 - [2026-07-16-tpl-003-template-meta-submission-backend](artifacts/2026-07-16-tpl-003-template-meta-submission-backend.md) — TPL-003 template Meta submission (B1 + B4 + B5 + B6) (senior-backend-dev)

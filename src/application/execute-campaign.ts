@@ -2,7 +2,11 @@ import {
   getCampaignById,
   updateCampaign,
   transitionCampaignStatus,
+  completeCampaignRunIfCounted,
+  failCampaignRunIfSending,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
+import { deliveryFailureReason } from '@/domain/services/campaign-delivery-failure-reason'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
@@ -18,6 +22,7 @@ import { NoTemplateError } from './no-template-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import type { SkipCounters } from './execute-campaign-batch-counters'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import { isMessageTrackingEnabled } from './message-tracking-flag'
 import {
   DEFAULT_PER_USER_MARKETING_CAP,
   type TenantCampaignSettings,
@@ -58,7 +63,7 @@ export async function executeCampaign(
   try {
     const ctx = await buildSendContext(campaign, restaurantId, template)
     const counters = await sendInBatches(activeMembers, ctx)
-    await finalizeCampaignRun(campaignId, counters, template)
+    await finalizeCampaignRun({ campaignId, restaurantId, counters, template })
   } catch (err) {
     await updateCampaign(campaignId, { status: 'active' })
     throw err
@@ -75,21 +80,60 @@ export async function executeCampaign(
 // consent) still completes as before. The reason is tenant-visible: fixed
 // wording only, never raw send-error internals — and it names the deciding
 // system (template vs connection vs unknown), never a look-alike.
-async function finalizeCampaignRun(
-  campaignId: string,
-  counters: SkipCounters,
+//
+// #131: a synchronous ack is not delivery. Meta can reject every send a few
+// seconds later via status webhook, and `reconcileCampaignSendFailure`
+// retracts each one from the sent counters — possibly BEFORE this runs. So a
+// run that tallied sends completes only through a CAS that requires a sent
+// bucket to still be > 0 (`completeCampaignRunIfCounted`); if the webhooks
+// already drained it, the run is terminal `failed` with the Meta reason.
+async function finalizeCampaignRun(args: {
+  campaignId: string
+  restaurantId: string
+  counters: SkipCounters
   template: WhatsAppTemplate | null
-): Promise<void> {
+}): Promise<void> {
+  const { campaignId, counters, template } = args
   const nothingSent = counters.sent === 0
   const anyBroken = counters.failed > 0 || counters.errored > 0
-  if (!nothingSent || !anyBroken) {
+  if (nothingSent && anyBroken) {
+    await updateCampaign(campaignId, {
+      status: 'failed',
+      failureReason: totalFailureReason(counters, template),
+    })
+    return
+  }
+  // Nothing attempted (all skipped / empty audience): no counter to guard.
+  if (nothingSent) {
     await updateCampaign(campaignId, { status: 'completed' })
     return
   }
-  await updateCampaign(campaignId, {
-    status: 'failed',
-    failureReason: totalFailureReason(counters, template),
-  })
+  if (await completeCampaignRunIfCounted(campaignId)) return
+  await failRunRetractedByMeta(campaignId, args.restaurantId)
+}
+
+// The CAS lost. The expected cause is Meta rejection webhooks retracting
+// every counted send while the batch was still running — word the reason
+// from the latest rejected body row so the tenant sees Meta's actual error.
+// With no rejected row on record, never assert a Meta rejection (WAQ-014:
+// name only the system that actually decided). The write is scoped to
+// `sending` so a status the tenant changed mid-run is left alone.
+const NO_COUNTED_SEND_REASON =
+  'No sent message remained counted when this run finished. Check the ' +
+  "campaign's message log before re-running."
+
+async function failRunRetractedByMeta(
+  campaignId: string,
+  restaurantId: string
+): Promise<void> {
+  const latest = await findLatestCampaignFailure(campaignId, restaurantId)
+  const reason = latest
+    ? deliveryFailureReason(latest.errorCode, latest.errorTitle)
+    : NO_COUNTED_SEND_REASON
+  const written = await failCampaignRunIfSending(campaignId, reason)
+  if (!written) {
+    console.warn('[Campaign] finalize skipped — status changed mid-run', { campaignId })
+  }
 }
 
 // Wording deliberately names no revival mechanism: the dashboard has no
@@ -134,7 +178,7 @@ async function buildSendContext(
   )
   // Capture the tracking flag ONCE per campaign run so an env-flip
   // mid-batch doesn't orphan in-flight queued rows.
-  const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
+  const trackingEnabled = isMessageTrackingEnabled()
   // Same pattern for WAQ-007 cooldown cap + WAQ-010 pacing — read once.
   const settings = await getSettingsForTenant(restaurantId)
   const perUserMarketingCap =

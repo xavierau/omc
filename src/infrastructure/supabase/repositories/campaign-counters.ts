@@ -61,3 +61,49 @@ export async function incrementCampaignRedeemed(id: string): Promise<void> {
     throw new Error(`incrementCampaignRedeemed: ${error.message}`)
   }
 }
+
+export interface RetractCampaignSentResult {
+  status: string
+  chargeableSentCount: number
+  nonChargeableSentCount: number
+}
+
+/**
+ * Retract one counted send from a campaign's tally when a `failed` status
+ * webhook arrives AFTER the batch already counted it as sent (#131: Meta
+ * can reject a send asynchronously, after the synchronous batch tally ran).
+ *
+ * Single atomic RPC (migration 064) — decrements the bucket matching the
+ * ROW's own `is_chargeable` (never read-then-decide in JS) and, if the
+ * campaign was `completed` and both buckets have drained to zero, flips it
+ * to `failed` with `failureReason` in the SAME statement. Scoped by
+ * (campaignId, restaurantId) — authorize by scoped query, not
+ * fetch-then-compare.
+ *
+ * Returns null when no row matched (wrong id/tenant) so the caller can log
+ * a no-match warning instead of assuming the retraction applied.
+ */
+export async function retractCampaignSent(args: {
+  campaignId: string
+  restaurantId: string
+  failureReason: string
+}): Promise<RetractCampaignSentResult | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('retract_campaign_sent', {
+    p_campaign_id: args.campaignId,
+    p_restaurant_id: args.restaurantId,
+    p_failure_reason: args.failureReason,
+  })
+  if (error) throw new Error(`retractCampaignSent: ${error.message}`)
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { status: string; chargeable_sent_count: number; non_chargeable_sent_count: number }
+    | null
+    | undefined
+  if (!row) return null
+  return {
+    status: row.status,
+    chargeableSentCount: Number(row.chargeable_sent_count),
+    nonChargeableSentCount: Number(row.non_chargeable_sent_count),
+  }
+}

@@ -11,6 +11,8 @@ import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/ca
 import { isCouponUniqueViolation } from '@/infrastructure/supabase/repositories/coupon-error'
 import { emitEvent } from '@/application/emit-event'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
+import { isCouponRedeemable, type Coupon } from '@/domain/entities/coupon'
+import { isClaimTemplate } from '@/domain/services/campaign-mode'
 import { renderTemplate } from '@/domain/services/template-renderer'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
@@ -26,9 +28,10 @@ import {
 } from './execute-campaign-send'
 import type { Campaign } from '@/domain/entities/campaign'
 import type { Member } from '@/domain/entities/member'
-import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import type { SendResult } from '@/domain/value-objects/send-result'
 import type { SendContext } from './execute-campaign-batch'
+import type { MemberOutcome } from './execute-campaign-batch-counters'
+import { EMPTY_PREFETCH, type RerunPrefetch } from './execute-campaign-rerun-prefetch'
 
 // Re-uses the orchestrator's SendContext rather than introducing a parallel
 // shape — sendCampaignBody / sendCouponQr already type-check against it.
@@ -38,28 +41,26 @@ import type { SendContext } from './execute-campaign-batch'
 // lazily when the customer taps claim. Eager mode preserves the legacy inline
 // text / URL-button + coupon + QR flow, reordered so the body is sent FIRST
 // and side effects only happen on send success.
+//
+// #131 / CAMP-002: `prefetch` carries the chunk's re-run state. Eager mode
+// reuses the promo coupon the member already holds (its code goes in the
+// body; no second mint) so a campaign re-run after a Meta-side fix reaches
+// the members whose first send was rejected — with the code they can use.
 export async function sendToMember(
   member: Member,
-  ctx: SendContext
-): Promise<void> {
+  ctx: SendContext,
+  prefetch: RerunPrefetch = EMPTY_PREFETCH
+): Promise<MemberOutcome> {
   if (isClaimTemplate(ctx.template)) {
     return sendClaimToMember(member, ctx)
   }
-  return sendEagerToMember(member, ctx)
-}
-
-function isClaimTemplate(template: WhatsAppTemplate | null): boolean {
-  if (!template) return false
-  const buttonsComponent = template.components.find((c) => c.type === 'BUTTONS')
-  return Boolean(
-    buttonsComponent?.buttons?.some((b) => b.type === 'QUICK_REPLY')
-  )
+  return sendEagerToMember(member, ctx, prefetch.existingCoupons.get(member.id))
 }
 
 async function sendClaimToMember(
   member: Member,
   ctx: SendContext
-): Promise<void> {
+): Promise<MemberOutcome> {
   const result = await sendClaimBody(member, ctx)
   throwIfNotOk(result, 'claim')
   await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
@@ -69,17 +70,31 @@ async function sendClaimToMember(
     type: 'campaign',
     dataJson: { campaignId: ctx.campaign.id },
   })
+  return 'sent'
 }
 
 async function sendEagerToMember(
   member: Member,
-  ctx: SendContext
-): Promise<void> {
-  const code = generateCouponCode()
+  ctx: SendContext,
+  existing: Coupon | undefined
+): Promise<MemberOutcome> {
+  // A redeemed / expired / inactive coupon means the member already got
+  // (and used up) this campaign — never re-blast a dead code.
+  if (existing && !isCouponRedeemable(existing)) {
+    console.warn('[Campaign] member already holds a non-redeemable coupon — skipping', {
+      campaignId: ctx.campaign.id,
+      memberId: member.id,
+      couponStatus: existing.status,
+    })
+    return 'skipped_already_sent'
+  }
+  const code = existing?.code ?? generateCouponCode()
   const couponDescription = buildCouponDescription(member, ctx, code)
   const result = await sendCampaignBody(member, ctx, code, couponDescription)
   throwIfNotOk(result, 'campaign')
-  if (!(await mintEagerCoupon(member, ctx, code, couponDescription))) return
+  if (!existing && !(await mintEagerCoupon(member, ctx, code, couponDescription))) {
+    return 'sent'
+  }
   await sendCouponQr(member, ctx, code)
   await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
   await emitEvent({
@@ -88,13 +103,14 @@ async function sendEagerToMember(
     type: 'campaign',
     dataJson: { campaignId: ctx.campaign.id, couponCode: code },
   })
+  return 'sent'
 }
 
-// A campaign re-executed after a partial failure (status reverts sending→active)
-// re-processes already-minted members. Migration 053's unique index makes that
-// re-mint raise 23505; tolerate it and skip the rest so a retry neither throws
-// (tallying the member `failed`) nor double-counts — the member already holds
-// their coupon + QR from the first run. Returns false when the coupon existed.
+// Re-runs now reuse the existing coupon up front (prefetch), so a 23505 here
+// is a genuine race: another writer minted for this (campaign, member) while
+// the body was in flight — and that body carries a different code. Tolerate
+// it and skip the rest so the member is neither tallied `failed` nor
+// double-counted. Returns false when the coupon existed.
 async function mintEagerCoupon(
   member: Member,
   ctx: SendContext,

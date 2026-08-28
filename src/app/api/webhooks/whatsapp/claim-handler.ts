@@ -6,6 +6,7 @@ import {
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { recordOutboundSend } from '@/application/record-outbound-send'
+import { isMessageTrackingEnabled } from '@/application/message-tracking-flag'
 import { claimCampaignCoupon } from '@/application/claim-campaign-coupon'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { resolveLanguageForMember } from './resolve-language'
@@ -144,7 +145,7 @@ async function sendQrImage(a: SendQrImageArgs) {
     category: 'service',
     messageType: 'image',
     contentPreview: `Your code: ${a.code}`,
-    trackingEnabled: process.env.WAQ_TRACK_MESSAGES === '1',
+    trackingEnabled: isMessageTrackingEnabled(),
     send: () => sendImageMessage(a.phoneNumberId, a.phone, qrUrl, a.caption),
   })
 }
