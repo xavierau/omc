@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
+import { WaTemplateReviewAction } from './wa-template-review-action'
 import type { WaTemplate } from '@/hooks/use-wa-templates'
 
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -29,6 +30,34 @@ function formatDate(iso: string | undefined): string {
   return d.toLocaleDateString('en-HK', {
     month: 'short', day: 'numeric', year: 'numeric',
   })
+}
+
+function rejectionReason(tmpl: WaTemplate): string | null {
+  return tmpl.status === 'rejected' ? (tmpl.rejectionReason ?? null) : null
+}
+
+function StatusCell({ template, label }: { template: WaTemplate; label: string }) {
+  const reason = rejectionReason(template)
+  return (
+    <>
+      <Badge
+        variant={statusVariant[template.status] ?? 'secondary'}
+        className={statusClass[template.status] ?? ''}
+        title={reason ?? undefined}
+      >
+        {template.status}
+      </Badge>
+      {reason && (
+        <p
+          data-testid="rejection-reason"
+          title={reason}
+          className="text-xs text-muted-foreground mt-1 max-w-[240px] truncate"
+        >
+          {label}: {reason}
+        </p>
+      )}
+    </>
+  )
 }
 
 interface Props {
@@ -58,22 +87,20 @@ export function WaTemplateTable({ templates, onEdit }: Props) {
             <TableCell>{tmpl.language}</TableCell>
             <TableCell>{tmpl.category}</TableCell>
             <TableCell>
-              <Badge
-                variant={statusVariant[tmpl.status] ?? 'secondary'}
-                className={statusClass[tmpl.status] ?? ''}
-              >
-                {tmpl.status}
-              </Badge>
+              <StatusCell template={tmpl} label={t('rejectionReasonLabel')} />
             </TableCell>
             <TableCell>{formatDate(tmpl.createdAt)}</TableCell>
             {onEdit && (
               <TableCell>
-                <button
-                  onClick={() => onEdit(tmpl)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  {t('edit')}
-                </button>
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    onClick={() => onEdit(tmpl)}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {t('edit')}
+                  </button>
+                  {tmpl.category === 'MARKETING' && <WaTemplateReviewAction template={tmpl} />}
+                </div>
               </TableCell>
             )}
           </TableRow>

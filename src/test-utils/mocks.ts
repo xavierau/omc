@@ -53,6 +53,9 @@ export function mockKapsoClient() {
     sendTextMessage: vi.fn().mockResolvedValue(okResult()),
     sendImageMessage: vi.fn().mockResolvedValue(okResult()),
     sendInteractiveButtons: vi.fn().mockResolvedValue(okResult()),
+    sendInteractiveList: vi.fn().mockResolvedValue(okResult()),
+    sendCtaUrlButton: vi.fn().mockResolvedValue(okResult()),
+    sendInteractiveFlow: vi.fn().mockResolvedValue(okResult()),
   }
 }
 
@@ -65,7 +68,6 @@ export function mockRewardRepository() {
 
 export function mockMemberRepository() {
   return {
-    getMemberById: vi.fn().mockResolvedValue(null),
     adjustMemberPoints: vi.fn().mockResolvedValue(100),
     findMemberByPhone: vi.fn().mockResolvedValue(null),
   }

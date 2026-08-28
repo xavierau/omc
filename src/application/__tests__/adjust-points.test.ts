@@ -94,7 +94,7 @@ describe('addPoints', () => {
   it('resolves memberId from phone when memberId absent', async () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'found-member',
-      pointsBalance: 80,
+      name: null, pointsBalance: 80,
       preferredLanguage: null,
     })
 
@@ -197,7 +197,7 @@ describe('deductPoints', () => {
   it('resolves member by phone', async () => {
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'member-phone',
-      pointsBalance: 100,
+      name: null, pointsBalance: 100,
       preferredLanguage: null,
     })
 

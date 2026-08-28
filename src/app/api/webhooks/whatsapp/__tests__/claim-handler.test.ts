@@ -64,7 +64,7 @@ function buildCampaign(o: Partial<Campaign> = {}): Campaign {
     id: 'camp-1', restaurantId: 'r-1', name: 'Promo', type: 'promo',
     template: '', templateEn: null, templateZhHk: null, imageUrlEn: null,
     imageUrlZhHk: null, couponConfig: null, schedule: null, scheduledAt: null,
-    status: 'active', isChargeable: true, chargeableSentCount: 0,
+    status: 'active', failureReason: null, isChargeable: true, chargeableSentCount: 0,
     nonChargeableSentCount: 0, redeemedCount: 0, whatsappTemplateId: null,
     targetAudience: 'all', createdAt: '2024-01-01T00:00:00Z', ...o,
   }
@@ -88,12 +88,20 @@ function params(o: Partial<Parameters<typeof handleClaim>[0]> = {}) {
 }
 
 describe('isCampaignClaimable', () => {
-  it.each(['active', 'sending', 'completed'] as const)(
-    '%s is claimable (window open while live or done)',
+  it.each(['active', 'sending', 'completed', 'failed'] as const)(
+    '%s is claimable (window open while live, done, or terminally failed)',
     (status) => {
       expect(isCampaignClaimable(status)).toBe(true)
     }
   )
+  // Review round 2, item 5c: a 'failed' campaign is typically PARTIALLY
+  // sent — some members already received the message (and its claim
+  // button) before the send exhausted retries. Marking the campaign
+  // 'failed' as a whole must not retroactively break the claim button for
+  // members who already got it.
+  it('failed is claimable for the same reason completed is (already-delivered claims keep working)', () => {
+    expect(isCampaignClaimable('failed')).toBe(true)
+  })
   it.each(['draft', 'paused'] as const)('%s is NOT claimable', (status) => {
     expect(isCampaignClaimable(status)).toBe(false)
   })

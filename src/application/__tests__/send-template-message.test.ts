@@ -5,6 +5,7 @@ vi.mock('@/infrastructure/whatsapp/templates')
 import { sendTemplateMessage } from '@/infrastructure/whatsapp/templates'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { sendWhatsAppTemplateMessage } from '../send-template-message'
+import { TemplateHeaderMediaMissingError } from '../enforce-header-media'
 import { okResult } from '@/test-utils/send-result'
 
 function buildTemplate(
@@ -201,6 +202,239 @@ describe('sendWhatsAppTemplateMessage', () => {
 
     const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
     expect(args.buttons?.[0]).toMatchObject({ index: 0 })
+  })
+
+  // #127 / CAMP-007: templates declaring a media HEADER must go out with a
+  // send-time header parameter carrying the stored public URL, or Meta
+  // rejects every send with #132012.
+  describe('media header params', () => {
+    it('builds an image header param from the stored snake_case header_handle URL', async () => {
+      const template = buildTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['https://cdn.example.com/pic.jpg'] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      expect(sendTemplateMessage).toHaveBeenCalledWith(
+        'pn-1',
+        '+85291234567',
+        expect.objectContaining({
+          headerParams: [
+            { type: 'image', image: { link: 'https://cdn.example.com/pic.jpg' } },
+          ],
+        })
+      )
+    })
+
+    it('builds an image header param from the camelCase headerHandle key', async () => {
+      const template = buildTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { headerHandle: ['https://cdn.example.com/pic.jpg'] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      expect(sendTemplateMessage).toHaveBeenCalledWith(
+        'pn-1',
+        '+85291234567',
+        expect.objectContaining({
+          headerParams: [
+            { type: 'image', image: { link: 'https://cdn.example.com/pic.jpg' } },
+          ],
+        })
+      )
+    })
+
+    it('builds a video header param for VIDEO format', async () => {
+      const template = buildTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'VIDEO',
+            example: { header_handle: ['https://cdn.example.com/clip.mp4'] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      expect(sendTemplateMessage).toHaveBeenCalledWith(
+        'pn-1',
+        '+85291234567',
+        expect.objectContaining({
+          headerParams: [
+            { type: 'video', video: { link: 'https://cdn.example.com/clip.mp4' } },
+          ],
+        })
+      )
+    })
+
+    it('builds a document header param for DOCUMENT format', async () => {
+      const template = buildTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'DOCUMENT',
+            example: { header_handle: ['https://cdn.example.com/menu.pdf'] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      expect(sendTemplateMessage).toHaveBeenCalledWith(
+        'pn-1',
+        '+85291234567',
+        expect.objectContaining({
+          headerParams: [
+            {
+              type: 'document',
+              document: { link: 'https://cdn.example.com/menu.pdf' },
+            },
+          ],
+        })
+      )
+    })
+
+    // KNOWN LIMITATION (#127 journal, deliberately unfixed here): a TEXT
+    // header with a {{param}} folds its variable into bodyParams —
+    // extractParameters scans ALL components — while headerParams stays
+    // undefined, so Meta receives the header variable in the wrong
+    // component (same #132012 class). This pins today's behavior so the
+    // green suite doesn't read as "TEXT headers fully handled".
+    it('KNOWN LIMITATION: a parameterized TEXT header folds its param into bodyParams', async () => {
+      const template = buildTemplate({
+        components: [
+          { type: 'HEADER', format: 'TEXT', text: 'Hi {{name}}' },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: { name: 'Ada' },
+      })
+
+      const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+      expect(args.headerParams).toBeUndefined()
+      expect(args.bodyParams).toContainEqual(
+        expect.objectContaining({ parameterName: 'name' })
+      )
+    })
+
+    it('sends no headerParams for a TEXT header', async () => {
+      const template = buildTemplate({
+        components: [
+          { type: 'HEADER', format: 'TEXT', text: 'Big News' },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+      expect(args.headerParams).toBeUndefined()
+    })
+
+    it('sends no headerParams when the template has no header', async () => {
+      const template = buildTemplate({
+        components: [{ type: 'BODY', text: 'Hello!' }],
+      })
+
+      await sendWhatsAppTemplateMessage({
+        phoneNumberId: 'pn-1',
+        to: '+85291234567',
+        template,
+        paramValues: {},
+      })
+
+      const args = vi.mocked(sendTemplateMessage).mock.calls[0][2]
+      expect(args.headerParams).toBeUndefined()
+    })
+
+    it('throws TemplateHeaderMediaMissingError when the stored handle is a 4: upload handle', async () => {
+      const template = buildTemplate({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['4:aBcDeF=='] },
+          },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await expect(
+        sendWhatsAppTemplateMessage({
+          phoneNumberId: 'pn-1',
+          to: '+85291234567',
+          template,
+          paramValues: {},
+        })
+      ).rejects.toBeInstanceOf(TemplateHeaderMediaMissingError)
+      expect(sendTemplateMessage).not.toHaveBeenCalled()
+    })
+
+    it('throws TemplateHeaderMediaMissingError when the media header has no handle', async () => {
+      const template = buildTemplate({
+        components: [
+          { type: 'HEADER', format: 'IMAGE' },
+          { type: 'BODY', text: 'Hello!' },
+        ],
+      })
+
+      await expect(
+        sendWhatsAppTemplateMessage({
+          phoneNumberId: 'pn-1',
+          to: '+85291234567',
+          template,
+          paramValues: {},
+        })
+      ).rejects.toBeInstanceOf(TemplateHeaderMediaMissingError)
+      expect(sendTemplateMessage).not.toHaveBeenCalled()
+    })
   })
 
   it('emits no buttons when claimPayload is set but template has no QUICK_REPLY', async () => {

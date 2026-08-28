@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '../client'
 
 /**
  * SOLE writer to `campaign_tags`. The service-role client bypasses RLS — the
- * table has no INSERT/UPDATE/DELETE policies by design (migration 055). Tenant
+ * table has no INSERT/UPDATE/DELETE policies by design (migration 066). Tenant
  * ownership of every tag is therefore re-asserted in app code before writing.
  * Mirrors `campaign-members-repository.ts`.
  */

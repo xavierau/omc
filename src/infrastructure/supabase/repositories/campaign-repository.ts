@@ -57,6 +57,10 @@ export async function createCampaign(
   return mapRowToCampaign(data)
 }
 
+// Unscoped lookup: this client is service-role, so it crosses tenants. Only
+// use it where the id came from a row that is already tenant-scoped (e.g. a
+// queue job enqueued with a known restaurantId). For anything derived from a
+// request, use getCampaignByIdForRestaurant.
 export async function getCampaignById(
   id: string
 ): Promise<Campaign | null> {
@@ -65,6 +69,28 @@ export async function getCampaignById(
     .from('campaigns')
     .select('*')
     .eq('id', id)
+    .single()
+
+  if (error || !data) return null
+  return mapRowToCampaign(data)
+}
+
+/**
+ * Scoped-query tenant isolation (review round 2, #102 item 1) — same
+ * pattern as SEC-001's `findByIdForRestaurant` for wa-templates. A foreign
+ * id resolves to null exactly like a missing one: no fetch-then-compare, no
+ * existence leak, ids stay non-enumerable across tenants.
+ */
+export async function getCampaignByIdForRestaurant(
+  id: string,
+  restaurantId: string
+): Promise<Campaign | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
     .single()
 
   if (error || !data) return null
@@ -139,7 +165,12 @@ export async function updateCampaign(
 
 // Counter mutations + welcome-campaign remap RPC live in campaign-counters.ts;
 // campaign-members operations live in campaign-members-repository.ts.
-export { incrementCampaignSent, incrementCampaignRedeemed, remapWelcomeCampaign } from './campaign-counters'
+export {
+  incrementCampaignSent,
+  incrementCampaignRedeemed,
+  remapWelcomeCampaign,
+  retractCampaignSent,
+} from './campaign-counters'
 
 export async function transitionCampaignStatus(
   id: string,
@@ -153,6 +184,118 @@ export async function transitionCampaignStatus(
     .eq('id', id)
     .eq('status', fromStatus)
     .select('id')
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal CAS for a campaign run whose batch tallied at least one sent
+ * message (Amendment 1 / A1). Plain `updateCampaign(id, {status:'completed'})`
+ * would race a webhook-driven `retractCampaignSent` that lands between the
+ * batch finishing and this call: if a webhook zeroes both sent counters
+ * first, an unconditional write would still claim `completed` on a campaign
+ * whose every send was actually rejected by Meta. The `OR` on the sent
+ * counters is the guard — it only succeeds while at least one send is still
+ * counted. Zero rows updated (guard failed, or already left `sending`) →
+ * the caller falls back to marking the run `failed`.
+ */
+export async function completeCampaignRunIfCounted(
+  id: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'completed' })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .or('chargeable_sent_count.gt.0,non_chargeable_sent_count.gt.0')
+    .select('id')
+  // A DB error must not read as "CAS lost" — that would be reported to the
+  // tenant as a Meta rejection that never happened.
+  if (error) throw new Error(`completeCampaignRunIfCounted: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal `failed` for a run whose CAS above lost — scoped to `sending` the
+ * same way, so a status the tenant changed mid-run (pause / PATCH) is left
+ * alone instead of being overwritten with a fabricated failure. Returns
+ * false when the row was no longer `sending`.
+ */
+export async function failCampaignRunIfSending(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .select('id')
+  if (error) throw new Error(`failCampaignRunIfSending: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/** How long a campaign stays leased after the cron enqueues a job for it. */
+export const ENQUEUE_THROTTLE_MS = 5 * 60_000
+
+/**
+ * Take the enqueue lease on a still-`active` campaign (issue #95).
+ *
+ * Compare-and-swap, not read-then-write: the cron runs every minute and a
+ * slow tick can overlap the next one. Returns false when another tick already
+ * holds the lease, so the caller skips instead of enqueueing a duplicate.
+ *
+ * The lease expires on its own, which is the point — a campaign that fails
+ * before `executeCampaign`'s active->sending claim stays `active` and would
+ * otherwise be re-enqueued on every tick forever.
+ *
+ * Throws rather than returning false on a query error, unlike the sibling
+ * `transitionCampaignStatus` above: a swallowed error here is indistinguishable
+ * from "lease held" and would silently stop every scheduled send — which is
+ * issue #95 all over again. Migration 056 documents the same swallow costing
+ * exactly that. Let it reach the cron route, which 500s so the Forge job
+ * turns red.
+ */
+export async function claimCampaignForEnqueue(
+  id: string,
+  throttleMs: number = ENQUEUE_THROTTLE_MS
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const now = Date.now()
+  const cutoff = new Date(now - throttleMs).toISOString()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ last_enqueued_at: new Date(now).toISOString() })
+    .eq('id', id)
+    .eq('status', 'active')
+    .or(`last_enqueued_at.is.null,last_enqueued_at.lt.${cutoff}`)
+    .select('id')
+
+  if (error) throw new Error(`claimCampaignForEnqueue: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal transition for a campaign whose send has exhausted every queue
+ * retry attempt (issue #102 Part B). Compare-and-swap on `status='active'`,
+ * same reasoning as `claimCampaignForEnqueue`: only an active campaign can
+ * still be sitting in `getDueCampaigns()`, and CAS avoids clobbering a row
+ * a concurrent path already moved (e.g. a manual pause).
+ */
+export async function markCampaignFailed(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'active')
+    .select('id')
+
+  if (error) throw new Error(`markCampaignFailed: ${error.message}`)
   return (data?.length ?? 0) > 0
 }
 

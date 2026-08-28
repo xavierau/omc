@@ -16,6 +16,9 @@ vi.mock(
 vi.mock('@/application/dispatch-error-action', () => ({
   dispatchErrorAction: vi.fn(),
 }))
+vi.mock('@/application/reconcile-campaign-send-failure', () => ({
+  reconcileCampaignSendFailure: vi.fn(),
+}))
 
 import {
   tryMarkProcessed,
@@ -24,12 +27,15 @@ import {
 import { findMessageByKapsoIdWithRetry } from '@/application/find-message-by-kapso-id'
 import { applyStatusUpdate } from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
 import { dispatchErrorAction } from '@/application/dispatch-error-action'
+import { reconcileCampaignSendFailure } from '@/application/reconcile-campaign-send-failure'
 import { WhatsAppMessage } from '@/domain/entities/whatsapp-message'
 import {
   handleStatusUpdate,
   mapStatusUpdate,
   routeStatusEvent,
 } from '../status-handlers'
+import { normalizeStatusPayload } from '@/infrastructure/whatsapp/webhooks'
+import kapsoV2Failed131042 from '@/infrastructure/whatsapp/__tests__/fixtures/kapso-v2-failed-131042.json'
 import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
 
 function buildMessage(
@@ -138,6 +144,26 @@ describe('mapStatusUpdate', () => {
     })
     // We choose to coerce unknown -> failed so the row reflects the bad outcome
     expect(out.status).toBe('failed')
+  })
+
+  it('maps a Kapso v2 outbound failed webhook (131042) end-to-end through normalizeStatusPayload', () => {
+    const [entry] = normalizeStatusPayload(kapsoV2Failed131042)
+    const out = mapStatusUpdate(entry)
+    expect(out.errorCode).toBe('131042')
+    expect(out.errorTitle).toBe('Business eligibility payment issue')
+    expect(out.errorDetails).toBe(
+      'Message failed to send because your WhatsApp Business account currency is not configured. Visit https://business.facebook.com/billing_hub/... to resolve this issue.'
+    )
+  })
+
+  it('reads errorDetails from the snake_case error_data.details on the v2-normalised entry (real prod shape: single-entry statuses[], no preceding sent)', () => {
+    const [entry] = normalizeStatusPayload(kapsoV2Failed131042)
+    expect(entry.errors?.[0]?.error_data).toMatchObject({
+      details: expect.stringContaining('currency is not configured'),
+    })
+    expect(mapStatusUpdate(entry).errorDetails).toContain(
+      'currency is not configured'
+    )
   })
 })
 
@@ -282,6 +308,84 @@ describe('handleStatusUpdate', () => {
     expect(dispatchErrorAction).toHaveBeenCalledTimes(1)
     expect(dispatchErrorAction).toHaveBeenCalledWith(failed, 'rest-1', log)
     expect(releaseIdempotencyKey).not.toHaveBeenCalled()
+  })
+
+  // #131: the campaign-counter retraction gets the pre-image AND post-image
+  // (it decides once-only from the transition, not from the claim), and it
+  // runs before the error action so a throwing dispatch can't skip the
+  // billing write.
+  it('failed webhook hands before/after images to the campaign retraction, ahead of the error action', async () => {
+    const before = buildMessage('sent')
+    const after = buildMessage('failed', {
+      status: 'failed',
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      failedAt: '2026-08-27T13:59:00.000Z',
+    })
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findMessageByKapsoIdWithRetry).mockResolvedValue(before)
+    vi.mocked(applyStatusUpdate).mockResolvedValue(after)
+    const order: string[] = []
+    vi.mocked(reconcileCampaignSendFailure).mockImplementation(async () => {
+      order.push('reconcile')
+    })
+    vi.mocked(dispatchErrorAction).mockImplementation(async () => {
+      order.push('dispatch')
+    })
+
+    await handleStatusUpdate(
+      {
+        id: 'wamid.AAA',
+        status: 'failed',
+        errors: [{ code: 131042, title: 'Business eligibility payment issue' }],
+        raw: {},
+      },
+      'rest-1',
+      log
+    )
+
+    expect(reconcileCampaignSendFailure).toHaveBeenCalledTimes(1)
+    expect(reconcileCampaignSendFailure).toHaveBeenCalledWith({ before, after, log })
+    expect(order).toEqual(['reconcile', 'dispatch'])
+  })
+
+  // #131 review: the wamid lookup is global, so the webhook's tenant must own
+  // the row before any status / billing / member-state write.
+  it("releases the claim and writes nothing when the row belongs to another tenant", async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findMessageByKapsoIdWithRetry).mockResolvedValue(
+      buildMessage('sent', { restaurantId: 'rest-OTHER' })
+    )
+
+    await handleStatusUpdate(
+      {
+        id: 'wamid.AAA',
+        status: 'failed',
+        errors: [{ code: 131042, title: 'Business eligibility payment issue' }],
+        raw: {},
+      },
+      'rest-1',
+      log
+    )
+
+    expect(applyStatusUpdate).not.toHaveBeenCalled()
+    expect(reconcileCampaignSendFailure).not.toHaveBeenCalled()
+    expect(dispatchErrorAction).not.toHaveBeenCalled()
+    expect(releaseIdempotencyKey).toHaveBeenCalledWith('wamid.AAA:failed')
+    const warn = logs.find((l) => l[1] === 'status.tenant_mismatch')
+    expect(warn?.[0]).toBe('warn')
+  })
+
+  it('duplicate claim never reaches the campaign retraction', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('duplicate')
+
+    await handleStatusUpdate(
+      { id: 'wamid.AAA', status: 'failed', raw: {} },
+      'rest-1',
+      log
+    )
+
+    expect(reconcileCampaignSendFailure).not.toHaveBeenCalled()
   })
 
   it('failed webhook with NO errorCode does not call dispatchErrorAction (defensive: no code, no action)', async () => {

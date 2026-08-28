@@ -23,6 +23,10 @@ export async function create(params: CreateTemplateParams): Promise<WhatsAppTemp
   return mapRowToTemplate(data)
 }
 
+// Unscoped lookup: this client is service-role, so it crosses tenants. Only use it
+// where the id came from a row that is already tenant-scoped (a campaign, a
+// restaurant setting). For anything derived from a request, use
+// findByIdForRestaurant.
 export async function findById(id: string): Promise<WhatsAppTemplate | null> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
@@ -34,6 +38,44 @@ export async function findById(id: string): Promise<WhatsAppTemplate | null> {
 
   if (error || !data) return null
   return mapRowToTemplate(data)
+}
+
+export async function findByIdForRestaurant(
+  id: string,
+  restaurantId: string,
+): Promise<WhatsAppTemplate | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .neq('status', 'deleted')
+    .single()
+
+  if (error || !data) return null
+  return mapRowToTemplate(data)
+}
+
+// #102 fix 4: batch lookup for the campaigns API's template-review
+// enrichment — ONE query for every distinct whatsappTemplateId a
+// restaurant's campaign list references, instead of one findById per
+// campaign (N+1).
+export async function findManyByIdsForRestaurant(
+  ids: string[],
+  restaurantId: string,
+): Promise<WhatsAppTemplate[]> {
+  if (ids.length === 0) return []
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .in('id', ids)
+    .neq('status', 'deleted')
+
+  if (error) throw new Error(`findManyByIdsForRestaurant: ${error.message}`)
+  return (data ?? []).map(mapRowToTemplate)
 }
 
 export async function findByNameAndLanguage(
@@ -48,6 +90,23 @@ export async function findByNameAndLanguage(
     .eq('restaurant_id', restaurantId)
     .eq('name', name)
     .eq('language', language)
+    .neq('status', 'deleted')
+    .single()
+
+  if (error || !data) return null
+  return mapRowToTemplate(data)
+}
+
+export async function findByMetaTemplateId(
+  restaurantId: string,
+  metaTemplateId: string,
+): Promise<WhatsAppTemplate | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('meta_template_id', metaTemplateId)
     .neq('status', 'deleted')
     .single()
 
@@ -110,12 +169,16 @@ export async function update(
   return mapRowToTemplate(data)
 }
 
-export async function softDelete(id: string): Promise<void> {
+export async function softDelete(
+  id: string,
+  restaurantId: string,
+): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from(TABLE)
     .update({ status: 'deleted' })
     .eq('id', id)
+    .eq('restaurant_id', restaurantId)
 
   if (error) throw new Error(`softDeleteTemplate: ${error.message}`)
 }
@@ -124,7 +187,10 @@ export async function softDelete(id: string): Promise<void> {
 export {
   create as createTemplate,
   findById as findTemplateById,
+  findByIdForRestaurant as findTemplateByIdForRestaurant,
+  findManyByIdsForRestaurant as findManyTemplatesByIdsForRestaurant,
   findByNameAndLanguage as findTemplateByNameAndLanguage,
+  findByMetaTemplateId as findTemplateByMetaTemplateId,
   list as listTemplates,
   update as updateTemplate,
   softDelete as softDeleteTemplate,
@@ -133,7 +199,9 @@ export {
 export const whatsappTemplateRepository: WhatsAppTemplateRepository = {
   create,
   findById,
+  findByIdForRestaurant,
   findByNameAndLanguage,
+  findByMetaTemplateId,
   list,
   update,
   softDelete,

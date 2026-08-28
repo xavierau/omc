@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { MemberDeleteSection } from './member-delete-section'
 import { MemberStampReversalSection } from './member-stamp-reversal-section'
 import { MemberTagsSection } from './member-tags-section'
+import { fetchMemberDetail } from './member-detail-helpers'
 
 interface MemberDetail {
   id: string
@@ -134,8 +135,7 @@ export function MemberDetailPanel({ memberId, open, onClose, onDeleted, onTagsCh
   const fetchMember = useCallback(async (id: string) => {
     setLoading(true)
     try {
-      const data = await fetch(`/api/dashboard/members?id=${id}`).then((r) => r.json())
-      setMember(data)
+      setMember(await fetchMemberDetail<MemberDetail>(id))
     } catch {
       setMember(null)
     } finally {

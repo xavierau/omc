@@ -20,6 +20,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository', () => ({
   getRestaurantPhoneNumberId: vi.fn(),
   getRestaurantName: vi.fn(),
+  // REPLY-001: handleUnknown now reads the contact-redirect config. Default OFF
+  // (null) preserves the existing 3-button / Join-invite fallback path here.
+  getRestaurantRedirect: vi.fn(async () => ({
+    redirectNumber: null,
+    redirectLabel: 'Contact us',
+  })),
+  // REPLY-003: dispatch reads the reply config. Default = all functions ON,
+  // no custom copy, preserving the existing fallback behavior here.
+  getReplyConfig: vi.fn(async () => ({
+    features: { points: true, rewards: true, redeem: true, card: true, help: true },
+    text: {
+      unknown: { en: null, zh: null },
+      help: { en: null, zh: null },
+      join: { en: null, zh: null },
+    },
+  })),
 }))
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository', () => ({
   getRestaurantDefaultLanguage: vi.fn(),
@@ -159,7 +175,7 @@ describe('routeMessage — WONB-007 inbound-first opt-in', () => {
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(findMemberByPhone).mockResolvedValue({
       id: 'm-1',
-      pointsBalance: 0,
+      name: null, pointsBalance: 0,
       preferredLanguage: null,
     })
     vi.mocked(findActiveConsent).mockResolvedValue(null)

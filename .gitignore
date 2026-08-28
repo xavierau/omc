@@ -50,3 +50,6 @@ next-env.d.ts
 /logs
 
 .gstack/
+
+# UI test runner secrets (per-project, never commit)
+.claude-workspace/ui-map/secrets.local.json

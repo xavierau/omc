@@ -39,6 +39,10 @@ const TABLE: Record<string, TableEntry> = {
   '131049': { action: 'throttle_recipient_24h', severity: 'warn' },
   '131026': { action: 'mark_recipient_unreachable', severity: 'warn' },
   '131045': { action: 'block_template', severity: 'error' },
+  // Billing / eligibility (WABA currency not configured). Tenant-visible via
+  // the campaign failure_reason (#131) — NOT an engineering alert, which
+  // would post to Slack once per failed message of a whole campaign.
+  '131042': { action: 'log_only', severity: 'error' },
   '131047': { action: 'log_only', severity: 'info' },
   '131048': { action: 'reduce_batch_size', severity: 'warn' },
   '131051': { action: 'engineering_alert', severity: 'error' },

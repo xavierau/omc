@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
       components: body.components,
     })
 
-    if (result.error) {
+    if (result.errorCode) {
       return NextResponse.json(
-        { template: result.template, warning: result.error },
-        { status: 201 }
+        { template: result.template, error: result.error },
+        { status: result.errorCode === 'meta_rejected' ? 422 : 502 }
       )
     }
     return NextResponse.json(result.template, { status: 201 })

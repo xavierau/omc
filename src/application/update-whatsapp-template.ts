@@ -5,14 +5,23 @@ import type {
   TemplateComponent,
 } from '@/domain/entities/whatsapp-template'
 import {
-  findTemplateById,
+  findTemplateByIdForRestaurant,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { getMetaBusinessAccountId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import {
+  getMetaBusinessAccountId,
+  getRestaurantPhoneNumberId,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   createMetaTemplate,
   deleteMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
+import {
+  normalizeTemplateComponents,
+  prepareTemplateComponents,
+} from '@/domain/services/prepare-template-components'
+import { validateTemplateComponents } from '@/domain/services/validate-template-components'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 
 interface UpdateTemplateInput {
   name?: string
@@ -24,64 +33,148 @@ interface UpdateTemplateInput {
 interface UpdateTemplateResult {
   template: WhatsAppTemplate
   error?: string
+  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
 }
 
+// Distinguishes "no such template for this tenant" from a validation failure so the
+// route can answer 404 instead of 400. The route layer must map it to 404.
+export class TemplateNotFoundError extends Error {
+  constructor() {
+    super('Template not found')
+    this.name = 'TemplateNotFoundError'
+  }
+}
+
+// restaurantId scopes the lookup rather than being compared afterwards: a template
+// belonging to another tenant is simply not found, so its live Meta template can
+// never be deleted and re-created with this caller's payload.
 export async function updateWhatsAppTemplate(
   templateId: string,
+  restaurantId: string,
   input: UpdateTemplateInput
 ): Promise<UpdateTemplateResult> {
-  const existing = await findTemplateById(templateId)
-  if (!existing) throw new Error('Template not found')
+  const existing = await findTemplateByIdForRestaurant(templateId, restaurantId)
+  if (!existing) throw new TemplateNotFoundError()
 
   if (input.name !== undefined && !validateTemplateName(input.name)) {
     throw new Error('Invalid template name: must be lowercase alphanumeric and underscores only')
   }
 
-  // Delete old Meta template first — Meta requires delete before re-create
-  // for templates with the same name
-  await deleteOldMetaTemplate(existing)
+  const merged = { ...existing, ...input }
+  const changes = normalizeChanges(input)
 
-  // Attempt to create the new template on Meta before updating local DB
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
-  let metaTemplateId: string | null = null
-  let metaError: string | undefined
 
-  if (businessAccountId) {
-    const merged = { ...existing, ...input }
-    const metaResult = await createMetaTemplate(businessAccountId, {
-      name: merged.name,
-      language: merged.language,
-      category: merged.category,
-      components: merged.components as Array<{ type: string; [k: string]: unknown }>,
-      parameterFormat: 'NAMED',
-    })
+  // A template that lives on Meta may only be edited when we can actually re-submit
+  // it. Persisting without a re-submit would leave an approved row sendable
+  // (isTemplateSendable) against a Meta definition it no longer matches.
+  if (!businessAccountId) {
+    if (existing.metaTemplateId) {
+      return {
+        template: existing,
+        error: 'WhatsApp provider not configured',
+        errorCode: 'provider_not_configured',
+      }
+    }
+    return { template: await updateTemplate(templateId, changes) }
+  }
 
-    if (metaResult) {
-      metaTemplateId = metaResult.id
-    } else {
-      metaError = 'Updated locally but failed to re-submit to Meta'
+  // Mint header-image handles and validate the payload BEFORE the destructive
+  // delete: a mint failure, or a payload Meta is certain to refuse, must never
+  // cost the caller their live template. Both run on a copy — the stored row
+  // keeps the image URL (changes), not the ~24h handle.
+  const phoneNumberId = await getRestaurantPhoneNumberId(existing.restaurantId)
+  const resolved = await resolveHeaderMedia(merged.components, phoneNumberId ?? '')
+  if (!resolved.ok) {
+    const { message, errorCode } = mapMediaHandleError(resolved.error)
+    return { template: existing, error: message, errorCode }
+  }
+  const validationError = validateTemplateComponents(resolved.components)
+  if (validationError) {
+    return { template: existing, error: validationError, errorCode: 'provider_error' }
+  }
+
+  if (existing.metaTemplateId) {
+    // Meta requires delete before re-create for templates with the same name.
+    // If it fails the create would fail on uniqueness anyway, and clearing the link
+    // afterwards would orphan a template that is still live and still sendable.
+    const deleted = await deleteMetaTemplate(businessAccountId, existing.name)
+    if (!deleted) {
+      return {
+        template: existing,
+        error: 'The existing template could not be removed from Meta, so no changes were saved',
+        errorCode: 'provider_error',
+      }
     }
   }
 
-  // Now persist locally — metaTemplateId is only cleared if we got a new one
-  // or if we genuinely couldn't recreate it
-  const updated = await updateTemplate(templateId, {
-    ...input,
-    status: metaTemplateId ? 'pending' : 'draft',
-    metaTemplateId,
-    rejectionReason: null,
-  })
-
-  return { template: updated, ...(metaError && { error: metaError }) }
+  return resubmitToMeta(templateId, merged, changes, businessAccountId, resolved.components)
 }
 
-async function deleteOldMetaTemplate(
-  template: WhatsAppTemplate
-): Promise<void> {
-  if (!template.metaTemplateId) return
+function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
+  if (input.components === undefined) return input
+  return { ...input, components: normalizeTemplateComponents(input.components) }
+}
 
-  const businessAccountId = await getMetaBusinessAccountId(template.restaurantId)
-  if (!businessAccountId) return
+async function resubmitToMeta(
+  templateId: string,
+  merged: WhatsAppTemplate,
+  changes: UpdateTemplateInput,
+  businessAccountId: string,
+  submitComponents: TemplateComponent[]
+): Promise<UpdateTemplateResult> {
+  const metaResult = await createMetaTemplate(businessAccountId, {
+    name: merged.name,
+    language: merged.language,
+    category: merged.category,
+    components: prepareTemplateComponents(submitComponents),
+    parameterFormat: 'NAMED',
+  })
 
-  await deleteMetaTemplate(businessAccountId, template.name)
+  if (metaResult.ok) {
+    const updated = await updateTemplate(templateId, {
+      ...changes,
+      status: 'pending',
+      metaTemplateId: metaResult.templateId,
+      rejectionReason: null,
+    })
+    return { template: updated }
+  }
+
+  // Meta refused the content: the old template is gone and the new one was judged
+  // and failed. Record both facts.
+  if (metaResult.error?.title === 'meta_rejected') {
+    const details = metaResult.error.details ?? 'Meta rejected the template'
+    const updated = await updateTemplate(templateId, {
+      ...changes,
+      status: 'rejected',
+      metaTemplateId: null,
+      rejectionReason: details,
+    })
+    return { template: updated, error: details, errorCode: 'meta_rejected' }
+  }
+
+  // No client, so nothing was submitted and nothing was deleted. Guarded on the
+  // link rather than trusting that a linked template already aborted at the delete:
+  // an unlinked row has no live counterpart its local edit could diverge from.
+  if (metaResult.error?.title === 'kapso_no_api_key' && !merged.metaTemplateId) {
+    const updated = await updateTemplate(templateId, changes)
+    return {
+      template: updated,
+      error: 'WhatsApp provider not configured',
+      errorCode: 'provider_not_configured',
+    }
+  }
+
+  // The submit failed before Meta could judge it. Any old template is already gone,
+  // so unlink honestly — but this is not a content rejection.
+  const details = metaResult.error?.details ?? 'Failed to submit template to Meta'
+  const updated = await updateTemplate(templateId, {
+    ...changes,
+    status: 'draft',
+    metaTemplateId: null,
+    rejectionReason: details,
+  })
+
+  return { template: updated, error: details, errorCode: 'provider_error' }
 }

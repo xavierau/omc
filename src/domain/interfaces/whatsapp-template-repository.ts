@@ -39,12 +39,20 @@ export interface UpdateTemplateParams {
 export interface WhatsAppTemplateRepository {
   create(params: CreateTemplateParams): Promise<WhatsAppTemplate>
   findById(id: string): Promise<WhatsAppTemplate | null>
+  findByIdForRestaurant(
+    id: string,
+    restaurantId: string
+  ): Promise<WhatsAppTemplate | null>
   findByNameAndLanguage(
     restaurantId: string,
     name: string,
     language: string
   ): Promise<WhatsAppTemplate | null>
+  findByMetaTemplateId(
+    restaurantId: string,
+    metaTemplateId: string
+  ): Promise<WhatsAppTemplate | null>
   list(params: ListTemplatesParams): Promise<ListTemplatesResult>
   update(id: string, changes: UpdateTemplateParams): Promise<WhatsAppTemplate>
-  softDelete(id: string): Promise<void>
+  softDelete(id: string, restaurantId: string): Promise<void>
 }

@@ -5,22 +5,17 @@ import {
   listTemplates,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import type { WhatsAppTemplate, TemplateStatus } from '@/domain/entities/whatsapp-template'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import {
+  mapMetaTemplateStatus,
+  SYNCABLE_STATUSES,
+  NO_REJECTION_REASON,
+} from '@/domain/services/meta-template-status'
 
 interface StatusChange {
   id: string
   oldStatus: string
   newStatus: string
-}
-
-const SYNCABLE_STATUSES: TemplateStatus[] = ['pending', 'approved', 'paused']
-
-const META_STATUS_MAP: Record<string, TemplateStatus> = {
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-  PENDING: 'pending',
-  PAUSED: 'paused',
-  DISABLED: 'disabled',
 }
 
 export async function syncTemplateStatus(
@@ -61,9 +56,22 @@ async function syncSingleTemplate(
   if (!meta) return null
 
   if (!meta.status) return null
-  const newStatus = META_STATUS_MAP[meta.status]
+  const newStatus = mapMetaTemplateStatus(meta.status)
   if (!newStatus || newStatus === local.status) return null
 
-  await updateTemplate(local.id, { status: newStatus })
+  await updateTemplate(local.id, {
+    status: newStatus,
+    ...(newStatus === 'rejected' && { rejectionReason: readRejectedReason(meta) }),
+  })
   return { id: local.id, oldStatus: local.status, newStatus }
+}
+
+/**
+ * Meta's rejection reason is not in the SDK's list-item type; it arrives
+ * camelized at runtime when present, so both shapes are read defensively.
+ */
+function readRejectedReason(meta: MetaTemplateListItem): string {
+  const candidates = [meta.rejectedReason, meta.rejected_reason]
+  const reason = candidates.find((c) => typeof c === 'string' && c.length > 0)
+  return (reason as string) ?? NO_REJECTION_REASON
 }

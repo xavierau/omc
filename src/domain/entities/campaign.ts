@@ -21,7 +21,12 @@ export interface Campaign {
   couponConfig: CouponConfig | null
   schedule: Record<string, unknown> | null
   scheduledAt: string | null
-  status: 'draft' | 'active' | 'sending' | 'paused' | 'completed'
+  status: 'draft' | 'active' | 'sending' | 'paused' | 'completed' | 'failed'
+  /**
+   * Set by the campaign-queue worker when a send exhausts every retry
+   * attempt (issue #102 Part B) — null unless `status === 'failed'`.
+   */
+  failureReason: string | null
   isChargeable: boolean
   chargeableSentCount: number
   nonChargeableSentCount: number

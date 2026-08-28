@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-07-03",
+  "updated_at": "2026-08-25",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -10,84 +10,130 @@
           "title": "Campaign broadcast retry idempotency — no duplicate send / double-count on re-execution",
           "description": "From CAMP-001 review (adversarial #1, HIGH). resolveTargetMembers has no 'already sent' filter, so re-executing a campaign that reverted sending→active (partial failure) re-sends to the whole audience. Eager mode double-SENDS the body (mint short-circuits on the 053 index, but the message already went out) — this is PRE-EXISTING. Claim mode additionally double-COUNTS: sendClaimToMember increments chargeableSentCount + emits the campaign event unconditionally (no per-member guard, since claim mode mints nothing at broadcast). Needs a per-member sent ledger (or use whatsapp_messages when tracking on) to make broadcast at-most-once. Affects billing + WhatsApp duplicate-marketing policy.",
           "priority": "high",
-          "labels": ["campaign", "billing", "reliability"]
+          "labels": [
+            "campaign",
+            "billing",
+            "reliability"
+          ]
         },
         {
           "id": "CAMP-003",
           "title": "Audit quick-reply button payloads vs command-keyword namespace",
           "description": "From CAMP-001 review (adversarial #6). The parser now surfaces template button.payload as message.text, so ALL template quick-reply taps route through matchCommand. An approved template whose quick-reply payload normalizes to a keyword (YES/NO/STOP/HELP/POINTS/REDEEM or CJK equivalents) would trigger that command — e.g. a payload 'STOP' silently unsubscribes the member. CLAIM_<id> is safe. Audit existing approved templates' quick-reply payloads; consider routing button payloads only via explicit prefixes (CLAIM_/REWARD_/JOIN/REDEEM) rather than the bare keyword matcher.",
           "priority": "medium",
-          "labels": ["campaign", "whatsapp", "webhook"]
+          "labels": [
+            "campaign",
+            "whatsapp",
+            "webhook"
+          ]
         },
         {
           "id": "CAMP-004",
           "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
           "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
           "priority": "medium",
-          "labels": ["campaign", "whatsapp", "fullstack"]
+          "labels": [
+            "campaign",
+            "whatsapp",
+            "fullstack"
+          ]
         },
         {
           "id": "CAMP-005",
           "title": "Claim window cutoff + claim-template body-param validation",
           "description": "From CAMP-001 review (adversarial #9/#11, product decisions). (1) 'completed' campaigns are claimable indefinitely and each tap mints a fresh coupon whose expiry is measured from claim time — decide whether a claim cutoff (campaign end date) is wanted. (2) sendClaimTemplate only supplies customer_name + discount; any other {{param}} in a claim template (e.g. a stray {{code}}) is sent as '' and may be rejected by Meta — validate a claim template's body params are satisfiable in claim mode.",
           "priority": "low",
-          "labels": ["campaign", "whatsapp"]
+          "labels": [
+            "campaign",
+            "whatsapp"
+          ]
         },
         {
           "id": "CAMP-006",
           "title": "createCampaignCoupon 23505 robustness + null-config mint coverage",
           "description": "From CAMP-001 review (adversarial #2b, QA gap). Migration 053's partial unique index also constrains welcome-flow promo coupons. createCampaignCoupon (coupon-factory.ts) catches unique violations by message.includes('unique') and retries 3x with a NEW code — a 23505 on (campaign_id, member_id) isn't fixed by a new code, so it fails confusingly. Low reachability (welcome mints for fresh member ids), but should reuse isCouponUniqueViolation + treat a (campaign,member) collision as idempotent. Also add a unit test asserting createCampaignBroadcastCoupon's minted-coupon shape for couponConfig:null (no expiry/discount).",
           "priority": "low",
-          "labels": ["campaign", "coupon", "quality"]
+          "labels": [
+            "campaign",
+            "coupon",
+            "quality"
+          ]
         },
         {
           "id": "CI-001",
           "title": "CI pipeline — tsc, vitest, next build on every PR",
           "description": "There is no CI (.github/workflows is empty; zero check-runs on PRs). Consequences observed during v1.2.0 release prep: a build-breaking type error sat on develop for weeks disguised as 'baseline tsc noise', and a prerender failure (useSearchParams without Suspense) was only caught by a manual release-readiness build. Minimum gate per PR: tsc --noEmit (now at 0 errors — keep it there), vitest run, next build. The Suspense regression class is only catchable by next build.",
           "priority": "high",
-          "labels": ["devops", "quality"]
+          "labels": [
+            "devops",
+            "quality"
+          ]
         },
         {
           "id": "WH-004",
           "title": "Webhook signature verification fails OPEN when secret is unset in production",
           "description": "Found in WH-001 security review (pre-existing): verifySignature returns true when KAPSO_WEBHOOK_SECRET is unset — even in production (console.warn 'demo mode' only). If the secret is deleted/renamed/misconfigured, all webhook auth silently disappears: forged inbound messages can spoof any customer phone (JOIN, stamps) for any tenant, since tenant resolves from the unauthenticated payload. Decide: fail closed in production (if (!secret && isProduction) return false) behind an explicit ALLOW_UNSIGNED_WEBHOOKS dev flag, and alert on boot when missing. CAUTION: confirm the current production deployment actually has the secret set before flipping — the demo-mode escape hatch may be load-bearing.",
           "priority": "high",
-          "labels": ["security", "backend", "webhook"]
+          "labels": [
+            "security",
+            "backend",
+            "webhook"
+          ]
         },
         {
           "id": "WH-005",
           "title": "Webhook robustness hardening bundle",
           "description": "Pre-existing items from WH-001 review, none reachable through the WH-001-fixed paths: (1) id-less messages get a crypto.randomUUID() idempotency fallback, so provider redeliveries mint fresh keys and reprocess (double sends) — derive from sha256(rawBody) instead; the x-idempotency-key header fallback is likewise unauthenticated (HMAC covers body only). (2) classifyWebhookKind routes a mixed payload carrying BOTH statuses and messages to status only — inbound silently dropped (fold into WH-003's batch work). (3) Echoes of our own outbound that carry `from` route as normal inbound (auto-reply to ourselves, self service-window) — confirm real Kapso echo shapes via WH-002's raw capture. (4) PhoneNumber.create error message interpolates the raw value; if it ever reaches logs it violates the maskPhone convention — drop the raw value or mask it. (5) A transient Supabase error in resolveRestaurant returns null → 200 'ignored' → legitimate event silently dropped with no retry (repositories swallow errors to null). (6) message.id as JSON object/array with a valid sender: truthy cast passes, PostgREST insert errors non-23505 every attempt → pre-claim 500 storm (pathological payload only). (7) Confirm Kapso's 4xx retry semantics — if it retries any non-2xx like Meta, switch the malformed-JSON 400 to a 200-ignore. (8) route.ts returns handleInbound(...) without await, so its rejections bypass the webhook.error structured log. (9) confirm-marketing-optin emits consent_granted non-transactionally after the flip: if emitEvent throws, the webhook 500s, the Kapso retry finds no pending row and falls through to handleUnknown — customer gets an 'unknown command' reply after a successful YES, event lost (surfaced in REL-001 review as newly-activated behavior).",
           "priority": "medium",
-          "labels": ["security", "backend", "webhook"]
+          "labels": [
+            "security",
+            "backend",
+            "webhook"
+          ]
         },
         {
           "id": "WH-002",
           "title": "Webhook observability for ignored events + raw payload capture",
           "description": "Follow-ups from issue #45 review: (1) ignored-event logs carry no message id ('parse returned null' / 'no sender' are anonymous) — thread an id into the parser-null path so production triage can correlate; (2) capture one raw failing payload (only parsed/masked data is logged today) to confirm sender-less events are Kapso status/echo events. Also revisit idempotency-before-processing: a transient routeMessage failure permanently drops the message because the key is claimed first.",
           "priority": "medium",
-          "labels": ["backend", "webhook", "observability"]
+          "labels": [
+            "backend",
+            "webhook",
+            "observability"
+          ]
         },
         {
           "id": "WH-003",
           "title": "Meta webhook parser only reads messages[0] — batch entries dropped",
           "description": "Pre-existing, surfaced in WH-001 review: parseMetaWebhook reads entry[0].changes[0].value.messages[0] only. A Meta batch payload with multiple messages silently drops all but the first — and after WH-001, a batch whose first entry lacks a sender drops the real messages behind it. Parse all messages (return an array) or at least the first message WITH a sender.",
           "priority": "medium",
-          "labels": ["bug", "backend", "webhook"]
+          "labels": [
+            "bug",
+            "backend",
+            "webhook"
+          ]
         },
         {
           "id": "SCAN-002",
           "title": "Scanner visible square misaligned with decode region (iOS portrait)",
           "description": "Found in SCAN-001 adversarial review: the aspect-square overflow-hidden container crops the video, so on portrait camera streams the centered qrbox extends below the visible area — staff center the QR in the visible square but the decode region sits lower. Plausibly the real root cause of 'scanner does not work' complaints. Candidate fix: pass aspectRatio: 1 in the html5-qrcode config, or size/position from the container's visible box. Needs on-device verification (iOS Safari + Android Chrome).",
           "priority": "medium",
-          "labels": ["bug", "frontend", "scan"]
+          "labels": [
+            "bug",
+            "frontend",
+            "scan"
+          ]
         },
         {
           "id": "SCAN-003",
           "title": "Camera leak + false 'camera blocked' on rapid scan-mode toggle",
           "description": "Found in SCAN-001 adversarial review: cross-instance race — toggling redeem/stamp unmounts one QrScanner and mounts another; the old instance's camera can still be initializing (stop skipped), leaking the MediaStream and making the new instance's getUserMedia fail with NotReadableError on Android — surfacing the misleading 'camera permission denied' card. Within-instance restarts were serialized in SCAN-001; this task is the cross-instance equivalent (serialize sessions across instances or share one scanner).",
           "priority": "medium",
-          "labels": ["bug", "frontend", "scan"]
+          "labels": [
+            "bug",
+            "frontend",
+            "scan"
+          ]
         },
         {
           "id": "SMS-001",
@@ -1002,19 +1048,6 @@
           ]
         },
         {
-          "id": "WAQ-011",
-          "title": "Template approval queue for new tenants (first 90 days)",
-          "description": "Migration: template_review_queue (id, restaurant_id, template_name, target_audience_size, target_audience_query, content_preview, status [pending|approved|rejected|changes_requested], submitted_by, submitted_at, reviewed_by, reviewed_at, review_notes). Tenants created < 90 days ago cannot launch a marketing campaign without an approved row. Admin UI to approve/reject/request changes. After 90 days clean (no quality incidents), tenant auto-promoted to 'trusted' (skip queue).",
-          "priority": "low",
-          "labels": [
-            "quality",
-            "admin",
-            "fullstack"
-          ],
-          "estimate": "3d",
-          "sprint": "whatsapp_quality_safeguards"
-        },
-        {
           "id": "WAQ-012",
           "title": "Quality dashboard — per-tenant + WABA-level admin view",
           "description": "Per-tenant widget on tenant dashboard: current quality rating (color), 7d trend chart, last 7d delivery rate / read rate / error rate / opt-out rate computed from whatsapp_messages. Platform admin overview page: every tenant's quality at a glance, filterable by rating/tier, click-through to tenant detail. Reuses tenant_quality_state + whatsapp_messages aggregations. Q1 affects whether the admin overview groups by WABA.",
@@ -1247,12 +1280,158 @@
             "WAQ-013"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §8"
+        },
+        {
+          "id": "TPL-005",
+          "title": "Resubmit route hardcodes a WABA id and writes it into the tenant's restaurant row",
+          "description": "src/app/api/dashboard/wa-templates/resubmit/route.ts:20-26 falls back to a hardcoded KAPSO_WABA_ID ('1352084526373366') when a tenant has no WABA, and PERSISTS it onto that tenant's restaurant row via updateMetaBusinessAccountId. Cross-tenant attribution hazard: one tenant's templates get created under a shared/foreign WABA. Contradicts create-whatsapp-template.ts which resolves the WABA properly via resolveWabaId(phoneNumberId). Found during TPL-003 investigation; deliberately left untouched there per Surgical Changes. Gemini review also raised concurrent-tenant Meta rate-limit exposure on this path.",
+          "priority": "high",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "security",
+            "multi-tenant"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-006",
+          "title": "Edit with rename/language change should create-first, not delete-first",
+          "description": "From TPL-003 gemini review (Important). update-whatsapp-template.ts deletes the old Meta template unconditionally before re-creating. That ordering is mandatory only for SAME-name edits (Meta enforces name+language uniqueness). A rename or language change targets a DISTINCT Meta template, so the constraint does not bind and the destruction is unnecessary: if the newly-named template is then rejected, the user loses their old approved template for nothing. Fix: when merged.name !== existing.name || merged.language !== existing.language, create FIRST and only delete the old on success. Deferred from TPL-003 because it is pre-existing behavior (not a regression introduced there) and doubles the ordering matrix in a prod-bound hotfix.",
+          "priority": "medium",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "data-loss"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-007",
+          "title": "Template edit residual: Meta can reject on policy grounds after the delete (R2)",
+          "description": "Accepted residual from TPL-003 (plan risk R2, confirmed by both reviewers). validate-before-delete closes the KNOWN failure class (missing named-param examples), but Meta can still reject an edit for policy/content reasons AFTER the old template was deleted — destroying a live approved template. Create-then-delete is impossible for same-name edits under Meta's name+language uniqueness. Grok: 'necessary and not sufficient... do not block the PR solely on R2'; residual volume should drop now that examples are injected. Optional mitigations: operator confirmation before editing an approved template; version-by-new-name instead of in-place edit; a post-failure recovery runbook.",
+          "priority": "medium",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "data-loss"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "TPL-008",
+          "title": "wa-templates hygiene: PATCH AuthError branch, resubmit loop timeout, VO discriminated union",
+          "description": "Three low-priority items deferred from TPL-003. (1) PATCH /api/dashboard/wa-templates/[id] has no AuthError branch, so auth failures return 400 instead of 401/403 — POST handles it correctly (pre-existing). (2) Gemini: resubmit's submitDrafts loop awaits Meta sequentially over up to 100 drafts, risking an API route timeout; NOTE parallelizing risks Meta template-creation rate limits, so bound concurrency rather than using a bare Promise.all, or lower pageSize. (3) Grok: TemplateSubmitResult is not a discriminated union, so ok:true does not type-require a non-null templateId; TPL-003 deliberately mirrored the flat SendResult precedent instead.",
+          "priority": "low",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "tech-debt"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ]
+        },
+        {
+          "id": "DEVOPS-004",
+          "title": "Release pipeline hardening — remaining /code-review findings from PR #113",
+          "description": "The 2026-08-23 high-effort review of PR #113 confirmed 15 findings; the 4 critical ones (standalone env delivery, Forge git-pull vs orphan branch, SIGPIPE fail-open secret scan, PII logs in bundle) are fixed in the follow-up PR. Still open, roughly by severity: (1) resolve_daemon greps ALL sites' supervisor confs with no site scoping — can restart another tenant's daemon and pass the poll (add directory=$PWD match). (2) NEXT_PUBLIC_* inlined from the releasing laptop's .env with no assertion they are prod values — wrong-Supabase-project frontend; also makes Forge UI NEXT_PUBLIC edits a silent no-op (assert expected values or build from pinned .env.production.local). (3) release.sh never checks HEAD == SOURCE_REF — builds the working tree, stamps main; breaks the documented rollback (add rev-parse guard; document rollback as revert+push). (4) RELEASE_BRANCH env knob unguarded — RELEASE_BRANCH=main force-pushes a parentless commit over main (refuse main/develop, use --force-with-lease). (5) arrival guard/scan coverage: content scan misses Kapso/Resend (re_)/Gemini (AIza)/admin-password families. (6) bundle completeness check omits .next/standalone/server.js in both scripts. (7) npm-ci skip stamp written before the supabase CLI probe and never invalidated on failure — corrupt tree gets permanently validated. (8) TOCTOU between ls-remote preflight and plain --force push — overlapping releases can roll prod backward (--force-with-lease). (9) restart poll is liveness-only — a failed restart RPC leaves the OLD pid RUNNING and passes; compare pid/uptime across restart. (10) daemon-exists probe treats any non-'no such' error (sudo password required, supervisord socket down) as a live program — match those texts and abort with the real cause. Also: README daemon section claims ohmyclient-app/-worker names while deploy.sh resolves daemon-NNNNNN — one is stale.",
+          "priority": "high",
+          "labels": [
+            "devops",
+            "infra",
+            "security",
+            "reliability"
+          ]
+        },
+        {
+          "id": "SEC-002",
+          "title": "PII breach 2026-08-23 — prod webhook logs published to public release branch (bootstrap publish)",
+          "description": "The 14:52Z one-time bootstrap publish (hand-staged from the prod host's .next, NOT via release.sh) put 88 production webhook log files (.next/standalone/logs/webhook-2026-04-10.log … webhook-2026-08-23.log — customer names, phone numbers, message events) on the PUBLIC repo's release branch. Mitigated ~15:25Z: branch deleted via API, prod unaffected (health 200), no env/credential files were in the bundle (.env.example only). REMAINING WORK: (1) commit 4ba7099e37fc1eb70dae4e7f0ba7d9bcd5cb0ec5 is still fetchable by SHA until GitHub garbage-collects — open a GitHub Support ticket to purge unreachable objects, and check for forks/clones during the ~33-min exposure window (traffic API). (2) PDPO (HK) breach assessment: scope = whose data, volume, sensitivity, exposure window, notification obligations. (3) Root cause: prod webhook file-logging writes into the repo tree (logs/), so Next file tracing bundles it — relocate log output outside the repo (e.g. /home/forge/.logs) or disable file logging in prod. (4) Never publish bootstrap bundles outside release.sh — the follow-up PR's deploy.sh now aborts on tracked *.log/.env on arrival, and release.sh prunes + refuses at publish time. First release after the fix PR merges must be built by release.sh from a dev machine.",
+          "priority": "high",
+          "labels": [
+            "security",
+            "privacy",
+            "incident",
+            "devops"
+          ]
         }
       ]
     },
     "todo": {
       "label": "To Do",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "SEC-003",
+          "title": "Audit dashboard routes that assume RLS which is never enforced (service-role client)",
+          "description": "Follow-up from SEC-001 / issue #100. createServerSupabaseClient() is the SERVICE-ROLE key, so RLS is not a backstop anywhere in the repository layer — app-level scoping is the only guard. SEC-001 fixed one route; the class of bug is repo-wide. Sweep every route under src/app/api/dashboard/**: does each handler destructure restaurantId from getTenantContext() and scope EVERY repository call by it, or does it look up a request-supplied id unscoped? Same question for any repository findById-style function reachable from a request parameter. Also still open from SEC-001: whatsapp-template-repository update(id, changes) remains unscoped — ownership is proven by the scoped read immediately before it, and scoping it would touch 8 call sites (webhook status handlers, sync, create) that legitimately have no request tenant; revisit if a caller ever mutates by a request-supplied id without a preceding scoped read.",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor",
+            "audit"
+          ],
+          "related": [
+            "kanban:SEC-001",
+            "kanban:SEC-004"
+          ],
+          "status_note": "SEC-004 (#111, member-detail GET/DELETE) was found and closed as a concrete instance of this exact class ahead of the full sweep — same fix shape as SEC-001 (scoped query, not fetch-then-compare). The sweep itself is still open."
+        },
+        {
+          "id": "REPLY-006",
+          "title": "Go-live for contact form mode: verify Meta business portfolio, deploy Flow, browser + live-chat verification",
+          "description": "Go-live checklist for the contact form mode shipped by REPLY-005 (#70) and corrected by REPLY-007. Form mode is NOT reachable in production until this closes, and no tenant should be switched to it before then. SUPERSEDED BY REPLY-007 — the original steps referenced a global --waba-id flag and a WHATSAPP_CONTACT_FLOW_ID env var that NO LONGER EXIST. Each tenant has their own WABA, so the Flow is deployed per tenant and its id lives in restaurants.whatsapp_contact_flow_id. Steps: (1) confirm EACH tenant WABA has a Verified Meta Business Portfolio — WhatsApp Flows are gated on it, verification can take days, and it is now per-tenant not once-globally; (2) apply migrations 058 and 059; (3) set RESEND_API_KEY + RESEND_FROM_EMAIL and verify the sending domain (SPF/DKIM), or notification email lands in spam; (4) ensure WHATSAPP_CONTACT_FLOW_ID is UNSET in every deploy env — it is gone from the codebase; (5) per tenant, the Flow deploys automatically when an admin saves form mode in dashboard/setup; for ops backfill or upgrade run npm run deploy:contact-flow -- --restaurant-id <uuid> (add --force to replace an existing flow); (6) BACKFILL: any tenant already sitting in mode=form before 059 has a NULL flow id and silently drops to the redirect button until re-saved or deployed — enumerate and deploy for each; (7) browser-verify the dashboard/setup mode toggle, label fields and the deploy-failure warning; (8) end-to-end on a real number per tenant: CONTACT -> flow arrives with that tenant CUSTOM title/labels/topics and a prefilled phone -> submit -> acknowledgement received -> email arrives with all 8 fields; repeat typing a DIFFERENT number to confirm the mismatch marker; (9) prove isolation with a SECOND tenant on a different WABA: distinct flow id, own labels; (10) prove no-republish: change a label and a topic, save, and confirm the next send shows the new wording with the flow id unchanged. Meta-side unknowns that only validate at deploy time: Flow JSON version 7.2, inputType phone, CJK dropdown ids, whether screen title and Dropdown.label accept dynamic bindings (fallback protocol is documented in the REPLY-007 plan), and whether Meta accepts a +-prefixed init-value. Also capture a real Kapso flat-envelope nfm_reply payload: the parser fallback requires an nfm_reply signal, so if Kapso flat omits the interactive block, submissions arriving that way would need wiring.",
+          "priority": "high",
+          "labels": [
+            "ops",
+            "whatsapp",
+            "flows",
+            "email",
+            "verification"
+          ],
+          "related": [
+            "kanban:REPLY-005",
+            "kanban:REPLY-007"
+          ]
+        },
+        {
+          "id": "SEC-002",
+          "title": "Mask phone numbers in the remaining kapso/client.ts send-function logs",
+          "description": "REPLY-005 added maskPhone() to the new sendInteractiveFlow log calls after CodeRabbit flagged it as a Major privacy finding. The five pre-existing sibling send functions in the same file (sendTextMessage, sendImageMessage, sendInteractiveButtons, sendInteractiveList, sendCtaUrlButton) log the recipient number unmasked in their skip/error console.warn calls. Left untouched in PR #70 per Surgical Changes since they are unrelated to that feature, but they are the same defect and maskPhone already exists in src/infrastructure/logging/logger. Fixing all five together also removes the current inconsistency where only one of six functions masks.",
+          "priority": "low",
+          "labels": [
+            "security",
+            "privacy",
+            "logging",
+            "whatsapp"
+          ],
+          "related": [
+            "kanban:REPLY-005"
+          ]
+        },
+        {
+          "id": "FLOW-001",
+          "title": "Orphan WhatsApp Flow cleanup + inventory per WABA",
+          "description": "Fallout from REPLY-007 (#72). Flow names are now minted uniquely per create attempt, which makes name collisions impossible but means a create that succeeds at Meta while its DB persist fails leaves a silent orphan Flow in the tenant WABA that nothing references. Same for the deliberate timeout path: flow-client abandons the in-flight promise at 15s, so Meta may still complete a flow we never record. Not tenant-blocking (retry always succeeds now) and purely cosmetic clutter at Meta today, but it accumulates and there is currently no inventory. Wanted: a script listing flows per tenant WABA via the SDK flows.list, cross-referencing restaurants.whatsapp_contact_flow_id, and reporting/deprecating unreferenced ohmyclient_contact_form_* flows. A list-based recovery path was deliberately NOT built into the deploy use-case during #72 — the SDK list() is loosely typed and, with per-attempt unique names, there is no stable name to reconcile by.",
+          "priority": "low",
+          "labels": [
+            "whatsapp",
+            "flows",
+            "cleanup",
+            "ops"
+          ],
+          "related": [
+            "kanban:REPLY-007"
+          ]
+        }
+      ]
     },
     "in_progress": {
       "label": "In Progress",
@@ -1307,17 +1486,269 @@
     },
     "review": {
       "label": "Review",
-      "tasks": []
+      "tasks": [
+        {
+          "id": "TPL-004",
+          "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
+          "description": "BLOCKS full resolution of #64. Meta only issues a template header_handle via the App-level Resumable Upload API (POST /{APP_ID}/uploads -> {'h':'4:...'}). We hold only KAPSO_API_KEY; the Kapso proxy does not expose that endpoint and the SDK's media.upload({uploadStrategy:'resumable'}) posts to {phoneNumberId}/media returning a plain media id, not a 4: handle. Probe was inconclusive (dev key 404s 'WhatsApp configuration not found'). TPL-003 shipped a save-time BLOCK on image headers as the interim, so dashboard image-header template creation is currently DISABLED. Next step: ask Kapso support whether their proxy can reach /{APP_ID}/uploads or whether they expose a handle-producing endpoint; failing that, obtain a Meta app id + Graph token. 4 of 6 stuck dev drafts have image headers, so this is what actually unsticks most of them.",
+          "priority": "high",
+          "labels": [
+            "templates",
+            "whatsapp"
+          ],
+          "related": [
+            "kanban:TPL-003",
+            "github:64",
+            "github:64"
+          ],
+          "status_note": "RESOLVED via Kapso Platform Media API (support-confirmed 2026-07-17). PR #68 @ 7cce47a: dashboard uploads image to public wa-template-media bucket; at submit resolveHeaderMedia POSTs {phone_number_id, source:URL, delivery:meta_resumable_asset} to api.kapso.ai/platform/v1/whatsapp/media with X-API-Key -> data.target.handle -> submitted to Kapso. Works with existing KAPSO_API_KEY, no Meta creds, no cross-app risk (handle minted under the phone_number_id app). Store URL not handle; mint before destructive delete; degrade to provider_not_configured draft; text templates untouched. Adapter src/infrastructure/kapso/template-media-upload.ts. AWAITING: user /review + merge (also ships the #64 fix).",
+          "workspace_artifacts": [
+            "reviews/2026-07-17-tpl-004-image-header-upload-grok-round2.md",
+            "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
+          ],
+          "pr": "https://github.com/xavierau/omc/pull/68"
+        }
+      ]
     },
     "done": {
       "label": "Done",
       "tasks": [
         {
+          "id": "SEC-004",
+          "title": "Cross-tenant IDOR on member-detail path (GET detail, DELETE) — scope all three queries by restaurant_id",
+          "description": "GitHub issue #111. Same shape as SEC-001 (#100): createServerSupabaseClient() is the service-role key so RLS is never a backstop; getMemberById(memberId) in member-detail-repository.ts filtered members/receipts/coupons by id alone. GET /api/dashboard/members?id= never passed restaurantId to the lookup at all (the leak: any tenant user could read another tenant's member PII, receipts and coupons). DELETE /api/dashboard/members/[id] did a fetch-then-compare (403 on mismatch) — the anti-pattern the repo principle forbids, and itself an existence oracle. Fixed by authorizing at query time: renamed to getMemberDetailForRestaurant(memberId, restaurantId) with restaurantId now required and .eq('restaurant_id', restaurantId) added to all three queries; no unscoped variant retained (no legitimate caller has an already-scoped id here). GET route threads the already-destructured restaurantId through. DELETE route's dead ownership-compare block deleted; a foreign id now falls into the same 404 as a missing id (deliberate 403->404 change, accepted — no client branches on the code, and a 403 confirms the id exists). Tests: repository-level filter-recording assertions (not just behaviour) for all three queries, cross-tenant/nonexistent/malformed-UUID/happy-path coverage, route-level restaurantId-forwarding and guard-before-lookup pins. Live-verified (I-1): cross-tenant GET and DELETE against a real foreign tenant's member both returned 404 {\"error\":\"Member not found\"} with no PII, and the DELETE did not remove the foreign member; same-tenant detail-panel-open + delete verified end-to-end in the browser. Full suite 3593 passed / 21 skipped, tsc clean, lint clean on all 6 changed files (149 pre-existing lint errors elsewhere in the repo, unrelated to this change, left untouched).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor"
+          ],
+          "related": [
+            "github:111",
+            "kanban:SEC-003",
+            "kanban:SEC-001"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-24-issue-111-member-detail-idor.md",
+            "artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md",
+            "artifacts/2026-08-24-issue-111-b2-get-detail-route-backend.md",
+            "artifacts/2026-08-24-issue-111-b3-delete-route-backend.md",
+            "artifacts/2026-08-24-issue-111-i1-integration-verification-backend.md"
+          ],
+          "started_at": "2026-08-24",
+          "tests": "32 new/changed tests across repository + both route test files; full suite 3593 passed, 21 skipped, 2 todo, 0 failing",
+          "status_note": "Journal: debugging_journals/2026-08-24-member-detail-cross-tenant-idor.md. PR #121. Gates: gemini APPROVED (0 findings) + code-review-analyzer second lane APPROVED (Grok 402 per incident_review_cli_billing_exhausted); qa-engineer verdict PASSED AC1-AC6 incl. a mutation test proving the scoping assertions have teeth. /review round (5 specialists + adversarial + red team, 0 critical / 16 informational) added user-approved hardening: panel 404 crash fixed via member-detail-helpers.ts (was plan R3 — it was a crash, not an empty state), explicit column allowlist on the detail query (select('*') was shipping loyalty_token, a bearer secret, to the browser), real error semantics (only PGRST116/22P02 map to 404; other DB + sub-query errors now 500), and a return-await fix in the GET route whose catch was previously unreachable. Follow-ups filed: #122 scoped-miss logging, #123 GET role-allowlist asymmetry, #124 delete-cascade audit row.",
+          "completed_at": "2026-08-24"
+        },
+        {
+          "id": "WAQ-014",
+          "title": "Template-review gate diagnosability: surface trustReason, fix misleading 'platform approval' error",
+          "description": "Issue #117. enforceTemplateReview discards checkTemplateReview's trustReason and throws a generic 'requires platform approval' message that reads as Meta/WhatsApp approval — sent a 4-week prod diagnosis to Kapso (Kushiro campaign 3f663bf2). Fix: vary the CampaignGuardrailError message on trustReason (too_new / recent_quality_incident / auto_paused), name OhMyClient admin review explicitly, state it is separate from Meta template approval, and point at the WhatsApp Templates page (NOT the campaign card — WaTemplateReviewAction renders in wa-template-table.tsx). failure_reason + failed-banner improve for free (worker stores thrown message). OUT OF SCOPE per issue: do NOT wire the Kapso template-status webhook into template_review_queue (would make the 90-day trust window decorative).",
+          "priority": "high",
+          "labels": [
+            "quality",
+            "diagnosability",
+            "backend"
+          ],
+          "related": [
+            "github:#117",
+            "kanban:WAQ-011"
+          ],
+          "started_at": "2026-08-24",
+          "pr": "https://github.com/xavierau/omc/pull/118",
+          "merged_into": "develop @ 0b25d66, main via #119 @ 6dbcf78",
+          "tests": "3579 passing, 0 failing (+6 new: 4 trustReason variants incl. undefined fallback, 500-cap length guard vs shared FAILURE_REASON_MAX_LEN, 56/57 clamp boundary)",
+          "review": "gemini CONDITIONAL + code-review-analyzer CONDITIONAL (grok/codex billing-down) -> swallowed-sentinel catch fixed; /review skill round (4 specialists + adversarial): 9 informational -> constant hoist, control-char strip, exhaustive cases; 0 critical",
+          "follow_ups": [
+            "Review-status-aware denial message: rejected vs pending vs not-submitted all read 'pending approval - submit it' (adversarial finding; needs TemplateReviewCheckResult to carry review status)",
+            "en.json:856 reviewRequiredPending 'Template pending platform approval' carries the same Meta-ambiguity (UI hint)",
+            "Proactive discoverability: schedule-time warning + submit affordance/link on campaign card (template_review_queue is empty platform-wide because the one flow that hits the gate has no visible hint)"
+          ],
+          "completed_at": "2026-08-24"
+        },
+        {
+          "id": "DEVOPS-003",
+          "title": "Move next build off the production host — release branch pipeline",
+          "description": "Second prod outage from an in-place next build (2026-08-05 VM thrash took all 17 sites down; 2026-08-23 the TypeScript phase ran 64.6min, was cut off by a reboot, and left a .next with no prerender-manifest.json -> app daemon crash-looped 11x -> supervisor FATAL -> site 502). scripts/release.sh now builds on a dev machine and force-pushes an orphan `release` branch carrying source + a complete .next; deploy.sh drops the build and only installs deps, migrates, seeds, restarts. Also fixed three latent bugs found while testing: (1) restart_daemon aborted on a FATAL daemon - the exact state a half-finished deploy leaves - so every recovery deploy was marked failed even when it worked; it now picks start vs restart by current state. (2) resolve_daemon used `sudo -n grep` on /etc/supervisor/conf.d, which is not in the forge sudoers allowlist, so the command-match silently never matched and always fell through to hardcoded daemon ids. (3) the `no such group` reply to a `name:*` status query was not recognised, so a nonexistent daemon resolved as live. SECURITY: output:standalone copies the build machine .env verbatim into .next/standalone/.env and this repo is PUBLIC - release.sh scrubs every .env and scans for service_role JWTs / sb_secret_ / sbp_ keys before pushing, deploy.sh re-checks on arrival. Verified against the real prod bundle: no secret value from .env is present. DONE: #113 merged to develop/main; critical review findings fixed in #115 (env delivery, orphan-branch sync, fail-closed scan, PII-log pruning + arrival guards); develop→main via #116. Remaining findings: DEVOPS-004. Leak incident: SEC-002. Cutover to the release branch is still pending (deploy/README.md checklist).",
+          "priority": "high",
+          "labels": [
+            "devops",
+            "infra",
+            "security",
+            "reliability"
+          ]
+        },
+        {
+          "id": "OPS-002",
+          "title": "Scheduled broadcasts never fire: schedule /api/cron/campaigns in prod + make enqueue idempotent",
+          "description": "GitHub issue #95. /api/cron/campaigns is the ONLY producer of scheduled-campaign jobs (getDueCampaigns has no other caller; ohmyclient-worker is a consumer only), and nothing in production ever called it — no forge crontab, no site-level Forge Scheduled Job, no in-process scheduler. Scheduled broadcasts had never fired, ever; only manually-executed campaigns sent. Surfaced by tenant 釧 Kushiro. Same failure class as #93. deploy/README.md actively forbade the fix on a wrong premise (\"risks double-sends\" — the worker owns execution, not scheduling). Issue item 3 was also wrong: executeCampaign DOES compare-and-swap active→sending before sending, so duplicates can't double-send. The real hazard of a per-minute tick is an enqueue storm — executeCampaign throws before that claim (unapproved template, missing phone_number_id, execution-time guardrail), leaving the campaign active with a past scheduled_at and re-enqueued on all 1440 ticks/day. Fixed with a self-expiring enqueue lease (campaigns.last_enqueued_at), not an enqueue-time status claim, which would strand the row outside getDueCampaigns' filter if the job were lost. Also wired /api/cron/reconcile-orphan-messages (issue item 4, same un-wired status). Third cron wrapper → shared scripts/cron/run-cron-endpoint.sh.",
+          "priority": "critical",
+          "labels": [
+            "ops",
+            "cron",
+            "campaigns",
+            "reliability",
+            "deploy"
+          ],
+          "acceptance_criteria": [
+            "A Forge Scheduled Job invokes scripts/cron/campaigns.sh every minute and its first run is verified in the Forge scheduler log",
+            "A due active campaign is enqueued within ~60s of its scheduled_at",
+            "Overlapping cron ticks cannot enqueue the same campaign twice (lease CAS, not read-then-write)",
+            "A campaign that fails before executeCampaign's active→sending claim re-enqueues at most once per 5 min, never once per tick",
+            "The enqueue lease expires on its own — a lost job never strands a campaign outside getDueCampaigns' filter",
+            "The manual send-now path is unaffected by the lease",
+            "deploy/README.md's 'do not schedule /api/cron/campaigns' guidance is corrected and every /api/cron/* route is listed with a scheduler entry",
+            "sync-templates.sh keeps an identical Forge command and identical behavior after the shared-helper extraction",
+            "reconcile-orphan-messages is scheduled */10"
+          ],
+          "related": [
+            "kanban:CAMP-002",
+            "kanban:TPL-009",
+            "github:95",
+            "github:93"
+          ],
+          "branch": "fix/issue-95-campaign-scheduler",
+          "base": "main",
+          "started_at": "2026-07-28",
+          "completed_at": "2026-07-28",
+          "merged_at": "2026-07-28",
+          "pr": 96,
+          "merged_into": "main + develop",
+          "notes": "Forge Scheduled Jobs created on server 1149990 (site app.ohmyclient.io): campaigns id=2090251 (* * * * *), sync-templates id=2090252 (*/15) — the #93 job that had never been created — and reconcile-orphan-messages id=2090253 (*/10). Prod CRON_SECRET was EMPTY in .env, so every cron endpoint was unreachable; a 64-char secret was generated, written via the Forge env API, and the app daemon restarted. Verified end-to-end: the cron produced campaign job 11 for the 釧 Kushiro campaign — the first scheduled-campaign job ever produced in prod — and the worker consumed it. It then failed on the WAQ-011 platform-review gate ('offer_promotion' needs platform approval), which is working as designed and is a separate action, NOT part of this fix. That failure is also a live confirmation of the pre-claim-failure case the enqueue lease was built for: without it that campaign would re-enqueue every tick forever."
+        },
+        {
+          "id": "REPLY-007",
+          "title": "Per-tenant contact Flow: per-WABA flow id + per-tenant form labels",
+          "description": "Corrects a disproven assumption in REPLY-005 (PR #70), which shipped ONE shared Flow with a global WHATSAPP_CONTACT_FLOW_ID env var. VERIFIED: each tenant has their own WABA (kanban decision 2026-05-04; every WABA call site resolves meta_business_account_id per restaurant). A Flow is WABA-scoped, so the global id only ever works for ONE tenant — every other tenant's flow send fails and silently degrades to the redirect button. As merged, form mode is therefore single-tenant only. Two changes: (a) per-tenant flow id in a dedicated restaurants.whatsapp_contact_flow_id column beside meta_business_account_id — deliberately NOT in contact_config, because the flow id is machine-written by the deploy routine while contact_config is admin-owned and full-replaced by its PATCH; (b) all form copy (screen title, 3 input labels, submit label) becomes per-tenant, injected at send time as dynamic data bindings alongside topics, so a wording change never requires re-publishing. The Flow stays ONE standard 3-input form and one committed JSON asset — only its registration is per-WABA. Meta marks TextInput.label / TextHeading.text / TextBody.text / Footer.label as dynamic; Dropdown.label is NOT explicitly marked and needs deploy-time validation. All new screen-data keys must be single lowercase tokens (namelabel, not nameLabel) per the two-converter trap that already caused one silent bug in #70. SHIPPED: PR #72 squash-merged to main (e70632b). WABA resolution ended up DERIVE-ONLY, not derive-first: resolveWabaId returns null for both \"no phone number\" and \"network error\", so a stored-value fallback meant one transient blip on a row poisoned by the resubmit route could deploy a tenant flow into foreign WABA 1352084526373366 — reporting success, skipping the mismatch warning (nested inside the derived branch), and latching that tenant into redirect permanently. Flow names are now minted uniquely per create: WhatsApp requires names unique within a WABA and a deprecated flow occupies its name forever (Meta error 100), so the previous fixed name made --force permanently broken after first use and could wedge a tenant whose create succeeded but whose persist failed. Reviewed by code-review-analyzer (CONDITIONAL -> 3 High fixed: unbounded WABA lookup holding the admin save open since the SDK has no timeouts at all; the degrade-safe null read used as the deploy idempotency guard, minting orphan Meta flows on a pre-migration DB; the cross-tenant deploy above) and CodeRabbit (1 Critical flow-name collision, 1 Minor empty-parenthetical banner). 3127 tests green, tsc/eslint/next build clean. STILL NOT LIVE — see REPLY-006: per-tenant Meta business verification, migrations 058+059, Resend domain, and the backfill for tenants already in form mode. Known gap: the admin-save deploy-warning state ordering is covered only at predicate level (no jsdom in this repo).",
+          "priority": "high",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "flows",
+            "multi-tenant",
+            "fullstack"
+          ],
+          "acceptance_criteria": [
+            "Flow id is stored and read per restaurant; a tenant whose Flow was never deployed degrades to redirect, never a broken form",
+            "The same committed Flow JSON deploys to each tenant WABA, resolving the WABA per restaurant like create-whatsapp-template.ts does",
+            "Screen title, 3 input labels and submit label are per-tenant and injected at send time with no re-publish",
+            "A tenant who customises nothing sees exactly the copy shipped in REPLY-005",
+            "All new screen-data keys are single lowercase tokens, pinned by the extended contract test",
+            "Obsolete WHATSAPP_CONTACT_FLOW_ID env var and its single reader are removed or given a deprecation path",
+            "Redirect-mode tenants remain completely unaffected"
+          ],
+          "related": [
+            "kanban:REPLY-005",
+            "kanban:REPLY-006"
+          ],
+          "branch": "feature/reply-007",
+          "base": "main",
+          "started_at": "2026-07-26",
+          "completed_at": "2026-07-26",
+          "merged_at": "2026-07-26",
+          "pr": 72,
+          "merged_into": "main"
+        },
+        {
+          "id": "REPLY-005",
+          "title": "Form-capture mode for the fallback Contact action (WhatsApp Flow -> email)",
+          "description": "Extends REPLY-001 (per-tenant wa.me contact redirect, migration 054) and REPLY-003 (per-tenant reply_config JSONB, migration 057). Tenant admins choose the fallback Contact action per restaurant: (a) redirect — existing wa.me CTA button, unchanged default; or (b) form — send a native WhatsApp Flow capturing Client name, Client WhatsApp number (pre-filled with sender wa_id) and Topic (dropdown, 5 per-tenant configurable options, Traditional Chinese). On nfm_reply submission, email the results to the restaurant notification address via Resend, then reply with a per-tenant configurable acknowledgement (default zh-HK, CS will get back to you asap). ONE shared published Flow for all tenants; per-tenant topics injected at send time via flow_action_payload with flowAction=navigate + screen-level data binding — no data_exchange endpoint, no encryption. Email is greenfield: no email dependency, code, port or env var exists in the repo today. SHIPPED: PR #70 squash-merged to main (868f4a9). Storage is a sibling JSONB restaurants.contact_config (migration 058, DEFAULT {}) rather than keys under reply_config, so each full-replace PATCH stays scoped to the object its own UI section owns. Reviewed by code-review-analyzer (CONDITIONAL -> both High findings fixed: ungated kapso.flow_response fallback could divert every interactive message in the app; Flow JSON contract untested with contradictory snake_case fixtures) plus CodeRabbit (Resend fetch had no timeout and could hold the webhook open; recipient address and raw provider body reaching logs; unmasked phone in the new send call; non-object PATCH body silently accepted; redirect-mode save blocked by hidden form-field state). 3000 tests green, tsc/eslint/next build clean. NOT YET LIVE - form mode requires a Verified Meta Business Portfolio, running npm run deploy:contact-flow to mint WHATSAPP_CONTACT_FLOW_ID, Resend keys plus a verified sending domain, and migration 058 applied. Until the flow id is set every tenant stays on redirect. Not browser-verified or exercised against a live WhatsApp number.",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "flows",
+            "webhook",
+            "email",
+            "fullstack",
+            "multi-tenant"
+          ],
+          "acceptance_criteria": [
+            "Tenant admin can set fallback contact mode to redirect or form per restaurant; existing tenants default to redirect with zero behaviour change",
+            "In form mode, the Contact action sends a WhatsApp Flow with 3 fields: Client name, Client WhatsApp number (pre-filled from sender wa_id), Topic (5 per-tenant options)",
+            "Topic options are configurable per restaurant and injected at send time from a single shared published Flow",
+            "On submission the webhook parses nfm_reply and emails the 3 fields plus WhatsApp context: sender wa_id, contact profile name, receiving restaurant + its business WhatsApp number, timestamp, message id",
+            "Sender wa_id and the typed Client WhatsApp number are shown distinctly in the email (they may differ)",
+            "Notification email recipient is stored per restaurant in the DB and editable in admin",
+            "After a successful submission the contact receives a per-tenant configurable acknowledgement, default Traditional Chinese",
+            "Email send failure does not prevent the contact acknowledgement, and is logged",
+            "Config read failure degrades to redirect mode, never to a broken form",
+            "Tenants in redirect mode are completely unaffected"
+          ],
+          "related": [
+            "kanban:REPLY-001",
+            "kanban:REPLY-003"
+          ],
+          "branch": "feature/reply-005",
+          "base": "main",
+          "started_at": "2026-07-26",
+          "completed_at": "2026-07-26",
+          "merged_at": "2026-07-26",
+          "pr": 70,
+          "merged_into": "main"
+        },
+        {
+          "id": "REPLY-003",
+          "title": "Configurable fallback reply text + per-restaurant function toggles (POINTS/REWARDS/REDEEM/CARD)",
+          "description": "Follow-up to REPLY-001/002. Tenants can now (a) override the three no-keyword fallback messages — 'didn't understand', HELP command list, Welcome/Join invite — in EN + ZH, and (b) switch POINTS / REWARDS / REDEEM / CARD on or off. A disabled function is FULLY off: dropped from the interactive fallback menu AND the HELP list, and its keyword returns the 'didn't understand' fallback instead of a real reply. Storage: single JSONB restaurants.reply_config (migration 055, DEFAULT '{}' => existing rows read all-ON + stock copy, zero behavior change). New domain/services/reply-config.ts owns the pure shape/merge/validate logic; restaurant-repository.getReplyConfig is a dedicated degrade-safe query (NOT added to RESTAURANT_COLUMNS, per the shared-select coupling principle) that fails toward all-ON + default text. Gate lives in handlers.ts dispatchByRoute via a route→feature map (bare REDEEM/兌換=rewards, REDEEM <code>=redeem). HELP refactored into composable buildHelpText(lang, features). Settings UI: new FallbackReplySection on dashboard/setup + PATCH /api/dashboard/settings/reply-config (validateReplyConfig rejects over-length, coerces flags). Reviewed: code-review-analyzer APPROVED (no Critical/High); xhigh /code-review surfaced 4 real deploy.sh findings (all fixed) + 1 latent PATCH-full-replace note on the feature (UI-safe, deferred). tsc + eslint clean; full suite 2698 pass; next build OK. PR #57 squash-merged to develop (bundled the #56 deploy-restart fix per request).",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "webhook",
+            "fullstack"
+          ],
+          "completed_at": "2026-07-08",
+          "merged_at": "2026-07-08",
+          "pr": 57,
+          "merged_into": "develop"
+        },
+        {
+          "id": "REPLY-002",
+          "title": "Hide View Rewards from the fallback menu when the restaurant has no active rewards",
+          "description": "Follow-up to REPLY-001. The member no-keyword fallback menu showed a static [Check Points, View Rewards, Help]; View Rewards led only to a dead 'rewardsEmpty' reply when the restaurant had none configured. Now omit that option when the restaurant has zero active rewards (per-restaurant). Members who have points but can't yet afford a reward STILL see it (keeps the 'saving toward a reward' nudge) — per-member hiding was intentionally NOT chosen. New reward-repository.hasActiveRewards(restaurantId): cheap head+count check, wrapped in try/catch and returning true on any failure so the webhook hot path never throws and a working option is never hidden on a transient error (applies the REPLY-001 hot-path resilience lesson). Only View Rewards affected; Check Points / Help / Contact / non-members unchanged. Reviewed clean (built-in /code-review, 0 findings). tsc clean; full suite 2661 pass. PR #53 squash-merged to develop.",
+          "priority": "low",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "webhook"
+          ],
+          "completed_at": "2026-07-07",
+          "merged_at": "2026-07-07",
+          "pr": 53,
+          "merged_into": "develop"
+        },
+        {
+          "id": "REPLY-001",
+          "title": "Contact-redirect action in the fallback reply menu (per-tenant wa.me CTA button)",
+          "description": "Per-restaurant \"Contact us\" option in the WhatsApp no-keyword fallback. Sends a CTA-URL button opening wa.me/<redirect_number>; fallback converts to an interactive list when options exceed 3; non-members also get Join + Contact when a redirect is set (NOT member-only, per user directive); redirect unset = unchanged. Migration 054 (redirect_number + redirect_label), new outbound sendInteractiveList + sendCtaUrlButton, CONTACT keyword (EN + 客服/聯絡), handleContact, tenant-scoped /dashboard/setup settings + PATCH API + i18n. Built via 4 parallel TDD streams (A migration/repo, B outbound, C routing/handler/fallback, D admin UI). Reviewed: code-review-analyzer APPROVE (0 must-fix, 3 nice-to-haves applied) + adversarial /review — P2 (removed redirect cols from shared RESTAURANT_COLUMNS so the webhook no longer couples to migration 054), P5 (empty-label ??->|| Meta-reject guard), P3 (getRestaurantRedirect try/catch) all fixed. tsc clean; full suite 2654 pass. PR #52 squash-merged to develop. Follow-ups: CAMP-003 audit (new bare CONTACT keyword vs template quick-reply payloads); optional owner-gating on settings PATCH (role-less, matches logo route).",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "webhook",
+            "fullstack"
+          ],
+          "completed_at": "2026-07-06",
+          "merged_at": "2026-07-06",
+          "pr": 52,
+          "merged_into": "develop",
+          "workspace_artifacts": [
+            "plans/2026-07-06-reply-001-contact-redirect",
+            "reviews/2026-07-06-reply-001-review"
+          ]
+        },
+        {
           "id": "CAMP-001",
           "title": "Claim-button campaign flow — lazy coupon/QR on button tap",
           "description": "Broadcast now branches on template shape: claim mode (approved template has a QUICK_REPLY button) sends only the template with a dynamic CLAIM_<campaignId> payload, minting the coupon + QR lazily when the customer taps; eager mode (inline text / URL-button) preserved. Body-send failures no longer increment the chargeable counter or emit the campaign event (body sent first, side-effects gated on send success; failed sends tallied + recorded). Claim tap re-checks tenant + membership + audience targeting (selected campaigns) + status, mints idempotently (app pre-check + Postgres 23505 + migration 053 partial unique index), resends the same QR on double-tap, and falls back to texting the code if the QR image fails. PR #50 → develop (squash). Independent /review (code-review-analyzer + security-architect + qa-engineer + adversarial): security F1 (audience-targeting leak — a forwarded CLAIM_ payload minting for non-targeted members) FIXED; migration deploy-gate + non-CONCURRENTLY lock documented. Follow-ups: CAMP-002 (retry idempotency), CAMP-003 (button↔keyword collision), CAMP-004 (explicit claim flag), CAMP-005 (claim window/param validation), CAMP-006 (welcome-coupon 23505). Known: pre-existing flaky WAQ integration tests (pass in isolation; CI-001).",
           "priority": "high",
-          "labels": ["feature", "campaign", "whatsapp", "billing"],
+          "labels": [
+            "feature",
+            "campaign",
+            "whatsapp",
+            "billing"
+          ],
           "completed_at": "2026-07-03",
           "workspace_artifacts": [
             "investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim",
@@ -1329,7 +1760,11 @@
           "title": "v1.2.0 release blockers — build break, stamp RLS, prerender failure",
           "description": "Release-readiness review of develop→main found: (1) next build failed on a type error in consent-record-repository (the .select count option was also a runtime bug — upgradeToOptedIn always returned false, breaking WONB-005/007 opt-in YES handling); (2) migration 050's stamp_campaigns/member_stamp_cards shipped without RLS (cross-tenant read/write via anon key) — fixed by migration 052 with a RUN_DB_TESTS-gated enforcement suite; (3) /dashboard/members/import used useSearchParams without Suspense, hard-failing prerender in Next 16. Also zeroed all 18 baseline tsc errors so the build gate is trustworthy, and documented WAQ/opt-in env vars. PR #48 → develop; released to main in PR #49, tag v1.2.0. Follow-up filed: CI-001.",
           "priority": "high",
-          "labels": ["release", "bug", "security"],
+          "labels": [
+            "release",
+            "bug",
+            "security"
+          ],
           "completed_at": "2026-07-03"
         },
         {
@@ -1337,14 +1772,22 @@
           "title": "Webhook 500 on no-sender events — Kapso retry storm + dropped messages",
           "description": "GitHub issue #45: message-shaped webhooks without a usable sender 500'd (PhoneNumber.create threw) → Kapso retry storm; idempotency claimed pre-processing dropped events forever. Fixed in PR #47: parser returns null for non-string/blank senders; route validates the sender phone BEFORE the idempotency claim and 200-ignores unroutable ones; malformed JSON → 400; signature compare is byte-safe. Regression tests at parser + route level (real-parser and parser-stubbed). Follow-ups: WH-002..WH-005 (WH-004 = fail-open signature, decision needed).",
           "priority": "high",
-          "labels": ["bug", "backend", "webhook"],
+          "labels": [
+            "bug",
+            "backend",
+            "webhook"
+          ],
           "completed_at": "2026-07-03"
         },
         {
           "id": "SCAN-001",
           "title": "Enlarge QR scanner area on mobile (responsive qrbox)",
           "description": "Customer feedback: scanner too small on phones. Fixed 250x250 qrbox replaced with a responsive function (80% of the live viewfinder, 50px library-minimum clamp) for both redeem and give-stamp flows; scanner restarts on real viewport width changes (rotation) with start/stop serialized so streams never overlap. PRs #44 + #46 (squash-merged to develop). Follow-ups filed: SCAN-002, SCAN-003.",
-          "labels": ["bug", "frontend", "scan"],
+          "labels": [
+            "bug",
+            "frontend",
+            "scan"
+          ],
           "completed_at": "2026-07-03"
         },
         {
@@ -2195,6 +2638,159 @@
             "risk-mitigation"
           ],
           "completed_at": "2026-04-11"
+        },
+        {
+          "id": "REPLY-004",
+          "title": "Add 'help' to reply_config feature toggles — hide the HELP menu button",
+          "description": "Follow-up gap from REPLY-003 (#56): the shipped reply_config feature toggles (points/rewards/redeem/card) do not include the HELP menu button, so Help is always shown to members. Extend ReplyFeatures with a 'help' key (default true = no regression) that hides only the HELP menu option; the typed HELP/幫助 command still works. Schema-less JSON column => no migration. Surgical extension of the existing reply_config system, not a separate column (superseding the withdrawn duplicate PR #62).",
+          "priority": "medium",
+          "labels": [
+            "feature",
+            "whatsapp",
+            "webhook",
+            "fullstack"
+          ],
+          "acceptance_criteria": [
+            "ReplyFeatureKey includes 'help'; DEFAULT_REPLY_FEATURES.help = true",
+            "buildHelpText emits NO extra line for the help feature (help-command records exclude 'help')",
+            "handleUnknown hides the HELP option for members when features.help is false",
+            "Default / missing help key => HELP shown (no regression for existing tenants)",
+            "Typed HELP / 幫助 command still responds when the button is hidden",
+            "Admin fallback-reply section exposes a Help checkbox; PATCH persists it",
+            "No new DB migration (reply_config JSON)"
+          ],
+          "completed_at": "2026-07-13",
+          "merged_at": "2026-07-13",
+          "pr": 63,
+          "merged_into": "develop"
+        },
+        {
+          "id": "TPL-003",
+          "title": "WhatsApp templates stuck in draft: Meta rejection swallowed; components never prepared (#64)",
+          "description": "Prod bug #64. Create/edit submit raw components to Meta with no NAMED-param example injection -> Meta 400 (code 100 / subcode 2388043, 'component of type BODY is missing expected field(s) (example)'). Error is swallowed to null (template-client.ts:46-49) and create returns HTTP 201 with a warning field, so the UI shows success while the row stays draft forever. Sync excludes drafts so it can never self-heal. INVESTIGATION CORRECTION: issue #64 says to wire in an existing prepareTemplateComponents helper -- that helper has NEVER existed in this repo (git log --all -S = 0 hits), nor has scripts/resubmit-wa-template.ts. It must be written from scratch. The only example-injection code is injectNamedParamExamples, inline in the resubmit route, which does NOT ingest image headers (contrary to the issue). ALSO FOUND (not in issue): update-whatsapp-template.ts:42 deletes the live Meta template BEFORE re-creating, so editing an approved template with a rejected payload destroys it and clears rejectionReason. BLOCKED/OUT OF SCOPE: image header 4: handle ingestion needs Meta's App-level Resumable Upload API (POST /{APP_ID}/uploads); we hold only KAPSO_API_KEY and the Kapso proxy does not expose it -> instead validate and block raw-URL image headers at save. No migration needed: rejection_reason already exists end-to-end.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates"
+          ],
+          "github_issue": 64,
+          "branch": "fix/TPL-003-template-meta-submission",
+          "completed": "2026-07-16",
+          "pr": 65,
+          "notes": "Merged via PR #65. Does NOT fully close #64: image-header templates remain unsubmittable (TPL-004 is the blocker — needs Meta's App-level resumable upload for a 4: handle). Text-only templates now submit; image-header ones fail loudly with Meta's real reason instead of silently. Follow-ups logged: TPL-004..TPL-008, SEC-001 (cross-tenant IDOR, pre-existing, found during /review)."
+        },
+        {
+          "id": "TPL-009",
+          "title": "Template status never syncs from Meta: /api/cron/sync-templates is never called in prod (#93)",
+          "description": "Prod bug #93. Two code paths can move a template out of 'pending' and neither runs: (1) the cron route /api/cron/sync-templates has NO scheduler on the Forge box (no crontab, no cron.d, no timer, no vercel.json, zero /api/cron hits across the entire retained nginx log window); (2) there is no message_template_status_update webhook handler — only message_template_quality_update is handled. So only a human pressing the dashboard sync button ever fixes a status. Meta-approved templates read as 'pending' and check-template-review.ts blocks sending on status !== 'approved', silently killing campaigns for every tenant. Victim: 釧 Kushiro offer_promotion/zh_HK (meta id 1029650636326514) stuck pending ~18 days while Meta says APPROVED. Fix is two-pronged: a fail-loud Forge Scheduled Job wrapper (scripts/cron/sync-templates.sh, */15) for guaranteed convergence, plus a message_template_status_update webhook path (new WebhookKind, WABA->tenant resolution via entry[].id, shared Meta status map) for near-real-time. Sync logic itself is correct and unchanged.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates",
+            "ops"
+          ],
+          "github_issue": 93,
+          "branch": "fix/issue-93-template-status-sync",
+          "workspace_artifacts": [
+            "plans/2026-07-28-tpl-009-template-status-sync"
+          ],
+          "completed": "2026-07-28",
+          "pr": 94,
+          "notes": "Merged via PR #94 into main and develop. Two prongs: scripts/cron/sync-templates.sh (fail-loud Forge Scheduled Job wrapper, */15) + a real message_template_status_update webhook path (new WebhookKind, WABA->tenant rung via entry[].id, shared Meta status map in domain/services/meta-template-status.ts). Review-driven corrections: the webhook only writes cron-syncable statuses (a terminal write would drop the row out of the cron's reach permanently and a stale REJECTED after a real APPROVED would brick the template); the meta-id lookup is authoritative with no name+language fallback on a miss (a miss means a DIFFERENT Meta template); foreign-WABA entries in a batch are skipped (cross-tenant write); and template-status changes are dispatched even when a mixed batch classifies as 'status'. OPEN OPS FOLLOW-UPS, prong 1 is inert until (1) is done: (1) create the Scheduled Job in the Forge UI per deploy/README.md 'Forge Scheduled Jobs' and verify the first run returns restaurants/results JSON; (2) confirm Kushiro offer_promotion flips to approved; (3) confirm whether Kapso forwards message_template_status_update at all (evidence: webhook.kind {kind:'template_status'} log lines) — the Kapso-flat payload shapes remain unverified guesses. grok-cli-reviewer could not run (HTTP 402 quota); code-review-analyzer stood in as second lane."
+        },
+        {
+          "id": "TPL-010",
+          "title": "Phone button never sent phone_number; template creation failed with an opaque Meta error (#97)",
+          "description": "Prod bug #97 (app.ohmyclient.io, 2026-08-05 03:13 UTC). Every Phone-button template was unsubmittable: addButton() seeded no `phoneNumber`, a type switch never created one, and the payload builder's conditional spread dropped the key once the value was undefined — so the number the admin typed landed in the button label and the wire payload was {type, text}. Nothing between the form and Meta validated buttons (dialog checked name/body only; validateCreateBody checked only that components is an array; validateTemplateComponents covered media headers only), and describeGraphError discarded Meta's errorUserTitle/errorUserMsg, leaving the operator with 'Invalid parameter (code 100, subcode 2388050)'. The Kapso SDK was innocent — it snake-cases phoneNumber correctly. Fixed at four layers: seeded/typed button factory + type-switch clearing + client validation, real labels on the two bare inputs, a server backstop in validateTemplateComponents shared by create/edit/resubmit, and Meta's own explanation in the error text (which also makes the 12 other rejection classes in the prod log legible).",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "production",
+            "whatsapp",
+            "templates",
+            "dashboard"
+          ],
+          "github_issue": 97,
+          "branch": "fix/issue-97-phone-button",
+          "completed": "2026-08-05",
+          "pr": 98,
+          "notes": "Merged via PR #98 into main (merge commit b8ffd8f), Forge auto-deploy. CodeRabbit finding addressed in f99abd1: label now required for every button type EXCEPT COPY_CODE, whose text prepareTemplateComponents rewrites on the way out (blocking it would be a false refusal). Follow-ups from the issue, not done here: pre-validating variables at the start/end of the body, missing BODY examples, image-header samples, and WhatsApp links in buttons — all now legible via Meta's own message. Journal: debugging_journals/2026-08-05-phone-button-number-never-sent.md"
+        },
+        {
+          "id": "SEC-001",
+          "title": "URGENT: cross-tenant IDOR on /api/dashboard/wa-templates/[id] (GET, PATCH, DELETE)",
+          "description": "Found during TPL-003 /review. PRE-EXISTING, not introduced by TPL-003 — but unpatched. findById (whatsapp-template-repository.ts:26-37) selects .eq('id', id) with NO .eq('restaurant_id', ...), and uses createServerSupabaseClient() (SERVICE ROLE — bypasses RLS). src/app/api/dashboard/wa-templates/[id]/route.ts calls `await getTenantContext()` but DISCARDS the returned restaurantId (GET :12, PATCH :36, DELETE :65) and never passes it down. Result: any authenticated tenant can read, edit or delete ANY other tenant's WhatsApp template by id. PATCH is the worst: it deletes the victim tenant's live template from Meta using the victim's WABA and re-creates it with the attacker's payload. Compare POST in ../route.ts:32, which correctly destructures and uses restaurantId. FIX: thread restaurantId from getTenantContext() into findById/update/softDelete and scope every query by it; add route tests asserting a foreign-tenant id returns 404. Deliberately NOT fixed inside TPL-003 (#64 hotfix) per Surgical Changes — it is unrelated to the stuck-draft bug and warrants its own focused change plus tests across all three verbs. Matches the standing principle: with a service-role client, app-level checks are the ONLY guard (see memory principle_lazy_flow_authorization_parity).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "multi-tenant",
+            "idor",
+            "whatsapp",
+            "templates"
+          ],
+          "related": [
+            "kanban:TPL-003"
+          ],
+          "github_issue": 100,
+          "branch": "fix/issue-100-template-idor",
+          "completed": "2026-08-05",
+          "pr": 101,
+          "notes": "Merged via PR #101 (squash 55941a1c) into main. Fixed by authorizing at query time rather than comparing ownership after the fact: new repository findByIdForRestaurant(id, restaurantId); softDelete scoped by restaurantId too (single caller, destructive path); deleteWhatsAppTemplate(id, restaurantId) and updateWhatsAppTemplate(id, restaurantId, input) now REQUIRE the tenant so a future caller cannot omit it; route threads restaurantId into GET/PATCH/DELETE and answers 404 for a foreign id, identical to a missing one, so ids stay non-enumerable. New typed TemplateNotFoundError lets PATCH answer 404 instead of a generic 400. All three handlers now map AuthError to its own status (a guard 403 previously surfaced as a 500; the sibling routes already did this). Sibling audit (issue item 3): sync, resubmit, resolve-waba and POST /wa-templates all already scope by restaurantId — clean. findById stays unscoped for callers whose id comes from an already tenant-scoped row (campaign, restaurant setting) and now carries a comment saying so. Tests: repository scoping assertions, both use cases refusing a foreign tenant without touching Meta, 404 on all three verbs. Full suite 3322 passed. Journal: debugging_journals/2026-08-05-wa-template-cross-tenant-idor.md. Residual logged as SEC-003."
+        },
+        {
+          "id": "WAQ-011",
+          "title": "Template approval queue for new tenants (first 90 days)",
+          "description": "Migration: template_review_queue (id, restaurant_id, template_name, target_audience_size, target_audience_query, content_preview, status [pending|approved|rejected|changes_requested], submitted_by, submitted_at, reviewed_by, reviewed_at, review_notes). Tenants created < 90 days ago cannot launch a marketing campaign without an approved row. Admin UI to approve/reject/request changes. After 90 days clean (no quality incidents), tenant auto-promoted to 'trusted' (skip queue).",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "admin",
+            "fullstack"
+          ],
+          "estimate": "3d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 102,
+          "branch": "feat/issue-102-review-ui + fix/issue-102-send-feedback",
+          "pr": "108 (UI) + 109 (backend integration)",
+          "completed": "2026-08-23",
+          "related": [
+            "github:102",
+            "github:99"
+          ],
+          "notes": "Closed out via issue #102: the enforcement half (enforceTemplateReview in the executor) had shipped while the queue UI stayed in post_launch_scope, so the gate was unsatisfiable in prod and blocked every marketing send for untrusted tenants, failing silently (200-queued, worker-side throw). PR #108 delivered the missing UI: tenant 'Submit for review' on MARKETING wa-templates + admin approve/reject/request-changes queue at /admin/template-reviews (wired into admin-sidebar). PR #109 integrated the send path: sync guardrails + template-review gate in POST execute (403 with violations instead of silent 200), per-campaign templateReview + failureReason on the campaigns API, terminal 'failed' status (migrations 062/063) so exhausted campaigns leave the cron due-set (kills the 6,642-failed-job re-enqueue loop), removeOnComplete/removeOnFail retention on all queues, tenant-scoped campaign [id]/execute lookups (SEC-001 pattern). Dual review: gemini + code-review-analyzer stand-in (grok/codex 402), 2-3 rounds each, both APPROVED. Merged to DEVELOP only (f82eea7) - not yet on main, not deployed. Prod one-off cleanup still open in #102: drain bull:campaign-execution:failed, settle campaign 3f663bf2 BEFORE Kushiro crosses the 90-day trust line 2026-08-24 07:32 UTC (stale 'testing broadcast' would otherwise actually send). Lesson (also #99's shape): an endpoint isn't shipped until something calls it."
+        },
+        {
+          "id": "CAMP-007",
+          "title": "Campaign send omits media header component — Meta #132012 + all-failed runs reported completed",
+          "description": "P1 prod bug (#127): every approved template with an IMAGE/VIDEO/DOCUMENT header failed to send — sendWhatsAppTemplateMessage never populated headerParams (text-only port type, dead plumbing), so the payload carried zero components against a media-header template. Compounding: sendInBatches tallied failures but executeCampaign unconditionally marked 'completed', so a 100%-failed run looked successful with failure_reason null.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "P1"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 127,
+          "branch": "fix/camp-007-media-header-send",
+          "pr": "128 (fix) + 130 (develop→main)",
+          "completed": "2026-08-25",
+          "related": [
+            "github:127",
+            "github:129",
+            "kanban:SEC-003"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-24-camp-007-media-header-send",
+            "reviews/2026-08-24-camp-007-media-header-gemini",
+            "reviews/2026-08-24-camp-007-media-header-analyzer"
+          ],
+          "notes": "Fix: TemplateHeaderParam widened to discriminated union; send path builds header param from the template row's stored header URL via readHeaderLink (campaign image_url_* is welcome-only — issue's suggested source was wrong); sendInBatches returns counters; failed>0 && sent==0 → status 'failed' + tenant-safe failure_reason naming the deciding system (template vs connection vs unconfirmed-delivery); enforceHeaderMedia fail-fast gate at worker pre-claim / execute route 409 / send use-case / queue allowlist. Review round 2 (5 specialists + adversarial + red team): scoped resolveWhatsAppTemplate by campaign.restaurantId (SEC-001 class — campaign.whatsappTemplateId has no ownership check at write; deeper fix in SEC-003), typed SendFailedError so post-send bookkeeping crashes count as 'errored' (delivery unknown) never as all-sends-failed (revival would re-blast members), opt-in gate before insertPending (orphaned pending row = 7-day re-prompt starvation). Residuals: expired-but-well-formed header URLs fail async at Meta with no visibility while WAQ_TRACK_MESSAGES unset (recommend enabling); failed campaigns have no dashboard revive control (#129); parameterized TEXT headers still broken (pinned as KNOWN LIMITATION test). Deployed to prod via release branch 2026-08-25."
         }
       ]
     },

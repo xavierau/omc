@@ -4,6 +4,10 @@ import {
   extractQualityEvent,
   normalizeStatusPayload,
 } from '../webhooks'
+import kapsoV2Received from './fixtures/kapso-v2-received.json'
+import kapsoV2Sent from './fixtures/kapso-v2-sent.json'
+import kapsoV2Delivered from './fixtures/kapso-v2-delivered.json'
+import kapsoV2Failed131047 from './fixtures/kapso-v2-failed-131047.json'
 
 describe('classifyWebhookKind', () => {
   it('classifies Meta envelope with statuses[] as status', () => {
@@ -82,6 +86,50 @@ describe('classifyWebhookKind', () => {
       entry: [{ changes: [{ value: { metadata: { phone_number_id: 'pn-1' } } }] }],
     }
     expect(classifyWebhookKind(body)).toBe('other')
+  })
+})
+
+describe('classifyWebhookKind — template status (TPL-009)', () => {
+  it("classifies a message_template_status_update payload as template_status", () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: {
+                event: 'APPROVED',
+                message_template_id: 1029650636326514,
+                message_template_name: 'offer_promotion',
+                message_template_language: 'zh_HK',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('template_status')
+  })
+
+  it('classifies a mixed statuses+template payload as status (precedence)', () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            { value: { statuses: [{ id: 'wamid.X', status: 'delivered' }] } },
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED' },
+            },
+          ],
+        },
+      ],
+    }
+    expect(classifyWebhookKind(body)).toBe('status')
   })
 })
 
@@ -563,5 +611,91 @@ describe('extractQualityEvent', () => {
       const out = extractQualityEvent(body)
       expect(out[0].eventTimestamp).toBe('2026-05-04T12:00:00.000Z')
     })
+  })
+})
+
+describe('classifyWebhookKind — Kapso v2 outbound status (CAMP-008 / #131)', () => {
+  it('classifies a v2 sent payload as status', () => {
+    expect(classifyWebhookKind(kapsoV2Sent)).toBe('status')
+  })
+
+  it('classifies a v2 delivered payload as status', () => {
+    expect(classifyWebhookKind(kapsoV2Delivered)).toBe('status')
+  })
+
+  it('classifies a v2 failed payload as status', () => {
+    expect(classifyWebhookKind(kapsoV2Failed131047)).toBe('status')
+  })
+
+  it('classifies a v2 received (inbound) payload as inbound, not status', () => {
+    expect(classifyWebhookKind(kapsoV2Received)).toBe('inbound')
+  })
+
+  it('does not classify an outbound v2 message with neither statuses[] nor status as status', () => {
+    const body = {
+      message: {
+        id: 'wamid.NOPROGRESS',
+        kapso: { direction: 'outbound' },
+      },
+    }
+    expect(classifyWebhookKind(body)).not.toBe('status')
+  })
+})
+
+describe('normalizeStatusPayload — Kapso v2 outbound status (CAMP-008 / #131)', () => {
+  it('extracts exactly one entry for a v2 failed payload, taken from the matching statuses[] entry', () => {
+    const out = normalizeStatusPayload(kapsoV2Failed131047)
+    expect(out).toHaveLength(1)
+    expect(out[0].id).toBe('wamid.789')
+    expect(out[0].status).toBe('failed')
+    expect(out[0].errors?.[0]?.code).toBe(131047)
+    expect(out[0].recipientId).toBe('15551234567')
+    expect(out[0].timestamp).toBe('1730093200')
+  })
+
+  it('extracts only the matching status entry (not the whole history) for a v2 delivered payload', () => {
+    const out = normalizeStatusPayload(kapsoV2Delivered)
+    expect(out).toHaveLength(1)
+    expect(out[0].status).toBe('delivered')
+    expect(out[0].timestamp).toBe('1730092888')
+  })
+
+  it('extracts the single statuses[] entry for a v2 sent payload', () => {
+    const out = normalizeStatusPayload(kapsoV2Sent)
+    expect(out).toHaveLength(1)
+    expect(out[0].status).toBe('sent')
+  })
+
+  it('synthesises an entry from message.id/timestamp/to when statuses[] is absent but kapso.status is present', () => {
+    const body = {
+      message: {
+        id: 'wamid.SYN',
+        timestamp: '1730099999',
+        to: '15559998888',
+        kapso: { direction: 'outbound', status: 'sent' },
+      },
+    }
+    const out = normalizeStatusPayload(body)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      id: 'wamid.SYN',
+      status: 'sent',
+      timestamp: '1730099999',
+      recipientId: '15559998888',
+    })
+  })
+
+  it('returns [] for a v2 received (inbound) payload', () => {
+    expect(normalizeStatusPayload(kapsoV2Received)).toEqual([])
+  })
+
+  it('returns [] for an outbound v2 message with neither statuses[] nor status', () => {
+    const body = {
+      message: {
+        id: 'wamid.NOPROGRESS',
+        kapso: { direction: 'outbound' },
+      },
+    }
+    expect(normalizeStatusPayload(body)).toEqual([])
   })
 })

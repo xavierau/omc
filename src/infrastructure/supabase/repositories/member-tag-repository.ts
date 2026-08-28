@@ -1,5 +1,5 @@
 // TAG-001: SOLE writer to `member_tags`. The service-role client bypasses RLS
-// — the table has no INSERT/UPDATE/DELETE policies by design (migration 054).
+// — the table has no INSERT/UPDATE/DELETE policies by design (migration 065).
 // Because writes ignore RLS, tenant ownership is re-asserted in application
 // code on every write (lazy-flow authorization parity). Mirrors the
 // assertMembersBelongToTenant / CrossTenantMemberError shape in

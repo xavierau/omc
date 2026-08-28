@@ -2,20 +2,27 @@ import {
   getCampaignById,
   updateCampaign,
   transitionCampaignStatus,
+  completeCampaignRunIfCounted,
+  failCampaignRunIfSending,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
+import { deliveryFailureReason } from '@/domain/services/campaign-delivery-failure-reason'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
-import { findTemplateById } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import { isTemplateSendable, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Language } from '@/domain/value-objects/language'
 import { resolveTargetMembers } from './resolve-campaign-members'
 import { resolveCampaignTemplate } from './resolve-campaign-template'
-import { checkCampaignGuardrails } from './check-campaign-guardrails'
+import { resolveWhatsAppTemplate } from './resolve-whatsapp-template'
+import { enforceCampaignGuardrails } from './enforce-campaign-guardrails'
 import { enforceTemplateReview } from './enforce-template-review'
-import { CampaignGuardrailError } from './campaign-guardrail-error'
+import { enforceHeaderMedia } from './enforce-header-media'
+import { NoTemplateError } from './no-template-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
+import type { SkipCounters } from './execute-campaign-batch-counters'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import { isMessageTrackingEnabled } from './message-tracking-flag'
 import {
   DEFAULT_PER_USER_MARKETING_CAP,
   type TenantCampaignSettings,
@@ -24,13 +31,6 @@ import {
   DEFAULT_PACING_CONFIG,
   type PacingConfig,
 } from '@/domain/value-objects/pacing-strategy'
-
-export class NoTemplateError extends Error {
-  constructor(campaignId: string) {
-    super(`Campaign ${campaignId} has no template in any language`)
-    this.name = 'NoTemplateError'
-  }
-}
 
 export async function executeCampaign(
   campaignId: string,
@@ -44,7 +44,7 @@ export async function executeCampaign(
 
   const members = await resolveTargetMembers(campaign, restaurantId)
   const activeMembers = members.filter((m) => m.status !== 'unsubscribed')
-  await enforceGuardrails(restaurantId, activeMembers.length)
+  await enforceCampaignGuardrails(restaurantId, activeMembers.length)
 
   // Resolve template up-front so we fail fast (status unchanged) on a
   // misconfigured campaign — no state churn, no revert required.
@@ -52,18 +52,119 @@ export async function executeCampaign(
   assertHasAnyInlineTemplate(campaign, template)
   // WAQ-011: untrusted tenants need an approved review row for MARKETING.
   await enforceTemplateReview({ campaign, restaurantId, template })
+  // #127 / CAMP-007: a media-header template with no usable stored URL is a
+  // guaranteed Meta #132012 on every send — fail fast (status untouched)
+  // instead of burning the run.
+  enforceHeaderMedia(template)
 
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)
 
   try {
     const ctx = await buildSendContext(campaign, restaurantId, template)
-    await sendInBatches(activeMembers, ctx)
-    await updateCampaign(campaignId, { status: 'completed' })
+    const counters = await sendInBatches(activeMembers, ctx)
+    await finalizeCampaignRun({ campaignId, restaurantId, counters, template })
   } catch (err) {
     await updateCampaign(campaignId, { status: 'active' })
     throw err
   }
+}
+
+// #127 / CAMP-007: an all-failed run must not read `completed` — the prod
+// incident showed 2/2 Meta rejections as a completed campaign with 0 sent
+// and no failure_reason. Terminal `failed` + reason (not a throw): a throw
+// would revert to `active` and burn 3 blind BullMQ retries on what is
+// almost always a deterministic template mismatch; the operator can revive
+// via PATCH once the template is fixed (the revival guard clears the
+// reason). Skips don't count as failures, so an all-skipped run (e.g. no
+// consent) still completes as before. The reason is tenant-visible: fixed
+// wording only, never raw send-error internals — and it names the deciding
+// system (template vs connection vs unknown), never a look-alike.
+//
+// #131: a synchronous ack is not delivery. Meta can reject every send a few
+// seconds later via status webhook, and `reconcileCampaignSendFailure`
+// retracts each one from the sent counters — possibly BEFORE this runs. So a
+// run that tallied sends completes only through a CAS that requires a sent
+// bucket to still be > 0 (`completeCampaignRunIfCounted`); if the webhooks
+// already drained it, the run is terminal `failed` with the Meta reason.
+async function finalizeCampaignRun(args: {
+  campaignId: string
+  restaurantId: string
+  counters: SkipCounters
+  template: WhatsAppTemplate | null
+}): Promise<void> {
+  const { campaignId, counters, template } = args
+  const nothingSent = counters.sent === 0
+  const anyBroken = counters.failed > 0 || counters.errored > 0
+  if (nothingSent && anyBroken) {
+    await updateCampaign(campaignId, {
+      status: 'failed',
+      failureReason: totalFailureReason(counters, template),
+    })
+    return
+  }
+  // Nothing attempted (all skipped / empty audience): no counter to guard.
+  if (nothingSent) {
+    await updateCampaign(campaignId, { status: 'completed' })
+    return
+  }
+  if (await completeCampaignRunIfCounted(campaignId)) return
+  await failRunRetractedByMeta(campaignId, args.restaurantId)
+}
+
+// The CAS lost. The expected cause is Meta rejection webhooks retracting
+// every counted send while the batch was still running — word the reason
+// from the latest rejected body row so the tenant sees Meta's actual error.
+// With no rejected row on record, never assert a Meta rejection (WAQ-014:
+// name only the system that actually decided). The write is scoped to
+// `sending` so a status the tenant changed mid-run is left alone.
+const NO_COUNTED_SEND_REASON =
+  'No sent message remained counted when this run finished. Check the ' +
+  "campaign's message log before re-running."
+
+async function failRunRetractedByMeta(
+  campaignId: string,
+  restaurantId: string
+): Promise<void> {
+  const latest = await findLatestCampaignFailure(campaignId, restaurantId)
+  const reason = latest
+    ? deliveryFailureReason(latest.errorCode, latest.errorTitle)
+    : NO_COUNTED_SEND_REASON
+  const written = await failCampaignRunIfSending(campaignId, reason)
+  if (!written) {
+    console.warn('[Campaign] finalize skipped — status changed mid-run', { campaignId })
+  }
+}
+
+// Wording deliberately names no revival mechanism: the dashboard has no
+// status control for failed campaigns (review #127, follow-up #129) —
+// reactivation is an operator PATCH today.
+function totalFailureReason(
+  counters: SkipCounters,
+  template: WhatsAppTemplate | null
+): string {
+  // Any `errored` member means delivery is UNKNOWN (the send may have gone
+  // out before bookkeeping broke) — never claim "all sends failed", and warn
+  // against a blind re-run that would double-send.
+  if (counters.errored > 0) {
+    const broken = counters.failed + counters.errored
+    return (
+      `${broken} message sends did not complete and delivery could not be ` +
+      `confirmed for ${counters.errored} of them. Contact support before ` +
+      're-running this campaign.'
+    )
+  }
+  if (template) {
+    return (
+      `All ${counters.failed} message sends failed. Check that the ` +
+      "campaign's WhatsApp template still matches its approved definition " +
+      '(including any media header) before retrying.'
+    )
+  }
+  return (
+    `All ${counters.failed} message sends failed. Check that WhatsApp is ` +
+    'connected for this restaurant before retrying.'
+  )
 }
 
 async function buildSendContext(
@@ -77,7 +178,7 @@ async function buildSendContext(
   )
   // Capture the tracking flag ONCE per campaign run so an env-flip
   // mid-batch doesn't orphan in-flight queued rows.
-  const trackingEnabled = process.env.WAQ_TRACK_MESSAGES === '1'
+  const trackingEnabled = isMessageTrackingEnabled()
   // Same pattern for WAQ-007 cooldown cap + WAQ-010 pacing — read once.
   const settings = await getSettingsForTenant(restaurantId)
   const perUserMarketingCap =
@@ -119,31 +220,5 @@ function assertHasAnyInlineTemplate(
   if (!hasEn && !hasZh) throw new NoTemplateError(campaign.id)
 }
 
-async function resolveWhatsAppTemplate(
-  campaign: Campaign
-): Promise<WhatsAppTemplate | null> {
-  if (!campaign.whatsappTemplateId) return null
-  const template = await findTemplateById(campaign.whatsappTemplateId)
-  if (!template) {
-    throw new Error(`WhatsApp template ${campaign.whatsappTemplateId} not found`)
-  }
-  if (!isTemplateSendable(template)) {
-    throw new Error(`WhatsApp template ${template.name} is not approved`)
-  }
-  return template
-}
-
-async function enforceGuardrails(
-  restaurantId: string,
-  memberCount: number
-): Promise<void> {
-  const result = await checkCampaignGuardrails(restaurantId, memberCount)
-  if (!result.allowed) {
-    throw new CampaignGuardrailError(result.violations)
-  }
-  if (result.warnings.length > 0) {
-    console.warn('[Campaign] Guardrail warnings:', result.warnings)
-  }
-}
-
 export { CampaignGuardrailError } from './campaign-guardrail-error'
+export { NoTemplateError } from './no-template-error'

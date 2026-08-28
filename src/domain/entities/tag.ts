@@ -1,6 +1,6 @@
 // TAG-001: Tag is a tenant-owned aggregate. The name is trimmed, non-empty and
 // <= 40 chars; uniqueness per restaurant is case-insensitive and enforced by the
-// DB (idx_tags_restaurant_lower_name, migration 054). Zero infra dependencies.
+// DB (idx_tags_restaurant_lower_name, migration 065). Zero infra dependencies.
 
 import { TagValidationError } from '@/domain/services/__errors__/tag-errors'
 

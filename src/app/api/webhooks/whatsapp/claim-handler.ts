@@ -8,6 +8,7 @@ import { listMemberIdsByTag } from '@/infrastructure/supabase/repositories/membe
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { recordOutboundSend } from '@/application/record-outbound-send'
+import { isMessageTrackingEnabled } from '@/application/message-tracking-flag'
 import { claimCampaignCoupon } from '@/application/claim-campaign-coupon'
 import { maskPhone } from '@/infrastructure/logging/logger'
 import { resolveLanguageForMember } from './resolve-language'
@@ -26,9 +27,14 @@ interface HandleClaimParams {
 }
 
 // The claim window is open while a broadcast is live (active/sending) or has
-// finished (completed); draft/paused campaigns refuse the tap.
+// finished (completed); draft/paused campaigns refuse the tap. 'failed' is
+// included too (#102 review round 2, item 5c): a failed campaign is
+// typically PARTIALLY sent — some members already received the message
+// (and its claim button) before the send exhausted retries — so marking
+// the campaign failed as a whole must not retroactively break claims for
+// members who already got it.
 const CLAIMABLE_STATUSES: ReadonlyArray<Campaign['status']> = [
-  'active', 'sending', 'completed',
+  'active', 'sending', 'completed', 'failed',
 ]
 
 export function isCampaignClaimable(status: Campaign['status']): boolean {
@@ -151,7 +157,7 @@ async function sendQrImage(a: SendQrImageArgs) {
     category: 'service',
     messageType: 'image',
     contentPreview: `Your code: ${a.code}`,
-    trackingEnabled: process.env.WAQ_TRACK_MESSAGES === '1',
+    trackingEnabled: isMessageTrackingEnabled(),
     send: () => sendImageMessage(a.phoneNumberId, a.phone, qrUrl, a.caption),
   })
 }

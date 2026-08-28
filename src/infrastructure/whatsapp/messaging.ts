@@ -31,3 +31,50 @@ export function sendInteractiveButtons(
     phoneNumberId, to, bodyText, buttons, footerText
   )
 }
+
+export function sendInteractiveList(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  buttonText: string,
+  sections: Array<{
+    title?: string
+    rows: Array<{ id: string; title: string; description?: string }>
+  }>,
+  footerText?: string
+): Promise<SendResult> {
+  return getMessagingProvider().sendInteractiveList(
+    phoneNumberId, to, bodyText, buttonText, sections, footerText
+  )
+}
+
+export function sendCtaUrlButton(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  displayText: string,
+  url: string,
+  footerText?: string
+): Promise<SendResult> {
+  return getMessagingProvider().sendCtaUrlButton(
+    phoneNumberId, to, bodyText, displayText, url, footerText
+  )
+}
+
+export function sendInteractiveFlow(
+  phoneNumberId: string,
+  to: string,
+  bodyText: string,
+  params: {
+    flowId: string
+    flowCta: string
+    flowToken: string
+    screen: string
+    data: Record<string, unknown>
+  },
+  footerText?: string
+): Promise<SendResult> {
+  return getMessagingProvider().sendInteractiveFlow(
+    phoneNumberId, to, bodyText, params, footerText
+  )
+}

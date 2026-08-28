@@ -1,50 +1,39 @@
-import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
+import {
+  sendTextMessage,
+  sendInteractiveButtons,
+  sendInteractiveList,
+} from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import {
+  getRestaurantRedirect,
+  getReplyConfig,
+} from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import { Language } from '@/domain/value-objects/language'
+import { buildContactUrl } from '@/domain/services/contact-redirect'
+import type { LocalizedText } from '@/domain/services/reply-config'
 import { resolveLanguageForMember } from './resolve-language'
+import {
+  buildFallbackMenu,
+  buildHelpText,
+  UNKNOWN_EN,
+  UNKNOWN_ZH,
+  JOIN_INVITE_EN,
+  JOIN_INVITE_ZH,
+  OPTIONS_BUTTON_EN,
+  OPTIONS_BUTTON_ZH,
+  MEMBER_OPTIONS_EN,
+  MEMBER_OPTIONS_ZH,
+  JOIN_OPTION_EN,
+  JOIN_OPTION_ZH,
+  type MenuOption,
+} from './fallback-menu'
 
-const HELP_EN =
-  'Available commands:\n' +
-  '• POINTS / 積分 — Check your balance\n' +
-  '• REWARDS / 獎賞 — View rewards\n' +
-  '• REDEEM <code> / 兌換 <代碼> — Use a coupon\n' +
-  '• CARD / 我的會員碼 — Get your stamp-card QR\n' +
-  '• STOP / 退訂 — Unsubscribe\n' +
-  '• LANG EN / 語言 中文 — Change language'
-
-const HELP_ZH =
-  '可用指令：\n' +
-  '• POINTS / 積分 — 查詢餘額\n' +
-  '• REWARDS / 獎賞 — 查看獎賞\n' +
-  '• REDEEM <代碼> / 兌換 <代碼> — 使用優惠券\n' +
-  '• CARD / 我的會員碼 — 取得您的儲印花會員碼\n' +
-  '• STOP / 退訂 — 停止接收訊息\n' +
-  '• LANG EN / 語言 中文 — 切換語言'
-
-const UNKNOWN_EN =
-  "Sorry, I didn't understand that. Try POINTS / 積分 to check balance, or HELP / 幫助 for options."
-const UNKNOWN_ZH =
-  '抱歉，我不明白您的訊息。請輸入 POINTS / 積分 查詢餘額，或 HELP / 幫助 查看選項。'
-
-const BUTTONS_EN = [
-  { id: 'POINTS', title: 'Check Points' },
-  { id: 'REWARDS', title: 'View Rewards' },
-  { id: 'HELP', title: 'Help' },
-]
-
-const BUTTONS_ZH = [
-  { id: 'POINTS', title: '查詢積分' },
-  { id: 'REWARDS', title: '查看獎賞' },
-  { id: 'HELP', title: '幫助' },
-]
-
-const JOIN_INVITE_EN =
-  'Welcome! Join our rewards program to earn points on every visit, unlock exclusive coupons, and get special member-only offers.'
-const JOIN_INVITE_ZH =
-  '歡迎！加入我們的會員計劃，每次消費賺取積分、解鎖專屬優惠券，並獲取會員尊享禮遇。'
-
-const JOIN_BUTTON_EN = { id: 'JOIN', title: 'Join Rewards' }
-const JOIN_BUTTON_ZH = { id: 'JOIN', title: '加入會員' }
+// Pick a tenant's custom message for the active language, or null to signal
+// "use the stock default".
+function customFor(text: LocalizedText, isEn: boolean): string | null {
+  return isEn ? text.en : text.zh
+}
 
 export async function handleHelp(
   phoneNumberId: string,
@@ -56,7 +45,12 @@ export async function handleHelp(
     return sendJoinInvite(phoneNumberId, phone, restaurantId)
   }
   const language = await resolveLanguageForMember(member, restaurantId)
-  const body = language.equals(Language.EN) ? HELP_EN : HELP_ZH
+  const isEn = language.equals(Language.EN)
+  const config = await getReplyConfig(restaurantId)
+  // A tenant-authored HELP overrides everything; otherwise the default lists
+  // only the functions still enabled.
+  const body =
+    customFor(config.text.help, isEn) ?? buildHelpText(isEn, config.features)
   return sendTextMessage(phoneNumberId, phone, body)
 }
 
@@ -66,14 +60,69 @@ export async function handleUnknown(
   restaurantId: string
 ) {
   const member = await findMemberByPhone(restaurantId, phone)
-  if (!member) {
-    return sendJoinInvite(phoneNumberId, phone, restaurantId)
+  const language = await resolveLanguageForMember(member, restaurantId)
+  const isEn = language.equals(Language.EN)
+
+  // Independent tenant reads — fetch together. hasActiveRewards is deferred
+  // because it's only consulted for an enabled-rewards member.
+  const [config, { redirectNumber, redirectLabel }] = await Promise.all([
+    getReplyConfig(restaurantId),
+    // Contact is NOT member-only: surface it to members and non-members alike
+    // whenever a valid redirect number is configured. An invalid stored number
+    // yields a null url ⇒ the row is omitted (no regression to today's menu).
+    getRestaurantRedirect(restaurantId),
+  ])
+  const contactRow: MenuOption | null =
+    redirectNumber && buildContactUrl(redirectNumber)
+      ? { id: 'CONTACT', title: redirectLabel }
+      : null
+
+  const body = member
+    ? customFor(config.text.unknown, isEn) ?? (isEn ? UNKNOWN_EN : UNKNOWN_ZH)
+    : customFor(config.text.join, isEn) ?? (isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH)
+  let baseOptions = member
+    ? isEn ? MEMBER_OPTIONS_EN : MEMBER_OPTIONS_ZH
+    : [isEn ? JOIN_OPTION_EN : JOIN_OPTION_ZH]
+
+  if (member) {
+    // Drop a function's row when the tenant disabled it (REPLY-003). Rewards
+    // additionally stays hidden when there are no active rewards (REPLY-002) —
+    // short-circuit skips that query when rewards is already off.
+    if (!config.features.points) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'POINTS')
+    }
+    if (!config.features.rewards || !(await hasActiveRewards(restaurantId))) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'REWARDS')
+    }
+    // Hide the HELP button when disabled (REPLY-004). Button only: the typed
+    // HELP / 幫助 command still routes to handleHelp regardless.
+    if (!config.features.help) {
+      baseOptions = baseOptions.filter((o) => o.id !== 'HELP')
+    }
   }
 
-  const language = await resolveLanguageForMember(member, restaurantId)
-  const body = language.equals(Language.EN) ? UNKNOWN_EN : UNKNOWN_ZH
-  const buttons = language.equals(Language.EN) ? BUTTONS_EN : BUTTONS_ZH
-  return sendInteractiveButtons(phoneNumberId, phone, body, buttons)
+  const options = [...baseOptions, ...(contactRow ? [contactRow] : [])]
+
+  // A member who disabled every menu function (points + rewards + help) with no
+  // contact CTA would leave zero options — an interactive message with no buttons
+  // is rejected by Meta. Degrade to a plain-text body so the reply still lands.
+  if (options.length === 0) {
+    return sendTextMessage(phoneNumberId, phone, body)
+  }
+
+  const buttonText = isEn ? OPTIONS_BUTTON_EN : OPTIONS_BUTTON_ZH
+
+  const menu = buildFallbackMenu(body, buttonText, options)
+  if (menu.kind === 'buttons') {
+    return sendInteractiveButtons(phoneNumberId, phone, body, menu.buttons)
+  }
+  return sendInteractiveList(
+    phoneNumberId,
+    phone,
+    menu.bodyText,
+    menu.buttonText,
+    menu.sections
+  )
 }
 
 async function sendJoinInvite(
@@ -82,8 +131,10 @@ async function sendJoinInvite(
   restaurantId: string
 ) {
   const language = await resolveLanguageForMember(null, restaurantId)
-  const body = language.equals(Language.EN) ? JOIN_INVITE_EN : JOIN_INVITE_ZH
-  const button = language.equals(Language.EN) ? JOIN_BUTTON_EN : JOIN_BUTTON_ZH
+  const isEn = language.equals(Language.EN)
+  const config = await getReplyConfig(restaurantId)
+  const body =
+    customFor(config.text.join, isEn) ?? (isEn ? JOIN_INVITE_EN : JOIN_INVITE_ZH)
+  const button = isEn ? JOIN_OPTION_EN : JOIN_OPTION_ZH
   return sendInteractiveButtons(phoneNumberId, phone, body, [button])
 }
-

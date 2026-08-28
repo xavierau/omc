@@ -45,6 +45,11 @@ export async function addReceiptJob(
   await q.add('process-receipt', data, {
     attempts: 3,
     backoff: { type: 'exponential', delay: 2000 },
+    // #102 Part B fix 1: bound Redis retention — an unbounded failed/
+    // completed set grows forever (observed: 6,642 stuck jobs on the
+    // sibling campaign-execution queue).
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 1000 },
   })
 }
 

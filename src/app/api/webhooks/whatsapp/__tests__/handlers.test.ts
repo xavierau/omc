@@ -31,6 +31,12 @@ vi.mock('../my-card-handler', () => ({
 vi.mock('../claim-handler', () => ({
   handleClaim: vi.fn(),
 }))
+vi.mock('../contact-handler', () => ({
+  handleContact: vi.fn(),
+}))
+vi.mock('../contact-form-handler', () => ({
+  handleContactFormSubmission: vi.fn(),
+}))
 vi.mock('@/application/register-member')
 vi.mock('@/application/redeem-coupon')
 vi.mock('@/application/redeem-reward')
@@ -47,10 +53,11 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 import { sendTextMessage, sendInteractiveButtons } from '@/infrastructure/whatsapp/messaging'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
-import { getRestaurantPhoneNumberId, getRestaurantName } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getRestaurantPhoneNumberId, getRestaurantName, getRestaurantRedirect, getReplyConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { resolveReplyConfig } from '@/domain/services/reply-config'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { findPendingReceipt, updateReceipt } from '@/infrastructure/supabase/repositories/receipt-repository'
-import { listActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
+import { listActiveRewards, hasActiveRewards } from '@/infrastructure/supabase/repositories/reward-repository'
 import {
   insertConsentRecord,
   revokeConsent,
@@ -65,6 +72,8 @@ import { confirmReceipt } from '@/application/process-receipt'
 import { enqueueReceiptProcessing } from '@/infrastructure/gcp/queue-client'
 import { handleMyCard } from '../my-card-handler'
 import { handleClaim } from '../claim-handler'
+import { handleContact } from '../contact-handler'
+import { handleContactFormSubmission } from '../contact-form-handler'
 import { routeMessage } from '../handlers'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { okResult } from '@/test-utils/send-result'
@@ -91,6 +100,11 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
     vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: null,
+      redirectLabel: 'Contact us',
+    })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
@@ -99,6 +113,77 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     vi.mocked(insertConsentRecord).mockResolvedValue(undefined)
     vi.mocked(revokeConsent).mockResolvedValue(0)
     vi.mocked(upsertOpenWindow).mockImplementation(async (w) => w)
+  })
+
+  describe('REPLY-003 function gating (disabled function → fallback)', () => {
+    const disabled = (key: 'points' | 'rewards' | 'redeem' | 'card') =>
+      resolveReplyConfig({ features: { [key]: false } })
+
+    it('POINTS disabled → member gets the fallback menu (no balance reply)', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b', name: null, pointsBalance: 20, preferredLanguage: 'en',
+      })
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('points'))
+
+      await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
+
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      const [, , , buttons] = vi.mocked(sendInteractiveButtons).mock.calls[0]
+      expect(buttons.map((b: { id: string }) => b.id)).not.toContain('POINTS')
+    })
+
+    it('REWARDS disabled → non-member gets the Join fallback, not "not a member yet"', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('rewards'))
+
+      await routeMessage(makeMessage({ text: 'REWARDS' }), RESTAURANT_B)
+
+      expect(listActiveRewards).not.toHaveBeenCalled()
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalledWith(
+        PHONE_NUMBER_ID,
+        PHONE,
+        expect.stringContaining('Welcome!'),
+        [{ id: 'JOIN', title: 'Join Rewards' }]
+      )
+    })
+
+    it('REDEEM <code> disabled (redeem) → coupon redemption is not attempted', async () => {
+      vi.mocked(findMemberByPhone).mockResolvedValue({
+        id: 'm-b', name: null, pointsBalance: 0, preferredLanguage: 'en',
+      })
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('redeem'))
+
+      await routeMessage(makeMessage({ text: 'REDEEM ABC123' }), RESTAURANT_B)
+
+      expect(redeemCouponUseCase).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('bare REDEEM disabled (rewards) → view-rewards is not shown', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('rewards'))
+
+      await routeMessage(makeMessage({ text: 'REDEEM' }), RESTAURANT_B)
+
+      expect(listActiveRewards).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('CARD disabled (card) → handleMyCard is not called', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(disabled('card'))
+
+      await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+
+      expect(handleMyCard).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).toHaveBeenCalled()
+    })
+
+    it('CARD enabled → still dispatches to handleMyCard (gate passes through)', async () => {
+      vi.mocked(getReplyConfig).mockResolvedValue(resolveReplyConfig(undefined))
+
+      await routeMessage(makeMessage({ text: 'CARD' }), RESTAURANT_A)
+
+      expect(handleMyCard).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
   })
 
   describe('CLAIM dispatch wiring (CAMP-001)', () => {
@@ -125,12 +210,63 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
   })
 
+  describe('CONTACT dispatch wiring (REPLY-001)', () => {
+    it('routes text "CONTACT" to handleContact with (phoneNumberId, phone, restaurantId)', async () => {
+      await routeMessage(makeMessage({ text: 'CONTACT' }), RESTAURANT_A)
+
+      expect(handleContact).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
+
+    it('routes a Chinese synonym 客服 to handleContact', async () => {
+      await routeMessage(makeMessage({ text: '客服' }), RESTAURANT_A)
+
+      expect(handleContact).toHaveBeenCalledWith(PHONE_NUMBER_ID, PHONE, RESTAURANT_A)
+    })
+  })
+
+  describe('WhatsApp Flow submission dispatch wiring (REPLY-005, AD-7)', () => {
+    it('a message with flowResponse is routed to handleContactFormSubmission, bypassing resolveRoute', async () => {
+      vi.mocked(handleContactFormSubmission).mockResolvedValue(undefined)
+
+      await routeMessage(
+        makeMessage({
+          type: 'interactive',
+          flowResponse: { clientName: 'Alice', clientWhatsapp: PHONE, topic: '訂座查詢' },
+          flowToken: `cf.v1.${RESTAURANT_A}.abc`,
+        }),
+        RESTAURANT_A
+      )
+
+      expect(handleContactFormSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: RESTAURANT_A,
+          phoneNumberId: PHONE_NUMBER_ID,
+          phone: PHONE,
+        })
+      )
+      // Bypassed the ordinary CONTACT/button routing entirely.
+      expect(handleContact).not.toHaveBeenCalled()
+      expect(sendInteractiveButtons).not.toHaveBeenCalled()
+      expect(sendTextMessage).not.toHaveBeenCalled()
+    })
+
+    it('an ordinary interactive message without flowResponse still routes normally (regression)', async () => {
+      await routeMessage(
+        makeMessage({ type: 'button', text: 'CLAIM_camp-1' }),
+        RESTAURANT_A
+      )
+
+      expect(handleContactFormSubmission).not.toHaveBeenCalled()
+      expect(handleClaim).toHaveBeenCalled()
+    })
+  })
+
   describe('cross-tenant isolation (regression: a member of tenant A must NOT be treated as a member of tenant B)', () => {
     it('unknown text: shows JOIN prompt to tenant B, even if phone is a member of tenant A', async () => {
       // Simulate: the same phone is a member of RESTAURANT_A but not RESTAURANT_B.
       // The lookup must be scoped, so calling for RESTAURANT_B returns null.
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'Hey' }), RESTAURANT_B)
@@ -147,7 +283,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('POINTS: replies "not a member yet" to tenant B, even if phone is a member of tenant A', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
@@ -162,7 +298,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REDEEM: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 50, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 50, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REDEEM ABC123' }), RESTAURANT_B)
@@ -178,7 +314,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REWARDS: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 500, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REWARDS' }), RESTAURANT_B)
@@ -194,7 +330,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('REWARD_<id>: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 500, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 500, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'REWARD_xyz' }), RESTAURANT_B)
@@ -210,7 +346,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('STOP: silently ignores when the phone is only a member of another tenant (no unsubscribe of other tenant)', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'STOP' }), RESTAURANT_B)
@@ -221,7 +357,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('receipt image: replies "not a member yet" when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(
@@ -240,7 +376,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
     it('receipt confirmation (YES / numeric): ignored when the phone is only a member of another tenant', async () => {
       vi.mocked(findMemberByPhone).mockImplementation(async (rid) =>
-        rid === RESTAURANT_A ? { id: 'm-a', pointsBalance: 0, preferredLanguage: null } : null
+        rid === RESTAURANT_A ? { id: 'm-a', name: null, pointsBalance: 0, preferredLanguage: null } : null
       )
 
       await routeMessage(makeMessage({ text: 'YES' }), RESTAURANT_B)
@@ -253,7 +389,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
 
   describe('positive paths (member belongs to the current tenant)', () => {
     it('unknown text: shows localized member menu (EN default) when the phone is a member of the current tenant', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 10, preferredLanguage: null })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', name: null, pointsBalance: 10, preferredLanguage: null })
 
       await routeMessage(makeMessage({ text: 'Hey' }), RESTAURANT_B)
 
@@ -271,7 +407,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
 
     it('POINTS: returns the member balance', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 123, preferredLanguage: null })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', name: null, pointsBalance: 123, preferredLanguage: null })
 
       await routeMessage(makeMessage({ text: 'POINTS' }), RESTAURANT_B)
 
@@ -283,7 +419,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     })
 
     it('receipt image: enqueues processing with the current tenant id', async () => {
-      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', pointsBalance: 0, preferredLanguage: null })
+      vi.mocked(findMemberByPhone).mockResolvedValue({ id: 'm-b', name: null, pointsBalance: 0, preferredLanguage: null })
       vi.mocked(enqueueReceiptProcessing).mockResolvedValue(undefined as never)
 
       await routeMessage(
@@ -475,7 +611,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     beforeEach(() => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
     })
@@ -496,7 +632,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "退訂": same revoke-all behaviour as STOP', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(revokeConsent).mockResolvedValue(1)
@@ -512,7 +648,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "停止": same revoke-all behaviour as STOP', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(revokeConsent).mockResolvedValue(1)
@@ -604,7 +740,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "積分" from member → routes to POINTS (balance reply)', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 77,
+        name: null, pointsBalance: 77,
         preferredLanguage: 'zh_hk',
       })
 
@@ -620,7 +756,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "幫助" from ZH member → routes to handleHelp with ZH copy', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
 
@@ -639,7 +775,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('EN "HELP" from EN member → handleHelp with EN copy', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
 
@@ -658,7 +794,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "是" with pending receipt → confirm path', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(findPendingReceipt).mockResolvedValue({
@@ -681,7 +817,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "否" with pending receipt → reject path (clears + localized ZH reply)', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(findPendingReceipt).mockResolvedValue({
@@ -703,7 +839,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('EN "NO" with pending receipt → reject path + EN reply', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
       vi.mocked(findPendingReceipt).mockResolvedValue({
@@ -724,7 +860,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('unknown text from ZH member → ZH reply with both-language hint', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
 
@@ -749,7 +885,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('unknown text from EN member → EN reply with both-language hint', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
 
@@ -830,7 +966,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('bare "兌換" → routes to handleRewards (not coupon redemption)', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 500,
+        name: null, pointsBalance: 500,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([])
@@ -844,7 +980,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('"兌換項目" → routes to handleRewards', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 500,
+        name: null, pointsBalance: 500,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([])
@@ -857,7 +993,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('bare "REDEEM" (uppercase, no argument) → routes to handleRewards', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 500,
+        name: null, pointsBalance: 500,
         preferredLanguage: 'en',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([])
@@ -871,7 +1007,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('"REDEEM CODE123" (with code) → still routes to coupon redemption (regression)', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
       vi.mocked(redeemCouponUseCase).mockResolvedValue({
@@ -892,7 +1028,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('"兌換 ABC123" (Chinese member) → triggers handleRedeem with the coupon code', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(redeemCouponUseCase).mockResolvedValue({
@@ -913,7 +1049,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('ZH "退訂" → routes to handleUnsubscribe with ZH goodbye reply', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
 
@@ -929,7 +1065,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('EN "STOP" → routes to handleUnsubscribe with EN goodbye reply', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-b',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'en',
       })
 
@@ -948,7 +1084,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('POINTS (ZH member) → ZH balance reply with 積分', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 77,
+        name: null, pointsBalance: 77,
         preferredLanguage: 'zh_hk',
       })
 
@@ -977,7 +1113,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REWARDS (ZH member, empty list) → ZH "no rewards yet"', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([])
@@ -994,7 +1130,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REWARDS (EN member, cannot afford) → EN "keep earning" with next reward', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-e',
-        pointsBalance: 10,
+        name: null, pointsBalance: 10,
         preferredLanguage: 'en',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([
@@ -1019,7 +1155,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REWARDS (ZH member, cannot afford) → ZH "keep earning" with 積分', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 10,
+        name: null, pointsBalance: 10,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([
@@ -1044,7 +1180,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REWARDS (ZH member, affordable list) → interactive buttons with ZH header and ZH button labels', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 500,
+        name: null, pointsBalance: 500,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(listActiveRewards).mockResolvedValue([
@@ -1071,7 +1207,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('receipt image (ZH member) → ZH "Got your receipt" ack', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(enqueueReceiptProcessing).mockResolvedValue(undefined as never)
@@ -1092,7 +1228,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
       vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
 
@@ -1111,7 +1247,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REDEEM_CODE (ZH member) → passes Language.ZH_HK to redeemCouponUseCase', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 0,
+        name: null, pointsBalance: 0,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(redeemCouponUseCase).mockResolvedValue({
@@ -1132,7 +1268,7 @@ describe('webhook handlers — tenant-scoped member lookups', () => {
     it('REWARD_<id> (ZH member) → passes Language.ZH_HK to redeemRewardUseCase', async () => {
       vi.mocked(findMemberByPhone).mockResolvedValue({
         id: 'm-z',
-        pointsBalance: 500,
+        name: null, pointsBalance: 500,
         preferredLanguage: 'zh_hk',
       })
       vi.mocked(redeemRewardUseCase).mockResolvedValue({
@@ -1159,6 +1295,11 @@ describe('conversation window upsert on inbound (WAQ-008)', () => {
     vi.clearAllMocks()
     vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue(PHONE_NUMBER_ID)
     vi.mocked(getRestaurantName).mockResolvedValue('Demo Cafe')
+    vi.mocked(getRestaurantRedirect).mockResolvedValue({
+      redirectNumber: null,
+      redirectLabel: 'Contact us',
+    })
+    vi.mocked(hasActiveRewards).mockResolvedValue(true)
     vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('en')
     vi.mocked(sendTextMessage).mockResolvedValue(okResult())
     vi.mocked(sendInteractiveButtons).mockResolvedValue(okResult())
