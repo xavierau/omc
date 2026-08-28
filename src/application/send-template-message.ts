@@ -1,6 +1,7 @@
 import {
   isTemplateSendable,
   extractParameters,
+  isDynamicUrlButton,
 } from '@/domain/entities/whatsapp-template'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import {
@@ -136,7 +137,7 @@ function buildUrlButtonParams(
   const urlButtons: UrlButtonParam[] = []
 
   buttonsComponent.buttons.forEach((btn, index) => {
-    if (btn.type === 'URL' && btn.url?.includes('{{1}}')) {
+    if (isDynamicUrlButton(btn)) {
       urlButtons.push({
         type: 'button',
         subType: 'url',

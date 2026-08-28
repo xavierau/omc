@@ -18,6 +18,7 @@ import { resolveWhatsAppTemplate } from './resolve-whatsapp-template'
 import { enforceCampaignGuardrails } from './enforce-campaign-guardrails'
 import { enforceTemplateReview } from './enforce-template-review'
 import { enforceHeaderMedia } from './enforce-header-media'
+import { enforceCouponParams } from './enforce-coupon-params'
 import { NoTemplateError } from './no-template-error'
 import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import type { SkipCounters } from './execute-campaign-batch-counters'
@@ -56,6 +57,10 @@ export async function executeCampaign(
   // guaranteed Meta #132012 on every send — fail fast (status untouched)
   // instead of burning the run.
   enforceHeaderMedia(template)
+  // I-1 / #134: a coupon-less campaign whose template still expects a code
+  // ({{code}} body variable or a dynamic URL button) is a guaranteed Meta
+  // rejection on every send — same fail-fast treatment as the header guard.
+  enforceCouponParams(campaign, template)
 
   const claimed = await transitionCampaignStatus(campaignId, 'active', 'sending')
   if (!claimed) throw new Error(`Campaign ${campaignId} not active or already processing`)

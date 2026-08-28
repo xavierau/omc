@@ -209,7 +209,7 @@
     "discountValue": "Discount Value",
     "expiryDays": "Expiry (days)",
     "execution": "Execution",
-    "executionNow": "Send now",
+    "executionNow": "Send manually",
     "executionSchedule": "Schedule",
     "scheduledAt": "Scheduled At",
     "messageType": "Message Type",

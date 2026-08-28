@@ -53,6 +53,7 @@ import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/ca
 import { emitEvent } from '@/application/emit-event'
 import { generateCouponCode } from '@/domain/value-objects/coupon-code'
 import { renderTemplate } from '@/domain/services/template-renderer'
+import { resolveCampaignTemplate } from '@/application/resolve-campaign-template'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
@@ -163,6 +164,15 @@ function buildCtx(overrides: Partial<SendContext> = {}): SendContext {
     perUserMarketingCap: 1,
     pacingConfig: DEFAULT_PACING_CONFIG,
     ...overrides,
+  }
+}
+
+// R7 (round 2): was duplicated in the #131 and #134 describes below — one
+// copy, shared.
+function prefetchWith(coupon: Coupon) {
+  return {
+    countedMemberIds: new Set<string>(),
+    existingCoupons: new Map([[coupon.memberId as string, coupon]]),
   }
 }
 
@@ -313,13 +323,6 @@ describe('sendToMember — eager mode re-run with an existing coupon (#131)', ()
     vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
   })
 
-  function prefetchWith(coupon: Coupon) {
-    return {
-      countedMemberIds: new Set<string>(),
-      existingCoupons: new Map([[coupon.memberId as string, coupon]]),
-    }
-  }
-
   it('reuses the existing active coupon: body carries ITS code, no mint, then QR + count + event', async () => {
     const existing = buildCoupon({ code: 'OLDCODE', memberId: 'm-1' })
     const ctx = buildCtx({ template: null })
@@ -399,5 +402,138 @@ describe('sendToMember — eager mode re-run with an existing coupon (#131)', ()
     expect(outcome).toBe('sent')
     expect(sendClaimBody).toHaveBeenCalledTimes(1)
     expect(sendCouponQr).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendToMember — marketing-only (couponConfig null) #134', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(generateCouponCode).mockReturnValue('CODE01')
+    vi.mocked(renderTemplate).mockReturnValue('desc')
+  })
+
+  function marketingCtx(overrides: Partial<SendContext> = {}): SendContext {
+    return buildCtx({ campaign: buildCampaign({ couponConfig: null }), template: null, ...overrides })
+  }
+
+  it('AC1: sends body with empty code, mints/QRs nothing, increments once, emits without couponCode', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+    const ctx = marketingCtx()
+
+    const outcome = await sendToMember(buildMember(), ctx)
+
+    expect(outcome).toBe('sent')
+    expect(sendCampaignBody).toHaveBeenCalledTimes(1)
+    expect(sendCampaignBody).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm-1' }),
+      ctx,
+      '',
+      expect.any(String)
+    )
+    expect(generateCouponCode).not.toHaveBeenCalled()
+    expect(createCampaignBroadcastCoupon).not.toHaveBeenCalled()
+    expect(sendCouponQr).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).toHaveBeenCalledWith('camp-1', true)
+    expect(emitEvent).toHaveBeenCalledTimes(1)
+    const [emitArg] = vi.mocked(emitEvent).mock.calls[0]
+    expect(emitArg.dataJson).toStrictEqual({ campaignId: 'camp-1' })
+  })
+
+  it('AC2: throws and does NOT increment/emit/mint/QR when the body send fails', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(failResult('kapso_send_error'))
+    const ctx = marketingCtx()
+
+    await expect(sendToMember(buildMember(), ctx)).rejects.toThrow()
+
+    expect(incrementCampaignSent).not.toHaveBeenCalled()
+    expect(emitEvent).not.toHaveBeenCalled()
+    expect(createCampaignBroadcastCoupon).not.toHaveBeenCalled()
+    expect(sendCouponQr).not.toHaveBeenCalled()
+  })
+
+  it('AC3: claim precedence — claim template + null couponConfig still uses the claim path', async () => {
+    vi.mocked(sendClaimBody).mockResolvedValue(okResult('wamid.claim'))
+    const ctx = marketingCtx({ template: claimTemplate })
+
+    const outcome = await sendToMember(buildMember(), ctx)
+
+    expect(outcome).toBe('sent')
+    expect(sendClaimBody).toHaveBeenCalledTimes(1)
+    expect(sendCampaignBody).not.toHaveBeenCalled()
+  })
+
+  it('AC4: an existing ACTIVE leftover coupon is ignored — still marketing-only, no mint/QR', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+    const existing = buildCoupon({ code: 'OLDCODE', memberId: 'm-1' })
+    const ctx = marketingCtx()
+
+    const outcome = await sendToMember(buildMember(), ctx, prefetchWith(existing))
+
+    expect(outcome).toBe('sent')
+    expect(sendCampaignBody).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm-1' }),
+      ctx,
+      '',
+      expect.any(String)
+    )
+    expect(createCampaignBroadcastCoupon).not.toHaveBeenCalled()
+    expect(sendCouponQr).not.toHaveBeenCalled()
+    expect(incrementCampaignSent).toHaveBeenCalledTimes(1)
+  })
+
+  it('AC5: an existing REDEEMED leftover coupon does not skip — still sends the announcement', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+    const redeemed = buildCoupon({
+      status: 'redeemed',
+      redeemedAt: '2026-08-01T00:00:00Z',
+      currentUses: 1,
+      memberId: 'm-1',
+    })
+    const ctx = marketingCtx()
+
+    const outcome = await sendToMember(buildMember(), ctx, prefetchWith(redeemed))
+
+    expect(outcome).toBe('sent')
+    expect(sendCampaignBody).toHaveBeenCalledTimes(1)
+    expect(sendCouponQr).not.toHaveBeenCalled()
+  })
+
+  it('a URL-button template with null couponConfig goes marketing-only (no mint)', async () => {
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+    const ctx = marketingCtx({ template: urlTemplate })
+
+    const outcome = await sendToMember(buildMember(), ctx)
+
+    expect(outcome).toBe('sent')
+    expect(sendClaimBody).not.toHaveBeenCalled()
+    expect(sendCampaignBody).toHaveBeenCalledTimes(1)
+    expect(createCampaignBroadcastCoupon).not.toHaveBeenCalled()
+    expect(sendCouponQr).not.toHaveBeenCalled()
+  })
+
+  // M-3: every other test in this describe mocks `renderTemplate` to the
+  // literal string 'desc', so none of them can see whether a stray
+  // {{code}} placeholder (left in the campaign copy despite a null
+  // couponConfig) renders as '' or leaks the literal 'undefined'. Delegate
+  // to the real renderer for this one test to pin the actual behaviour.
+  it('M-3: a stray {{code}} placeholder renders as empty string, not "undefined"', async () => {
+    const actual = await vi.importActual<
+      typeof import('@/domain/services/template-renderer')
+    >('@/domain/services/template-renderer')
+    vi.mocked(renderTemplate).mockImplementationOnce(actual.renderTemplate)
+    vi.mocked(resolveCampaignTemplate).mockReturnValueOnce(
+      'Hi {{name}}, code {{code}}'
+    )
+    vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
+    const ctx = marketingCtx()
+
+    await sendToMember(buildMember({ name: 'Alice' }), ctx)
+
+    expect(sendCampaignBody).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm-1' }),
+      ctx,
+      '',
+      'Hi Alice, code '
+    )
   })
 })

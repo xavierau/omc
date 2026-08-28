@@ -58,7 +58,7 @@ function campaignToFormState(c: Campaign): CampaignFormState {
   }
 }
 
-async function submitCampaign(form: CampaignFormState, campaignId: string | undefined) {
+export async function submitCampaign(form: CampaignFormState, campaignId: string | undefined) {
   const body = buildCampaignRequestBody(form)
   const url = campaignId ? `/api/dashboard/campaigns/${campaignId}` : '/api/dashboard/campaigns'
   const method = campaignId ? 'PATCH' : 'POST'
@@ -71,11 +71,9 @@ async function submitCampaign(form: CampaignFormState, campaignId: string | unde
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error ?? 'Request failed')
   }
-  const json = await res.json()
-  if (!campaignId && form.execution === 'now' && json.id) {
-    await fetch(`/api/dashboard/campaigns/${json.id}/execute`, { method: 'POST' })
-  }
-  return json
+  // #136: no auto-execute on create — the card's Send Now (campaign-card.tsx)
+  // is the only trigger, and it checks the /execute response.
+  return res.json()
 }
 
 export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: CampaignFormDialogProps) {
