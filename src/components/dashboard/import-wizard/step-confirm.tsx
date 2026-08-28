@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { CommitRejectionsList } from './commit-rejections-list'
 import type { ImportContactsBatchResult } from '@/hooks/use-import-batch'
 
 interface Props {
@@ -31,7 +32,23 @@ export function StepConfirm({ isCommitting, result, error, onCommit, onBack, onD
           <li data-stat="weak">{t('grade.weak')}: {result.gradeBreakdown.weak}</li>
           <li data-stat="none">{t('grade.none')}: {result.gradeBreakdown.none}</li>
           <li data-stat="rejected">{t('confirm.rejected')}: {result.rejected.length}</li>
+          {result.tagging.taggedMembers > 0 && (
+            <li data-stat="tagged-members">
+              {t('confirm.taggedMembers', { count: result.tagging.taggedMembers })}
+            </li>
+          )}
         </ul>
+        {result.tagging.status === 'failed' && (
+          <p className="text-xs text-destructive" data-warning="tags-failed">
+            {t('confirm.tagsFailed')}
+          </p>
+        )}
+        {result.rejected.length > 0 && (
+          <CommitRejectionsList
+            rejected={result.rejected}
+            total={result.inserted + result.rejected.length}
+          />
+        )}
         <button
           type="button"
           onClick={onDone}

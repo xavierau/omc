@@ -987,7 +987,8 @@
       "copy": "複製清單",
       "copied": "已複製",
       "downloadCsv": "下載 CSV",
-      "taggedMembers": "已為 {count} 位會員加上標籤"
+      "taggedMembers": "已為 {count} 位會員加上標籤",
+      "tagsFailed": "聯絡人已匯入，但無法套用標籤。你可以在會員列表中為他們加上標籤。"
     },
     "actions": {
       "next": "下一步",

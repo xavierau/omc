@@ -987,7 +987,8 @@
       "copy": "Copy list",
       "copied": "Copied",
       "downloadCsv": "Download CSV",
-      "taggedMembers": "{count} members tagged"
+      "taggedMembers": "{count} members tagged",
+      "tagsFailed": "Contacts were imported, but their tags could not be applied. You can tag them from the members list."
     },
     "actions": {
       "next": "Next",
