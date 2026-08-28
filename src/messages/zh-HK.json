@@ -925,15 +925,32 @@
       "none": "無同意紀錄"
     },
     "csv": {
-      "description": "上載至少包含 phone 欄的 CSV。亦支援 name、preferred_language 及 tags 欄——多個標籤請以分號（;）分隔。",
+      "description": "上載至少包含 phone 欄的 CSV。可下載下方範本以取得正確格式，或按以下規則準備檔案。",
       "pick": "選擇 CSV 檔案",
       "rowCount": "{count} 列已準備評級",
       "errors": {
         "empty": "CSV 為空或缺少 phone 欄位。",
-        "tooManyRows": "每批次最多 {max} 列。"
+        "tooManyRows": "每批次最多 {max} 列。",
+        "unreadable": "無法讀取檔案——請重新選擇。"
       },
       "tagsFound": "此檔案中找到 {count} 個標籤",
-      "tagsIgnored": "已略過 {count} 個標籤值（空白或超過 40 個字元）"
+      "tagsIgnored": "已略過 {count} 個標籤值（空白或超過 40 個字元）",
+      "downloadTemplate": "下載 CSV 範本",
+      "help": {
+        "title": "CSV 格式",
+        "phone": "phone — 必填。完整國際電話號碼（含國家代碼），例如 +85291234567。欄名亦可用 phonee164 或 phone_e164。",
+        "name": "name — 選填。欄名亦可用 fullname。姓名含逗號時請用雙引號包住：\"Chan, Tai Man\"。",
+        "language": "preferred_language — 選填。只接受 en 或 zh_hk；其他值會當作空白匯入。欄名亦可用 language 或 lang。",
+        "tags": "tags — 選填。多個標籤以分號分隔，例如 VIP;Lunch。每列最多 {maxTagsPerRow} 個標籤、每個標籤最多 40 個字元、每次匯入最多新增 50 個標籤。欄名亦可用 tag。",
+        "limits": "每個檔案最多 {maxRows, number} 列。欄位次序不限，欄名不分大小寫。"
+      },
+      "rejectedTitle": "{count} 列無法讀取，將不會匯入",
+      "rejectLine": "第 {line} 行",
+      "reason": {
+        "column_count_mismatch": "預期 {expected} 欄，但讀到 {actual} 欄——{direction, select, more {請檢查姓名或標籤內是否有未用雙引號包住的逗號} other {請補回缺少的逗號，令每列都有 {expected} 欄（末尾的欄可留空）}}",
+        "unterminated_quote": "此行的雙引號沒有關閉，其後的內容全部被讀成同一格"
+      },
+      "showingFirst": "僅顯示首 {shown} 筆，共 {count} 筆"
     },
     "grade": {
       "strong": "強",

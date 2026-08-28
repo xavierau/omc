@@ -14,6 +14,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
 - [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
 - [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
 - [2026-08-24-waq-014-gate-error-diagnosability](plans/2026-08-24-waq-014-gate-error-diagnosability.md) — #117: gate error names trustReason not Meta
@@ -91,6 +92,16 @@ no artifact files were lost._
 - [2026-08-28-tag-001-f3-campaign-multitag-frontend](artifacts/2026-08-28-tag-001-f3-campaign-multitag-frontend.md) — F3: multi-tag OR picker + debounced live recipient count, 30 tests (react-frontend-dev)
 - [2026-08-28-tag-001-f4-bulk-tag-frontend](artifacts/2026-08-28-tag-001-f4-bulk-tag-frontend.md) — F4: members-list selection + bulk tag bar, 40 tests (react-frontend-dev)
 - [2026-08-28-tag-001-issues-138-139-orchestrator-handoff](artifacts/2026-08-28-tag-001-issues-138-139-orchestrator-handoff.md) — orchestrator checkpoint: PR #51 merged with develop (7c05d63), migrations 065/066 scratch-validated, decisions, next steps (claude)
+
+**WONB-018 / WONB-019 — #148 CSV column-shift bug + #147 import template**
+- [2026-08-28-wonb-018-tokenizer-backend](artifacts/2026-08-28-wonb-018-tokenizer-backend.md) — A1: RFC 4180 tokeniser + parseCsv rejection, 152 tests (senior-backend-dev)
+- [2026-08-28-wonb-019-upload-step-frontend](artifacts/2026-08-28-wonb-019-upload-step-frontend.md) — B1+A2: template download, format help, parse-rejections panel, upload-step wiring, 22 tests (react-frontend-dev)
+- [2026-08-28-wonb-018-019-gemini](reviews/2026-08-28-wonb-018-019-gemini.md) — Gemini CLI review: APPROVED, 0 findings (gemini-cli-reviewer)
+- [2026-08-28-wonb-018-019-grok](reviews/2026-08-28-wonb-018-019-grok.md) — Grok CLI review: CONDITIONAL — 1 Important (unterminated quote on the header line → fixed, T-A2.15/16), 4 Minor (grok-cli-reviewer)
+- [2026-08-28-wonb-018-019-code-review-finders](reviews/2026-08-28-wonb-018-019-code-review-finders.md) — /code-review fork stalled; 4 finders harvested by hand: 8 fixed, 1 deferred (#151 Big5), 1 kept-as-designed (short-row strictness) (claude)
+- [2026-08-28-wonb-018-019-acceptance](tests/2026-08-28-wonb-018-019-acceptance.md) — QA verdict ACCEPTED-WITH-GAPS: 11/12 ACs pass, perf 355/306 ms vs 500/750 budget, G-5 residual → issue #150 (qa-engineer)
+- [2026-08-28-wonb-018-019-ui-verification](tests/2026-08-28-wonb-018-019-ui-verification.md) — Browser walk on dev PASS: 7/7 checkpoints, desktop+mobile layout audit, 2 findings fixed (number grouping, touch target) (ui-test-runner)
+- [ui-map/flows/wonb-018-019-csv-import-upload-step](ui-map/flows/wonb-018-019-csv-import-upload-step.md) — confirmed flow + 9 selectors for the import upload step (ui-test-runner)
 
 **Issue #111 — member-detail cross-tenant IDOR**
 - [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests
