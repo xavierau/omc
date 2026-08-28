@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { parseCsv, type ParsedRow } from './parse-csv'
 import { computeCsvTagStats } from './parse-csv-tag-stats'
+import { MAX_ROWS, classifyParseResult } from './step-upload-csv-helpers'
 
 interface Props {
   rows: ParsedRow[]
@@ -12,8 +13,6 @@ interface Props {
   onBack: () => void
   onNext: () => void
 }
-
-const MAX_ROWS = 50_000
 
 export function StepUploadCsv({ rows, onParsed, onBack, onNext }: Props) {
   const t = useTranslations('importWizard')
@@ -23,19 +22,18 @@ export function StepUploadCsv({ rows, onParsed, onBack, onNext }: Props) {
 
   async function handleFile(file: File) {
     const text = await file.text()
-    const parsed = parseCsv(text)
-    if (parsed.length === 0) {
-      setError(t('csv.errors.empty'))
-      onParsed([])
-      return
-    }
-    if (parsed.length > MAX_ROWS) {
-      setError(t('csv.errors.tooManyRows', { max: MAX_ROWS }))
+    const outcome = classifyParseResult(parseCsv(text), MAX_ROWS)
+    if (outcome.kind === 'error') {
+      const message =
+        outcome.error === 'tooManyRows'
+          ? t('csv.errors.tooManyRows', { max: MAX_ROWS })
+          : t('csv.errors.empty')
+      setError(message)
       onParsed([])
       return
     }
     setError(null)
-    onParsed(parsed)
+    onParsed(outcome.result.rows)
   }
 
   return (
