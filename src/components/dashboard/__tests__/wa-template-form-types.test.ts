@@ -4,6 +4,7 @@ import {
   buildWaTemplateRequestBody,
   createTemplateButton,
   initialWaTemplateForm,
+  templateToFormState,
   validateWaTemplateButtons,
 } from '@/components/dashboard/wa-template-form-types'
 import type { TemplateButton, WaTemplateFormState } from '@/components/dashboard/wa-template-form-types'
@@ -70,6 +71,16 @@ describe('applyTemplateButtonChange', () => {
 
     expect(next).toEqual({ type: 'COUPON_URL', text: '', url: '', phoneNumber: '' })
   })
+
+  it('clears both type-specific fields when switching to a quick reply button (#132)', () => {
+    const next = applyTemplateButtonChange(
+      button({ url: 'https://a.test', phoneNumber: PHONE }),
+      'type',
+      'QUICK_REPLY'
+    )
+
+    expect(next).toEqual({ type: 'QUICK_REPLY', text: '', url: '', phoneNumber: '' })
+  })
 })
 
 describe('validateWaTemplateButtons', () => {
@@ -121,6 +132,54 @@ describe('validateWaTemplateButtons', () => {
     expect(validateWaTemplateButtons([button({ type: 'COUPON_URL', text: 'My coupon' })])).toBeNull()
   })
 
+  it('blocks a quick reply button with no label (#132)', () => {
+    const message = validateWaTemplateButtons([button({ type: 'QUICK_REPLY' })])
+
+    expect(message).toBeTruthy()
+    expect(message?.toLowerCase()).toContain('label')
+  })
+
+  it('accepts a quick reply button, which needs only a label (#132)', () => {
+    expect(validateWaTemplateButtons([button({ type: 'QUICK_REPLY', text: 'Claim' })])).toBeNull()
+  })
+
+  it('refuses a quick reply combined with a coupon link — claim mode has no code for {{1}} (#132)', () => {
+    const message = validateWaTemplateButtons([
+      button({ type: 'COUPON_URL', text: 'My coupon' }),
+      button({ type: 'QUICK_REPLY', text: 'Claim' }),
+    ])
+
+    expect(message).toContain('Coupon Link')
+  })
+
+  it('refuses quick replies interleaved with call-to-action buttons (#132)', () => {
+    const message = validateWaTemplateButtons([
+      button({ type: 'QUICK_REPLY', text: 'Claim' }),
+      button({ type: 'URL', text: 'Menu', url: 'https://a.test' }),
+      button({ type: 'QUICK_REPLY', text: 'Later' }),
+    ])
+
+    expect(message).toContain('together')
+  })
+
+  it('accepts grouped quick replies next to a call-to-action group (#132)', () => {
+    expect(
+      validateWaTemplateButtons([
+        button({ type: 'URL', text: 'Menu', url: 'https://a.test' }),
+        button({ type: 'QUICK_REPLY', text: 'Claim' }),
+        button({ type: 'QUICK_REPLY', text: 'Later' }),
+      ])
+    ).toBeNull()
+  })
+
+  it('skips an UNSUPPORTED button entirely, since Meta already accepted it (#132)', () => {
+    const message = validateWaTemplateButtons([
+      { type: 'UNSUPPORTED', text: '', url: '', phoneNumber: '', raw: { type: 'COPY_CODE' } },
+    ])
+
+    expect(message).toBeNull()
+  })
+
   it('accepts fully filled url and phone buttons', () => {
     const message = validateWaTemplateButtons([
       button({ text: 'Order now', url: 'https://a.test' }),
@@ -150,5 +209,72 @@ describe('buildWaTemplateRequestBody', () => {
     const buttons = wireButtons(formWith([button({ text: 'Order now', url: 'https://a.test' })]))
 
     expect(buttons[0]).toEqual({ type: 'URL', text: 'Order now', url: 'https://a.test' })
+  })
+
+  it('emits a quick reply button with just its label, no url/phoneNumber keys (#132)', () => {
+    const buttons = wireButtons(formWith([button({ type: 'QUICK_REPLY', text: 'Claim' })]))
+
+    expect(buttons[0]).toEqual({ type: 'QUICK_REPLY', text: 'Claim' })
+    expect(Object.keys(buttons[0])).not.toContain('url')
+    expect(Object.keys(buttons[0])).not.toContain('phoneNumber')
+  })
+
+  it('never emits null for an UNSUPPORTED button that lost its raw object (#132)', () => {
+    const buttons = wireButtons(
+      formWith([{ type: 'UNSUPPORTED', text: 'Copy offer code', url: '', phoneNumber: '' }])
+    )
+
+    expect(buttons[0]).toEqual({ type: 'UNSUPPORTED', text: 'Copy offer code' })
+  })
+
+  it('re-emits an UNSUPPORTED button unchanged rather than rewriting it (#132)', () => {
+    const storedCopyCode = { type: 'COPY_CODE', text: 'Copy offer code', example: 'SAMPLE123' }
+    const buttons = wireButtons(
+      formWith([{ type: 'UNSUPPORTED', text: 'Copy offer code', url: '', phoneNumber: '', raw: storedCopyCode }])
+    )
+
+    expect(buttons[0]).toEqual(storedCopyCode)
+  })
+})
+
+describe('templateToFormState button round-trip (#132)', () => {
+  function templateWithButtons(buttons: Record<string, unknown>[]) {
+    return {
+      name: 'testing_template',
+      language: 'en',
+      category: 'MARKETING',
+      components: [
+        { type: 'BODY', text: 'Hello' },
+        { type: 'BUTTONS', buttons },
+      ],
+    }
+  }
+
+  it('round-trips a QUICK_REPLY button into its own form type', () => {
+    const state = templateToFormState(templateWithButtons([{ type: 'QUICK_REPLY', text: 'Claim' }]))
+
+    expect(state.buttons).toEqual([{ type: 'QUICK_REPLY', text: 'Claim', url: '', phoneNumber: '' }])
+  })
+
+  it('maps a COPY_CODE button to UNSUPPORTED, carrying the original stored object', () => {
+    const stored = { type: 'COPY_CODE', text: 'Copy offer code', example: 'SAMPLE123' }
+    const state = templateToFormState(templateWithButtons([stored]))
+
+    expect(state.buttons).toEqual([{ type: 'UNSUPPORTED', text: 'Copy offer code', url: '', phoneNumber: '', raw: stored }])
+  })
+
+  it('maps an unrecognized stored button type to UNSUPPORTED too', () => {
+    const stored = { type: 'MPM', text: 'View catalog' }
+    const state = templateToFormState(templateWithButtons([stored]))
+
+    expect(state.buttons[0].type).toBe('UNSUPPORTED')
+    expect(state.buttons[0].raw).toEqual(stored)
+  })
+
+  it('re-emits a round-tripped UNSUPPORTED button byte-for-byte on save', () => {
+    const stored = { type: 'COPY_CODE', text: 'Copy offer code', example: 'SAMPLE123' }
+    const state = templateToFormState(templateWithButtons([stored]))
+
+    expect(wireButtons(state)[0]).toEqual(stored)
   })
 })
