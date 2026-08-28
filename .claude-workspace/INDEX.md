@@ -14,6 +14,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
 - [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
 - [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
 - [2026-08-24-waq-014-gate-error-diagnosability](plans/2026-08-24-waq-014-gate-error-diagnosability.md) — #117: gate error names trustReason not Meta
@@ -91,6 +92,9 @@ no artifact files were lost._
 - [2026-08-28-tag-001-f3-campaign-multitag-frontend](artifacts/2026-08-28-tag-001-f3-campaign-multitag-frontend.md) — F3: multi-tag OR picker + debounced live recipient count, 30 tests (react-frontend-dev)
 - [2026-08-28-tag-001-f4-bulk-tag-frontend](artifacts/2026-08-28-tag-001-f4-bulk-tag-frontend.md) — F4: members-list selection + bulk tag bar, 40 tests (react-frontend-dev)
 - [2026-08-28-tag-001-issues-138-139-orchestrator-handoff](artifacts/2026-08-28-tag-001-issues-138-139-orchestrator-handoff.md) — orchestrator checkpoint: PR #51 merged with develop (7c05d63), migrations 065/066 scratch-validated, decisions, next steps (claude)
+
+**WONB-018 / WONB-019 — #148 CSV column-shift bug + #147 import template**
+- [2026-08-28-wonb-018-tokenizer-backend](artifacts/2026-08-28-wonb-018-tokenizer-backend.md) — A1: RFC 4180 tokeniser + parseCsv rejection, 152 tests (senior-backend-dev)
 
 **Issue #111 — member-detail cross-tenant IDOR**
 - [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests
