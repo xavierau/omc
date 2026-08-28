@@ -28,7 +28,7 @@ const WIZARD_DIR = join(process.cwd(), 'src/components/dashboard/import-wizard')
 describe('CSV upload step — tag feedback (Feedback State 1)', () => {
   it('surfaces how many tag values were dropped so the upload step can warn', () => {
     const overLong = 'x'.repeat(41)
-    const rows = parseCsv(`phone,tags\n+85291234567,${overLong};vip\n`)
+    const rows = parseCsv(`phone,tags\n+85291234567,${overLong};vip\n`).rows
 
     // The surviving tag is kept correctly …
     expect(rows[0].tags).toEqual(['vip'])

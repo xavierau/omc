@@ -925,15 +925,32 @@
       "none": "No consent recorded"
     },
     "csv": {
-      "description": "Upload a CSV with at least a phone column. Optional name, preferred_language, and tags columns are supported — separate multiple tags with a semicolon (;).",
+      "description": "Upload a CSV with at least a phone column. Download the template below for the exact format, or follow the rules here.",
       "pick": "Choose CSV file",
       "rowCount": "{count} rows ready to grade",
       "errors": {
         "empty": "CSV is empty or missing the phone column.",
-        "tooManyRows": "Batch limit is {max} rows."
+        "tooManyRows": "Batch limit is {max} rows.",
+        "unreadable": "The file could not be read — pick it again."
       },
       "tagsFound": "{count} tags found in this file",
-      "tagsIgnored": "{count} tag values were ignored (blank, or longer than 40 characters)"
+      "tagsIgnored": "{count} tag values were ignored (blank, or longer than 40 characters)",
+      "downloadTemplate": "Download CSV template",
+      "help": {
+        "title": "CSV format",
+        "phone": "phone — required. Full international number with country code, e.g. +85291234567. The header may also be phonee164 or phone_e164.",
+        "name": "name — optional. The header may also be fullname. If a name contains a comma, wrap it in double quotes: \"Chan, Tai Man\".",
+        "language": "preferred_language — optional. Only en or zh_hk are accepted; any other value is imported as blank. The header may also be language or lang.",
+        "tags": "tags — optional. Separate tags with a semicolon, e.g. VIP;Lunch. Up to {maxTagsPerRow} tags per row, 40 characters per tag, and 50 new tags per import. The header may also be tag.",
+        "limits": "Up to {maxRows, number} rows per file. Column order does not matter and header names are not case-sensitive."
+      },
+      "rejectedTitle": "{count, plural, one {# row} other {# rows}} could not be read and will not be imported",
+      "rejectLine": "Line {line}",
+      "reason": {
+        "column_count_mismatch": "Expected {expected} columns but found {actual} — {direction, select, more {check for a comma inside a name or tag that is not wrapped in double quotes} other {add the missing commas so the row has {expected} cells, even when the last columns are empty}}",
+        "unterminated_quote": "A double quote opened on this line was never closed, so everything after it was read as one cell"
+      },
+      "showingFirst": "Showing the first {shown} of {count}"
     },
     "grade": {
       "strong": "Strong",
