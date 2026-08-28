@@ -30,6 +30,8 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Reviews
+- [2026-08-28-camp-009-issues-136-134-analyzer](reviews/2026-08-28-camp-009-issues-136-134-analyzer.md) — CAMP-009 #136/#134 second lane: CONDITIONAL — 0 Critical, 2 Important ({{code}}+null couponConfig; journal) (code-review-analyzer)
+- [2026-08-28-camp-009-issues-136-134-gemini](reviews/2026-08-28-camp-009-issues-136-134-gemini.md) — #136+#134: APPROVED, 0 Critical/Important, 1 Minor (counter-order asymmetry) (gemini-cli-reviewer)
 - [2026-08-27-camp-008-issue-131-gemini](reviews/2026-08-27-camp-008-issue-131-gemini.md) — #131 4831b5e: CONDITIONAL, 1 Critical (retract RPC lost-update) (gemini-cli-reviewer)
 - [2026-08-27-camp-008-issue-131-analyzer](reviews/2026-08-27-camp-008-issue-131-analyzer.md) — #131 1775d79: CONDITIONAL, 0 Critical, 3 Important (code-review-analyzer)
 - [2026-08-27-camp-004-quick-reply-gemini](reviews/2026-08-27-camp-004-quick-reply-gemini.md) — #132 9c41b04: APPROVED (gemini-cli-reviewer)
@@ -109,6 +111,12 @@ no artifact files were lost._
 - [2026-07-26-reply-005-review-fixes-frontend](artifacts/2026-07-26-reply-005-review-fixes-frontend.md) — CONDITIONAL review fixes, frontend (M1, M2) (react-frontend-dev)
 - [2026-07-26-reply-005-coderabbit-fixes-backend](artifacts/2026-07-26-reply-005-coderabbit-fixes-backend.md) — CodeRabbit review fixes, PR #70 (senior-backend-dev)
 - [2026-07-26-reply-005-coderabbit-fixes-frontend](artifacts/2026-07-26-reply-005-coderabbit-fixes-frontend.md) — CodeRabbit UI findings #1, #2, PR #70 (react-frontend-dev)
+
+**CAMP-009 — #136/#134 create auto-send + marketing-only broadcast**
+- [2026-08-28-camp-009-create-autosend-and-marketing-only-broadcast](plans/2026-08-28-camp-009-create-autosend-and-marketing-only-broadcast.md) — plan: Streams A (#136) + B (#134), ACs, risk (claude)
+- [2026-08-28-camp-009-stream-a-create-autosend-frontend](artifacts/2026-08-28-camp-009-stream-a-create-autosend-frontend.md) — Stream A: auto-execute deleted, submitCampaign pinned, label rename (react-frontend-dev)
+- [2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend](artifacts/2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend.md) — Stream B: marketing-only send path, no mint/QR (senior-backend-dev)
+- [2026-08-28-camp-009-stream-c-coupon-param-preflight-backend](artifacts/2026-08-28-camp-009-stream-c-coupon-param-preflight-backend.md) — Stream C: review I-1 — enforceCouponParams preflight, route + worker (senior-backend-dev)
 
 **CAMP-008 — #131/#132 outbound status + claim-mode button**
 - [2026-08-27-camp-008-outbound-status-and-claim-button](plans/2026-08-27-camp-008-outbound-status-and-claim-button.md) — plan D1–D6 + advisor amendment A1–A9 (claude)

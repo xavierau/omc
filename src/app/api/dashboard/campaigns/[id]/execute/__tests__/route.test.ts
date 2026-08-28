@@ -218,6 +218,35 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
     expect(addCampaignJob).not.toHaveBeenCalled()
   })
 
+  // I-1 / #134: a coupon-less campaign whose template still expects a code
+  // (a {{code}} body variable or a dynamic URL button) is a guaranteed Meta
+  // rejection on every send — surface it synchronously as a 409 instead of
+  // queueing a run that burns and fails.
+  it('returns 409 and does NOT enqueue when the campaign has no coupon config but the template expects a code', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        couponConfig: null,
+      })
+    )
+    vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
+      buildWhatsAppTemplate({
+        name: 'free_drink',
+        components: [{ type: 'BODY', text: 'Hi {{customer_name}}, code {{code}}' }],
+      })
+    )
+
+    const r = await POST(new Request('http://x') as never, params())
+
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('free_drink')
+    expect(body.error).toContain('coupon')
+    expect(addCampaignJob).not.toHaveBeenCalled()
+  })
+
   it('enqueues when the media header has a stored https URL', async () => {
     vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(
       buildWhatsAppTemplate({

@@ -2,10 +2,12 @@
 // (WAQ-010) so the batch orchestrator stays under the file-size limit.
 //
 // Responsibility: take an allowed member + send context and dispatch by
-// template shape (CAMP-001). Claim mode sends only the claim-button template;
-// eager mode sends the body FIRST, then mints the coupon + QR. Either way the
-// counter increment + campaign event happen ONLY on send success. A failed
-// send throws so the orchestrator tallies it via `Promise.allSettled`.
+// template shape (CAMP-001) and coupon config (#134). Claim mode sends only
+// the claim-button template; eager mode sends the body FIRST, then mints the
+// coupon + QR; marketing-only mode (couponConfig null — a plain announcement)
+// sends the body with no code and mints nothing. Either way the counter
+// increment + campaign event happen ONLY on send success. A failed send
+// throws so the orchestrator tallies it via `Promise.allSettled`.
 
 import { incrementCampaignSent } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { isCouponUniqueViolation } from '@/infrastructure/supabase/repositories/coupon-error'
@@ -42,6 +44,12 @@ import { EMPTY_PREFETCH, type RerunPrefetch } from './execute-campaign-rerun-pre
 // text / URL-button + coupon + QR flow, reordered so the body is sent FIRST
 // and side effects only happen on send success.
 //
+// #134: claim precedence checked first, then coupon config. A campaign with
+// no couponConfig is a plain marketing announcement — marketing-only mode
+// sends the body with an empty code and never mints a coupon or QR, even if
+// a leftover coupon from a pre-fix run exists for the member (prefetch is
+// ignored in this branch).
+//
 // #131 / CAMP-002: `prefetch` carries the chunk's re-run state. Eager mode
 // reuses the promo coupon the member already holds (its code goes in the
 // body; no second mint) so a campaign re-run after a Meta-side fix reaches
@@ -54,7 +62,27 @@ export async function sendToMember(
   if (isClaimTemplate(ctx.template)) {
     return sendClaimToMember(member, ctx)
   }
+  if (!ctx.campaign.couponConfig) {
+    return sendMarketingOnlyToMember(member, ctx)
+  }
   return sendEagerToMember(member, ctx, prefetch.existingCoupons.get(member.id))
+}
+
+async function sendMarketingOnlyToMember(
+  member: Member,
+  ctx: SendContext
+): Promise<MemberOutcome> {
+  const couponDescription = buildCouponDescription(member, ctx, '')
+  const result = await sendCampaignBody(member, ctx, '', couponDescription)
+  throwIfNotOk(result, 'campaign')
+  await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
+  await emitEvent({
+    restaurantId: ctx.campaign.restaurantId,
+    memberId: member.id,
+    type: 'campaign',
+    dataJson: { campaignId: ctx.campaign.id },
+  })
+  return 'sent'
 }
 
 async function sendClaimToMember(

@@ -61,6 +61,7 @@ import {
   WhatsAppTemplateNotApprovedError,
 } from '@/application/resolve-whatsapp-template'
 import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
+import { CampaignCouponConfigMissingError } from '@/application/enforce-coupon-params'
 
 function buildJobData(overrides: Partial<CampaignJobData> = {}): CampaignJobData {
   return {
@@ -193,6 +194,11 @@ describe("campaign worker 'failed' handler — terminal status (issue #102 Part 
       // #127 / CAMP-007: media-header guard errors are user-actionable
       // (resubmit the template with a hosted image) — show them verbatim.
       ['TemplateHeaderMediaMissingError', () => new TemplateHeaderMediaMissingError('fifth_anniversary')],
+      // I-1 / #134: coupon-config/template mismatch is equally
+      // user-actionable (add a discount or pick a different template) —
+      // show it verbatim so a scheduled campaign fails loudly with the
+      // real reason instead of the generic message.
+      ['CampaignCouponConfigMissingError', () => new CampaignCouponConfigMissingError('free_drink')],
     ] as const)('passes %s message through verbatim (tenant-meaningful)', async (_name, buildErr) => {
       const failedHandler = registeredHandlers.get('failed')!
       const job = buildJob({ attemptsMade: 3, attempts: 3 })
