@@ -156,3 +156,35 @@ describe('StepUploadCsv — T-A5.5 no network', () => {
     expect(source).not.toContain('fetch')
   })
 })
+
+describe('StepUploadCsv — /code-review round (PR #149 finders)', () => {
+  function pickerInput(tree: ReactElement[]): ReactElement {
+    return tree.find((el) => el.type === 'input' && attr(el, 'type') === 'file') as ReactElement
+  }
+
+  it('resets the file input after a pick so re-selecting the same (fixed) file fires change again', () => {
+    seed(null)
+    const tree = renderTree(
+      <StepUploadCsv parsed={EMPTY_CSV} onParsed={onParsed} onBack={onBack} onNext={onNext} />
+    )
+    const onChange = attr(pickerInput(tree), 'onChange') as (e: unknown) => void
+    const target = { files: [] as File[], value: 'C:\\fakepath\\members.csv' }
+    onChange({ target })
+    expect(target.value).toBe('')
+  })
+
+  it('shows csv.errors.unreadable and clears the parse when File.text() rejects', async () => {
+    seed(null)
+    h.setState.mockClear()
+    onParsed.mockClear()
+    const tree = renderTree(
+      <StepUploadCsv parsed={EMPTY_CSV} onParsed={onParsed} onBack={onBack} onNext={onNext} />
+    )
+    const onChange = attr(pickerInput(tree), 'onChange') as (e: unknown) => void
+    const unreadable = { text: () => Promise.reject(new Error('NotReadableError')) }
+    onChange({ target: { files: [unreadable], value: 'x.csv' } })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(h.setState).toHaveBeenCalledWith('t:csv.errors.unreadable')
+    expect(onParsed).toHaveBeenCalledWith(EMPTY_CSV)
+  })
+})

@@ -14,6 +14,7 @@ const REQUIRED_CSV_KEYS = [
   'rowCount',
   'errors.empty',
   'errors.tooManyRows',
+  'errors.unreadable',
   'tagsFound',
   'tagsIgnored',
   'downloadTemplate',

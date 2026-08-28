@@ -56,7 +56,7 @@ describe('CsvParseRejections — T-A3.2 one <li> per reject', () => {
     const text = (attr(items[0], 'children') as unknown[]).join('')
     expect(text).toContain('t:csv.rejectLine:{"line":2}')
     expect(text).toContain('+85290001234')
-    expect(text).toContain('t:csv.reason.column_count_mismatch:{"expected":4,"actual":5}')
+    expect(text).toContain('t:csv.reason.column_count_mismatch:{"expected":4,"actual":5,"direction":"more"}')
   })
 
   it('renders an empty phone as an empty string, not "null"', () => {

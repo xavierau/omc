@@ -110,3 +110,10 @@ function buildRows(count: number, quoted: boolean): string {
   }
   return lines.join('\n')
 }
+
+describe('tokenizeCsv — non-ASCII blanks before an opening quote (/code-review round)', () => {
+  it('T-A1.15 skips U+3000 and NBSP before a quote so the field is still read as quoted', () => {
+    expect(tokenizeCsv('a,　"b, c"')[0].cells).toEqual(['a', 'b, c'])
+    expect(tokenizeCsv('a, "b, c",d')[0].cells).toEqual(['a', 'b, c', 'd'])
+  })
+})

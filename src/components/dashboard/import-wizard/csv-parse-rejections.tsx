@@ -43,7 +43,11 @@ export function CsvParseRejections({ rejected }: Props) {
             className="text-xs text-muted-foreground"
           >
             {t('csv.rejectLine', { line: row.line })}{row.phone ? ` · ${row.phone}` : ''} ·{' '}
-            {t(`csv.reason.${row.reason}`, { expected: row.expected, actual: row.actual })}
+            {t(`csv.reason.${row.reason}`, {
+              expected: row.expected,
+              actual: row.actual,
+              direction: row.actual > row.expected ? 'more' : 'fewer',
+            })}
           </li>
         ))}
       </ul>

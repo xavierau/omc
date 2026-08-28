@@ -12,6 +12,7 @@
 
 import { normalizeImportTags } from '@/domain/services/normalize-import-tags'
 import { tokenizeCsv, type CsvRecord } from './csv-tokenizer'
+import { cellOrNull, collapseWhitespace, newlinesToTagSeparators, normaliseLang, rejectPhone } from './parse-csv-cells'
 
 export interface ParsedRow {
   phoneE164: string
@@ -65,11 +66,11 @@ type RecordOutcome =
 
 export function parseCsv(text: string): ParseCsvResult {
   const records = tokenizeCsv(text)
+  if (records.length > 0 && records[0].unterminated) return headerUnterminated(records[0])
   const header = records.length > 0 ? matchHeader(records[0].cells) : null
   if (!header) return { phoneHeaderFound: false, rows: [], rejected: [] }
 
   const expected = records[0].cells.length
-  if (records[0].unterminated) return headerUnterminated(records[0], expected)
   const rows: ParsedRow[] = []
   const rejected: CsvParseReject[] = []
   for (const record of records.slice(1)) {
@@ -81,8 +82,10 @@ export function parseCsv(text: string): ParseCsvResult {
 }
 
 /** An unterminated quote on the header line swallows the whole file into one
- *  record: name the quote (line 1) instead of reporting the file as empty. */
-function headerUnterminated(header: CsvRecord, expected: number): ParseCsvResult {
+ *  record, so no alias can match: name the quote (line 1) instead of reporting
+ *  the file as empty. Checked BEFORE alias matching for that reason. */
+function headerUnterminated(header: CsvRecord): ParseCsvResult {
+  const expected = header.cells.length
   const reject: CsvParseReject = { line: header.line, reason: 'unterminated_quote', expected, actual: expected, phone: null }
   return { phoneHeaderFound: true, rows: [], rejected: [reject] }
 }
@@ -117,14 +120,15 @@ function buildReject(
   expected: number,
   idxPhone: number
 ): CsvParseReject {
-  return { line: record.line, reason, expected, actual: record.cells.length, phone: cellOrNull(record.cells[idxPhone]) }
+  return { line: record.line, reason, expected, actual: record.cells.length, phone: rejectPhone(record.cells[idxPhone]) }
 }
 
 function buildRow(cells: string[], header: HeaderIndexes, phone: string): ParsedRow {
-  const tagResult = header.idxTags >= 0 ? normalizeImportTags(cells[header.idxTags]) : { names: [], ignored: 0 }
+  const tagResult =
+    header.idxTags >= 0 ? normalizeImportTags(newlinesToTagSeparators(cells[header.idxTags])) : { names: [], ignored: 0 }
   return {
     phoneE164: phone,
-    name: header.idxName >= 0 ? cellOrNull(cells[header.idxName]) : null,
+    name: header.idxName >= 0 ? collapseWhitespace(cellOrNull(cells[header.idxName])) : null,
     preferredLanguage: header.idxLang >= 0 ? normaliseLang(cells[header.idxLang]) : null,
     tags: tagResult.names,
     ignoredTagCount: tagResult.ignored,
@@ -133,18 +137,4 @@ function buildRow(cells: string[], header: HeaderIndexes, phone: string): Parsed
 
 function findIndex(headers: string[], aliases: string[]): number {
   return headers.findIndex((h) => aliases.includes(h))
-}
-
-function cellOrNull(value: string | undefined): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-function normaliseLang(value: string | undefined): 'en' | 'zh_hk' | null {
-  if (!value) return null
-  const lower = value.trim().toLowerCase()
-  if (lower === 'en') return 'en'
-  if (lower === 'zh_hk' || lower === 'zh-hk') return 'zh_hk'
-  return null
 }

@@ -18,6 +18,8 @@ export interface CsvRecord {
 
 const SPACE = 32
 const TAB = 9
+const NBSP = 0xa0
+const IDEOGRAPHIC_SPACE = 0x3000
 const COMMA = 44
 const CR = 13
 const LF = 10
@@ -60,7 +62,7 @@ function initState(text: string): State {
 
 function stepUnquoted(s: State): void {
   const c = s.text.charCodeAt(s.i)
-  if (!s.cellStarted && (c === SPACE || c === TAB)) { s.i++; return }
+  if (!s.cellStarted && isLeadingBlank(c)) { s.i++; return }
   if (!s.cellStarted) {
     s.cellStarted = true
     if (c === QUOTE) { s.inQuotes = true; s.quotedCell = true; s.i++; return }
@@ -113,6 +115,12 @@ function emitRecord(s: State, unterminated: boolean): void {
     !unterminated && s.cells.length === 1 && !s.lastCellWasQuoted && s.cells[0].trim() === ''
   if (!isBlank) s.records.push({ line: s.recordStartLine, cells: s.cells, unterminated })
   s.cells = []
+}
+
+/** Blanks skipped before an opening quote — includes the two non-ASCII spaces
+ *  HK IMEs and zh-HK Excel emit, so `\u3000"陳, 大文"` still reads as quoted. */
+function isLeadingBlank(c: number): boolean {
+  return c === SPACE || c === TAB || c === NBSP || c === IDEOGRAPHIC_SPACE
 }
 
 function isCharAt(s: State, idx: number, code: number): boolean {

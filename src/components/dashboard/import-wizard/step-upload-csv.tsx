@@ -11,6 +11,16 @@ import { CsvParseRejections } from './csv-parse-rejections'
 
 export const EMPTY_CSV: ParseCsvResult = { phoneHeaderFound: false, rows: [], rejected: [] }
 
+/** `File.text()` rejects (NotReadableError) when the file was moved, locked or
+ *  is still being written; without this the previous parse stays on screen. */
+async function readFileText(file: File): Promise<string | null> {
+  try {
+    return await file.text()
+  } catch {
+    return null
+  }
+}
+
 interface Props {
   parsed: ParseCsvResult
   onParsed: (result: ParseCsvResult) => void
@@ -25,7 +35,12 @@ export function StepUploadCsv({ parsed, onParsed, onBack, onNext }: Props) {
   const tagStats = computeCsvTagStats(parsed.rows)
 
   async function handleFile(file: File) {
-    const text = await file.text()
+    const text = await readFileText(file)
+    if (text === null) {
+      setError(t('csv.errors.unreadable'))
+      onParsed(EMPTY_CSV)
+      return
+    }
     const outcome = classifyParseResult(parseCsv(text), MAX_ROWS)
     if (outcome.kind === 'error') {
       const message =
@@ -62,6 +77,9 @@ export function StepUploadCsv({ parsed, onParsed, onBack, onNext }: Props) {
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]
+          // Reset so re-picking the same (now fixed) file fires `change` again —
+          // the rejections panel makes fix-and-re-upload the primary recovery path.
+          e.target.value = ''
           if (f) void handleFile(f)
         }}
       />

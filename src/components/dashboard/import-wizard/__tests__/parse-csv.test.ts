@@ -172,7 +172,7 @@ describe('parseCsv — column-count rejection (WONB-018 / #148)', () => {
     const text = 'phone,name\n\n+85291111111,"multi\nline"\n+85292222222,Extra,Cell'
     const result = parseCsv(text)
     expect(result.rows).toEqual([
-      { phoneE164: '+85291111111', name: 'multi\nline', preferredLanguage: null, tags: [], ignoredTagCount: 0 },
+      { phoneE164: '+85291111111', name: 'multi line', preferredLanguage: null, tags: [], ignoredTagCount: 0 },
     ])
     expect(result.rejected).toEqual([
       { line: 5, reason: 'column_count_mismatch', expected: 2, actual: 3, phone: '+85292222222' },
@@ -220,7 +220,42 @@ describe('parseCsv — unterminated quote on the header line (grok review, Impor
     })
   })
 
-  it('T-A2.16 still reports empty when the unterminated header has no phone alias', () => {
-    expect(parseCsv('"name,lang\n+85291234567,en\n')).toEqual({ phoneHeaderFound: false, rows: [], rejected: [] })
+  it('T-A2.16 names the quote even when it opens BEFORE the phone header (no alias can match)', () => {
+    expect(parseCsv('"phone,name\n+85291234567,Chan\n')).toEqual({
+      phoneHeaderFound: true,
+      rows: [],
+      rejected: [{ line: 1, reason: 'unterminated_quote', expected: 1, actual: 1, phone: null }],
+    })
+  })
+})
+
+describe('parseCsv — /code-review round (PR #149 finders)', () => {
+  const H4 = 'phone,name,preferred_language,tags'
+
+  it('T-A2.17 collapses a line break inside a quoted name to one space (Excel Alt+Enter)', () => {
+    const rows = parseCsv(`${H4}\n+85291234567,"Chan\nTai   Man",zh_hk,VIP\n`).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0].name).toBe('Chan Tai Man')
+  })
+
+  it('T-A2.18 treats a line break inside a quoted tags cell as a tag separator, never a tag name', () => {
+    const rows = parseCsv(`${H4}\n+85291234567,Chan,zh_hk,"VIP\r\nGold\nLunch"\n`).rows
+    expect(rows[0].tags).toEqual(['VIP', 'Gold', 'Lunch'])
+    expect(rows[0].tags.some((t) => /[\r\n]/.test(t))).toBe(false)
+  })
+
+  it('T-A2.19 a reject whose phone cell swallowed the rest of the file carries phone: null, not the file', () => {
+    const rest = Array.from({ length: 200 }, (_, i) => `+8529100${String(i).padStart(4, '0')},Bob`).join('\n')
+    const result = parseCsv(`phone,name\n"+85291234567,Ann\n${rest}\n`)
+    expect(result.rows).toEqual([])
+    expect(result.rejected).toHaveLength(1)
+    expect(result.rejected[0].reason).toBe('unterminated_quote')
+    expect(result.rejected[0].line).toBe(2)
+    expect(result.rejected[0].phone).toBeNull()
+  })
+
+  it('T-A2.20 a reject keeps a phone that looks like one (short, single-line)', () => {
+    const result = parseCsv(`${H4}\n+85291234567,Chan, Tai Man,zh_hk,VIP\n`)
+    expect(result.rejected[0].phone).toBe('+85291234567')
   })
 })
