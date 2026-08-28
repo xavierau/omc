@@ -58,6 +58,27 @@ retraction): `node /home/forge/kushiro-correct-7bed8f1b.mjs` (dry run prints BEF
 expected AFTER: `status=failed, chargeable_sent_count=0, failure_reason=<131042 wording>`.
 Record the printed BEFORE / RETURNING / AFTER lines in this artifact.
 
+**Applied 2026-08-28 ~04:22Z** (`node kushiro-correct-7bed8f1b.mjs --apply` on the box):
+```
+BEFORE  status=completed  chargeable_sent_count=2  non_chargeable=0  failure_reason=null
+retract #1 → status=completed  chargeable=1  non_chargeable=0
+retract #2 → status=failed     chargeable=0  non_chargeable=0
+AFTER   status=failed  chargeable_sent_count=0  failure_reason="WhatsApp (Meta) rejected every
+        message in this campaign: the WhatsApp Business account has no billing currency
+        configured (Meta error 131042) … This is not an OhMyClient review or template issue."
+```
+
+**Release facts:** `release` branch `a220a99` = `main@51dc2e7`, `BUILD_ID aRUnY5dhv4IcHtA4wZKtK`,
+built 04:16Z; Forge deployed at 04:17Z (app daemon 746791 + worker 801730 restarted, `/api/health`
+200); `retract_campaign_sent` present on prod (PostgREST probe 200 `[]`).
+
+**Smoke (04:18Z, signed v2 `failed` payload for a non-existent wamid, run from the box):**
+`webhook.signature valid → webhook.kind status → webhook.status_event count 1 → webhook.idempotency
+new → status.unknown_message → 200`. The same log file shows the bug live at 03:35Z, before the
+deploy: two real Kapso events `webhook.kind inbound → webhook.ignored / parse returned null`.
+First real proof on a tracked wamid comes with the next campaign send by any tenant — look for
+`campaign.send_retracted` (or `campaign.retract_*`) after a `failed` status.
+
 Kushiro can re-run the campaign once the WABA currency is set in Meta Business Manager; the
 re-run reuses `MAKL6B` / `YQZJ8P` (existing active coupons) and, because no counted ledger rows
 exist for the pre-#131 send, counts each member once.
