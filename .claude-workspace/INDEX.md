@@ -7,10 +7,14 @@ no artifact files were lost._
 
 ## Active
 
+### UI Map
+- [ui-map/INDEX.md](ui-map/INDEX.md) — scaffolded 2026-08-24 (ui-test-runner), all fields TODO, no run has occurred yet
+
 ### Specs
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
 - [2026-08-24-waq-014-gate-error-diagnosability](plans/2026-08-24-waq-014-gate-error-diagnosability.md) — #117: gate error names trustReason not Meta
 - [2026-07-28-tpl-009-template-status-sync](plans/2026-07-28-tpl-009-template-status-sync.md) — Issue #93: Forge cron + template-status webhook so Meta template statuses sync (solution-architect) — _carries a post-review amendment; AC3 superseded_
 - [2026-07-26-reply-007-per-tenant-contact-flow](plans/2026-07-26-reply-007-per-tenant-contact-flow.md) — REPLY-007: per-WABA flow id + per-tenant form labels (solution-architect)
@@ -28,6 +32,12 @@ no artifact files were lost._
 ### Reviews
 - [2026-08-27-camp-008-issue-131-gemini](reviews/2026-08-27-camp-008-issue-131-gemini.md) — #131 4831b5e: CONDITIONAL, 1 Critical (retract RPC lost-update) (gemini-cli-reviewer)
 - [2026-08-27-camp-008-issue-131-analyzer](reviews/2026-08-27-camp-008-issue-131-analyzer.md) — #131 1775d79: CONDITIONAL, 0 Critical, 3 Important (code-review-analyzer)
+- [2026-08-27-camp-004-quick-reply-gemini](reviews/2026-08-27-camp-004-quick-reply-gemini.md) — #132 9c41b04: APPROVED (gemini-cli-reviewer)
+- [2026-08-27-camp-004-quick-reply-analyzer](reviews/2026-08-27-camp-004-quick-reply-analyzer.md) — #132 9c41b04 second lane: CONDITIONAL — 1 Important (journal), 6 Minor (code-review-analyzer)
+- [2026-08-24-camp-007-media-header-analyzer](reviews/2026-08-24-camp-007-media-header-analyzer.md) — CAMP-007 second lane: CONDITIONAL — 2 Important (my-card post-claim throw; stale invariant doc) (code-review-analyzer)
+- [2026-08-24-camp-007-media-header-gemini](reviews/2026-08-24-camp-007-media-header-gemini.md) — CAMP-007 media-header send fix (#127): APPROVED, no Critical, 1 Important (no Integration Map) (gemini-cli-reviewer)
+- [2026-08-24-issue-111-idor-fix-second-lane](reviews/2026-08-24-issue-111-idor-fix-second-lane.md) — #111 IDOR fix second lane: APPROVED — 0 Critical/Important, 3 Minor noted (code-review-analyzer)
+- [2026-08-24-issue-111-idor-fix-gemini](reviews/2026-08-24-issue-111-idor-fix-gemini.md) — #111 member-detail cross-tenant IDOR fix: APPROVED, no Critical/Important/Minor findings (gemini-cli-reviewer)
 - [2026-08-24-waq-014-analyzer](reviews/2026-08-24-waq-014-analyzer.md) — WAQ-014 4552918 second lane: CONDITIONAL — 1 Important, length-guard swallow (code-review-analyzer)
 - [2026-08-24-waq-014-gemini](reviews/2026-08-24-waq-014-gemini.md) — WAQ-014 gate error diagnosability (#117), 4552918: CONDITIONAL — 1 Critical (test swallows throw) (gemini-cli-reviewer)
 - [2026-08-23-release-pipeline-critical-fixes-analyzer](reviews/2026-08-23-release-pipeline-critical-fixes-analyzer.md) — 36dae48 second lane: BLOCKED — 2 Critical (tar excludes strip Next trace runtime; PII already public) (code-review-analyzer)
@@ -49,12 +59,19 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
 - [2026-07-28-tpl-009-acceptance](tests/2026-07-28-tpl-009-acceptance.md) — I-1: end-to-end route integration suite + acceptance verdict PASSED (qa-engineer)
 
 ### Investigations
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**Issue #111 — member-detail cross-tenant IDOR**
+- [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests
+- [2026-08-24-issue-111-b2-get-detail-route-backend](artifacts/2026-08-24-issue-111-b2-get-detail-route-backend.md) — B-2 GET detail route threads restaurantId, 16/16 tests (senior-backend-dev)
+- [2026-08-24-issue-111-b3-delete-route-backend](artifacts/2026-08-24-issue-111-b3-delete-route-backend.md) — B-3 DELETE route fetch-then-compare removed, 8/8 tests (senior-backend-dev)
+- [2026-08-24-issue-111-i1-integration-verification-backend](artifacts/2026-08-24-issue-111-i1-integration-verification-backend.md) — I-1: full suite 3593 passed, live cross-tenant probe 404/no-PII, browser walk, journal + kanban SEC-004 done (senior-backend-dev)
 
 **WAQ-014 — gate error diagnosability (#117)**
 - [2026-08-24-waq-014-gate-error-backend](artifacts/2026-08-24-waq-014-gate-error-backend.md) — trustReason now rendered into the blocked-send message; 2 files, 10/10 tests, full suite green (senior-backend-dev)

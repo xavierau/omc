@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-08-24",
+  "updated_at": "2026-08-25",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -2736,6 +2736,35 @@
             "github:99"
           ],
           "notes": "Closed out via issue #102: the enforcement half (enforceTemplateReview in the executor) had shipped while the queue UI stayed in post_launch_scope, so the gate was unsatisfiable in prod and blocked every marketing send for untrusted tenants, failing silently (200-queued, worker-side throw). PR #108 delivered the missing UI: tenant 'Submit for review' on MARKETING wa-templates + admin approve/reject/request-changes queue at /admin/template-reviews (wired into admin-sidebar). PR #109 integrated the send path: sync guardrails + template-review gate in POST execute (403 with violations instead of silent 200), per-campaign templateReview + failureReason on the campaigns API, terminal 'failed' status (migrations 062/063) so exhausted campaigns leave the cron due-set (kills the 6,642-failed-job re-enqueue loop), removeOnComplete/removeOnFail retention on all queues, tenant-scoped campaign [id]/execute lookups (SEC-001 pattern). Dual review: gemini + code-review-analyzer stand-in (grok/codex 402), 2-3 rounds each, both APPROVED. Merged to DEVELOP only (f82eea7) - not yet on main, not deployed. Prod one-off cleanup still open in #102: drain bull:campaign-execution:failed, settle campaign 3f663bf2 BEFORE Kushiro crosses the 90-day trust line 2026-08-24 07:32 UTC (stale 'testing broadcast' would otherwise actually send). Lesson (also #99's shape): an endpoint isn't shipped until something calls it."
+        },
+        {
+          "id": "CAMP-007",
+          "title": "Campaign send omits media header component — Meta #132012 + all-failed runs reported completed",
+          "description": "P1 prod bug (#127): every approved template with an IMAGE/VIDEO/DOCUMENT header failed to send — sendWhatsAppTemplateMessage never populated headerParams (text-only port type, dead plumbing), so the payload carried zero components against a media-header template. Compounding: sendInBatches tallied failures but executeCampaign unconditionally marked 'completed', so a 100%-failed run looked successful with failure_reason null.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "P1"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 127,
+          "branch": "fix/camp-007-media-header-send",
+          "pr": "128 (fix) + 130 (develop→main)",
+          "completed": "2026-08-25",
+          "related": [
+            "github:127",
+            "github:129",
+            "kanban:SEC-003"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-24-camp-007-media-header-send",
+            "reviews/2026-08-24-camp-007-media-header-gemini",
+            "reviews/2026-08-24-camp-007-media-header-analyzer"
+          ],
+          "notes": "Fix: TemplateHeaderParam widened to discriminated union; send path builds header param from the template row's stored header URL via readHeaderLink (campaign image_url_* is welcome-only — issue's suggested source was wrong); sendInBatches returns counters; failed>0 && sent==0 → status 'failed' + tenant-safe failure_reason naming the deciding system (template vs connection vs unconfirmed-delivery); enforceHeaderMedia fail-fast gate at worker pre-claim / execute route 409 / send use-case / queue allowlist. Review round 2 (5 specialists + adversarial + red team): scoped resolveWhatsAppTemplate by campaign.restaurantId (SEC-001 class — campaign.whatsappTemplateId has no ownership check at write; deeper fix in SEC-003), typed SendFailedError so post-send bookkeeping crashes count as 'errored' (delivery unknown) never as all-sends-failed (revival would re-blast members), opt-in gate before insertPending (orphaned pending row = 7-day re-prompt starvation). Residuals: expired-but-well-formed header URLs fail async at Meta with no visibility while WAQ_TRACK_MESSAGES unset (recommend enabling); failed campaigns have no dashboard revive control (#129); parameterized TEXT headers still broken (pinned as KNOWN LIMITATION test). Deployed to prod via release branch 2026-08-25."
         }
       ]
     },
