@@ -1,10 +1,34 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-08-25",
+  "updated_at": "2026-08-28",
   "columns": {
     "backlog": {
       "label": "Backlog",
       "tasks": [
+        {
+          "id": "CAMP-004",
+          "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
+          "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
+          "priority": "medium",
+          "labels": [
+            "campaign",
+            "whatsapp",
+            "fullstack"
+          ],
+          "github_issue": 132,
+          "related": [
+            "github:132",
+            "github:133",
+            "kanban:CAMP-008"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-08-27-camp-008-stream-d-quick-reply-frontend",
+            "reviews/2026-08-27-camp-004-quick-reply-gemini",
+            "reviews/2026-08-27-camp-004-quick-reply-analyzer",
+            "artifacts/2026-08-27-camp-004-review-round-1-resolution"
+          ],
+          "notes": "#132 minimum fix shipped 2026-08-28 via PR #133 (→ develop) + #137 (→ main): QUICK_REPLY option in the template form, UNSUPPORTED read-only round-trip for unknown stored button types, client validation refusing QUICK_REPLY+COUPON_URL and interleaved quick-reply/CTA groups. Claim mode is now reachable. The explicit per-campaign claim flag (this task's actual scope) remains open — inference from button shape is still the mode selector."
+        },
         {
           "id": "CAMP-002",
           "title": "Campaign broadcast retry idempotency — no duplicate send / double-count on re-execution",
@@ -25,17 +49,6 @@
             "campaign",
             "whatsapp",
             "webhook"
-          ]
-        },
-        {
-          "id": "CAMP-004",
-          "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
-          "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
-          "priority": "medium",
-          "labels": [
-            "campaign",
-            "whatsapp",
-            "fullstack"
           ]
         },
         {
@@ -1487,6 +1500,43 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "CAMP-008",
+          "title": "Outbound status webhooks dropped (Kapso v2) — all-failed campaigns read completed + billed; re-run broken",
+          "description": "P1 prod bug (#131). Kapso v2 status events fell through classifyWebhookKind to 'inbound' and were ignored, so whatsapp.message.failed was functionally unhandled; Meta 131042 rejected every Kushiro send async while the app recorded 'completed / 2 chargeable sent'. Re-running a failed campaign hit the migration-053 unique index and skipped QR/counter/event.",
+          "priority": "critical",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "billing",
+            "P1"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 131,
+          "branch": "fix/camp-008-issues-131-132",
+          "pr": "135 (fix) + 137 (develop→main)",
+          "completed": "2026-08-28",
+          "related": [
+            "github:131",
+            "github:132",
+            "kanban:CAMP-002",
+            "kanban:CAMP-004",
+            "kanban:CAMP-007",
+            "kanban:ANALYTICS-001"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-27-camp-008-outbound-status-and-claim-button",
+            "artifacts/2026-08-27-camp-008-stream-a-webhooks-v2-backend",
+            "artifacts/2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend",
+            "reviews/2026-08-27-camp-008-issue-131-gemini",
+            "reviews/2026-08-27-camp-008-issue-131-analyzer",
+            "artifacts/2026-08-28-camp-008-review-round-1-resolution",
+            "deploys/2026-08-28-camp-008-release-runbook"
+          ],
+          "notes": "Fix: webhooks-kapso-v2.ts recognises {message:{kapso:{direction:'outbound',statuses}}} ahead of the inbound test (fixtures from Kapso docs + the real 131042 rejection); WAQ_TRACK_MESSAGES flipped to opt-OUT (never set in prod for 4 months); migration 064 retract_campaign_sent (single inline UPDATE — a CTE version lost updates under concurrent webhooks, gemini Critical) decrements the row's own bucket and flips completed→failed with a Meta-naming reason, locked to service_role; handleStatusUpdate → reconcileCampaignSendFailure on a campaign BODY row flipping to failed (pre/post-image guard, QR image never counted, tenant guard added); finalizeCampaignRun completes via CAS (sending AND a bucket>0) else scoped failed write with neutral wording when no rejected row exists; per-chunk ledger (skipped_already_sent) + coupon reuse make re-runs idempotent (CAMP-002 minimum; CAMP-002 stays open for the full sent ledger / exact-once stamps). Blast radius: WAQ-007 1/24h per-user cap now live for every tenant. Post-deploy runbook corrected Kushiro campaign 7bed8f1b (2 phantom chargeable sends). Follow-ups: exact-once retraction stamps (counter_applied_at/retracted_at); campaigns_update RLS policy has no column restriction (self-tenant counter edits via PATCH, pre-existing); INDEX.md over the pointer budget."
+        },
         {
           "id": "SEC-004",
           "title": "Cross-tenant IDOR on member-detail path (GET detail, DELETE) — scope all three queries by restaurant_id",
