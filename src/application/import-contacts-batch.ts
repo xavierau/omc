@@ -21,7 +21,11 @@ import {
   type PreflightResult,
 } from './import-contacts-batch-validation'
 import { fanOutRows } from './import-contacts-batch-fanout'
-import { assignTagsToImportedMembers } from './assign-tags-to-imported-members'
+import {
+  assertNewTagBudget,
+  runImportTagPhase,
+  type ImportTaggingResult,
+} from './import-contacts-batch-tags'
 import {
   buildPlaceholderBatchEntity,
   countByGrade,
@@ -35,6 +39,8 @@ export interface ImportContactsBatchInput {
     phoneE164: string
     name?: string | null
     preferredLanguage?: 'en' | 'zh_hk' | null
+    /** Per-row CSV tag NAMES (never ids). Re-normalised server-side. */
+    tags?: string[]
   }>
   mergeExistingMembers: boolean
   // TAG-001: tags to apply to every member created OR merged in this batch.
@@ -54,13 +60,17 @@ export interface ImportContactsBatchResult {
   membersCreated: number
   rejected: ImportRowReject[]
   gradeBreakdown: { strong: number; medium: number; weak: number; none: number }
+  tagging: ImportTaggingResult
 }
+
+export type { ImportTaggingResult }
 
 export async function importContactsBatch(
   input: ImportContactsBatchInput
 ): Promise<ImportContactsBatchResult> {
   const now = input.now ?? new Date()
   const preflight = preflightOrThrow(input, now)
+  await assertNewTagBudget(input.restaurantId, preflight.acceptedRows)
   const batchId = randomUUID()
   const grade = gradeBatch(input, now)
   // B5: insert the batch row up-front with placeholder counts so per-row
@@ -69,29 +79,16 @@ export async function importContactsBatch(
   const fanOut = await fanOutRows({ input, batchId, grade, rows: preflight.acceptedRows })
   const breakdown = countByGrade(fanOut.gradeBuckets)
   await updateImportBatchCounts(batchId, { rowCount: fanOut.inserted, gradeBreakdown: breakdown })
-  await maybeAssignImportTags(input, fanOut.memberIds)
   return {
     importBatchId: batchId,
     inserted: fanOut.inserted,
     membersCreated: fanOut.membersCreated,
     rejected: [...preflight.rejected, ...fanOut.rejected],
     gradeBreakdown: breakdown,
+    // TAG-001 B2 / AM-1: batch-level ids + per-row CSV names, applied after
+    // the fan-out and best-effort — a tag failure never fails the import.
+    tagging: await runImportTagPhase({ input, fanOut }),
   }
-}
-
-// TAG-001: after the fan-out, apply the wizard's tags to every member the
-// batch touched. ONE bulk call (not per-row); nulls filtered here, tenant
-// ownership of the tags is re-asserted inside assignTagsToImportedMembers.
-async function maybeAssignImportTags(
-  input: ImportContactsBatchInput,
-  memberIds: Array<string | null>
-): Promise<void> {
-  if (input.tagIds.length === 0) return
-  await assignTagsToImportedMembers({
-    restaurantId: input.restaurantId,
-    memberIds: memberIds.filter(Boolean),
-    tagIds: input.tagIds,
-  })
 }
 
 function preflightOrThrow(

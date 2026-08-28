@@ -16,6 +16,11 @@ export interface FanOutArgs {
   rows: PreflightAcceptedRow[]
 }
 
+export interface RowTagPairing {
+  memberId: string
+  tagNames: string[]
+}
+
 export interface FanOutResult {
   inserted: number
   membersCreated: number
@@ -24,12 +29,16 @@ export interface FanOutResult {
   // TAG-001: resolved member id per committed row (created AND merged); null
   // for consent-only rows. Nulls are filtered by the orchestrator before tagging.
   memberIds: Array<string | null>
+  // TAG-001 B2: accepted rows that BOTH resolved a member and carried CSV tags.
+  // Per-row tag sets differ, so this pairing cannot be derived from memberIds.
+  taggedRows: RowTagPairing[]
 }
 
 export async function fanOutRows(args: FanOutArgs): Promise<FanOutResult> {
   const meta = buildRowMeta(args.input, args.batchId)
   const out: FanOutResult = {
     inserted: 0, membersCreated: 0, gradeBuckets: [], rejected: [], memberIds: [],
+    taggedRows: [],
   }
   for (const row of args.rows) {
     await runOneRow({ input: args.input, grade: args.grade, meta, row, out })
@@ -66,7 +75,7 @@ async function runOneRow(args: RunOneRowArgs): Promise<void> {
       meta,
       row: { phoneE164: row.phoneE164, name: row.name, preferredLanguage: row.preferredLanguage },
     })
-    if (outcome.ok) accumulateOk(out, outcome)
+    if (outcome.ok) accumulateOk(out, outcome, row)
     else out.rejected.push(outcome.reject)
   } catch (err) {
     out.rejected.push({
@@ -79,10 +88,14 @@ async function runOneRow(args: RunOneRowArgs): Promise<void> {
 
 function accumulateOk(
   out: FanOutResult,
-  outcome: Extract<ImportRowOutcome, { ok: true }>
+  outcome: Extract<ImportRowOutcome, { ok: true }>,
+  row: PreflightAcceptedRow
 ): void {
   out.inserted++
   if (outcome.created) out.membersCreated++
   out.gradeBuckets.push(outcome.gradeBucket)
   out.memberIds.push(outcome.memberId)
+  if (outcome.memberId && row.tags.length > 0) {
+    out.taggedRows.push({ memberId: outcome.memberId, tagNames: row.tags })
+  }
 }

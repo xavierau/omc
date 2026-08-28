@@ -69,6 +69,7 @@ describe('POST /api/dashboard/imports', () => {
       membersCreated: 1,
       rejected: [],
       gradeBreakdown: { strong: 1, medium: 0, weak: 0, none: 0 },
+      tagging: { status: 'ok', taggedMembers: 0 },
     })
   })
 

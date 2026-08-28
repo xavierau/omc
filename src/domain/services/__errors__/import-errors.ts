@@ -10,6 +10,9 @@ export type ImportBatchValidationReason =
   | 'whatsapp_proof_required'
   | 'invalid_consent_channel'
   | 'empty_rows'
+  // TAG-001 R-2: a free-text column headed `tags` would mint hundreds of tags.
+  // Checked BEFORE any write, so the import is rejected whole (AM-1).
+  | 'too_many_new_tags'
 
 export class ImportBatchValidationError extends Error {
   constructor(
