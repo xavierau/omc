@@ -225,7 +225,7 @@
     "discountValue": "折扣數值",
     "expiryDays": "有效期（天）",
     "execution": "執行方式",
-    "executionNow": "立即發送",
+    "executionNow": "手動發送",
     "executionSchedule": "排程發送",
     "scheduledAt": "排程時間",
     "messageType": "訊息類型",

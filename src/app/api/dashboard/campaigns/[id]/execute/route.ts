@@ -14,6 +14,10 @@ import {
   enforceHeaderMedia,
   TemplateHeaderMediaMissingError,
 } from '@/application/enforce-header-media'
+import {
+  enforceCouponParams,
+  CampaignCouponConfigMissingError,
+} from '@/application/enforce-coupon-params'
 import { enforceCampaignGuardrails } from '@/application/enforce-campaign-guardrails'
 
 export async function POST(
@@ -66,6 +70,7 @@ export async function POST(
     // #127 / CAMP-007: same order as executeCampaign — a media-header
     // template with no usable stored URL fails every send with #132012.
     enforceHeaderMedia(template)
+    enforceCouponParams(campaign, template)
 
     await addCampaignJob({
       campaignId: campaign.id,
@@ -92,6 +97,9 @@ export async function POST(
     // #127 / CAMP-007: same class of problem as not-approved — the template
     // is in a state that cannot send — so the same 409 contract.
     if (error instanceof TemplateHeaderMediaMissingError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    if (error instanceof CampaignCouponConfigMissingError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
     if (error instanceof AuthError) {

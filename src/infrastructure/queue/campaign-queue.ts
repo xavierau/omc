@@ -10,6 +10,7 @@ import {
   WhatsAppTemplateNotApprovedError,
 } from '@/application/resolve-whatsapp-template'
 import { TemplateHeaderMediaMissingError } from '@/application/enforce-header-media'
+import { CampaignCouponConfigMissingError } from '@/application/enforce-coupon-params'
 
 const QUEUE_NAME = 'campaign-execution'
 
@@ -88,7 +89,10 @@ function isTenantMeaningfulError(err: Error): boolean {
     err instanceof WhatsAppTemplateNotApprovedError ||
     // #127 / CAMP-007: user-actionable (resubmit the template with a hosted
     // header image) — show verbatim.
-    err instanceof TemplateHeaderMediaMissingError
+    err instanceof TemplateHeaderMediaMissingError ||
+    // I-1 / #134: user-actionable (add a discount or pick a different
+    // template) — show verbatim.
+    err instanceof CampaignCouponConfigMissingError
   )
 }
 

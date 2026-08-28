@@ -6,6 +6,30 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "CAMP-004",
+          "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
+          "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
+          "priority": "medium",
+          "labels": [
+            "campaign",
+            "whatsapp",
+            "fullstack"
+          ],
+          "github_issue": 132,
+          "related": [
+            "github:132",
+            "github:133",
+            "kanban:CAMP-008"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-08-27-camp-008-stream-d-quick-reply-frontend",
+            "reviews/2026-08-27-camp-004-quick-reply-gemini",
+            "reviews/2026-08-27-camp-004-quick-reply-analyzer",
+            "artifacts/2026-08-27-camp-004-review-round-1-resolution"
+          ],
+          "notes": "#132 minimum fix shipped 2026-08-28 via PR #133 (→ develop) + #137 (→ main): QUICK_REPLY option in the template form, UNSUPPORTED read-only round-trip for unknown stored button types, client validation refusing QUICK_REPLY+COUPON_URL and interleaved quick-reply/CTA groups. Claim mode is now reachable. The explicit per-campaign claim flag (this task's actual scope) remains open — inference from button shape is still the mode selector."
+        },
+        {
           "id": "CAMP-002",
           "title": "Campaign broadcast retry idempotency — no duplicate send / double-count on re-execution",
           "description": "From CAMP-001 review (adversarial #1, HIGH). resolveTargetMembers has no 'already sent' filter, so re-executing a campaign that reverted sending→active (partial failure) re-sends to the whole audience. Eager mode double-SENDS the body (mint short-circuits on the 053 index, but the message already went out) — this is PRE-EXISTING. Claim mode additionally double-COUNTS: sendClaimToMember increments chargeableSentCount + emits the campaign event unconditionally (no per-member guard, since claim mode mints nothing at broadcast). Needs a per-member sent ledger (or use whatsapp_messages when tracking on) to make broadcast at-most-once. Affects billing + WhatsApp duplicate-marketing policy.",
@@ -25,17 +49,6 @@
             "campaign",
             "whatsapp",
             "webhook"
-          ]
-        },
-        {
-          "id": "CAMP-004",
-          "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
-          "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
-          "priority": "medium",
-          "labels": [
-            "campaign",
-            "whatsapp",
-            "fullstack"
           ]
         },
         {
@@ -1361,6 +1374,49 @@
             "incident",
             "devops"
           ]
+        },
+        {
+          "id": "CAMP-010",
+          "title": "Inline campaign placeholders advertised by the form ({{contactName}}, {{couponCode}}, {{greeting}}, {{points}}) do not match the broadcast renderer keys (name, code, discount)",
+          "description": "From CAMP-009 review (analyzer M-4, pre-existing). campaign-form-types.ts CAMPAIGN_TEMPLATE_PLACEHOLDERS advertises {{contactName}}/{{couponCode}}/{{greeting}}/{{points}} for inline promo bodies, but execute-campaign-broadcast.ts renderInline supplies only name/code/discount, so a promo body written with the advertised tokens renders them blank (renderTemplate maps unknown → ''). The onboarding/welcome path has its own renderer with the advertised keys. Fix: single placeholder vocabulary shared by form + both renderers (or map the form tokens at render time) + a test that every advertised placeholder renders non-blank through the broadcast path.",
+          "priority": "medium",
+          "labels": [
+            "bug",
+            "campaigns",
+            "frontend",
+            "backend"
+          ],
+          "estimate": "0.5d",
+          "sprint": "whatsapp_quality_safeguards",
+          "related": [
+            "kanban:CAMP-009",
+            "github:134"
+          ],
+          "workspace_artifacts": [
+            "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
+          ]
+        },
+        {
+          "id": "CAMP-011",
+          "title": "COPY_CODE template buttons are authorable but the sender never builds their coupon_code parameter — every send of such a template fails at Meta",
+          "description": "From CAMP-009 /code-review (finders A/C/altitude, pre-existing). prepare-template-components.ts:66 emits COPY_CODE buttons to Meta and the template form round-trips them read-only, but send-template-message.ts buildButtonParams only handles URL ({{1}}) and QUICK_REPLY — no copy_code button parameter is ever produced, so any campaign on a COPY_CODE template is rejected per recipient (#132012 button parameter missing) regardless of couponConfig. CAMP-009's enforceCouponParams now treats COPY_CODE as 'expects a coupon code' (so a coupon-less campaign gets a 409), but a campaign WITH a coupon still fails on the wire. Fix: build {type:'button', subType:'copy_code', index, parameters:[{type:'coupon_code', coupon_code}]} in buildButtonParams (check Kapso SDK casing rules — memory principle_kapso_dual_case_converters), add a sender test with a real payload fixture, and add COPY_CODE to the template form's editable types or keep read-only deliberately.",
+          "priority": "medium",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "backend"
+          ],
+          "estimate": "0.5d",
+          "sprint": "whatsapp_quality_safeguards",
+          "related": [
+            "kanban:CAMP-009",
+            "kanban:CAMP-004",
+            "github:134"
+          ],
+          "workspace_artifacts": [
+            "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
+          ]
         }
       ]
     },
@@ -1436,6 +1492,42 @@
     "in_progress": {
       "label": "In Progress",
       "tasks": [
+        {
+          "id": "CAMP-009",
+          "title": "Create dialog auto-sends campaigns (#136) + marketing-only campaigns mint null coupons and push a doomed QR (#134)",
+          "description": "#136 (P1): campaign-form-dialog auto-POSTs /execute after create when execution='now' (the form default), on a button labelled Create, and discards the execute response — the duplicate of the call site #102 Part A fixed on CampaignCard. Fix: delete the auto-execute; the card's Send Now button already executes with error handling; cron ignores null scheduled_at. #134 (P2): sendEagerToMember never branches on coupon_config, so marketing announcements (Kushiro 5-year) mint a null-discount coupon per recipient and send a free-form QR that Meta rejects (131047), with incrementCampaignSent after the mint. Fix: marketing-only path (send body → increment → emit, no coupon/QR) ahead of the eager coupon logic.",
+          "priority": "critical",
+          "labels": [
+            "bug",
+            "campaigns",
+            "frontend",
+            "backend",
+            "P1"
+          ],
+          "estimate": "0.5d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 136,
+          "branch": "fix/camp-009-issues-136-134",
+          "started": "2026-08-28",
+          "related": [
+            "github:136",
+            "github:134",
+            "github:102",
+            "kanban:CAMP-008",
+            "kanban:CAMP-004"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-28-camp-009-create-autosend-and-marketing-only-broadcast",
+            "artifacts/2026-08-28-camp-009-stream-a-create-autosend-frontend",
+            "artifacts/2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend",
+            "artifacts/2026-08-28-camp-009-stream-c-coupon-param-preflight-backend",
+            "reviews/2026-08-28-camp-009-issues-136-134-gemini",
+            "reviews/2026-08-28-camp-009-issues-136-134-analyzer",
+            "artifacts/2026-08-28-camp-009-round-2-code-review-fixes-backend"
+          ],
+          "debugging_journal": "debugging_journals/2026-08-28-campaign-create-autosend-and-marketing-only-mint.md",
+          "pr": "140"
+        },
         {
           "id": "WONB-008",
           "mvp_critical": true,
@@ -1560,6 +1652,43 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "CAMP-008",
+          "title": "Outbound status webhooks dropped (Kapso v2) — all-failed campaigns read completed + billed; re-run broken",
+          "description": "P1 prod bug (#131). Kapso v2 status events fell through classifyWebhookKind to 'inbound' and were ignored, so whatsapp.message.failed was functionally unhandled; Meta 131042 rejected every Kushiro send async while the app recorded 'completed / 2 chargeable sent'. Re-running a failed campaign hit the migration-053 unique index and skipped QR/counter/event.",
+          "priority": "critical",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "billing",
+            "P1"
+          ],
+          "estimate": "1d",
+          "sprint": "whatsapp_quality_safeguards",
+          "github_issue": 131,
+          "branch": "fix/camp-008-issues-131-132",
+          "pr": "135 (fix) + 137 (develop→main)",
+          "completed": "2026-08-28",
+          "related": [
+            "github:131",
+            "github:132",
+            "kanban:CAMP-002",
+            "kanban:CAMP-004",
+            "kanban:CAMP-007",
+            "kanban:ANALYTICS-001"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-27-camp-008-outbound-status-and-claim-button",
+            "artifacts/2026-08-27-camp-008-stream-a-webhooks-v2-backend",
+            "artifacts/2026-08-27-camp-008-stream-bc-failure-reconcile-rerun-backend",
+            "reviews/2026-08-27-camp-008-issue-131-gemini",
+            "reviews/2026-08-27-camp-008-issue-131-analyzer",
+            "artifacts/2026-08-28-camp-008-review-round-1-resolution",
+            "deploys/2026-08-28-camp-008-release-runbook"
+          ],
+          "notes": "Fix: webhooks-kapso-v2.ts recognises {message:{kapso:{direction:'outbound',statuses}}} ahead of the inbound test (fixtures from Kapso docs + the real 131042 rejection); WAQ_TRACK_MESSAGES flipped to opt-OUT (never set in prod for 4 months); migration 064 retract_campaign_sent (single inline UPDATE — a CTE version lost updates under concurrent webhooks, gemini Critical) decrements the row's own bucket and flips completed→failed with a Meta-naming reason, locked to service_role; handleStatusUpdate → reconcileCampaignSendFailure on a campaign BODY row flipping to failed (pre/post-image guard, QR image never counted, tenant guard added); finalizeCampaignRun completes via CAS (sending AND a bucket>0) else scoped failed write with neutral wording when no rejected row exists; per-chunk ledger (skipped_already_sent) + coupon reuse make re-runs idempotent (CAMP-002 minimum; CAMP-002 stays open for the full sent ledger / exact-once stamps). Blast radius: WAQ-007 1/24h per-user cap now live for every tenant. Post-deploy runbook corrected Kushiro campaign 7bed8f1b (2 phantom chargeable sends). Follow-ups: exact-once retraction stamps (counter_applied_at/retracted_at); campaigns_update RLS policy has no column restriction (self-tenant counter edits via PATCH, pre-existing); INDEX.md over the pointer budget."
+        },
         {
           "id": "SEC-004",
           "title": "Cross-tenant IDOR on member-detail path (GET detail, DELETE) — scope all three queries by restaurant_id",
