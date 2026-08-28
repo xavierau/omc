@@ -992,7 +992,8 @@
       "tagsFailed": "Contacts were imported, but their tags could not be applied. You can tag them from the members list.",
       "showingFirst": "Showing the first {shown} of {count}",
       "errors": {
-        "too_many_new_tags": "This file would create too many new tags (limit 50). Nothing was imported. Check that the tags column is not free text, then try again."
+        "too_many_new_tags": "This file would create too many new tags (limit 50). Nothing was imported. Check that the tags column is not free text, then try again.",
+        "invalid_tags": "The tags in this file are not in the expected format. Nothing was imported."
       }
     },
     "actions": {

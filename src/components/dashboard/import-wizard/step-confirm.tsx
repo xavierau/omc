@@ -66,7 +66,7 @@ export function StepConfirm({ isCommitting, result, error, onCommit, onBack, onD
       <p className="text-sm text-muted-foreground">{t('confirm.aboutToCommit')}</p>
       {error && (
         <p className="text-xs text-destructive">
-          {error === 'too_many_new_tags' ? t('confirm.errors.too_many_new_tags') : error}
+          {error === 'too_many_new_tags' || error === 'invalid_tags' ? t(`confirm.errors.${error}`) : error}
         </p>
       )}
       <div className="flex justify-between">
