@@ -14,6 +14,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
 - [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
 - [2026-08-24-waq-014-gate-error-diagnosability](plans/2026-08-24-waq-014-gate-error-diagnosability.md) — #117: gate error names trustReason not Meta
 - [2026-07-28-tpl-009-template-status-sync](plans/2026-07-28-tpl-009-template-status-sync.md) — Issue #93: Forge cron + template-status webhook so Meta template statuses sync (solution-architect) — _carries a post-review amendment; AC3 superseded_
@@ -29,9 +30,17 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-plan-review](threats/2026-06-09-stamp-collection-plan-review.md) — Threat model review of the Stamp Collection plan, post-LOCKED decisions (security-architect)
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
+### Deploys
+- [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
+
 ### Reviews
+<<<<<<< ours
 - [2026-08-28-camp-009-issues-136-134-analyzer](reviews/2026-08-28-camp-009-issues-136-134-analyzer.md) — CAMP-009 #136/#134 second lane: CONDITIONAL — 0 Critical, 2 Important ({{code}}+null couponConfig; journal) (code-review-analyzer)
 - [2026-08-28-camp-009-issues-136-134-gemini](reviews/2026-08-28-camp-009-issues-136-134-gemini.md) — #136+#134: APPROVED, 0 Critical/Important, 1 Minor (counter-order asymmetry) (gemini-cli-reviewer)
+=======
+- [2026-08-28-tag-001-issues-138-139-gemini](reviews/2026-08-28-tag-001-issues-138-139-gemini.md) — #138/#139 d728bb4: CONDITIONAL — 1 Critical (NUL byte made a source file binary; fixed) (gemini-cli-reviewer)
+- [2026-08-28-tag-001-issues-138-139-analyzer](reviews/2026-08-28-tag-001-issues-138-139-analyzer.md) — #138/#139 d728bb4 second lane: CONDITIONAL — 0 Critical, 5 Important (NUL byte, CSV tag feedback, bulk success line, raw enum error, audience-scale reads), 13 Minor (code-review-analyzer)
+>>>>>>> theirs
 - [2026-08-27-camp-008-issue-131-gemini](reviews/2026-08-27-camp-008-issue-131-gemini.md) — #131 4831b5e: CONDITIONAL, 1 Critical (retract RPC lost-update) (gemini-cli-reviewer)
 - [2026-08-27-camp-008-issue-131-analyzer](reviews/2026-08-27-camp-008-issue-131-analyzer.md) — #131 1775d79: CONDITIONAL, 0 Critical, 3 Important (code-review-analyzer)
 - [2026-08-27-camp-004-quick-reply-gemini](reviews/2026-08-27-camp-004-quick-reply-gemini.md) — #132 9c41b04: APPROVED (gemini-cli-reviewer)
@@ -61,6 +70,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
 - [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
 - [2026-07-28-tpl-009-acceptance](tests/2026-07-28-tpl-009-acceptance.md) — I-1: end-to-end route integration suite + acceptance verdict PASSED (qa-engineer)
 
@@ -68,6 +78,22 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**TAG-001 / WONB-017 — #138 member tags + #139 import preview (2026-08-28)**
+- [2026-08-28-tag-001-review-fix-r1-backend](artifacts/2026-08-28-tag-001-review-fix-r1-backend.md) — review round 1 backend: paginated member_tags read, inner-join tag filter, exact delete count, serialised lookups, batch tagIds asserted pre-write, UUID → 400, 066 drop-by-lookup; gateway probe + scratch replay (senior-backend-dev)
+- [2026-08-28-tag-001-review-fix-r1-frontend](artifacts/2026-08-28-tag-001-review-fix-r1-frontend.md) — review round 1 frontend: CSV tag feedback, reachable bulk success line, too_many_new_tags copy, gated fetches, clipboard hygiene, 500-row cap (react-frontend-dev)
+- [2026-08-28-tag-001-review-fix-r2-backend](artifacts/2026-08-28-tag-001-review-fix-r2-backend.md) — review round 2 (recovered /code-review finders): claim point query, ordered paging by rows received, PATCH tagIds validation + ownership pre-write, setCampaignTags hardening, single CrossTenantTagError (403), wire-shape checks, chunked batch upsert (senior-backend-dev)
+- [2026-08-28-tag-001-b0-i18n-backend](artifacts/2026-08-28-tag-001-b0-i18n-backend.md) — B0: 40 i18n keys both locales + parity test (senior-backend-dev)
+- [2026-08-28-tag-001-b1-csv-tags-backend](artifacts/2026-08-28-tag-001-b1-csv-tags-backend.md) — B1: CSV `tags` column parsed/normalised, wire + preview echo, 45 tests (senior-backend-dev)
+- [2026-08-28-tag-001-b2-commit-tags-backend](artifacts/2026-08-28-tag-001-b2-commit-tags-backend.md) — B2: RPC 068 upsert_tags_by_name, per-row member_tags after consent fan-out, cap before write, best-effort tagging; scratch-DB proof (senior-backend-dev)
+- [2026-08-28-tag-001-b3-bulk-tags-backend](artifacts/2026-08-28-tag-001-b3-bulk-tags-backend.md) — B3: POST /api/dashboard/members/bulk-tags, 26 tests (senior-backend-dev)
+- [2026-08-28-tag-001-b4-recipient-count-backend](artifacts/2026-08-28-tag-001-b4-recipient-count-backend.md) — B4: RPC 067 count_active_members_by_tags + recipient-count route + send-path chunking/active filter; scratch-DB proof (senior-backend-dev)
+- [2026-08-28-tag-001-b5-preview-lookups-backend](artifacts/2026-08-28-tag-001-b5-preview-lookups-backend.md) — B5: read-only preview member/consent lookups, zero-write asserted, 42 tests (senior-backend-dev)
+- [2026-08-28-tag-001-f1-preview-step-frontend](artifacts/2026-08-28-tag-001-f1-preview-step-frontend.md) — F1: rejections panel, AM-4 merge-aware warnings, CSV tag summary, 39 tests (react-frontend-dev)
+- [2026-08-28-tag-001-f2-commit-rejections-frontend](artifacts/2026-08-28-tag-001-f2-commit-rejections-frontend.md) — F2: grouped rejections + copy/CSV, tagging warning, 28 tests (react-frontend-dev)
+- [2026-08-28-tag-001-f3-campaign-multitag-frontend](artifacts/2026-08-28-tag-001-f3-campaign-multitag-frontend.md) — F3: multi-tag OR picker + debounced live recipient count, 30 tests (react-frontend-dev)
+- [2026-08-28-tag-001-f4-bulk-tag-frontend](artifacts/2026-08-28-tag-001-f4-bulk-tag-frontend.md) — F4: members-list selection + bulk tag bar, 40 tests (react-frontend-dev)
+- [2026-08-28-tag-001-issues-138-139-orchestrator-handoff](artifacts/2026-08-28-tag-001-issues-138-139-orchestrator-handoff.md) — orchestrator checkpoint: PR #51 merged with develop (7c05d63), migrations 065/066 scratch-validated, decisions, next steps (claude)
 
 **Issue #111 — member-detail cross-tenant IDOR**
 - [2026-08-24-issue-111-b1-scoped-repository-backend](artifacts/2026-08-24-issue-111-b1-scoped-repository-backend.md) — B-1 scoped repo, 8/8 tests
