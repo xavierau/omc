@@ -1,65 +1,11 @@
 import { createServerSupabaseClient } from '../client'
 
-export interface MemberRow {
-  id: string
-  phone: string
-  name: string | null
-  points_balance: number
-  status: string
-  joined_at: string
-  last_visit_at: string | null
-  preferred_language: string | null
-}
+// getMembers + its list-query types live in member-list-query.ts (keeps this
+// file within the 150-line budget); re-exported so existing importers still work.
+export { getMembers } from './member-list-query'
+export type { MemberRow, MemberTagLite, MemberListParams, MemberListResult } from './member-list-query'
 
 export type PreferredLanguageCode = 'en' | 'zh_hk'
-
-export interface MemberListParams {
-  restaurantId: string
-  page: number
-  pageSize: number
-  search?: string
-  sortBy?: 'name' | 'points_balance' | 'last_visit_at' | 'joined_at'
-  sortOrder?: 'asc' | 'desc'
-}
-
-export interface MemberListResult {
-  members: MemberRow[]
-  total: number
-}
-
-export async function getMembers(params: MemberListParams): Promise<MemberListResult> {
-  const supabase = createServerSupabaseClient()
-  const { restaurantId, page, pageSize, search, sortBy = 'last_visit_at', sortOrder = 'desc' } = params
-
-  let query = supabase
-    .from('members')
-    .select(
-      'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language',
-      { count: 'exact' }
-    )
-    .eq('restaurant_id', restaurantId)
-
-  if (search) {
-    const sanitized = search.replace(/[%_,.()"'\\]/g, '')
-    if (sanitized.length > 0) {
-      query = query.or(`name.ilike.%${sanitized}%,phone.ilike.%${sanitized}%`)
-    }
-  }
-
-  query = query.order(sortBy, { ascending: sortOrder === 'asc', nullsFirst: false })
-
-  const from = (page - 1) * pageSize
-  query = query.range(from, from + pageSize - 1)
-
-  const { data, count, error } = await query
-
-  if (error) throw new Error(`getMembers: ${error.message}`)
-
-  return {
-    members: (data ?? []) as MemberRow[],
-    total: count ?? 0,
-  }
-}
 
 export async function adjustMemberPoints(
   memberId: string,

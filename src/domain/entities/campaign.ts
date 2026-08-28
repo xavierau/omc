@@ -32,7 +32,7 @@ export interface Campaign {
   nonChargeableSentCount: number
   redeemedCount: number
   whatsappTemplateId: string | null
-  targetAudience: 'all' | 'selected'
+  targetAudience: 'all' | 'selected' | 'tag'
   createdAt: string
 }
 

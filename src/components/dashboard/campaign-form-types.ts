@@ -12,8 +12,9 @@ export interface CampaignFormState {
   expiresInDays: string
   execution: 'now' | 'schedule'
   scheduledAt: string
-  targetAudience: 'all' | 'selected'
+  targetAudience: 'all' | 'selected' | 'tag'
   memberIds: string[]
+  tagIds: string[]
 }
 
 export const CAMPAIGN_TEMPLATE_PLACEHOLDERS = [
@@ -39,6 +40,7 @@ export const initialCampaignForm: CampaignFormState = {
   scheduledAt: '',
   targetAudience: 'all',
   memberIds: [],
+  tagIds: [],
 }
 
 export interface CampaignRequestBody {
@@ -52,8 +54,9 @@ export interface CampaignRequestBody {
   couponConfig: { discountType: string; discountValue: number; expiresInDays: number } | null
   scheduledAt: string | null
   status: 'active'
-  targetAudience: 'all' | 'selected'
+  targetAudience: 'all' | 'selected' | 'tag'
   memberIds?: string[]
+  tagIds?: string[]
 }
 
 export function buildCampaignRequestBody(form: CampaignFormState): CampaignRequestBody {
@@ -85,6 +88,7 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
     targetAudience: form.targetAudience,
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds
+  if (form.targetAudience === 'tag') body.tagIds = form.tagIds
   return body
 }
 
@@ -97,9 +101,11 @@ export type CampaignValidationKey =
   | 'nameRequired'
   | 'templateRequired'
   | 'templateAtLeastOneRequired'
+  | 'selectTag'
 
 export function validateCampaignForm(form: CampaignFormState): CampaignValidationKey | null {
   if (!form.name.trim()) return 'nameRequired'
+  if (form.targetAudience === 'tag' && form.tagIds.length === 0) return 'selectTag'
   if (form.messageType === 'wa_template') {
     return form.whatsappTemplateId ? null : 'templateRequired'
   }

@@ -20,6 +20,19 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository
 vi.mock('@/application/build-campaign-template-review-states', () => ({
   buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
 }))
+vi.mock('@/infrastructure/supabase/repositories/member-tag-repository', async () => {
+  // Keep the real CrossTenantTagError so `instanceof` checks match.
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/member-tag-repository')
+  >('@/infrastructure/supabase/repositories/member-tag-repository')
+  return { ...actual, assertTagsBelongToTenant: vi.fn() }
+})
+vi.mock('@/application/set-campaign-tags', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/application/set-campaign-tags')
+  >('@/application/set-campaign-tags')
+  return { ...actual, setCampaignTags: vi.fn() }
+})
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -34,6 +47,11 @@ import {
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
+import {
+  assertTagsBelongToTenant,
+  CrossTenantTagError,
+} from '@/infrastructure/supabase/repositories/member-tag-repository'
+import { setCampaignTags } from '@/application/set-campaign-tags'
 import { POST, GET } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -529,5 +547,63 @@ describe('GET /api/dashboard/campaigns', () => {
     expect('templateReview' in body.campaigns[0]).toBe(false)
 
     errSpy.mockRestore()
+  })
+})
+
+describe('POST /api/dashboard/campaigns — tag targeting', () => {
+  const TAG_A = '11111111-1111-4111-8111-111111111111'
+
+  function tagBody(tagIds: unknown) {
+    return postRequest({
+      name: 'n',
+      type: 'promo',
+      templateEn: 'hi',
+      targetAudience: 'tag',
+      tagIds,
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(createCampaign).mockResolvedValue(buildCampaign({ targetAudience: 'tag' }))
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(assertTagsBelongToTenant).mockResolvedValue(undefined)
+    vi.mocked(setCampaignTags).mockResolvedValue(undefined)
+  })
+
+  it('asserts tag ownership BEFORE createCampaign (no orphan tag campaign)', async () => {
+    vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    const r = await POST(tagBody([TAG_A]))
+
+    expect(r.status).toBe(403)
+    // The orphan this prevents: a campaign row already written with
+    // target_audience='tag' and no campaign_tags rows behind it.
+    expect(createCampaign).not.toHaveBeenCalled()
+    expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+
+  it('creates the campaign and links the tags when ownership holds', async () => {
+    const r = await POST(tagBody([TAG_A]))
+
+    expect(r.status).toBe(201)
+    expect(assertTagsBelongToTenant).toHaveBeenCalledWith([TAG_A], RESTAURANT_ID)
+    expect(setCampaignTags).toHaveBeenCalledWith('c-1', [TAG_A], RESTAURANT_ID)
+  })
+
+  it('rejects a non-UUID tag id with 400 before any tenant query', async () => {
+    const r = await POST(tagBody(['not-a-uuid']))
+
+    expect(r.status).toBe(400)
+    expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
+    expect(createCampaign).not.toHaveBeenCalled()
   })
 })

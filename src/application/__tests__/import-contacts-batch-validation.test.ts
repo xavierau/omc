@@ -7,7 +7,7 @@ import {
 const NOW = new Date('2026-05-04T12:00:00.000Z')
 
 function buildInput(
-  rows: Array<{ phoneE164: string; name?: string | null }>
+  rows: Array<{ phoneE164: string; name?: string | null; tags?: string[] }>
 ): PreflightInput {
   return {
     metadata: {
@@ -80,5 +80,37 @@ describe('validatePreflight — per-row', () => {
     expect(result.metadataError).toBeNull()
     expect(result.acceptedRows).toEqual([])
     expect(result.rejected).toEqual([])
+  })
+})
+
+describe('validatePreflight — tags (TAG-001 B1)', () => {
+  it('populates acceptedRows[].tags from row.tags', () => {
+    const result = validatePreflight(
+      buildInput([{ phoneE164: '85291234567', tags: ['vip', 'lunch'] }])
+    )
+    expect(result.acceptedRows[0].tags).toEqual(['vip', 'lunch'])
+  })
+
+  it('defaults to an empty array when the row carries no tags', () => {
+    const result = validatePreflight(buildInput([{ phoneE164: '85291234567' }]))
+    expect(result.acceptedRows[0].tags).toEqual([])
+  })
+
+  it('re-normalises server-side: never trusts client casing/whitespace/dupes (T-B1.12)', () => {
+    const result = validatePreflight(
+      buildInput([
+        { phoneE164: '85291234567', tags: ['  VIP  ', 'vip', ''] },
+      ])
+    )
+    expect(result.acceptedRows[0].tags).toEqual(['VIP'])
+  })
+
+  it('does not attach tags to a rejected row', () => {
+    const result = validatePreflight(
+      buildInput([{ phoneE164: 'not-a-phone', tags: ['vip'] }])
+    )
+    expect(result.acceptedRows).toEqual([])
+    expect(result.rejected).toHaveLength(1)
+    expect(result.rejected[0]).not.toHaveProperty('tags')
   })
 })

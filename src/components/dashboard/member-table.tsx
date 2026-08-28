@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { SelectAllHeaderCell, RowSelectCell } from './member-table-select-cell'
 
 interface Member {
   id: string
@@ -13,6 +14,7 @@ interface Member {
   status: string
   joined_at: string
   last_visit_at: string | null
+  tags?: { id: string; name: string; color: string }[]
 }
 
 interface MemberTableProps {
@@ -23,6 +25,9 @@ interface MemberTableProps {
   sortOrder: 'asc' | 'desc'
   onSort: (column: string) => void
   onSelectMember: (id: string) => void
+  selectedIds: string[]
+  onToggle: (id: string) => void
+  onToggleAll: (ids: string[]) => void
 }
 
 function formatDate(dateStr: string | null): string {
@@ -39,6 +44,20 @@ function SortIndicator({ column, sortBy, sortOrder }: { column: string; sortBy: 
   return <span className="ml-1">{sortOrder === 'asc' ? '\u2191' : '\u2193'}</span>
 }
 
+function MemberTagChips({ tags }: { tags?: { id: string; name: string; color: string }[] }) {
+  if (!tags || tags.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <Badge key={tag.id} variant="outline" className="gap-1">
+          <span className="size-2 rounded-full" style={{ backgroundColor: tag.color }} />
+          {tag.name}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
 export function MemberTable({
   members,
   search,
@@ -47,9 +66,15 @@ export function MemberTable({
   sortOrder,
   onSort,
   onSelectMember,
+  selectedIds,
+  onToggle,
+  onToggleAll,
 }: MemberTableProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
+
+  const allSelected = members.length > 0 && members.every((m) => selectedIds.includes(m.id))
+  const handleToggleAll = () => onToggleAll(allSelected ? [] : members.map((m) => m.id))
 
   const sortableColumns = [
     { key: 'name', label: t('name') },
@@ -72,6 +97,7 @@ export function MemberTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <SelectAllHeaderCell allSelected={allSelected} onToggleAll={handleToggleAll} />
               {sortableColumns.map((col) => (
                 <TableHead
                   key={col.key}
@@ -82,6 +108,7 @@ export function MemberTable({
                   <SortIndicator column={col.key} sortBy={sortBy} sortOrder={sortOrder} />
                 </TableHead>
               ))}
+              <TableHead>{t('tagsColumn')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -91,6 +118,11 @@ export function MemberTable({
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => onSelectMember(member.id)}
               >
+                <RowSelectCell
+                  memberId={member.id}
+                  checked={selectedIds.includes(member.id)}
+                  onToggle={onToggle}
+                />
                 <TableCell className="font-medium">{member.name || tc('unknown')}</TableCell>
                 <TableCell className="text-muted-foreground">{member.phone}</TableCell>
                 <TableCell>{member.points_balance}</TableCell>
@@ -101,6 +133,7 @@ export function MemberTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(member.last_visit_at)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(member.joined_at)}</TableCell>
+                <TableCell><MemberTagChips tags={member.tags} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

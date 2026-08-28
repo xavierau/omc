@@ -11,6 +11,12 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   getCampaignById: vi.fn(),
   getCampaignMemberIds: vi.fn(),
 }))
+vi.mock('@/infrastructure/supabase/repositories/campaign-tags-repository', () => ({
+  getCampaignTagIds: vi.fn(),
+}))
+vi.mock('@/infrastructure/supabase/repositories/member-tag-repository', () => ({
+  memberCarriesAnyTag: vi.fn(),
+}))
 vi.mock('@/infrastructure/whatsapp/messaging', () => ({
   sendTextMessage: vi.fn(),
   sendImageMessage: vi.fn(),
@@ -34,6 +40,8 @@ import {
   getCampaignById,
   getCampaignMemberIds,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { memberCarriesAnyTag } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { claimCampaignCoupon } from '@/application/claim-campaign-coupon'
@@ -108,6 +116,8 @@ describe('handleClaim', () => {
     vi.mocked(uploadCouponQr).mockResolvedValue('https://cdn/qr.png')
     vi.mocked(recordOutboundSend).mockImplementation((args) => args.send())
     vi.mocked(getCampaignMemberIds).mockResolvedValue([])
+    vi.mocked(getCampaignTagIds).mockResolvedValue([])
+    vi.mocked(memberCarriesAnyTag).mockResolvedValue(false)
   })
 
   it('non-member → nonMember reply, no mint', async () => {
@@ -231,6 +241,70 @@ describe('handleClaim', () => {
 
     expect(claimCampaignCoupon).toHaveBeenCalledOnce()
     expect(sendImageMessage).toHaveBeenCalled()
+  })
+
+  it('tag-audience campaign, member does NOT carry a linked tag → refusal + warn, no mint', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue(['t-1'])
+    vi.mocked(memberCarriesAnyTag).mockResolvedValue(false)
+    const p = params()
+
+    await handleClaim(p)
+
+    expect(memberCarriesAnyTag).toHaveBeenCalledWith('m-1', ['t-1'], 'r-1')
+    expect(p.log).toHaveBeenCalledWith(
+      'warn', 'claim.not_targeted', expect.objectContaining({ campaignId: 'camp-1' })
+    )
+    expect(claimCampaignCoupon).not.toHaveBeenCalled()
+    expect(sendImageMessage).not.toHaveBeenCalled()
+  })
+
+  it('tag-audience campaign, member DOES carry a linked tag → mints', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue(['t-1'])
+    vi.mocked(memberCarriesAnyTag).mockResolvedValue(true)
+    vi.mocked(claimCampaignCoupon).mockResolvedValue({
+      coupon: buildCoupon({ code: 'TAG1' }), alreadyClaimed: false,
+    })
+
+    await handleClaim(params())
+
+    expect(claimCampaignCoupon).toHaveBeenCalledOnce()
+    expect(sendImageMessage).toHaveBeenCalled()
+  })
+
+  it('tag-audience campaign with zero linked tags → not targeted, no mint', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue([])
+
+    await handleClaim(params())
+
+    expect(memberCarriesAnyTag).not.toHaveBeenCalled()
+    expect(claimCampaignCoupon).not.toHaveBeenCalled()
+    expect(sendImageMessage).not.toHaveBeenCalled()
+  })
+
+  it('tag-membership lookup failure → no mint (never falls through to eligible)', async () => {
+    vi.mocked(findMemberByPhone).mockResolvedValue(buildMember({ id: 'm-1' }))
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue(['t-1'])
+    vi.mocked(memberCarriesAnyTag).mockRejectedValue(new Error('db down'))
+
+    await handleClaim(params())
+
+    expect(claimCampaignCoupon).not.toHaveBeenCalled()
+    expect(sendImageMessage).not.toHaveBeenCalled()
   })
 
   it('all-audience campaign does NOT query the target set (every member eligible)', async () => {

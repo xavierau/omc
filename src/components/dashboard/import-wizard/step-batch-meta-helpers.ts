@@ -19,6 +19,7 @@ export interface BatchMetaInput {
   consentTextShown: string
   consentChannel: ConsentChannel
   proofFilePresent: boolean
+  tagIds: string[]
 }
 
 const MIN_CONSENT_TEXT = 10

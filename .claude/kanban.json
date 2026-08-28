@@ -1547,6 +1547,79 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
+        },
+        {
+          "id": "TAG-001",
+          "title": "Member tagging — tenant-scoped tags, assign/remove on members, import-batch tagging, campaign target-by-tag",
+          "description": "Add reusable member tags (contact==member). (1) Tag model: tenant-scoped tags + member_tags join, RLS matching existing tables. (2) Tag CRUD + assign/remove on members via dashboard API; tag chips on member detail; tag column+filter in members list. (3) Import wizard: apply one or more tags to all members in a batch (new + merged), idempotent. (4) Campaigns can target a tag — audience resolves to current members carrying the tag at send time. Authorization: re-check tenant ownership of member AND tag on every assignment (service-role client bypasses RLS).",
+          "priority": "high",
+          "labels": [
+            "members",
+            "tags",
+            "campaigns",
+            "import",
+            "fullstack",
+            "database"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "acceptance_criteria": [
+            "Tenant can create/list/rename/delete tags; tag names unique per tenant (case-insensitive).",
+            "Tenant can assign/remove tags on a member; assigning a tag from another tenant is rejected.",
+            "Members list can filter by tag; member detail shows tag chips with add/remove.",
+            "Import wizard applies selected tags to every member in the batch (new and merged), without duplicate member_tags rows.",
+            "A campaign can target a tag; recipients resolve to members currently carrying that tag at send time.",
+            "All tag reads/writes are tenant-isolated (RLS + app-layer ownership checks).",
+            "CSV `tags` column (split on `;`, trimmed, case-folded) is parsed, shown in preview with per-tag counts, and applied add-only + idempotently on commit to new and merged members (#138).",
+            "A campaign can target several tags (OR/union, stated in the UI) with a live tenant-scoped active-recipient count before send (#138).",
+            "Members list supports bulk tag/untag of selected members (#138)."
+          ],
+          "workspace_artifacts": [
+            "plans/2026-07-03-tag-001-member-tagging",
+            "plans/2026-08-28-tag-001-issues-138-139",
+            "artifacts/2026-08-28-tag-001-issues-138-139-orchestrator-handoff"
+          ],
+          "github_issue": 138,
+          "branch": "feature/tag-001-issues-138-139",
+          "related": [
+            "github:138",
+            "github:51",
+            "kanban:WONB-017",
+            "kanban:SMS-007"
+          ],
+          "notes": "2026-08-28: revived from unmerged PR #51 (feature/tag-001, 118 commits behind) — merged origin/develop, migrations renumbered 054/055 → 065/066, scratch-DB validated. #138 deltas on top: per-row CSV `tags` column (split on ;, add-only, idempotent) + preview tag counts, multi-tag OR targeting UI + live recipient count, bulk tag/untag from members list."
+        },
+        {
+          "id": "WONB-017",
+          "title": "Import preview hides duplicate/rejected rows until after commit",
+          "description": "#139: preview-contacts-batch computes rejected[] but step-grade-preview never renders it (highlight branch unreachable); preview does zero DB reads so phone_already_member / duplicate_active only surface at commit; step-confirm shows a bare rejected count. Fix: rejections panel in preview, read-only member + active-consent lookups whose counts react to the merge checkbox, and a per-reason rejected list with copy/CSV after commit. Preview must stay zero-write.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "import",
+            "members",
+            "fullstack",
+            "P2"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "github_issue": 139,
+          "branch": "feature/tag-001-issues-138-139",
+          "related": [
+            "github:139",
+            "kanban:TAG-001",
+            "kanban:WONB-004"
+          ],
+          "acceptance_criteria": [
+            "Preview names every rejected row (invalid_phone, duplicate_phone_in_batch) with its reason, before commit.",
+            "Already-a-member and already-consented phones appear in preview as warnings; counts update live when the merge checkbox is toggled (member dup = skip when merge off / merge when on; active consent dup = reject either way).",
+            "Commit result lists rejected rows grouped by reason with copy-to-clipboard and CSV download, not just a count.",
+            "Preview still performs zero DB writes.",
+            "The unreachable highlight in step-grade-preview is removed or made reachable."
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-28-tag-001-issues-138-139",
+            "artifacts/2026-08-28-tag-001-issues-138-139-orchestrator-handoff"
+          ],
+          "notes": "Shares the worktree/PR with TAG-001 (#138) because both touch the import wizard preview step."
         }
       ]
     },

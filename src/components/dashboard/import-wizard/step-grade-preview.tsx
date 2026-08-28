@@ -2,9 +2,14 @@
 
 import { useTranslations } from 'next-intl'
 import { GradeBadge, type ConsentGrade } from './grade-badge'
+import { PreviewRejectionsPanel } from './preview-rejections-panel'
+import { CsvTagSummary } from './csv-tag-summary'
+import { PreviewWarnings } from './preview-warnings'
+import { buildPreviewWarnings } from './preview-warning-helpers'
 import type {
   GradeBreakdown,
   ImportRowReject,
+  PreviewLookups,
   PreviewRow,
 } from '@/hooks/use-import-batch'
 
@@ -14,6 +19,7 @@ interface Props {
   rows: PreviewRow[]
   rejected: ImportRowReject[]
   gradeBreakdown: GradeBreakdown
+  lookups: PreviewLookups
   mergeExistingMembers: boolean
   onMergeChange: (merge: boolean) => void
   onBack: () => void
@@ -29,6 +35,7 @@ export function StepGradePreview({
   rows,
   rejected,
   gradeBreakdown,
+  lookups,
   mergeExistingMembers,
   onMergeChange,
   onBack,
@@ -40,7 +47,7 @@ export function StepGradePreview({
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const start = (page - 1) * PAGE_SIZE
   const slice = rows.slice(start, start + PAGE_SIZE)
-  const rejectedByPhone = new Set(rejected.map((r) => r.phoneE164))
+  const { warnedPhones } = buildPreviewWarnings({ rows, lookups, merge: mergeExistingMembers })
 
   return (
     <div className="space-y-4" data-step="grade-preview">
@@ -57,15 +64,21 @@ export function StepGradePreview({
         ))}
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          data-field="merge"
-          checked={mergeExistingMembers}
-          onChange={(e) => onMergeChange(e.target.checked)}
-        />
-        {t('mergeExistingMembers')}
-      </label>
+      <PreviewRejectionsPanel rejected={rejected} acceptedCount={rows.length} />
+      <CsvTagSummary rows={rows} />
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            data-field="merge"
+            checked={mergeExistingMembers}
+            onChange={(e) => onMergeChange(e.target.checked)}
+          />
+          {t('mergeExistingMembers')}
+        </label>
+        <PreviewWarnings rows={rows} lookups={lookups} merge={mergeExistingMembers} />
+      </div>
 
       <div className="rounded-md border" data-section="rows-table">
         <table className="w-full text-sm">
@@ -81,8 +94,8 @@ export function StepGradePreview({
               <tr
                 key={row.phoneE164}
                 data-row={row.phoneE164}
-                data-rejected={rejectedByPhone.has(row.phoneE164) ? 'true' : undefined}
-                className={rejectedByPhone.has(row.phoneE164) ? 'bg-destructive/10' : undefined}
+                data-warned={warnedPhones.has(row.phoneE164) ? 'true' : undefined}
+                className={warnedPhones.has(row.phoneE164) ? 'bg-amber-500/10' : undefined}
               >
                 <td className="px-3 py-1.5">{row.phoneE164}</td>
                 <td className="px-3 py-1.5">{row.name ?? '—'}</td>

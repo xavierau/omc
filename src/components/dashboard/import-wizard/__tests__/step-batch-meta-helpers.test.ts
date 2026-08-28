@@ -16,6 +16,7 @@ const validInput: BatchMetaInput = {
   consentTextShown: 'We will send offers on WhatsApp.',
   consentChannel: 'whatsapp',
   proofFilePresent: true,
+  tagIds: [],
 }
 
 describe('validateBatchMeta', () => {

@@ -19,9 +19,29 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () =
   }
 })
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/infrastructure/supabase/repositories/campaign-tags-repository', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/campaign-tags-repository')
+  >('@/infrastructure/supabase/repositories/campaign-tags-repository')
+  return { ...actual, getCampaignTagIds: vi.fn() }
+})
+vi.mock('@/application/set-campaign-tags', async () => {
+  // Keep the real CrossTenantTagError so `instanceof` checks in route.ts match.
+  const actual = await vi.importActual<
+    typeof import('@/application/set-campaign-tags')
+  >('@/application/set-campaign-tags')
+  return { ...actual, setCampaignTags: vi.fn() }
+})
 vi.mock('@/application/build-campaign-template-review-states', () => ({
   buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
 }))
+vi.mock('@/infrastructure/supabase/repositories/member-tag-repository', async () => {
+  // Keep the real CrossTenantTagError so `instanceof` checks match.
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/member-tag-repository')
+  >('@/infrastructure/supabase/repositories/member-tag-repository')
+  return { ...actual, assertTagsBelongToTenant: vi.fn() }
+})
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
@@ -37,6 +57,9 @@ import {
   getRestaurantDefaultLanguage,
   getOnboardingSettings,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { setCampaignTags, CrossTenantTagError } from '@/application/set-campaign-tags'
+import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
 import { GET, PATCH } from '../route'
 import type { Campaign } from '@/domain/entities/campaign'
@@ -784,5 +807,167 @@ describe('GET /api/dashboard/campaigns/[id]', () => {
       RESTAURANT_ID,
       [campaign]
     )
+  })
+})
+
+// TAG-001 regression: the tag vertical slice must load and persist on EDIT,
+// mirroring how 'selected'/memberIds already works.
+describe('GET /api/dashboard/campaigns/[id] — tag audience', () => {
+  beforeEach(() => {
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignByIdForRestaurant).mockReset()
+    vi.mocked(getCampaignTagIds).mockReset()
+    vi.mocked(buildCampaignTemplateReviewStates).mockReset()
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(new Map())
+  })
+
+  it('returns tagIds for a tag-targeted campaign', async () => {
+    vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(getCampaignTagIds).mockResolvedValue(['tag-1', 'tag-2'])
+
+    const r = await GET(new NextRequest('http://localhost'), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    const body = await r.json()
+    expect(body.tagIds).toEqual(['tag-1', 'tag-2'])
+    expect(getCampaignTagIds).toHaveBeenCalledWith(CAMPAIGN_ID)
+  })
+})
+
+describe('PATCH /api/dashboard/campaigns/[id] — tag persistence', () => {
+  const TAG_A = '11111111-1111-4111-8111-111111111111'
+  const TAG_B = '22222222-2222-4222-8222-222222222222'
+
+  beforeEach(() => {
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(updateCampaign).mockReset()
+    vi.mocked(setCampaignTags).mockReset()
+    vi.mocked(assertTagsBelongToTenant).mockReset()
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(updateCampaign).mockResolvedValue(
+      buildCampaign({ targetAudience: 'tag' })
+    )
+    vi.mocked(setCampaignTags).mockResolvedValue(undefined)
+    vi.mocked(assertTagsBelongToTenant).mockResolvedValue(undefined)
+  })
+
+  function patchTags(tagIds: unknown) {
+    return PATCH(patchRequest({ targetAudience: 'tag', tagIds }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+  }
+
+  it('persists tagIds via setCampaignTags(id, tagIds, restaurantId)', async () => {
+    const r = await patchTags([TAG_A])
+
+    expect(r.status).toBe(200)
+    expect(setCampaignTags).toHaveBeenCalledWith(CAMPAIGN_ID, [TAG_A], RESTAURANT_ID)
+  })
+
+  // Review round 2, finding 3: PATCH accepted any tagIds shape the client sent.
+  it.each([
+    ['an empty array', []],
+    ['a missing field', undefined],
+    ['a non-array', TAG_A],
+    ['a non-UUID id', ['not-a-uuid']],
+    ['a non-string id', [123]],
+  ])('returns 400 for %s and never touches the campaign', async (_label, tagIds) => {
+    const r = await patchTags(tagIds)
+
+    expect(r.status).toBe(400)
+    expect(updateCampaign).not.toHaveBeenCalled()
+    expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+
+  it('dedupes repeated tag ids before writing', async () => {
+    await patchTags([TAG_A, TAG_B, TAG_A])
+
+    expect(setCampaignTags).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      [TAG_A, TAG_B],
+      RESTAURANT_ID
+    )
+  })
+
+  // The orphan: rejecting ownership only inside setCampaignTags leaves the
+  // campaign already flipped to target_audience='tag' with no links.
+  it('asserts tag ownership BEFORE updateCampaign', async () => {
+    vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    const r = await patchTags([TAG_A])
+
+    expect(r.status).toBe(403)
+    expect(updateCampaign).not.toHaveBeenCalled()
+    expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 when a cross-tenant tag is rejected by the write', async () => {
+    vi.mocked(setCampaignTags).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    const r = await patchTags([TAG_A])
+
+    expect(r.status).toBe(403)
+  })
+
+  // Switching away from 'tag' used to leave campaign_tags rows behind, so a
+  // later switch back silently resurrected the previous selection.
+  it.each(['all', 'selected'])(
+    "clears campaign_tags when the audience flips from 'tag' to '%s'",
+    async (nextAudience) => {
+      const body: Record<string, unknown> = { targetAudience: nextAudience }
+      if (nextAudience === 'selected') body.memberIds = ['m-1']
+
+      const r = await PATCH(patchRequest(body), {
+        params: Promise.resolve({ id: CAMPAIGN_ID }),
+      })
+
+      expect(r.status).toBe(200)
+      expect(setCampaignTags).toHaveBeenCalledWith(CAMPAIGN_ID, [], RESTAURANT_ID)
+    }
+  )
+
+  it('does not clear campaign_tags when the campaign was never tag-targeted', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ targetAudience: 'all' })
+    )
+
+    const r = await PATCH(patchRequest({ targetAudience: 'all' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+
+  it('leaves campaign_tags alone when the PATCH does not touch the audience', async () => {
+    const r = await PATCH(patchRequest({ name: 'Renamed' }), {
+      params: Promise.resolve({ id: CAMPAIGN_ID }),
+    })
+
+    expect(r.status).toBe(200)
+    expect(setCampaignTags).not.toHaveBeenCalled()
   })
 })

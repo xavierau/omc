@@ -22,6 +22,7 @@ import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { importContactsBatch } from '@/application/import-contacts-batch'
 import { findByRestaurant } from '@/infrastructure/supabase/repositories/import-batch-repository'
 import { ImportBatchValidationError } from '@/domain/services/__errors__/import-errors'
+import { CrossTenantTagError } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { ImportBatch } from '@/domain/entities/import-batch'
 import { POST, GET } from '../route'
 
@@ -69,6 +70,7 @@ describe('POST /api/dashboard/imports', () => {
       membersCreated: 1,
       rejected: [],
       gradeBreakdown: { strong: 1, medium: 0, weak: 0, none: 0 },
+      tagging: { status: 'ok', taggedMembers: 0 },
     })
   })
 
@@ -118,6 +120,20 @@ describe('POST /api/dashboard/imports', () => {
     vi.mocked(importContactsBatch).mockRejectedValueOnce(new Error('boom'))
     const r = await POST(jsonRequest(validBody()))
     expect(r.status).toBe(500)
+  })
+
+  it('returns 403 when a batch-level tag id belongs to another tenant (M-7)', async () => {
+    vi.mocked(importContactsBatch).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+    const r = await POST(
+      jsonRequest({
+        ...validBody(),
+        tags: ['99999999-9999-4999-8999-999999999999'],
+      })
+    )
+    expect(r.status).toBe(403)
+    expect(await r.json()).toEqual({ error: 'Invalid tag IDs' })
   })
 
   it('returns 400 with reason=empty_rows when rows is empty (B2)', async () => {
@@ -198,5 +214,62 @@ describe('GET /api/dashboard/imports', () => {
     vi.mocked(findByRestaurant).mockRejectedValueOnce(new Error('boom'))
     const r = await GET()
     expect(r.status).toBe(500)
+  })
+})
+
+// Review round 2, finding 6: two DIFFERENT `tags` fields ride this body —
+// per-row names and batch-level ids — and neither was shape-checked.
+describe('POST /api/dashboard/imports — tags wire shape', () => {
+  const TAG_ID = '11111111-1111-4111-8111-111111111111'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTenant()
+  })
+
+  it('accepts a well-formed batch tag id list and per-row tag names', async () => {
+    vi.mocked(importContactsBatch).mockResolvedValue({
+      importBatchId: 'batch-1',
+      inserted: 1,
+      membersCreated: 1,
+    } as never)
+
+    const body = validBody()
+    const r = await POST(
+      jsonRequest({
+        ...body,
+        tags: [TAG_ID],
+        rows: [{ ...body.rows[0], tags: ['VIP'] }],
+      })
+    )
+
+    expect(r.status).toBe(200)
+  })
+
+  it.each([
+    ['batch tags is not an array', { tags: 'VIP' }],
+    ['batch tags holds a non-UUID id', { tags: ['not-a-uuid'] }],
+    ['batch tags holds a non-string', { tags: [123] }],
+  ])('returns 400 when %s, without importing', async (_label, override) => {
+    const r = await POST(jsonRequest({ ...validBody(), ...override }))
+
+    expect(r.status).toBe(400)
+    expect((await r.json()).reason).toBe('invalid_tags')
+    expect(importContactsBatch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a string', 'VIP;Regular'],
+    ['a number', 7],
+    ['an array holding a non-string', ['VIP', 9]],
+  ])('returns 400 when a row tags field is %s, without importing', async (_label, rowTags) => {
+    const body = validBody()
+    const r = await POST(
+      jsonRequest({ ...body, rows: [{ ...body.rows[0], tags: rowTags }] })
+    )
+
+    expect(r.status).toBe(400)
+    expect((await r.json()).reason).toBe('invalid_tags')
+    expect(importContactsBatch).not.toHaveBeenCalled()
   })
 })

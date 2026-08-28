@@ -169,4 +169,44 @@ describe('campaign-form-fields', () => {
       expect(body.imageUrlZhHk).toBeNull()
     })
   })
+
+  describe('tag targeting (TAG-001)', () => {
+    it('initialCampaignForm starts with an empty tagIds array', () => {
+      expect(initialCampaignForm.tagIds).toEqual([])
+    })
+
+    it('emits targetAudience "tag" and tagIds when audience is tag', () => {
+      const body = buildCampaignRequestBody(
+        inlineForm({ targetAudience: 'tag', tagIds: ['tag-1'] })
+      )
+      expect(body.targetAudience).toBe('tag')
+      expect(body.tagIds).toEqual(['tag-1'])
+    })
+
+    it('omits tagIds when audience is all (default)', () => {
+      const body = buildCampaignRequestBody(inlineForm({ tagIds: ['tag-1'] }))
+      expect(body.targetAudience).toBe('all')
+      expect(body).not.toHaveProperty('tagIds')
+    })
+
+    it('omits tagIds when audience is selected', () => {
+      const body = buildCampaignRequestBody(
+        inlineForm({ targetAudience: 'selected', memberIds: ['m-1'], tagIds: ['tag-1'] })
+      )
+      expect(body).not.toHaveProperty('tagIds')
+      expect(body.memberIds).toEqual(['m-1'])
+    })
+
+    it('requires a tag when targetAudience is tag and none selected', () => {
+      expect(
+        validateCampaignForm(inlineForm({ targetAudience: 'tag', tagIds: [] }))
+      ).toBe('selectTag')
+    })
+
+    it('accepts tag targeting when at least one tag is selected', () => {
+      expect(
+        validateCampaignForm(inlineForm({ targetAudience: 'tag', tagIds: ['tag-1'] }))
+      ).toBeNull()
+    })
+  })
 })

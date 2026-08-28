@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { MemberDeleteSection } from './member-delete-section'
 import { MemberStampReversalSection } from './member-stamp-reversal-section'
+import { MemberTagsSection } from './member-tags-section'
 import { fetchMemberDetail } from './member-detail-helpers'
 
 interface MemberDetail {
@@ -20,6 +21,7 @@ interface MemberDetail {
   receipts: { id: string; total_amount: number; points_awarded: number; created_at: string; status: string }[]
   coupons: { id: string; code: string; type: string; status: string; redeemed_at: string | null; discount_type: string | null; discount_value: number | null }[]
   visitCount: number
+  tags?: { id: string; name: string; color: string }[]
 }
 
 interface MemberDetailPanelProps {
@@ -27,6 +29,7 @@ interface MemberDetailPanelProps {
   open: boolean
   onClose: () => void
   onDeleted?: () => void
+  onTagsChanged?: () => void
 }
 
 function formatDate(d: string | null): string {
@@ -123,7 +126,7 @@ function CouponList({ coupons }: { coupons: MemberDetail['coupons'] }) {
   )
 }
 
-export function MemberDetailPanel({ memberId, open, onClose, onDeleted }: MemberDetailPanelProps) {
+export function MemberDetailPanel({ memberId, open, onClose, onDeleted, onTagsChanged }: MemberDetailPanelProps) {
   const t = useTranslations('members')
   const tc = useTranslations('common')
   const [member, setMember] = useState<MemberDetail | null>(null)
@@ -157,6 +160,8 @@ export function MemberDetailPanel({ memberId, open, onClose, onDeleted }: Member
           ) : member ? (
             <div className="space-y-6 mt-4">
               <MemberInfo member={member} />
+              <Separator />
+              <MemberTagsSection memberId={member.id} tags={member.tags ?? []} onChanged={onTagsChanged} />
               <Separator />
               <ReceiptList receipts={member.receipts} />
               <Separator />

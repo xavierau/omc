@@ -11,6 +11,7 @@ export interface Member {
   status: string
   joined_at: string
   last_visit_at: string | null
+  tags?: { id: string; name: string; color: string }[]
 }
 
 export interface MembersResponse {
@@ -26,10 +27,30 @@ interface UseMembersParams {
   page?: number
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+  tagId?: string
+}
+
+interface MembersQueryParams {
+  page: number
+  sortBy: string
+  sortOrder: string
+  search?: string
+  tagId?: string
+}
+
+export function buildMembersQuery(params: MembersQueryParams): string {
+  const queryParams = new URLSearchParams({
+    page: String(params.page),
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
+  })
+  if (params.search) queryParams.set('search', params.search)
+  if (params.tagId) queryParams.set('tagId', params.tagId)
+  return queryParams.toString()
 }
 
 export function useMembers(params: UseMembersParams = {}) {
-  const { search = '', page = 1, sortBy = 'last_visit_at', sortOrder = 'desc' } = params
+  const { search = '', page = 1, sortBy = 'last_visit_at', sortOrder = 'desc', tagId } = params
   const { restaurantId } = useTenant()
   const [data, setData] = useState<MembersResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -40,14 +61,9 @@ export function useMembers(params: UseMembersParams = {}) {
     try {
       setIsLoading(true)
       setError(null)
-      const queryParams = new URLSearchParams({
-        page: String(page),
-        sortBy,
-        sortOrder,
-      })
-      if (search) queryParams.set('search', search)
+      const query = buildMembersQuery({ page, sortBy, sortOrder, search, tagId })
 
-      const res = await fetch(`/api/dashboard/members?${queryParams}`)
+      const res = await fetch(`/api/dashboard/members?${query}`)
       if (!res.ok) throw new Error('Failed to fetch members')
       const json = await res.json()
       setData(json)
@@ -56,7 +72,7 @@ export function useMembers(params: UseMembersParams = {}) {
     } finally {
       setIsLoading(false)
     }
-  }, [page, search, sortBy, sortOrder, restaurantId])
+  }, [page, search, sortBy, sortOrder, tagId, restaurantId])
 
   useEffect(() => {
     fetchMembers()

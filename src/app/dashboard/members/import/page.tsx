@@ -14,6 +14,7 @@ import {
   useImportBatch,
   type ImportContactsBatchInput,
   type ImportContactsBatchResult,
+  type PreviewLookups,
 } from '@/hooks/use-import-batch'
 import type { ParsedRow } from '@/components/dashboard/import-wizard/parse-csv'
 import type {
@@ -30,6 +31,13 @@ const EMPTY_META: BatchMetaInput = {
   consentTextShown: '',
   consentChannel: 'whatsapp',
   proofFilePresent: false,
+  tagIds: [],
+}
+
+const EMPTY_LOOKUPS: PreviewLookups = {
+  alreadyMemberPhones: [],
+  activeConsentPhones: [],
+  status: 'ok',
 }
 
 // useSearchParams() must sit under a Suspense boundary or Next fails the
@@ -56,6 +64,7 @@ function ImportWizard() {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
   const [previewBreakdown, setPreviewBreakdown] = useState({ strong: 0, medium: 0, weak: 0, none: 0 })
   const [previewRejected, setPreviewRejected] = useState<ImportContactsBatchResult['rejected']>([])
+  const [previewLookups, setPreviewLookups] = useState<PreviewLookups>(EMPTY_LOOKUPS)
   const [merge, setMerge] = useState(false)
   const [previewPage, setPreviewPage] = useState(1)
   const [committed, setCommitted] = useState<ImportContactsBatchResult | null>(null)
@@ -84,6 +93,7 @@ function ImportWizard() {
     },
     rows: csvRows,
     mergeExistingMembers: merge,
+    tags: meta.tagIds,
   }), [meta, proofPath, csvRows, merge])
 
   async function runPreviewAndAdvance() {
@@ -91,6 +101,7 @@ function ImportWizard() {
     if (!res) return
     setPreviewBreakdown(res.gradeBreakdown)
     setPreviewRejected(res.rejected ?? [])
+    setPreviewLookups(res.lookups ?? EMPTY_LOOKUPS)
     setPreviewRows(res.rows)
     goto('grade')
   }
@@ -131,6 +142,7 @@ function ImportWizard() {
           rows={previewRows}
           rejected={previewRejected}
           gradeBreakdown={previewBreakdown}
+          lookups={previewLookups}
           mergeExistingMembers={merge}
           onMergeChange={setMerge}
           page={previewPage}

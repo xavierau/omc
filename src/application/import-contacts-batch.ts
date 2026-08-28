@@ -22,6 +22,12 @@ import {
 } from './import-contacts-batch-validation'
 import { fanOutRows } from './import-contacts-batch-fanout'
 import {
+  assertBatchTagsBelongToTenant,
+  assertNewTagBudget,
+  runImportTagPhase,
+  type ImportTaggingResult,
+} from './import-contacts-batch-tags'
+import {
   buildPlaceholderBatchEntity,
   countByGrade,
 } from './import-contacts-batch-helpers'
@@ -34,8 +40,12 @@ export interface ImportContactsBatchInput {
     phoneE164: string
     name?: string | null
     preferredLanguage?: 'en' | 'zh_hk' | null
+    /** Per-row CSV tag NAMES (never ids). Re-normalised server-side. */
+    tags?: string[]
   }>
   mergeExistingMembers: boolean
+  // TAG-001: tags to apply to every member created OR merged in this batch.
+  tagIds: string[]
   now?: Date
 }
 
@@ -51,13 +61,21 @@ export interface ImportContactsBatchResult {
   membersCreated: number
   rejected: ImportRowReject[]
   gradeBreakdown: { strong: number; medium: number; weak: number; none: number }
+  tagging: ImportTaggingResult
 }
+
+export type { ImportTaggingResult }
 
 export async function importContactsBatch(
   input: ImportContactsBatchInput
 ): Promise<ImportContactsBatchResult> {
   const now = input.now ?? new Date()
   const preflight = preflightOrThrow(input, now)
+  // Both guards run BEFORE any write (AM-1): a foreign batch tag id or an
+  // over-budget file must leave zero import_batch rows and zero consent
+  // records behind, not a committed import with tagging.failed (review M-7).
+  await assertBatchTagsBelongToTenant(input.restaurantId, input.tagIds)
+  await assertNewTagBudget(input.restaurantId, preflight.acceptedRows)
   const batchId = randomUUID()
   const grade = gradeBatch(input, now)
   // B5: insert the batch row up-front with placeholder counts so per-row
@@ -72,6 +90,9 @@ export async function importContactsBatch(
     membersCreated: fanOut.membersCreated,
     rejected: [...preflight.rejected, ...fanOut.rejected],
     gradeBreakdown: breakdown,
+    // TAG-001 B2 / AM-1: batch-level ids + per-row CSV names, applied after
+    // the fan-out and best-effort — a tag failure never fails the import.
+    tagging: await runImportTagPhase({ input, fanOut }),
   }
 }
 
