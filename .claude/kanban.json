@@ -1511,76 +1511,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "WONB-018",
-          "title": "CSV import parser: RFC 4180 quoted fields + column-count rejection (no more silent column shift)",
-          "description": "GitHub #148. parse-csv.ts splits on a bare comma with no quoted-field handling and no column-count check, so \"Chan, Tai Man\" shifts every later column: name truncated, preferred_language dropped to null, and a junk tag named zh_hk minted in the tenant — all reported as a successful import. The client-side parser is the ONLY parser (the server receives parsed row objects, never the CSV text), so the header comment claiming a server-side source of truth is wrong and must be corrected. Fix: real CSV tokenisation (RFC 4180: quoted fields, \"\" escapes, commas/newlines inside quotes, CRLF, BOM), reject rows whose cell count differs from the header count and surface them through the wizard rejection UI with a line number and reason, fix the stale comment.",
-          "priority": "high",
-          "labels": [
-            "bug",
-            "import",
-            "members",
-            "frontend",
-            "P2"
-          ],
-          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
-          "github_issue": 148,
-          "branch": "feature/wonb-018-issues-147-148",
-          "related": [
-            "github:148",
-            "github:147",
-            "kanban:WONB-019",
-            "kanban:WONB-017",
-            "kanban:TAG-001"
-          ],
-          "acceptance_criteria": [
-            "A row whose name is \"Chan, Tai Man\" (quoted) imports with name=Chan, Tai Man, preferred_language intact and only the tags actually listed — no shifted columns, no junk tag.",
-            "Escaped quotes (\"\") inside a quoted field, commas inside quoted fields, quoted fields containing a newline, CRLF line endings and a leading UTF-8 BOM are all parsed per RFC 4180.",
-            "A data row whose cell count differs from the header count is rejected (never imported mangled) and shown to the operator in the wizard with its line number and a reason, before commit.",
-            "The parse-csv.ts header comment no longer claims a server-side parser is the source of truth; it states the client parser is the only parser.",
-            "Existing parse-csv behaviour (header aliases, trimming, language normalisation, tags split on ;) is unchanged for well-formed files."
-          ],
-          "workspace_artifacts": [
-            "plans/2026-08-28-wonb-018-019-csv-parser-and-template"
-          ],
-          "started": "2026-08-28"
-        },
-        {
-          "id": "WONB-019",
-          "title": "Contact import: downloadable CSV template + documented column contract on the upload step",
-          "description": "GitHub #147. The import wizard documents the CSV format as one line of prose; there is no template anywhere. Operators hand-build a file against undocumented rules and the likeliest failure — a wrong preferred_language value — is silently coerced to null. Add a \"Download template\" action on the upload step that yields a CSV with the header row and example rows (including a quoted \"Surname, Given name\" row once WONB-018 lands), plus help text stating the accepted header aliases, the two valid language values, the ; tag separator and the limits (50,000 rows/file, 10 tags/row, 40 chars/tag, 50 new tags/import). en + zh-HK.",
-          "priority": "medium",
-          "labels": [
-            "enhancement",
-            "import",
-            "members",
-            "frontend",
-            "i18n",
-            "P2"
-          ],
-          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
-          "github_issue": 147,
-          "branch": "feature/wonb-018-issues-147-148",
-          "depends_on": [
-            "WONB-018"
-          ],
-          "related": [
-            "github:147",
-            "github:148",
-            "kanban:WONB-018",
-            "kanban:WONB-004"
-          ],
-          "acceptance_criteria": [
-            "The upload step offers a \"Download template\" action that produces import-template.csv with header phone,name,preferred_language,tags and example rows, one of which has a quoted comma-containing name.",
-            "The template round-trips through parseCsv into exactly the example rows (quoted name intact, tags split, language normalised) with zero rejections.",
-            "Help text on the upload step states: required phone (E.164), accepted header aliases, preferred_language accepts en or zh_hk only, tags separated by ;, and the row/tag limits.",
-            "All new strings exist in both en.json and zh-HK.json."
-          ],
-          "workspace_artifacts": [
-            "plans/2026-08-28-wonb-018-019-csv-parser-and-template"
-          ],
-          "started": "2026-08-28"
         }
       ]
     },
@@ -3063,6 +2993,112 @@
           "pr": "142 (feature) + 143 (develop→main)",
           "completed": "2026-08-28",
           "released": "main@8b18af7 → release 1493ad7"
+        },
+        {
+          "id": "WONB-018",
+          "title": "CSV import parser: RFC 4180 quoted fields + column-count rejection (no more silent column shift)",
+          "description": "GitHub #148. parse-csv.ts splits on a bare comma with no quoted-field handling and no column-count check, so \"Chan, Tai Man\" shifts every later column: name truncated, preferred_language dropped to null, and a junk tag named zh_hk minted in the tenant — all reported as a successful import. The client-side parser is the ONLY parser (the server receives parsed row objects, never the CSV text), so the header comment claiming a server-side source of truth is wrong and must be corrected. Fix: real CSV tokenisation (RFC 4180: quoted fields, \"\" escapes, commas/newlines inside quotes, CRLF, BOM), reject rows whose cell count differs from the header count and surface them through the wizard rejection UI with a line number and reason, fix the stale comment.",
+          "priority": "high",
+          "labels": [
+            "bug",
+            "import",
+            "members",
+            "frontend",
+            "P2"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "github_issue": 148,
+          "branch": "feature/wonb-018-issues-147-148",
+          "related": [
+            "github:148",
+            "github:147",
+            "kanban:WONB-019",
+            "kanban:WONB-017",
+            "kanban:TAG-001",
+            "github:149",
+            "github:152",
+            "github:150",
+            "github:151"
+          ],
+          "acceptance_criteria": [
+            "A row whose name is \"Chan, Tai Man\" (quoted) imports with name=Chan, Tai Man, preferred_language intact and only the tags actually listed — no shifted columns, no junk tag.",
+            "Escaped quotes (\"\") inside a quoted field, commas inside quoted fields, quoted fields containing a newline, CRLF line endings and a leading UTF-8 BOM are all parsed per RFC 4180.",
+            "A data row whose cell count differs from the header count is rejected (never imported mangled) and shown to the operator in the wizard with its line number and a reason, before commit.",
+            "The parse-csv.ts header comment no longer claims a server-side parser is the source of truth; it states the client parser is the only parser.",
+            "Existing parse-csv behaviour (header aliases, trimming, language normalisation, tags split on ;) is unchanged for well-formed files."
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-28-wonb-018-019-csv-parser-and-template",
+            "artifacts/2026-08-28-wonb-018-tokenizer-backend",
+            "artifacts/2026-08-28-wonb-019-upload-step-frontend",
+            "reviews/2026-08-28-wonb-018-019-gemini",
+            "reviews/2026-08-28-wonb-018-019-grok",
+            "reviews/2026-08-28-wonb-018-019-code-review-finders",
+            "tests/2026-08-28-wonb-018-019-acceptance",
+            "tests/2026-08-28-wonb-018-019-ui-verification",
+            "deploys/2026-08-28-wonb-018-019-release-runbook"
+          ],
+          "started": "2026-08-28",
+          "pr": "149 (feature) + 152 (develop→main)",
+          "completed": "2026-08-28",
+          "completed_at": "2026-08-28",
+          "released": "main@5f2369a → release 3680ffe (BUILD_ID eg46F8RozAOtTEZ_2yaLt)",
+          "review": "gemini APPROVED · grok CONDITIONAL (1 Important: unterminated header quote → fixed; Minor: separator → fixed) · qa ACCEPTED-WITH-GAPS (G-5 → #150) · ui-test-runner PASS on dev · /code-review fork stalled, 4 finders harvested: 8 fixed, #151 deferred, short-row strictness kept",
+          "notes": "2026-08-28: RFC 4180 tokeniser (csv-tokenizer.ts) + parseCsv → { phoneHeaderFound, rows, rejected }; column_count_mismatch (fewer AND more) and unterminated_quote rejections shown on the upload step, never posted. Review round added: header-quote-first, rejectPhone guard, newline→space in names / newline→; in tags, NBSP/U+3000 before quotes, direction-aware hint, input reset, unreadable-file error. Released 2026-08-28 via PR #149 (squash → develop a220d37) + #152 (→ main 5f2369a); release.sh from release-wonb-018; no migrations. Follow-ups: #150 (invalid preferred_language → reject), #151 (Big5 decode)."
+        },
+        {
+          "id": "WONB-019",
+          "title": "Contact import: downloadable CSV template + documented column contract on the upload step",
+          "description": "GitHub #147. The import wizard documents the CSV format as one line of prose; there is no template anywhere. Operators hand-build a file against undocumented rules and the likeliest failure — a wrong preferred_language value — is silently coerced to null. Add a \"Download template\" action on the upload step that yields a CSV with the header row and example rows (including a quoted \"Surname, Given name\" row once WONB-018 lands), plus help text stating the accepted header aliases, the two valid language values, the ; tag separator and the limits (50,000 rows/file, 10 tags/row, 40 chars/tag, 50 new tags/import). en + zh-HK.",
+          "priority": "medium",
+          "labels": [
+            "enhancement",
+            "import",
+            "members",
+            "frontend",
+            "i18n",
+            "P2"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "github_issue": 147,
+          "branch": "feature/wonb-018-issues-147-148",
+          "depends_on": [
+            "WONB-018"
+          ],
+          "related": [
+            "github:147",
+            "github:148",
+            "kanban:WONB-018",
+            "kanban:WONB-004",
+            "github:149",
+            "github:152",
+            "github:150",
+            "github:151"
+          ],
+          "acceptance_criteria": [
+            "The upload step offers a \"Download template\" action that produces import-template.csv with header phone,name,preferred_language,tags and example rows, one of which has a quoted comma-containing name.",
+            "The template round-trips through parseCsv into exactly the example rows (quoted name intact, tags split, language normalised) with zero rejections.",
+            "Help text on the upload step states: required phone (E.164), accepted header aliases, preferred_language accepts en or zh_hk only, tags separated by ;, and the row/tag limits.",
+            "All new strings exist in both en.json and zh-HK.json."
+          ],
+          "workspace_artifacts": [
+            "plans/2026-08-28-wonb-018-019-csv-parser-and-template",
+            "artifacts/2026-08-28-wonb-018-tokenizer-backend",
+            "artifacts/2026-08-28-wonb-019-upload-step-frontend",
+            "reviews/2026-08-28-wonb-018-019-gemini",
+            "reviews/2026-08-28-wonb-018-019-grok",
+            "reviews/2026-08-28-wonb-018-019-code-review-finders",
+            "tests/2026-08-28-wonb-018-019-acceptance",
+            "tests/2026-08-28-wonb-018-019-ui-verification",
+            "deploys/2026-08-28-wonb-018-019-release-runbook"
+          ],
+          "started": "2026-08-28",
+          "pr": "149 (feature) + 152 (develop→main)",
+          "completed": "2026-08-28",
+          "completed_at": "2026-08-28",
+          "released": "main@5f2369a → release 3680ffe (BUILD_ID eg46F8RozAOtTEZ_2yaLt)",
+          "review": "gemini APPROVED · grok CONDITIONAL (fixed) · qa ACCEPTED-WITH-GAPS (AC-19.1–19.4 PASS) · ui-test-runner PASS on dev (template BOM/rows verified at byte level; 2 layout findings fixed: {maxRows, number}, 44px touch target)",
+          "notes": "2026-08-28: client-generated import-template.csv (BOM+CRLF, 4 rows incl. \"Chan, Tai Man\" and 陳大文) pinned to parseCsv by a round-trip test; always-visible CSV format help with aliases, en|zh_hk rule, ; tags and limits, en + zh-HK; key-list test guards both locales. Released with WONB-018 (PR #149 → #152 → main 5f2369a)."
         }
       ]
     },
