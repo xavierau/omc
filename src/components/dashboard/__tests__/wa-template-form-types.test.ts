@@ -143,6 +143,35 @@ describe('validateWaTemplateButtons', () => {
     expect(validateWaTemplateButtons([button({ type: 'QUICK_REPLY', text: 'Claim' })])).toBeNull()
   })
 
+  it('refuses a quick reply combined with a coupon link — claim mode has no code for {{1}} (#132)', () => {
+    const message = validateWaTemplateButtons([
+      button({ type: 'COUPON_URL', text: 'My coupon' }),
+      button({ type: 'QUICK_REPLY', text: 'Claim' }),
+    ])
+
+    expect(message).toContain('Coupon Link')
+  })
+
+  it('refuses quick replies interleaved with call-to-action buttons (#132)', () => {
+    const message = validateWaTemplateButtons([
+      button({ type: 'QUICK_REPLY', text: 'Claim' }),
+      button({ type: 'URL', text: 'Menu', url: 'https://a.test' }),
+      button({ type: 'QUICK_REPLY', text: 'Later' }),
+    ])
+
+    expect(message).toContain('together')
+  })
+
+  it('accepts grouped quick replies next to a call-to-action group (#132)', () => {
+    expect(
+      validateWaTemplateButtons([
+        button({ type: 'URL', text: 'Menu', url: 'https://a.test' }),
+        button({ type: 'QUICK_REPLY', text: 'Claim' }),
+        button({ type: 'QUICK_REPLY', text: 'Later' }),
+      ])
+    ).toBeNull()
+  })
+
   it('skips an UNSUPPORTED button entirely, since Meta already accepted it (#132)', () => {
     const message = validateWaTemplateButtons([
       { type: 'UNSUPPORTED', text: '', url: '', phoneNumber: '', raw: { type: 'COPY_CODE' } },
@@ -188,6 +217,14 @@ describe('buildWaTemplateRequestBody', () => {
     expect(buttons[0]).toEqual({ type: 'QUICK_REPLY', text: 'Claim' })
     expect(Object.keys(buttons[0])).not.toContain('url')
     expect(Object.keys(buttons[0])).not.toContain('phoneNumber')
+  })
+
+  it('never emits null for an UNSUPPORTED button that lost its raw object (#132)', () => {
+    const buttons = wireButtons(
+      formWith([{ type: 'UNSUPPORTED', text: 'Copy offer code', url: '', phoneNumber: '' }])
+    )
+
+    expect(buttons[0]).toEqual({ type: 'UNSUPPORTED', text: 'Copy offer code' })
   })
 
   it('re-emits an UNSUPPORTED button unchanged rather than rewriting it (#132)', () => {

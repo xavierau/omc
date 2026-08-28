@@ -39,8 +39,19 @@ function optionValues(select: ReactElement): string[] {
   return Children.toArray(children).map((o) => ((o as ReactElement).props as { value: string }).value)
 }
 
-function textOf(el: ReactElement): unknown {
-  return (el.props as { children?: unknown }).children
+function textOf(el: ReactElement): string | undefined {
+  const children = (el.props as { children?: unknown }).children
+  return typeof children === 'string' ? children : undefined
+}
+
+function byTestId(tree: ReactElement[], id: string): ReactElement | undefined {
+  return tree.find((el) => (el.props as { 'data-testid'?: string })['data-testid'] === id)
+}
+
+function inputPlaceholders(tree: ReactElement[]): string[] {
+  return tree
+    .filter((el) => el.type === 'input')
+    .map((el) => (el.props as { placeholder?: string }).placeholder ?? '')
 }
 
 describe('WaTemplateButtonsSection quick reply (#132)', () => {
@@ -55,19 +66,28 @@ describe('WaTemplateButtonsSection quick reply (#132)', () => {
     const tree = renderTree(
       <WaTemplateButtonsSection buttons={[button({ type: 'QUICK_REPLY', text: 'Claim' })]} onChange={vi.fn()} />
     )
-    const inputs = tree.filter((el) => el.type === 'input')
-
     // Only the label input remains — no url/phone field for a quick reply.
-    expect(inputs).toHaveLength(1)
+    expect(inputPlaceholders(tree)).toEqual(['Button label'])
   })
 
   it('shows the claim-mode hint for a quick reply button', () => {
     const tree = renderTree(
       <WaTemplateButtonsSection buttons={[button({ type: 'QUICK_REPLY', text: 'Claim' })]} onChange={vi.fn()} />
     )
-    const hint = tree.find((el) => typeof textOf(el) === 'string' && (textOf(el) as string).includes('claim-mode'))
 
-    expect(hint).toBeDefined()
+    expect(textOf(byTestId(tree, 'quick-reply-hint')!)).toContain('claim mode')
+  })
+
+  it('still renders the phone input for a phone button and the url input for a url button', () => {
+    const phoneTree = renderTree(
+      <WaTemplateButtonsSection buttons={[button({ type: 'PHONE_NUMBER', text: 'Call' })]} onChange={vi.fn()} />
+    )
+    const urlTree = renderTree(
+      <WaTemplateButtonsSection buttons={[button({ type: 'URL', text: 'Menu' })]} onChange={vi.fn()} />
+    )
+
+    expect(inputPlaceholders(phoneTree)).toEqual(['Button label', '+852 1234 5678'])
+    expect(inputPlaceholders(urlTree)).toEqual(['Button label', 'https://...'])
   })
 })
 
@@ -88,17 +108,16 @@ describe('WaTemplateButtonsSection UNSUPPORTED button (#132)', () => {
 
   it('shows a read-only notice explaining the button cannot be edited here', () => {
     const tree = renderTree(<WaTemplateButtonsSection buttons={[unsupported]} onChange={vi.fn()} />)
-    const notice = tree.find(
-      (el) => typeof textOf(el) === 'string' && (textOf(el) as string).includes("can't be edited here")
-    )
-
-    expect(notice).toBeDefined()
+    expect(textOf(byTestId(tree, 'unsupported-button-notice')!)).toContain("can't be edited here")
   })
 
-  it('still offers Remove for an UNSUPPORTED button', () => {
-    const tree = renderTree(<WaTemplateButtonsSection buttons={[unsupported]} onChange={vi.fn()} />)
-    const removeBtn = tree.find((el) => el.type === 'button' && textOf(el) === 'Remove')
+  it('Remove on an UNSUPPORTED row drops it from the form state', () => {
+    const onChange = vi.fn()
+    const tree = renderTree(<WaTemplateButtonsSection buttons={[unsupported]} onChange={onChange} />)
+    const removeBtn = tree.find((el) => el.type === 'button' && textOf(el) === 'Remove')!
 
-    expect(removeBtn).toBeDefined()
+    ;(removeBtn.props as { onClick: () => void }).onClick()
+
+    expect(onChange).toHaveBeenCalledWith('buttons', [])
   })
 })

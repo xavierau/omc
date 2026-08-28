@@ -58,7 +58,7 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
             Remove
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p data-testid="unsupported-button-notice" className="text-xs text-muted-foreground">
           This button type can&apos;t be edited here
         </p>
       </div>
@@ -117,8 +117,9 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
         </p>
       )}
       {btn.type === 'QUICK_REPLY' && (
-        <p className="text-xs text-muted-foreground">
-          Customers tap to reply — used by claim-mode campaigns
+        <p data-testid="quick-reply-hint" className="text-xs text-muted-foreground">
+          Customers tap to reply. Any campaign using this template switches to
+          claim mode: the coupon and QR are sent only after the tap
         </p>
       )}
     </div>

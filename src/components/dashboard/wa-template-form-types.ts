@@ -52,6 +52,28 @@ export function validateWaTemplateButtons(buttons: TemplateButton[]): string | n
       return `${name}: enter the phone number, including its country code`
     }
   }
+  return validateQuickReplyLayout(buttons)
+}
+
+// A QUICK_REPLY switches every campaign using the template into claim mode
+// (#132), which sends no coupon code — so a Coupon Link's {{1}} could never
+// be filled and Meta would reject every send. Meta also requires quick-reply
+// and call-to-action buttons to be grouped, not interleaved; on the edit path
+// the live template is deleted before Meta refuses the new one, so catch it
+// here.
+function validateQuickReplyLayout(buttons: TemplateButton[]): string | null {
+  const isQuick = (b: TemplateButton) => b.type === 'QUICK_REPLY'
+  if (!buttons.some(isQuick)) return null
+  if (buttons.some((b) => b.type === 'COUPON_URL')) {
+    return 'A Quick reply button cannot be combined with a Coupon Link: claim-mode campaigns issue the coupon when the customer taps'
+  }
+  const groups = buttons.reduce<boolean[]>((acc, b) => {
+    const q = isQuick(b)
+    return acc[acc.length - 1] === q ? acc : [...acc, q]
+  }, [])
+  if (groups.length > 2) {
+    return 'Keep Quick reply buttons together: WhatsApp does not allow them to be mixed in between link or phone buttons'
+  }
   return null
 }
 
@@ -147,7 +169,9 @@ export function buildWaTemplateRequestBody(form: WaTemplateFormState) {
             example: [`${baseUrl}/coupon/SAMPLE123`],
           }
         }
-        if (b.type === 'UNSUPPORTED') return b.raw
+        // `raw` is always set by parseButtons; the fallback keeps a malformed
+        // row a readable validator message rather than a null on the wire.
+        if (b.type === 'UNSUPPORTED') return b.raw ?? { type: 'UNSUPPORTED', text: b.text }
         // `?? ''` keeps the key on the wire when the value is missing: an
         // undefined drops it entirely, and the server backstop then sees a
         // phone button that merely looks number-less by design (#97).
