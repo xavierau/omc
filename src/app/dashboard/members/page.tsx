@@ -103,7 +103,11 @@ export default function MembersPage() {
         </Link>
       </div>
       <MemberTagFilter tagId={tagId} onChange={handleTagFilter} />
+      {/* Remounts (dropping any stale status line) whenever page, search or
+          tag filter changes the selection out from under it — the bulk-tag
+          success/error flow itself does not touch these, so it survives. */}
       <MemberBulkTagBar
+        key={`${page}-${debouncedSearch}-${tagId ?? ''}`}
         selectedIds={selectedIds}
         onClear={() => setSelectedIds([])}
         onSuccess={handleBulkTagSuccess}

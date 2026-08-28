@@ -960,7 +960,8 @@
       "warnAlreadyMemberMerge": "{count} 列將合併至現有會員。",
       "warnActiveConsent": "{count} 列已持有有效的行銷同意，無論如何都會被略過。",
       "lookupSkipped": "資料列過多（{count}），無法預先檢查重複。重複項目將於提交後回報。",
-      "lookupFailed": "無法預先檢查重複。你仍可繼續——重複項目將於提交後回報。"
+      "lookupFailed": "無法預先檢查重複。你仍可繼續——重複項目將於提交後回報。",
+      "showingFirst": "僅顯示首 {shown} 筆，共 {count} 筆"
     },
     "tagSummary": {
       "title": "此檔案中的標籤",
@@ -988,7 +989,11 @@
       "copied": "已複製",
       "downloadCsv": "下載 CSV",
       "taggedMembers": "已為 {count} 位會員加上標籤",
-      "tagsFailed": "聯絡人已匯入，但無法套用標籤。你可以在會員列表中為他們加上標籤。"
+      "tagsFailed": "聯絡人已匯入，但無法套用標籤。你可以在會員列表中為他們加上標籤。",
+      "showingFirst": "僅顯示首 {shown} 筆，共 {count} 筆",
+      "errors": {
+        "too_many_new_tags": "此檔案會建立過多新標籤（上限 50 個）。未匯入任何資料。請確認 tags 欄不是自由文字，然後再試一次。"
+      }
     },
     "actions": {
       "next": "下一步",

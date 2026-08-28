@@ -14,7 +14,18 @@ const h = vi.hoisted(() => {
     state.idx++
     return [value, setState]
   }
-  return { state, useState, setState }
+  return {
+    state,
+    useState,
+    setState,
+    // Same direct-call harness as member-bulk-tag-bar.test.tsx: no active
+    // fiber, so the real useEffect/useRef would throw (no dispatcher).
+    // useEffect is a no-op; useRef returns a fresh { current } object, which
+    // is fine here since it's only read/written within the single
+    // synchronous (or awaited) call that created it.
+    useEffect: () => {},
+    useRef: (initial: unknown) => ({ current: initial }),
+  }
 })
 
 vi.mock('react', async (importOriginal) => {
@@ -22,6 +33,8 @@ vi.mock('react', async (importOriginal) => {
   return {
     ...actual,
     useState: h.useState as unknown as typeof actual.useState,
+    useEffect: h.useEffect as unknown as typeof actual.useEffect,
+    useRef: h.useRef as unknown as typeof actual.useRef,
   }
 })
 
@@ -195,5 +208,50 @@ describe('CommitRejectionsList — download CSV', () => {
     expect(clickSpy).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
     expect(anchor.href).toBe('blob:mock-url')
+  })
+})
+
+describe('CommitRejectionsList — clipboard rejection is caught (M-5)', () => {
+  beforeEach(() => {
+    seed(false)
+    h.setState.mockClear()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('does not throw and does not flip copied to true when writeText rejects', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('permission denied')) },
+    })
+    const tree = renderTree(<CommitRejectionsList rejected={rejected} total={12} />)
+    const button = tree.find((el) => attr(el, 'data-action') === 'copy-rejections') as ReactElement
+    const onClick = attr(button, 'onClick') as () => Promise<void>
+
+    await expect(onClick()).resolves.not.toThrow()
+    expect(h.setState).not.toHaveBeenCalledWith(true)
+  })
+})
+
+describe('CommitRejectionsList — render cap per group (M-11)', () => {
+  beforeEach(() => seed(false))
+
+  it('renders at most 500 rows per reason group and shows the "showing first" note above the cap', () => {
+    const manyRejected = Array.from({ length: 600 }, (_, i) => ({
+      phoneE164: `+8529${String(i).padStart(7, '0')}`,
+      reason: 'duplicate_active' as const,
+    }))
+    const tree = renderTree(<CommitRejectionsList rejected={manyRejected} total={1000} />)
+    const items = tree.filter((el) => el.type === 'li')
+    expect(items.length).toBe(500)
+
+    const note = tree.find(
+      (el) => attr(el, 'children') === `t:confirm.showingFirst:{"shown":500,"count":600}`
+    )
+    expect(note).toBeDefined()
+  })
+
+  it('does not show the "showing first" note for a group at or under the cap', () => {
+    const tree = renderTree(<CommitRejectionsList rejected={rejected} total={12} />)
+    const note = tree.find((el) => attr(el, 'data-info') === 'rows-capped')
+    expect(note).toBeUndefined()
   })
 })

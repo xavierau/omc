@@ -20,10 +20,12 @@ interface Props {
 export function CsvTagSummary({ rows }: Props) {
   const t = useTranslations('importWizard')
   const [existingTags, setExistingTags] = useState<Tag[]>([])
+  const hasAnyTaggedRow = rows.some((row) => row.tags.length > 0)
 
   useEffect(() => {
+    if (!hasAnyTaggedRow) return
     fetchTags().then(setExistingTags).catch(() => setExistingTags([]))
-  }, [])
+  }, [hasAnyTaggedRow])
 
   const summary = summariseRowTags(rows, existingTags)
   if (summary.length === 0) return null

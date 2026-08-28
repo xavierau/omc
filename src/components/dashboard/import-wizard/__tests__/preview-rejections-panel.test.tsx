@@ -101,3 +101,30 @@ describe('PreviewRejectionsPanel — DOM hook', () => {
     expect(String(attr(list as ReactElement, 'className'))).toContain('overflow-y-auto')
   })
 })
+
+describe('PreviewRejectionsPanel — render cap (M-11)', () => {
+  it('renders at most 500 rows and shows the "showing first" note above the cap', () => {
+    const rejected = Array.from({ length: 700 }, (_, i) => ({
+      phoneE164: `+8529${String(i).padStart(7, '0')}`,
+      reason: 'invalid_phone' as const,
+    }))
+    const tree = renderTree(<PreviewRejectionsPanel rejected={rejected} acceptedCount={0} />)
+    const entries = tree.filter((el) => attr(el, 'data-reject-reason') !== undefined)
+    expect(entries.length).toBe(500)
+
+    const note = tree.find(
+      (el) => attr(el, 'children') === `t:preview.showingFirst:{"shown":500,"count":700}`
+    )
+    expect(note).toBeDefined()
+  })
+
+  it('does not show the "showing first" note at or under the cap', () => {
+    const rejected = Array.from({ length: 500 }, (_, i) => ({
+      phoneE164: `+8529${String(i).padStart(7, '0')}`,
+      reason: 'invalid_phone' as const,
+    }))
+    const tree = renderTree(<PreviewRejectionsPanel rejected={rejected} acceptedCount={0} />)
+    const note = tree.find((el) => attr(el, 'data-info') === 'rows-capped')
+    expect(note).toBeUndefined()
+  })
+})

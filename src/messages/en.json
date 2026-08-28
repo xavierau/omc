@@ -960,7 +960,8 @@
       "warnAlreadyMemberMerge": "{count} rows will be merged into existing members.",
       "warnActiveConsent": "{count} rows already hold active marketing consent and will be skipped either way.",
       "lookupSkipped": "Too many rows ({count}) to pre-check for duplicates. Duplicates will be reported after commit.",
-      "lookupFailed": "Couldn't pre-check for duplicates. You can still continue — duplicates will be reported after commit."
+      "lookupFailed": "Couldn't pre-check for duplicates. You can still continue — duplicates will be reported after commit.",
+      "showingFirst": "Showing the first {shown} of {count}"
     },
     "tagSummary": {
       "title": "Tags in this file",
@@ -988,7 +989,11 @@
       "copied": "Copied",
       "downloadCsv": "Download CSV",
       "taggedMembers": "{count} members tagged",
-      "tagsFailed": "Contacts were imported, but their tags could not be applied. You can tag them from the members list."
+      "tagsFailed": "Contacts were imported, but their tags could not be applied. You can tag them from the members list.",
+      "showingFirst": "Showing the first {shown} of {count}",
+      "errors": {
+        "too_many_new_tags": "This file would create too many new tags (limit 50). Nothing was imported. Check that the tags column is not free text, then try again."
+      }
     },
     "actions": {
       "next": "Next",

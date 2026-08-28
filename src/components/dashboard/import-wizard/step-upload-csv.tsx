@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { parseCsv, type ParsedRow } from './parse-csv'
+import { computeCsvTagStats } from './parse-csv-tag-stats'
 
 interface Props {
   rows: ParsedRow[]
@@ -18,6 +19,7 @@ export function StepUploadCsv({ rows, onParsed, onBack, onNext }: Props) {
   const t = useTranslations('importWizard')
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const tagStats = computeCsvTagStats(rows)
 
   async function handleFile(file: File) {
     const text = await file.text()
@@ -63,6 +65,16 @@ export function StepUploadCsv({ rows, onParsed, onBack, onNext }: Props) {
       {rows.length > 0 && (
         <p data-info="row-count" className="text-sm text-foreground">
           {t('csv.rowCount', { count: rows.length })}
+        </p>
+      )}
+      {tagStats.distinctTags > 0 && (
+        <p data-info="tags-found" className="text-sm text-muted-foreground">
+          {t('csv.tagsFound', { count: tagStats.distinctTags })}
+        </p>
+      )}
+      {tagStats.ignoredTagValues > 0 && (
+        <p data-info="tags-ignored" className="text-xs text-amber-600">
+          {t('csv.tagsIgnored', { count: tagStats.ignoredTagValues })}
         </p>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}

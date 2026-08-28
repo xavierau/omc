@@ -5,15 +5,15 @@ describe('parseCsv', () => {
   it('parses minimal phone-only header', () => {
     const text = 'phone\n+85291234567\n+85299999999'
     expect(parseCsv(text)).toEqual([
-      { phoneE164: '+85291234567', name: null, preferredLanguage: null, tags: [] },
-      { phoneE164: '+85299999999', name: null, preferredLanguage: null, tags: [] },
+      { phoneE164: '+85291234567', name: null, preferredLanguage: null, tags: [], ignoredTagCount: 0 },
+      { phoneE164: '+85299999999', name: null, preferredLanguage: null, tags: [], ignoredTagCount: 0 },
     ])
   })
 
   it('parses phone, name, preferred_language headers in any order', () => {
     const text = 'name,phone,preferred_language\nWong,+85291234567,zh_hk'
     expect(parseCsv(text)).toEqual([
-      { phoneE164: '+85291234567', name: 'Wong', preferredLanguage: 'zh_hk', tags: [] },
+      { phoneE164: '+85291234567', name: 'Wong', preferredLanguage: 'zh_hk', tags: [], ignoredTagCount: 0 },
     ])
   })
 
@@ -29,7 +29,7 @@ describe('parseCsv', () => {
   it('trims whitespace from cells', () => {
     const text = 'phone, name\n  +85291234567 ,  Wong  '
     expect(parseCsv(text)).toEqual([
-      { phoneE164: '+85291234567', name: 'Wong', preferredLanguage: null, tags: [] },
+      { phoneE164: '+85291234567', name: 'Wong', preferredLanguage: null, tags: [], ignoredTagCount: 0 },
     ])
   })
 
@@ -41,7 +41,7 @@ describe('parseCsv', () => {
   it('drops rows missing phone column', () => {
     const text = 'phone,name\n,Wong\n+85291234567,Tam'
     expect(parseCsv(text)).toEqual([
-      { phoneE164: '+85291234567', name: 'Tam', preferredLanguage: null, tags: [] },
+      { phoneE164: '+85291234567', name: 'Tam', preferredLanguage: null, tags: [], ignoredTagCount: 0 },
     ])
   })
 
@@ -58,5 +58,17 @@ describe('parseCsv', () => {
   it('defaults tags to [] when no tags header is present (T-B1.9)', () => {
     const text = 'phone,name\n+85291234567,Tam'
     expect(parseCsv(text)[0].tags).toEqual([])
+  })
+
+  it('carries the per-row ignored tag-value count (I-2)', () => {
+    const overLong = 'x'.repeat(41)
+    const rows = parseCsv(`phone,tags\n+85291234567,${overLong};vip\n`)
+    expect(rows[0].tags).toEqual(['vip'])
+    expect(rows[0].ignoredTagCount).toBe(1)
+  })
+
+  it('defaults ignoredTagCount to 0 when no tags header is present', () => {
+    const text = 'phone,name\n+85291234567,Tam'
+    expect(parseCsv(text)[0].ignoredTagCount).toBe(0)
   })
 })

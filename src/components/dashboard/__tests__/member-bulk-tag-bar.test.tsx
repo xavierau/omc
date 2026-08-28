@@ -268,3 +268,59 @@ describe('MemberBulkTagBar working state', () => {
     expect(hasText(tree, 'stale')).toBe(false)
   })
 })
+
+// I-3 (2026-08-28 review): onSuccess clears selectedIds in the same batch as
+// setStatus, so the bar must not unmount before the success line paints.
+describe('MemberBulkTagBar success line survives selection clearing (I-3)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('keeps rendering the success line once onSuccess has cleared the selection', async () => {
+    h.bulkUpdateMemberTags.mockResolvedValue({ ok: true, affected: 2 })
+    seed(TAGS, ['t1', 't2'], false, null)
+    let selectedIds = ['m1', 'm2']
+    const onSuccess = vi.fn(() => {
+      selectedIds = []
+    })
+    const tree = renderTree(
+      <MemberBulkTagBar selectedIds={selectedIds} onClear={vi.fn()} onSuccess={onSuccess} />
+    )
+    const buttons = byType(tree, 'Button')
+    const add = buttons.find((b) => (b.props as ButtonProps).children === 't:bulkAddTags')
+    await (add?.props as ButtonProps).onClick?.()
+
+    // run() really drove onSuccess, which really cleared the selection.
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(selectedIds).toEqual([])
+
+    // The mocked useState setter is a no-op (see the harness note above), so
+    // re-seed the queue with what the real setStatus(...) call inside run()
+    // computed, and re-render with the now-cleared selection — this is the
+    // exact next-render state the guard fix (`selectedIds.length === 0 &&
+    // !status`) must keep visible instead of unmounting.
+    seed(TAGS, [], false, {
+      variant: 'success',
+      text: 't:bulkTagSuccess:{"tags":"VIP, Lunch","count":2}',
+    })
+    const nextTree = renderTree(
+      <MemberBulkTagBar selectedIds={selectedIds} onClear={vi.fn()} onSuccess={vi.fn()} />
+    )
+    const line = nextTree.find(
+      (el) => (el.props as { 'data-status'?: string })['data-status'] === 'success'
+    )
+    expect(line).toBeDefined()
+    expect(textOf(line as ReactElement)).toBe('t:bulkTagSuccess:{"tags":"VIP, Lunch","count":2}')
+  })
+
+  it('unmounts once the selection is empty and no status is pending', () => {
+    seed(TAGS, [], false, null)
+    const result = MemberBulkTagBar({ selectedIds: [], onClear: vi.fn(), onSuccess: vi.fn() })
+    expect(result).toBeNull()
+  })
+})
+
+// M-4: the tenant tag list must not be fetched on every members-page load —
+// only once the bar actually has a selection to act on. Not exercised here:
+// this harness stubs `useEffect` to a no-op (see the note above), so the
+// fetch-gating `if (!hasSelection) return` inside the effect body never runs
+// under either the old or new code — `h.fetchTags` is uncalled in every test
+// in this file regardless. Verified by inspection instead.

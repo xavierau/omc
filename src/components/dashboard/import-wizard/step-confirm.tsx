@@ -64,7 +64,11 @@ export function StepConfirm({ isCommitting, result, error, onCommit, onBack, onD
   return (
     <div className="space-y-4" data-step="confirm-pending">
       <p className="text-sm text-muted-foreground">{t('confirm.aboutToCommit')}</p>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <p className="text-xs text-destructive">
+          {error === 'too_many_new_tags' ? t('confirm.errors.too_many_new_tags') : error}
+        </p>
+      )}
       <div className="flex justify-between">
         <button type="button" onClick={onBack} className="text-sm text-muted-foreground">
           {t('actions.back')}

@@ -156,3 +156,25 @@ describe('StepGradePreview — row highlighting (AD-8 replacement)', () => {
     expect(attr(row as ReactElement, 'data-warned')).toBeUndefined()
   })
 })
+
+describe('StepGradePreview — merge toggle fires no fetch (M-9 / T-F1.5 / A17)', () => {
+  it('calls global.fetch zero times when the merge checkbox handler fires', () => {
+    const fetchSpy = vi.fn()
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+    try {
+      const onMergeChange = vi.fn()
+      const tree = renderTree(
+        <StepGradePreview {...baseProps} onMergeChange={onMergeChange} />
+      )
+      const checkbox = tree.find((el) => attr(el, 'data-field') === 'merge')
+      const onChange = attr(checkbox as ReactElement, 'onChange') as (e: unknown) => void
+      onChange({ target: { checked: true } })
+
+      expect(onMergeChange).toHaveBeenCalledWith(true)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})

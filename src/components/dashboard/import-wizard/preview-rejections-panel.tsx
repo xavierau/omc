@@ -14,9 +14,11 @@ interface Props {
 }
 
 const SCROLL_THRESHOLD = 50
+const MAX_RENDERED_ROWS = 500
 
 export function PreviewRejectionsPanel({ rejected, acceptedCount }: Props) {
   const t = useTranslations('importWizard')
+  const shown = rejected.slice(0, MAX_RENDERED_ROWS)
 
   return (
     <div data-section="preview-rejections">
@@ -36,7 +38,7 @@ export function PreviewRejectionsPanel({ rejected, acceptedCount }: Props) {
                 : 'space-y-1'
             }
           >
-            {rejected.map((row, index) => (
+            {shown.map((row, index) => (
               <li
                 key={`${row.phoneE164}-${index}`}
                 data-reject-reason={row.reason}
@@ -46,6 +48,11 @@ export function PreviewRejectionsPanel({ rejected, acceptedCount }: Props) {
               </li>
             ))}
           </ul>
+          {rejected.length > MAX_RENDERED_ROWS && (
+            <p className="text-xs text-muted-foreground" data-info="rows-capped">
+              {t('preview.showingFirst', { shown: shown.length, count: rejected.length })}
+            </p>
+          )}
         </div>
       )}
     </div>

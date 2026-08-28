@@ -14,6 +14,10 @@ export interface ParsedRow {
   name: string | null
   preferredLanguage: 'en' | 'zh_hk' | null
   tags: string[]
+  /** Tag values `normalizeImportTags` dropped for this row (blank, >40 chars,
+   * or over the per-row cap). Feeds the batch-level tagsIgnored stat in
+   * parse-csv-tag-stats.ts (I-2). */
+  ignoredTagCount: number
 }
 
 const PHONE_HEADERS = ['phone', 'phonee164', 'phone_e164']
@@ -35,11 +39,13 @@ export function parseCsv(text: string): ParsedRow[] {
     const cells = lines[i].split(',').map((c) => c.trim())
     const phone = cells[idxPhone] ?? ''
     if (phone.length === 0) continue
+    const tagResult = idxTags >= 0 ? normalizeImportTags(cells[idxTags]) : { names: [], ignored: 0 }
     rows.push({
       phoneE164: phone,
       name: idxName >= 0 ? cellOrNull(cells[idxName]) : null,
       preferredLanguage: idxLang >= 0 ? normaliseLang(cells[idxLang]) : null,
-      tags: idxTags >= 0 ? normalizeImportTags(cells[idxTags]).names : [],
+      tags: tagResult.names,
+      ignoredTagCount: tagResult.ignored,
     })
   }
   return rows

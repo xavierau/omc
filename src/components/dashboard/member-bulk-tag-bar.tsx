@@ -31,11 +31,17 @@ export function MemberBulkTagBar({ selectedIds, onClear, onSuccess }: MemberBulk
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<StatusLine | null>(null)
 
-  useEffect(() => {
-    fetchTags().then(setTags).catch(() => setTags([]))
-  }, [])
+  const hasSelection = selectedIds.length > 0
 
-  if (selectedIds.length === 0) return null
+  useEffect(() => {
+    if (!hasSelection) return
+    fetchTags().then(setTags).catch(() => setTags([]))
+  }, [hasSelection])
+
+  // Stay mounted while a status line is pending even after the selection
+  // clears (onSuccess clears it in the same batch as setStatus below) so
+  // the success/error line has a chance to paint. Feedback State 7.
+  if (selectedIds.length === 0 && !status) return null
 
   const disabled = tagIds.length === 0 || busy
 
@@ -61,7 +67,16 @@ export function MemberBulkTagBar({ selectedIds, onClear, onSuccess }: MemberBulk
     <div className="flex flex-col gap-3 rounded-md border p-3" data-section="bulk-tag-bar">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{t('selectedCount', { count: selectedIds.length })}</span>
-        <Button type="button" variant="ghost" size="sm" onClick={onClear} data-action="bulk-clear">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setStatus(null)
+            onClear()
+          }}
+          data-action="bulk-clear"
+        >
           {t('clearSelection')}
         </Button>
       </div>

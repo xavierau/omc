@@ -196,3 +196,38 @@ describe('StepConfirm — tags-failed warning', () => {
     expect(warning).toBeUndefined()
   })
 })
+
+describe('StepConfirm — too_many_new_tags error copy (I-4)', () => {
+  it('maps the raw "too_many_new_tags" reason to its translated copy', () => {
+    const tree = renderTree(
+      <StepConfirm
+        isCommitting={false}
+        result={null}
+        error="too_many_new_tags"
+        onCommit={noop}
+        onBack={noop}
+        onDone={noop}
+      />
+    )
+    const line = tree.find((el) => attr(el, 'children') === 't:confirm.errors.too_many_new_tags')
+    expect(line).toBeDefined()
+    // The raw enum must never reach the user.
+    const raw = tree.find((el) => attr(el, 'children') === 'too_many_new_tags')
+    expect(raw).toBeUndefined()
+  })
+
+  it('falls back to the raw string for an unrecognised error reason', () => {
+    const tree = renderTree(
+      <StepConfirm
+        isCommitting={false}
+        result={null}
+        error="Request failed (500)"
+        onCommit={noop}
+        onBack={noop}
+        onDone={noop}
+      />
+    )
+    const line = tree.find((el) => attr(el, 'children') === 'Request failed (500)')
+    expect(line).toBeDefined()
+  })
+})
