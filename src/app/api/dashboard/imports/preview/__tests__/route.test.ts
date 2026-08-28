@@ -53,9 +53,10 @@ describe('POST /api/dashboard/imports/preview', () => {
     })
     vi.mocked(previewContactsBatch).mockResolvedValue({
       batchGrade: 'strong',
-      rows: [{ phoneE164: '+85291234567', name: 'A', grade: 'strong' }],
+      rows: [{ phoneE164: '+85291234567', name: 'A', grade: 'strong', tags: [] }],
       gradeBreakdown: { strong: 1, medium: 0, weak: 0, none: 0 },
       rejected: [],
+      lookups: { alreadyMemberPhones: [], activeConsentPhones: [], status: 'ok' },
     })
   })
 
