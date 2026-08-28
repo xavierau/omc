@@ -17,6 +17,14 @@
 -- caller-supplied (src/domain/services/campaign-delivery-failure-reason.ts)
 -- so the tenant sees why, naming Meta as the deciding system (WAQ-014).
 --
+-- Every expression reads the row's CURRENT column values inside the UPDATE
+-- itself — deliberately NOT via a CTE that pre-computes the new counts. A
+-- CTE evaluates under the statement's snapshot, so two `failed` webhooks
+-- for the same campaign arriving together would both compute n-1 from the
+-- same n and the second write would be lost (over-billing, the exact #131
+-- direction). Inline expressions are re-evaluated against the row version
+-- the UPDATE actually locks, so concurrent retractions serialise correctly.
+--
 -- Scoped by (id, restaurant_id) — authorize by scoped query (SEC-001
 -- precedent), not fetch-then-compare. Returns zero rows when nothing
 -- matched; the repository wrapper treats that as "no-op" rather than
@@ -32,29 +40,26 @@ RETURNS TABLE (
   chargeable_sent_count int,
   non_chargeable_sent_count int
 ) AS $$
-  WITH decremented AS (
-    SELECT
-      id,
-      GREATEST(0, chargeable_sent_count - (CASE WHEN is_chargeable THEN 1 ELSE 0 END)) AS new_chargeable,
-      GREATEST(0, non_chargeable_sent_count - (CASE WHEN is_chargeable THEN 0 ELSE 1 END)) AS new_non_chargeable
-    FROM campaigns
-    WHERE id = p_campaign_id AND restaurant_id = p_restaurant_id
-  )
   UPDATE campaigns c
   SET
-    chargeable_sent_count = d.new_chargeable,
-    non_chargeable_sent_count = d.new_non_chargeable,
+    chargeable_sent_count =
+      GREATEST(0, c.chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 1 ELSE 0 END)),
+    non_chargeable_sent_count =
+      GREATEST(0, c.non_chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 0 ELSE 1 END)),
     status = CASE
-      WHEN c.status = 'completed' AND d.new_chargeable = 0 AND d.new_non_chargeable = 0
+      WHEN c.status = 'completed'
+        AND GREATEST(0, c.chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 1 ELSE 0 END)) = 0
+        AND GREATEST(0, c.non_chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 0 ELSE 1 END)) = 0
         THEN 'failed'
       ELSE c.status
     END,
     failure_reason = CASE
-      WHEN c.status = 'completed' AND d.new_chargeable = 0 AND d.new_non_chargeable = 0
+      WHEN c.status = 'completed'
+        AND GREATEST(0, c.chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 1 ELSE 0 END)) = 0
+        AND GREATEST(0, c.non_chargeable_sent_count - (CASE WHEN c.is_chargeable THEN 0 ELSE 1 END)) = 0
         THEN p_failure_reason
       ELSE c.failure_reason
     END
-  FROM decremented d
-  WHERE c.id = d.id
+  WHERE c.id = p_campaign_id AND c.restaurant_id = p_restaurant_id
   RETURNING c.status, c.chargeable_sent_count, c.non_chargeable_sent_count;
 $$ LANGUAGE sql;

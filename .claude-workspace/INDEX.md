@@ -26,6 +26,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Reviews
+- [2026-08-27-camp-008-issue-131-gemini](reviews/2026-08-27-camp-008-issue-131-gemini.md) — #131 4831b5e: CONDITIONAL, 1 Critical (retract RPC lost-update) (gemini-cli-reviewer)
 - [2026-08-24-waq-014-analyzer](reviews/2026-08-24-waq-014-analyzer.md) — WAQ-014 4552918 second lane: CONDITIONAL — 1 Important, length-guard swallow (code-review-analyzer)
 - [2026-08-24-waq-014-gemini](reviews/2026-08-24-waq-014-gemini.md) — WAQ-014 gate error diagnosability (#117), 4552918: CONDITIONAL — 1 Critical (test swallows throw) (gemini-cli-reviewer)
 - [2026-08-23-release-pipeline-critical-fixes-analyzer](reviews/2026-08-23-release-pipeline-critical-fixes-analyzer.md) — 36dae48 second lane: BLOCKED — 2 Critical (tar excludes strip Next trace runtime; PII already public) (code-review-analyzer)
