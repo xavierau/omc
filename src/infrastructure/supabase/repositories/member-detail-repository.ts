@@ -70,6 +70,12 @@ export async function getMemberDetailForRestaurant(
   if (couponsRes.error) {
     throw new Error(`getMemberDetailForRestaurant(coupons): ${couponsRes.error.message}`)
   }
+  // Same contract as the receipts/coupons branches: a failed read must surface
+  // as a 500, not as a member who convincingly appears to carry no tags
+  // (review round 2, finding 9).
+  if (tagsRes.error) {
+    throw new Error(`getMemberDetailForRestaurant(tags): ${tagsRes.error.message}`)
+  }
 
   return {
     ...(memberRes.data as MemberRow & { restaurant_id: string }),

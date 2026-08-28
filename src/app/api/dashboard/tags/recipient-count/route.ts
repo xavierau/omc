@@ -7,8 +7,9 @@ import {
 } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { countActiveMembersByTags } from '@/infrastructure/supabase/repositories/tag-audience-repository'
 import { isValidUUID } from '@/infrastructure/validation/validators'
-
-const MAX_TAG_IDS = 20
+// Same ceiling the campaign create/update body enforces: a lower cap here made
+// the live count 400 for a tag selection the form happily accepts (round 2, #4).
+import { MAX_TAG_IDS } from '../../campaigns/parse-create-body-audience'
 
 /**
  * Live recipient count for campaign tag-targeting (#138b, migration 067).

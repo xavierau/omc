@@ -4,6 +4,7 @@ import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/reposito
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
+import { isValidUUID } from '@/infrastructure/validation/validators'
 
 // Upper bound for a caller-supplied ?pageSize=. Lets high-volume consumers
 // (e.g. the campaign member picker, GH #103) request a larger single page
@@ -53,6 +54,11 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
   const sortBy = (searchParams.get('sortBy') ?? 'last_visit_at') as 'name' | 'points_balance' | 'last_visit_at' | 'joined_at'
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
   const tagId = searchParams.get('tagId') ?? undefined
+  // A non-UUID tagId reaches PostgREST as `invalid input syntax for type uuid`,
+  // which the catch-all reports as a 500 for bad client input (round 2, #8).
+  if (tagId !== undefined && !isValidUUID(tagId)) {
+    return NextResponse.json({ error: 'tagId must be a UUID' }, { status: 400 })
+  }
   const pageSize = resolvePageSize(searchParams.get('pageSize'))
 
   const result = await getMembers({

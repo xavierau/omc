@@ -11,7 +11,7 @@ import {
   upsertMemberTags,
   deleteMemberTag,
   listTagsForMember,
-  listMemberIdsByTag,
+  memberCarriesAnyTag,
   CrossTenantTagError,
 } from '../member-tag-repository'
 import { CrossTenantMemberError } from '../campaign-members-repository'
@@ -26,6 +26,7 @@ function makeChain(resolved: unknown) {
   const obj: Record<string, unknown> = {}
   obj.eq = vi.fn(() => obj)
   obj.in = vi.fn(() => obj)
+  obj.limit = vi.fn(() => obj)
   obj.maybeSingle = vi.fn(() => Promise.resolve(resolved))
   obj.single = vi.fn(() => Promise.resolve(resolved))
   obj.then = (onFulfilled: (v: unknown) => unknown) =>
@@ -59,7 +60,10 @@ function buildClient(config: ClientConfig = {}) {
   const tagsSelect = vi.fn(() => tagsChain)
   const memberSelect = vi.fn(() => memberChain)
   const mtSelect = vi.fn(() => mtSelectChain)
-  const upsertFn = vi.fn(() => Promise.resolve({ error: config.upsertError ?? null }))
+  // Typed so the chunking test can read `mock.calls[n][0].length`.
+  const upsertFn = vi.fn<
+    (rows: unknown[], options?: unknown) => Promise<{ error: { message: string } | null }>
+  >(() => Promise.resolve({ error: config.upsertError ?? null }))
   const deleteFn = vi.fn(() => deleteChain)
 
   const from = vi.fn((table: string) => {
@@ -169,6 +173,19 @@ describe('upsertMemberTags', () => {
     expect(c.upsertFn).not.toHaveBeenCalled()
   })
 
+  // Review round 2, finding 7: the cross-product is memberIds × tagIds, so a
+  // 600-member × 2-tag selection is 1,200 rows — one unchunked request would
+  // blow PostgREST's payload limit. Delegating to upsertMemberTagPairs chunks it.
+  it('chunks the cross-product at 1000 rows per request', async () => {
+    const c = buildClient()
+    useClient(c)
+    const memberIds = Array.from({ length: 600 }, (_, i) => `m-${i}`)
+    await upsertMemberTags(RESTAURANT_ID, memberIds, ['t-1', 't-2'])
+    expect(c.upsertFn).toHaveBeenCalledTimes(2)
+    expect(c.upsertFn.mock.calls[0][0]).toHaveLength(1000)
+    expect(c.upsertFn.mock.calls[1][0]).toHaveLength(200)
+  })
+
   it('throws when supabase reports an error', async () => {
     const c = buildClient({ upsertError: { message: 'db down' } })
     useClient(c)
@@ -222,26 +239,41 @@ describe('listTagsForMember', () => {
   })
 })
 
-describe('listMemberIdsByTag', () => {
-  it('returns deduped member ids for the given tags, tenant-scoped', async () => {
-    const c = buildClient({
-      memberTagsSelect: {
-        data: [{ member_id: 'm-1' }, { member_id: 'm-2' }, { member_id: 'm-1' }],
-      },
-    })
+describe('memberCarriesAnyTag', () => {
+  it('is a point query: scoped by member + restaurant, tag_id IN, limit 1', async () => {
+    const c = buildClient({ memberTagsSelect: { data: [{ member_id: MEMBER_ID }] } })
     useClient(c)
-    const ids = await listMemberIdsByTag(['t-1'], RESTAURANT_ID)
-    expect(ids.sort()).toEqual(['m-1', 'm-2'])
+    const carries = await memberCarriesAnyTag(MEMBER_ID, ['t-1', 't-2'], RESTAURANT_ID)
+    expect(carries).toBe(true)
     expect(c.mtSelectChain.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID)
-    expect(c.mtSelectChain.in).toHaveBeenCalledWith('tag_id', ['t-1'])
+    expect(c.mtSelectChain.eq).toHaveBeenCalledWith('member_id', MEMBER_ID)
+    expect(c.mtSelectChain.in).toHaveBeenCalledWith('tag_id', ['t-1', 't-2'])
+    // The whole point of the rewrite (review round 2, finding 1): never read
+    // the audience to answer one membership question.
+    expect(c.mtSelectChain.limit).toHaveBeenCalledWith(1)
   })
 
-  it('returns [] without querying for an empty tag list', async () => {
+  it('returns false when the member carries none of the tags', async () => {
+    const c = buildClient({ memberTagsSelect: { data: [] } })
+    useClient(c)
+    await expect(
+      memberCarriesAnyTag(MEMBER_ID, ['t-1'], RESTAURANT_ID)
+    ).resolves.toBe(false)
+  })
+
+  it('returns false without querying for an empty tag list', async () => {
     const c = buildClient()
     useClient(c)
-    const ids = await listMemberIdsByTag([], RESTAURANT_ID)
-    expect(ids).toEqual([])
+    await expect(memberCarriesAnyTag(MEMBER_ID, [], RESTAURANT_ID)).resolves.toBe(false)
     expect(c.mtSelect).not.toHaveBeenCalled()
+  })
+
+  it('throws when supabase reports an error (never a silent false)', async () => {
+    const c = buildClient({ memberTagsSelect: { error: { message: 'db down' } } })
+    useClient(c)
+    await expect(
+      memberCarriesAnyTag(MEMBER_ID, ['t-1'], RESTAURANT_ID)
+    ).rejects.toThrow('db down')
   })
 })
 

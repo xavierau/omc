@@ -1,19 +1,21 @@
 import { createServerSupabaseClient } from '../client'
+import {
+  assertTagsBelongToTenant,
+  CrossTenantTagError,
+} from './member-tag-repository'
 
 /**
  * SOLE writer to `campaign_tags`. The service-role client bypasses RLS — the
  * table has no INSERT/UPDATE/DELETE policies by design (migration 066). Tenant
  * ownership of every tag is therefore re-asserted in app code before writing.
  * Mirrors `campaign-members-repository.ts`.
+ *
+ * Both the assertion and its error class come from `member-tag-repository`:
+ * two same-named classes with different status codes used to exist, so which
+ * HTTP code a foreign tag id produced depended on which route caught it
+ * (review round 2, finding 5).
  */
-
-export class CrossTenantTagError extends Error {
-  readonly statusCode = 400
-  constructor(message: string) {
-    super(message)
-    this.name = 'CrossTenantTagError'
-  }
-}
+export { CrossTenantTagError }
 
 export async function setCampaignTags(
   campaignId: string,
@@ -21,38 +23,34 @@ export async function setCampaignTags(
   restaurantId: string
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
-  if (tagIds.length > 0) {
-    await assertTagsBelongToTenant(tagIds, restaurantId)
-  }
-  // Replace semantics: clear existing links, then insert the new set.
-  await supabase.from('campaign_tags').delete().eq('campaign_id', campaignId)
-  if (tagIds.length > 0) {
-    const rows = tagIds.map((tid) => ({
-      campaign_id: campaignId,
-      tag_id: tid,
-      restaurant_id: restaurantId,
-    }))
-    const { error } = await supabase.from('campaign_tags').insert(rows)
-    if (error) throw new Error(`setCampaignTags: ${error.message}`)
-  }
-}
+  const uniqueTagIds = [...new Set(tagIds)]
+  await assertTagsBelongToTenant(uniqueTagIds, restaurantId)
 
-async function assertTagsBelongToTenant(
-  tagIds: string[],
-  restaurantId: string
-): Promise<void> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('tags')
-    .select('id')
+  // Replace semantics: clear existing links, then write the new set. The
+  // delete is tenant-scoped and its error checked — a silent failure here
+  // would leave the OLD audience linked to a campaign that reports the new one.
+  const { error: deleteError } = await supabase
+    .from('campaign_tags')
+    .delete()
+    .eq('campaign_id', campaignId)
     .eq('restaurant_id', restaurantId)
-    .in('id', tagIds)
-
-  if (error) throw new Error(`setCampaignTags: ${error.message}`)
-  const validIds = new Set((data ?? []).map((r) => r.id as string))
-  if (validIds.size !== new Set(tagIds).size) {
-    throw new CrossTenantTagError('Invalid tag IDs')
+  if (deleteError) {
+    throw new Error(`setCampaignTags(delete): ${deleteError.message}`)
   }
+  if (uniqueTagIds.length === 0) return
+
+  const rows = uniqueTagIds.map((tid) => ({
+    campaign_id: campaignId,
+    tag_id: tid,
+    restaurant_id: restaurantId,
+  }))
+  // Upsert rather than insert: a concurrent write that re-created a link
+  // between the delete and this statement must not 409 the whole request.
+  const { error } = await supabase.from('campaign_tags').upsert(rows, {
+    onConflict: 'campaign_id,tag_id',
+    ignoreDuplicates: true,
+  })
+  if (error) throw new Error(`setCampaignTags: ${error.message}`)
 }
 
 export async function getCampaignTagIds(

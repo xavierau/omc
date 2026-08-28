@@ -9,7 +9,7 @@ import {
   type BulkMemberTagAction,
 } from '@/application/bulk-update-member-tags'
 import { translateMemberTagError } from '../[id]/tags/route-errors'
-import { isValidUUID } from '@/infrastructure/validation/validators'
+import { isUuidArray } from '@/infrastructure/validation/validators'
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,14 +43,6 @@ export async function POST(request: NextRequest) {
     }
     return translateMemberTagError(error)
   }
-}
-
-// UUID shape is checked here, not left to Postgres: a malformed id reaches
-// PostgREST as `invalid input syntax for type uuid`, which the catch-all would
-// report as "Internal server error" (500) for what is bad client input (M-8).
-// An empty array still passes — the use case owns that policy.
-function isUuidArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((v) => typeof v === 'string' && isValidUUID(v))
 }
 
 function isKnownAction(value: unknown): value is BulkMemberTagAction {

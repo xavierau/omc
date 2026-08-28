@@ -8,6 +8,7 @@
 import { createServerSupabaseClient } from '../client'
 import type { Tag } from '@/domain/entities/tag'
 import { CrossTenantMemberError } from './campaign-members-repository'
+import { upsertMemberTagPairs, type MemberTagPair } from './member-tag-pairs'
 
 export class CrossTenantTagError extends Error {
   readonly statusCode = 403
@@ -52,31 +53,29 @@ export async function assertMemberBelongsToTenant(
   if (!data) throw new CrossTenantMemberError('Invalid member ID')
 }
 
-/** Idempotent bulk assignment of the memberIds×tagIds cross-product. */
+/**
+ * Idempotent bulk assignment of the memberIds×tagIds cross-product.
+ *
+ * The cross-product grows multiplicatively, so the bulk-tag route's own caps
+ * (members × tags) put thousands of rows in one request long before either
+ * cap looks large. `upsertMemberTagPairs` owns the chunking, so this builds
+ * the pairs and delegates rather than issuing one unbounded upsert.
+ */
 export async function upsertMemberTags(
   restaurantId: string,
   memberIds: string[],
   tagIds: string[]
 ): Promise<void> {
   if (memberIds.length === 0 || tagIds.length === 0) return
-  const supabase = createServerSupabaseClient()
-  const { error } = await supabase
-    .from('member_tags')
-    .upsert(buildRows(restaurantId, memberIds, tagIds), {
-      onConflict: 'member_id,tag_id',
-      ignoreDuplicates: true,
-    })
-  if (error) throw new Error(`upsertMemberTags: ${error.message}`)
+  await upsertMemberTagPairs(restaurantId, buildPairs(memberIds, tagIds))
 }
 
-function buildRows(restaurantId: string, memberIds: string[], tagIds: string[]) {
-  const rows: { member_id: string; tag_id: string; restaurant_id: string }[] = []
+function buildPairs(memberIds: string[], tagIds: string[]): MemberTagPair[] {
+  const pairs: MemberTagPair[] = []
   for (const memberId of memberIds) {
-    for (const tagId of tagIds) {
-      rows.push({ member_id: memberId, tag_id: tagId, restaurant_id: restaurantId })
-    }
+    for (const tagId of tagIds) pairs.push({ memberId, tagId })
   }
-  return rows
+  return pairs
 }
 
 /** Remove one (member, tag) pair. Absent pair = no-op (0 rows affected). */
@@ -124,18 +123,27 @@ function toTag(raw: unknown): Tag | null {
   }
 }
 
-/** Deduped member ids carrying any of the given tags, tenant-scoped. */
-export async function listMemberIdsByTag(
+/**
+ * Does this member currently carry ANY of `tagIds`? Tenant-scoped point query.
+ * Deliberately NOT "list the audience, then check membership": an unpaged read
+ * is silently truncated at PostgREST's `max-rows` (1000), so a targeted member
+ * past that boundary would be refused. `limit(1)` also keeps the cost
+ * independent of audience size on a per-tap path (review round 2, #1).
+ */
+export async function memberCarriesAnyTag(
+  memberId: string,
   tagIds: string[],
   restaurantId: string
-): Promise<string[]> {
-  if (tagIds.length === 0) return []
+): Promise<boolean> {
+  if (tagIds.length === 0) return false
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('member_tags')
     .select('member_id')
     .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
     .in('tag_id', tagIds)
-  if (error) throw new Error(`listMemberIdsByTag: ${error.message}`)
-  return Array.from(new Set((data ?? []).map((r) => r.member_id as string)))
+    .limit(1)
+  if (error) throw new Error(`memberCarriesAnyTag: ${error.message}`)
+  return (data ?? []).length > 0
 }

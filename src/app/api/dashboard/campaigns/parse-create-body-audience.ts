@@ -1,4 +1,5 @@
 import { CampaignBodyError } from './parse-create-body-errors'
+import { isValidUUID } from '@/infrastructure/validation/validators'
 
 /**
  * Target-audience parsing + selection validation for campaign create.
@@ -29,6 +30,22 @@ export function validateMemberIds(
   return value as string[]
 }
 
+/**
+ * Ceiling on how many tags one campaign may target. The live recipient-count
+ * route enforces the SAME ceiling, so every selection this accepts can also be
+ * counted — a lower cap there turned a valid selection into a count error
+ * (review round 2, finding 4).
+ */
+export const MAX_TAG_IDS = 50
+
+const TAG_IDS_MESSAGE =
+  'tagIds must be a non-empty array of tag UUIDs when targeting a tag'
+
+/**
+ * Validates shape AND identity: a non-UUID id reaches PostgREST as
+ * `invalid input syntax for type uuid`, which the route's catch-all reports as
+ * a 500 for what is really bad client input.
+ */
 export function validateTagIds(
   value: unknown,
   targetAudience: TargetAudience
@@ -37,12 +54,14 @@ export function validateTagIds(
   const ok =
     Array.isArray(value) &&
     value.length > 0 &&
-    value.every((id) => typeof id === 'string' && id.trim().length > 0)
-  if (!ok) {
+    value.every((id) => typeof id === 'string' && isValidUUID(id))
+  if (!ok) throw new CampaignBodyError(400, TAG_IDS_MESSAGE)
+  const uniqueIds = [...new Set(value as string[])]
+  if (uniqueIds.length > MAX_TAG_IDS) {
     throw new CampaignBodyError(
       400,
-      'tagIds must be a non-empty array of non-empty strings when targeting a tag'
+      `tagIds must target at most ${MAX_TAG_IDS} tags`
     )
   }
-  return value as string[]
+  return uniqueIds
 }

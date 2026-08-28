@@ -18,7 +18,9 @@ import { DELETE } from '../[tagId]/route'
 
 const RESTAURANT_ID = 'rest-1'
 const MEMBER_ID = 'mem-1'
-const TAG = { id: 't-1', restaurantId: RESTAURANT_ID, name: 'VIP', color: '#111', createdAt: '2026-01-01T00:00:00Z' }
+const TAG_1 = '11111111-1111-4111-8111-111111111111'
+const TAG_2 = '22222222-2222-4222-8222-222222222222'
+const TAG = { id: TAG_1, restaurantId: RESTAURANT_ID, name: 'VIP', color: '#111', createdAt: '2026-01-01T00:00:00Z' }
 
 function params<E extends Record<string, string>>(extra: E = {} as E) {
   return { params: Promise.resolve({ id: MEMBER_ID, ...extra }) }
@@ -62,31 +64,46 @@ describe('GET /api/dashboard/members/[id]/tags', () => {
 
 describe('POST /api/dashboard/members/[id]/tags', () => {
   it('assigns tags then returns the refreshed tag list', async () => {
-    const r = await POST(postRequest({ tagIds: ['t-1', 't-2'] }), params())
+    const r = await POST(postRequest({ tagIds: [TAG_1, TAG_2] }), params())
     expect(r.status).toBe(200)
     expect(assignTagsToMember).toHaveBeenCalledWith({
       restaurantId: RESTAURANT_ID,
       memberId: MEMBER_ID,
-      tagIds: ['t-1', 't-2'],
+      tagIds: [TAG_1, TAG_2],
     })
     expect(await r.json()).toEqual({ tags: [TAG] })
   })
 
-  it('returns 400 when tagIds is not an array of strings', async () => {
+  it('returns 400 when tagIds is not an array', async () => {
     const r = await POST(postRequest({ tagIds: 'nope' }), params())
+    expect(r.status).toBe(400)
+    expect(assignTagsToMember).not.toHaveBeenCalled()
+  })
+
+  // M-8 parity (review round 2, finding 8): a non-UUID id used to reach
+  // PostgREST and come back as a 500.
+  it('returns 400 (not 500) when a tag id is not a UUID', async () => {
+    const r = await POST(postRequest({ tagIds: ['t-1'] }), params())
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'tagIds must be an array of UUIDs' })
+    expect(assignTagsToMember).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when a tag id is not a string', async () => {
+    const r = await POST(postRequest({ tagIds: [123] }), params())
     expect(r.status).toBe(400)
     expect(assignTagsToMember).not.toHaveBeenCalled()
   })
 
   it('returns 403 when assigning a tag from another tenant', async () => {
     vi.mocked(assignTagsToMember).mockRejectedValueOnce(new CrossTenantTagError('Invalid tag IDs'))
-    const r = await POST(postRequest({ tagIds: ['t-x'] }), params())
+    const r = await POST(postRequest({ tagIds: [TAG_2] }), params())
     expect(r.status).toBe(403)
   })
 
   it('returns 400 when the member belongs to another tenant', async () => {
     vi.mocked(assignTagsToMember).mockRejectedValueOnce(new CrossTenantMemberError('Invalid member ID'))
-    const r = await POST(postRequest({ tagIds: ['t-1'] }), params())
+    const r = await POST(postRequest({ tagIds: [TAG_1] }), params())
     expect(r.status).toBe(400)
   })
 })

@@ -36,6 +36,10 @@ export function normalizeImportTags(
 export function normalizeImportTagNames(
   rawNames: string[]
 ): NormalizeImportTagsResult {
+  // The wire body is client-controlled, so `rawNames` is only a string[] by
+  // convention. A non-array would make the `for…of` below throw deep inside
+  // preflight and surface as a 500 (review round 2, finding 6).
+  if (!Array.isArray(rawNames)) return { names: [], ignored: 0 }
   let ignored = 0
   const seen = new Map<string, string>() // tagKey -> first-seen casing
   for (const rawName of rawNames) {

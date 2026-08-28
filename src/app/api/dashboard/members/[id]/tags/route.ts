@@ -3,6 +3,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { listMemberTags } from '@/application/list-member-tags'
 import { assignTagsToMember } from '@/application/assign-tags-to-member'
 import { translateMemberTagError } from './route-errors'
+import { isUuidArray } from '@/infrastructure/validation/validators'
 
 export async function GET(
   _request: NextRequest,
@@ -26,9 +27,12 @@ export async function POST(
     const { restaurantId } = await getTenantContext()
     const { id } = await params
     const body = (await request.json()) as { tagIds?: unknown }
-    if (!isStringArray(body.tagIds)) {
+    // UUID shape, not just "string": a malformed id reaches PostgREST as
+    // `invalid input syntax for type uuid`, which the error translator would
+    // report as a 500 for what is bad client input (M-8 parity, round 2 #8).
+    if (!isUuidArray(body.tagIds)) {
       return NextResponse.json(
-        { error: 'tagIds must be an array of strings' },
+        { error: 'tagIds must be an array of UUIDs' },
         { status: 400 }
       )
     }
@@ -39,8 +43,4 @@ export async function POST(
   } catch (error) {
     return translateMemberTagError(error)
   }
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((v) => typeof v === 'string')
 }

@@ -67,17 +67,29 @@ function setupChain(result: { data: unknown[]; error: null }) {
 }
 
 /**
- * member_tags is read through `.range(from, to)` in a loop (review I-5(a)), so
- * the mock has to slice like PostgREST does — a mock that replayed the whole
- * set for every page would never produce the short page that ends the loop.
+ * member_tags is read through `.order().order().range(from, to)` in a loop
+ * (review I-5(a)), so the mock has to slice like PostgREST does — a mock that
+ * replayed the whole set for every page would never produce the empty page
+ * that ends the loop.
+ *
+ * `maxRows` simulates a project whose PostgREST `max-rows` is BELOW the page
+ * size: the server silently returns fewer rows than the requested range
+ * (review round 2, #2).
  */
-function pagingRange(rows: { member_id: string }[]) {
+function pagingRange(rows: { member_id: string }[], maxRows = Infinity) {
   const pages: Array<[number, number]> = []
+  const orderedColumns: string[] = []
   const range = vi.fn((from: number, to: number) => {
     pages.push([from, to])
-    return Promise.resolve({ data: rows.slice(from, to + 1), error: null })
+    const size = Math.min(to - from + 1, maxRows)
+    return Promise.resolve({ data: rows.slice(from, from + size), error: null })
   })
-  return { pages, range }
+  const chain: Record<string, unknown> = { range }
+  chain.order = vi.fn((column: string) => {
+    orderedColumns.push(column)
+    return chain
+  })
+  return { pages, orderedColumns, range, chain }
 }
 
 /**
@@ -86,9 +98,9 @@ function pagingRange(rows: { member_id: string }[]) {
  * `mockReturnValueOnce`s runs out on page 2. The members lookup echoes back
  * whatever ids each chunk asked for, so chunking is observable.
  */
-function setupPagedTagChain(memberIds: string[]) {
-  const paging = pagingRange(memberIds.map((id) => ({ member_id: id })))
-  const memberTagsIn = vi.fn().mockReturnValue({ range: paging.range })
+function setupPagedTagChain(memberIds: string[], maxRows = Infinity) {
+  const paging = pagingRange(memberIds.map((id) => ({ member_id: id })), maxRows)
+  const memberTagsIn = vi.fn().mockReturnValue(paging.chain)
   const memberTagsEq = vi.fn().mockReturnValue({ in: memberTagsIn })
   const membersIn = vi.fn((_col: string, ids: string[]) =>
     Promise.resolve({ data: ids.map((id) => ({ ...memberRow, id })), error: null })
@@ -115,11 +127,11 @@ function setupPagedTagChain(memberIds: string[]) {
 }
 
 /**
- * Wire the three sequential `from()` calls of the tag branch:
- *   1. campaign_tags → select('tag_id').eq('campaign_id')       → tagRows
- *   2. member_tags   → select('member_id').eq('restaurant_id').in('tag_id').range() → memberTagRows
- *   3. members       → select(cols).eq('restaurant_id').eq('status','active').in('id') → memberRows
- * Extra queued mocks are harmless when the branch returns early.
+ * Wire the three tables of the tag branch:
+ *   campaign_tags → select('tag_id').eq('campaign_id')       → tagRows
+ *   member_tags   → select('member_id').eq('restaurant_id').in('tag_id')
+ *                     .order().order().range()               → memberTagRows
+ *   members       → select(cols).eq('restaurant_id').eq('status','active').in('id') → memberRows
  */
 function setupTagChain(opts: {
   tagRows: { tag_id: string }[]
@@ -133,7 +145,7 @@ function setupTagChain(opts: {
     .fn()
     .mockResolvedValue({ data: opts.tagRows, error: null })
   const memberTagsPaging = pagingRange(opts.memberTagRows ?? [])
-  const memberTagsIn = vi.fn().mockReturnValue({ range: memberTagsPaging.range })
+  const memberTagsIn = vi.fn().mockReturnValue(memberTagsPaging.chain)
   const memberTagsEq = vi.fn().mockReturnValue({ in: memberTagsIn })
   const membersIn = vi
     .fn()
@@ -141,14 +153,17 @@ function setupTagChain(opts: {
   const membersStatusEq = vi.fn().mockReturnValue({ in: membersIn })
   const membersEq = vi.fn().mockReturnValue({ eq: membersStatusEq })
 
-  mockFrom.mockReturnValueOnce({
-    select: vi.fn().mockReturnValue({ eq: campaignTagsEq }),
-  })
-  mockFrom.mockReturnValueOnce({
-    select: vi.fn().mockReturnValue({ eq: memberTagsEq }),
-  })
-  mockFrom.mockReturnValueOnce({
-    select: vi.fn().mockReturnValue({ eq: membersEq }),
+  // Wired by TABLE, not by call order: the paged member_tags read always ends
+  // on an EMPTY page, so it issues at least two `from('member_tags')` calls and
+  // a queue of `mockReturnValueOnce`s would hand page 2 the members mock.
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'campaign_tags') {
+      return { select: vi.fn().mockReturnValue({ eq: campaignTagsEq }) }
+    }
+    if (table === 'member_tags') {
+      return { select: vi.fn().mockReturnValue({ eq: memberTagsEq }) }
+    }
+    return { select: vi.fn().mockReturnValue({ eq: membersEq }) }
   })
 
   return {
@@ -393,11 +408,14 @@ describe('resolveTargetMembers', () => {
 
     const result = await resolveTargetMembers(campaign, 'r-1')
 
-    // 2,500 rows = two full pages plus the short third page that ends the loop.
+    // 2,500 rows = two full pages, a 500-row page, then the empty page that
+    // ends the loop. The cursor advances by rows RECEIVED, so the last request
+    // resumes at 2500 rather than at the requested page boundary.
     expect(mocks.paging.pages).toEqual([
       [0, 999],
       [1000, 1999],
       [2000, 2999],
+      [2500, 3499],
     ])
     // Tenant scoping and the tag predicate survive the rewrite.
     expect(mocks.memberTagsEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
@@ -405,6 +423,20 @@ describe('resolveTargetMembers', () => {
     // Every id past the max-rows cap is resolved, not just the first page.
     expect(result).toHaveLength(2500)
     expect(new Set(result.map((m) => m.id)).size).toBe(2500)
+  })
+
+  it('orders the paged read by the member_tags primary key before .range()', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    const mocks = setupPagedTagChain(['m-1', 'm-2'])
+
+    await resolveTargetMembers(campaign, 'r-1')
+
+    // Without a total order, PostgREST may return rows in a different order
+    // per request, so a `.range()` walk can repeat or skip rows (round 2, #2).
+    // EVERY page request must carry the full primary-key order, not just the first.
+    expect(mocks.paging.orderedColumns).toEqual(
+      mocks.paging.pages.flatMap(() => ['member_id', 'tag_id'])
+    )
   })
 
   it('stops paging on the empty page when the row count is an exact multiple of the page size', async () => {
@@ -418,6 +450,28 @@ describe('resolveTargetMembers', () => {
       [1000, 1999],
     ])
     expect(result).toHaveLength(1000)
+  })
+
+  it('resolves every row when the project max-rows is BELOW the page size', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    // 1,200 rows on a project capped at 500 rows per request: a loop that
+    // stopped on a short page would return 500; one that advanced by pageSize
+    // would silently SKIP rows 500-999.
+    const mocks = setupPagedTagChain(
+      Array.from({ length: 1200 }, (_, i) => `m-${i}`),
+      500
+    )
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(mocks.paging.pages).toEqual([
+      [0, 999],
+      [500, 1499],
+      [1000, 1999],
+      [1200, 2199],
+    ])
+    expect(result).toHaveLength(1200)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
   })
 
   it('filters the tag branch to active members only (fetchMembersByIds status filter)', async () => {

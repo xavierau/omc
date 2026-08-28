@@ -20,6 +20,7 @@ import {
   CrossTenantTagError,
 } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { countActiveMembersByTags } from '@/infrastructure/supabase/repositories/tag-audience-repository'
+import { MAX_TAG_IDS } from '../../../campaigns/parse-create-body-audience'
 import { GET } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
@@ -77,16 +78,18 @@ describe('GET /api/dashboard/tags/recipient-count', () => {
     expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when more than 20 ids are given', async () => {
-    const many = Array.from({ length: 21 }, (_, i) => tagUuid(i)).join(',')
+  it(`returns 400 when more than MAX_TAG_IDS (${MAX_TAG_IDS}) ids are given`, async () => {
+    const many = Array.from({ length: MAX_TAG_IDS + 1 }, (_, i) => tagUuid(i)).join(',')
     const r = await GET(req(`?tagIds=${many}`))
     expect(r.status).toBe(400)
     expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 
-  it('accepts exactly 20 ids', async () => {
-    const twenty = Array.from({ length: 20 }, (_, i) => tagUuid(i)).join(',')
-    const r = await GET(req(`?tagIds=${twenty}`))
+  // The cap must equal the campaign body's cap: a lower one here 400s the live
+  // count for a selection the create form accepts (review round 2, finding 4).
+  it(`accepts exactly MAX_TAG_IDS (${MAX_TAG_IDS}) ids`, async () => {
+    const atCap = Array.from({ length: MAX_TAG_IDS }, (_, i) => tagUuid(i)).join(',')
+    const r = await GET(req(`?tagIds=${atCap}`))
     expect(r.status).toBe(200)
   })
 

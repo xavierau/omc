@@ -146,3 +146,31 @@ describe('POST /api/dashboard/imports/preview', () => {
     expect(previewContactsBatch).not.toHaveBeenCalled()
   })
 })
+
+// Review round 2, finding 6: preview must reject the same malformed `tags`
+// shapes as commit — otherwise the wizard shows a clean preview for a body
+// that cannot commit.
+describe('POST /api/dashboard/imports/preview — tags wire shape', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+  })
+
+  it.each([
+    ['a row tags field that is a string', { rows: [{ phoneE164: '+85291234567', tags: 'VIP' }] }],
+    ['a row tags field holding a non-string', { rows: [{ phoneE164: '+85291234567', tags: [1] }] }],
+    ['batch tags that are not an array', { tags: 'VIP' }],
+    ['batch tags holding a non-UUID id', { tags: ['not-a-uuid'] }],
+  ])('returns 400 for %s, without previewing', async (_label, override) => {
+    const r = await POST(jsonRequest({ ...validBody(), ...override }))
+
+    expect(r.status).toBe(400)
+    expect((await r.json()).reason).toBe('invalid_tags')
+    expect(previewContactsBatch).not.toHaveBeenCalled()
+  })
+})

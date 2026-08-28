@@ -9,6 +9,7 @@ import {
   mapImportRouteError,
   parseConsentChannelOrThrow,
   parseDateOrThrow,
+  validateWireTags,
   type ImportBatchWireBody,
 } from '../_shared'
 
@@ -16,6 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const { restaurantId } = await getTenantContext()
     const body = (await request.json()) as ImportBatchWireBody
+    validateWireTags(body)
     const result = await previewContactsBatch({
       restaurantId,
       metadata: {

@@ -24,11 +24,21 @@ interface PageResult<T> {
 }
 
 /**
- * Walk a PostgREST read page by page until a short page arrives.
+ * Walk a PostgREST read page by page until an EMPTY page arrives.
  *
  * An unpaged read is truncated at the project's `max-rows` (Supabase default
  * 1000) with NO error — the caller just silently sees fewer rows. Any read that
  * can exceed that must therefore drive `.range()` itself (review I-5(a)).
+ *
+ * Two details that a short-page loop gets wrong when the project's `max-rows`
+ * is configured BELOW `pageSize` (review round 2, #2):
+ *  - stopping on a short page stops on the FIRST page, losing the rest;
+ *  - advancing the cursor by `pageSize` skips every row the server withheld.
+ * So the loop ends only on an empty page and advances by rows RECEIVED.
+ *
+ * `fetchPage` must apply a total `.order()` before `.range()` — without one,
+ * PostgREST is free to return a different row order per request and the walk
+ * can repeat or drop rows across page boundaries.
  */
 export async function readAllPages<T>(
   label: string,
@@ -36,12 +46,13 @@ export async function readAllPages<T>(
   pageSize: number = READ_PAGE_SIZE
 ): Promise<T[]> {
   const rows: T[] = []
-  for (let from = 0; ; from += pageSize) {
+  for (let from = 0; ; ) {
     const { data, error } = await fetchPage(from, from + pageSize - 1)
     if (error) throw new Error(`${label}: ${error.message}`)
     const page = data ?? []
+    if (page.length === 0) return rows
     rows.push(...page)
-    if (page.length < pageSize) return rows
+    from += page.length
   }
 }
 
@@ -49,6 +60,9 @@ export async function readAllPages<T>(
  * Deduped member ids carrying any of `tagIds`, tenant-scoped and fully paged.
  * The campaign recipient count (RPC 067) counts every row, so this read must
  * too or the send targets a subset of the audience the merchant was shown.
+ *
+ * Ordered by the `member_tags` primary key — a total order is what makes the
+ * page boundaries stable across the separate requests `.range()` issues.
  */
 export async function fetchTaggedMemberIds(
   supabase: ServerSupabase,
@@ -63,6 +77,8 @@ export async function fetchTaggedMemberIds(
         .select('member_id')
         .eq('restaurant_id', restaurantId)
         .in('tag_id', tagIds)
+        .order('member_id')
+        .order('tag_id')
         .range(from, to)
   )
   return [...new Set(rows.map((r) => r.member_id))]

@@ -90,3 +90,21 @@ describe('tagKey', () => {
     expect(tagKey('  VIP  ')).toBe('vip')
   })
 })
+
+// Review round 2, finding 6: `row.tags` arrives from a client-controlled wire
+// body typed only by convention, so a non-array must degrade to "no tags"
+// rather than throw out of the preflight loop as a 500.
+describe('normalizeImportTagNames — non-array input', () => {
+  it.each([
+    ['a string', 'VIP;Regular'],
+    ['a number', 42],
+    ['null', null],
+    ['undefined', undefined],
+    ['an object', { 0: 'VIP' }],
+  ])('returns no names and no ignored count for %s', (_label, raw) => {
+    expect(normalizeImportTagNames(raw as unknown as string[])).toEqual({
+      names: [],
+      ignored: 0,
+    })
+  })
+})

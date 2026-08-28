@@ -4,7 +4,7 @@ import {
   getCampaignMemberIds,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
-import { listMemberIdsByTag } from '@/infrastructure/supabase/repositories/member-tag-repository'
+import { memberCarriesAnyTag } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { recordOutboundSend } from '@/application/record-outbound-send'
@@ -87,6 +87,11 @@ async function runClaim(params: HandleClaimParams) {
 // non-targeted members. 'selected' checks campaign_members; 'tag' checks that
 // the member currently carries one of the campaign's linked tags;
 // 'all'-audience campaigns target every member.
+//
+// The 'tag' branch asks the point question ("does THIS member carry one of
+// these tags?") rather than listing the audience: an unpaged audience read is
+// silently capped at PostgREST's max-rows, which would refuse the coupon to
+// every targeted member past that boundary (review round 2, #1).
 async function isMemberTargeted(
   campaign: Campaign,
   memberId: string
@@ -98,8 +103,7 @@ async function isMemberTargeted(
   if (campaign.targetAudience === 'tag') {
     const tagIds = await getCampaignTagIds(campaign.id)
     if (tagIds.length === 0) return false
-    const targeted = await listMemberIdsByTag(tagIds, campaign.restaurantId)
-    return targeted.includes(memberId)
+    return memberCarriesAnyTag(memberId, tagIds, campaign.restaurantId)
   }
   return true // 'all'
 }
