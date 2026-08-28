@@ -165,7 +165,12 @@ export async function updateCampaign(
 
 // Counter mutations + welcome-campaign remap RPC live in campaign-counters.ts;
 // campaign-members operations live in campaign-members-repository.ts.
-export { incrementCampaignSent, incrementCampaignRedeemed, remapWelcomeCampaign } from './campaign-counters'
+export {
+  incrementCampaignSent,
+  incrementCampaignRedeemed,
+  remapWelcomeCampaign,
+  retractCampaignSent,
+} from './campaign-counters'
 
 export async function transitionCampaignStatus(
   id: string,
@@ -179,6 +184,55 @@ export async function transitionCampaignStatus(
     .eq('id', id)
     .eq('status', fromStatus)
     .select('id')
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal CAS for a campaign run whose batch tallied at least one sent
+ * message (Amendment 1 / A1). Plain `updateCampaign(id, {status:'completed'})`
+ * would race a webhook-driven `retractCampaignSent` that lands between the
+ * batch finishing and this call: if a webhook zeroes both sent counters
+ * first, an unconditional write would still claim `completed` on a campaign
+ * whose every send was actually rejected by Meta. The `OR` on the sent
+ * counters is the guard — it only succeeds while at least one send is still
+ * counted. Zero rows updated (guard failed, or already left `sending`) →
+ * the caller falls back to marking the run `failed`.
+ */
+export async function completeCampaignRunIfCounted(
+  id: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'completed' })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .or('chargeable_sent_count.gt.0,non_chargeable_sent_count.gt.0')
+    .select('id')
+  // A DB error must not read as "CAS lost" — that would be reported to the
+  // tenant as a Meta rejection that never happened.
+  if (error) throw new Error(`completeCampaignRunIfCounted: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal `failed` for a run whose CAS above lost — scoped to `sending` the
+ * same way, so a status the tenant changed mid-run (pause / PATCH) is left
+ * alone instead of being overwritten with a fabricated failure. Returns
+ * false when the row was no longer `sending`.
+ */
+export async function failCampaignRunIfSending(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .select('id')
+  if (error) throw new Error(`failCampaignRunIfSending: ${error.message}`)
   return (data?.length ?? 0) > 0
 }
 

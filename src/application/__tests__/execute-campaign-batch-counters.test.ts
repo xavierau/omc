@@ -23,6 +23,7 @@ describe('tally', () => {
         fulfilled('skipped_cap_exceeded'),
         fulfilled('skipped_throttled'),
         fulfilled('skipped_unreachable'),
+        fulfilled('skipped_already_sent'),
       ],
       counters
     )
@@ -34,6 +35,7 @@ describe('tally', () => {
       capExceeded: 1,
       throttled: 1,
       unreachable: 1,
+      alreadySent: 1,
     })
   })
 
