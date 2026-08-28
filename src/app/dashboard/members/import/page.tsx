@@ -4,7 +4,7 @@ import { Suspense, useCallback, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { StepBatchMeta } from '@/components/dashboard/import-wizard/step-batch-meta'
-import { StepUploadCsv } from '@/components/dashboard/import-wizard/step-upload-csv'
+import { StepUploadCsv, EMPTY_CSV } from '@/components/dashboard/import-wizard/step-upload-csv'
 import {
   StepGradePreview,
   type PreviewRow,
@@ -16,7 +16,7 @@ import {
   type ImportContactsBatchResult,
   type PreviewLookups,
 } from '@/hooks/use-import-batch'
-import type { ParsedRow } from '@/components/dashboard/import-wizard/parse-csv'
+import type { ParseCsvResult } from '@/components/dashboard/import-wizard/parse-csv'
 import type {
   BatchMetaInput,
   ConsentChannel,
@@ -60,7 +60,7 @@ function ImportWizard() {
   const [meta, setMeta] = useState<BatchMetaInput>(EMPTY_META)
   const [proofPath, setProofPath] = useState<string | null>(null)
   const [proofSignedUrl, setProofSignedUrl] = useState<string | null>(null)
-  const [csvRows, setCsvRows] = useState<ParsedRow[]>([])
+  const [csv, setCsv] = useState<ParseCsvResult>(EMPTY_CSV)
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
   const [previewBreakdown, setPreviewBreakdown] = useState({ strong: 0, medium: 0, weak: 0, none: 0 })
   const [previewRejected, setPreviewRejected] = useState<ImportContactsBatchResult['rejected']>([])
@@ -91,10 +91,10 @@ function ImportWizard() {
       consentChannel: meta.consentChannel as ConsentChannel,
       proofUrl: proofPath,
     },
-    rows: csvRows,
+    rows: csv.rows,
     mergeExistingMembers: merge,
     tags: meta.tagIds,
-  }), [meta, proofPath, csvRows, merge])
+  }), [meta, proofPath, csv, merge])
 
   async function runPreviewAndAdvance() {
     const res = await previewBatch(buildBatchInput())
@@ -130,8 +130,8 @@ function ImportWizard() {
 
       {step === 'csv' && (
         <StepUploadCsv
-          rows={csvRows}
-          onParsed={setCsvRows}
+          parsed={csv}
+          onParsed={setCsv}
           onBack={() => goto('meta')}
           onNext={runPreviewAndAdvance}
         />
