@@ -70,7 +70,7 @@ function setupChain(result: { data: unknown[]; error: null }) {
  * Wire the three sequential `from()` calls of the tag branch:
  *   1. campaign_tags → select('tag_id').eq('campaign_id')       → tagRows
  *   2. member_tags   → select('member_id').eq('restaurant_id').in('tag_id') → memberTagRows
- *   3. members       → select(cols).eq('restaurant_id').in('id')           → memberRows
+ *   3. members       → select(cols).eq('restaurant_id').eq('status','active').in('id') → memberRows
  * Extra queued mocks are harmless when the branch returns early.
  */
 function setupTagChain(opts: {
@@ -91,7 +91,8 @@ function setupTagChain(opts: {
   const membersIn = vi
     .fn()
     .mockResolvedValue({ data: opts.memberRows ?? [], error: null })
-  const membersEq = vi.fn().mockReturnValue({ in: membersIn })
+  const membersStatusEq = vi.fn().mockReturnValue({ in: membersIn })
+  const membersEq = vi.fn().mockReturnValue({ eq: membersStatusEq })
 
   mockFrom.mockReturnValueOnce({
     select: vi.fn().mockReturnValue({ eq: campaignTagsEq }),
@@ -103,7 +104,14 @@ function setupTagChain(opts: {
     select: vi.fn().mockReturnValue({ eq: membersEq }),
   })
 
-  return { campaignTagsEq, memberTagsEq, memberTagsIn, membersEq, membersIn }
+  return {
+    campaignTagsEq,
+    memberTagsEq,
+    memberTagsIn,
+    membersEq,
+    membersStatusEq,
+    membersIn,
+  }
 }
 
 describe('resolveTargetMembers', () => {
@@ -311,5 +319,67 @@ describe('resolveTargetMembers', () => {
     expect(mocks.membersIn).toHaveBeenCalledWith('id', ['m-1'])
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('m-1')
+  })
+
+  it('chunks fetchMembersByIds at 500 ids per .in() and concatenates every chunk (B4.4)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    const memberIds = Array.from({ length: 1200 }, (_, i) => `m-${i}`)
+
+    mockFrom.mockReset()
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [{ tag_id: 't-1' }], error: null }),
+      }),
+    })
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({
+            data: memberIds.map((id) => ({ member_id: id })),
+            error: null,
+          }),
+        }),
+      }),
+    })
+    const membersInCalls: string[][] = []
+    const membersIn = vi.fn((_col: string, ids: string[]) => {
+      membersInCalls.push(ids)
+      return Promise.resolve({
+        data: ids.map((id) => ({ ...memberRow, id })),
+        error: null,
+      })
+    })
+    const membersStatusEq = vi.fn().mockReturnValue({ in: membersIn })
+    const membersEq = vi.fn().mockReturnValue({ eq: membersStatusEq })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: membersEq }),
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(membersInCalls).toHaveLength(3)
+    expect(membersInCalls[0]).toHaveLength(500)
+    expect(membersInCalls[1]).toHaveLength(500)
+    expect(membersInCalls[2]).toHaveLength(200)
+    expect(result).toHaveLength(1200)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
+  })
+
+  it('filters the tag branch to active members only (fetchMembersByIds status filter)', async () => {
+    const campaign = buildCampaign({ targetAudience: 'tag' })
+    const mocks = setupTagChain({
+      tagRows: [{ tag_id: 't-1' }],
+      memberTagRows: [{ member_id: 'm-inactive' }],
+      // The real query applies .eq('status', 'active') server-side, so an
+      // unsubscribed member's row never comes back even though it carries
+      // the tag.
+      memberRows: [],
+    })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toEqual([])
+    expect(mocks.membersEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
+    expect(mocks.membersStatusEq).toHaveBeenCalledWith('status', 'active')
   })
 })

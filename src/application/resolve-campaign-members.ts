@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { chunk } from './resolve-campaign-members-chunks'
 
 const MEMBER_COLUMNS =
   'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, pmm_throttled_until, unreachable_at'
@@ -107,18 +108,28 @@ async function fetchTagMembers(
   return fetchMembersByIds(memberIds, restaurantId)
 }
 
+// PostgREST URL length blows up before 500 UUIDs join a query string (R-8 / B4.4).
+const MEMBER_ID_CHUNK_SIZE = 500
+
 async function fetchMembersByIds(
   memberIds: string[],
   restaurantId: string
 ): Promise<Member[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .in('id', memberIds)
-  if (error) throw new Error(`fetchMembersByIds: ${error.message}`)
-  return (data ?? []).map(mapRowToMember)
+  const chunks = chunk(memberIds, MEMBER_ID_CHUNK_SIZE)
+  const members: Member[] = []
+  for (const idChunk of chunks) {
+    // status='active' matches the other branches above and RPC 067's count.
+    const { data, error } = await supabase
+      .from('members')
+      .select(MEMBER_COLUMNS)
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'active')
+      .in('id', idChunk)
+    if (error) throw new Error(`fetchMembersByIds: ${error.message}`)
+    members.push(...(data ?? []).map(mapRowToMember))
+  }
+  return members
 }
 
 function mapRowToMember(row: Record<string, unknown>): Member {
