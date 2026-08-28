@@ -53,7 +53,8 @@ export function MemberBulkTagBar({ selectedIds, onClear, onSuccess }: MemberBulk
     setBusy(false)
     if (result.ok) {
       const tagNames = joinTagNames(tagIds, tags)
-      const count = action === 'add' ? selectedIds.length : (result.affected ?? 0)
+      // Both copies count MEMBERS; `result.affected` for remove is deleted (member, tag) PAIRS.
+      const count = selectedIds.length
       const key = action === 'add' ? 'bulkTagSuccess' : 'bulkUntagSuccess'
       setStatus({ variant: 'success', text: t(key, { tags: tagNames, count }) })
       setTagIds([])

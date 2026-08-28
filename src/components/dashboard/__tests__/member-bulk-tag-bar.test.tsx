@@ -11,11 +11,14 @@ import {
 // queue (mirrors member-tags-section.test.tsx) and call the component
 // function directly, walking the returned tree.
 const h = vi.hoisted(() => {
-  const state = { queue: [] as unknown[], idx: 0 }
-  const useState = (initial: unknown): [unknown, () => void] => {
-    const value = state.idx < state.queue.length ? state.queue[state.idx] : initial
+  // `sets` records the last value each setter received (by useState index),
+  // so a test can assert what the component *asked* to render next.
+  const state = { queue: [] as unknown[], idx: 0, sets: {} as Record<number, unknown> }
+  const useState = (initial: unknown): [unknown, (v: unknown) => void] => {
+    const slot = state.idx
+    const value = slot < state.queue.length ? state.queue[slot] : initial
     state.idx++
-    return [value, () => {}]
+    return [value, (v: unknown) => { state.sets[slot] = v }]
   }
   return {
     state,
@@ -217,6 +220,23 @@ describe('MemberBulkTagBar submit — success', () => {
       tagIds: ['t1'],
       action: 'remove',
     })
+  })
+
+  it('reports the selected MEMBER count on remove, not the deleted pair count', async () => {
+    // 2 members × 3 tags → the server deletes 6 pairs; the copy must still say 2 members.
+    h.bulkUpdateMemberTags.mockResolvedValue({ ok: true, affected: 6 })
+    seed(TAGS, ['t1', 't2'], false, null)
+    const tree = renderTree(
+      <MemberBulkTagBar selectedIds={['m1', 'm2']} onClear={vi.fn()} onSuccess={vi.fn()} />
+    )
+    const buttons = byType(tree, 'Button')
+    const remove = buttons.find((b) => (b.props as ButtonProps).children === 't:bulkRemoveTags')
+    await (remove?.props as ButtonProps).onClick?.()
+    // status is the 4th useState (index 3); run() called setStatus with the success copy.
+    const status = h.state.sets[3] as { variant: string; text: string }
+    expect(status.variant).toBe('success')
+    expect(status.text).toBe('t:bulkUntagSuccess:{"tags":"VIP, Lunch","count":2}')
+    expect(h.bulkUpdateMemberTags).toHaveBeenCalledWith({ memberIds: ['m1', 'm2'], tagIds: ['t1', 't2'], action: 'remove' })
   })
 
   it('renders the pre-seeded success status line with data-status="success"', () => {
