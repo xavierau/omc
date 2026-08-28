@@ -75,14 +75,7 @@ async function sendMarketingOnlyToMember(
   const couponDescription = buildCouponDescription(member, ctx, '')
   const result = await sendCampaignBody(member, ctx, '', couponDescription)
   throwIfNotOk(result, 'campaign')
-  await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
-  await emitEvent({
-    restaurantId: ctx.campaign.restaurantId,
-    memberId: member.id,
-    type: 'campaign',
-    dataJson: { campaignId: ctx.campaign.id },
-  })
-  return 'sent'
+  return recordSent(member, ctx)
 }
 
 async function sendClaimToMember(
@@ -91,14 +84,7 @@ async function sendClaimToMember(
 ): Promise<MemberOutcome> {
   const result = await sendClaimBody(member, ctx)
   throwIfNotOk(result, 'claim')
-  await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
-  await emitEvent({
-    restaurantId: ctx.campaign.restaurantId,
-    memberId: member.id,
-    type: 'campaign',
-    dataJson: { campaignId: ctx.campaign.id },
-  })
-  return 'sent'
+  return recordSent(member, ctx)
 }
 
 async function sendEagerToMember(
@@ -124,12 +110,27 @@ async function sendEagerToMember(
     return 'sent'
   }
   await sendCouponQr(member, ctx, code)
+  return recordSent(member, ctx, code)
+}
+
+/**
+ * R6: shared success tail for all three modes — count the send and emit the
+ * campaign event. `couponCode` is included in `dataJson` only when given
+ * (eager mode); claim and marketing-only never pass one.
+ */
+async function recordSent(
+  member: Member,
+  ctx: SendContext,
+  couponCode?: string
+): Promise<MemberOutcome> {
   await incrementCampaignSent(ctx.campaign.id, ctx.campaign.isChargeable)
   await emitEvent({
     restaurantId: ctx.campaign.restaurantId,
     memberId: member.id,
     type: 'campaign',
-    dataJson: { campaignId: ctx.campaign.id, couponCode: code },
+    dataJson: couponCode
+      ? { campaignId: ctx.campaign.id, couponCode }
+      : { campaignId: ctx.campaign.id },
   })
   return 'sent'
 }

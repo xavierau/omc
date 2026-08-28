@@ -1,5 +1,6 @@
 import {
   extractParameters,
+  isDynamicUrlButton,
   type WhatsAppTemplate,
 } from '../entities/whatsapp-template'
 
@@ -18,17 +19,26 @@ export function isClaimTemplate(template: WhatsAppTemplate | null): boolean {
 }
 
 /**
- * #134 / I-1: a template that references {{code}} in its body, or has a URL
- * button whose url is dynamic ({{1}}), expects a coupon code to be supplied.
+ * #134 / I-1 (round 2 / R1): a template expects a coupon to be minted when
+ * any of the following hold:
+ *  - its body references {{code}}, OR {{discount}} — the sender fills
+ *    {{discount}} from formatDiscount(couponConfig), which renders '' when
+ *    couponConfig is null, the same empty-parameter problem as {{code}};
+ *  - it has a BUTTONS component with a dynamic URL button ({{1}}); or
+ *  - it has a COPY_CODE button — its sole purpose is a coupon code (the
+ *    sender does not currently build a COPY_CODE parameter at all; that's a
+ *    pre-existing gap in send-template-message.ts, not something this
+ *    predicate should paper over by staying silent).
  * Used by enforceCouponParams to catch a coupon-less campaign that would
- * otherwise blast an empty body parameter / no button parameter to Meta.
+ * otherwise blast an empty/dead parameter to Meta.
  */
 export function templateExpectsCouponCode(template: WhatsAppTemplate): boolean {
-  if (extractParameters(template).includes('code')) return true
+  const params = extractParameters(template)
+  if (params.includes('code') || params.includes('discount')) return true
   const buttonsComponent = template.components.find((c) => c.type === 'BUTTONS')
   return Boolean(
     buttonsComponent?.buttons?.some(
-      (b) => b.type === 'URL' && b.url?.includes('{{1}}')
+      (b) => isDynamicUrlButton(b) || b.type === 'COPY_CODE'
     )
   )
 }

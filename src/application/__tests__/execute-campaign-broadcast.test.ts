@@ -167,6 +167,15 @@ function buildCtx(overrides: Partial<SendContext> = {}): SendContext {
   }
 }
 
+// R7 (round 2): was duplicated in the #131 and #134 describes below — one
+// copy, shared.
+function prefetchWith(coupon: Coupon) {
+  return {
+    countedMemberIds: new Set<string>(),
+    existingCoupons: new Map([[coupon.memberId as string, coupon]]),
+  }
+}
+
 describe('sendToMember — claim mode (template has a QUICK_REPLY button)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -314,13 +323,6 @@ describe('sendToMember — eager mode re-run with an existing coupon (#131)', ()
     vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))
   })
 
-  function prefetchWith(coupon: Coupon) {
-    return {
-      countedMemberIds: new Set<string>(),
-      existingCoupons: new Map([[coupon.memberId as string, coupon]]),
-    }
-  }
-
   it('reuses the existing active coupon: body carries ITS code, no mint, then QR + count + event', async () => {
     const existing = buildCoupon({ code: 'OLDCODE', memberId: 'm-1' })
     const ctx = buildCtx({ template: null })
@@ -409,13 +411,6 @@ describe('sendToMember — marketing-only (couponConfig null) #134', () => {
     vi.mocked(generateCouponCode).mockReturnValue('CODE01')
     vi.mocked(renderTemplate).mockReturnValue('desc')
   })
-
-  function prefetchWith(coupon: Coupon) {
-    return {
-      countedMemberIds: new Set<string>(),
-      existingCoupons: new Map([[coupon.memberId as string, coupon]]),
-    }
-  }
 
   function marketingCtx(overrides: Partial<SendContext> = {}): SendContext {
     return buildCtx({ campaign: buildCampaign({ couponConfig: null }), template: null, ...overrides })
@@ -521,16 +516,12 @@ describe('sendToMember — marketing-only (couponConfig null) #134', () => {
   // {{code}} placeholder (left in the campaign copy despite a null
   // couponConfig) renders as '' or leaks the literal 'undefined'. Delegate
   // to the real renderer for this one test to pin the actual behaviour.
-  // MUST stay last in this describe — it overrides shared vi.fn() mocks
-  // (renderTemplate, resolveCampaignTemplate) that persist across tests
-  // since this file's beforeEach only clears call history, not
-  // implementations.
   it('M-3: a stray {{code}} placeholder renders as empty string, not "undefined"', async () => {
     const actual = await vi.importActual<
       typeof import('@/domain/services/template-renderer')
     >('@/domain/services/template-renderer')
-    vi.mocked(renderTemplate).mockImplementation(actual.renderTemplate)
-    vi.mocked(resolveCampaignTemplate).mockReturnValue(
+    vi.mocked(renderTemplate).mockImplementationOnce(actual.renderTemplate)
+    vi.mocked(resolveCampaignTemplate).mockReturnValueOnce(
       'Hi {{name}}, code {{code}}'
     )
     vi.mocked(sendCampaignBody).mockResolvedValue(okResult('wamid.body'))

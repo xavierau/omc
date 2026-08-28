@@ -44,8 +44,14 @@ counter increment sat after the mint, a mint short-circuit also under-counted re
   "Free Drink Promotion", template `free_drink` with a `{{1}}` URL button — completed, not active).
   Added `enforceCouponParams(campaign, template)` next to `enforceHeaderMedia` in both the execute
   route (→ 409, rendered on the card) and the worker `execute-campaign.ts` (→ campaign fails with
-  the reason, covering cron-scheduled runs). Claim templates are exempt (claim sends never carry a
-  code — pre-existing).
+  the reason, covering cron-scheduled runs).
+- **`/code-review` on PR #140** widened that gate from a `{{code}}`/`{{1}}` allow-list to the real
+  invariant — *no coupon config ⇒ nothing coupon-derived may be needed*: `{{discount}}` (the
+  sender fills it from `formatDiscount(couponConfig)` → `''`), `COPY_CODE` buttons, inline copy
+  referencing `{{code}}` / `{{couponCode}}` / `{{discount}}`, and claim-button templates (claim
+  mode mints from `couponConfig` at tap time — the exemption would have re-opened the junk-coupon
+  path lazily). The dynamic-URL predicate is shared with the sender (`isDynamicUrlButton`) so the
+  gate and `buildUrlButtonParams` cannot drift.
 
 ## Prevention
 

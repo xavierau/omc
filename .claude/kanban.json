@@ -1382,6 +1382,28 @@
           "workspace_artifacts": [
             "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
           ]
+        },
+        {
+          "id": "CAMP-011",
+          "title": "COPY_CODE template buttons are authorable but the sender never builds their coupon_code parameter — every send of such a template fails at Meta",
+          "description": "From CAMP-009 /code-review (finders A/C/altitude, pre-existing). prepare-template-components.ts:66 emits COPY_CODE buttons to Meta and the template form round-trips them read-only, but send-template-message.ts buildButtonParams only handles URL ({{1}}) and QUICK_REPLY — no copy_code button parameter is ever produced, so any campaign on a COPY_CODE template is rejected per recipient (#132012 button parameter missing) regardless of couponConfig. CAMP-009's enforceCouponParams now treats COPY_CODE as 'expects a coupon code' (so a coupon-less campaign gets a 409), but a campaign WITH a coupon still fails on the wire. Fix: build {type:'button', subType:'copy_code', index, parameters:[{type:'coupon_code', coupon_code}]} in buildButtonParams (check Kapso SDK casing rules — memory principle_kapso_dual_case_converters), add a sender test with a real payload fixture, and add COPY_CODE to the template form's editable types or keep read-only deliberately.",
+          "priority": "medium",
+          "labels": [
+            "bug",
+            "campaigns",
+            "whatsapp",
+            "backend"
+          ],
+          "estimate": "0.5d",
+          "sprint": "whatsapp_quality_safeguards",
+          "related": [
+            "kanban:CAMP-009",
+            "kanban:CAMP-004",
+            "github:134"
+          ],
+          "workspace_artifacts": [
+            "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
+          ]
         }
       ]
     },
@@ -1487,9 +1509,11 @@
             "artifacts/2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend",
             "artifacts/2026-08-28-camp-009-stream-c-coupon-param-preflight-backend",
             "reviews/2026-08-28-camp-009-issues-136-134-gemini",
-            "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
+            "reviews/2026-08-28-camp-009-issues-136-134-analyzer",
+            "artifacts/2026-08-28-camp-009-round-2-code-review-fixes-backend"
           ],
-          "debugging_journal": "debugging_journals/2026-08-28-campaign-create-autosend-and-marketing-only-mint.md"
+          "debugging_journal": "debugging_journals/2026-08-28-campaign-create-autosend-and-marketing-only-mint.md",
+          "pr": "140"
         },
         {
           "id": "WONB-008",

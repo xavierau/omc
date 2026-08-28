@@ -117,6 +117,7 @@ no artifact files were lost._
 - [2026-08-28-camp-009-stream-a-create-autosend-frontend](artifacts/2026-08-28-camp-009-stream-a-create-autosend-frontend.md) — Stream A: auto-execute deleted, submitCampaign pinned, label rename (react-frontend-dev)
 - [2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend](artifacts/2026-08-28-camp-009-stream-b-marketing-only-broadcast-backend.md) — Stream B: marketing-only send path, no mint/QR (senior-backend-dev)
 - [2026-08-28-camp-009-stream-c-coupon-param-preflight-backend](artifacts/2026-08-28-camp-009-stream-c-coupon-param-preflight-backend.md) — Stream C: review I-1 — enforceCouponParams preflight, route + worker (senior-backend-dev)
+- [2026-08-28-camp-009-round-2-code-review-fixes-backend](artifacts/2026-08-28-camp-009-round-2-code-review-fixes-backend.md) — Round 2: /code-review PR #140 — gate invariant widened (discount, COPY_CODE, inline, claim), prefetch skip, DRY tail (senior-backend-dev)
 
 **CAMP-008 — #131/#132 outbound status + claim-mode button**
 - [2026-08-27-camp-008-outbound-status-and-claim-button](plans/2026-08-27-camp-008-outbound-status-and-claim-button.md) — plan D1–D6 + advisor amendment A1–A9 (claude)

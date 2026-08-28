@@ -81,3 +81,14 @@ export function validateTemplateName(name: string): boolean {
   if (name.length < 1 || name.length > 512) return false
   return /^[a-z0-9_]+$/.test(name)
 }
+
+/**
+ * #134 / I-1 round 2 (R2): a URL button is "dynamic" when its url contains
+ * the {{1}} placeholder Meta fills from the button parameter we send. Shared
+ * by `templateExpectsCouponCode` (campaign-mode.ts, the coupon preflight
+ * gate) and `buildUrlButtonParams` (send-template-message.ts, the actual
+ * send) so the two can never drift on what counts as "needs a coupon code".
+ */
+export function isDynamicUrlButton(b: TemplateButton): boolean {
+  return b.type === 'URL' && Boolean(b.url?.includes('{{1}}'))
+}

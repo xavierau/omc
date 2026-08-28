@@ -79,4 +79,24 @@ describe('templateExpectsCouponCode', () => {
     ).toBe(false)
     expect(templateExpectsCouponCode(templateWithBody('Hi!'))).toBe(false)
   })
+
+  // R1 (round 2 / #134): the sender fills {{discount}} from
+  // formatDiscount(couponConfig), which is '' when couponConfig is null —
+  // same empty-parameter problem as {{code}}.
+  it('is true when the body references {{discount}}', () => {
+    expect(
+      templateExpectsCouponCode(templateWithBody('Hi {{customer_name}}, {{discount}} off'))
+    ).toBe(true)
+  })
+
+  // R1 (round 2 / #134): a COPY_CODE button's sole purpose is a coupon
+  // code — even though the sender doesn't build a parameter for it today
+  // (pre-existing gap), a coupon-less campaign still shouldn't ship one.
+  it('is true when a button is COPY_CODE', () => {
+    expect(
+      templateExpectsCouponCode(
+        templateWithBody('Hi!', [{ type: 'COPY_CODE', text: 'Copy code' }])
+      )
+    ).toBe(true)
+  })
 })

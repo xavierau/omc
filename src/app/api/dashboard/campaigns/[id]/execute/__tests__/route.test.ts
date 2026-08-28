@@ -66,7 +66,16 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
       tenantStatus: 'active',
     })
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
-      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+      // #134 / I-1 round 2 (R4): buildCampaign()'s default `template` field
+      // references {{code}} — override it so the baseline happy-path fixture
+      // doesn't trip the inline-copy coupon guard (couponConfig is null here
+      // and resolveWhatsAppTemplate defaults to null below).
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        template: 'Hi {{name}}, thanks for being a member!',
+      })
     )
     vi.mocked(enforceCampaignGuardrails).mockResolvedValue(undefined)
     vi.mocked(resolveWhatsAppTemplate).mockResolvedValue(null)
@@ -86,7 +95,12 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
   })
 
   it('runs guardrails -> template resolution -> template review -> enqueue, in that order', async () => {
-    const campaign = buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+    const campaign = buildCampaign({
+      id: CAMPAIGN_ID,
+      restaurantId: RESTAURANT_ID,
+      status: 'active',
+      template: 'Hi {{name}}, thanks for being a member!',
+    })
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(campaign)
     const order: string[] = []
     vi.mocked(enforceCampaignGuardrails).mockImplementation(async () => {
@@ -306,7 +320,12 @@ describe('POST /api/dashboard/campaigns/[id]/execute', () => {
 
   it('enqueues normally for a same-tenant request', async () => {
     vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue(
-      buildCampaign({ id: CAMPAIGN_ID, restaurantId: RESTAURANT_ID, status: 'active' })
+      buildCampaign({
+        id: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'active',
+        template: 'Hi {{name}}, thanks for being a member!',
+      })
     )
 
     const r = await POST(new Request('http://x') as never, params())

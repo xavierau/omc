@@ -3,6 +3,7 @@ import {
   isTemplateSendable,
   extractParameters,
   validateTemplateName,
+  isDynamicUrlButton,
   type WhatsAppTemplate,
   type TemplateStatus,
 } from '../whatsapp-template'
@@ -126,5 +127,31 @@ describe('validateTemplateName', () => {
 
   it('accepts exactly 512 chars', () => {
     expect(validateTemplateName('a'.repeat(512))).toBe(true)
+  })
+})
+
+// R2 (round 2 / #134): shared by campaign-mode.ts (the coupon preflight
+// gate) and send-template-message.ts (the actual send) so the two can
+// never drift on what counts as a dynamic URL button.
+describe('isDynamicUrlButton', () => {
+  it('is true for a URL button whose url contains {{1}}', () => {
+    expect(
+      isDynamicUrlButton({ type: 'URL', text: 'Redeem', url: 'https://x.example/{{1}}' })
+    ).toBe(true)
+  })
+
+  it('is false for a URL button with a static url', () => {
+    expect(
+      isDynamicUrlButton({ type: 'URL', text: 'Visit', url: 'https://x.example/menu' })
+    ).toBe(false)
+  })
+
+  it('is false for a URL button with no url', () => {
+    expect(isDynamicUrlButton({ type: 'URL', text: 'Visit' })).toBe(false)
+  })
+
+  it('is false for a non-URL button type', () => {
+    expect(isDynamicUrlButton({ type: 'QUICK_REPLY', text: 'Claim' })).toBe(false)
+    expect(isDynamicUrlButton({ type: 'COPY_CODE', text: 'Copy' })).toBe(false)
   })
 })
