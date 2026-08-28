@@ -3,6 +3,7 @@ import {
   updateCampaign,
   transitionCampaignStatus,
   completeCampaignRunIfCounted,
+  failCampaignRunIfSending,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
 import { deliveryFailureReason } from '@/domain/services/campaign-delivery-failure-reason'
@@ -111,21 +112,28 @@ async function finalizeCampaignRun(args: {
   await failRunRetractedByMeta(campaignId, args.restaurantId)
 }
 
-// The CAS lost: every counted send was retracted by a Meta rejection webhook
-// while the batch was still running. Word the reason from the latest
-// rejected body row so the tenant sees Meta's actual error.
+// The CAS lost. The expected cause is Meta rejection webhooks retracting
+// every counted send while the batch was still running — word the reason
+// from the latest rejected body row so the tenant sees Meta's actual error.
+// With no rejected row on record, never assert a Meta rejection (WAQ-014:
+// name only the system that actually decided). The write is scoped to
+// `sending` so a status the tenant changed mid-run is left alone.
+const NO_COUNTED_SEND_REASON =
+  'No sent message remained counted when this run finished. Check the ' +
+  "campaign's message log before re-running."
+
 async function failRunRetractedByMeta(
   campaignId: string,
   restaurantId: string
 ): Promise<void> {
   const latest = await findLatestCampaignFailure(campaignId, restaurantId)
-  await updateCampaign(campaignId, {
-    status: 'failed',
-    failureReason: deliveryFailureReason(
-      latest?.errorCode ?? null,
-      latest?.errorTitle ?? null
-    ),
-  })
+  const reason = latest
+    ? deliveryFailureReason(latest.errorCode, latest.errorTitle)
+    : NO_COUNTED_SEND_REASON
+  const written = await failCampaignRunIfSending(campaignId, reason)
+  if (!written) {
+    console.warn('[Campaign] finalize skipped — status changed mid-run', { campaignId })
+  }
 }
 
 // Wording deliberately names no revival mechanism: the dashboard has no

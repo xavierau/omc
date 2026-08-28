@@ -63,3 +63,12 @@ RETURNS TABLE (
   WHERE c.id = p_campaign_id AND c.restaurant_id = p_restaurant_id
   RETURNING c.status, c.chargeable_sent_count, c.non_chargeable_sent_count;
 $$ LANGUAGE sql;
+
+-- Lock down execution (045 precedent): this is a billing write, called only
+-- from the webhook path with the service-role client. Under Supabase's
+-- default EXECUTE TO PUBLIC a dashboard session could otherwise zero its own
+-- chargeable_sent_count through a first-class RPC name.
+REVOKE EXECUTE ON FUNCTION public.retract_campaign_sent(uuid, uuid, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.retract_campaign_sent(uuid, uuid, text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.retract_campaign_sent(uuid, uuid, text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.retract_campaign_sent(uuid, uuid, text) TO service_role;

@@ -202,13 +202,37 @@ export async function completeCampaignRunIfCounted(
   id: string
 ): Promise<boolean> {
   const supabase = createServerSupabaseClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('campaigns')
     .update({ status: 'completed' })
     .eq('id', id)
     .eq('status', 'sending')
     .or('chargeable_sent_count.gt.0,non_chargeable_sent_count.gt.0')
     .select('id')
+  // A DB error must not read as "CAS lost" — that would be reported to the
+  // tenant as a Meta rejection that never happened.
+  if (error) throw new Error(`completeCampaignRunIfCounted: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Terminal `failed` for a run whose CAS above lost — scoped to `sending` the
+ * same way, so a status the tenant changed mid-run (pause / PATCH) is left
+ * alone instead of being overwritten with a fabricated failure. Returns
+ * false when the row was no longer `sending`.
+ */
+export async function failCampaignRunIfSending(
+  id: string,
+  failureReason: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('status', 'sending')
+    .select('id')
+  if (error) throw new Error(`failCampaignRunIfSending: ${error.message}`)
   return (data?.length ?? 0) > 0
 }
 

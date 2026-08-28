@@ -349,6 +349,33 @@ describe('handleStatusUpdate', () => {
     expect(order).toEqual(['reconcile', 'dispatch'])
   })
 
+  // #131 review: the wamid lookup is global, so the webhook's tenant must own
+  // the row before any status / billing / member-state write.
+  it("releases the claim and writes nothing when the row belongs to another tenant", async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findMessageByKapsoIdWithRetry).mockResolvedValue(
+      buildMessage('sent', { restaurantId: 'rest-OTHER' })
+    )
+
+    await handleStatusUpdate(
+      {
+        id: 'wamid.AAA',
+        status: 'failed',
+        errors: [{ code: 131042, title: 'Business eligibility payment issue' }],
+        raw: {},
+      },
+      'rest-1',
+      log
+    )
+
+    expect(applyStatusUpdate).not.toHaveBeenCalled()
+    expect(reconcileCampaignSendFailure).not.toHaveBeenCalled()
+    expect(dispatchErrorAction).not.toHaveBeenCalled()
+    expect(releaseIdempotencyKey).toHaveBeenCalledWith('wamid.AAA:failed')
+    const warn = logs.find((l) => l[1] === 'status.tenant_mismatch')
+    expect(warn?.[0]).toBe('warn')
+  })
+
   it('duplicate claim never reaches the campaign retraction', async () => {
     vi.mocked(tryMarkProcessed).mockResolvedValue('duplicate')
 

@@ -77,6 +77,18 @@ export async function handleStatusUpdate(
     log('warn', 'status.unknown_message', { kapsoMessageId: status.id })
     return
   }
+  // The wamid lookup is global; the webhook's tenant (resolved from its
+  // phone_number_id) must own the row before any status, billing or
+  // member-state write happens on it (#131 review). Release the claim so a
+  // correctly-routed retry can still land.
+  if (message.snapshot.restaurantId !== restaurantId) {
+    await releaseIdempotencyKey(idempotencyKey)
+    log('warn', 'status.tenant_mismatch', {
+      kapsoMessageId: status.id,
+      restaurantId,
+    })
+    return
+  }
 
   const update = mapStatusUpdate(status)
   const updated = await applyStatusUpdateRepo(status.id, update, status.raw)

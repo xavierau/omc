@@ -10,6 +10,7 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   // #131: a run that tallied sends completes through this CAS (a sent bucket
   // must still be > 0). Default true = no webhook retracted anything.
   completeCampaignRunIfCounted: vi.fn().mockResolvedValue(true),
+  failCampaignRunIfSending: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries', () => ({
@@ -117,6 +118,7 @@ import {
   updateCampaign,
   transitionCampaignStatus,
   completeCampaignRunIfCounted,
+  failCampaignRunIfSending,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
 import { findCouponsByMembersAndCampaign } from '@/infrastructure/supabase/repositories/coupon-campaign-queries'
@@ -1487,6 +1489,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
       buildCampaign({ whatsappTemplateId: 'tpl-u' })
     )
     vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(true)
+    vi.mocked(failCampaignRunIfSending).mockResolvedValue(true)
     vi.mocked(findLatestCampaignFailure).mockResolvedValue(null)
     vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(utilityTemplate)
     vi.mocked(resolveTargetMembers).mockResolvedValue([
@@ -1541,10 +1544,10 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
 
     expect(completeCampaignRunIfCounted).toHaveBeenCalledWith('camp-1')
     expect(findLatestCampaignFailure).toHaveBeenCalledWith('camp-1', 'r-1')
-    expect(updateCampaign).toHaveBeenCalledWith('camp-1', {
-      status: 'failed',
-      failureReason: expect.stringContaining('131042'),
-    })
+    expect(failCampaignRunIfSending).toHaveBeenCalledWith(
+      'camp-1',
+      expect.stringContaining('131042')
+    )
     expect(updateCampaign).not.toHaveBeenCalledWith('camp-1', {
       status: 'completed',
     })
@@ -1557,19 +1560,45 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
       vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
       return okResult('wamid.tpl')
     })
-    vi.mocked(findLatestCampaignFailure).mockResolvedValue(null)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131047',
+      errorTitle: 'Re-engagement message',
+    })
 
     await executeCampaign('camp-1', 'r-1')
 
     expect(incrementCampaignSent).toHaveBeenCalledTimes(2)
-    const statuses = vi.mocked(updateCampaign).mock.calls.map(([, c]) => c.status)
-    expect(statuses).toContain('failed')
-    expect(statuses).not.toContain('completed')
-    const failedCall = vi
-      .mocked(updateCampaign)
-      .mock.calls.find(([, c]) => c.status === 'failed')
-    expect(failedCall![1].failureReason).toContain('Meta')
-    expect(failedCall![1].failureReason).toContain('not an OhMyClient')
+    expect(updateCampaign).not.toHaveBeenCalledWith('camp-1', { status: 'completed' })
+    expect(failCampaignRunIfSending).toHaveBeenCalledTimes(1)
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(reason).toContain('Meta')
+    expect(reason).toContain('131047')
+    expect(reason).toContain('not an OhMyClient')
+  })
+
+  // #131 review (Important 1): a lost CAS with NO rejected body row on record
+  // (tenant paused the run, transient state) must not be reported to the
+  // tenant as a Meta rejection — name only the system that decided.
+  it('never asserts a Meta rejection when the CAS lost but no failed body row exists', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue(null)
+
+    await executeCampaign('camp-1', 'r-1')
+
+    expect(failCampaignRunIfSending).toHaveBeenCalledTimes(1)
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(reason).not.toMatch(/Meta/)
+    expect(reason).toContain('No sent message remained counted')
+  })
+
+  it('leaves a status the tenant changed mid-run alone (scoped failure write returns false)', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(failCampaignRunIfSending).mockResolvedValue(false)
+
+    await expect(executeCampaign('camp-1', 'r-1')).resolves.toBeUndefined()
+
+    // No unscoped write that could overwrite a paused / PATCHed status.
+    expect(updateCampaign).not.toHaveBeenCalled()
   })
 
   it('does not consult the CAS when nothing was attempted (all skipped)', async () => {
@@ -1764,6 +1793,7 @@ describe('executeCampaign — re-run ledger (#131 / CAMP-002)', () => {
     vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.img'))
     vi.mocked(getCampaignById).mockResolvedValue(buildCampaign())
     vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(true)
+    vi.mocked(failCampaignRunIfSending).mockResolvedValue(true)
     vi.mocked(findCouponsByMembersAndCampaign).mockResolvedValue(new Map())
     vi.mocked(findMemberIdsWithCountedSend).mockResolvedValue(new Set())
     vi.mocked(resolveTargetMembers).mockResolvedValue([
