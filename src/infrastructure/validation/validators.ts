@@ -21,6 +21,20 @@ export function isValidUUID(id: string): boolean {
   return UUID_REGEX.test(id)
 }
 
+/**
+ * True for an array whose every element is a UUID string.
+ *
+ * Route bodies must check this rather than leave it to Postgres: a malformed
+ * id reaches PostgREST as `invalid input syntax for type uuid`, which a
+ * catch-all reports as a 500 for what is really bad client input (M-8). An
+ * empty array passes — emptiness is each caller's own policy.
+ */
+export function isUuidArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((v) => typeof v === 'string' && isValidUUID(v))
+  )
+}
+
 export function validateRequired(
   value: unknown,
   fieldName: string

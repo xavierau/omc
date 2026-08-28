@@ -9,6 +9,7 @@ import {
   type ImportBatchValidationReason,
   type ImportRowRejectReason,
 } from '@/domain/services/__errors__/import-errors'
+import { normalizeImportTagNames } from '@/domain/services/normalize-import-tags'
 
 export interface PreflightMetadata {
   source: string
@@ -23,6 +24,9 @@ export interface PreflightRowInput {
   phoneE164: string
   name?: string | null
   preferredLanguage?: 'en' | 'zh_hk' | null
+  // TAG-001 B1: per-row tag NAMES from the CSV (AD-1). Re-normalised below —
+  // never trusted as-is from the client.
+  tags?: string[]
 }
 
 export interface PreflightInput {
@@ -36,6 +40,7 @@ export interface PreflightAcceptedRow {
   rawPhone: string
   name: string | null
   preferredLanguage: 'en' | 'zh_hk' | null
+  tags: string[]                     // normalised names, never ids
 }
 
 export interface PreflightReject {
@@ -105,6 +110,7 @@ function classifyRows(rows: PreflightRowInput[]): PreflightResult {
       rawPhone: row.phoneE164,
       name: row.name ?? null,
       preferredLanguage: row.preferredLanguage ?? null,
+      tags: normalizeImportTagNames(row.tags ?? []).names,
     })
   }
   return { metadataError: null, acceptedRows, rejected }

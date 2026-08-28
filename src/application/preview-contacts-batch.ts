@@ -4,9 +4,12 @@
 // can render the breakdown table without committing.
 
 import { gradeConsent } from '@/domain/services/grade-consent-batch'
-import { ImportBatch } from '@/domain/entities/import-batch'
 import { ImportBatchValidationError } from '@/domain/services/__errors__/import-errors'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import { normalizeImportTagNames } from '@/domain/services/normalize-import-tags'
+import { validateMetadata } from './preview-contacts-batch-metadata'
+import { runPreviewLookups } from './preview-contacts-batch-lookups'
+import type { PreviewLookups } from './preview-contacts-batch-lookups'
 import type { ConsentGrade } from '@/domain/value-objects/consent-status'
 import type { ConsentChannel } from '@/domain/value-objects/consent-channel'
 import type { ImportRowReject } from './import-contacts-batch'
@@ -27,6 +30,7 @@ export interface PreviewContactsBatchInput {
     phoneE164: string
     name?: string | null
     preferredLanguage?: 'en' | 'zh_hk' | null
+    tags?: string[]
   }>
   now?: Date
 }
@@ -35,6 +39,7 @@ export interface PreviewRow {
   phoneE164: string
   name: string | null
   grade: ConsentGrade
+  tags: string[]
 }
 
 export interface PreviewContactsBatchResult {
@@ -47,6 +52,7 @@ export interface PreviewContactsBatchResult {
     none: number
   }
   rejected: ImportRowReject[]
+  lookups: PreviewLookups
 }
 
 const ZERO_BREAKDOWN = { strong: 0, medium: 0, weak: 0, none: 0 } as const
@@ -60,7 +66,7 @@ export async function previewContactsBatch(
   }
   // Validate metadata identically to the commit path. Throws
   // ImportBatchValidationError on any failure → route maps to 400.
-  validateMetadata(input, now)
+  validateMetadata(input.restaurantId, input.metadata, now)
   const batchGrade = gradeConsent({
     channel: input.metadata.consentChannel,
     consentTextShown: input.metadata.consentTextShown,
@@ -68,38 +74,20 @@ export async function previewContactsBatch(
     now,
   })
   const { rows, rejected } = classifyRows(input.rows, batchGrade)
+  // Read-only, advisory DB pre-check (#139.2, B5) — degrades OFF (AD-5),
+  // never throws. Runs against accepted rows only (rejected rows never
+  // contribute to any lookup or count — A5/A6).
+  const lookups = await runPreviewLookups(
+    input.restaurantId,
+    rows.map((row) => row.phoneE164)
+  )
   return {
     batchGrade,
     rows,
     gradeBreakdown: { ...ZERO_BREAKDOWN, [batchGrade]: rows.length },
     rejected,
+    lookups,
   }
-}
-
-function validateMetadata(
-  input: PreviewContactsBatchInput,
-  now: Date
-): void {
-  // ImportBatch.create encodes the same invariants as the DB CHECKs so we
-  // fail fast at the domain boundary. We use placeholder count fields since
-  // preview doesn't know inserted counts yet.
-  ImportBatch.create({
-    id: '00000000-0000-0000-0000-000000000000',
-    restaurantId: input.restaurantId,
-    source: input.metadata.source,
-    dateRangeStart: input.metadata.dateRangeStart,
-    dateRangeEnd: input.metadata.dateRangeEnd,
-    consentTextShown: input.metadata.consentTextShown,
-    consentChannel: input.metadata.consentChannel,
-    proofUrl: input.metadata.proofUrl,
-    rowCount: 0,
-    strongCount: 0,
-    mediumCount: 0,
-    weakCount: 0,
-    noneCount: 0,
-    createdBy: null,
-    now,
-  })
 }
 
 interface ClassifyResult {
@@ -128,7 +116,12 @@ function classifyRows(
       continue
     }
     seen.add(normalized)
-    rows.push({ phoneE164: normalized, name: row.name ?? null, grade })
+    rows.push({
+      phoneE164: normalized,
+      name: row.name ?? null,
+      grade,
+      tags: normalizeImportTagNames(row.tags ?? []).names,
+    })
   }
   return { rows, rejected }
 }

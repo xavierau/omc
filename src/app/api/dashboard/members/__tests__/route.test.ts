@@ -205,3 +205,37 @@ describe('GET /api/dashboard/members?id=', () => {
     expect(getMembers).toHaveBeenCalled()
   })
 })
+
+describe('GET /api/dashboard/members — tagId filter validation', () => {
+  const TAG_ID = '11111111-1111-4111-8111-111111111111'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    tenantOk()
+    membersOk()
+  })
+
+  it('passes a valid UUID tagId through to getMembers', async () => {
+    const r = await GET(req(`?tagId=${TAG_ID}`))
+
+    expect(r.status).toBe(200)
+    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ tagId: TAG_ID }))
+  })
+
+  // M-8 parity (review round 2, finding 8): an unvalidated tagId reached
+  // PostgREST as `invalid input syntax for type uuid` and came back a 500.
+  it('returns 400 (not 500) for a non-UUID tagId, without querying', async () => {
+    const r = await GET(req('?tagId=not-a-uuid'))
+
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'tagId must be a UUID' })
+    expect(getMembers).not.toHaveBeenCalled()
+  })
+
+  it('leaves the filter off when tagId is absent', async () => {
+    const r = await GET(req(''))
+
+    expect(r.status).toBe(200)
+    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ tagId: undefined }))
+  })
+})

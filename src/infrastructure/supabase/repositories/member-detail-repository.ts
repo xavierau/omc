@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '../client'
-import type { MemberRow } from './member-repository'
+import type { MemberRow, MemberTagLite } from './member-repository'
 
 export interface MemberDetail extends MemberRow {
   restaurant_id: string
@@ -37,7 +37,7 @@ export async function getMemberDetailForRestaurant(
 ): Promise<MemberDetail | null> {
   const supabase = createServerSupabaseClient()
 
-  const [memberRes, receiptsRes, couponsRes] = await Promise.all([
+  const [memberRes, receiptsRes, couponsRes, tagsRes] = await Promise.all([
     supabase.from('members').select(MEMBER_DETAIL_COLUMNS).eq('id', memberId).eq('restaurant_id', restaurantId).single(),
     supabase
       .from('receipts')
@@ -52,6 +52,11 @@ export async function getMemberDetailForRestaurant(
       .eq('member_id', memberId)
       .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('member_tags')
+      .select('tags(id, name, color)')
+      .eq('member_id', memberId)
+      .eq('restaurant_id', restaurantId),
   ])
 
   if (memberRes.error) {
@@ -65,11 +70,25 @@ export async function getMemberDetailForRestaurant(
   if (couponsRes.error) {
     throw new Error(`getMemberDetailForRestaurant(coupons): ${couponsRes.error.message}`)
   }
+  // Same contract as the receipts/coupons branches: a failed read must surface
+  // as a 500, not as a member who convincingly appears to carry no tags
+  // (review round 2, finding 9).
+  if (tagsRes.error) {
+    throw new Error(`getMemberDetailForRestaurant(tags): ${tagsRes.error.message}`)
+  }
 
   return {
     ...(memberRes.data as MemberRow & { restaurant_id: string }),
     receipts: (receiptsRes.data ?? []) as MemberDetail['receipts'],
     coupons: (couponsRes.data ?? []) as MemberDetail['coupons'],
     visitCount: receiptsRes.data?.length ?? 0,
+    tags: toMemberTags(tagsRes.data),
   }
+}
+
+function toMemberTags(data: unknown): MemberTagLite[] {
+  if (!Array.isArray(data)) return []
+  return data
+    .map((r) => (r as { tags?: MemberTagLite | null }).tags)
+    .filter((t): t is MemberTagLite => Boolean(t))
 }

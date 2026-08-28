@@ -4,16 +4,16 @@ import {
   createCampaign,
   setCampaignMembers,
   remapWelcomeCampaign,
-  CrossTenantMemberError,
-  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import {
   getOnboardingSettings,
   getRestaurantDefaultLanguage,
 } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
-import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { parseCreateBody, CampaignBodyError } from './parse-create-body'
+import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
+import { setCampaignTags } from '@/application/set-campaign-tags'
+import { parseCreateBody } from './parse-create-body'
+import { handleError } from './campaign-error-response'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from './with-template-review'
 import type { LanguageCode } from '@/domain/value-objects/language'
 import type { Campaign } from '@/domain/entities/campaign'
@@ -38,6 +38,13 @@ export async function POST(request: NextRequest) {
     const { restaurantId } = await getTenantContext()
     const body = (await request.json()) as Record<string, unknown>
     const parsed = parseCreateBody(body, restaurantId)
+    // Ownership is asserted BEFORE the insert: setCampaignTags would reject a
+    // foreign or deleted tag id only after the campaign row exists, leaving a
+    // 'tag' campaign with zero links — an audience that silently resolves to
+    // nobody and cannot be fixed from the form (review round 2, finding 4).
+    if (parsed.targetAudience === 'tag') {
+      await assertTagsBelongToTenant(parsed.tagIds, restaurantId)
+    }
     const defaultLang = await getRestaurantDefaultLanguage(restaurantId)
     const legacyTemplate = resolveLegacyTemplate(parsed, defaultLang)
 
@@ -63,6 +70,10 @@ export async function POST(request: NextRequest) {
 
     if (parsed.targetAudience === 'selected') {
       await setCampaignMembers(campaign.id, parsed.memberIds, restaurantId)
+    }
+
+    if (parsed.targetAudience === 'tag') {
+      await setCampaignTags(campaign.id, parsed.tagIds, restaurantId)
     }
 
     if (campaign.type === 'welcome') {
@@ -120,33 +131,4 @@ function resolveLegacyTemplate(
   const derived =
     defaultLang === 'en' ? (en ?? zhHk) : (zhHk ?? en)
   return explicit ?? derived ?? ''
-}
-
-function handleError(error: unknown, logLabel: string, defaultMsg: string) {
-  if (error instanceof AuthError) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: error.statusCode }
-    )
-  }
-  if (error instanceof CampaignBodyError) {
-    return NextResponse.json({ error: error.message }, { status: error.statusCode })
-  }
-  if (error instanceof CrossTenantMemberError) {
-    return NextResponse.json({ error: error.message }, { status: error.statusCode })
-  }
-  if (
-    error instanceof CampaignUniqueViolationError &&
-    error.constraint === 'idx_campaigns_one_active_welcome_per_restaurant'
-  ) {
-    return NextResponse.json(
-      {
-        error:
-          'An active welcome campaign already exists for this restaurant. Edit it instead of creating a new one.',
-      },
-      { status: 409 }
-    )
-  }
-  console.error(`${logLabel}:`, error)
-  return NextResponse.json({ error: defaultMsg }, { status: 500 })
 }

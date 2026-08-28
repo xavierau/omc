@@ -1,10 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// TAG-001 B5: previewContactsBatch now calls runPreviewLookups (a read-only
+// DB pre-check). Mocked here so the pre-existing/B1 tests below stay pure —
+// the lookups-specific wiring and the zero-write invariant get their own
+// dedicated test files (preview-contacts-batch-lookups.test.ts,
+// import-preview-lookups.test.ts).
+vi.mock('../preview-contacts-batch-lookups', () => ({
+  runPreviewLookups: vi.fn(),
+}))
+
 import {
   previewContactsBatch,
   type PreviewContactsBatchInput,
 } from '../preview-contacts-batch'
+import { runPreviewLookups } from '../preview-contacts-batch-lookups'
 
 const NOW = new Date('2026-05-04T12:00:00.000Z')
+const OK_LOOKUPS = { alreadyMemberPhones: [], activeConsentPhones: [], status: 'ok' as const }
+
+beforeEach(() => {
+  vi.mocked(runPreviewLookups).mockReset().mockResolvedValue(OK_LOOKUPS)
+})
 
 function buildInput(
   overrides: Partial<PreviewContactsBatchInput> = {}
@@ -154,5 +170,78 @@ describe('previewContactsBatch', () => {
       })
     )
     expect(result.rows.map((r) => r.name)).toEqual(['A', 'B', 'C'])
+  })
+})
+
+describe('previewContactsBatch — tags (TAG-001 B1, T-B1.11)', () => {
+  it('echoes normalised row tags on accepted rows', async () => {
+    const result = await previewContactsBatch(
+      buildInput({
+        rows: [
+          { phoneE164: '+85291234567', name: 'Alice', tags: ['VIP', 'vip', 'lunch'] },
+        ],
+      })
+    )
+    expect(result.rows[0].tags).toEqual(['VIP', 'lunch'])
+  })
+
+  it('defaults to an empty array when the row carries no tags', async () => {
+    const result = await previewContactsBatch(buildInput())
+    expect(result.rows[0].tags).toEqual([])
+  })
+
+  it('contributes nothing to any tag count for a row rejected as invalid_phone', async () => {
+    const result = await previewContactsBatch(
+      buildInput({
+        rows: [
+          { phoneE164: '+85291234567', name: 'Alice', tags: ['vip'] },
+          { phoneE164: 'not-a-phone', tags: ['ghost'] },
+        ],
+      })
+    )
+    expect(result.rows).toHaveLength(1)
+    expect(result.rows[0].tags).toEqual(['vip'])
+    expect(result.rejected).toHaveLength(1)
+    expect(result.rejected[0]).not.toHaveProperty('tags')
+  })
+})
+
+describe('previewContactsBatch — lookups (TAG-001 B5)', () => {
+  it('passes the lookups result straight through on the result', async () => {
+    const lookups = {
+      alreadyMemberPhones: ['+85291234567'],
+      activeConsentPhones: [],
+      status: 'ok' as const,
+    }
+    vi.mocked(runPreviewLookups).mockResolvedValue(lookups)
+
+    const result = await previewContactsBatch(buildInput())
+
+    expect(result.lookups).toEqual(lookups)
+  })
+
+  it('calls runPreviewLookups with the restaurantId and the ACCEPTED rows only (not rejected ones)', async () => {
+    await previewContactsBatch(
+      buildInput({
+        rows: [
+          { phoneE164: '+85291234567', name: 'Alice' },
+          { phoneE164: 'not-a-phone' },
+        ],
+      })
+    )
+
+    expect(runPreviewLookups).toHaveBeenCalledWith('rest-1', ['+85291234567'])
+  })
+
+  it('surfaces a skipped_too_many_rows or failed status untouched', async () => {
+    vi.mocked(runPreviewLookups).mockResolvedValue({
+      alreadyMemberPhones: [],
+      activeConsentPhones: [],
+      status: 'failed',
+    })
+
+    const result = await previewContactsBatch(buildInput())
+
+    expect(result.lookups.status).toBe('failed')
   })
 })

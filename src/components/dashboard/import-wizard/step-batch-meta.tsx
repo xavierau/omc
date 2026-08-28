@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { BatchTagSelector } from './batch-tag-selector'
 import { ProofUploader } from './proof-uploader'
 import {
   validateBatchMeta,
@@ -116,6 +117,11 @@ export function StepBatchMeta({
           />
         </Field>
       )}
+
+      <BatchTagSelector
+        selectedIds={value.tagIds}
+        onChange={(ids) => set('tagIds', ids)}
+      />
 
       <div className="flex justify-end">
         <button

@@ -5,12 +5,13 @@ import {
   updateCampaign,
   setCampaignMembers,
   getCampaignMemberIds,
-  CrossTenantMemberError,
-  CampaignUniqueViolationError,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
+import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { cascadeCampaignTypeChange } from '@/application/cascade-campaign-type-change'
+import { setCampaignTags } from '@/application/set-campaign-tags'
 import {
   attachLegacyTemplateIfNeeded,
   validateTemplateLengths,
@@ -21,9 +22,14 @@ import {
   applyFailureReasonRevivalGuard,
   validatePatchStatus,
 } from './patch-helpers'
-import { CampaignBodyError } from '../parse-create-body-errors'
+import {
+  parseTargetAudience,
+  validateTagIds,
+} from '../parse-create-body-audience'
+import { handleError, isWelcomeUniqueViolation } from '../campaign-error-response'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from '../with-template-review'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
+import type { Campaign } from '@/domain/entities/campaign'
 
 export async function GET(
   _request: NextRequest,
@@ -54,6 +60,8 @@ export async function GET(
     }
     if (campaign.targetAudience === 'selected') {
       result.memberIds = await getCampaignMemberIds(id)
+    } else if (campaign.targetAudience === 'tag') {
+      result.tagIds = await getCampaignTagIds(id)
     }
     return NextResponse.json(result)
   } catch (error) {
@@ -94,6 +102,14 @@ export async function PATCH(
     if (statusError) {
       return NextResponse.json({ error: statusError }, { status: 400 })
     }
+    // Tag ids are validated (shape + UUID + cap) and their tenant ownership
+    // asserted BEFORE updateCampaign. Rejecting only inside setCampaignTags
+    // would leave the campaign already flipped to target_audience='tag' with
+    // no links — an audience that resolves to nobody (round 2, findings 3+4).
+    const tagIds = validateTagIds(body.tagIds, parseTargetAudience(body.targetAudience))
+    if (body.targetAudience === 'tag') {
+      await assertTagsBelongToTenant(tagIds, restaurantId)
+    }
     const changes: UpdateCampaignParams = pickAllowed(body)
     applyImageScopeGuard(changes, existing, restaurantId)
     applyFailureReasonRevivalGuard(changes)
@@ -104,6 +120,14 @@ export async function PATCH(
     if (body.targetAudience !== undefined && body.memberIds) {
       await setCampaignMembers(id, body.memberIds, restaurantId)
     }
+
+    await syncCampaignTags({
+      campaignId: id,
+      restaurantId,
+      nextAudience: body.targetAudience,
+      previousAudience: existing.targetAudience,
+      tagIds,
+    })
 
     await cascadeCampaignTypeChange({
       restaurantId,
@@ -116,19 +140,9 @@ export async function PATCH(
 
     return NextResponse.json(campaign)
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.statusCode })
-    }
-    if (error instanceof CampaignBodyError) {
-      return NextResponse.json({ error: error.message }, { status: error.statusCode })
-    }
-    if (error instanceof CrossTenantMemberError) {
-      return NextResponse.json({ error: error.message }, { status: error.statusCode })
-    }
-    if (
-      error instanceof CampaignUniqueViolationError &&
-      error.constraint === 'idx_campaigns_one_active_welcome_per_restaurant'
-    ) {
+    // The one branch PATCH does not share with create: the same constraint,
+    // but copy that tells an editor what to do rather than a creator.
+    if (isWelcomeUniqueViolation(error)) {
       return NextResponse.json(
         {
           error:
@@ -137,10 +151,30 @@ export async function PATCH(
         { status: 409 }
       )
     }
-    console.error('Campaign PATCH error:', (error as Error)?.message, (error as Error)?.stack)
-    return NextResponse.json(
-      { error: 'Failed to update campaign' },
-      { status: 500 }
-    )
+    return handleError(error, 'Campaign PATCH error', 'Failed to update campaign')
+  }
+}
+
+interface SyncTagsArgs {
+  campaignId: string
+  restaurantId: string
+  nextAudience: unknown
+  previousAudience: Campaign['targetAudience']
+  tagIds: string[]
+}
+
+/**
+ * Keep `campaign_tags` consistent with the audience the campaign now claims.
+ * Switching AWAY from 'tag' must clear the links: leaving them behind means a
+ * later switch back silently resurrects a selection the merchant abandoned,
+ * and the rows outlive any UI that can show them (review round 2, finding 3).
+ */
+async function syncCampaignTags(a: SyncTagsArgs): Promise<void> {
+  if (a.nextAudience === 'tag') {
+    await setCampaignTags(a.campaignId, a.tagIds, a.restaurantId)
+    return
+  }
+  if (a.nextAudience !== undefined && a.previousAudience === 'tag') {
+    await setCampaignTags(a.campaignId, [], a.restaurantId)
   }
 }

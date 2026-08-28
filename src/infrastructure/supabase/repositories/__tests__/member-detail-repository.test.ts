@@ -55,18 +55,22 @@ function makeChain(result: { data: unknown; error: unknown }) {
 function buildSpyClient(
   memberResult: { data: unknown; error: unknown },
   receiptsResult: { data: unknown; error: unknown } = { data: [], error: null },
-  couponsResult: { data: unknown; error: unknown } = { data: [], error: null }
+  couponsResult: { data: unknown; error: unknown } = { data: [], error: null },
+  tagsResult: { data: unknown; error: unknown } = { data: [], error: null }
 ) {
   const member = makeChain(memberResult)
   const receipts = makeChain(receiptsResult)
   const coupons = makeChain(couponsResult)
+  // TAG-001: the detail view also joins member_tags → tags (read-only).
+  const memberTags = makeChain(tagsResult)
   const from = vi.fn((table: string) => {
     if (table === 'members') return member.chain
     if (table === 'receipts') return receipts.chain
     if (table === 'coupons') return coupons.chain
+    if (table === 'member_tags') return memberTags.chain
     throw new Error(`unexpected table: ${table}`)
   })
-  return { from, memberFilters: member.filters, memberSelects: member.selects, receiptsFilters: receipts.filters, couponsFilters: coupons.filters }
+  return { from, memberFilters: member.filters, memberSelects: member.selects, receiptsFilters: receipts.filters, couponsFilters: coupons.filters, memberTagsFilters: memberTags.filters }
 }
 
 describe('getMemberDetailForRestaurant', () => {
@@ -104,6 +108,18 @@ describe('getMemberDetailForRestaurant', () => {
     await getMemberDetailForRestaurant(MEMBER_ID, REST_ID)
 
     expect(spy.couponsFilters).toEqual([
+      ['member_id', MEMBER_ID],
+      ['restaurant_id', REST_ID],
+    ])
+  })
+
+  it('scopes the member_tags query by member_id AND restaurant_id', async () => {
+    const spy = buildSpyClient({ data: buildMemberRow(), error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    await getMemberDetailForRestaurant(MEMBER_ID, REST_ID)
+
+    expect(spy.memberTagsFilters).toEqual([
       ['member_id', MEMBER_ID],
       ['restaurant_id', REST_ID],
     ])
@@ -230,6 +246,23 @@ describe('getMemberDetailForRestaurant', () => {
 
     await expect(getMemberDetailForRestaurant(MEMBER_ID, REST_ID)).rejects.toThrow(
       'coupons query failed'
+    )
+  })
+
+  // Review round 2, finding 9: the tags branch alone swallowed its error, so a
+  // failed join rendered "this member has no tags" — indistinguishable from
+  // the truth, and one click away from an admin re-adding tags that exist.
+  it('throws when the tags sub-query errors instead of rendering an untagged member', async () => {
+    const spy = buildSpyClient(
+      { data: buildMemberRow(), error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: { message: 'tags query failed' } }
+    )
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: spy.from } as never)
+
+    await expect(getMemberDetailForRestaurant(MEMBER_ID, REST_ID)).rejects.toThrow(
+      'tags query failed'
     )
   })
 })

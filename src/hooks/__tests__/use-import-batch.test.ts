@@ -28,6 +28,7 @@ const fixtureResult: ImportContactsBatchResult = {
   membersCreated: 1,
   rejected: [],
   gradeBreakdown: { strong: 1, medium: 0, weak: 0, none: 0 },
+  tagging: { status: 'ok', taggedMembers: 0 },
 }
 
 const fixtureList: { batches: ImportBatchSummary[] } = {

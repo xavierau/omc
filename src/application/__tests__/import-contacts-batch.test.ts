@@ -47,6 +47,7 @@ function buildInput(
       { phoneE164: '+85299999999' },
     ],
     mergeExistingMembers: false,
+    tagIds: [],
     now: NOW,
     ...overrides,
   }
@@ -60,7 +61,7 @@ describe('importContactsBatch', () => {
     })
     vi.mocked(importOneContactRow).mockImplementation(async () => {
       calls.push('importOneContactRow')
-      return { ok: true, gradeBucket: 'medium', created: true }
+      return { ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' }
     })
     vi.mocked(updateImportBatchCounts).mockImplementation(async () => {
       calls.push('updateImportBatchCounts')
@@ -99,9 +100,9 @@ describe('importContactsBatch', () => {
     vi.mocked(updateImportBatchCounts).mockResolvedValue(undefined)
     // Row 2 of 3 throws (e.g. emitEvent failure). Rows 1 + 3 succeed.
     vi.mocked(importOneContactRow)
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
       .mockRejectedValueOnce(new Error('emitEvent boom'))
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
 
     const result = await importContactsBatch(
       buildInput({
@@ -138,7 +139,7 @@ describe('importContactsBatch', () => {
   })
 
   it('rejects duplicate phones within the batch (kept out of fan-out)', async () => {
-    vi.mocked(importOneContactRow).mockResolvedValue({ ok: true, gradeBucket: 'medium', created: true })
+    vi.mocked(importOneContactRow).mockResolvedValue({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
     vi.mocked(insertImportBatch).mockResolvedValue(undefined)
     vi.mocked(updateImportBatchCounts).mockResolvedValue(undefined)
 
@@ -158,8 +159,8 @@ describe('importContactsBatch', () => {
 
   it('counts gradeBreakdown across mixed grades', async () => {
     vi.mocked(importOneContactRow)
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'strong', created: true })
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'weak', created: true })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'strong', created: true, memberId: 'mem-strong' })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'weak', created: true, memberId: 'mem-weak' })
     vi.mocked(insertImportBatch).mockResolvedValue(undefined)
     vi.mocked(updateImportBatchCounts).mockResolvedValue(undefined)
 
@@ -171,7 +172,7 @@ describe('importContactsBatch', () => {
 
   it('reports per-row rejections without throwing', async () => {
     vi.mocked(importOneContactRow)
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
       .mockResolvedValueOnce({
         ok: false,
         reject: { phoneE164: '+85299999999', reason: 'phone_already_member' },
@@ -188,8 +189,8 @@ describe('importContactsBatch', () => {
 
   it('membersCreated counts only created=true rows (B3, merge=true)', async () => {
     vi.mocked(importOneContactRow)
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true })
-      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: false })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
+      .mockResolvedValueOnce({ ok: true, gradeBucket: 'medium', created: false, memberId: 'mem-existing' })
     vi.mocked(insertImportBatch).mockResolvedValue(undefined)
     vi.mocked(updateImportBatchCounts).mockResolvedValue(undefined)
 
@@ -212,7 +213,7 @@ describe('importContactsBatch', () => {
   })
 
   it('concurrent calls produce two distinct batch rows (different ids)', async () => {
-    vi.mocked(importOneContactRow).mockResolvedValue({ ok: true, gradeBucket: 'medium', created: true })
+    vi.mocked(importOneContactRow).mockResolvedValue({ ok: true, gradeBucket: 'medium', created: true, memberId: 'mem-1' })
     vi.mocked(insertImportBatch).mockResolvedValue(undefined)
     vi.mocked(updateImportBatchCounts).mockResolvedValue(undefined)
 

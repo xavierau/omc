@@ -7,15 +7,23 @@
  * cells — when needed, swap in `papaparse`.
  */
 
+import { normalizeImportTags } from '@/domain/services/normalize-import-tags'
+
 export interface ParsedRow {
   phoneE164: string
   name: string | null
   preferredLanguage: 'en' | 'zh_hk' | null
+  tags: string[]
+  /** Tag values `normalizeImportTags` dropped for this row (blank, >40 chars,
+   * or over the per-row cap). Feeds the batch-level tagsIgnored stat in
+   * parse-csv-tag-stats.ts (I-2). */
+  ignoredTagCount: number
 }
 
 const PHONE_HEADERS = ['phone', 'phonee164', 'phone_e164']
 const NAME_HEADERS = ['name', 'fullname']
 const LANG_HEADERS = ['preferred_language', 'language', 'lang']
+const TAGS_HEADERS = ['tags', 'tag']
 
 export function parseCsv(text: string): ParsedRow[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -25,15 +33,19 @@ export function parseCsv(text: string): ParsedRow[] {
   if (idxPhone < 0) return []
   const idxName = findIndex(headers, NAME_HEADERS)
   const idxLang = findIndex(headers, LANG_HEADERS)
+  const idxTags = findIndex(headers, TAGS_HEADERS)
   const rows: ParsedRow[] = []
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(',').map((c) => c.trim())
     const phone = cells[idxPhone] ?? ''
     if (phone.length === 0) continue
+    const tagResult = idxTags >= 0 ? normalizeImportTags(cells[idxTags]) : { names: [], ignored: 0 }
     rows.push({
       phoneE164: phone,
       name: idxName >= 0 ? cellOrNull(cells[idxName]) : null,
       preferredLanguage: idxLang >= 0 ? normaliseLang(cells[idxLang]) : null,
+      tags: tagResult.names,
+      ignoredTagCount: tagResult.ignored,
     })
   }
   return rows
