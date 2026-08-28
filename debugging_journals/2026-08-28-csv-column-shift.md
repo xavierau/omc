@@ -60,6 +60,15 @@ Tests: `csv-tokenizer.test.ts` (fixtures for every RFC 4180 case above + a 50,00
 `parse-csv.test.ts` (the #148 row quoted → correct row; unquoted → rejected `line 2, expected 4,
 actual 5`, and a proof that no `zh_hk` tag can be minted), `step-upload-csv-helpers.test.ts`.
 
+Review-round hardening (gemini + grok + qa-engineer + ui-test-runner + recovered `/code-review` finders,
+`reviews/2026-08-28-wonb-018-019-*`): an unterminated quote on the header line is named as line 1
+(checked before alias matching); a quote opened in the *phone* column no longer dumps the rest of the
+file into the panel (`rejectPhone`); a line break inside a quoted name collapses to a space and inside
+a tags cell acts as a separator (a newline would otherwise reach `members.name` → WhatsApp template
+parameter, or be minted as a tag name); NBSP / U+3000 before an opening quote are skipped; the
+mismatch hint is direction-aware; the file input resets so a fixed file can be re-picked; an
+unreadable file shows `csv.errors.unreadable`. Cell helpers live in `parse-csv-cells.ts`.
+
 ## Prevention
 - **A parser that cannot fail is a data-corruption path.** Any intake parser must have a rejection
   channel; "malformed input degrades into plausible values" is the failure mode to test for
