@@ -28,7 +28,7 @@ function makeChain(resolved: unknown) {
 
 interface ClientConfig {
   members?: { data?: { id: string }[] | null; error?: { message: string } | null }
-  deleteSelect?: { data?: { member_id: string }[] | null; error?: { message: string } | null }
+  deleteResult?: { count?: number | null; error?: { message: string } | null }
 }
 
 function buildClient(config: ClientConfig = {}) {
@@ -37,8 +37,8 @@ function buildClient(config: ClientConfig = {}) {
     error: config.members?.error ?? null,
   })
   const deleteChain = makeChain({
-    data: config.deleteSelect?.data ?? [],
-    error: config.deleteSelect?.error ?? null,
+    count: config.deleteResult?.count ?? 0,
+    error: config.deleteResult?.error ?? null,
   })
 
   const membersSelect = vi.fn(() => membersChain)
@@ -96,9 +96,7 @@ describe('assertMembersBelongToTenant', () => {
 
 describe('deleteMemberTagsBulk', () => {
   it('scopes the delete by restaurant, member ids and tag ids and returns the row count', async () => {
-    const c = buildClient({
-      deleteSelect: { data: [{ member_id: 'm-1' }, { member_id: 'm-2' }] },
-    })
+    const c = buildClient({ deleteResult: { count: 2 } })
     useClient(c)
     const affected = await deleteMemberTagsBulk(RESTAURANT_ID, ['m-1', 'm-2'], ['t-1'])
     expect(affected).toBe(2)
@@ -107,11 +105,30 @@ describe('deleteMemberTagsBulk', () => {
     expect(c.deleteChain.in).toHaveBeenCalledWith('tag_id', ['t-1'])
   })
 
+  it("asks PostgREST for an exact count instead of counting returned rows (I-5d)", async () => {
+    const c = buildClient({ deleteResult: { count: 2500 } })
+    useClient(c)
+
+    // 2,500 pairs — above the max-rows cap that would truncate a returned
+    // representation — still report exactly.
+    const affected = await deleteMemberTagsBulk(RESTAURANT_ID, ['m-1'], ['t-1'])
+
+    expect(affected).toBe(2500)
+    expect(c.deleteFn).toHaveBeenCalledWith({ count: 'exact' })
+    expect(c.deleteChain.select).not.toHaveBeenCalled()
+  })
+
   it('returns 0 when no rows matched (not an error)', async () => {
-    const c = buildClient({ deleteSelect: { data: [] } })
+    const c = buildClient({ deleteResult: { count: 0 } })
     useClient(c)
     const affected = await deleteMemberTagsBulk(RESTAURANT_ID, ['m-1'], ['t-x'])
     expect(affected).toBe(0)
+  })
+
+  it('returns 0 when PostgREST omits the count header', async () => {
+    const c = buildClient({ deleteResult: { count: null } })
+    useClient(c)
+    expect(await deleteMemberTagsBulk(RESTAURANT_ID, ['m-1'], ['t-1'])).toBe(0)
   })
 
   it('is a no-op for empty member ids or empty tag ids (does not query)', async () => {
@@ -123,7 +140,7 @@ describe('deleteMemberTagsBulk', () => {
   })
 
   it('throws when supabase reports an error', async () => {
-    const c = buildClient({ deleteSelect: { error: { message: 'db down' } } })
+    const c = buildClient({ deleteResult: { error: { message: 'db down' } } })
     useClient(c)
     await expect(
       deleteMemberTagsBulk(RESTAURANT_ID, ['m-1'], ['t-1'])

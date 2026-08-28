@@ -8,13 +8,33 @@
 --
 -- The 'all'/'selected' CHECK from migration 015 was added as an unnamed inline
 -- column constraint, which Postgres auto-names `campaigns_target_audience_check`.
+-- Dropping it by that literal name would fail on any database where it was ever
+-- renamed (manual patch, restore, differently-named re-creation), so the DO block
+-- below drops every CHECK on public.campaigns whose definition references
+-- `target_audience` and then re-adds the widened one under the canonical name.
+-- 015 is the only migration that defines such a constraint, so on an untouched
+-- database this drops exactly the same one the bare statement did.
 --
 -- Writer: SOLE writer is the service-role client at
 --   src/infrastructure/supabase/repositories/campaign-tags-repository.ts
 -- which bypasses RLS. The SELECT policy below is read-only for tenant dashboards
 -- and platform admins — no INSERT/UPDATE/DELETE policies. Mirrors 048/052.
 
-ALTER TABLE campaigns DROP CONSTRAINT campaigns_target_audience_check;
+DO $$
+DECLARE
+  c RECORD;
+BEGIN
+  FOR c IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.campaigns'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%target_audience%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.campaigns DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
+
 ALTER TABLE campaigns ADD CONSTRAINT campaigns_target_audience_check
   CHECK (target_audience IN ('all', 'selected', 'tag'));
 

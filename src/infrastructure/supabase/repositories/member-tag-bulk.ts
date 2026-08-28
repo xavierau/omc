@@ -26,7 +26,14 @@ export async function assertMembersBelongToTenant(
   }
 }
 
-/** Remove the memberIds×tagIds cross-product. Returns the deleted row count. */
+/**
+ * Remove the memberIds×tagIds cross-product. Returns the deleted row count.
+ *
+ * The count comes from `delete({ count: 'exact' })`, not from counting returned
+ * rows: a returned representation is capped at PostgREST `max-rows` (1000 by
+ * default), so above that the caller would be told fewer pairs were removed
+ * than actually were (review I-5(d)).
+ */
 export async function deleteMemberTagsBulk(
   restaurantId: string,
   memberIds: string[],
@@ -34,13 +41,12 @@ export async function deleteMemberTagsBulk(
 ): Promise<number> {
   if (memberIds.length === 0 || tagIds.length === 0) return 0
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('member_tags')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('restaurant_id', restaurantId)
     .in('member_id', memberIds)
     .in('tag_id', tagIds)
-    .select('member_id')
   if (error) throw new Error(`deleteMemberTagsBulk: ${error.message}`)
-  return (data ?? []).length
+  return count ?? 0
 }

@@ -13,6 +13,12 @@ import { POST } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
 
+// Real UUIDs: the route now rejects anything else with a 400 before it can
+// reach PostgREST as `invalid input syntax for type uuid` (M-8).
+const M_1 = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
+const M_2 = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'
+const T_1 = 'cccccccc-3333-4333-8333-cccccccccccc'
+
 function postRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/dashboard/members/bulk-tags', {
     method: 'POST',
@@ -34,14 +40,14 @@ beforeEach(() => {
 describe('POST /api/dashboard/members/bulk-tags', () => {
   it('adds tags to members and returns the affected count', async () => {
     const r = await POST(
-      postRequest({ memberIds: ['m-1', 'm-2'], tagIds: ['t-1'], action: 'add' })
+      postRequest({ memberIds: [M_1, M_2], tagIds: [T_1], action: 'add' })
     )
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ affected: 2 })
     expect(bulkUpdateMemberTags).toHaveBeenCalledWith({
       restaurantId: RESTAURANT_ID,
-      memberIds: ['m-1', 'm-2'],
-      tagIds: ['t-1'],
+      memberIds: [M_1, M_2],
+      tagIds: [T_1],
       action: 'add',
     })
   })
@@ -49,7 +55,7 @@ describe('POST /api/dashboard/members/bulk-tags', () => {
   it('removes tags from members and returns the affected count', async () => {
     vi.mocked(bulkUpdateMemberTags).mockResolvedValueOnce({ affected: 0 })
     const r = await POST(
-      postRequest({ memberIds: ['m-1'], tagIds: ['t-x'], action: 'remove' })
+      postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'remove' })
     )
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ affected: 0 })
@@ -57,32 +63,46 @@ describe('POST /api/dashboard/members/bulk-tags', () => {
 
   it('returns 401 without a tenant context', async () => {
     vi.mocked(getTenantContext).mockRejectedValueOnce(new AuthError('Unauthorized', 401))
-    const r = await POST(postRequest({ memberIds: ['m-1'], tagIds: ['t-1'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(401)
     expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
   })
 
   it('returns 400 when memberIds is not an array of non-empty strings', async () => {
-    const r = await POST(postRequest({ memberIds: 'nope', tagIds: ['t-1'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: 'nope', tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(400)
     expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
   })
 
+  it('returns 400 (not 500) when memberIds contains a non-UUID id (M-8)', async () => {
+    const r = await POST(postRequest({ memberIds: ['not-a-uuid'], tagIds: [T_1], action: 'add' }))
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'memberIds must be an array of UUIDs' })
+    expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 (not 500) when tagIds contains a non-UUID id (M-8)', async () => {
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: ['1234'], action: 'add' }))
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'tagIds must be an array of UUIDs' })
+    expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when memberIds contains an empty string', async () => {
-    const r = await POST(postRequest({ memberIds: ['m-1', ''], tagIds: ['t-1'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1, ''], tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(400)
     expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
   })
 
   it('returns 400 when tagIds is not an array of strings', async () => {
-    const r = await POST(postRequest({ memberIds: ['m-1'], tagIds: 'nope', action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: 'nope', action: 'add' }))
     expect(r.status).toBe(400)
     expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
   })
 
   it('returns 400 for an unknown action', async () => {
     const r = await POST(
-      postRequest({ memberIds: ['m-1'], tagIds: ['t-1'], action: 'archive' })
+      postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'archive' })
     )
     expect(r.status).toBe(400)
     expect(bulkUpdateMemberTags).not.toHaveBeenCalled()
@@ -92,7 +112,7 @@ describe('POST /api/dashboard/members/bulk-tags', () => {
     vi.mocked(bulkUpdateMemberTags).mockRejectedValueOnce(
       new BulkMemberTagValidationError('At most 500 members per bulk update')
     )
-    const r = await POST(postRequest({ memberIds: ['m-1'], tagIds: ['t-1'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(400)
   })
 
@@ -100,7 +120,7 @@ describe('POST /api/dashboard/members/bulk-tags', () => {
     vi.mocked(bulkUpdateMemberTags).mockRejectedValueOnce(
       new CrossTenantTagError('Invalid tag IDs')
     )
-    const r = await POST(postRequest({ memberIds: ['m-1'], tagIds: ['t-x'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(403)
   })
 
@@ -108,7 +128,7 @@ describe('POST /api/dashboard/members/bulk-tags', () => {
     vi.mocked(bulkUpdateMemberTags).mockRejectedValueOnce(
       new CrossTenantMemberError('Invalid member IDs')
     )
-    const r = await POST(postRequest({ memberIds: ['m-x'], tagIds: ['t-1'], action: 'add' }))
+    const r = await POST(postRequest({ memberIds: [M_1], tagIds: [T_1], action: 'add' }))
     expect(r.status).toBe(new CrossTenantMemberError('x').statusCode)
   })
 })

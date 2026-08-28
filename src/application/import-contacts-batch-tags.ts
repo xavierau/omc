@@ -1,6 +1,7 @@
 import { ImportBatchValidationError } from '@/domain/services/__errors__/import-errors'
 import { tagKey } from '@/domain/services/normalize-import-tags'
 import { tagRepository } from '@/infrastructure/supabase/repositories/tag-repository'
+import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { assignTagsToImportedMembers } from './assign-tags-to-imported-members'
 import { assignRowTagsToImportedMembers } from './assign-row-tags-to-imported-members'
 import type { ImportContactsBatchInput } from './import-contacts-batch'
@@ -15,6 +16,23 @@ export interface ImportTaggingResult {
   status: 'ok' | 'failed'
   /** Distinct members that received at least one tag, across both paths. */
   taggedMembers: number
+}
+
+/**
+ * Ownership check for the wizard's batch-level tag IDS — runs BEFORE any write.
+ *
+ * The per-row CSV path takes tag NAMES and get-or-creates them inside the
+ * tenant, so it cannot reach another tenant's tag. The batch-level ids come
+ * straight off the wire, so a tampered payload could. Asserting here turns that
+ * into a 403 with nothing written, instead of the previous 200 + `tagging.failed`
+ * that had already imported the contacts (review M-7).
+ */
+export async function assertBatchTagsBelongToTenant(
+  restaurantId: string,
+  tagIds: string[]
+): Promise<void> {
+  if (tagIds.length === 0) return
+  await assertTagsBelongToTenant(tagIds, restaurantId)
 }
 
 /**

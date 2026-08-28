@@ -3,7 +3,6 @@
 // tags embed (member_tags → tags) surfaced as a flat `tags` array on each row.
 
 import { createServerSupabaseClient } from '../client'
-import { listMemberIdsByTag } from './member-tag-repository'
 
 export interface MemberTagLite {
   id: string
@@ -41,22 +40,29 @@ export interface MemberListResult {
 const SELECT_COLUMNS =
   'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, member_tags(tags(id, name, color))'
 
+// Tag filter as an embedded INNER JOIN, aliased so it does not collide with the
+// display embed above. It replaces a pre-fetch of every member id for the tag,
+// which was silently truncated at PostgREST `max-rows` and put ~36 bytes per id
+// into the query string (review I-5(c)). One tag, and member_tags is keyed
+// (member_id, tag_id), so at most one joined row per member — `count: exact`
+// and `.range()` pagination stay accurate. The display embed stays un-filtered
+// so the Tags column still shows ALL of each member's tags.
+const TAG_FILTER_EMBED = 'tag_filter:member_tags!inner(tag_id)'
+
 export async function getMembers(params: MemberListParams): Promise<MemberListResult> {
   const { restaurantId, page, pageSize, search, sortBy = 'last_visit_at', sortOrder = 'desc', tagId } = params
 
-  // Tag filter: pre-fetch the tag's member ids (tenant-scoped) then constrain
-  // the list with .in('id', …). This keeps `count` exact and pagination simple
-  // while leaving the display embed un-filtered so the Tags column shows ALL
-  // of each member's tags (not just the filtered one).
-  const memberIds = tagId ? await listMemberIdsByTag([tagId], restaurantId) : null
-  if (memberIds && memberIds.length === 0) return { members: [], total: 0 }
-
+  // Two literal select calls rather than one built from a ternary: postgrest-js
+  // parses the column list at compile time and cannot resolve a UNION of two
+  // literals, though it parses either one on its own.
   const supabase = createServerSupabaseClient()
-  let query = supabase
-    .from('members')
-    .select(SELECT_COLUMNS, { count: 'exact' })
-    .eq('restaurant_id', restaurantId)
-  if (memberIds) query = query.in('id', memberIds)
+  const members = supabase.from('members')
+  let query = tagId
+    ? members
+        .select(`${SELECT_COLUMNS}, ${TAG_FILTER_EMBED}`, { count: 'exact' })
+        .eq('restaurant_id', restaurantId)
+        .eq('tag_filter.tag_id', tagId)
+    : members.select(SELECT_COLUMNS, { count: 'exact' }).eq('restaurant_id', restaurantId)
   query = applySearch(query, search)
   query = query.order(sortBy, { ascending: sortOrder === 'asc', nullsFirst: false })
   const from = (page - 1) * pageSize
@@ -75,8 +81,11 @@ function applySearch<Q extends { or(filter: string): Q }>(query: Q, search?: str
   return query.or(`name.ilike.%${sanitized}%,phone.ilike.%${sanitized}%`)
 }
 
+// `tag_filter` is the join used to filter; it is dropped here so it never
+// leaks onto the wire row (the chips come from the `member_tags` embed).
 function mapMemberRow(row: Record<string, unknown>): MemberRow {
   const { member_tags, ...rest } = row
+  delete rest.tag_filter
   return { ...(rest as Omit<MemberRow, 'tags'>), tags: extractTags(member_tags) }
 }
 

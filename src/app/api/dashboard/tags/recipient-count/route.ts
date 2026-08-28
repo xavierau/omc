@@ -6,6 +6,7 @@ import {
   CrossTenantTagError,
 } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { countActiveMembersByTags } from '@/infrastructure/supabase/repositories/tag-audience-repository'
+import { isValidUUID } from '@/infrastructure/validation/validators'
 
 const MAX_TAG_IDS = 20
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const tagIds = parseTagIdsParam(request.nextUrl.searchParams.get('tagIds'))
     if (!tagIds) {
       return NextResponse.json(
-        { error: `tagIds must be 1-${MAX_TAG_IDS} comma-separated ids` },
+        { error: `tagIds must be 1-${MAX_TAG_IDS} comma-separated UUIDs` },
         { status: 400 }
       )
     }
@@ -39,6 +40,10 @@ function parseTagIdsParam(raw: string | null): string[] | null {
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
   if (ids.length === 0 || ids.length > MAX_TAG_IDS) return null
+  // A non-UUID id reaches PostgREST as `invalid input syntax for type uuid`,
+  // which mapError would report as a 500; reject the shape here so bad input
+  // stays a 400 (review M-8).
+  if (!ids.every(isValidUUID)) return null
   return ids
 }
 

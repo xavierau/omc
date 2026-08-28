@@ -22,6 +22,7 @@ import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { importContactsBatch } from '@/application/import-contacts-batch'
 import { findByRestaurant } from '@/infrastructure/supabase/repositories/import-batch-repository'
 import { ImportBatchValidationError } from '@/domain/services/__errors__/import-errors'
+import { CrossTenantTagError } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { ImportBatch } from '@/domain/entities/import-batch'
 import { POST, GET } from '../route'
 
@@ -119,6 +120,15 @@ describe('POST /api/dashboard/imports', () => {
     vi.mocked(importContactsBatch).mockRejectedValueOnce(new Error('boom'))
     const r = await POST(jsonRequest(validBody()))
     expect(r.status).toBe(500)
+  })
+
+  it('returns 403 when a batch-level tag id belongs to another tenant (M-7)', async () => {
+    vi.mocked(importContactsBatch).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+    const r = await POST(jsonRequest({ ...validBody(), tags: ['tag-x'] }))
+    expect(r.status).toBe(403)
+    expect(await r.json()).toEqual({ error: 'Invalid tag IDs' })
   })
 
   it('returns 400 with reason=empty_rows when rows is empty (B2)', async () => {

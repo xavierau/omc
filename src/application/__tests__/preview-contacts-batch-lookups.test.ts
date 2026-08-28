@@ -86,4 +86,38 @@ describe('runPreviewLookups', () => {
     expect(errorSpy).toHaveBeenCalled()
     errorSpy.mockRestore()
   })
+
+  it('runs the two lookups serially so in-flight chunk queries stay within the budget (M-3)', async () => {
+    // Each lookup fans out to MAX_CONCURRENT_CHUNKS (4) queries internally.
+    // Racing them would double that, so the consent lookup must not start
+    // until the member lookup has settled.
+    let releaseMemberLookup: (v: Set<string>) => void = () => {}
+    vi.mocked(findExistingMemberPhones).mockReturnValue(
+      new Promise<Set<string>>((resolve) => {
+        releaseMemberLookup = resolve
+      })
+    )
+    vi.mocked(findActiveMarketingConsentPhones).mockResolvedValue(new Set())
+
+    const pending = runPreviewLookups(RESTAURANT_ID, ['+85291234567'])
+    await Promise.resolve()
+
+    expect(findExistingMemberPhones).toHaveBeenCalledTimes(1)
+    expect(findActiveMarketingConsentPhones).not.toHaveBeenCalled()
+
+    releaseMemberLookup(new Set())
+    await pending
+
+    expect(findActiveMarketingConsentPhones).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not issue the consent lookup at all when the member lookup throws', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(findExistingMemberPhones).mockRejectedValue(new Error('db down'))
+
+    await runPreviewLookups(RESTAURANT_ID, ['+85291234567'])
+
+    expect(findActiveMarketingConsentPhones).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
 })

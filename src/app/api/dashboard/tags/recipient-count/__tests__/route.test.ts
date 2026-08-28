@@ -24,6 +24,14 @@ import { GET } from '../route'
 
 const RESTAURANT_ID = 'rest-1'
 
+// Real UUIDs: the route now rejects anything else with a 400 before it can
+// reach PostgREST as `invalid input syntax for type uuid` (M-8).
+const TAG_1 = '11111111-1111-4111-8111-111111111111'
+const TAG_2 = '22222222-2222-4222-8222-222222222222'
+function tagUuid(i: number): string {
+  return `3${i.toString().padStart(7, '0')}-3333-4333-8333-333333333333`
+}
+
 function req(query: string): NextRequest {
   return new NextRequest(
     `http://localhost/api/dashboard/tags/recipient-count${query}`
@@ -44,17 +52,17 @@ beforeEach(() => {
 
 describe('GET /api/dashboard/tags/recipient-count', () => {
   it('returns the count for valid tag ids', async () => {
-    const r = await GET(req('?tagIds=t-1,t-2'))
+    const r = await GET(req(`?tagIds=${TAG_1},${TAG_2}`))
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ count: 3 })
-    expect(assertTagsBelongToTenant).toHaveBeenCalledWith(['t-1', 't-2'], RESTAURANT_ID)
-    expect(countActiveMembersByTags).toHaveBeenCalledWith(['t-1', 't-2'], RESTAURANT_ID)
+    expect(assertTagsBelongToTenant).toHaveBeenCalledWith([TAG_1, TAG_2], RESTAURANT_ID)
+    expect(countActiveMembersByTags).toHaveBeenCalledWith([TAG_1, TAG_2], RESTAURANT_ID)
   })
 
   it('trims whitespace and drops blanks in the comma list', async () => {
-    const r = await GET(req('?tagIds=%20t-1%20,,t-2'))
+    const r = await GET(req(`?tagIds=%20${TAG_1}%20,,${TAG_2}`))
     expect(r.status).toBe(200)
-    expect(assertTagsBelongToTenant).toHaveBeenCalledWith(['t-1', 't-2'], RESTAURANT_ID)
+    expect(assertTagsBelongToTenant).toHaveBeenCalledWith([TAG_1, TAG_2], RESTAURANT_ID)
   })
 
   it('returns 400 when tagIds is missing', async () => {
@@ -70,37 +78,50 @@ describe('GET /api/dashboard/tags/recipient-count', () => {
   })
 
   it('returns 400 when more than 20 ids are given', async () => {
-    const many = Array.from({ length: 21 }, (_, i) => `t-${i}`).join(',')
+    const many = Array.from({ length: 21 }, (_, i) => tagUuid(i)).join(',')
     const r = await GET(req(`?tagIds=${many}`))
     expect(r.status).toBe(400)
     expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 
   it('accepts exactly 20 ids', async () => {
-    const twenty = Array.from({ length: 20 }, (_, i) => `t-${i}`).join(',')
+    const twenty = Array.from({ length: 20 }, (_, i) => tagUuid(i)).join(',')
     const r = await GET(req(`?tagIds=${twenty}`))
     expect(r.status).toBe(200)
+  })
+
+  it('returns 400 (not 500) for a non-UUID tag id (M-8)', async () => {
+    const r = await GET(req('?tagIds=not-a-uuid'))
+    expect(r.status).toBe(400)
+    expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
+    expect(countActiveMembersByTags).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when only one id in the list is malformed', async () => {
+    const r = await GET(req(`?tagIds=${TAG_1},oops`))
+    expect(r.status).toBe(400)
+    expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 
   it('returns 403 when a tag id belongs to another tenant (not a silent 0)', async () => {
     vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
       new CrossTenantTagError('Invalid tag IDs')
     )
-    const r = await GET(req('?tagIds=t-x'))
+    const r = await GET(req(`?tagIds=${TAG_1}`))
     expect(r.status).toBe(403)
     expect(countActiveMembersByTags).not.toHaveBeenCalled()
   })
 
   it('returns 401 without a tenant context', async () => {
     vi.mocked(getTenantContext).mockRejectedValueOnce(new AuthError('Unauthorized', 401))
-    const r = await GET(req('?tagIds=t-1'))
+    const r = await GET(req(`?tagIds=${TAG_1}`))
     expect(r.status).toBe(401)
     expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 
   it('returns count 0 for a tag with zero members (200, not an error)', async () => {
     vi.mocked(countActiveMembersByTags).mockResolvedValueOnce(0)
-    const r = await GET(req('?tagIds=t-1'))
+    const r = await GET(req(`?tagIds=${TAG_1}`))
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ count: 0 })
   })

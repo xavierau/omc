@@ -30,6 +30,15 @@ vi.mock('@/infrastructure/supabase/repositories/tag-repository', () => ({
   tagRepository: { listByRestaurant: vi.fn() },
 }))
 
+// Only the assertion is faked; the real CrossTenantTagError class is kept so
+// the 403 contract is exercised, not a stand-in.
+vi.mock('@/infrastructure/supabase/repositories/member-tag-repository', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/member-tag-repository')
+  >('@/infrastructure/supabase/repositories/member-tag-repository')
+  return { ...actual, assertTagsBelongToTenant: vi.fn() }
+})
+
 import { importOneContactRow } from '@/application/import-contacts-batch-row'
 import {
   insertImportBatch,
@@ -38,6 +47,10 @@ import {
 import { assignTagsToImportedMembers } from '@/application/assign-tags-to-imported-members'
 import { assignRowTagsToImportedMembers } from '@/application/assign-row-tags-to-imported-members'
 import { tagRepository } from '@/infrastructure/supabase/repositories/tag-repository'
+import {
+  assertTagsBelongToTenant,
+  CrossTenantTagError,
+} from '@/infrastructure/supabase/repositories/member-tag-repository'
 import type { ConsentGrade } from '@/domain/value-objects/consent-status'
 import {
   importContactsBatch,
@@ -54,6 +67,7 @@ beforeEach(() => {
   vi.mocked(assignTagsToImportedMembers).mockResolvedValue(undefined)
   vi.mocked(assignRowTagsToImportedMembers).mockResolvedValue({ taggedMembers: 0 })
   vi.mocked(tagRepository.listByRestaurant).mockResolvedValue([])
+  vi.mocked(assertTagsBelongToTenant).mockResolvedValue(undefined)
 })
 
 function buildInput(
@@ -368,6 +382,55 @@ describe('importContactsBatch — per-row CSV tags (TAG-001 B2)', () => {
     )
 
     expect(order).toEqual(['row', 'counts', 'tags'])
+  })
+})
+
+describe('importContactsBatch — batch tag ownership (M-7)', () => {
+  it('asserts the batch-level tag ids against the tenant before any write', async () => {
+    vi.mocked(importOneContactRow).mockResolvedValue(ok('mem-1', true))
+
+    await importContactsBatch(buildInput({ tagIds: ['tag-1', 'tag-2'] }))
+
+    expect(assertTagsBelongToTenant).toHaveBeenCalledWith(['tag-1', 'tag-2'], 'rest-1')
+    expect(
+      vi.mocked(assertTagsBelongToTenant).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(insertImportBatch).mock.invocationCallOrder[0])
+  })
+
+  it('throws CrossTenantTagError for a foreign tag id and writes nothing', async () => {
+    vi.mocked(importOneContactRow).mockResolvedValue(ok('mem-1', true))
+    vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    await expect(
+      importContactsBatch(buildInput({ tagIds: ['tag-from-another-tenant'] }))
+    ).rejects.toBeInstanceOf(CrossTenantTagError)
+
+    // Nothing written: no batch row, no consent fan-out, no counts, no tags.
+    expect(insertImportBatch).not.toHaveBeenCalled()
+    expect(importOneContactRow).not.toHaveBeenCalled()
+    expect(updateImportBatchCounts).not.toHaveBeenCalled()
+    expect(assignTagsToImportedMembers).not.toHaveBeenCalled()
+    expect(assignRowTagsToImportedMembers).not.toHaveBeenCalled()
+  })
+
+  it('surfaces the rejection as a 403, not a 200 with tagging.failed', async () => {
+    vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    await expect(
+      importContactsBatch(buildInput({ tagIds: ['tag-x'] }))
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('does not query tag ownership when no batch tags were selected', async () => {
+    vi.mocked(importOneContactRow).mockResolvedValue(ok('mem-1', true))
+
+    await importContactsBatch(buildInput({ tagIds: [] }))
+
+    expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
   })
 })
 

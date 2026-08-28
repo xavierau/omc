@@ -29,10 +29,11 @@ export async function runPreviewLookups(
     return { ...EMPTY_SETS, status: 'skipped_too_many_rows' }
   }
   try {
-    const [alreadyMember, activeConsent] = await Promise.all([
-      findExistingMemberPhones(restaurantId, phones),
-      findActiveMarketingConsentPhones(restaurantId, phones),
-    ])
+    // Serial, not Promise.all: each lookup already runs MAX_CONCURRENT_CHUNKS
+    // (4) chunk queries in parallel, so racing the two put 8 connections in
+    // flight against a documented budget of 4 (review M-3).
+    const alreadyMember = await findExistingMemberPhones(restaurantId, phones)
+    const activeConsent = await findActiveMarketingConsentPhones(restaurantId, phones)
     return {
       alreadyMemberPhones: Array.from(alreadyMember),
       activeConsentPhones: Array.from(activeConsent),

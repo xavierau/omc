@@ -22,6 +22,7 @@ import {
 } from './import-contacts-batch-validation'
 import { fanOutRows } from './import-contacts-batch-fanout'
 import {
+  assertBatchTagsBelongToTenant,
   assertNewTagBudget,
   runImportTagPhase,
   type ImportTaggingResult,
@@ -70,6 +71,10 @@ export async function importContactsBatch(
 ): Promise<ImportContactsBatchResult> {
   const now = input.now ?? new Date()
   const preflight = preflightOrThrow(input, now)
+  // Both guards run BEFORE any write (AM-1): a foreign batch tag id or an
+  // over-budget file must leave zero import_batch rows and zero consent
+  // records behind, not a committed import with tagging.failed (review M-7).
+  await assertBatchTagsBelongToTenant(input.restaurantId, input.tagIds)
   await assertNewTagBudget(input.restaurantId, preflight.acceptedRows)
   const batchId = randomUUID()
   const grade = gradeBatch(input, now)

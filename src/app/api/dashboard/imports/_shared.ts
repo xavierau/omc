@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { ImportBatchValidationError } from '@/domain/services/__errors__/import-errors'
+import { CrossTenantTagError } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import {
   isConsentChannel,
   type ConsentChannel,
@@ -25,6 +26,15 @@ export function mapImportRouteError(
     return NextResponse.json(
       { error: error.message, reason: error.reason },
       { status: 400 }
+    )
+  }
+  // A batch-level tag id that belongs to another tenant is an authorization
+  // rejection (403), raised before any write — same contract as the member
+  // tag routes (review M-7).
+  if (error instanceof CrossTenantTagError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: error.statusCode }
     )
   }
   console.error(`${logLabel}:`, error)
