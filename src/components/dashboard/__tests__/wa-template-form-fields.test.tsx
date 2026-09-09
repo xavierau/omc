@@ -14,6 +14,10 @@ vi.mock('@/components/dashboard/image-uploader', () => ({
   ImageUploader: () => null,
 }))
 
+vi.mock('@/components/dashboard/video-uploader', () => ({
+  VideoUploader: () => null,
+}))
+
 import { WaTemplateFormFields } from '@/components/dashboard/wa-template-form-fields'
 import { initialWaTemplateForm, type WaTemplateFormState } from '@/components/dashboard/wa-template-form-types'
 
@@ -47,6 +51,10 @@ function hint(tree: ReactElement[]): ReactElement | undefined {
   return tree.find((el) => (el.props as Record<string, unknown>)['data-testid'] === 'image-header-hint')
 }
 
+function videoHint(tree: ReactElement[]): ReactElement | undefined {
+  return tree.find((el) => (el.props as Record<string, unknown>)['data-testid'] === 'video-header-hint')
+}
+
 describe('WaTemplateFormFields image-header hint', () => {
   it('warns that image headers cannot be submitted yet', () => {
     const note = hint(fieldsFor('image'))
@@ -60,5 +68,35 @@ describe('WaTemplateFormFields image-header hint', () => {
 
   it('shows no hint when there is no header', () => {
     expect(hint(fieldsFor('none'))).toBeUndefined()
+  })
+})
+
+describe('WaTemplateFormFields video-header hint (TPL-011)', () => {
+  it('shows the video hint for a video header, and no image hint', () => {
+    const tree = fieldsFor('video')
+    const note = videoHint(tree)
+    expect(note).toBeDefined()
+    expect((note?.props as { children?: unknown }).children).toBe('t:videoHeaderHint')
+    expect(hint(tree)).toBeUndefined()
+  })
+
+  it('shows no video hint for an image header', () => {
+    expect(videoHint(fieldsFor('image'))).toBeUndefined()
+  })
+
+  it('shows no video hint for a text header', () => {
+    expect(videoHint(fieldsFor('text'))).toBeUndefined()
+  })
+
+  it('shows no video hint when there is no header', () => {
+    expect(videoHint(fieldsFor('none'))).toBeUndefined()
+  })
+})
+
+describe('WaTemplateFormFields header type select (TPL-011)', () => {
+  it('includes a Video option', () => {
+    const options = fieldsFor('none').filter((el) => el.type === 'option')
+    const values = options.map((o) => (o.props as { value?: string }).value)
+    expect(values).toContain('video')
   })
 })

@@ -34,6 +34,26 @@ describe('buildUploadPath', () => {
     })
     expect(path).toBe('r-1/1700000000000.jpg')
   })
+
+  it('normalizes video/3gpp to .3gp extension', () => {
+    const path = buildUploadPath({
+      restaurantId: 'r-1',
+      explicitPath: '',
+      mime: 'video/3gpp',
+      now: () => 1700000000000,
+    })
+    expect(path).toBe('r-1/1700000000000.3gp')
+  })
+
+  it('keeps video/mp4 as .mp4 extension', () => {
+    const path = buildUploadPath({
+      restaurantId: 'r-1',
+      explicitPath: '',
+      mime: 'video/mp4',
+      now: () => 1700000000000,
+    })
+    expect(path).toBe('r-1/1700000000000.mp4')
+  })
 })
 
 describe('assertTenantPrefix', () => {

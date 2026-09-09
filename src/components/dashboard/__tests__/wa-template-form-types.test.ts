@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   applyTemplateButtonChange,
+  applyWaTemplateFormChange,
   buildWaTemplateRequestBody,
   createTemplateButton,
   initialWaTemplateForm,
@@ -276,5 +277,179 @@ describe('templateToFormState button round-trip (#132)', () => {
     const state = templateToFormState(templateWithButtons([stored]))
 
     expect(wireButtons(state)[0]).toEqual(stored)
+  })
+})
+
+describe('templateToFormState header mapping (TPL-011)', () => {
+  function templateWithHeader(component: Record<string, unknown> | null) {
+    return {
+      name: 'testing_template',
+      language: 'en',
+      category: 'MARKETING',
+      components: component
+        ? [component, { type: 'BODY', text: 'Hello' }]
+        : [{ type: 'BODY', text: 'Hello' }],
+    }
+  }
+
+  it('maps a stored VIDEO header to headerType video with its URL', () => {
+    const state = templateToFormState(
+      templateWithHeader({
+        type: 'HEADER',
+        format: 'VIDEO',
+        example: { header_handle: ['https://cdn.test/v.mp4'] },
+      })
+    )
+
+    expect(state.headerType).toBe('video')
+    expect(state.headerMediaUrl).toBe('https://cdn.test/v.mp4')
+  })
+
+  it('maps a stored IMAGE header to headerType image with its URL', () => {
+    const state = templateToFormState(
+      templateWithHeader({
+        type: 'HEADER',
+        format: 'IMAGE',
+        example: { header_handle: ['https://cdn.test/i.png'] },
+      })
+    )
+
+    expect(state.headerType).toBe('image')
+    expect(state.headerMediaUrl).toBe('https://cdn.test/i.png')
+  })
+
+  it('maps a VIDEO header with an empty header_handle to an empty url', () => {
+    const state = templateToFormState(
+      templateWithHeader({ type: 'HEADER', format: 'VIDEO', example: { header_handle: [] } })
+    )
+
+    expect(state.headerType).toBe('video')
+    expect(state.headerMediaUrl).toBe('')
+  })
+})
+
+describe('buildWaTemplateRequestBody header component (TPL-011)', () => {
+  const URL = 'https://cdn.test/v.mp4'
+
+  it('emits the VIDEO header component and no IMAGE component', () => {
+    const body = buildWaTemplateRequestBody({
+      ...formWith([]),
+      headerType: 'video',
+      headerMediaUrl: URL,
+    })
+
+    expect(body.components).toContainEqual({
+      type: 'HEADER',
+      format: 'VIDEO',
+      example: { header_handle: [URL] },
+    })
+    expect(
+      body.components.some((c) => (c as Record<string, unknown>).format === 'IMAGE')
+    ).toBe(false)
+  })
+
+  it('still emits an IMAGE header component for headerType image', () => {
+    const body = buildWaTemplateRequestBody({
+      ...formWith([]),
+      headerType: 'image',
+      headerMediaUrl: URL,
+    })
+
+    expect(body.components).toContainEqual({
+      type: 'HEADER',
+      format: 'IMAGE',
+      example: { header_handle: [URL] },
+    })
+  })
+
+  it('emits no header example for none or text', () => {
+    const none = buildWaTemplateRequestBody({ ...formWith([]), headerType: 'none' })
+    const text = buildWaTemplateRequestBody({
+      ...formWith([]),
+      headerType: 'text',
+      headerText: 'Hi',
+    })
+
+    expect(none.components.some((c) => (c as Record<string, unknown>).type === 'HEADER')).toBe(
+      false
+    )
+    expect(text.components).toContainEqual({ type: 'HEADER', format: 'TEXT', text: 'Hi' })
+  })
+})
+
+describe('header round-trip property (TPL-011)', () => {
+  it.each(['IMAGE', 'VIDEO'] as const)('round-trips a %s header component unchanged', (format) => {
+    const url = `https://cdn.test/media-${format}.bin`
+    const row = {
+      name: 'testing_template',
+      language: 'en',
+      category: 'MARKETING',
+      components: [
+        { type: 'HEADER', format, example: { header_handle: [url] } },
+        { type: 'BODY', text: 'Hello' },
+      ],
+    }
+
+    const state = templateToFormState(row)
+    const rebuilt = buildWaTemplateRequestBody(state)
+
+    expect(rebuilt.components[0]).toEqual(row.components[0])
+  })
+})
+
+describe('applyWaTemplateFormChange (TPL-011)', () => {
+  function form(overrides: Partial<WaTemplateFormState> = {}): WaTemplateFormState {
+    return { ...initialWaTemplateForm, ...overrides }
+  }
+
+  it('clears headerMediaUrl when headerType changes from image to video', () => {
+    const next = applyWaTemplateFormChange(
+      form({ headerType: 'image', headerMediaUrl: 'https://cdn.test/i.png' }),
+      'headerType',
+      'video'
+    )
+
+    expect(next.headerType).toBe('video')
+    expect(next.headerMediaUrl).toBe('')
+  })
+
+  it('clears headerMediaUrl when headerType changes from video to none', () => {
+    const next = applyWaTemplateFormChange(
+      form({ headerType: 'video', headerMediaUrl: 'https://cdn.test/v.mp4' }),
+      'headerType',
+      'none'
+    )
+
+    expect(next.headerMediaUrl).toBe('')
+  })
+
+  it('keeps headerMediaUrl when the same headerType is set again', () => {
+    const next = applyWaTemplateFormChange(
+      form({ headerType: 'video', headerMediaUrl: 'https://cdn.test/v.mp4' }),
+      'headerType',
+      'video'
+    )
+
+    expect(next.headerMediaUrl).toBe('https://cdn.test/v.mp4')
+  })
+
+  it('leaves headerMediaUrl untouched when a different key changes', () => {
+    const next = applyWaTemplateFormChange(
+      form({ headerType: 'video', headerMediaUrl: 'https://cdn.test/v.mp4' }),
+      'body',
+      'Hello there'
+    )
+
+    expect(next.headerMediaUrl).toBe('https://cdn.test/v.mp4')
+    expect(next.body).toBe('Hello there')
+  })
+
+  it('never mutates its input', () => {
+    const input = form({ headerType: 'image', headerMediaUrl: 'https://cdn.test/i.png' })
+    const snapshot = { ...input }
+
+    applyWaTemplateFormChange(input, 'headerType', 'video')
+
+    expect(input).toEqual(snapshot)
   })
 })

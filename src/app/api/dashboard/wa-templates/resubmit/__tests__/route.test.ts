@@ -147,7 +147,7 @@ describe('POST /api/dashboard/wa-templates/resubmit', () => {
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(updateTemplate).not.toHaveBeenCalled()
     expect(body.submitted[0].success).toBe(false)
-    expect(body.submitted[0].error).toBe('Image upload is not configured')
+    expect(body.submitted[0].error).toBe('Media upload is not configured')
   })
 
   it('mints a handle and submits an image-header draft when configured', async () => {

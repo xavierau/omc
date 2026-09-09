@@ -327,7 +327,7 @@ describe('createWhatsAppTemplate', () => {
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(result).toEqual({
       template: TEMPLATE_BASE,
-      error: 'Image upload is not configured',
+      error: 'Media upload is not configured',
       errorCode: 'provider_not_configured',
     })
   })
