@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
@@ -30,6 +30,17 @@ function NavLink({ href, label, icon: Icon, isActive, onClick }: {
       {label}
     </Link>
   )
+}
+
+/** Pure — extracted so the wiring of a new secondary nav entry (e.g.
+ * INT-001 WI-9's `integrations` item) is unit-testable without rendering
+ * `Sidebar` itself, which owns real `useState`/`usePathname` and can't be
+ * exercised via a plain function call in this repo's jsdom-free test setup. */
+export function secondaryNavItems(t: (key: string) => string) {
+  return [
+    { label: t('qrSetup'), href: '/dashboard/setup', icon: Settings },
+    { label: t('integrations'), href: '/dashboard/integrations', icon: Plug },
+  ]
 }
 
 function HamburgerButton({ onToggle }: { onToggle: () => void }) {
@@ -66,9 +77,7 @@ export function Sidebar() {
     { label: t('rewards'), href: '/dashboard/rewards', icon: Gift },
   ]
 
-  const secondaryItems = [
-    { label: t('qrSetup'), href: '/dashboard/setup', icon: Settings },
-  ]
+  const secondaryItems = secondaryNavItems(t)
 
   return (
     <>
