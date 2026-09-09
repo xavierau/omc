@@ -6,17 +6,24 @@ interface Bucket {
   lastRefillMs: number
 }
 
-interface Window {
-  count: number
-  windowStartMs: number
-}
-
 /** In-memory `RateLimiterPort` driven by an injected `Clock`, so token
  * refill and window resets are deterministic under test. Mirrors the real
- * `RedisRateLimiter`'s (WI-2) token-bucket + fixed-window semantics. */
+ * `RedisRateLimiter`'s (WI-2) token-bucket + fixed-window semantics.
+ *
+ * `incrWindow`/`incr`/`decr`/`get` all read and write the SAME `counters`
+ * map, keyed by the caller's key -- exactly like the real adapter, whose
+ * `incrWindow` runs a bare Redis `INCR` against that key (see
+ * `redis-rate-limiter.ts`'s `INCR_WINDOW_SCRIPT`), the identical key
+ * namespace `incr()`/`decr()`/`get()` use. A separate `windowStarts` map
+ * tracks only each key's window boundary (not its value), so a fixed
+ * window can still reset on expiry without splitting the counter state
+ * `get()` reads from the state `incrWindow()` writes to (the bug WI-4's
+ * handoff flagged: `get()` after `incrWindow()` on the same key used to
+ * always return 0 on the fake, while the real adapter returned the
+ * incremented count). */
 export class FakeRateLimiter implements RateLimiterPort {
   private readonly buckets = new Map<string, Bucket>()
-  private readonly windows = new Map<string, Window>()
+  private readonly windowStarts = new Map<string, number>()
   private readonly counters = new Map<string, number>()
 
   constructor(private readonly clock: Clock) {}
@@ -48,14 +55,15 @@ export class FakeRateLimiter implements RateLimiterPort {
     windowSec: number
   ): Promise<{ allowed: boolean; count: number }> {
     const nowMs = this.clock.now().getTime()
-    const existing = this.windows.get(key)
-    const window: Window =
-      existing && nowMs - existing.windowStartMs < windowSec * 1000
-        ? existing
-        : { count: 0, windowStartMs: nowMs }
-    window.count += 1
-    this.windows.set(key, window)
-    return { allowed: window.count <= limit, count: window.count }
+    const windowStart = this.windowStarts.get(key)
+    const withinWindow = windowStart !== undefined && nowMs - windowStart < windowSec * 1000
+    if (!withinWindow) {
+      this.windowStarts.set(key, nowMs)
+      this.counters.set(key, 0)
+    }
+    const count = (this.counters.get(key) ?? 0) + 1
+    this.counters.set(key, count)
+    return { allowed: count <= limit, count }
   }
 
   async incr(key: string): Promise<number> {
@@ -76,7 +84,7 @@ export class FakeRateLimiter implements RateLimiterPort {
 
   reset(): void {
     this.buckets.clear()
-    this.windows.clear()
+    this.windowStarts.clear()
     this.counters.clear()
   }
 }

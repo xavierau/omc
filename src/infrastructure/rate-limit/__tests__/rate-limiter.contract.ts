@@ -55,5 +55,34 @@ export function runRateLimiterContract(
       await limiter.incr(keyA)
       expect(await limiter.get(keyB)).toBe(0)
     })
+
+    // WI-11 fix: the real adapter's incrWindow() runs a bare Redis INCR
+    // against `key` (redis-rate-limiter.ts's INCR_WINDOW_SCRIPT), the exact
+    // same key namespace incr()/decr()/get() read and write -- so get() and
+    // incr() see whatever incrWindow() last wrote, and vice versa. WI-4's
+    // handoff flagged that the fake did not honour this: it stored
+    // incrWindow()'s count in a Map separate from the one get()/incr()/decr()
+    // read, so get() after incrWindow() silently returned 0. This case pins
+    // the real adapter's actual behaviour so both adapters agree.
+    it('get() reflects the count written by incrWindow() on the same key', async () => {
+      const limiter = await createLimiter()
+      const key = `contract-window-read-${Math.random().toString(36).slice(2)}`
+      const first = await limiter.incrWindow(key, 10, 60)
+      expect(first.count).toBe(1)
+      expect(await limiter.get(key)).toBe(1)
+
+      const second = await limiter.incrWindow(key, 10, 60)
+      expect(second.count).toBe(2)
+      expect(await limiter.get(key)).toBe(2)
+    })
+
+    it('incrWindow() and incr() on the same key share one counter', async () => {
+      const limiter = await createLimiter()
+      const key = `contract-window-incr-mix-${Math.random().toString(36).slice(2)}`
+      await limiter.incrWindow(key, 10, 60)
+      expect(await limiter.incr(key)).toBe(2)
+      const third = await limiter.incrWindow(key, 10, 60)
+      expect(third.count).toBe(3)
+    })
   })
 }
