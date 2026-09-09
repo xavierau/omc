@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { ImageUploader } from '@/components/dashboard/image-uploader'
+import { VideoUploader } from '@/components/dashboard/video-uploader'
 import { WaTemplateButtonsSection } from './wa-template-buttons-section'
 import type { WaTemplateFormState } from './wa-template-form-types'
 
@@ -75,6 +76,7 @@ function HeaderSection({ form, onChange }: { form: WaTemplateFormState; onChange
         <option value="none">None</option>
         <option value="text">Text</option>
         <option value="image">Image</option>
+        <option value="video">Video</option>
       </select>
       {form.headerType === 'text' && (
         <Input value={form.headerText} onChange={(e) => onChange('headerText', e.target.value)} placeholder="Header text with {{param}}" />
@@ -83,12 +85,25 @@ function HeaderSection({ form, onChange }: { form: WaTemplateFormState; onChange
         <>
           <ImageUploader
             bucket="wa-template-media"
-            currentUrl={form.headerImageUrl}
-            onUploaded={(url) => onChange('headerImageUrl', url)}
-            onRemoved={() => onChange('headerImageUrl', '')}
+            currentUrl={form.headerMediaUrl}
+            onUploaded={(url) => onChange('headerMediaUrl', url)}
+            onRemoved={() => onChange('headerMediaUrl', '')}
           />
           <p className="text-xs text-amber-600 dark:text-amber-500" data-testid="image-header-hint">
             {t('imageHeaderHint')}
+          </p>
+        </>
+      )}
+      {form.headerType === 'video' && (
+        <>
+          <VideoUploader
+            bucket="wa-template-media"
+            currentUrl={form.headerMediaUrl}
+            onUploaded={(url) => onChange('headerMediaUrl', url)}
+            onRemoved={() => onChange('headerMediaUrl', '')}
+          />
+          <p className="text-xs text-amber-600 dark:text-amber-500" data-testid="video-header-hint">
+            {t('videoHeaderHint')}
           </p>
         </>
       )}

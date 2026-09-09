@@ -1,28 +1,29 @@
 # UI Map Index
 
-_Scaffolded 2026-08-24 by ui-test-runner — first run for this project, no prior Map existed._
+_Scaffolded 2026-08-24. First populated 2026-08-28 (WONB-018/019 run). Updated 2026-09-09 (TPL-011 run)._
 
 Read order: `INDEX.md` → `env-policy.md` → `environments.md` → `login-recipes.md` →
 `testid-registry.md` → `layout-baseline.md` → relevant `flows/*.md`.
 
 ## Status
 
-All files below are **empty scaffolds**. None have been filled with real project data yet —
-no environment URLs beyond what a caller has stated inline, no login recipe, no selectors,
-no confirmed flows. Every field marked `TODO` needs a human or a caller with authority over
-credentials to fill in before any write-flow can run.
+Populated from real runs. `secrets.local.json` itself is gitignored and per-worktree — it does
+**not** survive a worktree being removed, so a fresh worktree needs a throwaway user re-minted
+(pattern: `env-policy.md` § dev; both the 2026-08-28 and 2026-09-09 runs did this). `layout-baseline.md`
+is still empty — no exceptions have been human-accepted yet, though both runs have proposed candidates
+in their `tests/` reports.
 
 ## Files
 
 - [env-policy.md](env-policy.md) — allowed actions per environment (prod allowlist, etc.)
-- [environments.md](environments.md) — base URLs, test org ids, breakpoints per env
+- [environments.md](environments.md) — base URLs, test org ids, breakpoints, confirmed env facts (buckets/migrations present or missing on DEV)
 - [login-recipes.md](login-recipes.md) — how to authenticate per env/role
-- [testid-registry.md](testid-registry.md) — confirmed `data-testid` selectors, built up only from passing interactions
-- [layout-baseline.md](layout-baseline.md) — accepted layout exceptions (human-curated only)
+- [testid-registry.md](testid-registry.md) — confirmed selectors, built up only from passing interactions (CSV import step, WA template form)
+- [layout-baseline.md](layout-baseline.md) — accepted layout exceptions (human-curated only; empty so far)
 - [secrets.local.example.json](secrets.local.example.json) — shape for the gitignored `secrets.local.json`
-- [flows/](flows/) — one file per named scenario
+- [flows/](flows/) — one file per named scenario: `wonb-018-019-csv-import-upload-step.md`, `tpl-011-wa-template-video-header.md`, `issue-102-template-review-send-feedback.md`, `issue-103-campaign-member-picker.md`
 
 ## Tests
 
-(none run yet — first verification pending env/credential input, see latest run notes in
-`.claude-workspace/tests/`)
+- `tests/2026-08-28-wonb-018-019-ui-verification.md` — CSV import upload step, PASS
+- `tests/2026-09-09-tpl-011-video-header-ui.md` — WA template VIDEO header, PASS (Kapso ingest still inconclusive on DEV, I-2 mandatory)

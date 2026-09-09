@@ -72,5 +72,7 @@ function normalizeExt(mime: string): string {
   // blob into the bucket — mirrors the client helper's `png` default.
   const tail = mime.split('/')[1]
   if (!tail) return 'png'
-  return tail === 'jpeg' ? 'jpg' : tail
+  if (tail === 'jpeg') return 'jpg'
+  if (tail === '3gpp') return '3gp'
+  return tail
 }

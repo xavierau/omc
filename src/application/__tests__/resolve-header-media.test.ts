@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { resolveHeaderMedia } from '@/application/resolve-header-media'
+import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
 import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 vi.mock('@/infrastructure/kapso/template-media-upload', () => ({
@@ -88,5 +88,47 @@ describe('resolveHeaderMedia', () => {
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected not ok')
     expect(result.error).toEqual({ title: 'upload_failed', details: 'boom' })
+  })
+
+  it('mints a handle for a VIDEO header whose value is a URL', async () => {
+    upload.mockResolvedValueOnce({ ok: true, handle: '4:minted:video' })
+    const videoHeader: TemplateComponent = {
+      type: 'HEADER',
+      format: 'VIDEO',
+      example: { header_handle: [URL] },
+    }
+    const components = [videoHeader, { type: 'BODY', text: 'B' } as TemplateComponent]
+
+    const result = await resolveHeaderMedia(components, PHONE)
+
+    expect(upload).toHaveBeenCalledWith(PHONE, URL)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.components[0].example?.header_handle).toEqual(['4:minted:video'])
+    expect(result.components[0].example?.headerHandle).toBeUndefined()
+    expect(result.components[1]).toEqual({ type: 'BODY', text: 'B' })
+  })
+})
+
+describe('mapMediaHandleError', () => {
+  it('maps not_configured to the media-neutral message', () => {
+    expect(mapMediaHandleError({ title: 'not_configured' })).toEqual({
+      message: 'Media upload is not configured',
+      errorCode: 'provider_not_configured',
+    })
+  })
+
+  it('maps upload_failed without details to the media-neutral default message', () => {
+    expect(mapMediaHandleError({ title: 'upload_failed' })).toEqual({
+      message: 'Could not upload the header media to Meta',
+      errorCode: 'provider_error',
+    })
+  })
+
+  it('passes upload_failed details through verbatim', () => {
+    expect(mapMediaHandleError({ title: 'upload_failed', details: 'Kapso said no' })).toEqual({
+      message: 'Kapso said no',
+      errorCode: 'provider_error',
+    })
   })
 })

@@ -14,3 +14,8 @@ the first real run.
 | `/dashboard/members/import?step=csv` | one rejection row | `li[data-reject-reason][data-reject-line]` | 2026-08-28 wonb-018-019-ui-verification |
 | `/dashboard/members/import?step=csv` | accepted row count | `[data-info="row-count"]` | 2026-08-28 wonb-018-019-ui-verification |
 | `/dashboard/members/import?step=csv` | tags-found count | `[data-info="tags-found"]` | 2026-08-28 wonb-018-019-ui-verification |
+| `/dashboard/wa-templates` (Create/Edit sheet) | Header type select (None/Text/Image/Video) — no testid, unique via its `<fieldset>` | `fieldset select` | 2026-09-09 tpl-011-video-header-ui |
+| `/dashboard/wa-templates` (Create/Edit sheet) | Video header uploader's hidden file input | `fieldset input[type=file]` | 2026-09-09 tpl-011-video-header-ui |
+| `/dashboard/wa-templates` (Create/Edit sheet) | Video header hint text (shown only when Header=Video) | `[data-testid="video-header-hint"]` | 2026-09-09 tpl-011-video-header-ui |
+| `/dashboard/wa-templates` (Create/Edit sheet) | Image header hint text (shown only when Header=Image) | `[data-testid="image-header-hint"]` | 2026-09-09 tpl-011-video-header-ui |
+| `/dashboard/wa-templates` (Create/Edit sheet) | Submit / Cancel / Close buttons — plain English literals, not i18n'd | button text `Create`/`Update`/`Cancel`/`Close` | 2026-09-09 tpl-011-video-header-ui |

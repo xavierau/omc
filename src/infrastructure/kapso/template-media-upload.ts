@@ -1,7 +1,7 @@
 import type { MediaHandleResult } from '@/domain/value-objects/media-handle-result'
 
 /**
- * Mints a Meta template header handle from a hosted image URL via Kapso's
+ * Mints a Meta template header handle from a hosted media URL via Kapso's
  * Platform Media API.
  *
  * Meta accepts a media template header only as a resumable-upload file handle
@@ -9,7 +9,7 @@ import type { MediaHandleResult } from '@/domain/value-objects/media-handle-resu
  * does not return. Kapso's Platform endpoint runs Meta's resumable-upload flow
  * server-side — under the app tied to the given phone number, so the handle is
  * created in the correct app context (no cross-app rejection) — and returns the
- * `h` handle. It fetches the image itself, so we hand it a URL, never bytes.
+ * `h` handle. It fetches the media itself, so we hand it a URL, never bytes.
  *
  * Auth is the existing Kapso API key; when unset the call is a no-op SKIP
  * (`not_configured`) so the template simply stays a draft.
@@ -76,10 +76,10 @@ function invalidSourceUrl(rawUrl: string): string | null {
   try {
     url = new URL(rawUrl)
   } catch {
-    return 'header image URL is not a valid URL'
+    return 'header media URL is not a valid URL'
   }
-  if (url.protocol !== 'https:') return 'header image URL must use https'
-  if (url.username || url.password) return 'header image URL must not contain credentials'
+  if (url.protocol !== 'https:') return 'header media URL must use https'
+  if (url.username || url.password) return 'header media URL must not contain credentials'
 
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (raw) {
@@ -89,7 +89,7 @@ function invalidSourceUrl(rawUrl: string): string | null {
     } catch {
       supabaseHost = null
     }
-    if (supabaseHost && url.host !== supabaseHost) return 'header image URL host is not allowed'
+    if (supabaseHost && url.host !== supabaseHost) return 'header media URL host is not allowed'
   }
   return null
 }
@@ -103,14 +103,16 @@ function filenameFromUrl(rawUrl: string): string {
   }
 }
 
-// Covers the image types the dashboard upload route accepts (jpeg/png/webp);
-// header media in this product is always an image, so an unknown extension
-// falls back to jpeg rather than guessing a video/document type.
+// Covers the image and video extensions the dashboard upload route can
+// produce for wa-template-media (see upload-path.ts normalizeExt); an
+// unknown extension falls back to jpeg rather than guessing.
 const MIME_BY_EXT: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
+  mp4: 'video/mp4',
+  '3gp': 'video/3gpp',
 }
 
 function mimeFromUrl(rawUrl: string): string {
