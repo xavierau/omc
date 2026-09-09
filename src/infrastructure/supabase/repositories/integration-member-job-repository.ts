@@ -243,3 +243,35 @@ export async function updateMemberJobWelcomeOutcome(
     .eq('job_id', jobId)
   if (error) throw new Error(`updateMemberJobWelcomeOutcome: ${error.message}`)
 }
+
+export interface NonTerminalJobCount {
+  integrationId: string
+  count: number
+}
+
+/** WI-13 (Gap B): the depth-counter reconciliation sweep's source of truth
+ * -- "a counter is a cache, the table is truth" (the plan's own
+ * architecture text for the 5-min sweeper). Backed by the
+ * `count_non_terminal_member_jobs_by_integration` RPC (migration 073), a
+ * server-side GROUP BY -- cheaper and simpler than paging every non-terminal
+ * row over PostgREST just to count them client-side. */
+export async function countNonTerminalJobsByIntegration(): Promise<NonTerminalJobCount[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('count_non_terminal_member_jobs_by_integration')
+  if (error) throw new Error(`countNonTerminalJobsByIntegration: ${error.message}`)
+  return ((data ?? []) as { integration_id: string; non_terminal_count: number }[]).map((row) => ({
+    integrationId: row.integration_id,
+    count: row.non_terminal_count,
+  }))
+}
+
+/** Single-integration sibling of countNonTerminalJobsByIntegration, for the
+ * manual-recovery code path (reconcileIntegrationDepthCounter). */
+export async function countNonTerminalJobsForIntegration(integrationId: string): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('count_non_terminal_member_jobs_for_integration', {
+    p_integration_id: integrationId,
+  })
+  if (error) throw new Error(`countNonTerminalJobsForIntegration: ${error.message}`)
+  return (data as number | null) ?? 0
+}

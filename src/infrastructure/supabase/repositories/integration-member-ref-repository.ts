@@ -12,21 +12,23 @@ export interface UpsertIntegrationMemberRefArgs {
   externalRef: string
 }
 
+// WI-13 (Gap A): routed through an RPC (migration 073) that also sets
+// app.origin_integration_id (= this integration -- a ref row's own
+// integration IS the origin; this function's SOLE caller is the
+// member-create job) for the transaction the upsert runs in, so
+// member_ref_outbox's resulting member.updated event is attributed. A
+// plain `.upsert()` can't do this -- see consent-record-repository.ts's
+// insertConsentRecordWithOrigin header for why (PostgREST transaction
+// boundary).
 export async function upsertIntegrationMemberRef(
   args: UpsertIntegrationMemberRefArgs
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
-  const { error } = await supabase
-    .from('integration_member_refs')
-    .upsert(
-      {
-        member_id: args.memberId,
-        integration_id: args.integrationId,
-        external_ref: args.externalRef,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'member_id,integration_id' }
-    )
+  const { error } = await supabase.rpc('upsert_member_ref_with_origin', {
+    p_member_id: args.memberId,
+    p_integration_id: args.integrationId,
+    p_external_ref: args.externalRef,
+  })
   if (error) throw new Error(`upsertIntegrationMemberRef: ${error.message}`)
 }
 

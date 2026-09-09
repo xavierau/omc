@@ -82,6 +82,10 @@ export class FakeRateLimiter implements RateLimiterPort {
     return this.counters.get(key) ?? 0
   }
 
+  async set(key: string, value: number): Promise<void> {
+    this.counters.set(key, value)
+  }
+
   reset(): void {
     this.buckets.clear()
     this.windowStarts.clear()

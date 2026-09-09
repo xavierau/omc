@@ -95,6 +95,8 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi4-backend](artifacts/2026-09-10-int-001-wi4-backend.md) — WI-4: welcome-send job — send-time re-checks reuse decideWelcome, idempotent mint (OD-15), hourly send cap (T-H8/T-M11) (senior-backend-dev)
 - [2026-09-10-int-001-wi11-backend](artifacts/2026-09-10-int-001-wi11-backend.md) — WI-11: partner API doc + ops playbook + .env.example + load test + fake-rate-limiter fix; prod Node version unconfirmed (senior-backend-dev)
 - [2026-09-10-int-001-wi9-frontend](artifacts/2026-09-10-int-001-wi9-frontend.md) — WI-9: dashboard Integrations list+detail, 4 settings cards, sidebar nav, 88 i18n keys ×2 locales, 173 tests (react-frontend-dev)
+- [2026-09-10-int-001-wi13-backend](artifacts/2026-09-10-int-001-wi13-backend.md) — WI-13: origin_integration_id on member.updated (mig 073) + depth-counter rebuild sweep (senior-backend-dev)
+- [2026-09-10-int-001-wi10-frontend](artifacts/2026-09-10-int-001-wi10-frontend.md) — WI-10: delivery log + activity log tabs, paused banner + resume, retry, test-event→delivery link, 134 tests (react-frontend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

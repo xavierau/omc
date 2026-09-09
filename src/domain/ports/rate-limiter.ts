@@ -21,4 +21,12 @@ export interface RateLimiterPort {
   incr(key: string): Promise<number>
   decr(key: string): Promise<number>
   get(key: string): Promise<number>
+
+  /** WI-13: sets a counter key to an absolute value -- used ONLY by the
+   * depth-counter reconciliation sweep (reconcile-integration-depth-counters.ts)
+   * to correct drift against Postgres's own `integration_member_jobs`
+   * count. Ordinary request-path code always uses incr/decr (relative
+   * deltas) so a lost response never silently resets another request's
+   * concurrent reservation. */
+  set(key: string, value: number): Promise<void>
 }

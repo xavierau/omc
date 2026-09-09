@@ -220,6 +220,9 @@ describe('guardInboundRequest: Redis outage (T-H5 fail closed)', () => {
     async get(): Promise<never> {
       throw new Error('ECONNREFUSED')
     }
+    async set(): Promise<never> {
+      throw new Error('ECONNREFUSED')
+    }
   }
 
   it('returns 503 queue_unavailable (never fails open) when the partner bucket check throws', async () => {

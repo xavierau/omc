@@ -11,8 +11,10 @@ import {
   findActiveMarketingConsentForPhones,
   findLatestConsentByCategory,
   insertConsentRecord,
+  insertConsentRecordWithOrigin,
   revokeConsent,
   upgradeToOptedIn,
+  upgradeToOptedInWithOrigin,
 } from '../consent-record-repository'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import { ConsentImportError } from '@/domain/repositories/consent-record-repository'
@@ -247,6 +249,127 @@ describe('insertConsentRecord', () => {
     await expect(insertConsentRecord(record)).rejects.toThrow(
       /insertConsentRecord.*permission denied/
     )
+  })
+})
+
+describe('insertConsentRecordWithOrigin (INT-001 WI-13 Gap A)', () => {
+  function buildRpcClient(
+    result: { data: unknown; error: { code?: string; message: string } | null }
+  ): { client: ReturnType<typeof createServerSupabaseClient>; rpc: ReturnType<typeof vi.fn> } {
+    const rpc = vi.fn().mockResolvedValue(result)
+    return {
+      client: { rpc } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      rpc,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('calls insert_consent_record_with_origin with the mapped row + origin id', async () => {
+    const { client, rpc } = buildRpcClient({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const record = ConsentRecord.grant({
+      id: 'cr-1',
+      restaurantId: 'r-1',
+      memberId: 'm-1',
+      phoneE164: '85291234567',
+      category: 'marketing',
+      source: 'partner_api',
+    })
+
+    await insertConsentRecordWithOrigin(record, 'int-1')
+
+    expect(rpc).toHaveBeenCalledWith('insert_consent_record_with_origin', {
+      p_row: expect.objectContaining({ id: 'cr-1', restaurant_id: 'r-1', category: 'marketing' }),
+      p_origin_integration_id: 'int-1',
+    })
+  })
+
+  it('throws ConsentImportError(duplicate_active) on Postgres unique violation (23505)', async () => {
+    const { client } = buildRpcClient({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const record = ConsentRecord.grant({
+      id: 'cr-2',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '85291234567',
+      category: 'marketing',
+      source: 'partner_api',
+    })
+
+    await expect(insertConsentRecordWithOrigin(record, 'int-1')).rejects.toBeInstanceOf(ConsentImportError)
+  })
+
+  it('throws a generic error for non-23505 database errors', async () => {
+    const { client } = buildRpcClient({ data: null, error: { code: '42501', message: 'permission denied' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const record = ConsentRecord.grant({
+      id: 'cr-3',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '85291234567',
+      category: 'marketing',
+      source: 'partner_api',
+    })
+
+    await expect(insertConsentRecordWithOrigin(record, 'int-1')).rejects.toThrow(
+      /insertConsentRecordWithOrigin.*permission denied/
+    )
+  })
+})
+
+describe('upgradeToOptedInWithOrigin (INT-001 WI-13 Gap A)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('calls upgrade_consent_to_opted_in_with_origin and returns true when a row was upgraded', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 1, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await upgradeToOptedInWithOrigin(
+      { restaurantId: 'r-1', phoneE164: '85291234567', category: 'utility' },
+      'int-1'
+    )
+
+    expect(result).toBe(true)
+    expect(rpc).toHaveBeenCalledWith('upgrade_consent_to_opted_in_with_origin', {
+      p_restaurant_id: 'r-1',
+      p_phone_e164: '85291234567',
+      p_category: 'utility',
+      p_origin_integration_id: 'int-1',
+    })
+  })
+
+  it('returns false when no pending row matched (count 0)', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 0, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await upgradeToOptedInWithOrigin(
+      { restaurantId: 'r-1', phoneE164: '85291234567', category: 'utility' },
+      'int-1'
+    )
+
+    expect(result).toBe(false)
+  })
+
+  it('throws a contextual error on a database failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(
+      upgradeToOptedInWithOrigin({ restaurantId: 'r-1', phoneE164: '85291234567', category: 'utility' }, 'int-1')
+    ).rejects.toThrow(/upgradeToOptedInWithOrigin.*timeout/)
   })
 })
 
@@ -742,40 +865,47 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
     return buildSelectClient({ data: row, error: null }).client
   }
 
+  // WI-13 (Gap A): applyPartnerAssertedConsent's 'inserted'/'upgraded'
+  // branches now call insertConsentRecordWithOrigin / upgradeToOptedInWithOrigin,
+  // which are RPCs (migration 073) instead of plain .insert()/.update() --
+  // required so consent_changed_outbox can attribute the resulting
+  // member.updated event to the calling integration (see that migration's
+  // header for why a plain write can't do this). These recorder clients
+  // capture the RPC's arguments instead of the old insert/update payload.
   function buildInsertRecorderClient(): {
     client: ReturnType<typeof createServerSupabaseClient>
-    inserted: { value: Record<string, unknown> | null }
+    inserted: { row: Record<string, unknown> | null; originIntegrationId: unknown }
   } {
-    const inserted: { value: Record<string, unknown> | null } = { value: null }
-    const insert = vi.fn().mockImplementation((row: Record<string, unknown>) => {
-      inserted.value = row
+    const inserted: { row: Record<string, unknown> | null; originIntegrationId: unknown } = {
+      row: null,
+      originIntegrationId: undefined,
+    }
+    const rpc = vi.fn().mockImplementation((name: string, args: Record<string, unknown>) => {
+      if (name === 'insert_consent_record_with_origin') {
+        inserted.row = args.p_row as Record<string, unknown>
+        inserted.originIntegrationId = args.p_origin_integration_id
+      }
       return Promise.resolve({ data: null, error: null })
     })
-    const from = vi.fn().mockReturnValue({ insert })
     return {
-      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      client: { rpc } as unknown as ReturnType<typeof createServerSupabaseClient>,
       inserted,
     }
   }
 
   function buildUpdateRecorderClient(count: number): {
     client: ReturnType<typeof createServerSupabaseClient>
-    updated: { value: Record<string, unknown> | null }
+    updated: { args: Record<string, unknown> | null }
   } {
-    const updated: { value: Record<string, unknown> | null } = { value: null }
-    const eqChain = {
-      eq: vi.fn(),
-      then: (resolve: (v: unknown) => void) =>
-        resolve({ data: null, count, error: null }),
-    } as unknown as { eq: ReturnType<typeof vi.fn> }
-    eqChain.eq.mockReturnValue(eqChain)
-    const update = vi.fn().mockImplementation((u: Record<string, unknown>) => {
-      updated.value = u
-      return eqChain
+    const updated: { args: Record<string, unknown> | null } = { args: null }
+    const rpc = vi.fn().mockImplementation((name: string, args: Record<string, unknown>) => {
+      if (name === 'upgrade_consent_to_opted_in_with_origin') {
+        updated.args = args
+      }
+      return Promise.resolve({ data: count, error: null })
     })
-    const from = vi.fn().mockReturnValue({ update })
     return {
-      client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
+      client: { rpc } as unknown as ReturnType<typeof createServerSupabaseClient>,
       updated,
     }
   }
@@ -895,7 +1025,7 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
     })
 
     expect(action).toBe('inserted')
-    expect(inserted.value).toMatchObject({
+    expect(inserted.row).toMatchObject({
       status: 'opted_in',
       consent_grade: 'strong',
       source: 'partner_api',
@@ -903,6 +1033,8 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
       consent_text_shown: 'attestation text',
       category: 'marketing',
     })
+    // WI-13 (Gap A): the calling integration is passed as the origin.
+    expect(inserted.originIntegrationId).toBe('int-1')
   })
 
   it('no row + level does NOT cover category -> inserted pending', async () => {
@@ -924,7 +1056,8 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
     })
 
     expect(action).toBe('inserted')
-    expect(inserted.value).toMatchObject({ status: 'pending', source: 'partner_api' })
+    expect(inserted.row).toMatchObject({ status: 'pending', source: 'partner_api' })
+    expect(inserted.originIntegrationId).toBe('int-1')
   })
 
   it('pending + level covers -> upgraded via upgradeToOptedIn', async () => {
@@ -968,7 +1101,12 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
     })
 
     expect(action).toBe('upgraded')
-    expect(updated.value).toMatchObject({ status: 'opted_in' })
+    expect(updated.args).toMatchObject({
+      p_restaurant_id: 'r-1',
+      p_phone_e164: '85291234567',
+      p_category: 'utility',
+      p_origin_integration_id: 'int-1',
+    })
   })
 
   it('opted_in latest -> noop, writes nothing regardless of asserted level', async () => {

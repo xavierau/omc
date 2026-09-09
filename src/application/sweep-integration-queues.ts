@@ -12,22 +12,20 @@
 // duplicate job.
 //
 // Maintenance (5min): delivery-log pruning (US-9: <=500 rows / 30 days per
-// integration), `integration_events` orphan pruning, and the T-M2 volume
-// anomaly check. Deliberately does NOT include the inbound queue-depth
-// counter rebuild the plan's prose also assigns to "the 5-min sweeper" --
-// that counter (`int001:depth:{integrationId}`) is WI-2/WI-3's own
-// Redis key, written by their route/processor; this dispatch's own
-// Objective and threat-closure list (T-M2/T-M4/T-M6/T-M8/T-M11/T-H7) name
-// only the outbound-side maintenance tasks, and Traceability assigns T-M7
-// to WI-2/WI-11, not WI-6. Rebuilding it here risks racing WI-3's
-// concurrent, uncommitted work on the very same key. Flagged as a gap for
-// the orchestrator to confirm is owned elsewhere.
+// integration), `integration_events` orphan pruning, the T-M2 volume
+// anomaly check, and (WI-13) the inbound per-integration depth-counter
+// rebuild -- WI-6 originally deferred this exact task (flagged as an
+// unresolved-ownership gap in its own handoff); it's now closed via
+// reconcile-integration-depth-counters.ts, which does the actual Postgres
+// read + Redis correction. This file only wires it into the existing tick.
 
 import { findDeliveriesToRelay, listIntegrationIdsWithDeliveries, markEnqueued, pruneDeliveriesForIntegration } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { pruneOrphanIntegrationEvents } from '@/infrastructure/supabase/repositories/integration-event-repository'
 import { findIntegrationVolumeAnomalies } from '@/infrastructure/supabase/repositories/integration-anomaly-stats-repository'
 import { addDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
+import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { notifyOpsAlert } from '@/application/notify-ops-alert'
+import { reconcileAllIntegrationDepthCounters } from '@/application/reconcile-integration-depth-counters'
 
 const RELAY_MIN_AGE_MS = 5000
 const RELAY_BATCH_LIMIT = 200
@@ -62,6 +60,7 @@ export async function runMaintenanceSweep(): Promise<void> {
   await pruneDeliveryLogs()
   await pruneOrphanEvents()
   await checkVolumeAnomalies()
+  await reconcileDepthCounters()
 }
 
 async function pruneDeliveryLogs(): Promise<void> {
@@ -122,6 +121,16 @@ async function checkVolumeAnomalies(): Promise<void> {
         lastHourCount: anomaly.lastHourCount,
         sevenDayHourlyAverage: anomaly.sevenDayHourlyAverage,
       },
+    })
+  }
+}
+
+async function reconcileDepthCounters(): Promise<void> {
+  try {
+    await reconcileAllIntegrationDepthCounters(getInboundRateLimiter())
+  } catch (err) {
+    console.warn('[sweepIntegrationQueues] reconcileAllIntegrationDepthCounters failed', {
+      error: err instanceof Error ? err.message : String(err),
     })
   }
 }

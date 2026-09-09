@@ -126,6 +126,36 @@ export async function insertConsentRecord(
   throw new Error(`insertConsentRecord: ${error.message}`)
 }
 
+// INT-001 WI-13 (Gap A): identical write to insertConsentRecord, but routed
+// through an RPC (migration 073) that also sets app.origin_integration_id
+// for the SAME transaction the INSERT runs in -- consent_changed_outbox
+// reads that setting so the resulting member.updated event is attributed
+// to the calling integration. A plain `.insert()` can't do this: this
+// repo's Supabase client talks over PostgREST, which runs every request in
+// its OWN transaction, so a "set the session var" call made separately
+// would already be gone by the time this insert's transaction begins.
+// Used ONLY by applyPartnerAssertedConsent below (the partner-API-only
+// write path) -- every other caller of insertConsentRecord is untouched
+// and keeps writing member.updated with origin_integration_id NULL.
+export async function insertConsentRecordWithOrigin(
+  record: ConsentRecord,
+  originIntegrationId: string
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase.rpc('insert_consent_record_with_origin', {
+    p_row: toRow(record),
+    p_origin_integration_id: originIntegrationId,
+  })
+  if (!error) return
+  if ((error as { code?: string }).code === '23505') {
+    throw new ConsentImportError(
+      'duplicate_active',
+      `consent already exists for (${record.snapshot.restaurantId}, ${record.snapshot.phoneE164}, ${record.snapshot.category})`
+    )
+  }
+  throw new Error(`insertConsentRecordWithOrigin: ${error.message}`)
+}
+
 interface UpgradeArgs {
   restaurantId: string
   phoneE164: string
@@ -151,6 +181,24 @@ export async function upgradeToOptedIn(args: UpgradeArgs): Promise<boolean> {
     .eq('status', 'pending')
   if (error) throw new Error(`upgradeToOptedIn: ${error.message}`)
   return (count ?? 0) > 0
+}
+
+// INT-001 WI-13 (Gap A): origin-attributed sibling of upgradeToOptedIn --
+// see insertConsentRecordWithOrigin's header above for why an RPC is
+// required and who may call this (applyPartnerAssertedConsent only).
+export async function upgradeToOptedInWithOrigin(
+  args: UpgradeArgs,
+  originIntegrationId: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('upgrade_consent_to_opted_in_with_origin', {
+    p_restaurant_id: args.restaurantId,
+    p_phone_e164: args.phoneE164,
+    p_category: args.category,
+    p_origin_integration_id: originIntegrationId,
+  })
+  if (error) throw new Error(`upgradeToOptedInWithOrigin: ${error.message}`)
+  return ((data as number | null) ?? 0) > 0
 }
 
 interface RevokeArgs {
@@ -210,11 +258,17 @@ export async function applyPartnerAssertedConsent(
   if (action === 'blocked_opted_out' || action === 'noop') return action
 
   if (action === 'upgraded') {
-    await upgradeToOptedIn({
-      restaurantId: args.restaurantId,
-      phoneE164: args.phoneE164,
-      category: args.category,
-    })
+    // WI-13 (Gap A): origin-attributed -- this whole function is the SOLE
+    // partner-API write path (see its own header), so args.integrationId
+    // is always the correct origin.
+    await upgradeToOptedInWithOrigin(
+      {
+        restaurantId: args.restaurantId,
+        phoneE164: args.phoneE164,
+        category: args.category,
+      },
+      args.integrationId
+    )
     return action
   }
 
@@ -235,7 +289,7 @@ export async function applyPartnerAssertedConsent(
     status === 'opted_in'
       ? ConsentRecord.grant({ ...shared, grade: args.grade })
       : ConsentRecord.markPending(shared)
-  await insertConsentRecord(record)
+  await insertConsentRecordWithOrigin(record, args.integrationId)
   return action
 }
 

@@ -117,4 +117,8 @@ export class RedisRateLimiter implements RateLimiterPort {
     const value = await this.redis.get(key)
     return value === null ? 0 : Number(value)
   }
+
+  async set(key: string, value: number): Promise<void> {
+    await this.redis.set(key, value)
+  }
 }

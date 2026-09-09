@@ -84,5 +84,30 @@ export function runRateLimiterContract(
       const third = await limiter.incrWindow(key, 10, 60)
       expect(third.count).toBe(3)
     })
+
+    // WI-13 (Gap B): set() is the depth-counter reconciliation sweep's only
+    // write primitive -- it must overwrite unconditionally (not add a
+    // delta), whether correcting the counter UP or DOWN, and whether a
+    // prior value existed or not.
+    it('set() overwrites the counter to an absolute value, read back by get()', async () => {
+      const limiter = await createLimiter()
+      const key = `contract-set-${Math.random().toString(36).slice(2)}`
+      await limiter.set(key, 7)
+      expect(await limiter.get(key)).toBe(7)
+
+      await limiter.set(key, 2)
+      expect(await limiter.get(key)).toBe(2)
+
+      await limiter.set(key, 0)
+      expect(await limiter.get(key)).toBe(0)
+    })
+
+    it('set() on a key incr/decr already touched is read consistently by incr/decr', async () => {
+      const limiter = await createLimiter()
+      const key = `contract-set-then-incr-${Math.random().toString(36).slice(2)}`
+      await limiter.incr(key)
+      await limiter.set(key, 10)
+      expect(await limiter.incr(key)).toBe(11)
+    })
   })
 }

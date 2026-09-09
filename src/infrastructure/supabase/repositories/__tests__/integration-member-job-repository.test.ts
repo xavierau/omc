@@ -12,6 +12,8 @@ import {
   completeMemberJobFailed,
   markMemberJobProcessing,
   updateMemberJobWelcomeOutcome,
+  countNonTerminalJobsByIntegration,
+  countNonTerminalJobsForIntegration,
 } from '../integration-member-job-repository'
 
 function buildInsertClient(insertResult: { data: unknown; error: { code?: string; message: string } | null }) {
@@ -205,5 +207,84 @@ describe('integration-member-job-repository (INT-001 WI-3, T-H3b/T-H4/T-M1)', ()
     await updateMemberJobWelcomeOutcome('mj_abc', 'skipped_opted_out', null)
 
     expect(updated.value).toEqual({ welcome_outcome: 'skipped_opted_out', welcome_detail: null })
+  })
+})
+
+describe('countNonTerminalJobsByIntegration / countNonTerminalJobsForIntegration (INT-001 WI-13 Gap B)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('countNonTerminalJobsByIntegration maps the grouped RPC rows to camelCase', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        { integration_id: 'int-1', non_terminal_count: 3 },
+        { integration_id: 'int-2', non_terminal_count: 0 },
+      ],
+      error: null,
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await countNonTerminalJobsByIntegration()
+
+    expect(rpc).toHaveBeenCalledWith('count_non_terminal_member_jobs_by_integration')
+    expect(result).toEqual([
+      { integrationId: 'int-1', count: 3 },
+      { integrationId: 'int-2', count: 0 },
+    ])
+  })
+
+  it('countNonTerminalJobsByIntegration returns [] when the RPC returns no rows', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    expect(await countNonTerminalJobsByIntegration()).toEqual([])
+  })
+
+  it('countNonTerminalJobsByIntegration throws a contextual error on failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(countNonTerminalJobsByIntegration()).rejects.toThrow(
+      /countNonTerminalJobsByIntegration.*timeout/
+    )
+  })
+
+  it('countNonTerminalJobsForIntegration passes the integration id and returns the count', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 5, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await countNonTerminalJobsForIntegration('int-1')
+
+    expect(rpc).toHaveBeenCalledWith('count_non_terminal_member_jobs_for_integration', {
+      p_integration_id: 'int-1',
+    })
+    expect(result).toBe(5)
+  })
+
+  it('countNonTerminalJobsForIntegration returns 0 when the RPC returns null', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    expect(await countNonTerminalJobsForIntegration('int-1')).toBe(0)
+  })
+
+  it('countNonTerminalJobsForIntegration throws a contextual error on failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'permission denied' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(countNonTerminalJobsForIntegration('int-1')).rejects.toThrow(
+      /countNonTerminalJobsForIntegration.*permission denied/
+    )
   })
 })

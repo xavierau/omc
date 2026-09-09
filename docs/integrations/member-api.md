@@ -303,13 +303,23 @@ you can recognize your **own writes** coming back to you and skip re-processing 
 - On `member.created`: set to **your** `integrationId` when you were the one who
   created the member via this API; `null` if the member was created through another
   channel (WhatsApp join, web QR, CSV import) and you're just another subscriber.
-- On `member.updated`: **currently always `null`.** These events are produced by
-  database triggers reacting to `members`/`consent_records` changes, and nothing today
-  attributes an update back to the integration whose API call caused it — even if your
-  own `POST` upgraded a consent record. Do not assume you can distinguish "an update I
-  triggered" from "an update someone else triggered" for `member.updated` yet; treat
-  every `member.updated` you receive as external. If this matters to your integration,
-  ask the restaurant to raise it — it's a known, disclosed gap, not a bug in your code.
+- On `member.updated`: set to **your** `integrationId` when the change was caused by
+  your own call into this API — specifically, a `POST` of yours that upgraded or
+  inserted a consent record (`data.changed` includes `consent`), or that supplied an
+  `external_ref` that changed an existing link (`data.changed` includes
+  `external_ref`). It is `null` for every update made through another channel: the
+  restaurant's dashboard, a WhatsApp opt-in/STOP, a CSV import, or another
+  integration's own API call. A member's `name`/`language`/`status` fields (`data.changed`
+  containing `name`, `language`, or `status`) are never changed by this API today, so
+  those `member.updated` events are always `null`.
+- **Coalescing note**: if two changes to the same member land within the same 5-second
+  window (e.g. your consent upgrade and, coincidentally, a dashboard edit), they
+  coalesce into one `member.updated` event with a unioned `data.changed`. That event's
+  `origin_integration_id` is **sticky** to whichever of the coalesced writes had a
+  non-null origin first — it does not get cleared by a later, unattributed write landing
+  in the same window, but it also does not distinguish "attributable to me" from
+  "attributable to me AND something else happened in the same 5 seconds." Treat it as
+  "at least one of the changes in this event was mine," not as a byte-exact diff.
 
 ### Verifying an inbound webhook
 

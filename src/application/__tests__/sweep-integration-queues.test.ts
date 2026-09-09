@@ -18,6 +18,12 @@ vi.mock('@/infrastructure/queue/integration-outbound-queue', () => ({
 vi.mock('@/application/notify-ops-alert', () => ({
   notifyOpsAlert: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@/application/reconcile-integration-depth-counters', () => ({
+  reconcileAllIntegrationDepthCounters: vi.fn().mockResolvedValue([]),
+}))
+vi.mock('@/infrastructure/queue/integration-inbound-queue', () => ({
+  getInboundRateLimiter: vi.fn().mockReturnValue({ fake: 'rate-limiter' }),
+}))
 
 import {
   findDeliveriesToRelay,
@@ -29,6 +35,8 @@ import { pruneOrphanIntegrationEvents } from '@/infrastructure/supabase/reposito
 import { findIntegrationVolumeAnomalies } from '@/infrastructure/supabase/repositories/integration-anomaly-stats-repository'
 import { addDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
 import { notifyOpsAlert } from '@/application/notify-ops-alert'
+import { reconcileAllIntegrationDepthCounters } from '@/application/reconcile-integration-depth-counters'
+import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { IntegrationDelivery, type IntegrationDeliveryProps } from '@/domain/entities/integration-delivery'
 import { relayQueuedDeliveries, runMaintenanceSweep } from '../sweep-integration-queues'
 
@@ -129,5 +137,27 @@ describe('runMaintenanceSweep', () => {
 
     await expect(runMaintenanceSweep()).resolves.toBeUndefined()
     expect(pruneDeliveriesForIntegration).toHaveBeenCalledWith('int-2', 500, 30)
+  })
+
+  // WI-13 (Gap B): the depth-counter rebuild the plan's own architecture
+  // text assigns to "the 5-min sweeper" -- WI-6 deliberately excluded it
+  // (see this file's own module header history / WI-6's handoff), flagged
+  // as an unresolved-ownership gap. This dispatch closes it.
+  it('reconciles per-integration depth counters against the real inbound rate limiter', async () => {
+    await runMaintenanceSweep()
+
+    expect(getInboundRateLimiter).toHaveBeenCalled()
+    expect(reconcileAllIntegrationDepthCounters).toHaveBeenCalledWith(
+      vi.mocked(getInboundRateLimiter).mock.results[0]?.value
+    )
+  })
+
+  it('a depth-counter reconciliation failure does not stop the rest of the sweep', async () => {
+    vi.mocked(reconcileAllIntegrationDepthCounters).mockRejectedValue(new Error('redis down'))
+    vi.mocked(listIntegrationIdsWithDeliveries).mockResolvedValue(['int-1'])
+
+    await expect(runMaintenanceSweep()).resolves.toBeUndefined()
+    expect(pruneDeliveriesForIntegration).toHaveBeenCalledWith('int-1', 500, 30)
+    expect(pruneOrphanIntegrationEvents).toHaveBeenCalledWith(30)
   })
 })

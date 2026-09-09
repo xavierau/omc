@@ -152,7 +152,7 @@ lines all cast the literal to `::text` before array-append.
 | Key pattern | TTL | Purpose |
 |---|---|---|
 | `int001:idem:{jobId}` | 24h (86400s) | fast-path idempotency cache for a create request's content-addressed job id — Postgres's `job_id` primary key is the actual correctness backstop |
-| `int001:depth:{integrationId}` | none (plain counter, INCR/DECR) | per-integration in-flight job count against `inbound_queue_cap` (default 500) — **see the known gap in §7** |
+| `int001:depth:{integrationId}` | none (plain counter, INCR/DECR) | per-integration in-flight job count against `inbound_queue_cap` (default 500) — reconciled against Postgres every 5 minutes, see §7 |
 | `int001:rl:{integrationId}` | 120s (re-armed on every use) | partner token bucket (default 60/min, burst 20) |
 | `int001:rlf:{integrationId}:{clientIp}` | 60s fixed window | auth-failure bucket (10 failures/60s trips a `429` before the partner bucket is ever charged) |
 | `int001:replay:{integrationId}:{nonce}` | 600s (10 min) | nonce-replay dedup — defense in depth; the real retry-safety net is `int001:idem:*` above |
@@ -212,36 +212,43 @@ If either new worker is missing from that line, the daemon restarted against a b
 that doesn't include this feature's `scripts/start-worker.ts` changes — re-deploy rather
 than restarting again.
 
-## 7. Known gap: per-integration depth counter has no rebuild
+## 7. Per-integration depth counter: automatic rebuild (WI-13)
 
-The plan's own architecture text says the 5-minute sweeper "re-derives every counter
-from `integration_member_jobs WHERE status IN ('queued','processing')` (a counter is a
-cache, the table is truth)." **This was never built.** `int001:depth:{integrationId}`
-is only ever incremented at enqueue and decremented at job-terminal-state — grep
-confirms no code path anywhere recomputes it from Postgres. WI-2/WI-3's handoffs don't
-claim to own it either; WI-6's own handoff flags this exact gap and could not resolve
-ownership. **This is a real operational risk**: a worker crash between "reserve the
-depth slot" and "release it in the job's `finally`" permanently inflates that
-integration's counter, and nothing ever corrects it — eventually every request from
-that integration gets a false `503 queue_depth_exceeded` even though nothing is
+`int001:depth:{integrationId}` is only ever incremented at enqueue and decremented at
+job-terminal-state (`enqueue-member-create.ts`, `process-member-create-job.ts`) — a
+worker crash between "reserve the depth slot" and "release it in the job's `finally`"
+would otherwise permanently inflate that integration's counter, eventually giving every
+request from that integration a false `503 queue_depth_exceeded` even though nothing is
 actually queued.
 
-**Manual recovery**, until a follow-up work item builds the real rebuild:
+The 5-minute maintenance sweep (`sweep-integration-queues.ts`'s `runMaintenanceSweep`,
+via `reconcile-integration-depth-counters.ts`) now closes this: every tick, it re-derives
+each integration's true in-flight count from `integration_member_jobs WHERE status IN
+('queued','processing')` (Postgres — "a counter is a cache, the table is truth") and
+corrects the Redis counter if it disagrees, in **either** direction (too high from a
+lost job, or too low/zero after a Redis flush). No drift → no write; a correction is
+logged (`[reconcileIntegrationDepthCounters] corrected drift`) with the integration id,
+previous count, and true count. One integration failing to reconcile (a transient Redis
+error) never blocks the others or the rest of the sweep tick.
 
-```sql
--- True in-flight count for one integration (Postgres, source of truth):
-SELECT count(*) FROM integration_member_jobs
-WHERE integration_id = '<id>' AND status IN ('queued', 'processing');
-```
+**Manual recovery**, if you need to correct one integration immediately rather than wait
+for the next tick:
 
 ```bash
-# Overwrite the Redis counter to match (never guess -- always read Postgres first):
-redis-cli -u "$REDIS_URL" SET int001:depth:<integrationId> <count-from-above>
+npx tsx scripts/ops/reconcile-integration-depth.ts <integrationId>
 ```
+
+This calls the same `reconcileIntegrationDepthCounter` function the sweep itself uses
+(`src/application/reconcile-integration-depth-counters.ts`) — it reads Postgres, writes
+Redis only if they disagree, and prints what (if anything) changed. This replaces the
+old raw `SELECT count(*) ...` + `redis-cli SET` recipe with a single command that can't
+be run against the wrong integration id by a copy-paste typo between two terminals.
 
 Symptom that should make you check this: an integration reports `503
 queue_depth_exceeded` on every request but its dashboard Activity tab shows no
-`queued`/`processing` jobs.
+`queued`/`processing` jobs — this should now self-heal within 5 minutes; if it
+persists, check the worker logs for repeated
+`[reconcileIntegrationDepthCounters] ... failed` warnings for that integration.
 
 ## 8. Secret rotation
 
