@@ -2,12 +2,18 @@ import { describe, it, expect } from 'vitest'
 import en from '../en.json'
 import zhHK from '../zh-HK.json'
 
-// INT-001 WI-9 — `locale-parity.test.ts` only proves en.json and zh-HK.json
-// carry the SAME key set (stays green if a key is deleted from both). This
-// pins every `integrations.*` string this WI's cards render (§8.2/§8.3
-// feedback states, every settings error code, nav.integrations), so a
-// silently-removed or never-added key fails loudly here instead of
+// INT-001 WI-9/WI-10 — `locale-parity.test.ts` only proves en.json and
+// zh-HK.json carry the SAME key set (stays green if a key is deleted from
+// both). This pins every `integrations.*` string this WI's cards render
+// (§8.2/§8.3 feedback states, every settings error code, nav.integrations),
+// so a silently-removed or never-added key fails loudly here instead of
 // surfacing as a raw `integrations.xyz` string in production.
+//
+// WI-10 extends this list (delivery log / activity log / paused banner /
+// resume) and retires `activityComingSoon` — the placeholder copy it
+// replaced with the real Activity tab content (see
+// `src/app/dashboard/integrations/[id]/page.tsx`). Every WI-9 key below is
+// otherwise unchanged.
 const REQUIRED_KEYS = [
   'heading',
   'description',
@@ -21,9 +27,74 @@ const REQUIRED_KEYS = [
   'emptyTitle',
   'emptyDescription',
   'tabSettings',
+  'tabDeliveries',
   'tabActivity',
-  'activityComingSoon',
   'adminOnlySettings',
+  'pausedBannerTitle',
+  'pausedBannerStreak',
+  'pausedBannerResume',
+  'pausedBannerResuming',
+  'pausedBannerResumeSuccess',
+  'errorResumeUrlInvalid',
+  'deadLetteredSinceSecretChange',
+  'deliveryLogTitle',
+  'deliveryLogEmpty',
+  'deliveryStatusFilterLabel',
+  'deliveryStatusAll',
+  'deliveryStatusQueued',
+  'deliveryStatusDelivering',
+  'deliveryStatusRetrying',
+  'deliveryStatusDelivered',
+  'deliveryStatusDeadLettered',
+  'deliveryStatusPaused',
+  'deliveryStatusSkipped',
+  'deliveryColEvent',
+  'deliveryColEventId',
+  'deliveryColOccurredAt',
+  'deliveryColAttempts',
+  'deliveryColStatus',
+  'deliveryColLastHttp',
+  'deliveryColNextRetry',
+  'deliveryColActions',
+  'deliveryRetryButton',
+  'deliveryRetryPending',
+  'deliveryRetried',
+  'errorAlreadyRetried',
+  'deliveryLoadMore',
+  'deliveryLoadFailed',
+  'activityLogTitle',
+  'activityLogEmpty',
+  'activityColSubmittedAt',
+  'activityColOutcome',
+  'activityColAssertedLevel',
+  'activityColConsentActions',
+  'activityColWelcome',
+  'activityColPhone',
+  'activityOutcomeCreated',
+  'activityOutcomeExisting',
+  'activityJobStatusQueued',
+  'activityJobStatusProcessing',
+  'activityJobStatusFailed',
+  'assertedLevelNone',
+  'assertedLevelUtility',
+  'assertedLevelAll',
+  'welcomeStatusNone',
+  'welcomeStatusUnknown',
+  'welcomeStatusQueued',
+  'welcomeStatusSent',
+  'welcomeStatusFailed',
+  'welcomeStatusSkippedOff',
+  'welcomeStatusSkippedByRequest',
+  'welcomeStatusSkippedExisting',
+  'welcomeStatusSkippedOptedOut',
+  'welcomeStatusSkippedNoTemplate',
+  'welcomeStatusSkippedConsentLevel',
+  'welcomeStatusSkippedQualityPaused',
+  'welcomeStatusSkippedRateCapped',
+  'welcomeStatusSkippedMemberMissing',
+  'activityLoadMore',
+  'activityLoadFailed',
+  'outboundTestViewInLog',
   'inboundCardTitle',
   'inboundCardDescription',
   'webhookUrlLabel',

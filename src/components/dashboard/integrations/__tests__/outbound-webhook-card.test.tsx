@@ -257,3 +257,37 @@ describe('OutboundWebhookView — send test event', () => {
     expect(byTestId(tree, 'outbound-test-extension-point')).toBeDefined()
   })
 })
+
+// INT-001 WI-10 — the "View in delivery log" link this WI adds inside the
+// extension point, on a successful test event only.
+describe('OutboundWebhookView — WI-10 view-in-log link', () => {
+  it('shows the link once a test event has been sent and onViewDelivery is wired', () => {
+    const onViewDelivery = vi.fn()
+    const tree = view({}, {}, { state: 'sent', deliveryId: 'd-123', onViewDelivery })
+    expect(byTestId(tree, 'outbound-test-view-in-log')).toBeDefined()
+  })
+
+  it('fires onViewDelivery with the delivery id when clicked', () => {
+    const onViewDelivery = vi.fn()
+    const tree = view({}, {}, { state: 'sent', deliveryId: 'd-123', onViewDelivery })
+    ;(byTestId(tree, 'outbound-test-view-in-log')!.props as { onClick: () => void }).onClick()
+    expect(onViewDelivery).toHaveBeenCalledWith('d-123')
+  })
+
+  it('hides the link when onViewDelivery is not wired', () => {
+    const tree = view({}, {}, { state: 'sent', deliveryId: 'd-123', onViewDelivery: undefined })
+    expect(byTestId(tree, 'outbound-test-view-in-log')).toBeUndefined()
+  })
+
+  it('hides the link before a test event has been sent', () => {
+    const onViewDelivery = vi.fn()
+    const tree = view({}, {}, { state: 'idle', deliveryId: null, onViewDelivery })
+    expect(byTestId(tree, 'outbound-test-view-in-log')).toBeUndefined()
+  })
+
+  it('hides the link on a test-event error', () => {
+    const onViewDelivery = vi.fn()
+    const tree = view({}, {}, { state: 'error', errorCode: 'url_not_saved', onViewDelivery })
+    expect(byTestId(tree, 'outbound-test-view-in-log')).toBeUndefined()
+  })
+})

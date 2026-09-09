@@ -16,6 +16,10 @@ import {
   rotateInboundSecretRequest,
   sendTestEventRequest,
   isTenantAdmin,
+  fetchIntegrationDeliveries,
+  retryDeliveryRequest,
+  fetchIntegrationActivity,
+  resumeOutboundRequest,
 } from '@/hooks/integrations-client'
 
 function mockFetch(status: number, body: unknown) {
@@ -239,5 +243,156 @@ describe('isTenantAdmin', () => {
 
   it('is false when restaurantId is not in the list', () => {
     expect(isTenantAdmin([{ id: 'r-1', role: 'admin' }], 'r-9')).toBe(false)
+  })
+})
+
+// INT-001 WI-10 — frozen acceptance suite (authored before delivery-log-
+// table.tsx / activity-log-table.tsx / paused-banner.tsx, from the WI-8
+// route contracts, matching WI-9's own disclosed derive-first posture).
+
+const DELIVERY = {
+  id: 'd-1',
+  eventId: 'evt-1',
+  eventType: 'member.created' as const,
+  occurredAt: '2026-09-10T00:00:00Z',
+  status: 'dead_lettered' as const,
+  attempts: 5,
+  lastHttpStatus: 404,
+  lastErrorCode: 'http_4xx',
+  nextRetryAt: null,
+  createdAt: '2026-09-10T00:00:00Z',
+}
+
+describe('fetchIntegrationDeliveries', () => {
+  it('returns { data, nextCursor } on 200 with no query params when none given', async () => {
+    const fn = mockFetch(200, { data: [DELIVERY], nextCursor: null })
+    await expect(fetchIntegrationDeliveries('i-1')).resolves.toEqual({
+      ok: true,
+      data: [DELIVERY],
+      nextCursor: null,
+    })
+    expect(fn).toHaveBeenCalledWith('/api/dashboard/pos-integrations/i-1/deliveries')
+  })
+
+  it('appends status and cursor as query params when given', async () => {
+    const fn = mockFetch(200, { data: [], nextCursor: 'c-2' })
+    await fetchIntegrationDeliveries('i-1', { status: 'dead_lettered', cursor: 'c-1' })
+    expect(fn).toHaveBeenCalledWith('/api/dashboard/pos-integrations/i-1/deliveries?status=dead_lettered&cursor=c-1')
+  })
+
+  it('defaults nextCursor to null and data to [] on a malformed body', async () => {
+    mockFetch(200, {})
+    await expect(fetchIntegrationDeliveries('i-1')).resolves.toEqual({ ok: true, data: [], nextCursor: null })
+  })
+
+  it('carries the HTTP status through on a non-ok response (staff -> 403)', async () => {
+    mockFetch(403, { error: 'Forbidden' })
+    await expect(fetchIntegrationDeliveries('i-1')).resolves.toEqual({ ok: false, status: 403, error: 'Forbidden' })
+  })
+
+  it('returns network_error (status 0) when fetch throws', async () => {
+    mockFetchThrows()
+    await expect(fetchIntegrationDeliveries('i-1')).resolves.toEqual({ ok: false, status: 0, error: 'network_error' })
+  })
+})
+
+describe('retryDeliveryRequest', () => {
+  it('POSTs and returns ok:true on 202', async () => {
+    const fn = mockFetch(202, { status: 'ok' })
+    await expect(retryDeliveryRequest('i-1', 'd-1')).resolves.toEqual({ ok: true })
+    expect(fn).toHaveBeenCalledWith('/api/dashboard/pos-integrations/i-1/deliveries/d-1/retry', { method: 'POST' })
+  })
+
+  it('surfaces already_retried on 409', async () => {
+    mockFetch(409, { error: 'already_retried' })
+    await expect(retryDeliveryRequest('i-1', 'd-1')).resolves.toEqual({
+      ok: false,
+      status: 409,
+      error: 'already_retried',
+    })
+  })
+
+  it('surfaces not_found on 404 (foreign/absent delivery)', async () => {
+    mockFetch(404, { error: 'not_found' })
+    await expect(retryDeliveryRequest('i-1', 'd-9')).resolves.toEqual({ ok: false, status: 404, error: 'not_found' })
+  })
+
+  it('returns network_error when fetch throws', async () => {
+    mockFetchThrows()
+    await expect(retryDeliveryRequest('i-1', 'd-1')).resolves.toEqual({ ok: false, status: 0, error: 'network_error' })
+  })
+})
+
+const ACTIVITY_ITEM = {
+  jobId: 'job-1',
+  status: 'succeeded' as const,
+  outcome: 'created' as const,
+  assertedLevel: 'all' as const,
+  consentActions: { utility: 'opted_in', marketing: 'opted_in' },
+  welcomeOutcome: 'sent',
+  welcomeDetail: { whatsapp_message_id: 'wamid.1' },
+  phoneLast4: '1234',
+  submittedAt: '2026-09-10T00:00:00Z',
+}
+
+describe('fetchIntegrationActivity', () => {
+  it('returns { data, nextCursor } on 200 with no query params when none given', async () => {
+    const fn = mockFetch(200, { data: [ACTIVITY_ITEM], nextCursor: null })
+    await expect(fetchIntegrationActivity('i-1')).resolves.toEqual({
+      ok: true,
+      data: [ACTIVITY_ITEM],
+      nextCursor: null,
+    })
+    expect(fn).toHaveBeenCalledWith('/api/dashboard/pos-integrations/i-1/activity')
+  })
+
+  it('appends cursor as a query param when given', async () => {
+    const fn = mockFetch(200, { data: [], nextCursor: null })
+    await fetchIntegrationActivity('i-1', { cursor: '2026-09-01T00:00:00Z' })
+    expect(fn).toHaveBeenCalledWith(
+      '/api/dashboard/pos-integrations/i-1/activity?cursor=2026-09-01T00%3A00%3A00Z'
+    )
+  })
+
+  it('carries the HTTP status through on a non-ok response (staff -> 403)', async () => {
+    mockFetch(403, { error: 'Forbidden' })
+    await expect(fetchIntegrationActivity('i-1')).resolves.toEqual({ ok: false, status: 403, error: 'Forbidden' })
+  })
+
+  it('returns network_error (status 0) when fetch throws', async () => {
+    mockFetchThrows()
+    await expect(fetchIntegrationActivity('i-1')).resolves.toEqual({ ok: false, status: 0, error: 'network_error' })
+  })
+})
+
+describe('resumeOutboundRequest', () => {
+  it('POSTs with no body and returns requeued on 200', async () => {
+    const fn = mockFetch(200, { requeued: 37 })
+    await expect(resumeOutboundRequest('i-1')).resolves.toEqual({ ok: true, requeued: 37 })
+    expect(fn).toHaveBeenCalledWith('/api/dashboard/pos-integrations/i-1/outbound/resume', { method: 'POST' })
+  })
+
+  it('defaults requeued to 0 on a malformed body', async () => {
+    mockFetch(200, {})
+    await expect(resumeOutboundRequest('i-1')).resolves.toEqual({ ok: true, requeued: 0 })
+  })
+
+  it('surfaces url_invalid on 422 (must fix URL before resuming)', async () => {
+    mockFetch(422, { error: 'url_invalid' })
+    await expect(resumeOutboundRequest('i-1')).resolves.toEqual({ ok: false, status: 422, error: 'url_invalid' })
+  })
+
+  it('surfaces integration_not_found on 404', async () => {
+    mockFetch(404, { error: 'integration_not_found' })
+    await expect(resumeOutboundRequest('i-1')).resolves.toEqual({
+      ok: false,
+      status: 404,
+      error: 'integration_not_found',
+    })
+  })
+
+  it('returns network_error when fetch throws', async () => {
+    mockFetchThrows()
+    await expect(resumeOutboundRequest('i-1')).resolves.toEqual({ ok: false, status: 0, error: 'network_error' })
   })
 })

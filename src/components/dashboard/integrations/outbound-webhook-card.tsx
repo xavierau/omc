@@ -91,6 +91,13 @@ export interface OutboundTestEventProps {
   errorCode: string | null
   onSend: () => void
   disabled: boolean
+  /** INT-001 WI-10: the extension point this file's header comment
+   * documents (`outbound-test-extension-point`). Optional so this view
+   * still renders correctly if a future caller doesn't wire it. Fires the
+   * delivery id the test event created so the caller can switch to the
+   * Delivery log tab and highlight that row (`delivery-log-table.tsx`'s
+   * `highlightDeliveryId`). */
+  onViewDelivery?: (deliveryId: string) => void
 }
 
 /** Pure/props-driven. */
@@ -248,9 +255,22 @@ export function OutboundWebhookView({
               {t(settingsErrorMessageKey(test.errorCode))}
             </p>
           )}
-          {/* WI-10 extension point: delivery-log-table.tsx mounts here and
-              polls the row this test event created every 2s for 30s. */}
-          <div data-testid="outbound-test-extension-point" />
+          {/* WI-10 extension point: on a successful test event, a link into
+              the Delivery log tab (which highlights and, while it's the
+              highlighted row, live-polls this delivery every 2s for 30s --
+              see delivery-log-table.tsx's highlightDeliveryId). */}
+          <div data-testid="outbound-test-extension-point">
+            {test.state === 'sent' && test.deliveryId && test.onViewDelivery && (
+              <Button
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => test.onViewDelivery!(test.deliveryId!)}
+                data-testid="outbound-test-view-in-log"
+              >
+                {t('outboundTestViewInLog')}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -260,9 +280,11 @@ export function OutboundWebhookView({
 export function OutboundWebhookCard({
   integrationId,
   initialSettings,
+  onViewDelivery,
 }: {
   integrationId: string
   initialSettings: IntegrationSettingsView
+  onViewDelivery?: (deliveryId: string) => void
 }) {
   const [url, setUrl] = useState(initialSettings.outboundUrl ?? '')
   const [events, setEvents] = useState<OutboundEventName[]>(defaultOutboundEvents(initialSettings.outboundEvents))
@@ -409,6 +431,7 @@ export function OutboundWebhookCard({
         errorCode: testErrorCode,
         onSend: onSendTest,
         disabled: !url || !enabled,
+        onViewDelivery,
       }}
     />
   )

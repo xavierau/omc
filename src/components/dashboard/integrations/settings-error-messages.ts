@@ -46,3 +46,36 @@ const KEY_BY_CODE: Record<string, string> = {
 export function settingsErrorMessageKey(code: string): string {
   return KEY_BY_CODE[code] ?? 'errorGeneric'
 }
+
+// INT-001 WI-10 — additive: the retry-delivery and resume-outbound routes
+// return their own error vocabularies (retry-delivery.ts's
+// `RetryDeliveryResult`, resume-outbound.ts's `ResumeOutboundResult`),
+// distinct from the settings-route codes above. Kept as separate mapping
+// functions (not merged into `settingsErrorMessageKey`) since `url_invalid`
+// means something different in each context (resume's "fix the URL before
+// resuming" vs. a settings-save rejection) and needs its own copy.
+
+const RETRY_KEY_BY_CODE: Record<string, string> = {
+  already_retried: 'errorAlreadyRetried',
+  not_found: 'errorGeneric',
+  not_dead_lettered: 'errorGeneric',
+  network_error: 'errorGeneric',
+}
+
+/** Maps any retry-delivery route error code (or any unrecognized string) to
+ * an `integrations.*` i18n key. */
+export function retryDeliveryErrorMessageKey(code: string): string {
+  return RETRY_KEY_BY_CODE[code] ?? 'errorGeneric'
+}
+
+const RESUME_KEY_BY_CODE: Record<string, string> = {
+  url_invalid: 'errorResumeUrlInvalid',
+  integration_not_found: 'errorIntegrationNotFound',
+  network_error: 'errorGeneric',
+}
+
+/** Maps any resume-outbound route error code (or any unrecognized string)
+ * to an `integrations.*` i18n key. */
+export function resumeOutboundErrorMessageKey(code: string): string {
+  return RESUME_KEY_BY_CODE[code] ?? 'errorGeneric'
+}

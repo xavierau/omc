@@ -120,6 +120,123 @@ export type TestEventResult =
   | { ok: true; deliveryId: string }
   | { ok: false; status: number; error: 'url_not_saved' | 'not_eligible_for_delivery' | 'integration_not_found' | 'network_error' | (string & {}) }
 
+// INT-001 WI-10 — additive extension of WI-9's client (delivery log,
+// activity log, retry, resume). Response envelopes copied verbatim from
+// WI-8's routes (see artifacts/2026-09-10-int-001-wi8-backend): the
+// deliveries/activity GETs wrap `{ data, nextCursor }`; retry POST returns
+// `{ status: 'ok' }` on 202 (this client only needs `ok: true`, not the
+// body); resume POST returns `{ requeued }` on 200 with no envelope.
+
+export type IntegrationDeliveryStatus =
+  | 'queued'
+  | 'delivering'
+  | 'retrying'
+  | 'delivered'
+  | 'dead_lettered'
+  | 'paused'
+  | 'skipped'
+
+export interface IntegrationDeliveryListItem {
+  id: string
+  eventId: string
+  eventType: string | null
+  occurredAt: string | null
+  status: IntegrationDeliveryStatus
+  attempts: number
+  lastHttpStatus: number | null
+  lastErrorCode: string | null
+  nextRetryAt: string | null
+  createdAt: string
+}
+
+export type ListDeliveriesResult =
+  | { ok: true; data: IntegrationDeliveryListItem[]; nextCursor: string | null }
+  | { ok: false; status: number; error: string }
+
+export async function fetchIntegrationDeliveries(
+  id: string,
+  args: { status?: IntegrationDeliveryStatus; cursor?: string } = {}
+): Promise<ListDeliveriesResult> {
+  try {
+    const params = new URLSearchParams()
+    if (args.status) params.set('status', args.status)
+    if (args.cursor) params.set('cursor', args.cursor)
+    const qs = params.toString()
+    const res = await fetch(`/api/dashboard/pos-integrations/${id}/deliveries${qs ? `?${qs}` : ''}`)
+    if (!res.ok) return { ok: false, status: res.status, error: await readError(res) }
+    const json = await res.json()
+    return { ok: true, data: Array.isArray(json.data) ? json.data : [], nextCursor: json.nextCursor ?? null }
+  } catch {
+    return { ok: false, status: 0, error: 'network_error' }
+  }
+}
+
+export type RetryDeliveryApiResult =
+  | { ok: true }
+  | { ok: false; status: number; error: 'already_retried' | 'not_found' | 'network_error' | (string & {}) }
+
+export async function retryDeliveryRequest(id: string, deliveryId: string): Promise<RetryDeliveryApiResult> {
+  try {
+    const res = await fetch(`/api/dashboard/pos-integrations/${id}/deliveries/${deliveryId}/retry`, {
+      method: 'POST',
+    })
+    if (!res.ok) return { ok: false, status: res.status, error: await readError(res) }
+    return { ok: true }
+  } catch {
+    return { ok: false, status: 0, error: 'network_error' }
+  }
+}
+
+export type MemberJobStatus = 'queued' | 'processing' | 'succeeded' | 'failed'
+export type MemberJobOutcome = 'created' | 'existing'
+export type AssertedConsentLevel = 'none' | 'utility' | 'all'
+
+export interface IntegrationActivityItem {
+  jobId: string
+  status: MemberJobStatus
+  outcome: MemberJobOutcome | null
+  assertedLevel: AssertedConsentLevel
+  consentActions: Record<string, unknown> | null
+  welcomeOutcome: string | null
+  welcomeDetail: Record<string, unknown> | null
+  phoneLast4: string
+  submittedAt: string
+}
+
+export type ListActivityResult =
+  | { ok: true; data: IntegrationActivityItem[]; nextCursor: string | null }
+  | { ok: false; status: number; error: string }
+
+export async function fetchIntegrationActivity(
+  id: string,
+  args: { cursor?: string } = {}
+): Promise<ListActivityResult> {
+  try {
+    const qs = args.cursor ? `?cursor=${encodeURIComponent(args.cursor)}` : ''
+    const res = await fetch(`/api/dashboard/pos-integrations/${id}/activity${qs}`)
+    if (!res.ok) return { ok: false, status: res.status, error: await readError(res) }
+    const json = await res.json()
+    return { ok: true, data: Array.isArray(json.data) ? json.data : [], nextCursor: json.nextCursor ?? null }
+  } catch {
+    return { ok: false, status: 0, error: 'network_error' }
+  }
+}
+
+export type ResumeOutboundApiResult =
+  | { ok: true; requeued: number }
+  | { ok: false; status: number; error: 'url_invalid' | 'integration_not_found' | 'network_error' | (string & {}) }
+
+export async function resumeOutboundRequest(id: string): Promise<ResumeOutboundApiResult> {
+  try {
+    const res = await fetch(`/api/dashboard/pos-integrations/${id}/outbound/resume`, { method: 'POST' })
+    if (!res.ok) return { ok: false, status: res.status, error: await readError(res) }
+    const json = await res.json()
+    return { ok: true, requeued: typeof json.requeued === 'number' ? json.requeued : 0 }
+  } catch {
+    return { ok: false, status: 0, error: 'network_error' }
+  }
+}
+
 async function readError(res: Response): Promise<string> {
   const body = await res.json().catch(() => null)
   const error = body && typeof body === 'object' ? (body as Record<string, unknown>).error : undefined
