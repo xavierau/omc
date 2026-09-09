@@ -50,8 +50,23 @@ function buildClient(insertedSink: { value: Record<string, unknown> | null }, ex
     insertedSink.value = row
     return { select: insertSelect }
   })
+  // WI-7: with the seam wired to the real IntegrationEventPublisher (WI-6),
+  // registerMemberWeb's `member.created` publish now makes its own,
+  // separate `.from('integration_events').insert(...)` call as an intended
+  // side effect -- discriminate by table name so only the `members` insert
+  // this test actually cares about populates insertedSink. Any other table
+  // gets an inert stub (matching emit-integration-event.ts's own
+  // best-effort, never-throws contract for the fan-out step).
+  const noopChain = {
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ is: vi.fn().mockResolvedValue({ data: [], error: null }) }) }),
+    }),
+    insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: null, error: null }) }) }),
+  }
 
-  const from = vi.fn().mockReturnValue({ select, insert })
+  const from = vi.fn().mockImplementation((table: string) =>
+    table === 'members' ? { select, insert } : noopChain
+  )
   return { from }
 }
 
@@ -71,8 +86,14 @@ describe('INT-001 WI-3: member-creation parity (registerMemberWeb vs. the seam)'
   })
 
   it('produce identical members rows on the shared fields, excluding id/timestamps', async () => {
+    // WI-7: registerMemberWeb now legitimately calls createServerSupabaseClient()
+    // twice per invocation (its own pre-check SELECT, then once more inside
+    // the seam's insertMember()) -- mockReturnValue (persistent) rather than
+    // mockReturnValueOnce so BOTH calls get the same client. Both internal
+    // calls read/write through the same `from` mock either way, so this is
+    // purely a call-count accommodation, not a behavioural change to the test.
     const webInserted: { value: Record<string, unknown> | null } = { value: null }
-    vi.mocked(createServerSupabaseClient).mockReturnValueOnce(
+    vi.mocked(createServerSupabaseClient).mockReturnValue(
       buildClient(webInserted, null) as never
     )
     await registerMemberWeb('+85291234567', 'Ada', RESTAURANT_ID)

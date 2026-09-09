@@ -125,14 +125,22 @@ RETURNS TRIGGER AS $$
 DECLARE
   changed_cols TEXT[] := '{}';
 BEGIN
+  -- WI-7 fix: an untyped string literal on the RHS of `text[] || <literal>`
+  -- makes Postgres resolve `||` as array-concat and try to PARSE the
+  -- literal as an array (`malformed array literal`), not append it as an
+  -- element -- reproduced directly against Postgres 17.6 on a scratch DB.
+  -- The explicit `::text` cast forces the correct anyarray || anyelement
+  -- overload. Without this fix, ANY update to members.name,
+  -- preferred_language or status (not just the partner API path) throws
+  -- the moment this trigger is live, in or out of INT-001.
   IF NEW.name IS DISTINCT FROM OLD.name THEN
-    changed_cols := changed_cols || 'name';
+    changed_cols := changed_cols || 'name'::text;
   END IF;
   IF NEW.preferred_language IS DISTINCT FROM OLD.preferred_language THEN
-    changed_cols := changed_cols || 'language';
+    changed_cols := changed_cols || 'language'::text;
   END IF;
   IF NEW.status IS DISTINCT FROM OLD.status THEN
-    changed_cols := changed_cols || 'status';
+    changed_cols := changed_cols || 'status'::text;
   END IF;
   IF array_length(changed_cols, 1) IS NULL THEN
     RETURN NEW;

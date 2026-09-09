@@ -1,14 +1,16 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
+import { E164Phone } from '@/domain/value-objects/e164-phone'
 import { detectLanguageFromText } from '@/domain/services/detect-language'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { minimalWelcomeText } from './onboarding-defaults'
 import { onboardNewMember } from './onboard-new-member'
 import { sendReturningWelcome } from './send-returning-welcome'
+import { createOrGetMember } from './create-or-get-member'
 
 interface RegisterResult {
   isNew: boolean
@@ -29,26 +31,10 @@ export async function registerMember(
 
   const existing = await findExistingMember(supabase, restaurantId, phone.value)
   if (existing) {
-    const name = existing.name ?? contactName
-    await sendReturningWelcome({
-      restaurantId,
-      phoneNumberId,
-      phone: phone.value,
-      points: existing.points_balance,
-      memberPreferredLanguage: existing.preferred_language ?? null,
-      name,
-    })
-    return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance }
+    return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
   }
 
-  return createNewMember(
-    supabase,
-    restaurantId,
-    phoneNumberId,
-    phone,
-    contactName,
-    inboundText
-  )
+  return createNewMember(restaurantId, phoneNumberId, phone, contactName, inboundText)
 }
 
 async function findExistingMember(
@@ -66,8 +52,26 @@ async function findExistingMember(
   return data
 }
 
+async function respondToReturningMember(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: PhoneNumber,
+  existing: { id: string; points_balance: number; name: string | null; preferred_language?: string | null },
+  contactName?: string
+): Promise<RegisterResult> {
+  const name = existing.name ?? contactName
+  await sendReturningWelcome({
+    restaurantId,
+    phoneNumberId,
+    phone: phone.value,
+    points: existing.points_balance,
+    memberPreferredLanguage: existing.preferred_language ?? null,
+    name,
+  })
+  return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance }
+}
+
 async function createNewMember(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
   restaurantId: string,
   phoneNumberId: string,
   phone: PhoneNumber,
@@ -76,26 +80,44 @@ async function createNewMember(
 ): Promise<RegisterResult> {
   const detectedLang = detectLanguageFromText(inboundText)
   const memberPreferredLanguage = detectedLang?.code ?? null
-  const { data: newMember, error } = await supabase
-    .from('members')
-    .insert({
-      restaurant_id: restaurantId,
-      phone: phone.value,
-      status: 'active',
-      name: contactName ?? null,
-      preferred_language: memberPreferredLanguage,
-      loyalty_token: loyaltyToken(),
-    })
-    .select('id')
-    .single()
 
-  if (error || !newMember) throw new Error(`registerMember: ${error?.message}`)
+  // INT-001 T-H6: creation routes through the single member-creation seam
+  // (member.created fans out to enabled integrations with source:'whatsapp').
+  // A 23505 unique-violation on (restaurant_id, phone) now resolves to
+  // outcome:'existing' rather than an insert failure everywhere the seam is
+  // used -- the pre-check above already covers the common case, so this
+  // branch is only reached on a genuine race (two near-simultaneous JOINs
+  // for the same number). Previously that race threw; now it degrades
+  // gracefully into the same returning-member flow as the pre-check branch.
+  const result = await createOrGetMember({
+    restaurantId,
+    phoneE164: E164Phone.of(phone.value),
+    name: contactName ?? null,
+    preferredLanguage: memberPreferredLanguage,
+    source: 'whatsapp',
+  })
+
+  if (result.outcome === 'existing') {
+    const existing = await findMemberByPhone(restaurantId, phone.value)
+    if (!existing) {
+      // The row that caused the conflict is gone by the time we re-select --
+      // surface as an error rather than silently fabricating a result.
+      throw new Error('registerMember: race on create but no row found on re-select')
+    }
+    return respondToReturningMember(
+      restaurantId,
+      phoneNumberId,
+      phone,
+      { id: existing.id, points_balance: existing.pointsBalance, name: existing.name, preferred_language: existing.preferredLanguage },
+      contactName
+    )
+  }
 
   let couponCode: string | undefined
   try {
     couponCode = await onboardNewMember({
       restaurantId,
-      memberId: newMember.id,
+      memberId: result.memberId,
       phoneNumberId,
       phone: phone.value,
       contactName,
@@ -111,7 +133,7 @@ async function createNewMember(
     )
   }
 
-  return { isNew: true, memberId: newMember.id, pointsBalance: 0, couponCode }
+  return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }
 }
 
 async function sendFallbackMinimalWelcome(

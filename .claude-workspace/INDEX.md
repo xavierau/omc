@@ -90,6 +90,8 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi5-backend](artifacts/2026-09-10-int-001-wi5-backend.md) — WI-5: SSRF guard + resolve-and-pin undici sender, shared URL validator (T-C3/T-L3/T-M6), undici pin, fake+real contract suite (senior-backend-dev)
 - [2026-09-10-int-001-wi3-backend](artifacts/2026-09-10-int-001-wi3-backend.md) — WI-3: inbound POST/GET routes, queue+worker, member-create job, welcome decision, job repo (T-H3b/H4/H7/M1) (senior-backend-dev)
 - [2026-09-10-int-001-wi6-backend](artifacts/2026-09-10-int-001-wi6-backend.md) — WI-6: outbound queue, delivery processor, breaker, dead-letter, retry/resume/test, relay+sweeper (T-H7/T-M4/T-M8/T-L4/T-M2) (senior-backend-dev)
+- [2026-09-10-int-001-wi8-backend](artifacts/2026-09-10-int-001-wi8-backend.md) — WI-8: dashboard settings/secret/deliveries/retry/resume/test/activity APIs (T-M5/T-M6/T-M11) (senior-backend-dev)
+- [2026-09-10-int-001-wi7-backend](artifacts/2026-09-10-int-001-wi7-backend.md) — WI-7: 3 legacy paths routed through the seam, boundary test (T-H6), member.updated verified, mig 071 bugfix (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

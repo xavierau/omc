@@ -1,10 +1,20 @@
 // WONB-004: member-resolution leg of the per-row inserter (kept separate to
 // honour the file-LoC and 1-responsibility-per-file rules). Returns either
 // the resolved memberId or a typed row-level reject for the orchestrator.
+//
+// INT-001 T-H6 (WI-7): member creation routes through the single seam
+// (createOrGetMember) so member.created fans out to enabled integrations
+// with source:'csv_import'. The seam always resolves a 23505 conflict to
+// outcome:'existing' rather than an insert failure -- this file's own
+// mergeExistingMembers business rule (reject a duplicate phone when NOT
+// merging) is layered on top of the seam's result, not inside it: the seam
+// only owns "did the row get created", never "is a duplicate acceptable
+// here".
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
+import { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { ImportRowRejectReason } from '@/domain/services/__errors__/import-errors'
+import { createOrGetMember } from './create-or-get-member'
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>
 
@@ -18,6 +28,13 @@ export type ResolveMemberOutcome =
   | { ok: true; id: string | null; created: boolean }
   | { ok: false; reject: { phoneE164: string; reason: ImportRowRejectReason; message?: string } }
 
+// The exact string member-create-repository.ts (WI-1, frozen) throws when a
+// 23505 insert conflict's re-select finds no row -- the only shape that
+// signals "this was a unique-violation conflict" rather than an unrelated
+// DB failure, since the seam otherwise resolves a genuine conflict to
+// outcome:'existing' (handled separately below) rather than throwing.
+const RESELECT_MISS_MARKER = 'unique violation on insert'
+
 export async function resolveMemberId(
   input: ResolveMemberInput
 ): Promise<ResolveMemberOutcome> {
@@ -26,14 +43,43 @@ export async function resolveMemberId(
     const existing = await findMemberId(supabase, input.restaurantId, input.row.phoneE164)
     if (existing) return { ok: true, id: existing, created: false }
   }
-  const inserted = await tryInsertMember(supabase, input)
-  if (inserted.ok) return { ok: true, id: inserted.id, created: true }
-  const reason: ImportRowRejectReason =
-    inserted.code === '23505' ? 'phone_already_member' : 'duplicate_active'
-  return {
-    ok: false,
-    reject: { phoneE164: input.row.phoneE164, reason, message: inserted.message },
+  return createViaSeam(input)
+}
+
+async function createViaSeam(input: ResolveMemberInput): Promise<ResolveMemberOutcome> {
+  try {
+    const result = await createOrGetMember({
+      restaurantId: input.restaurantId,
+      phoneE164: E164Phone.of(input.row.phoneE164),
+      name: input.row.name,
+      preferredLanguage: input.row.preferredLanguage,
+      source: 'csv_import',
+    })
+    if (result.outcome === 'created') {
+      return { ok: true, id: result.memberId, created: true }
+    }
+    // outcome === 'existing': acceptable only when merging; otherwise this
+    // row is a duplicate the import must reject, matching the pre-seam
+    // behaviour of tryInsertMember's 23505 -> phone_already_member mapping.
+    if (input.mergeExistingMembers) {
+      return { ok: true, id: result.memberId, created: false }
+    }
+    return reject(input.row.phoneE164, 'phone_already_member')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    const reason: ImportRowRejectReason = message.includes(RESELECT_MISS_MARKER)
+      ? 'phone_already_member'
+      : 'duplicate_active'
+    return reject(input.row.phoneE164, reason, message)
   }
+}
+
+function reject(
+  phoneE164: string,
+  reason: ImportRowRejectReason,
+  message?: string
+): ResolveMemberOutcome {
+  return { ok: false, reject: { phoneE164, reason, message } }
 }
 
 async function findMemberId(
@@ -49,28 +95,4 @@ async function findMemberId(
     .maybeSingle()
   if (error) return null
   return (data as { id: string } | null)?.id ?? null
-}
-
-async function tryInsertMember(
-  supabase: SupabaseClient,
-  input: ResolveMemberInput
-): Promise<{ ok: true; id: string } | { ok: false; code?: string; message: string }> {
-  const { data, error } = await supabase
-    .from('members')
-    .insert({
-      restaurant_id: input.restaurantId,
-      phone: input.row.phoneE164,
-      name: input.row.name,
-      status: 'active',
-      preferred_language: input.row.preferredLanguage,
-      loyalty_token: loyaltyToken(),
-    })
-    .select('id')
-    .single()
-  if (!error && data) return { ok: true, id: (data as { id: string }).id }
-  return {
-    ok: false,
-    code: (error as { code?: string } | null)?.code,
-    message: error?.message ?? 'unknown insert error',
-  }
 }

@@ -61,7 +61,22 @@ function buildClient(opts: ClientOpts = {}): {
       return selectChain
     },
   })
-  const from = vi.fn().mockReturnValue({ insert: insertFn, select })
+  // WI-7: with the seam wired to the real IntegrationEventPublisher (WI-6),
+  // a created member now also triggers its own, separate
+  // `.from('integration_events').insert(...)` as an intended side effect of
+  // resolveMemberId routing through createOrGetMember. Discriminate by
+  // table name so only the `members` insert/select this test cares about
+  // is recorded; any other table gets an inert stub (matching
+  // emit-integration-event.ts's own best-effort, never-throws contract).
+  const noopChain = {
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ is: vi.fn().mockResolvedValue({ data: [], error: null }) }) }),
+    }),
+    insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: null, error: null }) }) }),
+  }
+  const from = vi.fn().mockImplementation((table: string) =>
+    table === 'members' ? { insert: insertFn, select } : noopChain
+  )
   return {
     client: { from } as unknown as ReturnType<typeof createServerSupabaseClient>,
     rec,
