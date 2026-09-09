@@ -1417,6 +1417,23 @@
           "workspace_artifacts": [
             "reviews/2026-08-28-camp-009-issues-136-134-analyzer"
           ]
+        },
+        {
+          "id": "SEC-005",
+          "title": "Upgrade next 16.2.1 → patched 16.3.x (critical DoS + middleware bypass + cache-poisoning advisories)",
+          "description": "npm audit on 2026-09-10 (INT-001 worktree) flags next 16.2.1 with CRITICAL advisories: GHSA-q4gf-8mx6-v5v3 / GHSA-8h8q-6873-q5fj (DoS with Server Components), GHSA-26hh-7cqf-hhc6 (middleware/proxy bypass via segment-prefetch), GHSA-3g8h-86w9-wvmq (redirect cache poisoning), GHSA-ffhc-5mcf-pf4q (XSS with CSP nonces), GHSA-vfv6-92ff-j949 (RSC cache-busting collisions). Bump to the patched 16.3.x, run gate + full vitest + next build off-box (prod VM cannot build in place), smoke dashboard + webhooks. Deploy PRECONDITION for INT-001's public partner API (threat model §7).",
+          "priority": "high",
+          "labels": [
+            "security",
+            "dependencies",
+            "devops"
+          ],
+          "related": [
+            "kanban:INT-001"
+          ],
+          "workspace_artifacts": [
+            "threats/2026-09-10-int-001-member-creation-api"
+          ]
         }
       ]
     },
@@ -1534,7 +1551,12 @@
           ],
           "notes": "Related: MBL-020 proposes auto-enrolling a member on POS phone match (POS-driven creation, cross-brand); WAQ-004 names a 'member creation API' as a future import-gate boundary. Existing seams: src/application/register-member.ts, register-member-web.ts, import-contacts-batch-row-member.ts; HMAC auth in src/app/api/integrations/[integrationId]/verify-signature.ts; PosApi port has no customer methods. import-members-with-consent.ts is dead code (no prod caller) — do not build on it. Queue precedent: campaign-queue.ts (concurrency 1, attempts 3), event-dispatch-queue.ts (attempts 5, bounded removeOnComplete/removeOnFail), email-job-processor.ts (permanent vs transient error classification — reuse that split so 4xx from a partner endpoint does not burn retries). REDIS_URL already in .env.example; worker started via ensureWorkerStarted in the daemon process.",
           "branch": "feature/int-001-member-api",
-          "worktree": "~/Code/js/whatsapp-crm--int-001-member-api"
+          "worktree": "~/Code/js/whatsapp-crm--int-001-member-api",
+          "workspace_artifacts": [
+            "specs/2026-09-10-int-001-member-creation-api.md",
+            "threats/2026-09-10-int-001-member-creation-api.md",
+            "plans/2026-09-10-int-001-member-creation-api.md"
+          ]
         }
       ]
     },
