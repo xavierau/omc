@@ -133,6 +133,32 @@ export async function readOutboundSecret(integrationId: string): Promise<string 
   return decryptSecret(enc)
 }
 
+export interface UpdateIntegrationInboundLimitsArgs {
+  inboundRatePerMin?: number
+  inboundBurst?: number
+  inboundQueueCap?: number
+}
+
+/**
+ * WI-2: platform-admin override of the per-integration inbound rate/queue
+ * settings (spec US-5). Writes only the provided fields.
+ */
+export async function updateIntegrationInboundLimits(
+  integrationId: string,
+  updates: UpdateIntegrationInboundLimitsArgs
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (updates.inboundRatePerMin !== undefined) row.inbound_rate_per_min = updates.inboundRatePerMin
+  if (updates.inboundBurst !== undefined) row.inbound_burst = updates.inboundBurst
+  if (updates.inboundQueueCap !== undefined) row.inbound_queue_cap = updates.inboundQueueCap
+  const { error } = await supabase
+    .from('integration_settings')
+    .update(row)
+    .eq('integration_id', integrationId)
+  if (error) throw new Error(`updateIntegrationInboundLimits: ${error.message}`)
+}
+
 export interface SetOutboundSecretArgs {
   integrationId: string
   plaintext: string

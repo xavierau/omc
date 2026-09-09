@@ -10,6 +10,7 @@ import {
   findIntegrationSettingsById,
   readOutboundSecret,
   setOutboundSecret,
+  updateIntegrationInboundLimits,
 } from '../integration-settings-repository'
 import { encryptSecret } from '@/infrastructure/crypto/secret-box'
 
@@ -142,5 +143,64 @@ describe('setOutboundSecret (T-H1)', () => {
     expect(updated.value?.outbound_secret_enc).toEqual(expect.any(String))
     expect(updated.value?.outbound_secret_enc).not.toContain('brand-new-secret-value')
     expect(eq).toHaveBeenCalledWith('integration_id', 'int-1')
+  })
+})
+
+describe('updateIntegrationInboundLimits (WI-2, admin route)', () => {
+  it('writes only the provided fields plus updated_at', async () => {
+    const updated: { value: Record<string, unknown> | null } = { value: null }
+    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+      updated.value = row
+      return { eq }
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await updateIntegrationInboundLimits('int-1', { inboundRatePerMin: 120 })
+
+    expect(updated.value?.inbound_rate_per_min).toBe(120)
+    expect(updated.value?.inbound_burst).toBeUndefined()
+    expect(updated.value?.inbound_queue_cap).toBeUndefined()
+    expect(updated.value?.updated_at).toEqual(expect.any(String))
+    expect(eq).toHaveBeenCalledWith('integration_id', 'int-1')
+  })
+
+  it('writes all three fields when all three are provided', async () => {
+    const updated: { value: Record<string, unknown> | null } = { value: null }
+    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+      updated.value = row
+      return { eq }
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await updateIntegrationInboundLimits('int-1', {
+      inboundRatePerMin: 200,
+      inboundBurst: 40,
+      inboundQueueCap: 1000,
+    })
+
+    expect(updated.value).toMatchObject({
+      inbound_rate_per_min: 200,
+      inbound_burst: 40,
+      inbound_queue_cap: 1000,
+    })
+  })
+
+  it('throws on a Supabase error', async () => {
+    const eq = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
+    const update = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(updateIntegrationInboundLimits('int-1', { inboundBurst: 5 })).rejects.toThrow(/boom/)
   })
 })
