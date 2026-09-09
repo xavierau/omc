@@ -15,4 +15,11 @@
   Never touch the other three dev tenants' data. The dev DB lags prod by ~30 migrations, so a
   DB-backed step failing is an environment gap to report, not a product defect — confirm against
   unit tests before filing.
+- **dev, 2026-09-10 (INT-001/WI-12)**: a second throwaway tenant-admin user was minted —
+  `ui-test-int001@example.com`, role `admin` on the same test tenant, `secrets.local.json`
+  `dev.users.tenantAdmin`. Not deleted (same "leave for follow-up verification" pattern as the
+  WONB-018/019 user); delete both once all INT-001 UI verification is complete. Note:
+  `secrets.local.json` does not survive this worktree being removed — re-mint per the pattern in
+  `scripts/seed-platform-admin.ts` / `src/application/create-tenant.ts`'s `createUserTenant` call
+  if a fresh worktree needs it again.
 - **staging**: none exists for this project.

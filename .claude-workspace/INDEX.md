@@ -39,6 +39,8 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-10-int-001-analyzer](reviews/2026-09-10-int-001-analyzer.md) — INT-001 branch: BLOCKED — 2 Critical (outbound exhaustion never dead-letters; resume no-op on jobId dedup), 8 Important (code-review-analyzer)
+- [2026-09-10-int-001-grok](reviews/2026-09-10-int-001-grok.md) — INT-001 branch: BLOCKED — 1 Critical (next unpatched, req #13), 8 Important (grok-cli-reviewer)
 - [2026-09-09-tpl-011-video-header-analyzer](reviews/2026-09-09-tpl-011-video-header-analyzer.md) — TPL-011 1fa9012: CONDITIONAL — 0 Critical, 2 Important (video pre-check message, unverified Kapso ingest), 7 Minor (code-review-analyzer)
 - [2026-08-28-tag-001-issues-138-139-gemini](reviews/2026-08-28-tag-001-issues-138-139-gemini.md) — #138/#139 d728bb4: CONDITIONAL — 1 Critical (NUL byte made a source file binary; fixed) (gemini-cli-reviewer)
 - [2026-08-28-tag-001-issues-138-139-analyzer](reviews/2026-08-28-tag-001-issues-138-139-analyzer.md) — #138/#139 d728bb4 second lane: CONDITIONAL — 0 Critical, 5 Important (NUL byte, CSV tag feedback, bulk success line, raw enum error, audience-scale reads), 13 Minor (code-review-analyzer)
@@ -73,6 +75,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-09-10-int-001-ui-walk](tests/2026-09-10-int-001-ui-walk.md) — WI-12: BLOCKED by DEV PostgREST schema-cache gap; list/create/inbound-rotate PASS, 2 frontend defects found (ui-test-runner)
 - [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
 - [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
