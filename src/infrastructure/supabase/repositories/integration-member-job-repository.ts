@@ -184,6 +184,32 @@ export async function completeMemberJobFailed(args: CompleteMemberJobFailedArgs)
   if (error) throw new Error(`completeMemberJobFailed: ${error.message}`)
 }
 
+/** WI-8 `list-integration-activity.ts` (owner-visible activity log, §8.1's
+ * `not in any partner response` field set: outcome, asserted level,
+ * consent actions, welcome outcome/detail, `phone_last4` only, submitted_at
+ * -- never the full phone). Cursor is `submitted_at` of the last row on the
+ * previous page (exclusive `<`), scoped by `restaurantId` (not just
+ * `integrationId`) matching this table's own RLS/query convention
+ * elsewhere in this file (T-H4's "scope every read" lesson generalised). */
+export async function findMemberJobsForIntegration(
+  integrationId: string,
+  restaurantId: string,
+  args: { cursor?: string; limit: number }
+): Promise<MemberJobRow[]> {
+  const supabase = createServerSupabaseClient()
+  let query = supabase
+    .from('integration_member_jobs')
+    .select(COLUMNS)
+    .eq('integration_id', integrationId)
+    .eq('restaurant_id', restaurantId)
+    .order('submitted_at', { ascending: false })
+    .limit(args.limit)
+  if (args.cursor) query = query.lt('submitted_at', args.cursor)
+  const { data, error } = await query
+  if (error) throw new Error(`findMemberJobsForIntegration: ${error.message}`)
+  return (data ?? []) as unknown as MemberJobRow[]
+}
+
 /** Stamps the row `processing` + `started_at` and bumps `attempts` -- called
  * once at the START of each worker attempt (including retries), so a
  * partner polling mid-retry sees an honest `attempts` count (US-2). */
@@ -194,4 +220,26 @@ export async function markMemberJobProcessing(jobId: string, startedAt: string, 
     .update({ status: 'processing', started_at: startedAt, attempts })
     .eq('job_id', jobId)
   if (error) throw new Error(`markMemberJobProcessing: ${error.message}`)
+}
+
+/** INT-001 WI-4: the `welcome-send` job's own write -- ONLY `welcome_outcome`
+ * / `welcome_detail`, never `status`/`outcome`/`member_id`/`completed_at`.
+ * The create job already reached its own terminal `succeeded` state (WI-3);
+ * a send-time re-check outcome (`skipped_*`, `sent`, `failed`) updates the
+ * welcome fields on that SAME row without disturbing it (plan: "the create
+ * job unaffected"). Scoped by `job_id` alone, matching this file's other
+ * writers (`completeMemberJobSucceeded`/`Failed`) -- `createJobId` always
+ * originates from this worker's own trusted job payload, never partner
+ * input, so no T-H4-style scoping is needed here. */
+export async function updateMemberJobWelcomeOutcome(
+  jobId: string,
+  welcomeOutcome: string,
+  welcomeDetail: Record<string, unknown> | null
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('integration_member_jobs')
+    .update({ welcome_outcome: welcomeOutcome, welcome_detail: welcomeDetail })
+    .eq('job_id', jobId)
+  if (error) throw new Error(`updateMemberJobWelcomeOutcome: ${error.message}`)
 }

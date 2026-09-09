@@ -203,6 +203,74 @@ export async function listIntegrationIdsWithDeliveries(): Promise<string[]> {
   return [...ids]
 }
 
+/** WI-8 `list-integration-deliveries.ts` (US-9 delivery log). Cursor is the
+ * `created_at` of the last row on the previous page (exclusive `<`) --
+ * `created_at` is deliberately NOT part of `SELECT_COLUMNS` /
+ * `IntegrationDeliveryProps` (it's a read-projection-only field, not part
+ * of the state machine), so this returns a dedicated row shape rather than
+ * routing through `toEntity`. No N+1: the caller batches `eventId`s from
+ * the returned rows into ONE `integration_events` query
+ * (`findIntegrationEventsByIds`), never one lookup per row. */
+export interface DeliveryListRow {
+  id: string
+  eventId: string
+  status: IntegrationDeliveryStatus
+  attempts: number
+  lastHttpStatus: number | null
+  lastErrorCode: string | null
+  nextRetryAt: string | null
+  createdAt: string
+}
+
+export interface FindDeliveriesForIntegrationArgs {
+  status?: IntegrationDeliveryStatus
+  cursor?: string
+  limit: number
+}
+
+export async function findDeliveriesForIntegration(
+  integrationId: string,
+  restaurantId: string,
+  args: FindDeliveriesForIntegrationArgs
+): Promise<DeliveryListRow[]> {
+  const supabase = createServerSupabaseClient()
+  let query = supabase
+    .from('integration_deliveries')
+    .select('id, event_id, status, attempts, last_http_status, last_error_code, next_retry_at, created_at')
+    .eq('integration_id', integrationId)
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .limit(args.limit)
+
+  if (args.status) query = query.eq('status', args.status)
+  if (args.cursor) query = query.lt('created_at', args.cursor)
+
+  const { data, error } = await query
+  if (error) throw new Error(`findDeliveriesForIntegration: ${error.message}`)
+
+  return (
+    (data ?? []) as Array<{
+      id: string
+      event_id: string
+      status: IntegrationDeliveryStatus
+      attempts: number
+      last_http_status: number | null
+      last_error_code: string | null
+      next_retry_at: string | null
+      created_at: string
+    }>
+  ).map((row) => ({
+    id: row.id,
+    eventId: row.event_id,
+    status: row.status,
+    attempts: row.attempts,
+    lastHttpStatus: row.last_http_status,
+    lastErrorCode: row.last_error_code,
+    nextRetryAt: row.next_retry_at,
+    createdAt: row.created_at,
+  }))
+}
+
 /** Delivery-log pruning (US-9, spec: "last 30 days or 500 rows, whichever
  * smaller"): deletes rows older than `olderThanDays` OR beyond the newest
  * `keepNewest` for this integration, whichever criterion catches them

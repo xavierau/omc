@@ -11,6 +11,7 @@ import {
   completeMemberJobSucceeded,
   completeMemberJobFailed,
   markMemberJobProcessing,
+  updateMemberJobWelcomeOutcome,
 } from '../integration-member-job-repository'
 
 function buildInsertClient(insertResult: { data: unknown; error: { code?: string; message: string } | null }) {
@@ -181,5 +182,28 @@ describe('integration-member-job-repository (INT-001 WI-3, T-H3b/T-H4/T-M1)', ()
       started_at: '2026-09-10T00:00:01.000Z',
       attempts: 2,
     })
+  })
+
+  it('updateMemberJobWelcomeOutcome (INT-001 WI-4) writes ONLY welcome_outcome/welcome_detail, scoped by job_id', async () => {
+    const { client, updated } = buildUpdateClient()
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await updateMemberJobWelcomeOutcome('mj_abc', 'sent', { whatsapp_message_id: 'wamid.123' })
+
+    expect(updated.value).toEqual({
+      welcome_outcome: 'sent',
+      welcome_detail: { whatsapp_message_id: 'wamid.123' },
+    })
+    expect(updated.eqCol).toBe('job_id')
+    expect(updated.eqVal).toBe('mj_abc')
+  })
+
+  it('updateMemberJobWelcomeOutcome accepts a null detail (the common skip case)', async () => {
+    const { client, updated } = buildUpdateClient()
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await updateMemberJobWelcomeOutcome('mj_abc', 'skipped_opted_out', null)
+
+    expect(updated.value).toEqual({ welcome_outcome: 'skipped_opted_out', welcome_detail: null })
   })
 })

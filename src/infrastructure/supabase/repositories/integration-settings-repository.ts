@@ -188,6 +188,48 @@ export async function setOutboundSecret(
   return { last4, updatedAt: now }
 }
 
+export interface UpdateIntegrationSettingsFieldsArgs {
+  newJoinTemplateId?: string | null
+  consentAttestationText?: string | null
+  consentAttestationAckAt?: string | null
+  consentAttestationAckBy?: string | null
+  outboundUrl?: string
+  outboundEvents?: string[]
+  outboundEnabled?: boolean
+  outboundPiiAckAt?: string | null
+  outboundPiiAckBy?: string | null
+}
+
+/**
+ * WI-8: applies an already-validated field patch from `update-integration-
+ * settings.ts` in ONE write (never a per-field write -- keeps a
+ * multi-field PATCH atomic at the DB level). Only keys present on `updates`
+ * are written; `undefined` never appears here (the caller only includes
+ * fields the parsed patch actually carried, `null` included where that's a
+ * legal value).
+ */
+export async function updateIntegrationSettingsFields(
+  integrationId: string,
+  updates: UpdateIntegrationSettingsFieldsArgs
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if ('newJoinTemplateId' in updates) row.new_join_template_id = updates.newJoinTemplateId
+  if ('consentAttestationText' in updates) row.consent_attestation_text = updates.consentAttestationText
+  if ('consentAttestationAckAt' in updates) row.consent_attestation_ack_at = updates.consentAttestationAckAt
+  if ('consentAttestationAckBy' in updates) row.consent_attestation_ack_by = updates.consentAttestationAckBy
+  if ('outboundUrl' in updates) row.outbound_url = updates.outboundUrl
+  if ('outboundEvents' in updates) row.outbound_events = updates.outboundEvents
+  if ('outboundEnabled' in updates) row.outbound_enabled = updates.outboundEnabled
+  if ('outboundPiiAckAt' in updates) row.outbound_pii_ack_at = updates.outboundPiiAckAt
+  if ('outboundPiiAckBy' in updates) row.outbound_pii_ack_by = updates.outboundPiiAckBy
+  const { error } = await supabase
+    .from('integration_settings')
+    .update(row)
+    .eq('integration_id', integrationId)
+  if (error) throw new Error(`updateIntegrationSettingsFields: ${error.message}`)
+}
+
 export interface UpdateOutboundBreakerStateArgs {
   integrationId: string
   outboundFailureStreak: number

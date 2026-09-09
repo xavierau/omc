@@ -72,6 +72,27 @@ export async function findIntegrationEventById(id: string): Promise<IntegrationE
   return data ? toEntity(data as EventRow) : null
 }
 
+/** WI-8 `list-integration-deliveries.ts`: batch lookup of event
+ * type/occurred_at for a page of deliveries -- ONE query for every distinct
+ * `eventId` a page references, instead of one `findIntegrationEventById`
+ * per row (N+1). */
+export async function findIntegrationEventsByIds(
+  ids: string[]
+): Promise<Array<{ id: string; type: IntegrationEventType; occurredAt: string }>> {
+  if (ids.length === 0) return []
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('integration_events')
+    .select('id, type, occurred_at')
+    .in('id', ids)
+  if (error) throw new Error(`findIntegrationEventsByIds: ${error.message}`)
+  return ((data ?? []) as Array<{ id: string; type: IntegrationEventType; occurred_at: string }>).map((row) => ({
+    id: row.id,
+    type: row.type,
+    occurredAt: row.occurred_at,
+  }))
+}
+
 /**
  * WI-6 `build-outbound-payload.ts` fallback for `member.updated` events,
  * whose `source` column is always null (a SQL trigger has no notion of "how
