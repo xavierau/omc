@@ -70,6 +70,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
 - [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
 - [2026-07-28-tpl-009-acceptance](tests/2026-07-28-tpl-009-acceptance.md) — I-1: end-to-end route integration suite + acceptance verdict PASSED (qa-engineer)
@@ -80,6 +81,7 @@ no artifact files were lost._
 ### Artifacts
 
 **TPL-011 — VIDEO template header (2026-09-09)**
+- [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)
 - [2026-09-09-tpl-011-stream-b-frontend](artifacts/2026-09-09-tpl-011-stream-b-frontend.md) — Stream B: form video header, VideoUploader + helpers, i18n hint (react-frontend-dev)
 - [2026-09-09-tpl-011-stream-a-backend](artifacts/2026-09-09-tpl-011-stream-a-backend.md) — Stream A: upload-policy, Kapso mime map, media-neutral wording; A-6 inconclusive (senior-backend-dev)
 

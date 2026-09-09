@@ -1511,7 +1511,12 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
+        }
+      ]
+    },
+    "review": {
+      "label": "Review",
+      "tasks": [
         {
           "id": "TPL-011",
           "title": "WhatsApp marketing template VIDEO header support",
@@ -1530,15 +1535,14 @@
           ],
           "workspace_artifacts": [
             "plans/2026-09-09-tpl-011-video-template-header.md",
-            "deploys/2026-09-09-tpl-011-video-upload-body-limit.md"
+            "deploys/2026-09-09-tpl-011-video-upload-body-limit.md",
+            "artifacts/2026-09-09-tpl-011-stream-a-backend.md",
+            "artifacts/2026-09-09-tpl-011-stream-b-frontend.md",
+            "reviews/2026-09-09-tpl-011-video-header-analyzer.md",
+            "tests/2026-09-09-tpl-011-video-header-ui.md"
           ],
-          "status_note": "2026-09-09: plan written (solution-architect). Streams: A backend (upload policy/route, upload-path 3gp, Kapso adapter mime + wording, application wording, Kapso video probe) and B frontend (form types/fields, VideoUploader, i18n) dispatch in parallel; I-1 wiring walk after both; I-2 post-deploy verify on the prod test tenant proves Kapso mints a handle for video."
-        }
-      ]
-    },
-    "review": {
-      "label": "Review",
-      "tasks": [
+          "status_note": "2026-09-09: implemented on feature/tpl-011 (streams A+B, TDD, frozen suites intact). Gate: tsc clean, vitest 4419/0, lint no new findings. code-review-analyzer CONDITIONAL -> both Important items fixed (2e939d5). ui-test-runner PASS on DEV, all 9 legs (bucket present on DEV; R4 did not materialize). nginx already 20M (no infra change). OPEN: Kapso video ingest via meta_resumable_asset still UNVERIFIED (dev key 404 in A-6 and in the browser walk) -> I-2 post-deploy verify on the prod test tenant is mandatory before calling TPL-011 proven. AWAITING: user /review + merge of the PR into develop."
+        },
         {
           "id": "TPL-004",
           "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",
