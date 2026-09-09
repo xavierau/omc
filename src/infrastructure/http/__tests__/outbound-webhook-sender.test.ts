@@ -151,6 +151,55 @@ describe('UndiciOutboundSender -- real loopback delivery (T-C3 anti-rebinding, r
     }
   })
 
+  it('WI-6: extracts a plain-integer Retry-After header into retryAfterSec, so deliver-outbound-webhook.ts can honour a 429', async () => {
+    const server = await startLoopbackHttpsServer((_req, res) => {
+      res.writeHead(429, { 'Retry-After': '120' })
+      res.end()
+    })
+    try {
+      const guard = createLoopbackTestGuard({ allowedPort: server.port })
+      const sender = new UndiciOutboundSender({
+        resolve: async () => [{ address: '127.0.0.1', family: 4 }],
+        isAddressAllowed: guard.isAddressAllowed,
+        ca: guard.ca,
+        allowedPorts: guard.allowedPorts,
+      })
+      const result = await sender.send({
+        url: `https://partner.example.test:${server.port}/hook`,
+        body: '{}',
+        headers: {},
+      })
+      expect(result.status).toBe(429)
+      expect(result.retryAfterSec).toBe(120)
+    } finally {
+      await server.close()
+    }
+  })
+
+  it('WI-6: an HTTP-date Retry-After (not a plain integer) is left unparsed -- retryAfterSec is undefined', async () => {
+    const server = await startLoopbackHttpsServer((_req, res) => {
+      res.writeHead(429, { 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' })
+      res.end()
+    })
+    try {
+      const guard = createLoopbackTestGuard({ allowedPort: server.port })
+      const sender = new UndiciOutboundSender({
+        resolve: async () => [{ address: '127.0.0.1', family: 4 }],
+        isAddressAllowed: guard.isAddressAllowed,
+        ca: guard.ca,
+        allowedPorts: guard.allowedPorts,
+      })
+      const result = await sender.send({
+        url: `https://partner.example.test:${server.port}/hook`,
+        body: '{}',
+        headers: {},
+      })
+      expect(result.retryAfterSec).toBeUndefined()
+    } finally {
+      await server.close()
+    }
+  })
+
   it('bounds the response body it reads: an oversized response yields a truncated (<=512 char) excerpt without hanging', async () => {
     const server = await startLoopbackHttpsServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' })

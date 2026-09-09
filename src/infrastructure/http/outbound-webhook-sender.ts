@@ -42,6 +42,22 @@ export interface UndiciOutboundSenderDeps extends AssertSafeUrlDeps, ResolveAndP
   maxResponseBytes?: number
 }
 
+/**
+ * WI-6: only the plain-integer-seconds form of `Retry-After` is honoured
+ * (`Retry-After: 120`) -- the HTTP-date form (`Retry-After: Wed, 21 Oct
+ * 2026 07:28:00 GMT`) is deliberately NOT parsed, so `deliver-outbound-
+ * webhook.ts` falls back to its own exponential backoff for that case
+ * rather than trusting an ambiguous clock-skew-sensitive parse. undici may
+ * return a header value as `string | string[] | undefined`; only a single
+ * string value is considered.
+ */
+function parseRetryAfterSeconds(value: string | string[] | undefined): number | undefined {
+  if (typeof value !== 'string') return undefined
+  if (!/^\d+$/.test(value.trim())) return undefined
+  const seconds = Number(value.trim())
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined
+}
+
 function errorResult(
   error: { title: string; details: string },
   latencyMs: number
@@ -187,7 +203,14 @@ export class UndiciOutboundSender implements OutboundWebhookSender {
       const excerpt = await readBoundedExcerpt(response.body, maxResponseBytes)
       const latencyMs = Date.now() - startedAt
       const ok = response.statusCode >= 200 && response.statusCode < 300
-      return { ok, status: response.statusCode, latencyMs, responseExcerpt: excerpt }
+      const retryAfterSec = parseRetryAfterSeconds(response.headers['retry-after'])
+      return {
+        ok,
+        status: response.statusCode,
+        latencyMs,
+        responseExcerpt: excerpt,
+        ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
+      }
     } catch (err) {
       return errorResult(classifyTransportError(err), Date.now() - startedAt)
     } finally {

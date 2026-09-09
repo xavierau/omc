@@ -11,6 +11,7 @@ import {
   readOutboundSecret,
   setOutboundSecret,
   updateIntegrationInboundLimits,
+  updateOutboundBreakerState,
 } from '../integration-settings-repository'
 import { encryptSecret } from '@/infrastructure/crypto/secret-box'
 
@@ -202,5 +203,67 @@ describe('updateIntegrationInboundLimits (WI-2, admin route)', () => {
     } as unknown as ReturnType<typeof createServerSupabaseClient>)
 
     await expect(updateIntegrationInboundLimits('int-1', { inboundBurst: 5 })).rejects.toThrow(/boom/)
+  })
+})
+
+describe('updateOutboundBreakerState (WI-6)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('writes the streak alone when status/pausedAt are omitted', async () => {
+    const updated: { value?: Record<string, unknown> } = {}
+    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+      updated.value = row
+      return { eq }
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await updateOutboundBreakerState({ integrationId: 'int-1', outboundFailureStreak: 3 })
+
+    expect(updated.value).toMatchObject({ outbound_failure_streak: 3 })
+    expect(updated.value).not.toHaveProperty('outbound_status')
+    expect(updated.value).not.toHaveProperty('outbound_paused_at')
+  })
+
+  it('writes status + pausedAt together when the breaker trips', async () => {
+    const updated: { value?: Record<string, unknown> } = {}
+    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+      updated.value = row
+      return { eq }
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await updateOutboundBreakerState({
+      integrationId: 'int-1',
+      outboundFailureStreak: 10,
+      outboundStatus: 'paused_auto',
+      outboundPausedAt: '2026-09-10T00:00:00.000Z',
+    })
+
+    expect(updated.value).toMatchObject({
+      outbound_failure_streak: 10,
+      outbound_status: 'paused_auto',
+      outbound_paused_at: '2026-09-10T00:00:00.000Z',
+    })
+  })
+
+  it('throws a contextual error on a database failure', async () => {
+    const eq = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    const update = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(
+      updateOutboundBreakerState({ integrationId: 'int-1', outboundFailureStreak: 1 })
+    ).rejects.toThrow(/updateOutboundBreakerState.*timeout/)
   })
 })

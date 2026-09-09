@@ -187,3 +187,32 @@ export async function setOutboundSecret(
   if (error) throw new Error(`setOutboundSecret: ${error.message}`)
   return { last4, updatedAt: now }
 }
+
+export interface UpdateOutboundBreakerStateArgs {
+  integrationId: string
+  outboundFailureStreak: number
+  outboundStatus?: OutboundStatus
+  outboundPausedAt?: string | null
+}
+
+/**
+ * WI-6: the outbound circuit breaker's own write path -- bumped on a
+ * transient failure, reset to 0 on a success, and flipped to
+ * `paused_auto` (with `outboundPausedAt` stamped) when the streak reaches
+ * the breaker threshold. `resume-outbound.ts` also uses this to reset the
+ * streak to 0 and set `outboundStatus: 'active'` together.
+ */
+export async function updateOutboundBreakerState(args: UpdateOutboundBreakerStateArgs): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const row: Record<string, unknown> = {
+    outbound_failure_streak: args.outboundFailureStreak,
+    updated_at: new Date().toISOString(),
+  }
+  if (args.outboundStatus !== undefined) row.outbound_status = args.outboundStatus
+  if (args.outboundPausedAt !== undefined) row.outbound_paused_at = args.outboundPausedAt
+  const { error } = await supabase
+    .from('integration_settings')
+    .update(row)
+    .eq('integration_id', args.integrationId)
+  if (error) throw new Error(`updateOutboundBreakerState: ${error.message}`)
+}

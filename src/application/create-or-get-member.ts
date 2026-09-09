@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { IntegrationEventPublisher } from '@/domain/ports/integration-event-publisher'
 import { insertMember } from '@/infrastructure/supabase/repositories/member-create-repository'
+import { getIntegrationEventPublisher } from '@/application/emit-integration-event'
 
 export interface CreateOrGetMemberInput {
   restaurantId: string
@@ -34,19 +35,16 @@ export interface CreateOrGetMemberDeps {
   publisher?: IntegrationEventPublisher
 }
 
-// No-op until WI-6 wires the real `emitIntegrationEvent` adapter in via a
-// factory. This is the ONLY line WI-6 is expected to change in this file --
-// deliberately, so the seam is usable and fully tested from WI-1 onward
-// without a hard dependency on infrastructure that doesn't exist yet.
-const noopPublisher: IntegrationEventPublisher = {
-  publish: async () => {},
-}
-
 export async function createOrGetMember(
   input: CreateOrGetMemberInput,
   deps: CreateOrGetMemberDeps = {}
 ): Promise<CreateOrGetMemberResult> {
-  const publisher = deps.publisher ?? noopPublisher
+  // WI-6: was a `noopPublisher` until the real `emitIntegrationEvent`
+  // adapter existed -- this is the ONE line WI-1 flagged as WI-6's to
+  // change. Deferred to call time (not a module-level default) so it never
+  // constructs the real adapter's dependency chain when a test injects its
+  // own `deps.publisher`.
+  const publisher = deps.publisher ?? getIntegrationEventPublisher()
 
   const result = await insertMember({
     restaurantId: input.restaurantId,
@@ -64,6 +62,12 @@ export async function createOrGetMember(
       changed: [],
       originIntegrationId: input.originIntegrationId ?? null,
       occurredAt: new Date().toISOString(),
+      // WI-6: threaded through so `build-outbound-payload.ts` can populate
+      // the outbound wire payload's required `data.source` field (see
+      // integration-event.ts's `source` doc comment for why this couldn't
+      // wait for a later WI -- migration 071 provisioned the column, but
+      // WI-1's seam never wrote to it).
+      source: input.source,
     })
   }
 

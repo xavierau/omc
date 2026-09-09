@@ -4,6 +4,21 @@ vi.mock('@/infrastructure/supabase/repositories/member-create-repository', () =>
   insertMember: vi.fn(),
 }))
 
+// WI-6: the seam's default publisher is now the REAL `emitIntegrationEvent`
+// adapter (previously a no-op) -- mocked here at its own module boundary so
+// the "no injected publisher" test below stays a pure unit test (no
+// Supabase/Redis) while still proving the seam reaches the real adapter,
+// not a stub. `vi.hoisted` per the repo's own campaign-queue.test.ts
+// precedent: the mock factory below runs before this file's imports are
+// evaluated, so the spy it returns must exist before that point.
+const { emitIntegrationEventMock } = vi.hoisted(() => ({
+  emitIntegrationEventMock: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/application/emit-integration-event', () => ({
+  emitIntegrationEvent: emitIntegrationEventMock,
+  getIntegrationEventPublisher: () => ({ publish: emitIntegrationEventMock }),
+}))
+
 import { insertMember } from '@/infrastructure/supabase/repositories/member-create-repository'
 import { createOrGetMember } from '../create-or-get-member'
 import { E164Phone } from '@/domain/value-objects/e164-phone'
@@ -45,6 +60,10 @@ describe('createOrGetMember (INT-001 T-H6 seam)', () => {
       memberId: 'm-1',
       type: 'member.created',
       originIntegrationId: 'int-1',
+      // WI-6: source threaded through from CreateOrGetMemberInput.source so
+      // build-outbound-payload.ts can populate the outbound wire payload's
+      // required data.source field.
+      source: 'partner_api',
     })
   })
 
@@ -89,7 +108,7 @@ describe('createOrGetMember (INT-001 T-H6 seam)', () => {
     expect(result).toEqual({ outcome: 'existing', memberId: 'm-3', status: 'unsubscribed' })
   })
 
-  it('without an injected publisher, falls back to a no-op (never throws)', async () => {
+  it('without an injected publisher, falls back to the real emitIntegrationEvent adapter (WI-6 -- was a no-op under WI-1)', async () => {
     vi.mocked(insertMember).mockResolvedValue({
       outcome: 'created',
       memberId: 'm-4',
@@ -105,6 +124,10 @@ describe('createOrGetMember (INT-001 T-H6 seam)', () => {
         source: 'whatsapp_join_keyword',
       })
     ).resolves.toEqual({ outcome: 'created', memberId: 'm-4', status: 'active' })
+
+    expect(emitIntegrationEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ memberId: 'm-4', type: 'member.created', source: 'whatsapp_join_keyword' })
+    )
   })
 
   it('omitting originIntegrationId publishes with originIntegrationId: null', async () => {

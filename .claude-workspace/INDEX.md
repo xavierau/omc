@@ -88,6 +88,8 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi1-backend](artifacts/2026-09-10-int-001-wi1-backend.md) — WI-1: migrations 069–072 (scratch-DB validated), domain/seam layer (T-C1/T-C2/T-H6/T-H1) (senior-backend-dev)
 - [2026-09-10-int-001-wi2-backend](artifacts/2026-09-10-int-001-wi2-backend.md) — WI-2: inbound auth v2 guard + Redis rate limiter, job-id construction, admin limits (T-H2/T-H3/T-H5/T-M7/T-M12/T-L3) (senior-backend-dev)
 - [2026-09-10-int-001-wi5-backend](artifacts/2026-09-10-int-001-wi5-backend.md) — WI-5: SSRF guard + resolve-and-pin undici sender, shared URL validator (T-C3/T-L3/T-M6), undici pin, fake+real contract suite (senior-backend-dev)
+- [2026-09-10-int-001-wi3-backend](artifacts/2026-09-10-int-001-wi3-backend.md) — WI-3: inbound POST/GET routes, queue+worker, member-create job, welcome decision, job repo (T-H3b/H4/H7/M1) (senior-backend-dev)
+- [2026-09-10-int-001-wi6-backend](artifacts/2026-09-10-int-001-wi6-backend.md) — WI-6: outbound queue, delivery processor, breaker, dead-letter, retry/resume/test, relay+sweeper (T-H7/T-M4/T-M8/T-L4/T-M2) (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

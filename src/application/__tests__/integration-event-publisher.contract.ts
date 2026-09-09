@@ -26,6 +26,11 @@ function buildEvent(overrides: Partial<IntegrationEvent> = {}): IntegrationEvent
     changed: [],
     originIntegrationId: null,
     occurredAt: new Date().toISOString(),
+    // WI-6: `IntegrationEvent.source` became a required field (was absent
+    // under WI-1) -- see integration-event.ts's doc comment. `null` here
+    // keeps this generator's default event agnostic to provenance; a real
+    // caller passes its own `source`.
+    source: null,
     ...overrides,
   }
 }

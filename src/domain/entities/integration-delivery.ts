@@ -15,7 +15,16 @@ export type IntegrationDeliveryStatus =
 const ALLOWED_TRANSITIONS: Record<IntegrationDeliveryStatus, IntegrationDeliveryStatus[]> = {
   queued: ['delivering', 'paused', 'skipped'],
   delivering: ['delivered', 'retrying', 'dead_lettered'],
-  retrying: ['delivering', 'dead_lettered'],
+  // WI-6: `retrying -> paused` added (WI-1 originally only allowed
+  // `delivering`/`dead_lettered` from here). The processor's Attempt step 1
+  // ("load delivery + settings; kill switch or outbound_status != 'active'
+  // -> mark paused, complete without throwing") runs BEFORE any per-attempt
+  // transition, on whatever status the row is currently in -- which, for a
+  // job BullMQ is retrying after a prior transient failure, is `retrying`,
+  // not `queued`. Without this edge, a breaker trip mid-backoff had no
+  // legal transition into `paused` and `transitionTo` would throw. Additive
+  // only: no existing transition was narrowed or removed.
+  retrying: ['delivering', 'dead_lettered', 'paused'],
   paused: ['queued'],
   // Retry (US-9): retried_at IS NULL -> re-enqueue for one more attempt.
   dead_lettered: ['queued'],

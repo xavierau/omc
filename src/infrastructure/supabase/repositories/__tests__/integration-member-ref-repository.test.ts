@@ -6,6 +6,7 @@ vi.mock('../../client', () => ({
 
 import { createServerSupabaseClient } from '../../client'
 import {
+  findExternalRefForMember,
   findMemberIdByExternalRef,
   upsertIntegrationMemberRef,
 } from '../integration-member-ref-repository'
@@ -81,5 +82,54 @@ describe('findMemberIdByExternalRef', () => {
 
     const result = await findMemberIdByExternalRef({ integrationId: 'int-1', externalRef: 'missing' })
     expect(result).toBeNull()
+  })
+})
+
+describe('findExternalRefForMember (WI-6, build-outbound-payload)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns the external_ref when a ref row exists for (member, integration)', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { external_ref: 'pos-cust-42' }, error: null })
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const select = vi.fn().mockReturnValue({ eq: eq1 })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await findExternalRefForMember({ memberId: 'm-1', integrationId: 'int-1' })
+    expect(result).toBe('pos-cust-42')
+    expect(eq1).toHaveBeenCalledWith('member_id', 'm-1')
+    expect(eq2).toHaveBeenCalledWith('integration_id', 'int-1')
+  })
+
+  it('returns null when no ref row exists', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const select = vi.fn().mockReturnValue({ eq: eq1 })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const result = await findExternalRefForMember({ memberId: 'm-1', integrationId: 'int-1' })
+    expect(result).toBeNull()
+  })
+
+  it('throws a contextual error on a database failure', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const select = vi.fn().mockReturnValue({ eq: eq1 })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(
+      findExternalRefForMember({ memberId: 'm-1', integrationId: 'int-1' })
+    ).rejects.toThrow(/findExternalRefForMember.*timeout/)
   })
 })

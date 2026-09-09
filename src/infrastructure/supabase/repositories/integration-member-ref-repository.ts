@@ -44,3 +44,22 @@ export async function findMemberIdByExternalRef(args: {
   if (error) throw new Error(`findMemberIdByExternalRef: ${error.message}`)
   return (data as { member_id: string } | null)?.member_id ?? null
 }
+
+/** WI-6: the reverse lookup, for `build-outbound-payload.ts`'s
+ * `external_ref` field -- given a member (already resolved from the
+ * event/delivery row), what ref (if any) THIS integration attached to
+ * them. */
+export async function findExternalRefForMember(args: {
+  memberId: string
+  integrationId: string
+}): Promise<string | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('integration_member_refs')
+    .select('external_ref')
+    .eq('member_id', args.memberId)
+    .eq('integration_id', args.integrationId)
+    .maybeSingle()
+  if (error) throw new Error(`findExternalRefForMember: ${error.message}`)
+  return (data as { external_ref: string } | null)?.external_ref ?? null
+}

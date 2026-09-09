@@ -7,6 +7,17 @@ export interface DeliveryResult {
   latencyMs: number
   responseExcerpt: string | null
   error?: { title: string; details?: string }
+  /**
+   * WI-6: the response's `Retry-After` header in seconds, when present and
+   * a plain integer (an HTTP-date `Retry-After` value is not parsed --
+   * `deliver-outbound-webhook.ts` falls back to ordinary exponential
+   * backoff rather than honouring it). Only meaningful on a 429; other
+   * statuses may carry it too, in which case it's simply unused. Additive
+   * field -- WI-1's original `DeliveryResult` had no header access at all,
+   * which made the plan's own "429 honours Retry-After via moveToDelayed"
+   * requirement unimplementable without it.
+   */
+  retryAfterSec?: number
 }
 
 export interface OutboundWebhookRequest {

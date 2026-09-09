@@ -35,6 +35,11 @@ const VALID: Array<[IntegrationDeliveryStatus, IntegrationDeliveryStatus]> = [
   ['delivering', 'dead_lettered'],
   ['retrying', 'delivering'],
   ['retrying', 'dead_lettered'],
+  // WI-6: a breaker trip / kill switch discovered while a job is sitting in
+  // BullMQ backoff (row status = 'retrying') must still be able to land on
+  // 'paused' -- the Attempt procedure's pause-check runs before any other
+  // transition, regardless of which status it finds.
+  ['retrying', 'paused'],
   ['paused', 'queued'],
   ['dead_lettered', 'queued'],
 ]
