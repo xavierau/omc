@@ -129,8 +129,14 @@ language "zh_HK" already exists` 400 (expected application behaviour).
 body ceiling unchanged (413 at 21 MB). No authenticated dashboard walk was run (no pinned prod test tenant;
 user will verify with their own account).
 
-## I-2 — Kapso video handle: DEFERRED — user verifies manually with own account
-Not executed by this release (user decision; no prod users, tenants or templates created). Manual checklist
+## I-2 — Kapso video handle: **VERIFIED 2026-09-10** (user, own prod account)
+Result: the user created a video-header template on production via the dashboard and the row went to
+**pending** — Kapso's Platform Media API minted a Meta `4:` handle for `video/mp4` under
+`delivery: meta_resumable_asset`, exactly as for images. R1 is closed; no Kapso support ticket needed.
+Meta approval/rejection follows via status sync (TPL-009) and is not a TPL-011 concern.
+
+Original procedure (not executed by this release — user decision; no prod users, tenants or templates
+created by the agent). Manual checklist
 for the user, on `https://app.ohmyclient.io`:
 1. Dashboard → **WA Templates** → **Create Template**. Name e.g. `tpl011_video_verify_<yyyymmddhhmm>`,
    category **Marketing**, language **en**, body text of your choice.
