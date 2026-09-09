@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { WaTemplateFormFields } from './wa-template-form-fields'
 import { readSubmitOutcome } from './wa-template-submit'
 import {
+  applyWaTemplateFormChange,
   initialWaTemplateForm,
   buildWaTemplateRequestBody,
   templateToFormState,
@@ -48,7 +49,7 @@ export function WaTemplateFormDialog({ open, onOpenChange, onSuccess, template }
   }
 
   const handleChange = (key: keyof WaTemplateFormState, value: unknown) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    setForm((prev) => applyWaTemplateFormChange(prev, key, value))
   }
 
   const handleSubmit = async () => {

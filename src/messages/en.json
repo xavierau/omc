@@ -839,7 +839,8 @@
     "edit": "Edit",
     "submitFailed": "Couldn't submit this template to WhatsApp. Please try again.",
     "rejectionReasonLabel": "Meta's reason",
-    "imageHeaderHint": "JPEG or PNG, up to 5MB. The image is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used."
+    "imageHeaderHint": "JPEG or PNG, up to 5MB. The image is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used.",
+    "videoHeaderHint": "MP4 or 3GP, up to 16MB, H.264 video with AAC audio (or no audio). The video is uploaded to WhatsApp when you submit the template, and Meta reviews it before the template can be used."
   },
   "templateReview": {
     "submitAction": "Submit for review",
