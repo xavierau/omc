@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-09-09",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1517,6 +1517,32 @@
     "review": {
       "label": "Review",
       "tasks": [
+        {
+          "id": "TPL-011",
+          "title": "WhatsApp marketing template VIDEO header support",
+          "description": "Dashboard template form offers only Text/Image headers; Meta supports VIDEO headers (format VIDEO, example.header_handle ['4:...'], same resumable-upload shape as IMAGE; video/mp4 or video/3gpp, max 16MB, H.264+AAC). Send path already handles VIDEO (CAMP-007). Gaps: upload route is image-only/5MB for every bucket (video must be admitted for wa-template-media only, at 16MB); upload-path maps video/3gpp to .3gpp; Kapso adapter MIME_BY_EXT lacks mp4/3gp and error strings say 'header image'; resolve/enforce-header-media wording is image-only; form state has headerType none|text|image + headerImageUrl (rename to headerMediaUrl, add 'video', VIDEO round-trip, clear URL on type switch); HeaderSection needs a Video option + VideoUploader (sibling of ImageUploader, accept video/mp4,video/3gpp, <video> preview, 16MB pre-check, non-JSON-tolerant response read); i18n waTemplates.videoHeaderHint in en + zh-HK. Kapso video ingest via meta_resumable_asset is UNVERIFIED (probe A-6 + prod verify I-2). Deploy precondition: nginx client_max_body_size >= 16MB on the Forge box.",
+          "priority": "high",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "dashboard",
+            "fullstack"
+          ],
+          "branch": "feature/tpl-011",
+          "related": [
+            "kanban:TPL-004",
+            "kanban:CAMP-007"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-09-09-tpl-011-video-template-header.md",
+            "deploys/2026-09-09-tpl-011-video-upload-body-limit.md",
+            "artifacts/2026-09-09-tpl-011-stream-a-backend.md",
+            "artifacts/2026-09-09-tpl-011-stream-b-frontend.md",
+            "reviews/2026-09-09-tpl-011-video-header-analyzer.md",
+            "tests/2026-09-09-tpl-011-video-header-ui.md"
+          ],
+          "status_note": "2026-09-09: implemented on feature/tpl-011 (streams A+B, TDD, frozen suites intact). Gate: tsc clean, vitest 4419/0, lint no new findings. code-review-analyzer CONDITIONAL -> both Important items fixed (2e939d5). ui-test-runner PASS on DEV, all 9 legs (bucket present on DEV; R4 did not materialize). nginx already 20M (no infra change). OPEN: Kapso video ingest via meta_resumable_asset still UNVERIFIED (dev key 404 in A-6 and in the browser walk) -> I-2 post-deploy verify on the prod test tenant is mandatory before calling TPL-011 proven. AWAITING: user /review + merge of the PR into develop."
+        },
         {
           "id": "TPL-004",
           "title": "Unblock image-header templates: acquire Meta resumable-upload 4: handle",

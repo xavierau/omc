@@ -14,6 +14,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
 - [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
 - [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
 - [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
@@ -35,6 +36,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-09-tpl-011-video-header-analyzer](reviews/2026-09-09-tpl-011-video-header-analyzer.md) — TPL-011 1fa9012: CONDITIONAL — 0 Critical, 2 Important (video pre-check message, unverified Kapso ingest), 7 Minor (code-review-analyzer)
 - [2026-08-28-tag-001-issues-138-139-gemini](reviews/2026-08-28-tag-001-issues-138-139-gemini.md) — #138/#139 d728bb4: CONDITIONAL — 1 Critical (NUL byte made a source file binary; fixed) (gemini-cli-reviewer)
 - [2026-08-28-tag-001-issues-138-139-analyzer](reviews/2026-08-28-tag-001-issues-138-139-analyzer.md) — #138/#139 d728bb4 second lane: CONDITIONAL — 0 Critical, 5 Important (NUL byte, CSV tag feedback, bulk success line, raw enum error, audience-scale reads), 13 Minor (code-review-analyzer)
 - [2026-08-28-camp-009-issues-136-134-analyzer](reviews/2026-08-28-camp-009-issues-136-134-analyzer.md) — CAMP-009 #136/#134 second lane: CONDITIONAL — 0 Critical, 2 Important ({{code}}+null couponConfig; journal) (code-review-analyzer)
@@ -68,6 +70,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
 - [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
 - [2026-07-28-tpl-009-acceptance](tests/2026-07-28-tpl-009-acceptance.md) — I-1: end-to-end route integration suite + acceptance verdict PASSED (qa-engineer)
@@ -76,6 +79,11 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**TPL-011 — VIDEO template header (2026-09-09)**
+- [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)
+- [2026-09-09-tpl-011-stream-b-frontend](artifacts/2026-09-09-tpl-011-stream-b-frontend.md) — Stream B: form video header, VideoUploader + helpers, i18n hint (react-frontend-dev)
+- [2026-09-09-tpl-011-stream-a-backend](artifacts/2026-09-09-tpl-011-stream-a-backend.md) — Stream A: upload-policy, Kapso mime map, media-neutral wording; A-6 inconclusive (senior-backend-dev)
 
 **TAG-001 / WONB-017 — #138 member tags + #139 import preview (2026-08-28)**
 - [2026-08-28-tag-001-review-fix-r1-backend](artifacts/2026-08-28-tag-001-review-fix-r1-backend.md) — review round 1 backend: paginated member_tags read, inner-join tag filter, exact delete count, serialised lookups, batch tagIds asserted pre-write, UUID → 400, 066 drop-by-lookup; gateway probe + scratch replay (senior-backend-dev)

@@ -81,9 +81,9 @@ export interface WaTemplateFormState {
   name: string
   language: string
   category: string
-  headerType: 'none' | 'text' | 'image'
+  headerType: 'none' | 'text' | 'image' | 'video'
   headerText: string
-  headerImageUrl: string
+  headerMediaUrl: string
   body: string
   footer: string
   buttons: TemplateButton[]
@@ -91,8 +91,26 @@ export interface WaTemplateFormState {
 
 export const initialWaTemplateForm: WaTemplateFormState = {
   name: '', language: 'en', category: 'MARKETING',
-  headerType: 'none', headerText: '', headerImageUrl: '',
+  headerType: 'none', headerText: '', headerMediaUrl: '',
   body: '', footer: '', buttons: [],
+}
+
+/**
+ * Changing the header type drops a stale media URL of the previous format, so a
+ * video URL left under `headerType:'image'` can never be submitted as an IMAGE
+ * component (Meta would reject the `.mp4` extension). Every other key is a plain
+ * assignment; `headerText` intentionally survives a type change (pre-existing,
+ * harmless on the wire).
+ */
+export function applyWaTemplateFormChange(
+  form: WaTemplateFormState,
+  key: keyof WaTemplateFormState,
+  value: unknown
+): WaTemplateFormState {
+  if (key !== 'headerType') return { ...form, [key]: value }
+  const headerType = value as WaTemplateFormState['headerType']
+  if (headerType === form.headerType) return { ...form, headerType }
+  return { ...form, headerType, headerMediaUrl: '' }
 }
 
 export function templateToFormState(
@@ -101,7 +119,8 @@ export function templateToFormState(
   const state: WaTemplateFormState = { ...initialWaTemplateForm, name: t.name, language: t.language, category: t.category }
   for (const c of t.components) {
     if (c.type === 'HEADER' && c.format === 'TEXT') { state.headerType = 'text'; state.headerText = (c.text as string) ?? '' }
-    else if (c.type === 'HEADER' && c.format === 'IMAGE') { state.headerType = 'image'; state.headerImageUrl = extractImageUrl(c) }
+    else if (c.type === 'HEADER' && c.format === 'IMAGE') { state.headerType = 'image'; state.headerMediaUrl = extractMediaUrl(c) }
+    else if (c.type === 'HEADER' && c.format === 'VIDEO') { state.headerType = 'video'; state.headerMediaUrl = extractMediaUrl(c) }
     else if (c.type === 'BODY') { state.body = (c.text as string) ?? '' }
     else if (c.type === 'FOOTER') { state.footer = (c.text as string) ?? '' }
     else if (c.type === 'BUTTONS') { state.buttons = parseButtons(c) }
@@ -109,7 +128,7 @@ export function templateToFormState(
   return state
 }
 
-function extractImageUrl(c: Record<string, unknown>): string {
+function extractMediaUrl(c: Record<string, unknown>): string {
   const example = c.example as Record<string, unknown> | undefined
   const handles = example?.header_handle as string[] | undefined
   return handles?.[0] ?? ''
@@ -149,7 +168,12 @@ export function buildWaTemplateRequestBody(form: WaTemplateFormState) {
   } else if (form.headerType === 'image') {
     components.push({
       type: 'HEADER', format: 'IMAGE',
-      example: { header_handle: [form.headerImageUrl] },
+      example: { header_handle: [form.headerMediaUrl] },
+    })
+  } else if (form.headerType === 'video') {
+    components.push({
+      type: 'HEADER', format: 'VIDEO',
+      example: { header_handle: [form.headerMediaUrl] },
     })
   }
   components.push({ type: 'BODY', text: form.body })

@@ -88,6 +88,23 @@ describe('enforceHeaderMedia', () => {
     )
   })
 
+  it('the VIDEO message mentions "image or video" and drops the image-only wording', () => {
+    const template = buildWhatsAppTemplate({
+      components: [
+        { type: 'HEADER', format: 'VIDEO', example: { header_handle: [] } },
+        { type: 'BODY', text: 'Hello!' },
+      ],
+    })
+    expect(() => enforceHeaderMedia(template)).toThrow(/image or video/)
+    let message = ''
+    try {
+      enforceHeaderMedia(template)
+    } catch (err) {
+      message = (err as Error).message
+    }
+    expect(message).not.toContain('header image before sending')
+  })
+
   it('reads the camelCase headerHandle key too', () => {
     const template = buildWhatsAppTemplate({
       components: [

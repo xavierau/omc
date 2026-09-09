@@ -109,4 +109,83 @@ describe('uploadHeaderMediaFromUrl (Kapso Platform Media API)', () => {
     expect(result.ok).toBe(false)
     expect(result.error?.title).toBe('upload_failed')
   })
+
+  it('derives the mime type from the URL extension (mp4)', async () => {
+    fetchMock().mockResolvedValueOnce(jsonResponse({ data: { target: { handle: '4:v' } } }))
+
+    await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.mp4'
+    )
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('video/mp4')
+    expect(body.media_ingest.filename).toBe('h.mp4')
+  })
+
+  it('derives the mime type from the URL extension (3gp)', async () => {
+    fetchMock().mockResolvedValueOnce(jsonResponse({ data: { target: { handle: '4:v' } } }))
+
+    await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.3gp'
+    )
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('video/3gpp')
+  })
+
+  it('derives the mp4 mime type case-insensitively', async () => {
+    fetchMock().mockResolvedValueOnce(jsonResponse({ data: { target: { handle: '4:v' } } }))
+
+    await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.MP4'
+    )
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('video/mp4')
+  })
+
+  it('derives the mime type ignoring a query string (mp4)', async () => {
+    fetchMock().mockResolvedValueOnce(jsonResponse({ data: { target: { handle: '4:v' } } }))
+
+    await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.mp4?token=abc'
+    )
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('video/mp4')
+  })
+
+  it('falls back to image/jpeg for an unknown extension', async () => {
+    fetchMock().mockResolvedValueOnce(jsonResponse({ data: { target: { handle: '4:v' } } }))
+
+    await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://proj.supabase.co/storage/v1/object/public/wa-template-media/rest-1/h.bin'
+    )
+
+    const body = JSON.parse(fetchMock().mock.calls[0][1].body)
+    expect(body.media_ingest.mime_type).toBe('image/jpeg')
+  })
+
+  it('describes source-URL rejections in media-neutral wording (no "image", contains "media")', async () => {
+    const httpResult = await uploadHeaderMediaFromUrl(PHONE, 'http://proj.supabase.co/x.mp4')
+    expect(httpResult.error?.details).not.toMatch(/image/i)
+    expect(httpResult.error?.details).toMatch(/media/i)
+
+    const credsResult = await uploadHeaderMediaFromUrl(
+      PHONE,
+      'https://user:pass@proj.supabase.co/x.mp4'
+    )
+    expect(credsResult.error?.details).not.toMatch(/image/i)
+    expect(credsResult.error?.details).toMatch(/media/i)
+
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://proj.supabase.co')
+    const foreignResult = await uploadHeaderMediaFromUrl(PHONE, 'https://evil.example.com/x.mp4')
+    expect(foreignResult.error?.details).not.toMatch(/image/i)
+    expect(foreignResult.error?.details).toMatch(/media/i)
+  })
 })

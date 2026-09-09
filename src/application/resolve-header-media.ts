@@ -4,7 +4,7 @@ import { uploadHeaderMediaFromUrl } from '@/infrastructure/kapso/template-media-
 import type { MediaHandleErrorTitle } from '@/domain/value-objects/media-handle-result'
 
 /**
- * Turns dashboard-authored image headers (which carry a hosted image URL) into
+ * Turns dashboard-authored media headers (which carry a hosted media URL) into
  * the Meta resumable-upload handles a template submission requires.
  *
  * Runs at submit time only, against a COPY of the components — stored rows keep
@@ -79,10 +79,10 @@ export function mapMediaHandleError(error: MediaHandleError): {
   errorCode: 'provider_not_configured' | 'provider_error'
 } {
   if (error.title === 'not_configured') {
-    return { message: 'Image upload is not configured', errorCode: 'provider_not_configured' }
+    return { message: 'Media upload is not configured', errorCode: 'provider_not_configured' }
   }
   return {
-    message: error.details ?? 'Could not upload the header image to Meta',
+    message: error.details ?? 'Could not upload the header media to Meta',
     errorCode: 'provider_error',
   }
 }
