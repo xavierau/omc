@@ -80,6 +80,7 @@ no artifact files were lost._
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-tpl-011-stream-b-frontend](artifacts/2026-09-09-tpl-011-stream-b-frontend.md) — Stream B: form video header, VideoUploader + helpers, i18n hint (react-frontend-dev)
+- [2026-09-09-tpl-011-stream-a-backend](artifacts/2026-09-09-tpl-011-stream-a-backend.md) — Stream A: upload-policy, Kapso mime map, media-neutral wording; A-6 inconclusive (senior-backend-dev)
 
 **TAG-001 / WONB-017 — #138 member tags + #139 import preview (2026-08-28)**
 - [2026-08-28-tag-001-review-fix-r1-backend](artifacts/2026-08-28-tag-001-review-fix-r1-backend.md) — review round 1 backend: paginated member_tags read, inner-join tag filter, exact delete count, serialised lookups, batch tagIds asserted pre-write, UUID → 400, 066 drop-by-lookup; gateway probe + scratch replay (senior-backend-dev)
