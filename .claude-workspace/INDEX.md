@@ -14,6 +14,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
 - [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
 - [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
 - [2026-08-24-issue-111-member-detail-idor](plans/2026-08-24-issue-111-member-detail-idor.md) — #111: cross-tenant IDOR on the member-detail path — scope all three queries by restaurant_id, 404 on a foreign id (solution-architect)
@@ -76,6 +77,9 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**TPL-011 — VIDEO template header (2026-09-09)**
+- [2026-09-09-tpl-011-stream-b-frontend](artifacts/2026-09-09-tpl-011-stream-b-frontend.md) — Stream B: form video header, VideoUploader + helpers, i18n hint (react-frontend-dev)
 
 **TAG-001 / WONB-017 — #138 member tags + #139 import preview (2026-08-28)**
 - [2026-08-28-tag-001-review-fix-r1-backend](artifacts/2026-08-28-tag-001-review-fix-r1-backend.md) — review round 1 backend: paginated member_tags read, inner-join tag filter, exact delete count, serialised lookups, batch tagIds asserted pre-write, UUID → 400, 066 drop-by-lookup; gateway probe + scratch replay (senior-backend-dev)
