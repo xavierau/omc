@@ -92,6 +92,7 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi6-backend](artifacts/2026-09-10-int-001-wi6-backend.md) — WI-6: outbound queue, delivery processor, breaker, dead-letter, retry/resume/test, relay+sweeper (T-H7/T-M4/T-M8/T-L4/T-M2) (senior-backend-dev)
 - [2026-09-10-int-001-wi8-backend](artifacts/2026-09-10-int-001-wi8-backend.md) — WI-8: dashboard settings/secret/deliveries/retry/resume/test/activity APIs (T-M5/T-M6/T-M11) (senior-backend-dev)
 - [2026-09-10-int-001-wi7-backend](artifacts/2026-09-10-int-001-wi7-backend.md) — WI-7: 3 legacy paths routed through the seam, boundary test (T-H6), member.updated verified, mig 071 bugfix (senior-backend-dev)
+- [2026-09-10-int-001-wi4-backend](artifacts/2026-09-10-int-001-wi4-backend.md) — WI-4: welcome-send job — send-time re-checks reuse decideWelcome, idempotent mint (OD-15), hourly send cap (T-H8/T-M11) (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)
