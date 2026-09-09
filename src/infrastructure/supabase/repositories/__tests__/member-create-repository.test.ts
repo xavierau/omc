@@ -71,6 +71,24 @@ describe('insertMember (INT-001 T-H6 seam repository)', () => {
     })
   })
 
+  it('INT-001 WI-3: stamps status active and a fresh 32-hex loyalty_token, matching every other member-insert path', async () => {
+    const { client, inserted } = buildInsertClient({
+      data: { id: 'm-1', status: 'active' },
+      error: null,
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    await insertMember({
+      restaurantId: 'r-1',
+      phoneE164: '+85298765432',
+      name: 'Ada',
+      preferredLanguage: 'en',
+    })
+
+    expect(inserted.value?.status).toBe('active')
+    expect(inserted.value?.loyalty_token).toMatch(/^[0-9a-f]{32}$/)
+  })
+
   it('23505 -> re-selects and returns existing (never a thrown error)', async () => {
     const { client: insertClient } = buildInsertClient({
       data: null,

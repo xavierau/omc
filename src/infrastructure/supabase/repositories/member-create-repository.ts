@@ -10,8 +10,22 @@
 // is treated as "existing", never as a failure: on 23505 we re-select rather
 // than throwing, which is what makes concurrent double-create resolve to
 // exactly one row with one 'created' and one 'existing' outcome.
+//
+// INT-001 WI-3 fix: every OTHER member-insert path in the app
+// (`register-member.ts`, `register-member-web.ts`,
+// `import-members-with-consent.ts`, `import-contacts-batch-row-member.ts`)
+// stamps `status: 'active'` and a fresh `loyalty_token` at insert --
+// `loyalty-token.ts`'s own header states "Every NEW member gets one at
+// insert so there is always a scannable persistent QR". This file (WI-1)
+// omitted both, which would have made the WI-3 seam-vs-`registerMemberWeb`
+// parity test (plan §WI-3 Tests) fail for real: a partner-API member would
+// silently never get a loyalty QR. `status` is set explicitly rather than
+// left to the column default so the insert payload is self-documenting and
+// literally comparable to the legacy paths', not merely equivalent via a
+// DB-side default.
 
 import { createServerSupabaseClient } from '../client'
+import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
 
 export interface InsertMemberArgs {
   restaurantId: string
@@ -42,6 +56,8 @@ export async function insertMember(
       phone: args.phoneE164,
       name: args.name,
       preferred_language: args.preferredLanguage,
+      status: 'active',
+      loyalty_token: loyaltyToken(),
     })
     .select('id, status')
     .single()
