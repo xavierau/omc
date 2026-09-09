@@ -17,7 +17,7 @@ export class TemplateHeaderMediaMissingError extends Error {
     super(
       `WhatsApp template ${templateName} declares a media header but has no ` +
         'usable public media URL stored — edit the template and resubmit it ' +
-        'with a hosted header image before sending'
+        'with a hosted header image or video before sending'
     )
     this.name = 'TemplateHeaderMediaMissingError'
   }
