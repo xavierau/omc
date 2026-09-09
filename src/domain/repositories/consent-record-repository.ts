@@ -1,5 +1,7 @@
 import type { ConsentRecord } from '../entities/consent-record'
-import type { ConsentCategory } from '../value-objects/consent-status'
+import type { ConsentCategory, ConsentGrade } from '../value-objects/consent-status'
+import type { ConsentLevel, PartnerConsentCategory } from '../value-objects/consent-level'
+import type { PartnerConsentAction } from '../value-objects/partner-consent-action'
 
 /**
  * Contract for the `consent_records` writer/reader. The Supabase
@@ -57,6 +59,38 @@ export interface ConsentRecordRepository {
     phoneE164: string
     category: ConsentCategory
   }): Promise<boolean>
+
+  /**
+   * INT-001 T-C1: the most-recently-captured row for this identity across
+   * ALL statuses (including opted_out), or null when none exists. Unlike
+   * `findActive`, this is the lookup that must see a STOP so the caller can
+   * treat it as absorbing rather than accidentally re-consenting over it.
+   */
+  findLatestByCategory(args: {
+    restaurantId: string
+    phoneE164: string
+    category: ConsentCategory
+  }): Promise<ConsentRecord | null>
+
+  /**
+   * INT-001 T-C1 / OD-13 / OD-14: the SOLE way the partner API path may
+   * write consent. `opted_out` is absorbing (writes nothing, returns
+   * 'blocked_opted_out') on every branch -- new-member and existing-member
+   * alike. `grade`/`consentText` come from the caller's OD-13 determination
+   * (per-integration consent_attestation_text present+acked -> 'strong' with
+   * the attestation copied in; absent -> 'weak').
+   */
+  applyPartnerAssertedConsent(args: {
+    restaurantId: string
+    phoneE164: string
+    memberId: string | null
+    category: PartnerConsentCategory
+    assertedLevel: ConsentLevel
+    integrationId: string
+    grade: ConsentGrade
+    consentText: string | null
+    businessNameShown: string | null
+  }): Promise<PartnerConsentAction>
 }
 
 export type ConsentImportReason =

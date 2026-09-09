@@ -1,18 +1,30 @@
 // INVARIANT (WAQ-004): SOLE writer to consent_records (service-role bypass;
 // table has no INSERT/UPDATE policies). Route every mutation through here.
 
+import { randomUUID } from 'node:crypto'
 import { createServerSupabaseClient } from '../client'
 import { ConsentRecord } from '@/domain/entities/consent-record'
 import {
   ConsentImportError,
   type ConsentRecordRepository,
 } from '@/domain/repositories/consent-record-repository'
-import type { ConsentCategory } from '@/domain/value-objects/consent-status'
+import type {
+  ConsentCategory,
+  ConsentGrade,
+} from '@/domain/value-objects/consent-status'
+import type { ConsentLevel, PartnerConsentCategory } from '@/domain/value-objects/consent-level'
+import type { PartnerConsentAction } from '@/domain/value-objects/partner-consent-action'
+import {
+  decidePartnerConsentAction,
+  insertedRowStatus,
+} from '@/domain/services/partner-consent-policy'
 import {
   toEntity,
   toRow,
   type ConsentRecordRow,
 } from './consent-record-mapper'
+
+const PARTNER_API_SOURCE = 'partner_api'
 
 const ACTIVE_STATUSES = ['opted_in', 'pending'] as const
 
@@ -75,6 +87,26 @@ function buildLatestByPhone(
     }
   }
   return out
+}
+
+// INT-001 T-C1: latest row across ALL statuses (unlike findActiveConsent,
+// which only sees opted_in/pending) -- the partner path must see a STOP.
+export async function findLatestConsentByCategory(
+  args: FindActiveArgs
+): Promise<ConsentRecord | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('consent_records')
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('phone_e164', args.phoneE164)
+    .eq('category', args.category)
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(`findLatestConsentByCategory: ${error.message}`)
+  if (!data) return null
+  return toEntity(data as ConsentRecordRow)
 }
 
 export async function insertConsentRecord(
@@ -145,6 +177,68 @@ export async function revokeConsent(args: RevokeArgs): Promise<number> {
   return Array.isArray(data) ? data.length : 0
 }
 
+interface ApplyPartnerAssertedConsentArgs {
+  restaurantId: string
+  phoneE164: string
+  memberId: string | null
+  category: PartnerConsentCategory
+  assertedLevel: ConsentLevel
+  integrationId: string
+  grade: ConsentGrade
+  consentText: string | null
+  businessNameShown: string | null
+}
+
+// INT-001 T-C1 / OD-13 / OD-14: the SOLE way the partner API path may write
+// consent_records. `opted_out` is absorbing on every branch — this is the
+// fix for STOP resurrection (see decidePartnerConsentAction's doc comment).
+export async function applyPartnerAssertedConsent(
+  args: ApplyPartnerAssertedConsentArgs
+): Promise<PartnerConsentAction> {
+  const latest = await findLatestConsentByCategory({
+    restaurantId: args.restaurantId,
+    phoneE164: args.phoneE164,
+    category: args.category,
+  })
+
+  const action = decidePartnerConsentAction(
+    latest?.snapshot.status ?? null,
+    args.assertedLevel,
+    args.category
+  )
+
+  if (action === 'blocked_opted_out' || action === 'noop') return action
+
+  if (action === 'upgraded') {
+    await upgradeToOptedIn({
+      restaurantId: args.restaurantId,
+      phoneE164: args.phoneE164,
+      category: args.category,
+    })
+    return action
+  }
+
+  // action === 'inserted'
+  const status = insertedRowStatus(args.assertedLevel, args.category)
+  const shared = {
+    id: randomUUID(),
+    restaurantId: args.restaurantId,
+    memberId: args.memberId,
+    phoneE164: args.phoneE164,
+    category: args.category,
+    source: PARTNER_API_SOURCE,
+    sourceReference: args.integrationId,
+    businessNameShown: args.businessNameShown,
+    consentTextShown: args.consentText,
+  }
+  const record =
+    status === 'opted_in'
+      ? ConsentRecord.grant({ ...shared, grade: args.grade })
+      : ConsentRecord.markPending(shared)
+  await insertConsentRecord(record)
+  return action
+}
+
 // Compile-time contract lock against the domain port — TS surfaces drift here.
 export const consentRecordRepository: ConsentRecordRepository = {
   findActive: findActiveConsent,
@@ -152,4 +246,6 @@ export const consentRecordRepository: ConsentRecordRepository = {
   insert: insertConsentRecord,
   revoke: revokeConsent,
   upgradeToOptedIn,
+  findLatestByCategory: findLatestConsentByCategory,
+  applyPartnerAssertedConsent,
 }

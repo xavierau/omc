@@ -85,6 +85,7 @@ no artifact files were lost._
 
 **INT-001 — Bidirectional member-creation API (2026-09-10)**
 - [2026-09-10-int-001-wi0-backend](artifacts/2026-09-10-int-001-wi0-backend.md) — WI-0: pre-existing integration-route vuln fixes (T-C4/T-H1/T-M5/OQ-5), full suite green (senior-backend-dev)
+- [2026-09-10-int-001-wi1-backend](artifacts/2026-09-10-int-001-wi1-backend.md) — WI-1: migrations 069–072 (scratch-DB validated), domain/seam layer (T-C1/T-C2/T-H6/T-H1) (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)
