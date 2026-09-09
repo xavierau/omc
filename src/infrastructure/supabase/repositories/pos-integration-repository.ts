@@ -15,6 +15,22 @@ export async function findPosIntegrationById(
   return mapRow(data)
 }
 
+export async function findPosIntegrationByIdForRestaurant(
+  id: string,
+  restaurantId: string
+): Promise<PosIntegration | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('pos_integrations')
+    .select('*')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .single()
+
+  if (error || !data) return null
+  return mapRow(data)
+}
+
 export async function findPosIntegrationsByRestaurant(
   restaurantId: string
 ): Promise<PosIntegration[]> {
