@@ -93,3 +93,31 @@ One suite (`video-uploader-helpers.test.ts`) failed to load entirely (`Cannot fi
 - Third copy of the ~12-line upload-fetch pattern now exists (`ImageUploader`, `CampaignImageUploader`, `VideoUploader`) — noted as a follow-up in the plan itself (decision 2), not addressed here.
 - Pre-existing `react-hooks/set-state-in-effect` lint error in `wa-template-form-dialog.tsx:35` — pre-existing, out of scope, confirmed via stash-diff above.
 - I-1 (wiring walk + browser verification) and I-2 (prod post-deploy verify) are explicitly out of this stream's scope per the plan.
+
+## Review fixes (2026-09-09)
+
+Applied the two review-driven fixes from `reviews/2026-09-09-tpl-011-video-header-analyzer`
+(🟡-1, 🟢-4). Commit `2e939d5` on `feature/tpl-011`.
+
+- **🟡-1**: `videoFileError`'s non-video-mime message previously listed the bucket's full
+  allow-list (`JPEG, PNG, WebP, MP4, 3GP`), telling the operator image types were accepted
+  when this uploader rejects them. Changed to `Invalid file type: <mime>. Allowed: MP4, 3GP.`
+  — this uploader's own allow-list. Updated the doc comment (it no longer claims the mime
+  message mirrors the server's bucket-wide text; the size message still does).
+- **🟢-4**: `readUploadResponse` returned `{ url: '' }` on a 200 whose JSON carried no
+  non-empty `url`, so a malformed response silently reset the uploader with no error. It now
+  throws `Error('Upload failed: server returned no file URL')` for both a missing `url` key
+  and an empty-string `url`.
+- **Plan amendment**: `plans/2026-09-09-tpl-011-video-template-header` design decision 2 and
+  the Stream B `video-uploader-helpers.test.ts` acceptance bullet were edited in the same
+  commit to state the corrected message and the empty-url rule, with a dated note pointing at
+  the review. This is a review-driven spec correction to the frozen suite, not a
+  renegotiation — the suite was not weakened: two new failing tests were added and shown red
+  before the fix, then green after; the one existing assertion changed was the exact string
+  the review flagged as wrong, pinned to the new, correct value.
+- **TDD**: `git diff` before the fix showed 3 failing tests (1 pre-existing assertion now
+  expecting the corrected string, 2 new tests for the url-less-200 case); `npx vitest run
+  src/components/dashboard/__tests__/video-uploader-helpers.test.ts` after the fix: **10
+  passed**. Full `npx vitest run src/components/dashboard`: **608 passed** (63 files).
+  `npx tsc --noEmit`: clean. No file outside the two source files and the plan artifact was
+  touched (`git status --short -- src` confirmed).

@@ -36,6 +36,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-09-tpl-011-video-header-analyzer](reviews/2026-09-09-tpl-011-video-header-analyzer.md) — TPL-011 1fa9012: CONDITIONAL — 0 Critical, 2 Important (video pre-check message, unverified Kapso ingest), 7 Minor (code-review-analyzer)
 - [2026-08-28-tag-001-issues-138-139-gemini](reviews/2026-08-28-tag-001-issues-138-139-gemini.md) — #138/#139 d728bb4: CONDITIONAL — 1 Critical (NUL byte made a source file binary; fixed) (gemini-cli-reviewer)
 - [2026-08-28-tag-001-issues-138-139-analyzer](reviews/2026-08-28-tag-001-issues-138-139-analyzer.md) — #138/#139 d728bb4 second lane: CONDITIONAL — 0 Critical, 5 Important (NUL byte, CSV tag feedback, bulk success line, raw enum error, audience-scale reads), 13 Minor (code-review-analyzer)
 - [2026-08-28-camp-009-issues-136-134-analyzer](reviews/2026-08-28-camp-009-issues-136-134-analyzer.md) — CAMP-009 #136/#134 second lane: CONDITIONAL — 0 Critical, 2 Important ({{code}}+null couponConfig; journal) (code-review-analyzer)
