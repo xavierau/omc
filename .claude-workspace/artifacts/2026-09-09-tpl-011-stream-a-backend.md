@@ -25,15 +25,23 @@ A-0…A-6) on `feature/tpl-011` in the shared worktree
 
 **Note on `f71dfb3`:** I staged my 8 Stream A test files with `git add <exact paths>`
 and ran `git commit`, which failed with "no changes added to commit" — Stream B's
-concurrent `git add` + `git commit` in the same shared worktree had already swept my
-staged files into their commit (same index, no `index.lock` collision, so the race
-wasn't caught by the documented "wait and retry on `index.lock`" guard). The commit
-`f71dfb3` is titled "Stream B" but its diff contains all of Stream A's A-0 test
-files too (verified: `git diff HEAD` against my intended content was empty).
-Content is correct and on the branch; only the commit's authorship framing is
-imprecise. No corrective action taken — a second commit would just be noise. Flagging
-so future concurrent same-worktree dispatches know the failure mode isn't only
-`index.lock`.
+concurrent `git add <their 4 files> && git commit -m ...` (bare, no pathspec) swept
+my already-staged files into their commit — **root cause per dev-b-tpl-011**: a bare
+`git commit` commits the *entire* index, not just the paths just `git add`-ed in
+that same command, so whatever either agent has staged at that instant rides along.
+No `index.lock` collision occurred, so the documented "wait and retry on
+`index.lock`" guard didn't (and couldn't) catch this. The commit `f71dfb3` is titled
+"Stream B" but its diff contains all of Stream A's A-0 test files too (verified:
+`git diff HEAD` against my intended content was empty). Content is correct and on
+the branch; only the commit's authorship framing is imprecise. No corrective action
+taken — a second commit would just be noise, and rewriting shared-branch history
+was explicitly declined by both sides. **Fix going forward, agreed with
+dev-b-tpl-011**: scope every commit with a trailing pathspec —
+`git commit -m "..." -- <paths>` — which restricts the commit to those paths
+regardless of what else is staged in the shared index. My two subsequent commits
+(`12f35b4`, `e9c00a8`) were verified (via `git show --stat`) to contain only my own
+files, so no further cross-contamination occurred, but the pathspec-scoped form is
+the safer default for any future same-worktree concurrent dispatch.
 
 ## Files Changed
 
