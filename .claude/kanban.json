@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-09-09",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1511,6 +1511,28 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
+        },
+        {
+          "id": "TPL-011",
+          "title": "WhatsApp marketing template VIDEO header support",
+          "description": "Dashboard template form offers only Text/Image headers; Meta supports VIDEO headers (format VIDEO, example.header_handle ['4:...'], same resumable-upload shape as IMAGE; video/mp4 or video/3gpp, max 16MB, H.264+AAC). Send path already handles VIDEO (CAMP-007). Gaps: upload route is image-only/5MB for every bucket (video must be admitted for wa-template-media only, at 16MB); upload-path maps video/3gpp to .3gpp; Kapso adapter MIME_BY_EXT lacks mp4/3gp and error strings say 'header image'; resolve/enforce-header-media wording is image-only; form state has headerType none|text|image + headerImageUrl (rename to headerMediaUrl, add 'video', VIDEO round-trip, clear URL on type switch); HeaderSection needs a Video option + VideoUploader (sibling of ImageUploader, accept video/mp4,video/3gpp, <video> preview, 16MB pre-check, non-JSON-tolerant response read); i18n waTemplates.videoHeaderHint in en + zh-HK. Kapso video ingest via meta_resumable_asset is UNVERIFIED (probe A-6 + prod verify I-2). Deploy precondition: nginx client_max_body_size >= 16MB on the Forge box.",
+          "priority": "high",
+          "labels": [
+            "whatsapp",
+            "templates",
+            "dashboard",
+            "fullstack"
+          ],
+          "branch": "feature/tpl-011",
+          "related": [
+            "kanban:TPL-004",
+            "kanban:CAMP-007"
+          ],
+          "workspace_artifacts": [
+            "plans/2026-09-09-tpl-011-video-template-header.md",
+            "deploys/2026-09-09-tpl-011-video-upload-body-limit.md"
+          ],
+          "status_note": "2026-09-09: plan written (solution-architect). Streams: A backend (upload policy/route, upload-path 3gp, Kapso adapter mime + wording, application wording, Kapso video probe) and B frontend (form types/fields, VideoUploader, i18n) dispatch in parallel; I-1 wiring walk after both; I-2 post-deploy verify on the prod test tenant proves Kapso mints a handle for video."
         }
       ]
     },
