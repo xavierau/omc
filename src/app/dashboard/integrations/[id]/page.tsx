@@ -14,6 +14,8 @@ import { OutboundWebhookCard } from '@/components/dashboard/integrations/outboun
 import { PausedBannerCard } from '@/components/dashboard/integrations/paused-banner'
 import { DeliveryLogTable } from '@/components/dashboard/integrations/delivery-log-table'
 import { ActivityLogTable } from '@/components/dashboard/integrations/activity-log-table'
+import { SettingsErrorPanel } from '@/components/dashboard/integrations/settings-error-panel'
+import { resolveSettingsPanelState } from '@/components/dashboard/integrations/settings-panel-state'
 
 type DetailTab = 'settings' | 'deliveries' | 'activity'
 
@@ -21,9 +23,14 @@ export default function IntegrationDetailPage({ params }: { params: Promise<{ id
   const { id } = use(params)
   const t = useTranslations('integrations')
   const tc = useTranslations('common')
-  const { integration, settings, isAdmin, isLoading, notFound, error, mutate } = useIntegrationDetail(id)
+  const { integration, settings, settingsError, isAdmin, isLoading, notFound, error, mutate } =
+    useIntegrationDetail(id)
   const [activeTab, setActiveTab] = useState<DetailTab>('settings')
   const [highlightDeliveryId, setHighlightDeliveryId] = useState<string | null>(null)
+  // WI-15: replaces the old `isAdmin && settings` truthy gate at every
+  // settings-dependent slot below (cards, paused banner, Deliveries tab) —
+  // see tests/2026-09-10-int-001-ui-walk.md Anomalies #1/#2.
+  const settingsPanelState = resolveSettingsPanelState(isAdmin, !!settings, settingsError?.status ?? null)
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">{tc('loading')}</p>
@@ -61,6 +68,9 @@ export default function IntegrationDetailPage({ params }: { params: Promise<{ id
           onResumed={mutate}
         />
       )}
+      {settingsPanelState === 'error' && settingsError && (
+        <SettingsErrorPanel errorCode={settingsError.error} onRetry={mutate} testId="paused-banner-fetch-error" />
+      )}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DetailTab)}>
         <TabsList>
@@ -84,21 +94,28 @@ export default function IntegrationDetailPage({ params }: { params: Promise<{ id
               />
             </>
           )}
-          {!isAdmin && (
+          {settingsPanelState === 'error' && settingsError && (
+            <SettingsErrorPanel errorCode={settingsError.error} onRetry={mutate} testId="settings-fetch-error" />
+          )}
+          {settingsPanelState === 'roleMessage' && (
             <p className="text-sm text-muted-foreground" data-testid="settings-admin-only">
               {t('adminOnlySettings')}
             </p>
           )}
         </TabsContent>
         <TabsContent value="deliveries" className="mt-4">
-          {isAdmin && settings ? (
+          {isAdmin && settings && (
             <DeliveryLogTable
               integrationId={id}
               isAdmin={isAdmin}
               outboundSecretUpdatedAt={settings.outboundSecretUpdatedAt}
               highlightDeliveryId={highlightDeliveryId}
             />
-          ) : (
+          )}
+          {settingsPanelState === 'error' && settingsError && (
+            <SettingsErrorPanel errorCode={settingsError.error} onRetry={mutate} testId="deliveries-fetch-error" />
+          )}
+          {settingsPanelState === 'roleMessage' && (
             <p className="text-sm text-muted-foreground" data-testid="deliveries-admin-only">
               {t('adminOnlySettings')}
             </p>

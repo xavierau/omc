@@ -76,6 +76,13 @@ export function useIntegrationDetail(id: string) {
 
   const [integration, setIntegration] = useState<PublicIntegration | null>(null)
   const [settings, setSettings] = useState<IntegrationSettingsView | null>(null)
+  // WI-15: the settings fetch's own failure, distinct from `error` above
+  // (which is the base-integration fetch's failure). Every UI slot gated on
+  // "isAdmin && settings" used this failure's absence as its only signal,
+  // so a non-403 failure silently rendered nothing — see
+  // tests/2026-09-10-int-001-ui-walk.md Anomalies #1/#2 and
+  // `settings-panel-state.ts`, which consumes `settingsError?.status`.
+  const [settingsError, setSettingsError] = useState<{ status: number; error: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -101,7 +108,16 @@ export function useIntegrationDetail(id: string) {
         return
       }
       return fetchIntegrationSettings(id).then((settingsResult) => {
-        if (settingsResult.ok) setSettings(settingsResult.settings)
+        if (settingsResult.ok) {
+          setSettings(settingsResult.settings)
+          setSettingsError(null)
+        } else {
+          // Clear stale settings on a failed retry too — otherwise a
+          // previously-successful fetch would keep rendering "ready" (with
+          // now-stale data) even though this fetch failed.
+          setSettings(null)
+          setSettingsError({ status: settingsResult.status, error: settingsResult.error })
+        }
         setIsLoading(false)
       })
     })
@@ -116,5 +132,5 @@ export function useIntegrationDetail(id: string) {
     return load()
   }, [load])
 
-  return { integration, settings, isAdmin, isLoading, notFound, error, mutate }
+  return { integration, settings, settingsError, isAdmin, isLoading, notFound, error, mutate }
 }
