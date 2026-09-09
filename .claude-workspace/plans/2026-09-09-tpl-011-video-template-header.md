@@ -98,9 +98,13 @@ shape is UI form state:
    preview in the same 80×80 frame, and the same `common.generate/regenerate/loading`
    labels. The four existing `ImageUploader` callers are untouched. Two additions the
    image path lacks, both justified by the 16 MB size: a client-side pre-check
-   (`file.size > 16 MB` → show the server's exact message without uploading) and a
-   non-JSON-tolerant response read (an nginx 413 returns HTML; `res.json()` would throw
-   `Unexpected token` at the operator). Both live in a pure helper file
+   (`file.size > 16 MB` → show the server's exact message without uploading; a mime
+   outside `video/mp4`/`video/3gpp` → `Invalid file type: <mime>. Allowed: MP4, 3GP.`,
+   this uploader's own allow-list, not the bucket's — the bucket also accepts images on
+   this slot but this uploader never does) and a non-JSON-tolerant response read (an
+   nginx 413 returns HTML; `res.json()` would throw `Unexpected token` at the operator;
+   a 200 with no non-empty `url` throws `Upload failed: server returned no file URL`
+   rather than silently resetting the uploader). Both live in a pure helper file
    `video-uploader-helpers.ts` (precedent: `campaign-image-uploader-helpers.ts`) so they
    are testable without DOM. Accepted duplication: the 12-line upload fetch now exists in
    three components (ImageUploader, CampaignImageUploader, VideoUploader) — DRY says
@@ -317,12 +321,17 @@ Stream B (frozen in B-0):
     `headerMediaUrl` untouched; the function never mutates its input.
 - `video-uploader-helpers.test.ts`
   - `videoFileError(file)`: > 16 MB → `File exceeds 16MB limit.`; exactly 16 MB → null;
-    mime outside `video/mp4|video/3gpp` → the same "Invalid file type" message the
-    server uses for this bucket; ok file → null.
-  - `readUploadResponse(res)`: 200 JSON `{url}` → `{url}`; 400 JSON `{error}` →
-    throws `error`; 413 HTML body → throws a readable "File is too large for the
-    server" message, never a JSON parse error.
+    mime outside `video/mp4|video/3gpp` → `Invalid file type: <mime>. Allowed: MP4,
+    3GP.` (this uploader's own allow-list, not the bucket's — see decision 2); ok file
+    → null.
+  - `readUploadResponse(res)`: 200 JSON `{url}` → `{url}`; 200 JSON with no `url` or an
+    empty-string `url` → throws `Upload failed: server returned no file URL`; 400 JSON
+    `{error}` → throws `error`; 413 HTML body → throws a readable "File is too large for
+    the server" message, never a JSON parse error.
   - the exported `VIDEO_ACCEPT` equals `'video/mp4,video/3gpp'`.
+
+**Amended 2026-09-09 after review `reviews/2026-09-09-tpl-011-video-header-analyzer`
+🟡-1 / 🟢-4.**
 - `wa-template-form-fields.test.tsx`
   - `headerType:'video'` renders `video-header-hint` with `t:videoHeaderHint` and no
     `image-header-hint`; `'image'` renders the image hint only; `'none'`/`'text'` render

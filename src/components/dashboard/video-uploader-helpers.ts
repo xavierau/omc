@@ -17,13 +17,15 @@ export interface FileMeta {
 }
 
 /**
- * Client-side pre-check only: returns the same message text the server's
- * upload-policy module returns for this bucket, so a rejected pick and a
- * rejected upload read identically to the operator.
+ * Client-side pre-check only: the size message mirrors the server's
+ * upload-policy module for this bucket, so a rejected pick and a rejected
+ * upload read identically to the operator. The mime message lists this
+ * uploader's own allow-list (video only) rather than the bucket's full
+ * allow-list — the bucket also accepts images, but this uploader never does.
  */
 export function videoFileError(file: FileMeta): string | null {
   if (!VIDEO_TYPES.includes(file.type as (typeof VIDEO_TYPES)[number])) {
-    return `Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, MP4, 3GP.`
+    return `Invalid file type: ${file.type}. Allowed: MP4, 3GP.`
   }
   if (file.size > MAX_VIDEO_SIZE) {
     return 'File exceeds 16MB limit.'
@@ -54,5 +56,6 @@ export async function readUploadResponse(res: Response): Promise<{ url: string }
   }
 
   if (!res.ok) throw new Error(data.error ?? 'Upload failed')
-  return { url: data.url ?? '' }
+  if (!data.url) throw new Error('Upload failed: server returned no file URL')
+  return { url: data.url }
 }

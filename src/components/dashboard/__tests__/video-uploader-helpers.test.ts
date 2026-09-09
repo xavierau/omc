@@ -14,9 +14,9 @@ describe('videoFileError', () => {
     expect(videoFileError({ size: MAX_VIDEO_SIZE, type: 'video/mp4' })).toBeNull()
   })
 
-  it('rejects a mime outside video/mp4 and video/3gpp, mirroring the server message for this bucket', () => {
+  it('rejects a mime outside video/mp4 and video/3gpp, listing only the video slot\'s own allow-list', () => {
     expect(videoFileError({ size: 1000, type: 'video/quicktime' })).toBe(
-      'Invalid file type: video/quicktime. Allowed: JPEG, PNG, WebP, MP4, 3GP.'
+      'Invalid file type: video/quicktime. Allowed: MP4, 3GP.'
     )
   })
 
@@ -38,6 +38,22 @@ describe('readUploadResponse', () => {
     const res = jsonResponse(200, { url: 'https://cdn.test/v.mp4' })
 
     await expect(readUploadResponse(res)).resolves.toEqual({ url: 'https://cdn.test/v.mp4' })
+  })
+
+  it('throws instead of returning an empty url for a 200 response with no url', async () => {
+    const res = jsonResponse(200, {})
+
+    await expect(readUploadResponse(res)).rejects.toThrow(
+      'Upload failed: server returned no file URL'
+    )
+  })
+
+  it('throws instead of returning an empty url for a 200 response with an empty-string url', async () => {
+    const res = jsonResponse(200, { url: '' })
+
+    await expect(readUploadResponse(res)).rejects.toThrow(
+      'Upload failed: server returned no file URL'
+    )
   })
 
   it('throws the server error message for a 400 JSON response', async () => {
