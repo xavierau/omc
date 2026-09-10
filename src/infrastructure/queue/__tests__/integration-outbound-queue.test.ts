@@ -1,21 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { mockAdd, mockUpsertJobScheduler, MockQueue } = vi.hoisted(() => {
+const { mockAdd, mockUpsertJobScheduler, mockGetJob, MockQueue } = vi.hoisted(() => {
   const mockAdd = vi.fn().mockResolvedValue(undefined)
   const mockUpsertJobScheduler = vi.fn().mockResolvedValue(undefined)
+  const mockGetJob = vi.fn().mockResolvedValue(undefined)
 
   class MockQueue {
     add = mockAdd
     upsertJobScheduler = mockUpsertJobScheduler
+    getJob = mockGetJob
   }
 
-  return { mockAdd, mockUpsertJobScheduler, MockQueue }
+  return { mockAdd, mockUpsertJobScheduler, mockGetJob, MockQueue }
 })
 
 vi.mock('bullmq', () => ({ Queue: MockQueue }))
 
 import {
   addDeliverJob,
+  addRelayDeliverJob,
   addRetryDeliverJob,
   ensureSweepSchedulersRegistered,
   outboundConcurrencyFromEnv,
@@ -74,6 +77,58 @@ describe('addRetryDeliverJob (US-9 manual retry)', () => {
     await addRetryDeliverJob('del-1')
     const opts = mockAdd.mock.calls[0][2] as { jobId: string }
     expect(opts.jobId).toBe('del-1:r1')
+  })
+})
+
+describe('addRelayDeliverJob (C-2: relay/resume re-enqueue does not dedupe against a stale completed/failed job)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetOutboundQueueForTests()
+  })
+
+  it('no existing job for this id -> adds with jobId = deliveryId, same as addDeliverJob', async () => {
+    mockGetJob.mockResolvedValue(undefined)
+
+    await addRelayDeliverJob('del-1')
+
+    expect(mockGetJob).toHaveBeenCalledWith('del-1')
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+    const opts = mockAdd.mock.calls[0][2] as { jobId: string }
+    expect(opts.jobId).toBe('del-1')
+  })
+
+  it('C-2 regression: an existing job that already COMPLETED (the paused-branch resolves the worker fn normally, so BullMQ records it as completed) is removed before re-adding -- otherwise BullMQ dedupes the add() into a no-op and the row is marked enqueued for a job that was never created', async () => {
+    const remove = vi.fn().mockResolvedValue(undefined)
+    mockGetJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue('completed'), remove })
+
+    await addRelayDeliverJob('del-1')
+
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+    const opts = mockAdd.mock.calls[0][2] as { jobId: string }
+    expect(opts.jobId).toBe('del-1')
+  })
+
+  it('an existing job that already FAILED (exhausted BullMQ retries) is also removed before re-adding', async () => {
+    const remove = vi.fn().mockResolvedValue(undefined)
+    mockGetJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue('failed'), remove })
+
+    await addRelayDeliverJob('del-1')
+
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+  })
+
+  it('an existing job still ACTIVE/WAITING/DELAYED (a genuinely in-flight enqueue) is left alone -- add() dedupes against it exactly as addDeliverJob always has', async () => {
+    const remove = vi.fn().mockResolvedValue(undefined)
+    mockGetJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue('active'), remove })
+
+    await addRelayDeliverJob('del-1')
+
+    expect(remove).not.toHaveBeenCalled()
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+    const opts = mockAdd.mock.calls[0][2] as { jobId: string }
+    expect(opts.jobId).toBe('del-1')
   })
 })
 

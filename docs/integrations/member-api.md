@@ -313,13 +313,17 @@ you can recognize your **own writes** coming back to you and skip re-processing 
   containing `name`, `language`, or `status`) are never changed by this API today, so
   those `member.updated` events are always `null`.
 - **Coalescing note**: if two changes to the same member land within the same 5-second
-  window (e.g. your consent upgrade and, coincidentally, a dashboard edit), they
-  coalesce into one `member.updated` event with a unioned `data.changed`. That event's
-  `origin_integration_id` is **sticky** to whichever of the coalesced writes had a
-  non-null origin first — it does not get cleared by a later, unattributed write landing
-  in the same window, but it also does not distinguish "attributable to me" from
-  "attributable to me AND something else happened in the same 5 seconds." Treat it as
-  "at least one of the changes in this event was mine," not as a byte-exact diff.
+  window (e.g. your consent upgrade and, coincidentally, the member texting STOP), they
+  coalesce into one `member.updated` event with a unioned `data.changed`.
+  `origin_integration_id` on that event is set **only when every write that landed in
+  the window agrees** on the origin: two writes from the same integration keep that
+  integration's id; a write of yours coalescing with an unattributed write (dashboard
+  edit, WhatsApp opt-in/STOP, CSV import, another integration's own call) resolves to
+  `null`, **even though one of the changes was yours**. Do not treat `null` here as
+  "not mine" — treat `origin_integration_id` as reliable ONLY as a positive signal
+  ("this specific id was involved, and nothing else was"), never as a negative one. A
+  member's own STOP landing in the same window as your write is exactly the case this
+  protects: it must never be swallowed by your own echo-suppression logic.
 
 ### Verifying an inbound webhook
 

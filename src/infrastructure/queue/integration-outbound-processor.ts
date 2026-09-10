@@ -16,6 +16,7 @@ import { findIntegrationSettingsById } from '@/infrastructure/supabase/repositor
 import { RedisRateLimiter } from '@/infrastructure/rate-limit/redis-rate-limiter'
 import { getFailFastRedisOptions, parseRedisUrl, redisUrl } from '@/infrastructure/redis/connection'
 import {
+  ATTEMPTS,
   QUEUE_NAME,
   ensureSweepSchedulersRegistered,
   outboundConcurrencyFromEnv,
@@ -86,7 +87,12 @@ async function handleDeliverJob(job: Job<DeliverJobData>, token: string | undefi
   }
 
   const attemptNumber = job.attemptsMade + 1
-  const result = await deliverOutboundWebhook(deliveryId, attemptNumber)
+  // C-1: BullMQ's own attempts budget for this job -- `job.opts.attempts`
+  // when a real Job is available, otherwise the queue's configured default
+  // (a plain test double may omit `opts` entirely).
+  const totalAttempts = job.opts?.attempts ?? ATTEMPTS
+  const isFinalAttempt = attemptNumber >= totalAttempts
+  const result = await deliverOutboundWebhook(deliveryId, attemptNumber, { isFinalAttempt })
 
   if (result.kind === 'delivered' || result.kind === 'paused') return
   if (result.kind === 'permanent') {

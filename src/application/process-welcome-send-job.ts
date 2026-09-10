@@ -19,7 +19,10 @@ import { findPosIntegrationById } from '@/infrastructure/supabase/repositories/p
 import { findIntegrationSettingsById } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { findLatestConsentByCategory } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { isTenantAutoPaused } from '@/infrastructure/supabase/repositories/tenant-trust-queries'
-import { updateMemberJobWelcomeOutcome } from '@/infrastructure/supabase/repositories/integration-member-job-repository'
+import {
+  findMemberJobForIntegration,
+  updateMemberJobWelcomeOutcome,
+} from '@/infrastructure/supabase/repositories/integration-member-job-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { effectiveLevel as computeEffectiveLevel } from '@/domain/value-objects/consent-level'
 import type { TemplateCategory } from '@/domain/entities/whatsapp-template'
@@ -40,12 +43,14 @@ const DEFAULT_WELCOME_HOURLY_CAP = 60
 // `int001:welcome:{restaurantId}:{yyyymmddhh}` counter (`process-member-
 // create-job.ts`), not the same one re-incremented or read here. WI-3's
 // counter gates whether a welcome-send job is worth enqueuing AT ALL and
-// increments on every create ATTEMPT in the hour, allowed or not -- reading
-// it here would see a count inflated by every rejected create, incorrectly
-// skipping sends that were legitimately allowed at their own enqueue time.
-// Incrementing IT again here would silently halve the real budget (one
-// unit at enqueue, a second at send, for the same welcome). A dedicated
-// counter that increments ONLY on an actual, about-to-send attempt is the
+// increments only when its OWN provisional decision is `queued` (every
+// earlier gate -- member-level, template, consent, quality-pause --
+// already passed) -- reading it here would see a count that has already
+// filtered out every request that was never going to send anyway, so it
+// can't distinguish "capped" from "never would have queued." Incrementing
+// IT again here would silently halve the real budget (one unit at
+// enqueue, a second at send, for the same welcome). A dedicated counter
+// that increments ONLY on an actual, about-to-send attempt is the
 // only one that correctly enforces "<= N sends per tenant per hour"
 // independent of how many creates arrived -- a deliberate, disclosed
 // design choice, not a literal copy of WI-3's key.
@@ -81,6 +86,21 @@ export async function processWelcomeSendJob(
   maxAttempts = 3
 ): Promise<void> {
   const isFinalAttempt = attemptNumber >= maxAttempts
+
+  // I-5: a retry after a successful send (recordOutboundSend succeeds, then
+  // the `sent` write below throws or the worker dies before it runs) used
+  // to re-run every gate and send a SECOND template message -- the coupon
+  // mint is idempotent (OD-15) but the send itself is not, and each retry
+  // also burns another hourly-cap token. Short-circuit here, before any
+  // gate/mint/send, if a prior attempt already persisted `sent`. This does
+  // NOT close the narrower window where the send succeeded but THIS write
+  // never landed (no outcome was ever persisted to detect) -- that would
+  // need an idempotency key at the WhatsApp-send layer itself; out of
+  // scope for this fix, see the hand-off artifact.
+  const existingJob = await findMemberJobForIntegration(data.createJobId, data.integrationId)
+  if (existingJob?.welcome_outcome === 'sent') {
+    return
+  }
 
   // A genuinely deleted member (not covered by decideWelcome's `'active' |
   // 'unsubscribed'` input -- there is no "missing" member status) is the

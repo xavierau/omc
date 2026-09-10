@@ -28,6 +28,15 @@ const PARTNER_API_SOURCE = 'partner_api'
 
 const ACTIVE_STATUSES = ['opted_in', 'pending'] as const
 
+// I-3: a ConsentImportError's message used to embed the full E.164 phone
+// number, which propagates uncaught into process-member-create-job.ts's
+// job-row error_message / Slack alert / worker `.on('failed')` log (T-H7's
+// "no PII in the job row/Slack" invariant). Last 4 digits only, same
+// discriminator the job row itself already carries (`phone_last4`).
+function maskPhoneForError(phoneE164: string): string {
+  return `***${phoneE164.slice(-4)}`
+}
+
 interface FindActiveArgs {
   restaurantId: string
   phoneE164: string
@@ -120,7 +129,7 @@ export async function insertConsentRecord(
   if ((error as { code?: string }).code === '23505') {
     throw new ConsentImportError(
       'duplicate_active',
-      `consent already exists for (${record.snapshot.restaurantId}, ${record.snapshot.phoneE164}, ${record.snapshot.category})`
+      `consent already exists for (${record.snapshot.restaurantId}, ${maskPhoneForError(record.snapshot.phoneE164)}, ${record.snapshot.category})`
     )
   }
   throw new Error(`insertConsentRecord: ${error.message}`)
@@ -150,7 +159,7 @@ export async function insertConsentRecordWithOrigin(
   if ((error as { code?: string }).code === '23505') {
     throw new ConsentImportError(
       'duplicate_active',
-      `consent already exists for (${record.snapshot.restaurantId}, ${record.snapshot.phoneE164}, ${record.snapshot.category})`
+      `consent already exists for (${record.snapshot.restaurantId}, ${maskPhoneForError(record.snapshot.phoneE164)}, ${record.snapshot.category})`
     )
   }
   throw new Error(`insertConsentRecordWithOrigin: ${error.message}`)
@@ -261,7 +270,7 @@ export async function applyPartnerAssertedConsent(
     // WI-13 (Gap A): origin-attributed -- this whole function is the SOLE
     // partner-API write path (see its own header), so args.integrationId
     // is always the correct origin.
-    await upgradeToOptedInWithOrigin(
+    const didUpgrade = await upgradeToOptedInWithOrigin(
       {
         restaurantId: args.restaurantId,
         phoneE164: args.phoneE164,
@@ -269,7 +278,15 @@ export async function applyPartnerAssertedConsent(
       },
       args.integrationId
     )
-    return action
+    // M-3: the RPC's own `WHERE status = 'pending'` guard is what makes
+    // this safe under a STOP racing in between the read above and this
+    // write -- but it also means the row count it returns is the ONLY
+    // source of truth for whether anything actually changed.
+    // `decidePartnerConsentAction` decided 'upgraded' from the (possibly
+    // now-stale) read; if the RPC updated 0 rows, nothing was upgraded --
+    // report `noop`, not a phantom upgrade on the job row's
+    // `consent_actions`.
+    return didUpgrade ? action : 'noop'
   }
 
   // action === 'inserted'
@@ -289,7 +306,22 @@ export async function applyPartnerAssertedConsent(
     status === 'opted_in'
       ? ConsentRecord.grant({ ...shared, grade: args.grade })
       : ConsentRecord.markPending(shared)
-  await insertConsentRecordWithOrigin(record, args.integrationId)
+  try {
+    await insertConsentRecordWithOrigin(record, args.integrationId)
+  } catch (err) {
+    // I-3: two concurrent partner-API creates for the SAME (restaurant,
+    // phone, category) can both read `latest = null` above and both decide
+    // 'inserted'; the loser's insert 23505s here. That's benign -- the row
+    // now exists, written by the winner -- not a real failure. Treat it as
+    // `noop` rather than letting a PII-bearing ConsentImportError (even
+    // last4-masked, it's still an exception on a path that should be
+    // idempotent) propagate up through the job row / Slack / worker logs,
+    // and rather than wasting a retry on an outcome that already happened.
+    if (err instanceof ConsentImportError && err.reason === 'duplicate_active') {
+      return 'noop'
+    }
+    throw err
+  }
   return action
 }
 

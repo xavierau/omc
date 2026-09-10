@@ -171,4 +171,18 @@ describe('enqueueMemberCreate (INT-001 WI-3, T-H3a/b, T-M7, kanban CONSTRAINT)',
     expect(deps.addMemberCreateJob).not.toHaveBeenCalled()
     expect(await deps.rateLimiter.get('int001:depth:int-1')).toBe(0)
   })
+
+  // M-1: insertMemberJob's own call was unwrapped -- a non-23505 DB error
+  // (permission denied, timeout, ...) propagated straight up without ever
+  // releasing the depth reservation taken above it, permanently inflating
+  // the counter for this integration until WI-13's 5-minute sweep
+  // eventually corrects it.
+  it('M-1: insertMemberJob throws a non-23505 DB error -> depth reservation is released before the error propagates', async () => {
+    vi.mocked(insertMemberJob).mockRejectedValue(new Error('insertMemberJob: permission denied'))
+    const deps = buildDeps()
+
+    await expect(enqueueMemberCreate(baseInput(), deps)).rejects.toThrow(/permission denied/)
+
+    expect(await deps.rateLimiter.get('int001:depth:int-1')).toBe(0)
+  })
 })

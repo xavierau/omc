@@ -79,6 +79,18 @@ export function getIntegrationInboundQueue(): Queue<MemberCreateJobData | Welcom
   return queue
 }
 
+// I-6: `member-create` job data carries phone/name/metadata (the
+// normalised request body -- see this file's own header), unlike
+// `welcome-send`'s ids-only payload. Left at the same 7-day
+// `removeOnFail` retention as welcome-send, that's a week of partner-
+// submitted PII sitting in Redis's failed set on every exhausted create --
+// outside the Postgres RLS/audit story, and unnecessary: the
+// `integration_member_jobs` row already carries everything ops needs for
+// triage (phone_last4, error code). 1 hour is enough to catch a failure on
+// the BullMQ dashboard shortly after it happens; the ops playbook (§4)
+// documents this choice and the shortened window.
+const MEMBER_CREATE_REMOVE_ON_FAIL = { count: 1000, age: 3600 }
+
 export async function addMemberCreateJob(data: MemberCreateJobData): Promise<void> {
   const q = getIntegrationInboundQueue()
   await q.add('member-create', data, {
@@ -86,7 +98,7 @@ export async function addMemberCreateJob(data: MemberCreateJobData): Promise<voi
     attempts: 3,
     backoff: { type: 'exponential', delay: 2000 },
     removeOnComplete: { count: 500, age: 3600 },
-    removeOnFail: { count: 1000, age: 7 * 24 * 3600 },
+    removeOnFail: MEMBER_CREATE_REMOVE_ON_FAIL,
   })
 }
 

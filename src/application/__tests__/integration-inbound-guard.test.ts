@@ -21,9 +21,11 @@ import {
   DEFAULT_PARTNER_RATE_PER_MIN,
   TIMESTAMP_TOLERANCE_SEC,
   authFailureBucketKey,
+  checkPreAuthThrottle,
   guardInboundRequest,
   nonceReplayKey,
   partnerBucketKey,
+  preAuthBucketKey,
   type GuardInboundRequestInput,
 } from '../integration-inbound-guard'
 
@@ -34,7 +36,6 @@ function baseInput(overrides: Partial<GuardInboundRequestInput> = {}): GuardInbo
   const rateLimiter = overrides.rateLimiter ?? new FakeRateLimiter(clock)
   return {
     integration: { id: 'int-1', status: 'active' },
-    clientIp: '203.0.113.9',
     t: String(Math.floor(NOW.getTime() / 1000)),
     nonce: 'nonce-0000000000000001',
     signatureValid: true,
@@ -100,7 +101,7 @@ describe('guardInboundRequest: status check (T-M12 ordering)', () => {
     await guardInboundRequest(
       baseInput({ clock, rateLimiter, integration: { id: 'int-1', status: 'inactive' } })
     )
-    const failureCheck = await rateLimiter.incrWindow(authFailureBucketKey('int-1', '203.0.113.9'), AUTH_FAILURE_LIMIT, 60)
+    const failureCheck = await rateLimiter.incrWindow(authFailureBucketKey('int-1'), AUTH_FAILURE_LIMIT, 60)
     expect(failureCheck.count).toBe(1) // only the assertion's own call -- guard charged nothing
   })
 })
@@ -200,6 +201,86 @@ describe('guardInboundRequest: auth-failure bucket (T-H5 poisoning defence)', ()
 
     const rest = decisions.slice(10)
     expect(rest.every((d) => !d.ok && d.status === 429 && d.error === 'rate_limited')).toBe(true)
+  })
+
+  // I-2: the auth-failure bucket used to be keyed on (integrationId,
+  // clientIp), where clientIp came straight from the client-controlled
+  // X-Forwarded-For header (audit-logger.ts's extractIp reads the FIRST
+  // hop, which an attacker sitting in front of an append-only proxy
+  // chooses freely) -- an attacker could mint a fresh IP on every request
+  // and never trip the 10/min limit. Fixed by removing `clientIp` from the
+  // guard's input entirely, not just from the key formula -- a field that
+  // exists but is silently ignored is exactly the kind of drift that lets
+  // a bypass creep back in. The bucket is now keyed on integrationId alone,
+  // so it trips regardless of which IP (real or spoofed) the failing
+  // requests claim to come from -- proven structurally below, mirroring
+  // this file's own "never touches a database" structural test.
+  it('I-2: GuardInboundRequestInput carries no clientIp field at all -- the auth-failure bucket cannot be keyed on (and so cannot be bypassed via) a client-controlled IP', () => {
+    const inputKeys = Object.keys(baseInput())
+    expect(inputKeys).not.toContain('clientIp')
+  })
+
+  it('authFailureBucketKey takes only an integrationId, scoped per integration', () => {
+    expect(authFailureBucketKey('int-1')).toBe(authFailureBucketKey('int-1'))
+    expect(authFailureBucketKey('int-1')).not.toBe(authFailureBucketKey('int-2'))
+  })
+})
+
+describe('checkPreAuthThrottle (I-1: cheap pre-auth gate, before any DB read or body buffering)', () => {
+  it('allows a request within the generous default budget', async () => {
+    const clock = new FakeClock(NOW)
+    const rateLimiter = new FakeRateLimiter(clock)
+    const decision = await checkPreAuthThrottle(rateLimiter, 'int-1')
+    expect(decision).toEqual({ ok: true })
+  })
+
+  it('a flood against ONE integration eventually 429s, keyed on integrationId only (no DB/body needed to compute the key)', async () => {
+    const clock = new FakeClock(NOW)
+    const rateLimiter = new FakeRateLimiter(clock)
+    const decisions = []
+    for (let i = 0; i < 400; i += 1) {
+      decisions.push(await checkPreAuthThrottle(rateLimiter, 'int-flood'))
+    }
+    expect(decisions.some((d) => !d.ok && d.status === 429 && d.error === 'rate_limited')).toBe(true)
+  })
+
+  it('a flood against integration A never consumes integration B budget', async () => {
+    const clock = new FakeClock(NOW)
+    const rateLimiter = new FakeRateLimiter(clock)
+    for (let i = 0; i < 400; i += 1) {
+      await checkPreAuthThrottle(rateLimiter, 'int-a')
+    }
+    const decisionB = await checkPreAuthThrottle(rateLimiter, 'int-b')
+    expect(decisionB).toEqual({ ok: true })
+  })
+
+  it('fails CLOSED (503 queue_unavailable) when Redis itself is unreachable -- never lets an unauthenticated flood through uncounted (T-H5 posture)', async () => {
+    const throwing: Parameters<typeof checkPreAuthThrottle>[0] = {
+      takeToken: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+      incrWindow: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+      incr: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+      decr: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+      get: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+      set: async () => {
+        throw new Error('ECONNREFUSED')
+      },
+    }
+    const decision = await checkPreAuthThrottle(throwing, 'int-1')
+    expect(decision).toEqual({ ok: false, status: 503, error: 'queue_unavailable' })
+  })
+
+  it('preAuthBucketKey scopes to the integration (distinct keys per integration)', () => {
+    expect(preAuthBucketKey('int-1')).not.toBe(preAuthBucketKey('int-2'))
   })
 })
 

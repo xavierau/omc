@@ -230,6 +230,34 @@ describe('insertConsentRecord', () => {
     })
   })
 
+  // I-3: the error message used to embed the FULL phone number
+  // (`record.snapshot.phoneE164`), which flows uncaught into
+  // process-member-create-job.ts's error_message/Slack/worker-log paths
+  // (T-H7's "no PII in job row/Slack" invariant). Only last4 now.
+  it('I-3: ConsentImportError(duplicate_active) message carries ONLY the phone\'s last 4 digits, never the full E.164 value', async () => {
+    const { client } = buildInsertClient({
+      code: '23505',
+      message: 'duplicate key value violates unique constraint',
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const record = ConsentRecord.grant({
+      id: 'cr-2',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '+85291234567',
+      category: 'marketing',
+      source: 'csv_import',
+    })
+
+    await expect(insertConsentRecord(record)).rejects.toMatchObject({
+      message: expect.stringContaining('4567'),
+    })
+    await expect(insertConsentRecord(record)).rejects.not.toMatchObject({
+      message: expect.stringContaining('+85291234567'),
+    })
+  })
+
   it('throws a generic error for non-23505 database errors', async () => {
     const { client } = buildInsertClient({
       code: '42501',
@@ -303,6 +331,30 @@ describe('insertConsentRecordWithOrigin (INT-001 WI-13 Gap A)', () => {
     })
 
     await expect(insertConsentRecordWithOrigin(record, 'int-1')).rejects.toBeInstanceOf(ConsentImportError)
+  })
+
+  it('I-3: ConsentImportError(duplicate_active) message carries ONLY the phone\'s last 4 digits, never the full E.164 value', async () => {
+    const { client } = buildRpcClient({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue(client)
+
+    const record = ConsentRecord.grant({
+      id: 'cr-2',
+      restaurantId: 'r-1',
+      memberId: null,
+      phoneE164: '+85291234567',
+      category: 'marketing',
+      source: 'partner_api',
+    })
+
+    await expect(insertConsentRecordWithOrigin(record, 'int-1')).rejects.toMatchObject({
+      message: expect.stringContaining('4567'),
+    })
+    await expect(insertConsentRecordWithOrigin(record, 'int-1')).rejects.not.toMatchObject({
+      message: expect.stringContaining('+85291234567'),
+    })
   })
 
   it('throws a generic error for non-23505 database errors', async () => {
@@ -1037,6 +1089,45 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
     expect(inserted.originIntegrationId).toBe('int-1')
   })
 
+  // I-3: two concurrent creates for the SAME (restaurant, phone, category)
+  // both read `latest = null` and both decide 'inserted'; the loser's
+  // insert hits Postgres's 23505 unique violation. That's a benign
+  // outcome (the row now exists, written by the winner) -- not a real
+  // failure. It used to bubble a PII-bearing ConsentImportError up through
+  // process-member-create-job.ts into the job row's error_message, Slack,
+  // and worker logs (T-H7 violation) AND waste a retry. Fixed: the race
+  // is caught here and treated as `noop`.
+  it('I-3: a 23505 on the insert (lost the create-vs-create race) is caught and treated as noop, not thrown', async () => {
+    // No re-read needed inside applyPartnerAssertedConsent itself -- its
+    // SOLE caller (writeConsent, process-member-create-job.ts) already
+    // re-reads findLatestConsentByCategory right after this call to
+    // populate `statuses[category]`, so this function only needs to stop
+    // throwing and report the accurate action.
+    const conflictRpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    })
+    const conflictClient = { rpc: conflictRpc } as unknown as ReturnType<typeof createServerSupabaseClient>
+
+    vi.mocked(createServerSupabaseClient)
+      .mockReturnValueOnce(buildLookupClient(null)) // initial read: no row yet
+      .mockReturnValueOnce(conflictClient) // this caller's insert loses the race
+
+    const action = await applyPartnerAssertedConsent({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      memberId: 'm-1',
+      category: 'marketing',
+      assertedLevel: 'all',
+      integrationId: 'int-1',
+      grade: 'strong',
+      consentText: null,
+      businessNameShown: null,
+    })
+
+    expect(action).toBe('noop')
+  })
+
   it('no row + level does NOT cover category -> inserted pending', async () => {
     const { client: writeClient, inserted } = buildInsertRecorderClient()
     vi.mocked(createServerSupabaseClient)
@@ -1107,6 +1198,58 @@ describe('applyPartnerAssertedConsent (INT-001 T-C1 / OD-13 / OD-14)', () => {
       p_category: 'utility',
       p_origin_integration_id: 'int-1',
     })
+  })
+
+  // M-3: a STOP landing between the read (`latest` = pending) and the
+  // write (the conditional `WHERE status = 'pending'` upgrade RPC) makes
+  // the RPC update 0 rows -- decidePartnerConsentAction already decided
+  // 'upgraded' from the STALE read, but nothing was actually upgraded.
+  // The welcome path is safe regardless (it re-reads the latest status),
+  // but `consent_actions` on the job row used to record an upgrade that
+  // never happened.
+  it('M-3: pending + level covers, but the RPC updates 0 rows (a STOP landed between read and write) -> returns noop, not upgraded', async () => {
+    const pendingRow = {
+      id: 'cr-pending',
+      restaurant_id: 'r-1',
+      member_id: 'm-1',
+      phone_e164: '85291234567',
+      category: 'utility',
+      status: 'pending',
+      consent_grade: 'strong',
+      source: 'partner_api',
+      source_reference: 'int-1',
+      business_name_shown: null,
+      captured_at: '2026-09-01T00:00:00.000Z',
+      revoked_at: null,
+      captured_ip: null,
+      captured_user_agent: null,
+      proof_url: null,
+      consent_text_shown: null,
+      expires_at: null,
+      granted_at: null,
+      import_batch_id: null,
+    } satisfies ConsentRecordRow
+
+    const { client: writeClient, updated } = buildUpdateRecorderClient(0)
+    vi.mocked(createServerSupabaseClient)
+      .mockReturnValueOnce(buildLookupClient(pendingRow))
+      .mockReturnValueOnce(writeClient)
+
+    const action = await applyPartnerAssertedConsent({
+      restaurantId: 'r-1',
+      phoneE164: '85291234567',
+      memberId: 'm-1',
+      category: 'utility',
+      assertedLevel: 'utility',
+      integrationId: 'int-1',
+      grade: 'strong',
+      consentText: null,
+      businessNameShown: null,
+    })
+
+    expect(action).toBe('noop')
+    // The RPC was still attempted (that's how we know it updated 0 rows).
+    expect(updated.args).toMatchObject({ p_restaurant_id: 'r-1', p_category: 'utility' })
   })
 
   it('opted_in latest -> noop, writes nothing regardless of asserted level', async () => {

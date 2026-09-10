@@ -206,6 +206,28 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
     expect(notifyOpsAlert).toHaveBeenCalledWith(expect.objectContaining({ kind: 'engineering_alert' }))
   })
 
+  // I-3 (defense in depth): whatever thrown an error message with a
+  // phone-shaped substring (the consent read-then-write race being the
+  // known case -- see consent-record-repository.test.ts's own I-3
+  // coverage, closed at the source there) must not carry it into the job
+  // row's error_message, the Slack alert, or the re-thrown error the
+  // worker's `.on('failed')` handler logs (T-H7: no PII in job row/Slack/
+  // logs).
+  it('I-3: a thrown error whose message embeds an E.164-shaped phone is redacted to last4 before it reaches the job row, Slack, or the re-thrown error', async () => {
+    vi.mocked(createOrGetMember).mockRejectedValue(
+      new Error('consent already exists for (rest-1, +85298765432, utility)')
+    )
+
+    await expect(processMemberCreateJob(jobData(), 3, 3)).rejects.not.toThrow(/\+85298765432/)
+
+    const failedCall = vi.mocked(completeMemberJobFailed).mock.calls[0][0]
+    expect(failedCall.errorMessage).not.toContain('+85298765432')
+    expect(failedCall.errorMessage).toContain('5432') // last4 preserved for triage
+
+    const alertCall = vi.mocked(notifyOpsAlert).mock.calls[0][0]
+    expect(JSON.stringify(alertCall)).not.toContain('+85298765432')
+  })
+
   it('depth counter is released (decr) on every terminal outcome: success, permanent failure, and final-attempt transient failure', async () => {
     const limiter = {
       takeToken: vi.fn(),

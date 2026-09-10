@@ -13,7 +13,7 @@ vi.mock('@/infrastructure/supabase/repositories/integration-anomaly-stats-reposi
   findIntegrationVolumeAnomalies: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('@/infrastructure/queue/integration-outbound-queue', () => ({
-  addDeliverJob: vi.fn().mockResolvedValue(undefined),
+  addRelayDeliverJob: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/application/notify-ops-alert', () => ({
   notifyOpsAlert: vi.fn().mockResolvedValue(undefined),
@@ -33,7 +33,7 @@ import {
 } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { pruneOrphanIntegrationEvents } from '@/infrastructure/supabase/repositories/integration-event-repository'
 import { findIntegrationVolumeAnomalies } from '@/infrastructure/supabase/repositories/integration-anomaly-stats-repository'
-import { addDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
+import { addRelayDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
 import { notifyOpsAlert } from '@/application/notify-ops-alert'
 import { reconcileAllIntegrationDepthCounters } from '@/application/reconcile-integration-depth-counters'
 import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
@@ -70,26 +70,35 @@ describe('relayQueuedDeliveries (WI-6 Tests-first: "relay picks queued AND enque
     await relayQueuedDeliveries()
 
     expect(findDeliveriesToRelay).toHaveBeenCalledWith({ olderThanMs: 5000, limit: 200 })
-    expect(addDeliverJob).toHaveBeenCalledWith('del-1')
-    expect(addDeliverJob).toHaveBeenCalledWith('del-2')
+    expect(addRelayDeliverJob).toHaveBeenCalledWith('del-1')
+    expect(addRelayDeliverJob).toHaveBeenCalledWith('del-2')
     expect(markEnqueued).toHaveBeenCalledWith('del-1', expect.any(String))
     expect(markEnqueued).toHaveBeenCalledWith('del-2', expect.any(String))
   })
 
-  it('WI-6 Tests-first: "double run -> no duplicate jobs" -- two relay ticks over the same still-unenqueued row each call addDeliverJob with the SAME deliveryId (BullMQ jobId=deliveryId dedupes)', async () => {
+  // C-2 (was: "WI-6 Tests-first: double run -> no duplicate jobs" against
+  // plain addDeliverJob). Updated to `addRelayDeliverJob`: the review found
+  // that dedup-by-plain-jobId is exactly what silently drops a delivery
+  // whose earlier job already completed as `paused` (breaker trip) and was
+  // since resumed -- `addRelayDeliverJob` now looks up any existing job's
+  // STATE itself (see its own test file) rather than relying on the caller
+  // to reuse a bare jobId. This test still proves relay is safe to
+  // re-select the same still-unenqueued row twice; it no longer asserts on
+  // the raw jobId argument, since that assertion is what silently hid C-2.
+  it('two relay ticks over the same still-unenqueued row each call addRelayDeliverJob with the SAME deliveryId', async () => {
     vi.mocked(findDeliveriesToRelay).mockResolvedValue([delivery('del-1')])
 
     await relayQueuedDeliveries()
     await relayQueuedDeliveries()
 
-    expect(addDeliverJob).toHaveBeenCalledTimes(2)
-    expect(addDeliverJob).toHaveBeenNthCalledWith(1, 'del-1')
-    expect(addDeliverJob).toHaveBeenNthCalledWith(2, 'del-1')
+    expect(addRelayDeliverJob).toHaveBeenCalledTimes(2)
+    expect(addRelayDeliverJob).toHaveBeenNthCalledWith(1, 'del-1')
+    expect(addRelayDeliverJob).toHaveBeenNthCalledWith(2, 'del-1')
   })
 
   it('a single failing enqueue does not stop the others in the same tick', async () => {
     vi.mocked(findDeliveriesToRelay).mockResolvedValue([delivery('del-1'), delivery('del-2')])
-    vi.mocked(addDeliverJob).mockImplementation((id: string) =>
+    vi.mocked(addRelayDeliverJob).mockImplementation((id: string) =>
       id === 'del-1' ? Promise.reject(new Error('redis down')) : Promise.resolve()
     )
 

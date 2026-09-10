@@ -8,6 +8,7 @@ vi.mock('../../client', () => ({
 import { createServerSupabaseClient } from '../../client'
 import {
   findIntegrationSettingsById,
+  incrementOutboundFailureStreak,
   readOutboundSecret,
   setOutboundSecret,
   updateIntegrationInboundLimits,
@@ -265,5 +266,47 @@ describe('updateOutboundBreakerState (WI-6)', () => {
     await expect(
       updateOutboundBreakerState({ integrationId: 'int-1', outboundFailureStreak: 1 })
     ).rejects.toThrow(/updateOutboundBreakerState.*timeout/)
+  })
+})
+
+describe('incrementOutboundFailureStreak (I-8: atomic increment via RPC, not read-modify-write)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('calls the increment_outbound_failure_streak RPC with integrationId, threshold, and now; returns the atomic post-increment value', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 3, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const now = new Date('2026-09-10T00:00:00.000Z')
+    const streak = await incrementOutboundFailureStreak('int-1', 10, now)
+
+    expect(rpc).toHaveBeenCalledWith('increment_outbound_failure_streak', {
+      p_integration_id: 'int-1',
+      p_threshold: 10,
+      p_now: now.toISOString(),
+    })
+    expect(streak).toBe(3)
+  })
+
+  it('throws a contextual error on a database failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await expect(
+      incrementOutboundFailureStreak('int-1', 10, new Date())
+    ).rejects.toThrow(/incrementOutboundFailureStreak.*timeout/)
+  })
+
+  it('a missing integration row (RPC returns null) surfaces as null, not a thrown error or a fabricated streak', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    const streak = await incrementOutboundFailureStreak('int-missing', 10, new Date())
+    expect(streak).toBeNull()
   })
 })

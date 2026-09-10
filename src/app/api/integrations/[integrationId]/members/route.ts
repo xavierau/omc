@@ -7,10 +7,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
-import { extractIp } from '@/infrastructure/supabase/audit-logger'
 import { authenticateIntegrationV2 } from '../verify-signature-v2'
 import { authErrorResponse } from '../inbound-auth-response'
-import { DEFAULT_PARTNER_BURST, DEFAULT_PARTNER_RATE_PER_MIN } from '@/application/integration-inbound-guard'
+import {
+  DEFAULT_PARTNER_BURST,
+  DEFAULT_PARTNER_RATE_PER_MIN,
+  checkPreAuthThrottle,
+} from '@/application/integration-inbound-guard'
 import { systemClock } from '@/infrastructure/clock/system-clock'
 import { validateCreateMemberBody } from '@/infrastructure/validation/integration-member-validators'
 import { findIntegrationSettingsById } from '@/infrastructure/supabase/repositories/integration-settings-repository'
@@ -40,7 +43,28 @@ function jobIdKeyOrThrow(): string {
 
 export async function POST(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   const { integrationId } = await params
-  const clientIp = extractIp(request)
+
+  // I-1/I-2: cheap, integration-scoped throttle checked BEFORE anything
+  // else -- no Postgres read (not `findIntegrationSettingsById` below, not
+  // `findPosIntegrationById` inside authenticateIntegrationV2) and no body
+  // buffering has happened yet. Keyed on integrationId alone, so a
+  // client-controlled header can't be used to dodge it (I-2's XFF-spoofing
+  // lesson applied here too).
+  const preAuth = await checkPreAuthThrottle(getInboundRateLimiter(), integrationId)
+  if (!preAuth.ok) {
+    const headers = preAuth.status === 429 ? { 'Retry-After': '5' } : undefined
+    return NextResponse.json({ error: preAuth.error }, { status: preAuth.status, headers })
+  }
+
+  // I-1: enforce the 16 KiB cap from Content-Length BEFORE reading the
+  // body -- a truthful oversized header is now rejected without ever
+  // buffering it. The post-read byte-length check below stays as a
+  // backstop for a lying or absent header.
+  const contentLengthHeader = request.headers.get('content-length')
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : NaN
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 })
+  }
 
   const rawBody = await request.text()
   if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
@@ -68,7 +92,6 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
         signature: request.headers.get('x-omc-signature'),
       },
       digest: sha256hex(rawBody),
-      clientIp,
       rateLimiter: getInboundRateLimiter(),
       clock: systemClock,
       inboundDisabled: process.env.INT001_DISABLE_INBOUND === '1',
@@ -79,6 +102,17 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
     })
   } catch (err) {
     return authErrorResponse(err)
+  }
+
+  // I-4: the nonce-replay verdict used to be computed and silently
+  // discarded. The partner doc's own documented contract (§2: "a repeat
+  // within 10 minutes is treated as a retried, not a new, request") means
+  // this must NOT reject or change the response -- POST is already
+  // content-addressed (T-H3b), so a replay legitimately reproduces the
+  // SAME job_id/202 below, same as any other retried submission. Logged
+  // so the signal has an effect (ops visibility) instead of being dead.
+  if (authResult.replayed) {
+    console.warn('[IntegrationInboundAuth] replayed nonce', { integrationId, kind: 'member.create' })
   }
 
   let body: unknown

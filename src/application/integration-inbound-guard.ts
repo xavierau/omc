@@ -31,6 +31,15 @@ export const DEFAULT_PARTNER_RATE_PER_MIN = 60
 export const DEFAULT_PARTNER_BURST = 20
 export const REPLAY_WINDOW_SEC = 600
 
+// I-1: a cheap, generous, integration-scoped gate the ROUTE checks BEFORE
+// any Postgres read or body buffering -- see checkPreAuthThrottle below.
+// Deliberately not the partner's configured rate limit (those settings
+// live in the DB row this gate exists to avoid reading): a fixed, generous
+// ceiling that only ever engages once genuinely flood-level traffic is
+// hitting an integration's URL, unauthenticated or not.
+export const PRE_AUTH_RATE_PER_MIN = 300
+export const PRE_AUTH_BURST = 50
+
 export interface GuardIntegration {
   id: string
   status: 'active' | 'inactive'
@@ -38,7 +47,6 @@ export interface GuardIntegration {
 
 export interface GuardInboundRequestInput {
   integration: GuardIntegration
-  clientIp: string
   /** X-OMC-Timestamp, already format-validated by the caller. */
   t: string
   /** X-OMC-Nonce, already format-validated by the caller. */
@@ -63,8 +71,18 @@ export type GuardSuccess = { ok: true; replayed: boolean }
 
 export type GuardDecision = GuardSuccess | GuardFailure
 
-export function authFailureBucketKey(integrationId: string, clientIp: string): string {
-  return `int001:rlf:${integrationId}:${clientIp}`
+// I-2: was `${integrationId}:${clientIp}`. `clientIp` came from
+// audit-logger.ts's `extractIp`, which reads the FIRST hop off
+// X-Forwarded-For -- behind an append-only proxy (nginx's
+// `$proxy_add_x_forwarded_for`) that first hop is whatever the CLIENT
+// sent, so an attacker mints a fresh one on every request and the 10/min
+// limiter never trips. Keying on integrationId alone closes that: an
+// unauthenticated caller cannot burn a PARTNER's own budget with this
+// bucket regardless (that's `partnerBucketKey`, charged only after a
+// valid signature), so sharing this bucket across every IP hitting one
+// integration has no correctness cost.
+export function authFailureBucketKey(integrationId: string): string {
+  return `int001:rlf:${integrationId}`
 }
 
 export function partnerBucketKey(integrationId: string): string {
@@ -75,10 +93,47 @@ export function nonceReplayKey(integrationId: string, nonce: string): string {
   return `int001:replay:${integrationId}:${nonce}`
 }
 
+export function preAuthBucketKey(integrationId: string): string {
+  return `int001:preauth:${integrationId}`
+}
+
+export type PreAuthThrottleDecision =
+  | { ok: true }
+  | { ok: false; status: 429; error: 'rate_limited' }
+  | { ok: false; status: 503; error: 'queue_unavailable' }
+
 /**
- * Charges the small (integrationId, clientIp) auth-failure bucket and
- * shapes the resulting decision: 401 while the bucket has room, 429 once
- * it's exhausted (still without ever touching the partner's own bucket), or
+ * I-1: the very first thing the route calls -- before `findIntegrationSettingsById`,
+ * before `authenticateIntegrationV2` (itself another Postgres read), before
+ * `request.text()` buffers the body. Keyed on `integrationId` alone (the
+ * URL param, not a secret), so it needs no DB row and no signature to
+ * compute. Fails CLOSED on a Redis outage (T-H5's posture): an outage must
+ * not silently let an unbounded, uncounted flood through to the DB reads
+ * this gate exists to protect.
+ */
+export async function checkPreAuthThrottle(
+  rateLimiter: RateLimiterPort,
+  integrationId: string
+): Promise<PreAuthThrottleDecision> {
+  try {
+    const result = await rateLimiter.takeToken(preAuthBucketKey(integrationId), {
+      ratePerMin: PRE_AUTH_RATE_PER_MIN,
+      burst: PRE_AUTH_BURST,
+    })
+    if (!result.allowed) {
+      return { ok: false, status: 429, error: 'rate_limited' }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, status: 503, error: 'queue_unavailable' }
+  }
+}
+
+/**
+ * Charges the small, per-integration auth-failure bucket (I-2: no longer
+ * per-clientIp -- see authFailureBucketKey's own header) and shapes the
+ * resulting decision: 401 while the bucket has room, 429 once it's
+ * exhausted (still without ever touching the partner's own bucket), or
  * 503 queue_unavailable if Redis itself is unreachable (T-H5: never fail
  * open -- an outage must not silently let unlimited unsigned traffic
  * through as bare 401s with no backpressure).
@@ -89,12 +144,11 @@ export function nonceReplayKey(integrationId: string, nonce: string): string {
  */
 export async function chargeAuthFailureAndDecide(
   rateLimiter: RateLimiterPort,
-  integrationId: string,
-  clientIp: string
+  integrationId: string
 ): Promise<GuardFailure> {
   try {
     const { allowed } = await rateLimiter.incrWindow(
-      authFailureBucketKey(integrationId, clientIp),
+      authFailureBucketKey(integrationId),
       AUTH_FAILURE_LIMIT,
       AUTH_FAILURE_WINDOW_SEC
     )
@@ -115,7 +169,7 @@ export async function guardInboundRequest(input: GuardInboundRequestInput): Prom
   // Steps 3 + 4: timestamp window and signature both gate on the SAME
   // auth-failure bucket / 401 shape -- neither leaks which one failed.
   if (!withinWindow || !input.signatureValid) {
-    return chargeAuthFailureAndDecide(input.rateLimiter, input.integration.id, input.clientIp)
+    return chargeAuthFailureAndDecide(input.rateLimiter, input.integration.id)
   }
 
   // Step 5 (T-M12): status is only ever checked AFTER the signature has

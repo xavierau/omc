@@ -23,6 +23,7 @@ import { findDeliveryById, saveDelivery } from '@/infrastructure/supabase/reposi
 import { findIntegrationEventById } from '@/infrastructure/supabase/repositories/integration-event-repository'
 import {
   findIntegrationSettingsById,
+  incrementOutboundFailureStreak,
   readOutboundSecret,
   updateOutboundBreakerState,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
@@ -56,6 +57,14 @@ export interface DeliverOutboundWebhookResult {
 export interface DeliverOutboundWebhookDeps {
   sender?: OutboundWebhookSender
   clock?: Clock
+  /** C-1: the caller (the outbound processor) knows BullMQ's own attempt
+   * budget (`job.opts.attempts`, default 5) and whether this is the last
+   * one. A transient outcome on the final attempt must not be left
+   * `retrying` forever -- there is no further BullMQ retry coming to move
+   * it out of that state. Defaults to `false` so every existing caller
+   * (and every non-final attempt) keeps the original "save `retrying`,
+   * let BullMQ back off" behaviour. */
+  isFinalAttempt?: boolean
 }
 
 export async function deliverOutboundWebhook(
@@ -65,6 +74,7 @@ export async function deliverOutboundWebhook(
 ): Promise<DeliverOutboundWebhookResult> {
   const sender = deps.sender ?? getOutboundWebhookSender()
   const now = deps.clock?.now() ?? new Date()
+  const isFinalAttempt = deps.isFinalAttempt ?? false
 
   const delivery = await findDeliveryById(deliveryId)
   if (!delivery) {
@@ -155,6 +165,41 @@ export async function deliverOutboundWebhook(
 
   // Transient: T-M4 -- permanent failures never reach here, so the streak
   // only ever reflects genuine transient trouble reaching the destination.
+  // This genuinely happened regardless of whether this is the last
+  // attempt, so the streak still advances (and can still trip the
+  // breaker) even on a final-attempt exhaustion below.
+  //
+  // I-8: atomic increment (migration 075's RPC), not a client-computed
+  // `settings.snapshot.outboundFailureStreak + 1` -- concurrent deliveries
+  // to the same integration used to lose updates to each other (and to a
+  // success racing a failure) under `INT001_OUTBOUND_CONCURRENCY` > 1. The
+  // RPC also flips `outbound_status -> paused_auto` (+ `outbound_paused_at`)
+  // atomically when the returned streak crosses the threshold, so no
+  // separate write is needed here -- only the Slack alert.
+  const streak = await incrementOutboundFailureStreak(
+    delivery.snapshot.integrationId,
+    BREAKER_THRESHOLD,
+    now
+  )
+  if (streak !== null && streak >= BREAKER_THRESHOLD) {
+    await alertBreakerTripped(delivery.snapshot.integrationId, settings, streak)
+  }
+
+  // C-1: no further BullMQ retry is coming for the last attempt -- leaving
+  // the row `retrying` here is exactly the bug (US-6/kanban CONSTRAINT (b):
+  // exhausted -> dead-letter + Slack alert, manually retryable). Reuse the
+  // same `deadLetter` helper the permanent-failure branches use above.
+  if (isFinalAttempt) {
+    await deadLetter(delivering, settings, now, {
+      httpStatus: result.status,
+      errorCode: result.error?.title ?? null,
+      attempts,
+      latencyMs: result.latencyMs,
+      responseExcerpt: result.responseExcerpt,
+    })
+    return { kind: 'permanent' }
+  }
+
   await saveDelivery(
     delivering.transitionTo('retrying', {
       attempts,
@@ -164,18 +209,6 @@ export async function deliverOutboundWebhook(
       responseExcerpt: result.responseExcerpt,
     })
   )
-  const streak = settings.snapshot.outboundFailureStreak + 1
-  if (streak >= BREAKER_THRESHOLD) {
-    await updateOutboundBreakerState({
-      integrationId: delivery.snapshot.integrationId,
-      outboundFailureStreak: streak,
-      outboundStatus: 'paused_auto',
-      outboundPausedAt: now.toISOString(),
-    })
-    await alertBreakerTripped(delivery.snapshot.integrationId, settings, streak)
-  } else {
-    await updateOutboundBreakerState({ integrationId: delivery.snapshot.integrationId, outboundFailureStreak: streak })
-  }
 
   return { kind: 'transient', retryAfterSec: result.retryAfterSec }
 }

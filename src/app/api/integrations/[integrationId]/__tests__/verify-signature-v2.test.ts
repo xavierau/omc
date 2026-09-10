@@ -65,7 +65,6 @@ function baseCallInput(overrides: Partial<AuthenticateV2Input> = {}): Authentica
       signature: `v2=${signatureHex}`,
     },
     digest: BODY_DIGEST,
-    clientIp: '203.0.113.9',
     rateLimiter,
     clock,
     inboundDisabled: false,

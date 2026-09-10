@@ -45,6 +45,14 @@ import type { MemberCreateJobData } from '@/infrastructure/queue/integration-inb
 const RESULT_RETENTION_MS = 24 * 60 * 60 * 1000
 const DEFAULT_WELCOME_HOURLY_CAP = 60
 
+// I-3 (defense in depth): matches an E.164-shaped run of digits anywhere in
+// a caught error's message and replaces it with a last4-only marker --
+// see the catch block below for why.
+const E164_LIKE = /\+[1-9]\d{7,14}/g
+function redactPhoneLike(message: string): string {
+  return message.replace(E164_LIKE, (match) => `***${match.slice(-4)}`)
+}
+
 function welcomeHourlyCapFromEnv(): number {
   const raw = process.env.INT001_WELCOME_HOURLY_CAP
   const n = raw ? Number(raw) : NaN
@@ -328,7 +336,16 @@ export async function processMemberCreateJob(
       throw new UnrecoverableError(`member-create permanently failed (${err.code}): ${data.jobId}`)
     }
 
-    const message = err instanceof Error ? err.message : String(err)
+    // I-3 (defense in depth): the primary fix is at the source
+    // (consent-record-repository.ts no longer embeds the full phone in a
+    // ConsentImportError, and applyPartnerAssertedConsent's race no longer
+    // throws at all -- see that file's own I-3 comments). This is a second
+    // layer: ANY thrown error's message reaching this catch is redacted
+    // before it becomes the job row's error_message, the Slack alert, or
+    // the re-thrown error the worker's `.on('failed')` handler logs
+    // (T-H7's "no PII in job row/Slack/logs" invariant, applied generally
+    // rather than only to the one known case).
+    const message = redactPhoneLike(err instanceof Error ? err.message : String(err))
     if (isFinalAttempt) {
       terminal = true
       await finalizeFailure(data.jobId, 'internal', message, new Date())

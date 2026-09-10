@@ -151,11 +151,12 @@ lines all cast the literal to `::text` before array-append.
 
 | Key pattern | TTL | Purpose |
 |---|---|---|
+| `int001:preauth:{integrationId}` | 120s (re-armed on every use) | **(WI-14 I-1)** cheap pre-auth throttle, generous (300/min, burst 50) — checked BEFORE any Postgres read or body buffering, keyed on `integrationId` alone so it needs no DB row |
 | `int001:idem:{jobId}` | 24h (86400s) | fast-path idempotency cache for a create request's content-addressed job id — Postgres's `job_id` primary key is the actual correctness backstop |
 | `int001:depth:{integrationId}` | none (plain counter, INCR/DECR) | per-integration in-flight job count against `inbound_queue_cap` (default 500) — reconciled against Postgres every 5 minutes, see §7 |
 | `int001:rl:{integrationId}` | 120s (re-armed on every use) | partner token bucket (default 60/min, burst 20) |
-| `int001:rlf:{integrationId}:{clientIp}` | 60s fixed window | auth-failure bucket (10 failures/60s trips a `429` before the partner bucket is ever charged) |
-| `int001:replay:{integrationId}:{nonce}` | 600s (10 min) | nonce-replay dedup — defense in depth; the real retry-safety net is `int001:idem:*` above |
+| `int001:rlf:{integrationId}` | 60s fixed window | auth-failure bucket (10 failures/60s trips a `429` before the partner bucket is ever charged) — **(WI-14 I-2)** keyed on `integrationId` alone, NOT `{clientIp}` as originally shipped: the client IP came from `X-Forwarded-For`'s first hop, which an attacker behind an append-only proxy controls, so the per-IP key was bypassable by rotating IPs. An unauthenticated caller can't burn a *partner's* budget with this bucket regardless (that's `int001:rl:*` above, charged only post-signature), so sharing it across every IP hitting one integration has no correctness cost |
+| `int001:replay:{integrationId}:{nonce}` | 600s (10 min) | nonce-replay dedup — defense in depth; the real retry-safety net is `int001:idem:*` above. **(WI-14 I-4)** the verdict is logged (`[IntegrationInboundAuth] replayed nonce`) but does NOT reject the request — the partner doc (§2) documents a repeat nonce as "treated as a retried, not a new, request", and POST is already content-addressed (T-H3b) so rejecting would both break that documented contract and duplicate work the idempotency cache already does for free |
 | `int001:welcome:{restaurantId}:{yyyymmddhh}` | ~1h fixed window | create-time welcome-send enqueue gate (bounds how many `welcome-send` jobs get created in an hour) |
 | `int001:welcome:sent:{restaurantId}:{yyyymmddhh}` | ~1h fixed window | **separate** send-time gate inside the `welcome-send` job itself — see WI-4's handoff for why this is intentionally a second counter, not a re-read of the one above |
 | `int001:host:{hostname}` | 120s (re-armed on every use) | per-destination-host outbound throttle (10 req/s) — fails **open** on a Redis error (a worker-side throttle, not the request-path T-H5 limiter, which fails closed) |
@@ -164,6 +165,30 @@ All INT-001 Redis keys are namespaced under the `int001:` prefix plus BullMQ's o
 `bull:integration-inbound:*` / `bull:integration-outbound:*` job/queue keys — a
 `redis-cli --scan --pattern 'int001:*'` or `'bull:integration-*'` finds everything this
 feature has written.
+
+**(WI-14 I-6) `member-create` job retention shortened.** Both `integration-inbound`
+job types used to share a 7-day `removeOnFail` window. `member-create` job data
+carries phone/name/metadata (the normalised request body); `welcome-send`'s is
+ids-only (T-H7). Leaving a week of partner-submitted PII in Redis's failed set on
+every exhausted create was unnecessary — the `integration_member_jobs` Postgres row
+already carries everything needed for triage (`phone_last4`, `error_code`,
+`error_message`, now redacted of any phone-shaped substring — see I-3 below). Fixed:
+`member-create`'s `removeOnFail.age` is now **1 hour** (enough to catch a failure on
+the BullMQ dashboard shortly after it happens); `welcome-send` is unchanged at 7 days.
+If ops ever needs longer BullMQ-level retention for `member-create` failures, raise
+this window rather than reaching into the failed-job payload for its own sake — the
+data ages out of Postgres via the existing 30-day delivery-log/event pruning either
+way.
+
+**(WI-14 I-3) Consent-error PII.** A `ConsentImportError('duplicate_active', …)` used
+to embed the full E.164 phone number in its message; that message could reach the job
+row's `error_message`, a Slack alert, and the worker's failed-job log line. Fixed at
+the source (`consent-record-repository.ts` masks to last4) and structurally (a
+concurrent-create race that used to throw this error is now caught and treated as a
+benign `noop` — the row already exists, written by the whichever request won). A
+second, general-purpose layer in `process-member-create-job.ts` also redacts any
+E.164-shaped substring in ANY caught error's message before it's persisted/alerted, as
+defense in depth against a future regression elsewhere on this path.
 
 ## 5. Redis sizing
 

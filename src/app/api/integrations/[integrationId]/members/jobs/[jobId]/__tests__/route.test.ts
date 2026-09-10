@@ -52,7 +52,7 @@ describe('GET /api/integrations/{integrationId}/members/jobs/{jobId} (INT-001 WI
     vi.clearAllMocks()
     vi.mocked(findIntegrationSettingsById).mockResolvedValue(null)
     vi.mocked(getInboundRateLimiter).mockReturnValue({
-      takeToken: vi.fn(),
+      takeToken: vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 }),
       incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
       incr: vi.fn(),
       decr: vi.fn(),
@@ -95,6 +95,66 @@ describe('GET /api/integrations/{integrationId}/members/jobs/{jobId} (INT-001 WI
     expect(res.status).toBe(404)
     expect(json).toEqual({ error: 'not_found' })
     expect(getMemberJob).toHaveBeenCalledWith(JOB_ID, 'int-other', expect.any(Date))
+  })
+
+  it('I-1/I-2: the pre-auth throttle is checked before either Postgres read (settings lookup, integration lookup inside auth)', async () => {
+    const takeToken = vi.fn().mockResolvedValue({ allowed: false, remaining: 0, retryAfterSec: 5 })
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn(),
+      decr: vi.fn(),
+      get: vi.fn(),
+    } as never)
+
+    const res = await GET(req(), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(429)
+    expect(json).toEqual({ error: 'rate_limited' })
+    expect(res.headers.get('retry-after')).toBe('5')
+    expect(findIntegrationSettingsById).not.toHaveBeenCalled()
+    expect(authenticateIntegrationV2).not.toHaveBeenCalled()
+  })
+
+  it('I-4: a replayed nonce (authResult.replayed === true) is logged but does NOT change the 200 response -- GET is read-only, replaying it is harmless and the partner doc promises "treated as a retried, not a new, request"', async () => {
+    vi.mocked(authenticateIntegrationV2).mockResolvedValue({
+      integration: { id: INTEGRATION_ID, restaurantId: 'rest-1', status: 'active' } as never,
+      t: '1700000000',
+      nonce: 'a'.repeat(16),
+      replayed: true,
+    })
+    vi.mocked(getMemberJob).mockResolvedValue({
+      ok: true,
+      view: { status: 'queued', submitted_at: '2026-09-10T00:00:00.000Z', attempts: 0 },
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const res = await GET(req(), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({ status: 'queued', submitted_at: '2026-09-10T00:00:00.000Z', attempts: 0 })
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('replayed'), expect.anything())
+    warnSpy.mockRestore()
+  })
+
+  it('I-1: Redis unreachable on the pre-auth throttle -> 503, fails closed', async () => {
+    const takeToken = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn(),
+      decr: vi.fn(),
+      get: vi.fn(),
+    } as never)
+
+    const res = await GET(req(), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toEqual({ error: 'queue_unavailable' })
+    expect(findIntegrationSettingsById).not.toHaveBeenCalled()
   })
 
   it('expired result -> 410 result_expired', async () => {

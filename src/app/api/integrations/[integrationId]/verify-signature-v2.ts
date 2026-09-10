@@ -60,7 +60,6 @@ export interface AuthenticateV2Input {
   /** sha256hex(rawBody) for a POST; the jobId itself for a signed GET poll
    * (both match `digest` in the plan's buildInboundBase formulas). */
   digest: string
-  clientIp: string
   rateLimiter: RateLimiterPort
   clock: Clock
   inboundDisabled: boolean
@@ -114,7 +113,7 @@ export async function authenticateIntegrationV2(
   const parsed = parseHeaders(input.headers)
   if (!parsed) {
     // Malformed headers never reach the database (step 1 fails before step 2).
-    throw toError(await chargeAuthFailureAndDecide(input.rateLimiter, input.integrationId, input.clientIp))
+    throw toError(await chargeAuthFailureAndDecide(input.rateLimiter, input.integrationId))
   }
 
   const integration = await findPosIntegrationById(input.integrationId)
@@ -125,12 +124,11 @@ export async function authenticateIntegrationV2(
   const signatureValid = verifyHmacSha256Hex(secret, base, parsed.signatureHex)
 
   if (!integration) {
-    throw toError(await chargeAuthFailureAndDecide(input.rateLimiter, input.integrationId, input.clientIp))
+    throw toError(await chargeAuthFailureAndDecide(input.rateLimiter, input.integrationId))
   }
 
   const decision = await guardInboundRequest({
     integration: { id: integration.id, status: integration.status },
-    clientIp: input.clientIp,
     t: parsed.t,
     nonce: parsed.nonce,
     signatureValid,

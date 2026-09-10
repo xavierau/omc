@@ -11,6 +11,7 @@ vi.mock('@/infrastructure/supabase/repositories/integration-settings-repository'
   findIntegrationSettingsById: vi.fn(),
   readOutboundSecret: vi.fn(),
   updateOutboundBreakerState: vi.fn().mockResolvedValue(undefined),
+  incrementOutboundFailureStreak: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/pos-integration-repository', () => ({
   findPosIntegrationById: vi.fn().mockResolvedValue({ id: 'int-1', name: 'Acme POS' }),
@@ -26,6 +27,7 @@ import { findDeliveryById, saveDelivery } from '@/infrastructure/supabase/reposi
 import { findIntegrationEventById } from '@/infrastructure/supabase/repositories/integration-event-repository'
 import {
   findIntegrationSettingsById,
+  incrementOutboundFailureStreak,
   readOutboundSecret,
   updateOutboundBreakerState,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
@@ -118,6 +120,10 @@ beforeEach(() => {
     body: '{"id":"evt_1"}',
   })
   vi.mocked(readOutboundSecret).mockResolvedValue('super-secret-value')
+  // I-8: default mirrors settings().snapshot.outboundFailureStreak (0) + 1
+  // -- individual tests that configure a different starting streak
+  // override this to the RPC's expected atomic return value directly.
+  vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(1)
 })
 
 afterEach(() => {
@@ -260,7 +266,6 @@ describe('deliverOutboundWebhook -- classification + breaker (T-M4, T-M8)', () =
   })
 
   it('404 -> permanent -> dead_lettered in ONE attempt, and does NOT touch the failure streak (T-M4)', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ outboundFailureStreak: 3 }))
     const sender = fakeSender({ ok: false, status: 404, latencyMs: 10, responseExcerpt: 'not found' })
 
     const result = await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
@@ -268,17 +273,25 @@ describe('deliverOutboundWebhook -- classification + breaker (T-M4, T-M8)', () =
     expect(result).toEqual({ kind: 'permanent' })
     expect(sender.send).toHaveBeenCalledTimes(1)
     expect(updateOutboundBreakerState).not.toHaveBeenCalled()
+    expect(incrementOutboundFailureStreak).not.toHaveBeenCalled()
     expect(notifyOpsAlert).toHaveBeenCalledTimes(1)
   })
 
-  it('503 -> transient, streak bumped by 1, no breaker trip below threshold', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ outboundFailureStreak: 2 }))
+  // I-8: the increment is now atomic (migration 075's RPC) instead of a
+  // client-computed `settings.snapshot.outboundFailureStreak + 1` -- these
+  // tests configure the RPC's return value directly (what Postgres would
+  // hand back for a caller's OWN increment, race-safe by construction)
+  // rather than deriving it from the settings fixture.
+  it('503 -> transient, calls the atomic increment RPC with the threshold, no breaker trip below threshold', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(3)
     const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
 
     const result = await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
 
     expect(result.kind).toBe('transient')
-    expect(updateOutboundBreakerState).toHaveBeenCalledWith({ integrationId: 'int-1', outboundFailureStreak: 3 })
+    expect(incrementOutboundFailureStreak).toHaveBeenCalledWith('int-1', 10, NOW)
+    expect(updateOutboundBreakerState).not.toHaveBeenCalled()
+    expect(notifyOpsAlert).not.toHaveBeenCalled()
   })
 
   it('429 with a parsed Retry-After -> transient result carries retryAfterSec', async () => {
@@ -289,30 +302,95 @@ describe('deliverOutboundWebhook -- classification + breaker (T-M4, T-M8)', () =
     expect(result).toEqual({ kind: 'transient', retryAfterSec: 120 })
   })
 
-  it('the Nth consecutive transient failure (streak reaches 10) trips the breaker: paused_auto + alert', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ outboundFailureStreak: 9 }))
+  it('the Nth consecutive transient failure (atomic streak reaches 10) trips the breaker: alert fires, no separate updateOutboundBreakerState write (the RPC already flipped outbound_status atomically)', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(10)
     const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
 
     await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
 
-    expect(updateOutboundBreakerState).toHaveBeenCalledWith({
-      integrationId: 'int-1',
-      outboundFailureStreak: 10,
-      outboundStatus: 'paused_auto',
-      outboundPausedAt: NOW.toISOString(),
-    })
+    expect(updateOutboundBreakerState).not.toHaveBeenCalled()
     expect(notifyOpsAlert).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'auto_pause_triggered' })
     )
   })
 
   it('a streak below threshold after this failure does NOT trip the breaker', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ outboundFailureStreak: 5 }))
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(6)
     const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
 
     await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
 
-    expect(updateOutboundBreakerState).toHaveBeenCalledWith({ integrationId: 'int-1', outboundFailureStreak: 6 })
     expect(notifyOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it('a missing integration row (RPC returns null) does not crash the delivery attempt or fabricate an alert', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(null)
+    const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
+
+    const result = await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
+
+    expect(result.kind).toBe('transient')
+    expect(notifyOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe('deliverOutboundWebhook -- C-1: final-attempt transient exhaustion dead-letters', () => {
+  it('transient result on the FINAL attempt (isFinalAttempt: true) dead-letters instead of retrying, alerts once, and returns permanent (no further BullMQ retries)', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(3)
+    const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: 'service unavailable' })
+
+    const result = await deliverOutboundWebhook('del-1', 5, {
+      sender,
+      clock: { now: () => NOW },
+      isFinalAttempt: true,
+    })
+
+    expect(result).toEqual({ kind: 'permanent' })
+    expect(saveDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        snapshot: expect.objectContaining({
+          status: 'dead_lettered',
+          lastHttpStatus: 503,
+          attempts: 1,
+        }),
+      })
+    )
+    // never left in `retrying` -- exactly one save transitions straight to dead_lettered
+    expect(vi.mocked(saveDelivery).mock.calls.some((c) => (c[0] as { snapshot: { status: string } }).snapshot.status === 'retrying')).toBe(false)
+    expect(notifyOpsAlert).toHaveBeenCalledTimes(1)
+    expect(notifyOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('dead-lettered') })
+    )
+    // the genuine transient failure that happened still advances the breaker streak
+    expect(incrementOutboundFailureStreak).toHaveBeenCalledWith('int-1', 10, NOW)
+  })
+
+  it('transient result on a NON-final attempt still retries as before (isFinalAttempt defaults to false)', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(3)
+    const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
+
+    const result = await deliverOutboundWebhook('del-1', 3, { sender, clock: { now: () => NOW } })
+
+    expect(result.kind).toBe('transient')
+    expect(saveDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({ snapshot: expect.objectContaining({ status: 'retrying' }) })
+    )
+    expect(notifyOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it('a final-attempt transient failure that also crosses the breaker threshold still trips the breaker AND dead-letters (two alerts)', async () => {
+    vi.mocked(incrementOutboundFailureStreak).mockResolvedValue(10)
+    const sender = fakeSender({ ok: false, status: 503, latencyMs: 10, responseExcerpt: null })
+
+    const result = await deliverOutboundWebhook('del-1', 5, {
+      sender,
+      clock: { now: () => NOW },
+      isFinalAttempt: true,
+    })
+
+    expect(result).toEqual({ kind: 'permanent' })
+    expect(notifyOpsAlert).toHaveBeenCalledTimes(2)
+    expect(notifyOpsAlert).toHaveBeenCalledWith(expect.objectContaining({ kind: 'auto_pause_triggered' }))
+    expect(notifyOpsAlert).toHaveBeenCalledWith(expect.objectContaining({ kind: 'engineering_alert' }))
   })
 })

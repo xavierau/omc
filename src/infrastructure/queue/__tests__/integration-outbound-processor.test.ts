@@ -139,9 +139,57 @@ describe('integration-outbound-processor job dispatch', () => {
     ensureWorkerStarted()
 
     const moveToDelayed = vi.fn()
-    await jobHandler()({ name: 'deliver', data: { deliveryId: 'del-1' }, attemptsMade: 2, moveToDelayed }, 'tok')
+    await jobHandler()(
+      { name: 'deliver', data: { deliveryId: 'del-1' }, attemptsMade: 2, opts: { attempts: 5 }, moveToDelayed },
+      'tok'
+    )
 
-    expect(deliverOutboundWebhook).toHaveBeenCalledWith('del-1', 3)
+    expect(deliverOutboundWebhook).toHaveBeenCalledWith('del-1', 3, { isFinalAttempt: false })
+  })
+
+  it('C-1: on the final attempt (attemptsMade + 1 >= job.opts.attempts), deliverOutboundWebhook receives isFinalAttempt: true', async () => {
+    const { ensureWorkerStarted } = await loadProcessorFresh()
+    vi.mocked(deliverOutboundWebhook).mockResolvedValue({ kind: 'permanent' })
+    ensureWorkerStarted()
+
+    await expect(
+      jobHandler()(
+        { name: 'deliver', data: { deliveryId: 'del-1' }, attemptsMade: 4, opts: { attempts: 5 }, moveToDelayed: vi.fn() },
+        'tok'
+      )
+    ).rejects.toThrow(MockUnrecoverableError)
+
+    expect(deliverOutboundWebhook).toHaveBeenCalledWith('del-1', 5, { isFinalAttempt: true })
+  })
+
+  it('C-1: a non-final attempt (attemptsMade + 1 < job.opts.attempts) passes isFinalAttempt: false', async () => {
+    const { ensureWorkerStarted } = await loadProcessorFresh()
+    vi.mocked(deliverOutboundWebhook).mockResolvedValue({ kind: 'transient' })
+    ensureWorkerStarted()
+
+    await expect(
+      jobHandler()(
+        { name: 'deliver', data: { deliveryId: 'del-1' }, attemptsMade: 1, opts: { attempts: 5 }, moveToDelayed: vi.fn() },
+        'tok'
+      )
+    ).rejects.toThrow(Error)
+
+    expect(deliverOutboundWebhook).toHaveBeenCalledWith('del-1', 2, { isFinalAttempt: false })
+  })
+
+  it('C-1: falls back to the default attempts budget (5) when job.opts is missing', async () => {
+    const { ensureWorkerStarted } = await loadProcessorFresh()
+    vi.mocked(deliverOutboundWebhook).mockResolvedValue({ kind: 'permanent' })
+    ensureWorkerStarted()
+
+    await expect(
+      jobHandler()(
+        { name: 'deliver', data: { deliveryId: 'del-1' }, attemptsMade: 4, moveToDelayed: vi.fn() },
+        'tok'
+      )
+    ).rejects.toThrow(MockUnrecoverableError)
+
+    expect(deliverOutboundWebhook).toHaveBeenCalledWith('del-1', 5, { isFinalAttempt: true })
   })
 
   it('delivered/paused outcomes resolve without throwing', async () => {

@@ -29,6 +29,7 @@ import {
   updateMemberJobWelcomeOutcome,
   completeMemberJobSucceeded,
   completeMemberJobFailed,
+  findMemberJobForIntegration,
 } from '@/infrastructure/supabase/repositories/integration-member-job-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { resolveIntegrationWelcomeTemplate } from '../resolve-integration-welcome-template'
@@ -153,6 +154,7 @@ describe('processWelcomeSendJob (INT-001 WI-4)', () => {
     vi.mocked(recordOutboundSend).mockImplementation(async (args: RecordOutboundSendArgs) => args.send())
     vi.mocked(updateMemberJobWelcomeOutcome).mockResolvedValue(undefined)
     vi.mocked(notifyOpsAlert).mockResolvedValue(undefined)
+    vi.mocked(findMemberJobForIntegration).mockResolvedValue({ welcome_outcome: null } as never)
   })
 
   afterEach(() => {
@@ -185,6 +187,52 @@ describe('processWelcomeSendJob (INT-001 WI-4)', () => {
     expect(updateMemberJobWelcomeOutcome).toHaveBeenCalledWith('mj_abc', 'sent', { whatsapp_message_id: 'wamid.123' })
     expect(completeMemberJobSucceeded).not.toHaveBeenCalled()
     expect(completeMemberJobFailed).not.toHaveBeenCalled()
+  })
+
+  // I-5: a retry after a successful send (e.g. the DB write after send
+  // throws, or the worker dies before it runs) used to re-run every gate
+  // and send a SECOND template message. Fixed with a top-of-job guard:
+  // re-read the create job row first, and short-circuit on
+  // welcome_outcome === 'sent'.
+  describe('I-5: idempotency guard against re-sending after a successful send', () => {
+    it('process the same job twice -- the SECOND call sees welcome_outcome=sent (as the first call\'s persisted write would produce) and sends only once', async () => {
+      vi.mocked(findMemberJobForIntegration)
+        .mockResolvedValueOnce({ welcome_outcome: null } as never)
+        .mockResolvedValueOnce({ welcome_outcome: 'sent' } as never)
+
+      await processWelcomeSendJob(jobData(), 1)
+      await processWelcomeSendJob(jobData(), 2)
+
+      expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(1)
+      expect(recordOutboundSend).toHaveBeenCalledTimes(1)
+      expect(mintWelcomeCouponIdempotent).toHaveBeenCalledTimes(1)
+    })
+
+    it('welcome_outcome already `sent` -> returns immediately without touching any downstream gate, mint, or send', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ welcome_outcome: 'sent' } as never)
+
+      await processWelcomeSendJob(jobData(), 2)
+
+      expect(findMemberForOutboundPayload).not.toHaveBeenCalled()
+      expect(mintWelcomeCouponIdempotent).not.toHaveBeenCalled()
+      expect(sendWhatsAppTemplateMessage).not.toHaveBeenCalled()
+      expect(recordOutboundSend).not.toHaveBeenCalled()
+      expect(updateMemberJobWelcomeOutcome).not.toHaveBeenCalled()
+    })
+
+    it('an outcome other than `sent` (e.g. a prior skip) does NOT short-circuit -- the job proceeds normally', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ welcome_outcome: 'skipped_rate_capped' } as never)
+
+      await processWelcomeSendJob(jobData(), 1)
+
+      expect(sendWhatsAppTemplateMessage).toHaveBeenCalledTimes(1)
+    })
+
+    it('the guard reads the SAME job the outcome will be written to, scoped by both ids (T-H4 pattern)', async () => {
+      await processWelcomeSendJob(jobData({ createJobId: 'mj_xyz', integrationId: 'int-9' }), 1)
+
+      expect(findMemberJobForIntegration).toHaveBeenCalledWith('mj_xyz', 'int-9')
+    })
   })
 
   it('marketing template: category derived from the template, campaignId threaded through', async () => {

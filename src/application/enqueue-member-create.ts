@@ -143,16 +143,26 @@ export async function enqueueMemberCreate(
   }
 
   // The one Postgres write on this path -- everything above was Redis-only.
-  const insertResult = await insertMemberJob({
-    jobId,
-    integrationId: input.integrationId,
-    restaurantId: input.restaurantId,
-    assertedLevel: input.consentLevel,
-    sendWelcome: input.sendWelcome,
-    metadata: input.metadata,
-    externalRef: input.externalRef,
-    phoneLast4: input.phoneLast4,
-  })
+  // M-1: wrapped so a non-23505 DB error still releases the depth
+  // reservation taken above before propagating -- an unreleased
+  // reservation on this path used to inflate the counter until WI-13's
+  // 5-minute sweep corrected it.
+  let insertResult: Awaited<ReturnType<typeof insertMemberJob>>
+  try {
+    insertResult = await insertMemberJob({
+      jobId,
+      integrationId: input.integrationId,
+      restaurantId: input.restaurantId,
+      assertedLevel: input.consentLevel,
+      sendWelcome: input.sendWelcome,
+      metadata: input.metadata,
+      externalRef: input.externalRef,
+      phoneLast4: input.phoneLast4,
+    })
+  } catch (err) {
+    await releaseDepthReservation(deps.rateLimiter, input.integrationId)
+    throw err
+  }
 
   if (!insertResult.inserted) {
     // A concurrent duplicate's Postgres insert won the race -- release our

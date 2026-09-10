@@ -6,10 +6,14 @@
 // up exactly the `queued AND enqueued_at IS NULL` rows the fast path
 // (`emit-integration-event.ts`) either never ran for (`member.updated`,
 // produced by DB triggers with no application code involved) or failed to
-// enqueue for (a Redis hiccup at emit time). Idempotent on delivery id: a
-// `queue.add` with `jobId = deliveryId` for a row already enqueued is a
-// BullMQ no-op, so re-selecting the same row on a double run creates no
-// duplicate job.
+// enqueue for (a Redis hiccup at emit time), OR a resumed-from-`paused`
+// row (see resume-outbound.ts). Idempotent on delivery id via
+// `addRelayDeliverJob` (`integration-outbound-queue.ts`): re-selecting a
+// row whose enqueue is still genuinely in flight is a BullMQ no-op exactly
+// like before, but a row whose EARLIER job already reached a terminal
+// state (completed-as-paused, or failed) gets that stale job removed
+// first, so the re-add actually creates a new one (C-2 -- the plain
+// `jobId = deliveryId` dedup used to swallow this second case silently).
 //
 // Maintenance (5min): delivery-log pruning (US-9: <=500 rows / 30 days per
 // integration), `integration_events` orphan pruning, the T-M2 volume
@@ -22,7 +26,7 @@
 import { findDeliveriesToRelay, listIntegrationIdsWithDeliveries, markEnqueued, pruneDeliveriesForIntegration } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { pruneOrphanIntegrationEvents } from '@/infrastructure/supabase/repositories/integration-event-repository'
 import { findIntegrationVolumeAnomalies } from '@/infrastructure/supabase/repositories/integration-anomaly-stats-repository'
-import { addDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
+import { addRelayDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
 import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { notifyOpsAlert } from '@/application/notify-ops-alert'
 import { reconcileAllIntegrationDepthCounters } from '@/application/reconcile-integration-depth-counters'
@@ -37,7 +41,13 @@ export async function relayQueuedDeliveries(): Promise<void> {
 
 async function relayOne(deliveryId: string): Promise<void> {
   try {
-    await addDeliverJob(deliveryId)
+    // C-2: `addRelayDeliverJob` (not the plain `addDeliverJob`) -- a row
+    // reaching this selection can be a first-generation enqueue that's
+    // still in flight, OR a resume-after-pause whose earlier job already
+    // completed under the same BullMQ job id. The relay-specific add
+    // checks which case it is before deciding whether to dedupe or
+    // re-create (see that function's own header).
+    await addRelayDeliverJob(deliveryId)
     await markEnqueued(deliveryId, new Date().toISOString())
   } catch (err) {
     console.warn('[sweepIntegrationQueues] relay enqueue failed, retried next tick', {

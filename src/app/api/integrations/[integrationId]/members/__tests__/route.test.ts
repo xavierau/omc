@@ -65,7 +65,7 @@ describe('POST /api/integrations/{integrationId}/members (INT-001 WI-3, US-1)', 
     process.env.INT_JOBID_KEY = 'test-job-id-key'
     vi.mocked(findIntegrationSettingsById).mockResolvedValue(null)
     vi.mocked(getInboundRateLimiter).mockReturnValue({
-      takeToken: vi.fn(),
+      takeToken: vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 }),
       incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
       incr: vi.fn().mockResolvedValue(1),
       decr: vi.fn().mockResolvedValue(0),
@@ -116,6 +116,41 @@ describe('POST /api/integrations/{integrationId}/members (INT-001 WI-3, US-1)', 
       poll_url: `/api/integrations/${INTEGRATION_ID}/members/jobs/${json.job_id}`,
     })
     expect(createOrGetMember).not.toHaveBeenCalled()
+  })
+
+  // I-4: authenticateIntegrationV2's `replayed` verdict used to be computed
+  // (WI-2's nonce-replay Redis check) and then silently discarded by every
+  // caller. The partner doc's OWN documented contract
+  // (docs/integrations/member-api.md §2: "a repeat within 10 minutes is
+  // treated as a retried, not a new, request") means the response here
+  // must NOT change shape/status for a replay -- POST is already
+  // content-addressed (T-H3b), so a replayed envelope legitimately
+  // reproduces the SAME job_id/202, exactly like any other retried
+  // submission. Rejecting it would break that documented, partner-visible
+  // contract. The fix that stays inside this dispatch's boundary (no
+  // partner-visible error-code/shape changes) is observability: the
+  // verdict is now logged rather than silently dropped, so it's no longer
+  // a dead signal, without changing what a partner sees.
+  it('I-4: a replayed nonce (authResult.replayed === true) is logged but does NOT change the 202 response shape/status', async () => {
+    vi.mocked(authenticateIntegrationV2).mockResolvedValue({
+      integration: { id: INTEGRATION_ID, restaurantId: RESTAURANT_ID, status: 'active' } as never,
+      t: '1700000000',
+      nonce: 'a'.repeat(16),
+      replayed: true,
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const res = await POST(req({ phone: '+85298765432', consent_level: 'all' }), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(json).toEqual({
+      job_id: expect.stringMatching(/^mj_/),
+      status: 'queued',
+      poll_url: `/api/integrations/${INTEGRATION_ID}/members/jobs/${json.job_id}`,
+    })
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('replayed'), expect.anything())
+    warnSpy.mockRestore()
   })
 
   it('sets no Access-Control-Allow-* headers (server-to-server only, §5.0)', async () => {
@@ -204,6 +239,53 @@ describe('POST /api/integrations/{integrationId}/members (INT-001 WI-3, US-1)', 
     expect(authenticateIntegrationV2).not.toHaveBeenCalled()
   })
 
+  it('I-1: a truthful oversized Content-Length header -> 413, rejected from the header alone (the tiny ACTUAL body would pass the post-read check)', async () => {
+    const res = await POST(req('tiny-actual-body', { 'content-length': String(20_000) }), params())
+
+    expect(res.status).toBe(413)
+    const json = await res.json()
+    expect(json).toEqual({ error: 'payload_too_large' })
+    expect(authenticateIntegrationV2).not.toHaveBeenCalled()
+  })
+
+  it('I-1/I-2: the pre-auth throttle is checked before EITHER Postgres read (settings lookup, integration lookup inside auth) and before the body is read', async () => {
+    const takeToken = vi.fn().mockResolvedValue({ allowed: false, remaining: 0, retryAfterSec: 5 })
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn().mockResolvedValue(1),
+      decr: vi.fn().mockResolvedValue(0),
+      get: vi.fn().mockResolvedValue(0),
+    } as never)
+
+    const res = await POST(req({ phone: '+85298765432', consent_level: 'all' }), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(429)
+    expect(json).toEqual({ error: 'rate_limited' })
+    expect(res.headers.get('retry-after')).toBe('5')
+    expect(findIntegrationSettingsById).not.toHaveBeenCalled()
+    expect(authenticateIntegrationV2).not.toHaveBeenCalled()
+  })
+
+  it('I-1: Redis unreachable on the pre-auth throttle -> 503, fails closed (never falls through to a DB read)', async () => {
+    const takeToken = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn().mockResolvedValue(1),
+      decr: vi.fn().mockResolvedValue(0),
+      get: vi.fn().mockResolvedValue(0),
+    } as never)
+
+    const res = await POST(req({ phone: '+85298765432', consent_level: 'all' }), params())
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toEqual({ error: 'queue_unavailable' })
+    expect(findIntegrationSettingsById).not.toHaveBeenCalled()
+  })
+
   it('non-JSON content-type -> 415 unsupported_media_type', async () => {
     const res = await POST(req({ phone: '+85298765432', consent_level: 'all' }, { 'content-type': 'text/plain' }), params())
 
@@ -238,7 +320,7 @@ describe('POST /api/integrations/{integrationId}/members (INT-001 WI-3, US-1)', 
   it('queue_depth_exceeded from enqueueMemberCreate -> 503 with Retry-After', async () => {
     stubAuthOk()
     vi.mocked(getInboundRateLimiter).mockReturnValue({
-      takeToken: vi.fn(),
+      takeToken: vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 }),
       incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
       incr: vi.fn().mockResolvedValue(1000), // over any reasonable cap
       decr: vi.fn().mockResolvedValue(0),

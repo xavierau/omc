@@ -238,11 +238,13 @@ export interface UpdateOutboundBreakerStateArgs {
 }
 
 /**
- * WI-6: the outbound circuit breaker's own write path -- bumped on a
- * transient failure, reset to 0 on a success, and flipped to
- * `paused_auto` (with `outboundPausedAt` stamped) when the streak reaches
- * the breaker threshold. `resume-outbound.ts` also uses this to reset the
- * streak to 0 and set `outboundStatus: 'active'` together.
+ * WI-6: the outbound circuit breaker's ABSOLUTE-write path -- reset to 0
+ * on a delivered success, and resume-outbound.ts's `outboundStatus:
+ * 'active'` + streak-reset-to-0. I-8: no longer used for the transient-
+ * failure INCREMENT (see `incrementOutboundFailureStreak` below) -- a
+ * plain `.update()` with a client-computed `streak + 1` is a
+ * read-modify-write that loses updates under concurrent transient
+ * failures to the same integration.
  */
 export async function updateOutboundBreakerState(args: UpdateOutboundBreakerStateArgs): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -257,4 +259,31 @@ export async function updateOutboundBreakerState(args: UpdateOutboundBreakerStat
     .update(row)
     .eq('integration_id', args.integrationId)
   if (error) throw new Error(`updateOutboundBreakerState: ${error.message}`)
+}
+
+/**
+ * I-8: atomic increment for the ONE case that's actually a
+ * read-modify-write under concurrency -- a transient delivery failure
+ * bumping the streak by 1. Routed through migration 075's
+ * `increment_outbound_failure_streak` RPC, which does the `+1` and the
+ * threshold-trip (`outbound_status -> paused_auto`) inside Postgres in one
+ * statement, so concurrent callers serialize on the row's own lock instead
+ * of racing on a client-side `snapshot.outboundFailureStreak + 1`. Returns
+ * the streak AS OF this caller's own increment (never a value a
+ * concurrent increment already overwrote), or `null` if the integration
+ * row doesn't exist.
+ */
+export async function incrementOutboundFailureStreak(
+  integrationId: string,
+  threshold: number,
+  now: Date
+): Promise<number | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.rpc('increment_outbound_failure_streak', {
+    p_integration_id: integrationId,
+    p_threshold: threshold,
+    p_now: now.toISOString(),
+  })
+  if (error) throw new Error(`incrementOutboundFailureStreak: ${error.message}`)
+  return (data as number | null) ?? null
 }
