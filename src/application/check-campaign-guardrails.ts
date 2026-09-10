@@ -13,6 +13,8 @@ import {
   getTodayCampaignCount,
   getUnsubscribeStats,
 } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import { getRestaurantPlan } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { planCampaignQuota } from '@/domain/value-objects/tenant-plan'
 
 export interface GuardrailUsage {
   monthlySends: number
@@ -93,12 +95,29 @@ function buildUsageView(input: UsageInput): GuardrailUsage {
   }
 }
 
+// #161 (CAMP-012): a missing row must degrade to the tenant's ACTUAL plan
+// quota, not the hardcoded starter default -- and the degradation must be
+// observable (a missing row after migration 078 means something deleted
+// it). A throwing plan read propagates (fail-closed, D3): the existing
+// `getSettingsForTenant` throw path already fails the campaign rather than
+// silently allowing it.
 async function resolveSettings(
   restaurantId: string
 ): Promise<TenantCampaignSettings> {
   const row = await getSettingsForTenant(restaurantId)
   if (row) return row
-  return { restaurantId, ...DEFAULT_SETTINGS }
+  return planDerivedDefaults(restaurantId)
+}
+
+async function planDerivedDefaults(
+  restaurantId: string
+): Promise<TenantCampaignSettings> {
+  const plan = (await getRestaurantPlan(restaurantId)) ?? 'starter'
+  const monthlySendLimit = planCampaignQuota(plan)
+  console.warn(
+    `[Guardrails] tenant_campaign_settings missing for tenant ${restaurantId}; using plan-derived defaults (plan=${plan}, monthlySendLimit=${monthlySendLimit}) — migration 078 should have seeded this row`
+  )
+  return { restaurantId, ...DEFAULT_SETTINGS, monthlySendLimit }
 }
 
 function fetchStats(restaurantId: string) {
