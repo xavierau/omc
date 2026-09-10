@@ -58,12 +58,19 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
     return authErrorResponse(err)
   }
 
-  // I-4: see members/route.ts's own comment -- GET is read-only, so a
-  // replay here is harmless; logged rather than rejected to match the
-  // partner doc's documented "treated as a retried, not a new, request"
-  // contract without changing the response.
+  // I-4 (owner ruling, 2026-09-10): see members/route.ts's own comment --
+  // `guardInboundRequest` itself now rejects a same-nonce reuse whose
+  // digest differs. For GET, `digest` is the `jobId` itself (no request
+  // body), so a same-nonce reuse against a DIFFERENT jobId already 401s
+  // inside the guard; a reuse polling the SAME job (GET is read-only, so
+  // harmless either way) reaches here as `replayed: true` and is logged
+  // rather than rejected, matching the partner doc's "treated as a
+  // retried, not a new, request" contract without changing the response.
   if (authResult.replayed) {
-    console.warn('[IntegrationInboundAuth] replayed nonce', { integrationId, kind: 'member.job' })
+    console.warn('[IntegrationInboundAuth] replayed nonce (same jobId -- idempotent poll)', {
+      integrationId,
+      kind: 'member.job',
+    })
   }
 
   const result = await getMemberJob(jobId, integrationId, new Date())

@@ -222,6 +222,27 @@ export async function markMemberJobProcessing(jobId: string, startedAt: string, 
   if (error) throw new Error(`markMemberJobProcessing: ${error.message}`)
 }
 
+/** WI-14 (G-1): records `member_id` as soon as `createOrGetMember` resolves
+ * it -- BEFORE the job reaches its own terminal `succeeded` state. A crash
+ * or transient failure between this point and `completeMemberJobSucceeded`
+ * used to leave the job row with no record of which member THIS job
+ * already created; a retry's own `createOrGetMember` then sees that member
+ * as `existing` and `decideWelcome`'s D1 rule ("existing member never gets
+ * a welcome") incorrectly treats it as genuinely pre-existing, silently
+ * dropping the welcome the first attempt would have sent. Scoped by
+ * `job_id` alone, matching this file's other non-partner-facing writers --
+ * never partner input, no T-H4 scoping needed. Never touches
+ * `status`/`outcome`/`completed_at`; those stay `completeMemberJobSucceeded`'s
+ * job alone. */
+export async function recordMemberJobMemberId(jobId: string, memberId: string): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('integration_member_jobs')
+    .update({ member_id: memberId })
+    .eq('job_id', jobId)
+  if (error) throw new Error(`recordMemberJobMemberId: ${error.message}`)
+}
+
 /** INT-001 WI-4: the `welcome-send` job's own write -- ONLY `welcome_outcome`
  * / `welcome_detail`, never `status`/`outcome`/`member_id`/`completed_at`.
  * The create job already reached its own terminal `succeeded` state (WI-3);

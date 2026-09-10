@@ -147,7 +147,11 @@ export async function deliverOutboundWebhook(
       })
     )
     if (settings.snapshot.outboundFailureStreak > 0) {
-      await updateOutboundBreakerState({ integrationId: delivery.snapshot.integrationId, outboundFailureStreak: 0 })
+      await updateOutboundBreakerState({
+        integrationId: delivery.snapshot.integrationId,
+        restaurantId: delivery.snapshot.restaurantId,
+        outboundFailureStreak: 0,
+      })
     }
     return { kind: 'delivered' }
   }

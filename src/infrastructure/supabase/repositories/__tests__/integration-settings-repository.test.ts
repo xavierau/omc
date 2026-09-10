@@ -8,10 +8,12 @@ vi.mock('../../client', () => ({
 import { createServerSupabaseClient } from '../../client'
 import {
   findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   incrementOutboundFailureStreak,
   readOutboundSecret,
   setOutboundSecret,
   updateIntegrationInboundLimits,
+  updateIntegrationSettingsFields,
   updateOutboundBreakerState,
 } from '../integration-settings-repository'
 import { encryptSecret } from '@/infrastructure/crypto/secret-box'
@@ -94,6 +96,63 @@ describe('findIntegrationSettingsById (T-H1)', () => {
   })
 })
 
+describe('findIntegrationSettingsByIdForRestaurant (G-5: scoped by BOTH ids in the query)', () => {
+  it('scopes the SELECT by integration_id AND restaurant_id', async () => {
+    const row = {
+      integration_id: 'int-1',
+      restaurant_id: 'r-1',
+      new_join_template_id: null,
+      consent_attestation_text: null,
+      consent_attestation_ack_at: null,
+      consent_attestation_ack_by: null,
+      outbound_url: null,
+      outbound_secret_last4: null,
+      outbound_secret_updated_at: null,
+      outbound_secret_updated_by: null,
+      outbound_events: ['member.created'],
+      outbound_enabled: false,
+      outbound_pii_ack_at: null,
+      outbound_pii_ack_by: null,
+      outbound_status: 'active',
+      outbound_failure_streak: 0,
+      outbound_paused_at: null,
+      inbound_rate_per_min: null,
+      inbound_burst: null,
+      inbound_queue_cap: null,
+      inbound_secret_updated_at: null,
+      created_at: '2026-09-10T00:00:00.000Z',
+      updated_at: '2026-09-10T00:00:00.000Z',
+    }
+    const maybeSingle = vi.fn().mockResolvedValue({ data: row, error: null })
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const select = vi.fn().mockReturnValue({ eq: eq1 })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as unknown as ReturnType<
+      typeof createServerSupabaseClient
+    >)
+
+    const result = await findIntegrationSettingsByIdForRestaurant('int-1', 'r-1')
+
+    expect(result?.snapshot.integrationId).toBe('int-1')
+    expect(eq1).toHaveBeenCalledWith('integration_id', 'int-1')
+    expect(eq2).toHaveBeenCalledWith('restaurant_id', 'r-1')
+  })
+
+  it('a foreign-tenant integration id resolves to null from the query itself', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const select = vi.fn().mockReturnValue({ eq: eq1 })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as unknown as ReturnType<
+      typeof createServerSupabaseClient
+    >)
+
+    expect(await findIntegrationSettingsByIdForRestaurant('int-1', 'r-other')).toBeNull()
+  })
+})
+
 describe('readOutboundSecret (T-H1)', () => {
   it('decrypts and returns the plaintext', async () => {
     const envelope = encryptSecret('my-webhook-secret')
@@ -123,10 +182,12 @@ describe('readOutboundSecret (T-H1)', () => {
 describe('setOutboundSecret (T-H1)', () => {
   it('stores an encrypted envelope + last4 + audit stamp, returns last4 to display once', async () => {
     const updated: { value: Record<string, unknown> | null } = { value: null }
-    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    // G-5: WHERE is now .eq('integration_id', ...).eq('restaurant_id', ...)
+    const eq2 = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
     const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
       updated.value = row
-      return { eq }
+      return { eq: eq1 }
     })
     const from = vi.fn().mockReturnValue({ update })
     vi.mocked(createServerSupabaseClient).mockReturnValue({
@@ -135,6 +196,7 @@ describe('setOutboundSecret (T-H1)', () => {
 
     const result = await setOutboundSecret({
       integrationId: 'int-1',
+      restaurantId: 'r-1',
       plaintext: 'brand-new-secret-value',
       actorUserId: 'user-1',
     })
@@ -144,7 +206,30 @@ describe('setOutboundSecret (T-H1)', () => {
     expect(updated.value?.outbound_secret_updated_by).toBe('user-1')
     expect(updated.value?.outbound_secret_enc).toEqual(expect.any(String))
     expect(updated.value?.outbound_secret_enc).not.toContain('brand-new-secret-value')
-    expect(eq).toHaveBeenCalledWith('integration_id', 'int-1')
+    expect(eq1).toHaveBeenCalledWith('integration_id', 'int-1')
+    expect(eq2).toHaveBeenCalledWith('restaurant_id', 'r-1')
+  })
+})
+
+describe('updateIntegrationSettingsFields (G-5: scoped by BOTH ids in the WHERE)', () => {
+  it('writes the provided fields, scoped by integration_id AND restaurant_id', async () => {
+    const updated: { value?: Record<string, unknown> } = {}
+    const eq2 = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+      updated.value = row
+      return { eq: eq1 }
+    })
+    const from = vi.fn().mockReturnValue({ update })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      from,
+    } as unknown as ReturnType<typeof createServerSupabaseClient>)
+
+    await updateIntegrationSettingsFields('int-1', 'r-1', { outboundEnabled: true })
+
+    expect(updated.value).toMatchObject({ outbound_enabled: true })
+    expect(eq1).toHaveBeenCalledWith('integration_id', 'int-1')
+    expect(eq2).toHaveBeenCalledWith('restaurant_id', 'r-1')
   })
 })
 
@@ -212,29 +297,34 @@ describe('updateOutboundBreakerState (WI-6)', () => {
 
   it('writes the streak alone when status/pausedAt are omitted', async () => {
     const updated: { value?: Record<string, unknown> } = {}
-    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    // G-5: WHERE is now .eq('integration_id', ...).eq('restaurant_id', ...)
+    const eq2 = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
     const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
       updated.value = row
-      return { eq }
+      return { eq: eq1 }
     })
     const from = vi.fn().mockReturnValue({ update })
     vi.mocked(createServerSupabaseClient).mockReturnValue({
       from,
     } as unknown as ReturnType<typeof createServerSupabaseClient>)
 
-    await updateOutboundBreakerState({ integrationId: 'int-1', outboundFailureStreak: 3 })
+    await updateOutboundBreakerState({ integrationId: 'int-1', restaurantId: 'r-1', outboundFailureStreak: 3 })
 
     expect(updated.value).toMatchObject({ outbound_failure_streak: 3 })
     expect(updated.value).not.toHaveProperty('outbound_status')
     expect(updated.value).not.toHaveProperty('outbound_paused_at')
+    expect(eq1).toHaveBeenCalledWith('integration_id', 'int-1')
+    expect(eq2).toHaveBeenCalledWith('restaurant_id', 'r-1')
   })
 
   it('writes status + pausedAt together when the breaker trips', async () => {
     const updated: { value?: Record<string, unknown> } = {}
-    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq2 = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
     const update = vi.fn().mockImplementation((row: Record<string, unknown>) => {
       updated.value = row
-      return { eq }
+      return { eq: eq1 }
     })
     const from = vi.fn().mockReturnValue({ update })
     vi.mocked(createServerSupabaseClient).mockReturnValue({
@@ -243,6 +333,7 @@ describe('updateOutboundBreakerState (WI-6)', () => {
 
     await updateOutboundBreakerState({
       integrationId: 'int-1',
+      restaurantId: 'r-1',
       outboundFailureStreak: 10,
       outboundStatus: 'paused_auto',
       outboundPausedAt: '2026-09-10T00:00:00.000Z',
@@ -256,15 +347,16 @@ describe('updateOutboundBreakerState (WI-6)', () => {
   })
 
   it('throws a contextual error on a database failure', async () => {
-    const eq = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
-    const update = vi.fn().mockReturnValue({ eq })
+    const eq2 = vi.fn().mockResolvedValue({ data: null, error: { message: 'timeout' } })
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 })
+    const update = vi.fn().mockReturnValue({ eq: eq1 })
     const from = vi.fn().mockReturnValue({ update })
     vi.mocked(createServerSupabaseClient).mockReturnValue({
       from,
     } as unknown as ReturnType<typeof createServerSupabaseClient>)
 
     await expect(
-      updateOutboundBreakerState({ integrationId: 'int-1', outboundFailureStreak: 1 })
+      updateOutboundBreakerState({ integrationId: 'int-1', restaurantId: 'r-1', outboundFailureStreak: 1 })
     ).rejects.toThrow(/updateOutboundBreakerState.*timeout/)
   })
 })

@@ -59,8 +59,16 @@ export async function createPosIntegration(
   return data!.id
 }
 
+/** WI-14 (G-5, grok review, SEC-001/#111 pattern): scoped by BOTH `id` AND
+ * `restaurantId` in the WRITE itself -- not just in a separate existence
+ * check a caller runs first. Every current caller (PATCH route,
+ * rotateInboundSecret) already does a tenant-scoped read before calling
+ * this, so external behaviour is unchanged; this closes the gap where a
+ * FUTURE caller that skips that check would otherwise mutate another
+ * tenant's row with no guard at all. */
 export async function updatePosIntegration(
   id: string,
+  restaurantId: string,
   updates: Partial<Pick<PosIntegration, 'name' | 'status' | 'webhookSecret' | 'fieldMapping' | 'credentials'>>
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -69,18 +77,22 @@ export async function updatePosIntegration(
     .from('pos_integrations')
     .update(row)
     .eq('id', id)
+    .eq('restaurant_id', restaurantId)
 
   if (error) throw new Error(`updatePosIntegration: ${error.message}`)
 }
 
+/** WI-14 (G-5): same tenant-scoped write as `updatePosIntegration` above. */
 export async function deletePosIntegration(
-  id: string
+  id: string,
+  restaurantId: string
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
   const { error } = await supabase
     .from('pos_integrations')
     .delete()
     .eq('id', id)
+    .eq('restaurant_id', restaurantId)
 
   if (error) throw new Error(`deletePosIntegration: ${error.message}`)
 }

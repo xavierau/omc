@@ -137,5 +137,39 @@ describe('mintWelcomeCouponIdempotent (INT-001 WI-4, OD-15)', () => {
       expect(result).toEqual({ code: 'EXIST2', id: 'cpn-1' })
       expect(createWelcomeCoupon).not.toHaveBeenCalled()
     })
+
+    // G-2 (Grok review): mirrors the campaign-present race test above --
+    // this describe block never had one. Before migration 076
+    // (uniq_coupons_welcome_member) this catch-and-re-select path was DEAD
+    // CODE: `coupon-repository.ts`'s own comment said a 23505 here "would
+    // never happen for this type", so a genuine concurrent race (both
+    // requests' check-first read miss, both insert) landed TWO welcome
+    // coupons in production with no error at all. The migration makes the
+    // loser's insert actually 23505; this test pins the application-level
+    // recovery that constraint now makes reachable.
+    it('G-2: a genuine concurrent race (check-first misses, insert throws a unique-violation) re-selects once and recovers to ONE coupon', async () => {
+      vi.mocked(findWelcomeCouponByMember)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(coupon({ type: 'welcome', code: 'RACE2', campaignId: null }))
+      vi.mocked(createWelcomeCoupon).mockRejectedValue(
+        new Error('Failed to generate unique coupon code after 3 attempts')
+      )
+
+      const result = await mintWelcomeCouponIdempotent('rest-1', 'm-1', 'Ada', null)
+
+      expect(result).toEqual({ code: 'RACE2', id: 'cpn-1' })
+      expect(findWelcomeCouponByMember).toHaveBeenCalledTimes(2)
+      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
+    })
+
+    it('a genuine mint failure with no recoverable row rethrows', async () => {
+      vi.mocked(findWelcomeCouponByMember).mockResolvedValue(null)
+      const err = new Error('some other database error')
+      vi.mocked(createWelcomeCoupon).mockRejectedValue(err)
+
+      await expect(mintWelcomeCouponIdempotent('rest-1', 'm-1', 'Ada', null)).rejects.toThrow(
+        'some other database error'
+      )
+    })
   })
 })

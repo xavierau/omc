@@ -23,7 +23,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const webhookSecret = await rotateInboundSecret(id, ctx.userId)
+    const webhookSecret = await rotateInboundSecret(id, ctx.restaurantId, ctx.userId)
     return NextResponse.json({ webhookSecret })
   } catch (error) {
     if (error instanceof AuthError) {

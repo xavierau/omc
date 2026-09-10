@@ -132,6 +132,7 @@ export async function authenticateIntegrationV2(
     t: parsed.t,
     nonce: parsed.nonce,
     signatureValid,
+    digest: input.digest,
     rateLimiter: input.rateLimiter,
     clock: input.clock,
     inboundDisabled: input.inboundDisabled,

@@ -6,7 +6,7 @@ vi.mock('@/infrastructure/supabase/repositories/integration-delivery-repository'
   saveDelivery: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/infrastructure/supabase/repositories/integration-settings-repository', () => ({
-  findIntegrationSettingsById: vi.fn(),
+  findIntegrationSettingsByIdForRestaurant: vi.fn(),
   updateOutboundBreakerState: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -16,7 +16,7 @@ import {
   saveDelivery,
 } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import {
-  findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   updateOutboundBreakerState,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { IntegrationDelivery, type IntegrationDeliveryProps } from '@/domain/entities/integration-delivery'
@@ -77,31 +77,44 @@ describe('resumeOutbound (US-9)', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('integration not found -> integration_not_found, no writes', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(null)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(null)
 
-    const result = await resumeOutbound('int-missing')
+    const result = await resumeOutbound('int-missing', 'r-1')
 
     expect(result).toEqual({ ok: false, error: 'integration_not_found' })
     expect(updateOutboundBreakerState).not.toHaveBeenCalled()
   })
 
   it('no saved URL -> url_invalid, no writes', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ outboundUrl: null, outboundEnabled: false }))
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings({ outboundUrl: null, outboundEnabled: false }))
 
-    const result = await resumeOutbound('int-1')
+    const result = await resumeOutbound('int-1', 'r-1')
 
     expect(result).toEqual({ ok: false, error: 'url_invalid' })
     expect(updateOutboundBreakerState).not.toHaveBeenCalled()
   })
 
-  it('resets status to active and streak to 0', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings())
+  // G-5 (WI-14, grok review, SEC-001/#111 pattern): the settings read is
+  // scoped by BOTH ids in the query itself, not fetch-then-compare --
+  // defense in depth alongside the route's own scoped pre-check.
+  it('G-5: reads settings through the restaurant-scoped repository lookup', async () => {
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings())
     vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue([])
 
-    await resumeOutbound('int-1')
+    await resumeOutbound('int-1', 'r-1')
+
+    expect(findIntegrationSettingsByIdForRestaurant).toHaveBeenCalledWith('int-1', 'r-1')
+  })
+
+  it('resets status to active and streak to 0', async () => {
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings())
+    vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue([])
+
+    await resumeOutbound('int-1', 'r-1')
 
     expect(updateOutboundBreakerState).toHaveBeenCalledWith({
       integrationId: 'int-1',
+      restaurantId: 'r-1',
       outboundFailureStreak: 0,
       outboundStatus: 'active',
       outboundPausedAt: null,
@@ -109,11 +122,11 @@ describe('resumeOutbound (US-9)', () => {
   })
 
   it('WI-6 Tests-first: "resume requeues exactly the pending rows once" -- every paused row within the cap transitions to queued with enqueued_at cleared', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ inboundQueueCap: 500 }))
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings({ inboundQueueCap: 500 }))
     vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue(['del-1', 'del-2'])
     vi.mocked(findDeliveryById).mockImplementation(async (id: string) => pausedDelivery(id))
 
-    const result = await resumeOutbound('int-1')
+    const result = await resumeOutbound('int-1', 'r-1')
 
     expect(result).toEqual({ ok: true, requeued: 2, deadLettered: 0 })
     expect(saveDelivery).toHaveBeenCalledTimes(2)
@@ -125,11 +138,11 @@ describe('resumeOutbound (US-9)', () => {
   })
 
   it('rows beyond the queue cap are dead-lettered directly, not requeued', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ inboundQueueCap: 2 }))
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings({ inboundQueueCap: 2 }))
     vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue(['del-1', 'del-2', 'del-3'])
     vi.mocked(findDeliveryById).mockImplementation(async (id: string) => pausedDelivery(id))
 
-    const result = await resumeOutbound('int-1')
+    const result = await resumeOutbound('int-1', 'r-1')
 
     expect(result).toEqual({ ok: true, requeued: 2, deadLettered: 1 })
     const statuses = vi.mocked(saveDelivery).mock.calls.map((call) => (call[0] as IntegrationDelivery).snapshot.status)
@@ -138,12 +151,12 @@ describe('resumeOutbound (US-9)', () => {
   })
 
   it('falls back to the plan default cap (500) when inboundQueueCap is unset', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(settings({ inboundQueueCap: null }))
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings({ inboundQueueCap: null }))
     const ids = Array.from({ length: 3 }, (_, i) => `del-${i}`)
     vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue(ids)
     vi.mocked(findDeliveryById).mockImplementation(async (id: string) => pausedDelivery(id))
 
-    const result = await resumeOutbound('int-1')
+    const result = await resumeOutbound('int-1', 'r-1')
     expect(result).toEqual({ ok: true, requeued: 3, deadLettered: 0 })
   })
 })

@@ -17,12 +17,14 @@ import { FakeRateLimiter } from '@/test-utils/fake-rate-limiter'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import {
   AUTH_FAILURE_LIMIT,
+  AUTH_FAILURE_WINDOW_SEC,
   DEFAULT_PARTNER_BURST,
   DEFAULT_PARTNER_RATE_PER_MIN,
   TIMESTAMP_TOLERANCE_SEC,
   authFailureBucketKey,
   checkPreAuthThrottle,
   guardInboundRequest,
+  nonceReplayBodyKey,
   nonceReplayKey,
   partnerBucketKey,
   preAuthBucketKey,
@@ -39,6 +41,7 @@ function baseInput(overrides: Partial<GuardInboundRequestInput> = {}): GuardInbo
     t: String(Math.floor(NOW.getTime() / 1000)),
     nonce: 'nonce-0000000000000001',
     signatureValid: true,
+    digest: 'digest-a',
     rateLimiter,
     clock,
     inboundDisabled: false,
@@ -177,6 +180,84 @@ describe('guardInboundRequest: nonce replay', () => {
 
   it('scopes the replay key to the integration (documented via nonceReplayKey)', () => {
     expect(nonceReplayKey('int-1', 'abc')).not.toBe(nonceReplayKey('int-2', 'abc'))
+  })
+
+  // I-4 (WI-16, owner ruling 2026-09-10): a repeated nonce with the SAME
+  // digest (sha256(rawBody) for POST, jobId for GET) is an idempotent
+  // retry -- accepted, `replayed: true`. A repeated nonce with a
+  // DIFFERENT digest means a validly-signed envelope is being replayed
+  // against a payload it was never signed for -- rejected with the same
+  // generic 401 shape every other auth failure in this pipeline uses, and
+  // charged to the auth-failure bucket like any other auth failure.
+  describe('I-4: same-nonce reuse is accepted only when the digest also matches', () => {
+    it('same nonce + same digest (retry) -> accepted, replayed: true', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      const first = await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-same-000000', digest: 'digest-x' })
+      )
+      expect(first).toEqual({ ok: true, replayed: false })
+      const second = await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-same-000000', digest: 'digest-x' })
+      )
+      expect(second).toEqual({ ok: true, replayed: true })
+    })
+
+    it('same nonce + DIFFERENT digest (replay/tamper) -> rejected 401, same shape as any other auth failure', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      const first = await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-diff-000000', digest: 'digest-original' })
+      )
+      expect(first).toEqual({ ok: true, replayed: false })
+      const second = await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-diff-000000', digest: 'digest-tampered' })
+      )
+      expect(second).toEqual({ ok: false, status: 401, error: 'unauthorized' })
+    })
+
+    it('a rejected replay/tamper attempt charges the auth-failure bucket (trips 429 after AUTH_FAILURE_LIMIT)', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-bucket-0000', digest: 'digest-original' })
+      )
+      let last: Awaited<ReturnType<typeof guardInboundRequest>> | undefined
+      // AUTH_FAILURE_LIMIT rejections still return 401 each (count<=limit);
+      // the (limit+1)th is what actually trips 429 -- matches the "100
+      // unsigned requests" test's own first10-vs-rest convention above.
+      for (let i = 0; i < AUTH_FAILURE_LIMIT + 1; i++) {
+        last = await guardInboundRequest(
+          baseInput({ clock, rateLimiter, nonce: 'nonce-i4-bucket-0000', digest: `digest-tampered-${i}` })
+        )
+      }
+      expect(last).toEqual({ ok: false, status: 429, error: 'rate_limited', retryAfterSec: AUTH_FAILURE_WINDOW_SEC, remaining: 0 })
+    })
+
+    it('503 queue_unavailable when Redis fails on the digest check, not a silent accept', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      await guardInboundRequest(baseInput({ clock, rateLimiter, nonce: 'nonce-i4-redis-0000', digest: 'digest-a' }))
+      const originalIncrWindow = rateLimiter.incrWindow.bind(rateLimiter)
+      let call = 0
+      rateLimiter.incrWindow = async (key: string, limit: number, windowSec: number) => {
+        call += 1
+        // First incrWindow call on the retry is the nonce-only check
+        // (must succeed so we reach the digest check); the SECOND is the
+        // digest check this test fails.
+        if (call === 2) throw new Error('redis down')
+        return originalIncrWindow(key, limit, windowSec)
+      }
+      const decision = await guardInboundRequest(
+        baseInput({ clock, rateLimiter, nonce: 'nonce-i4-redis-0000', digest: 'digest-a' })
+      )
+      expect(decision).toEqual({ ok: false, status: 503, error: 'queue_unavailable' })
+    })
+
+    it('nonceReplayBodyKey scopes to integration + nonce + digest', () => {
+      expect(nonceReplayBodyKey('int-1', 'n1', 'd1')).not.toBe(nonceReplayBodyKey('int-1', 'n1', 'd2'))
+      expect(nonceReplayBodyKey('int-1', 'n1', 'd1')).not.toBe(nonceReplayBodyKey('int-2', 'n1', 'd1'))
+    })
   })
 })
 

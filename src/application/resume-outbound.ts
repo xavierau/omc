@@ -16,7 +16,7 @@ import {
   saveDelivery,
 } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import {
-  findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   updateOutboundBreakerState,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 
@@ -27,13 +27,20 @@ export type ResumeOutboundResult =
   | { ok: true; requeued: number; deadLettered: number }
   | { ok: false; error: 'integration_not_found' | 'url_invalid' }
 
-export async function resumeOutbound(integrationId: string): Promise<ResumeOutboundResult> {
-  const settings = await findIntegrationSettingsById(integrationId)
+export async function resumeOutbound(integrationId: string, restaurantId: string): Promise<ResumeOutboundResult> {
+  // G-5 (WI-14, grok review, SEC-001/#111 pattern): scoped by BOTH ids in
+  // the query itself -- this used to derive restaurantId from whatever row
+  // `integrationId` happened to resolve to (correct for the breaker WRITE
+  // in isolation, but no defense against a caller that skips the route's
+  // own tenant-scoped pre-check from ever reading -- and then resuming --
+  // another tenant's integration in the first place).
+  const settings = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   if (!settings) return { ok: false, error: 'integration_not_found' }
   if (!settings.snapshot.outboundUrl) return { ok: false, error: 'url_invalid' }
 
   await updateOutboundBreakerState({
     integrationId,
+    restaurantId: settings.snapshot.restaurantId,
     outboundFailureStreak: 0,
     outboundStatus: 'active',
     outboundPausedAt: null,

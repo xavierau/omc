@@ -104,15 +104,21 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
     return authErrorResponse(err)
   }
 
-  // I-4: the nonce-replay verdict used to be computed and silently
-  // discarded. The partner doc's own documented contract (§2: "a repeat
-  // within 10 minutes is treated as a retried, not a new, request") means
-  // this must NOT reject or change the response -- POST is already
-  // content-addressed (T-H3b), so a replay legitimately reproduces the
-  // SAME job_id/202 below, same as any other retried submission. Logged
-  // so the signal has an effect (ops visibility) instead of being dead.
+  // I-4 (owner ruling, 2026-09-10): `authenticateIntegrationV2` (via
+  // `guardInboundRequest`) now itself rejects a reused nonce whose digest
+  // (sha256(rawBody)) doesn't match what that nonce was first seen with --
+  // see integration-inbound-guard.ts's Step 8. So `replayed: true` here
+  // can ONLY mean a same-body retry (the partner doc's §2 documented
+  // contract: "a repeat within 10 minutes with the SAME signed body is
+  // treated as a retried, not a new, request"), never a tamper attempt --
+  // those never reach this line, they 401 inside the guard. POST is
+  // already content-addressed (T-H3b), so this retry legitimately
+  // reproduces the SAME job_id/202 below. Logged for ops visibility.
   if (authResult.replayed) {
-    console.warn('[IntegrationInboundAuth] replayed nonce', { integrationId, kind: 'member.create' })
+    console.warn('[IntegrationInboundAuth] replayed nonce (same body -- idempotent retry)', {
+      integrationId,
+      kind: 'member.create',
+    })
   }
 
   let body: unknown

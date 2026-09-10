@@ -8,7 +8,7 @@
 
 import { isValidOutboundSecret } from '@/infrastructure/validation/integration-settings-validators'
 import {
-  findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   setOutboundSecret as persistOutboundSecret,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { recordIntegrationSettingsAudit } from '@/infrastructure/supabase/repositories/integration-settings-audit-repository'
@@ -27,11 +27,15 @@ export async function setOutboundSecret(
     return { ok: false, error: 'secret_too_short' }
   }
 
-  const before = await findIntegrationSettingsById(integrationId)
+  // G-5 (WI-14, grok review, SEC-001/#111 pattern): scoped by BOTH ids in
+  // the query itself, not fetch-then-compare -- defense in depth alongside
+  // the route's own `getIntegration(id, ctx.restaurantId)` pre-check.
+  const before = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   const oldLast4 = before?.snapshot.outboundSecretLast4 ?? null
 
   const { last4, updatedAt } = await persistOutboundSecret({
     integrationId,
+    restaurantId,
     plaintext: rawSecret,
     actorUserId,
   })

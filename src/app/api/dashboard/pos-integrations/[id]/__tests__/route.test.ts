@@ -110,7 +110,7 @@ describe('PATCH /api/dashboard/pos-integrations/[id]', () => {
     const res = await PATCH(patchReq({ name: 'New Name' }), ctxParams())
 
     expect(res.status).toBe(200)
-    expect(updateIntegration).toHaveBeenCalledWith('int-1', { name: 'New Name' })
+    expect(updateIntegration).toHaveBeenCalledWith('int-1', 'rest-1', { name: 'New Name' })
   })
 
   it.each([
@@ -156,7 +156,7 @@ describe('DELETE /api/dashboard/pos-integrations/[id]', () => {
     const res = await DELETE(new NextRequest('http://localhost/x'), ctxParams())
 
     expect(res.status).toBe(200)
-    expect(deleteIntegration).toHaveBeenCalledWith('int-1')
+    expect(deleteIntegration).toHaveBeenCalledWith('int-1', 'rest-1')
   })
 
   it('404s for a foreign-tenant id via the scoped query', async () => {

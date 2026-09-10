@@ -37,6 +37,8 @@ import {
   markMemberJobProcessing,
   completeMemberJobSucceeded,
   completeMemberJobFailed,
+  findMemberJobForIntegration,
+  recordMemberJobMemberId,
 } from '@/infrastructure/supabase/repositories/integration-member-job-repository'
 import { addWelcomeSendJob, getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { notifyOpsAlert } from './notify-ops-alert'
@@ -271,6 +273,13 @@ export async function processMemberCreateJob(
   try {
     await assertTenantAndIntegrationActive(data)
 
+    // G-1: capture member_id AS OF THE START of this attempt, before
+    // createOrGetMember can possibly change it -- the only way to tell
+    // "this attempt's own createOrGetMember found the SAME member an
+    // earlier, uncommitted attempt of THIS job already created" apart from
+    // "this member genuinely pre-existed before this job ever ran".
+    const jobBefore = await findMemberJobForIntegration(data.jobId, data.integrationId)
+
     const language = data.language ?? (await getRestaurantDefaultLanguage(data.restaurantId))
     const createResult = await createOrGetMember({
       restaurantId: data.restaurantId,
@@ -280,6 +289,17 @@ export async function processMemberCreateJob(
       source: 'partner_api',
       originIntegrationId: data.integrationId,
     })
+
+    // G-1: record it immediately -- BEFORE completeMemberJobSucceeded --
+    // so a crash/retry between here and there can recognise its own prior
+    // write instead of treating it as a genuinely pre-existing member and
+    // silently skipping the welcome (decideWelcome's D1 rule).
+    if (createResult.outcome === 'created') {
+      await recordMemberJobMemberId(data.jobId, createResult.memberId)
+    }
+    const createdByThisJob = jobBefore !== null && jobBefore.member_id === createResult.memberId
+    const welcomeMemberOutcome: 'created' | 'existing' =
+      createResult.outcome === 'created' || createdByThisJob ? 'created' : 'existing'
 
     const settings = await findIntegrationSettingsById(data.integrationId)
     const attestationText = settings?.snapshot.consentAttestationText ?? null
@@ -310,7 +330,7 @@ export async function processMemberCreateJob(
 
     const { decision } = await decideAndEnqueueWelcome(
       data,
-      createResult.outcome,
+      welcomeMemberOutcome,
       createResult.status,
       consent,
       data.jobId,

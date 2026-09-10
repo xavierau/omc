@@ -106,6 +106,20 @@ describe('registerMemberWeb', () => {
     )
   })
 
+  // G-3 (Grok review): same fix as register-member.ts -- see that test
+  // file's own G-3 comment for the full mechanism.
+  it('G-3: a dotted phone format the legacy PhoneNumber VO accepted no longer 500s on the web QR join path', async () => {
+    mockSingle.mockResolvedValueOnce({ data: null, error: null })
+    mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+    const result = await registerMemberWeb('+852.9123.4567', 'Bob', RESTAURANT_ID)
+
+    expect(result).toEqual({ isNew: true, memberId: 'm-new', couponCode: 'WLCM01' })
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+85291234567' })
+    )
+  })
+
   it('uses the mapped welcome campaign: creates campaign coupon and increments non-chargeable counter', async () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-1',

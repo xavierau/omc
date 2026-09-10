@@ -37,7 +37,7 @@ Every request to the two partner routes below carries three headers:
 | Header | Format | Notes |
 |---|---|---|
 | `X-OMC-Timestamp` | unix seconds, digits only | must be within ±300s of the server's clock |
-| `X-OMC-Nonce` | 16–64 chars, `[A-Za-z0-9_-]` | unique per request; a repeat within 10 minutes is treated as a retried, not a new, request |
+| `X-OMC-Nonce` | 16–64 chars, `[A-Za-z0-9_-]` | unique per request; a repeat within 10 minutes **with the same signed body** is treated as a retried, not a new, request (safe to resend after a timeout). A repeat with a **different** body is rejected with `401 unauthorized` — never reuse a nonce across two different requests |
 | `X-OMC-Signature` | `v2=<64 lowercase hex chars>` | see below — exactly one `v2=` parameter, no others |
 
 **Signature base string:**

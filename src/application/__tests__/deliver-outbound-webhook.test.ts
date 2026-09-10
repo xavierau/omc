@@ -262,7 +262,11 @@ describe('deliverOutboundWebhook -- classification + breaker (T-M4, T-M8)', () =
 
     await deliverOutboundWebhook('del-1', 1, { sender, clock: { now: () => NOW } })
 
-    expect(updateOutboundBreakerState).toHaveBeenCalledWith({ integrationId: 'int-1', outboundFailureStreak: 0 })
+    expect(updateOutboundBreakerState).toHaveBeenCalledWith({
+      integrationId: 'int-1',
+      restaurantId: 'r-1',
+      outboundFailureStreak: 0,
+    })
   })
 
   it('404 -> permanent -> dead_lettered in ONE attempt, and does NOT touch the failure streak (T-M4)', async () => {

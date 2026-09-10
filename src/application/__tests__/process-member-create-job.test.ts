@@ -41,6 +41,8 @@ import {
   markMemberJobProcessing,
   completeMemberJobSucceeded,
   completeMemberJobFailed,
+  findMemberJobForIntegration,
+  recordMemberJobMemberId,
 } from '@/infrastructure/supabase/repositories/integration-member-job-repository'
 import { addWelcomeSendJob, getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import type { MemberCreateJobData } from '@/infrastructure/queue/integration-inbound-queue'
@@ -112,6 +114,8 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
       get: vi.fn(),
     } as never)
     vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'created', memberId: 'm-1', status: 'active' })
+    vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: null } as never)
+    vi.mocked(recordMemberJobMemberId).mockResolvedValue(undefined)
   })
 
   it('new member: created, consent written per category, join event with source partner_api and no coupon_code, welcome_off recorded, job marked succeeded', async () => {
@@ -276,6 +280,85 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
       createJobId: 'mj_abc',
     })
     expect(completeMemberJobSucceeded).toHaveBeenCalledWith(expect.objectContaining({ welcomeOutcome: 'queued' }))
+  })
+
+  // G-1 (Grok review, corroborates the analyzer review's own M-2): a genuine
+  // DB insert succeeding on attempt 1, followed by a crash/retry BEFORE
+  // completeMemberJobSucceeded ever runs, makes attempt 2's own
+  // createOrGetMember see the member as `existing` (it's the SAME job's
+  // own earlier write) -- decideWelcome's D1 rule ("existing member never
+  // gets a welcome") then incorrectly treats this as a genuinely
+  // pre-existing member and skips the welcome the first attempt would have
+  // sent. Fixed by recording `member_id` on the job row as soon as it's
+  // known (not only at completeMemberJobSucceeded), and reading it back
+  // BEFORE createOrGetMember on every attempt: if this attempt's
+  // createOrGetMember also resolves to that SAME member_id, treat it as
+  // "created by an earlier attempt of THIS job", not a pre-existing
+  // member, for welcome-decision purposes only.
+  describe('G-1: welcome is not skipped on a create-job retry after a successful-but-uncommitted earlier attempt', () => {
+    beforeEach(() => {
+      vi.mocked(findIntegrationSettingsById).mockResolvedValue({
+        snapshot: { newJoinTemplateId: 'default', consentAttestationText: null, consentAttestationAckAt: null },
+      } as never)
+      vi.mocked(getOnboardingSettings).mockResolvedValue({
+        welcomeCampaignId: 'camp-1',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      vi.mocked(getCampaignByIdForRestaurant).mockResolvedValue({ whatsappTemplateId: 'tpl-1' } as never)
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({
+        id: 'tpl-1',
+        restaurantId: 'rest-1',
+        category: 'MARKETING',
+        status: 'approved',
+      } as never)
+      vi.mocked(findLatestConsentByCategory).mockResolvedValue(consentStatus('opted_in'))
+    })
+
+    it('retry attempt: job row already carries member_id from attempt 1, createOrGetMember now resolves the SAME member as `existing` -> welcome is still enqueued (not skipped_existing)', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-1' } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
+
+      await processMemberCreateJob(jobData({ jobId: 'mj_abc' }), 2, 3)
+
+      expect(addWelcomeSendJob).toHaveBeenCalledWith('wel:m-1:mj_abc', {
+        memberId: 'm-1',
+        restaurantId: 'rest-1',
+        integrationId: 'int-1',
+        createJobId: 'mj_abc',
+      })
+      expect(completeMemberJobSucceeded).toHaveBeenCalledWith(expect.objectContaining({ welcomeOutcome: 'queued' }))
+    })
+
+    it('first attempt: createOrGetMember resolves `created` -> the member_id is recorded on the job row immediately (before completeMemberJobSucceeded), not only on success', async () => {
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'created', memberId: 'm-1', status: 'active' })
+
+      await processMemberCreateJob(jobData({ jobId: 'mj_abc' }), 1, 3)
+
+      expect(recordMemberJobMemberId).toHaveBeenCalledWith('mj_abc', 'm-1')
+    })
+
+    it('a GENUINELY pre-existing member (job row never recorded this member_id -- a fresh job_id, not a retry) still skips welcome as before -- the fix must not weaken D1', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: null } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-99-already-there', status: 'active' })
+
+      await processMemberCreateJob(jobData(), 1, 3)
+
+      expect(addWelcomeSendJob).not.toHaveBeenCalled()
+      expect(completeMemberJobSucceeded).toHaveBeenCalledWith(expect.objectContaining({ welcomeOutcome: 'skipped_existing' }))
+    })
+
+    it('a DIFFERENT member_id on the job row than this attempt resolves to -> still skipped_existing (only an EXACT match counts as self-retry)', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-other' } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
+
+      await processMemberCreateJob(jobData(), 2, 3)
+
+      expect(addWelcomeSendJob).not.toHaveBeenCalled()
+      expect(completeMemberJobSucceeded).toHaveBeenCalledWith(expect.objectContaining({ welcomeOutcome: 'skipped_existing' }))
+    })
   })
 
   it('template requires a level the request did not assert -> skipped_consent_level with required/effective detail, no welcome-send enqueued', async () => {

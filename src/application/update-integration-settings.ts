@@ -19,7 +19,7 @@ import { IntegrationSettings, type IntegrationSettingsProps } from '@/domain/ent
 import { isTemplateSendable, type TemplateCategory } from '@/domain/entities/whatsapp-template'
 import type { ParsedSettingsPatch } from '@/infrastructure/validation/integration-settings-validators'
 import {
-  findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   updateIntegrationSettingsFields,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { recordIntegrationSettingsAudit } from '@/infrastructure/supabase/repositories/integration-settings-audit-repository'
@@ -176,7 +176,7 @@ export async function getIntegrationSettingsView(
   integrationId: string,
   restaurantId: string
 ): Promise<GetSettingsResult> {
-  const settings = await findIntegrationSettingsById(integrationId)
+  const settings = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   if (!settings) return { ok: false, error: 'not_found' }
   const resolvedTemplate = await currentResolvedTemplate(settings.snapshot.newJoinTemplateId, restaurantId)
   return { ok: true, settings: toView(settings, resolvedTemplate) }
@@ -188,12 +188,12 @@ export async function updateIntegrationSettings(
   patch: ParsedSettingsPatch,
   actorUserId: string
 ): Promise<UpdateSettingsResult> {
-  const current = await findIntegrationSettingsById(integrationId)
+  const current = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   if (!current) return { ok: false, error: 'template_not_found' } // unreachable: route 404s before calling this
   const c = current.snapshot
 
   const now = new Date().toISOString()
-  const writeFields: Parameters<typeof updateIntegrationSettingsFields>[1] = {}
+  const writeFields: Parameters<typeof updateIntegrationSettingsFields>[2] = {}
   const auditRows: Array<{ field: string; oldValue: string | null; newValue: string | null }> = []
   let resolvedTemplate: ResolvedTemplateView | null = null
   let tenantQualityPaused = false
@@ -308,7 +308,7 @@ export async function updateIntegrationSettings(
   }
 
   if (auditRows.length > 0) {
-    await updateIntegrationSettingsFields(integrationId, writeFields)
+    await updateIntegrationSettingsFields(integrationId, restaurantId, writeFields)
     for (const row of auditRows) {
       await recordIntegrationSettingsAudit({
         integrationId,
@@ -321,7 +321,7 @@ export async function updateIntegrationSettings(
     }
   }
 
-  const updated = await findIntegrationSettingsById(integrationId)
+  const updated = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   if (!updated) return { ok: false, error: 'template_not_found' } // unreachable
 
   const warnings: string[] = []

@@ -55,6 +55,13 @@ export interface GuardInboundRequestInput {
    * secret -- computed by the caller, which owns the crypto and the secret
    * lookup; this module only branches on the boolean. */
   signatureValid: boolean
+  /** I-4: sha256hex(rawBody) for a POST, the jobId itself for a signed GET
+   * poll (matches `AuthenticateV2Input.digest` in verify-signature-v2.ts,
+   * and `digest` in the plan's own buildInboundBase formulas). Used ONLY
+   * to distinguish a same-nonce RETRY (same digest) from a same-nonce
+   * REPLAY/TAMPER (different digest) -- never persisted, never compared
+   * for anything else. */
+  digest: string
   rateLimiter: RateLimiterPort
   clock: Clock
   inboundDisabled: boolean
@@ -91,6 +98,13 @@ export function partnerBucketKey(integrationId: string): string {
 
 export function nonceReplayKey(integrationId: string, nonce: string): string {
   return `int001:replay:${integrationId}:${nonce}`
+}
+
+/** I-4: a SECOND key, keyed additionally on `digest`, checked only when
+ * `nonceReplayKey` reports a reuse -- see `guardInboundRequest`'s own Step
+ * 8 comment for the full mechanism. */
+export function nonceReplayBodyKey(integrationId: string, nonce: string, digest: string): string {
+  return `int001:replaybody:${integrationId}:${nonce}:${digest}`
 }
 
 export function preAuthBucketKey(integrationId: string): string {
@@ -203,14 +217,23 @@ export async function guardInboundRequest(input: GuardInboundRequestInput): Prom
     }
   }
 
-  // Step 8 (T-H2): nonce-replay dedup. A byte-identical envelope (same
-  // integration + nonce) presented again inside the window is flagged --
-  // WI-3 decides how to react per endpoint. Note this is deliberately
-  // separate from T-H3b's content-addressed idempotency record (same body,
-  // possibly a DIFFERENT nonce): that mechanism already makes a legitimate
-  // resubmission retry-safe regardless of nonce reuse, so this check's job
-  // is narrower -- defence in depth against a captured signed envelope
-  // being replayed, not response caching.
+  // Step 8 (T-H2 / I-4): nonce-replay dedup, now WITH a same-body check.
+  // A byte-identical envelope (same integration + nonce) presented again
+  // inside the window is either:
+  //   - an idempotent RETRY -- this attempt's `digest` (sha256(rawBody)
+  //     for POST, jobId for GET) matches what this nonce was first seen
+  //     with. Accepted, `replayed: true` -- WI-3 decides how to react per
+  //     endpoint (T-H3b's content-addressed idempotency already makes a
+  //     legitimate POST resubmission safe regardless; GET is read-only).
+  //   - a REPLAY/TAMPER attempt -- the digest differs, meaning a validly-
+  //     signed nonce+signature pair is being reused against a DIFFERENT
+  //     payload than the one it was ever signed for. Rejected with the
+  //     SAME generic 401 shape (and the same auth-failure bucket charge)
+  //     as every other auth failure in this pipeline (I-4 owner ruling,
+  //     2026-09-10 -- see docs/integrations/member-api.md §2).
+  // The nonce-only key still drives `replayed` (unchanged shape/semantics
+  // for callers); the digest key is a second, narrower check consulted
+  // ONLY on a nonce reuse.
   let nonceCheck: { allowed: boolean; count: number }
   try {
     nonceCheck = await input.rateLimiter.incrWindow(
@@ -221,6 +244,29 @@ export async function guardInboundRequest(input: GuardInboundRequestInput): Prom
   } catch {
     return { ok: false, status: 503, error: 'queue_unavailable' }
   }
+  const replayed = !nonceCheck.allowed
 
-  return { ok: true, replayed: !nonceCheck.allowed }
+  // The digest key is recorded on EVERY request (not only once `replayed`
+  // is already known) -- a fresh nonce's own digest must already be on
+  // record by the time a SECOND request with the same nonce arrives, or
+  // there would be nothing for that second request to compare against.
+  let bodyCheck: { allowed: boolean; count: number }
+  try {
+    bodyCheck = await input.rateLimiter.incrWindow(
+      nonceReplayBodyKey(input.integration.id, input.nonce, input.digest),
+      1,
+      REPLAY_WINDOW_SEC
+    )
+  } catch {
+    return { ok: false, status: 503, error: 'queue_unavailable' }
+  }
+
+  if (replayed) {
+    const sameBody = !bodyCheck.allowed
+    if (!sameBody) {
+      return chargeAuthFailureAndDecide(input.rateLimiter, input.integration.id)
+    }
+  }
+
+  return { ok: true, replayed }
 }

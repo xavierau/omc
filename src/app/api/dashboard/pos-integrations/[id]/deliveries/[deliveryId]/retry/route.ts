@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getIntegration } from '@/application/configure-pos-integration'
 import { retryDelivery } from '@/application/retry-delivery'
-import { findDeliveryById } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -9,15 +8,14 @@ import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 type RouteContext = { params: Promise<{ id: string; deliveryId: string }> }
 
 /**
- * `retryDelivery(deliveryId)` (WI-6) is scoped by deliveryId alone -- it
- * expects ITS CALLER to have already proven `deliveryId` belongs to the
- * `[id]` integration (and transitively this tenant) before calling it
- * ("its route already does a scoped existence check", WI-6's own handoff).
- * That scoping happens here: the delivery is loaded and its
- * integrationId/restaurantId compared against the route param and the
- * tenant context BEFORE `retryDelivery` ever runs (#111 lesson — a
- * same-tenant admin must not be able to retry another tenant's, or another
- * integration's, delivery just by knowing its uuid).
+ * WI-14 (G-5, grok review, SEC-001/#111 pattern): `retryDelivery` now
+ * looks up the delivery via a query scoped by BOTH `integrationId` and
+ * `restaurantId` (`findDeliveryByIdForIntegration`), so a foreign-tenant
+ * or foreign-integration delivery id resolves to `not_found` from the
+ * query itself -- no separate unscoped-fetch-then-compare needed here.
+ * `getIntegration(id, ctx.restaurantId)` (already tenant-scoped) still
+ * gates the route so a bad integration id 404s before even reaching the
+ * delivery lookup.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
@@ -29,12 +27,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const delivery = await findDeliveryById(deliveryId)
-    if (!delivery || delivery.snapshot.integrationId !== id || delivery.snapshot.restaurantId !== ctx.restaurantId) {
-      return NextResponse.json({ error: 'not_found' }, { status: 404 })
-    }
-
-    const result = await retryDelivery(deliveryId)
+    const result = await retryDelivery(deliveryId, id, ctx.restaurantId)
     if (!result.ok) {
       if (result.error === 'already_retried') {
         return NextResponse.json({ error: 'already_retried' }, { status: 409 })

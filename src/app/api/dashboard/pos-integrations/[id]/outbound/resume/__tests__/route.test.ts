@@ -65,7 +65,7 @@ describe('POST .../outbound/resume', () => {
     const json = await res.json()
     expect(res.status).toBe(200)
     expect(json.requeued).toBe(37)
-    expect(resumeOutbound).toHaveBeenCalledWith('int-1')
+    expect(resumeOutbound).toHaveBeenCalledWith('int-1', 'rest-1')
   })
 
   it('returns 422 url_invalid when the URL cannot support a resume', async () => {

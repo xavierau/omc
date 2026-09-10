@@ -63,6 +63,31 @@ export async function findDeliveryById(id: string): Promise<IntegrationDelivery 
   return data ? toEntity(data as DeliveryRow) : null
 }
 
+/** WI-14 (G-5, grok review, SEC-001/#111 pattern): the tenant-facing
+ * dashboard retry path's own lookup -- scoped by BOTH `integrationId` AND
+ * `restaurantId` IN THE QUERY, not fetch-then-compare in application code.
+ * A foreign-tenant or foreign-integration delivery id resolves to `null`
+ * here, identically to an unknown id, without the service-role read ever
+ * materialising another tenant's row. `findDeliveryById` (unscoped) stays
+ * as-is for the outbound worker's own internal paths, which have no
+ * per-request tenant to scope by. */
+export async function findDeliveryByIdForIntegration(
+  id: string,
+  integrationId: string,
+  restaurantId: string
+): Promise<IntegrationDelivery | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('integration_deliveries')
+    .select(SELECT_COLUMNS)
+    .eq('id', id)
+    .eq('integration_id', integrationId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`findDeliveryByIdForIntegration: ${error.message}`)
+  return data ? toEntity(data as DeliveryRow) : null
+}
+
 /** Persists every mutable field of `delivery`'s current snapshot. The id
  * (and its immutable integration/restaurant/event linkage) is the WHERE
  * key, never written. */
@@ -86,6 +111,15 @@ export async function saveDelivery(delivery: IntegrationDelivery): Promise<void>
       updated_at: new Date().toISOString(),
     })
     .eq('id', s.id)
+    // G-5 (WI-14, grok review, SEC-001/#111 pattern): restaurant_id is
+    // immutable on this entity (never part of any `.transitionTo(...)`
+    // patch), so adding it to the WHERE clause changes nothing for a
+    // correctly-scoped caller -- it only stops a write whose snapshot
+    // restaurantId doesn't match the row it thinks it's updating, which
+    // can only happen if a future caller obtained the entity through a
+    // path that skipped tenant scoping. Defense in depth alongside the
+    // scoped READ (findDeliveryByIdForIntegration).
+    .eq('restaurant_id', s.restaurantId)
   if (error) throw new Error(`saveDelivery: ${error.message}`)
 }
 

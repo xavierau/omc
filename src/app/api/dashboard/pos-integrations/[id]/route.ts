@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json(responseBody, { status: 400 })
     }
 
-    await updateIntegration(id, parsed.data)
+    await updateIntegration(id, ctx.restaurantId, parsed.data)
     return NextResponse.json({ status: 'ok' })
   } catch (error) {
     if (error instanceof AuthError) {
@@ -69,7 +69,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    await deleteIntegration(id)
+    await deleteIntegration(id, ctx.restaurantId)
     return NextResponse.json({ status: 'ok' })
   } catch (error) {
     if (error instanceof AuthError) {

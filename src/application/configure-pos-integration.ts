@@ -48,6 +48,7 @@ export async function createIntegration(input: CreateInput): Promise<CreateResul
 
 export async function updateIntegration(
   id: string,
+  restaurantId: string,
   updates: { name?: string; status?: 'active' | 'inactive'; fieldMapping?: PosFieldMapping; credentials?: Record<string, unknown> }
 ): Promise<void> {
   if (updates.fieldMapping && !validateFieldMapping(updates.fieldMapping)) {
@@ -63,11 +64,11 @@ export async function updateIntegration(
   if (updates.status !== undefined) safeUpdates.status = updates.status
   if (updates.fieldMapping !== undefined) safeUpdates.fieldMapping = updates.fieldMapping
   if (updates.credentials !== undefined) safeUpdates.credentials = updates.credentials
-  await updatePosIntegration(id, safeUpdates)
+  await updatePosIntegration(id, restaurantId, safeUpdates)
 }
 
-export async function deleteIntegration(id: string): Promise<void> {
-  await deletePosIntegration(id)
+export async function deleteIntegration(id: string, restaurantId: string): Promise<void> {
+  await deletePosIntegration(id, restaurantId)
 }
 
 /**
@@ -92,9 +93,9 @@ export function regenerateWebhookSecret(): string {
  * No migration yet (069 lands in WI-1), so rotation audit is a console log
  * for now; WI-1 adds the integration_settings_audit row.
  */
-export async function rotateInboundSecret(id: string, rotatedBy: string): Promise<string> {
+export async function rotateInboundSecret(id: string, restaurantId: string, rotatedBy: string): Promise<string> {
   const webhookSecret = regenerateWebhookSecret()
-  await updatePosIntegration(id, { webhookSecret })
+  await updatePosIntegration(id, restaurantId, { webhookSecret })
   console.info('pos_integration.inbound_secret_rotated', {
     integrationId: id,
     rotatedBy,

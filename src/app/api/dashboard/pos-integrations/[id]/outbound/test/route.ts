@@ -28,7 +28,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const result = await sendTestEvent(id)
+    const result = await sendTestEvent(id, ctx.restaurantId)
     if (!result.ok) {
       if (result.error === 'integration_not_found') {
         return NextResponse.json({ error: result.error }, { status: 404 })

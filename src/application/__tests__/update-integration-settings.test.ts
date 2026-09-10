@@ -9,7 +9,7 @@ vi.mock('@/infrastructure/supabase/repositories/tenant-trust-queries')
 vi.mock('@/application/validate-outbound-url')
 
 import {
-  findIntegrationSettingsById,
+  findIntegrationSettingsByIdForRestaurant,
   updateIntegrationSettingsFields,
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { recordIntegrationSettingsAudit } from '@/infrastructure/supabase/repositories/integration-settings-audit-repository'
@@ -53,7 +53,7 @@ function settingsWith(overrides: Partial<IntegrationSettingsProps>): Integration
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(findIntegrationSettingsById).mockResolvedValue(settingsWith({}))
+  vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settingsWith({}))
   vi.mocked(updateIntegrationSettingsFields).mockResolvedValue(undefined)
   vi.mocked(recordIntegrationSettingsAudit).mockResolvedValue(undefined)
   vi.mocked(isTenantAutoPaused).mockResolvedValue(false)
@@ -61,13 +61,13 @@ beforeEach(() => {
 
 describe('getIntegrationSettingsView', () => {
   it('returns not_found when no settings row exists', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(null)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(null)
     const result = await getIntegrationSettingsView('int-1', 'rest-1')
     expect(result).toEqual({ ok: false, error: 'not_found' })
   })
 
   it('resolves the current template for display without requiring a patch', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(
       settingsWith({ newJoinTemplateId: '11111111-1111-1111-1111-111111111111' })
     )
     vi.mocked(findByIdForRestaurant).mockResolvedValue({
@@ -82,6 +82,15 @@ describe('getIntegrationSettingsView', () => {
     if (result.ok) {
       expect(result.settings.resolvedTemplate).toEqual({ name: 'Welcome', category: 'UTILITY' })
     }
+  })
+
+  // G-5 (WI-14, grok review, SEC-001/#111 pattern): the read is scoped by
+  // BOTH ids in the query itself, not fetch-then-compare -- proves the
+  // caller's restaurantId actually reaches the repository call.
+  it('G-5: reads through the restaurant-scoped repository lookup with the caller-supplied restaurantId', async () => {
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settingsWith({}))
+    await getIntegrationSettingsView('int-1', 'rest-1')
+    expect(findIntegrationSettingsByIdForRestaurant).toHaveBeenCalledWith('int-1', 'rest-1')
   })
 })
 
@@ -123,7 +132,7 @@ describe('updateIntegrationSettings', () => {
       status: 'approved',
     } as never)
     vi.mocked(isTenantAutoPaused).mockResolvedValue(true)
-    vi.mocked(findIntegrationSettingsById)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant)
       .mockResolvedValueOnce(settingsWith({}))
       .mockResolvedValueOnce(settingsWith({ newJoinTemplateId: 'default' }))
 
@@ -218,7 +227,7 @@ describe('updateIntegrationSettings', () => {
 
   it('saves a valid outbound URL and audits old -> new', async () => {
     vi.mocked(validateOutboundUrl).mockResolvedValue({ ok: true } as never)
-    vi.mocked(findIntegrationSettingsById)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant)
       .mockResolvedValueOnce(settingsWith({}))
       .mockResolvedValueOnce(settingsWith({ outboundUrl: 'https://partner.example.com/hook' }))
 
@@ -231,6 +240,7 @@ describe('updateIntegrationSettings', () => {
     expect(result.ok).toBe(true)
     expect(updateIntegrationSettingsFields).toHaveBeenCalledWith(
       'int-1',
+      'rest-1',
       expect.objectContaining({ outboundUrl: 'https://partner.example.com/hook' })
     )
     expect(recordIntegrationSettingsAudit).toHaveBeenCalledWith(
@@ -246,7 +256,7 @@ describe('updateIntegrationSettings', () => {
   })
 
   it('enabling outbound with URL+secret already saved and pii ack granted in the same patch succeeds', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(
       settingsWith({
         outboundUrl: 'https://partner.example.com/hook',
         outboundSecretLast4: 'ab12',
@@ -262,6 +272,7 @@ describe('updateIntegrationSettings', () => {
     expect(result.ok).toBe(true)
     expect(updateIntegrationSettingsFields).toHaveBeenCalledWith(
       'int-1',
+      'rest-1',
       expect.objectContaining({ outboundEnabled: true })
     )
     const auditFields = vi.mocked(recordIntegrationSettingsAudit).mock.calls.map((call) => call[0].field)
@@ -269,7 +280,7 @@ describe('updateIntegrationSettings', () => {
   })
 
   it('rejects an unknown outboundEvents member at the application layer defensively (pass-through of validator output)', async () => {
-    vi.mocked(findIntegrationSettingsById)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant)
       .mockResolvedValueOnce(settingsWith({}))
       .mockResolvedValueOnce(settingsWith({ outboundEvents: ['member.updated'] }))
 
@@ -286,7 +297,7 @@ describe('updateIntegrationSettings', () => {
   })
 
   it('consentAttestationAck true then false clears ack_at/ack_by', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(
       settingsWith({ consentAttestationAckAt: '2026-01-01T00:00:00Z', consentAttestationAckBy: 'user-1' })
     )
 
@@ -294,12 +305,13 @@ describe('updateIntegrationSettings', () => {
     expect(result.ok).toBe(true)
     expect(updateIntegrationSettingsFields).toHaveBeenCalledWith(
       'int-1',
+      'rest-1',
       expect.objectContaining({ consentAttestationAckAt: null, consentAttestationAckBy: null })
     )
   })
 
   it('a field present in the patch but unchanged from current value writes no audit row', async () => {
-    vi.mocked(findIntegrationSettingsById).mockResolvedValue(
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(
       settingsWith({ consentAttestationText: 'Same text' })
     )
 

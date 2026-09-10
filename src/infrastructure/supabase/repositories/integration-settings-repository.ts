@@ -116,6 +116,31 @@ export async function findIntegrationSettingsById(
 }
 
 /**
+ * WI-14 (G-5, grok review, SEC-001/#111 pattern): the tenant-facing
+ * dashboard's own lookup -- scoped by BOTH `integration_id` AND
+ * `restaurant_id` IN THE QUERY, mirroring
+ * `pos-integration-repository.ts`'s `findPosIntegrationByIdForRestaurant`.
+ * `findIntegrationSettingsById` (unscoped) stays as-is for the worker/
+ * internal paths (delivery attempts, the member-create job), which have no
+ * per-request tenant to scope by.
+ */
+export async function findIntegrationSettingsByIdForRestaurant(
+  integrationId: string,
+  restaurantId: string
+): Promise<IntegrationSettings | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('integration_settings')
+    .select(ENTITY_COLUMNS)
+    .eq('integration_id', integrationId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`findIntegrationSettingsByIdForRestaurant: ${error.message}`)
+  if (!data) return null
+  return toEntity(data as unknown as EntityRow)
+}
+
+/**
  * Decrypts and returns the outbound signing secret for `integrationId`, or
  * null when none is saved. Intended for the delivery path (WI-6) only --
  * never call this from a dashboard route.
@@ -161,6 +186,7 @@ export async function updateIntegrationInboundLimits(
 
 export interface SetOutboundSecretArgs {
   integrationId: string
+  restaurantId: string
   plaintext: string
   actorUserId: string | null
 }
@@ -168,6 +194,9 @@ export interface SetOutboundSecretArgs {
 /**
  * Encrypts and stores a new outbound signing secret, replacing whatever was
  * there before. Returns the last-4 for the caller to show once.
+ *
+ * G-5: WHERE is now `integration_id` AND `restaurant_id` -- defense in
+ * depth alongside the route's own scoped pre-check.
  */
 export async function setOutboundSecret(
   args: SetOutboundSecretArgs
@@ -184,6 +213,7 @@ export async function setOutboundSecret(
       outbound_secret_updated_by: args.actorUserId,
     })
     .eq('integration_id', args.integrationId)
+    .eq('restaurant_id', args.restaurantId)
   if (error) throw new Error(`setOutboundSecret: ${error.message}`)
   return { last4, updatedAt: now }
 }
@@ -207,9 +237,14 @@ export interface UpdateIntegrationSettingsFieldsArgs {
  * are written; `undefined` never appears here (the caller only includes
  * fields the parsed patch actually carried, `null` included where that's a
  * legal value).
+ *
+ * G-5 (WI-14, grok review): `restaurantId` is now a required parameter and
+ * part of the WHERE clause -- defense in depth alongside the route's own
+ * scoped pre-check (SEC-001/#111 pattern).
  */
 export async function updateIntegrationSettingsFields(
   integrationId: string,
+  restaurantId: string,
   updates: UpdateIntegrationSettingsFieldsArgs
 ): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -227,11 +262,13 @@ export async function updateIntegrationSettingsFields(
     .from('integration_settings')
     .update(row)
     .eq('integration_id', integrationId)
+    .eq('restaurant_id', restaurantId)
   if (error) throw new Error(`updateIntegrationSettingsFields: ${error.message}`)
 }
 
 export interface UpdateOutboundBreakerStateArgs {
   integrationId: string
+  restaurantId: string
   outboundFailureStreak: number
   outboundStatus?: OutboundStatus
   outboundPausedAt?: string | null
@@ -245,6 +282,11 @@ export interface UpdateOutboundBreakerStateArgs {
  * plain `.update()` with a client-computed `streak + 1` is a
  * read-modify-write that loses updates under concurrent transient
  * failures to the same integration.
+ *
+ * G-5 (WI-14, grok review): `restaurantId` is now required and part of the
+ * WHERE clause. Both call sites already have a trustworthy restaurantId at
+ * hand -- `deliver-outbound-webhook.ts` from the delivery entity's own
+ * (immutable) snapshot, `resume-outbound.ts` from the tenant-scoped route.
  */
 export async function updateOutboundBreakerState(args: UpdateOutboundBreakerStateArgs): Promise<void> {
   const supabase = createServerSupabaseClient()
@@ -258,6 +300,7 @@ export async function updateOutboundBreakerState(args: UpdateOutboundBreakerStat
     .from('integration_settings')
     .update(row)
     .eq('integration_id', args.integrationId)
+    .eq('restaurant_id', args.restaurantId)
   if (error) throw new Error(`updateOutboundBreakerState: ${error.message}`)
 }
 

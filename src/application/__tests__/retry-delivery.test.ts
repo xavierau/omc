@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/infrastructure/supabase/repositories/integration-delivery-repository', () => ({
-  findDeliveryById: vi.fn(),
+  findDeliveryByIdForIntegration: vi.fn(),
   saveDelivery: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/infrastructure/queue/integration-outbound-queue', () => ({
   addRetryDeliverJob: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { findDeliveryById, saveDelivery } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
+import {
+  findDeliveryByIdForIntegration,
+  saveDelivery,
+} from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { addRetryDeliverJob } from '@/infrastructure/queue/integration-outbound-queue'
 import { IntegrationDelivery, type IntegrationDeliveryProps } from '@/domain/entities/integration-delivery'
 import { retryDelivery } from '../retry-delivery'
@@ -38,9 +41,9 @@ describe('retryDelivery (WI-6 Tests-first: "Retry twice -> 409, one delivery att
   beforeEach(() => vi.clearAllMocks())
 
   it('transitions dead_lettered -> queued, stamps retriedAt, and enqueues the r1 job', async () => {
-    vi.mocked(findDeliveryById).mockResolvedValue(delivery())
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(delivery())
 
-    const result = await retryDelivery('del-1')
+    const result = await retryDelivery('del-1', 'int-1', 'r-1')
 
     expect(result).toEqual({ ok: true })
     expect(saveDelivery).toHaveBeenCalledWith(
@@ -49,10 +52,35 @@ describe('retryDelivery (WI-6 Tests-first: "Retry twice -> 409, one delivery att
     expect(addRetryDeliverJob).toHaveBeenCalledWith('del-1')
   })
 
-  it('a second retry on the same delivery returns already_retried and does NOT enqueue a second job', async () => {
-    vi.mocked(findDeliveryById).mockResolvedValue(delivery({ retriedAt: '2026-09-10T00:11:00.000Z' }))
+  // G-5 (Grok review, SEC-001/#111 pattern): the lookup is scoped by
+  // integrationId AND restaurantId IN THE QUERY (findDeliveryByIdForIntegration),
+  // not a fetch-then-compare in application code -- proven by asserting the
+  // scoped lookup is what gets called, with the caller's own ids.
+  it('G-5: looks up the delivery via a tenant-scoped query (integrationId + restaurantId), never an unscoped fetch-then-compare', async () => {
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(delivery())
 
-    const result = await retryDelivery('del-1')
+    await retryDelivery('del-1', 'int-1', 'r-1')
+
+    expect(findDeliveryByIdForIntegration).toHaveBeenCalledWith('del-1', 'int-1', 'r-1')
+  })
+
+  it('G-5: a delivery id that exists but belongs to another integration/restaurant resolves to not_found -- identical to an unknown id, via the scoped query itself', async () => {
+    // The scoped query returns null for a cross-tenant id (that's what
+    // makes it scoped) -- retryDelivery never sees the foreign row at all.
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(null)
+
+    const result = await retryDelivery('del-1', 'int-foreign', 'r-foreign')
+
+    expect(result).toEqual({ ok: false, error: 'not_found' })
+    expect(findDeliveryByIdForIntegration).toHaveBeenCalledWith('del-1', 'int-foreign', 'r-foreign')
+    expect(saveDelivery).not.toHaveBeenCalled()
+    expect(addRetryDeliverJob).not.toHaveBeenCalled()
+  })
+
+  it('a second retry on the same delivery returns already_retried and does NOT enqueue a second job', async () => {
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(delivery({ retriedAt: '2026-09-10T00:11:00.000Z' }))
+
+    const result = await retryDelivery('del-1', 'int-1', 'r-1')
 
     expect(result).toEqual({ ok: false, error: 'already_retried' })
     expect(addRetryDeliverJob).not.toHaveBeenCalled()
@@ -60,18 +88,18 @@ describe('retryDelivery (WI-6 Tests-first: "Retry twice -> 409, one delivery att
   })
 
   it('a non-dead-lettered delivery (e.g. still queued) is rejected rather than force-retried', async () => {
-    vi.mocked(findDeliveryById).mockResolvedValue(delivery({ status: 'queued' }))
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(delivery({ status: 'queued' }))
 
-    const result = await retryDelivery('del-1')
+    const result = await retryDelivery('del-1', 'int-1', 'r-1')
 
     expect(result).toEqual({ ok: false, error: 'not_dead_lettered' })
     expect(addRetryDeliverJob).not.toHaveBeenCalled()
   })
 
   it('an unknown delivery id returns not_found', async () => {
-    vi.mocked(findDeliveryById).mockResolvedValue(null)
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(null)
 
-    const result = await retryDelivery('del-missing')
+    const result = await retryDelivery('del-missing', 'int-1', 'r-1')
     expect(result).toEqual({ ok: false, error: 'not_found' })
   })
 
@@ -80,11 +108,11 @@ describe('retryDelivery (WI-6 Tests-first: "Retry twice -> 409, one delivery att
     // with retriedAt untouched by the second failure -- the guard is
     // "has this event EVER been retried", not "is it currently dead_lettered
     // for the first time".
-    vi.mocked(findDeliveryById).mockResolvedValue(
+    vi.mocked(findDeliveryByIdForIntegration).mockResolvedValue(
       delivery({ status: 'dead_lettered', retriedAt: '2026-09-10T00:11:00.000Z', attempts: 6 })
     )
 
-    const result = await retryDelivery('del-1')
+    const result = await retryDelivery('del-1', 'int-1', 'r-1')
 
     expect(result).toEqual({ ok: false, error: 'already_retried' })
     expect(addRetryDeliverJob).not.toHaveBeenCalled()

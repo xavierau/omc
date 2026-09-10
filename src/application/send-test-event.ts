@@ -16,7 +16,7 @@
 // item's boundary.
 
 import { randomUUID } from 'node:crypto'
-import { findIntegrationSettingsById } from '@/infrastructure/supabase/repositories/integration-settings-repository'
+import { findIntegrationSettingsByIdForRestaurant } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { findDeliveriesByEventId } from '@/infrastructure/supabase/repositories/integration-delivery-repository'
 import { emitIntegrationEvent } from '@/application/emit-integration-event'
 import type { IntegrationEvent } from '@/domain/entities/integration-event'
@@ -25,8 +25,11 @@ export type SendTestEventResult =
   | { ok: true; deliveryId: string }
   | { ok: false; error: 'integration_not_found' | 'url_not_saved' | 'not_eligible_for_delivery' }
 
-export async function sendTestEvent(integrationId: string): Promise<SendTestEventResult> {
-  const settings = await findIntegrationSettingsById(integrationId)
+export async function sendTestEvent(integrationId: string, restaurantId: string): Promise<SendTestEventResult> {
+  // G-5 (WI-14, grok review, SEC-001/#111 pattern): scoped by BOTH ids in
+  // the query itself, not fetch-then-compare -- defense in depth alongside
+  // the route's own scoped pre-check.
+  const settings = await findIntegrationSettingsByIdForRestaurant(integrationId, restaurantId)
   if (!settings) return { ok: false, error: 'integration_not_found' }
   if (!settings.snapshot.outboundUrl) return { ok: false, error: 'url_not_saved' }
 

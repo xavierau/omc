@@ -11,6 +11,7 @@ import {
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import { E164Phone } from '@/domain/value-objects/e164-phone'
+import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
 
@@ -18,6 +19,28 @@ interface WebRegisterResult {
   isNew: boolean
   memberId: string
   couponCode?: string
+}
+
+/**
+ * G-3 (WI-14, grok review): see register-member.ts's identical helper for
+ * the full mechanism -- `PhoneNumber.create` accepts formats (e.g.
+ * containing a dot) that `E164Phone.of`'s strict assertion rejects, which
+ * used to throw uncaught and 500 the web QR join. Falls back to the same
+ * robust parser the partner API path uses before giving up; a genuinely
+ * unresolvable residual (letters, leading-zero digit runs -- found by the
+ * fast-check property suite) re-throws in `PhoneNumber.create`'s OWN error
+ * shape so this route's own `message.includes('Invalid phone')` -> 400
+ * mapping still recognises it, instead of falling through to a 500.
+ * Exported for the property-test suite (register-member-web.property.test.ts).
+ */
+export function resolveLegacyMemberE164(phone: PhoneNumber): E164Phone {
+  try {
+    return E164Phone.of(phone.value)
+  } catch {
+    const parsed = parseE164Phone(phone.value)
+    if (parsed instanceof E164Phone) return parsed
+    throw new Error(`Invalid phone number: ${phone.value}`)
+  }
 }
 
 export async function registerMemberWeb(
@@ -56,7 +79,7 @@ async function createNewWebMember(
   // threw and now degrades gracefully to the same isNew:false result.
   const result = await createOrGetMember({
     restaurantId,
-    phoneE164: E164Phone.of(phone.value),
+    phoneE164: resolveLegacyMemberE164(phone),
     name,
     preferredLanguage: null,
     source: 'web',

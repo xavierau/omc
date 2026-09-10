@@ -210,6 +210,33 @@ describe('registerMember', () => {
     )
   })
 
+  // G-3 (Grok review): WI-7's seam refactor wraps `PhoneNumber.create`'s
+  // output in `E164Phone.of`, a STRICT format assertion. `PhoneNumber.create`
+  // only strips `[\s\-()]` -- it keeps dots -- so a raw phone like
+  // "+852.9123.4567" (which the OLD pre-seam code accepted, since it never
+  // ran through a strict E.164 check) now throws uncaught inside
+  // `E164Phone.of`, 500-ing the whole WhatsApp join with no member created.
+  // Fixed by falling back to the robust `parseE164Phone` (the SAME parser
+  // the partner API path already uses) when the strict path throws --
+  // repairs a legacy-accepted format into a valid E.164 instead of
+  // crashing, without weakening validation for genuinely invalid input.
+  it('G-3: a dotted phone format the legacy PhoneNumber VO accepted no longer 500s -- parsed via the fallback and the member is created with the clean E.164 value', async () => {
+    mockSingle.mockResolvedValueOnce({ data: null, error: null })
+    mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+    const result = await registerMember(RESTAURANT_ID, '+852.9123.4567', 'Bob')
+
+    expect(result).toEqual({
+      isNew: true,
+      memberId: 'm-new',
+      pointsBalance: 0,
+      couponCode: 'WELCOME1',
+    })
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+85291234567' })
+    )
+  })
+
   it('uses mapped welcome campaign: renders template, creates campaign coupon, increments non-chargeable counter', async () => {
     vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
       welcomeCampaignId: 'camp-welcome',

@@ -100,8 +100,9 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi9-frontend](artifacts/2026-09-10-int-001-wi9-frontend.md) — WI-9: dashboard Integrations list+detail, 4 settings cards, sidebar nav, 88 i18n keys ×2 locales, 173 tests (react-frontend-dev)
 - [2026-09-10-int-001-wi13-backend](artifacts/2026-09-10-int-001-wi13-backend.md) — WI-13: origin_integration_id on member.updated (mig 073) + depth-counter rebuild sweep (senior-backend-dev)
 - [2026-09-10-int-001-wi10-frontend](artifacts/2026-09-10-int-001-wi10-frontend.md) — WI-10: delivery log + activity log tabs, paused banner + resume, retry, test-event→delivery link, 134 tests (react-frontend-dev)
-- [2026-09-10-int-001-wi14-backend](artifacts/2026-09-10-int-001-wi14-backend.md) — WI-14: analyzer review fix round (C-1/C-2/I-1..8/M-1/M-3/M-4), mig 074+075; still BLOCKED per grok review (senior-backend-dev)
+- [2026-09-10-int-001-wi14-backend](artifacts/2026-09-10-int-001-wi14-backend.md) — WI-14+addendum: analyzer fix round + grok G-1..G-5, mig 074-076; gate green, see hand-off for open items (senior-backend-dev)
 - [2026-09-10-int-001-wi15-frontend](artifacts/2026-09-10-int-001-wi15-frontend.md) — WI-15: settings-fetch failure now shows error panel + Retry, not silent/misleading text (react-frontend-dev)
+- [2026-09-10-int-001-wi16-backend](artifacts/2026-09-10-int-001-wi16-backend.md) — WI-16: grok I-4 ruling + rest of G-5 mutation routes; parallel w/ WI-14 addendum (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

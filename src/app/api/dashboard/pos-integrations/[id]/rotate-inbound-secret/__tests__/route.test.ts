@@ -66,7 +66,7 @@ describe('POST /api/dashboard/pos-integrations/[id]/rotate-inbound-secret', () =
 
     expect(res.status).toBe(200)
     expect(json.webhookSecret).toBe('f'.repeat(64))
-    expect(rotateInboundSecret).toHaveBeenCalledWith('int-1', 'user-1')
+    expect(rotateInboundSecret).toHaveBeenCalledWith('int-1', 'rest-1', 'user-1')
   })
 
   it('404s for a foreign-tenant id via the scoped query, before rotating', async () => {

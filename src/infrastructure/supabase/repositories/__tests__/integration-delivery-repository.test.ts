@@ -66,10 +66,14 @@ describe('findDeliveryById + saveDelivery round trip', () => {
     const select = vi.fn().mockReturnValue({ eq })
 
     const updateCaptured: { value?: Record<string, unknown> } = {}
-    const updateEq = vi.fn().mockResolvedValue({ data: null, error: null })
+    // G-5 (WI-14, grok review): the UPDATE is now scoped by id AND
+    // restaurant_id -- .eq().eq() chained, not a single .eq() -- so the
+    // mock must support a second link in the chain.
+    const updateEq2 = vi.fn().mockResolvedValue({ data: null, error: null })
+    const updateEq1 = vi.fn().mockReturnValue({ eq: updateEq2 })
     const update = vi.fn().mockImplementation((patch: Record<string, unknown>) => {
       updateCaptured.value = patch
-      return { eq: updateEq }
+      return { eq: updateEq1 }
     })
 
     const from = vi.fn().mockReturnValue({ select, update })
@@ -84,7 +88,13 @@ describe('findDeliveryById + saveDelivery round trip', () => {
     await saveDelivery(next)
 
     expect(updateCaptured.value).toMatchObject({ status: 'delivering' })
-    expect(updateEq).toHaveBeenCalledWith('id', 'del-1')
+    // G-5: restaurant_id is now part of the WHERE clause too (defense in
+    // depth -- the entity's own restaurantId is immutable, so this never
+    // changes behaviour for a correctly-scoped caller; it only stops a
+    // write whose snapshot restaurantId doesn't match the row it thinks
+    // it's updating).
+    expect(updateEq1).toHaveBeenCalledWith('id', 'del-1')
+    expect(updateEq2).toHaveBeenCalledWith('restaurant_id', 'r-1')
   })
 
   it('returns null when the delivery does not exist', async () => {
