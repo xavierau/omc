@@ -3214,7 +3214,8 @@
           "related": [
             "github:161",
             "kanban:CAMP-013",
-            "kanban:MSG-002"
+            "kanban:MSG-002",
+            "github:168"
           ],
           "priority": "high",
           "sprint": "whatsapp_quality_safeguards",
@@ -3228,12 +3229,13 @@
             "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
             "reviews/2026-09-10-camp-012-013-gstack-review",
             "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
-            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+            "reviews/2026-09-10-camp-012-013-delta-analyzer",
+            "deploys/2026-09-10-camp-012-013-release-runbook"
           ],
           "started_at": "2026-09-10",
           "pr": 164,
           "completed": "2026-09-10",
-          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; RELEASED to prod 2026-09-10 07:26Z via PR #168 (main 4aa77522, release 7884616, BUILD_ID 3d4MGZIglesEHuevjn8cK); entitlement gate passed (Kushiro growth + 5 starter), post-deploy checks all green. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
         },
         {
           "id": "CAMP-013",
@@ -3251,7 +3253,8 @@
           "related": [
             "github:162",
             "kanban:CAMP-012",
-            "kanban:TAG-001"
+            "kanban:TAG-001",
+            "github:168"
           ],
           "priority": "high",
           "sprint": "whatsapp_quality_safeguards",
@@ -3265,12 +3268,13 @@
             "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
             "reviews/2026-09-10-camp-012-013-gstack-review",
             "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
-            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+            "reviews/2026-09-10-camp-012-013-delta-analyzer",
+            "deploys/2026-09-10-camp-012-013-release-runbook"
           ],
           "started_at": "2026-09-10",
           "pr": 164,
           "completed": "2026-09-10",
-          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; RELEASED to prod 2026-09-10 07:26Z via PR #168 (main 4aa77522, release 7884616, BUILD_ID 3d4MGZIglesEHuevjn8cK); entitlement gate passed (Kushiro growth + 5 starter), post-deploy checks all green. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
         }
       ]
     },
