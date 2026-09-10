@@ -4,7 +4,7 @@
  * keeping `.in('id', ids)` calls under PostgREST's URL length; both that
  * helper and the member-id round trip it served are gone with #162 —
  * recipients now resolve through the migration-079 RPCs, so nothing chunks
- * ids any more -- only the page walk and the cross-page dedupe it needs.
+ * ids any more — only the page walk and the cross-page dedupe it needs.
  */
 
 /** PostgREST's own default `max-rows`; one round trip per page. */
@@ -56,8 +56,8 @@ export async function readAllPages<T>(
  *
  * Server-side dedupe (`DISTINCT ON (m.id)` in migration 079) can only see
  * one page. An OFFSET walk indexes positions, not rows: if a matching row is
- * INSERTed between page k and page k+1 -- a merchant tagging members while a
- * large send runs, a CSV tag import, the bulk tag route -- every row at or
+ * INSERTed between page k and page k+1 — a merchant tagging members while a
+ * large send runs, a CSV tag import, the bulk tag route — every row at or
  * after it shifts down one offset position and the row that sat on the page
  * boundary is returned twice. Downstream nothing else dedupes
  * (`bulkCheckMarketingCooldown` composes one decision per phone from a single
