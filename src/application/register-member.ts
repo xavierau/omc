@@ -4,14 +4,14 @@ import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/re
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { E164Phone } from '@/domain/value-objects/e164-phone'
-import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
+import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import { detectLanguageFromText } from '@/domain/services/detect-language'
 import { resolvePreferredLanguage } from '@/domain/services/resolve-preferred-language'
 import { minimalWelcomeText } from './onboarding-defaults'
 import { onboardNewMember } from './onboard-new-member'
 import { sendReturningWelcome } from './send-returning-welcome'
 import { createOrGetMember } from './create-or-get-member'
+import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 interface RegisterResult {
   isNew: boolean
@@ -20,45 +20,14 @@ interface RegisterResult {
   couponCode?: string
 }
 
-/**
- * G-3 (WI-14, grok review): WI-7's seam refactor wraps the legacy
- * `PhoneNumber.create` output in `E164Phone.of` -- a STRICT format
- * assertion (`^\+[1-9]\d{7,14}$`). `PhoneNumber.create` only strips
- * `[\s\-()]`; it keeps dots and other characters, which a pre-seam insert
- * never validated this strictly. A WhatsApp number in a format the legacy
- * VO accepted (e.g. containing a dot) now throws uncaught here, 500-ing
- * the whole join with no member created.
- *
- * Fix: try the strict path first (preserves 100% of today's behaviour and
- * DB-lookup compatibility for the overwhelmingly common clean-input case);
- * only on failure, fall back to `parseE164Phone` -- the SAME
- * libphonenumber-backed parser the partner API path (T-C2) already uses --
- * to repair the legacy-accepted format into a valid E.164 instead of
- * crashing.
- *
- * If that ALSO fails (a fast-check property suite over `PhoneNumber`'s own
- * accepted grammar -- 8-15 digits, any other characters tolerated --
- * found this: a legacy-accepted value containing a letter, or one with a
- * leading-zero digit run, fails BOTH `E164Phone.of` -- for a bare-digit
- * value, `parseE164Phone`'s `[A-Za-z]`-rejecting pre-filter, or
- * libphonenumber itself), the number is genuinely unresolvable. Re-thrown
- * in `PhoneNumber.create`'s OWN error shape (`Invalid phone number: ...`)
- * -- not `E164Phone`'s internal assertion message -- so every caller's
- * EXISTING error handling still recognises it: the web join route's
- * `message.includes('Invalid phone')` -> 400 mapping, and the WhatsApp
- * handler's catch-all (which degrades gracefully regardless of message
- * text, but a recognisable shape is still the honest one to surface).
- * Exported for the property-test suite (register-member.property.test.ts).
- */
-export function resolveLegacyMemberE164(phone: PhoneNumber): E164Phone {
-  try {
-    return E164Phone.of(phone.value)
-  } catch {
-    const parsed = parseE164Phone(phone.value)
-    if (parsed instanceof E164Phone) return parsed
-    throw new Error(`Invalid phone number: ${phone.value}`)
-  }
-}
+// G-3 / N-8: the strict-then-fallback E.164 resolver itself now lives in
+// resolve-legacy-member-e164.ts (shared with register-member-web.ts and,
+// as of N-8, import-contacts-batch-row-member.ts). Re-exported under this
+// module's own name so existing importers -- including
+// resolve-legacy-member-e164.property.test.ts's
+// `resolveLegacyMemberE164 as resolveWhatsappLegacyE164` import -- are
+// unaffected by the extraction.
+export { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 export async function registerMember(
   restaurantId: string,
@@ -67,15 +36,23 @@ export async function registerMember(
   inboundText?: string
 ): Promise<RegisterResult> {
   const phone = PhoneNumber.create(rawPhone)
+  // N-9 (WI-17 confirmation review): resolved ONCE here and threaded through
+  // every DB lookup below (pre-check, seam, race re-select) -- previously
+  // each of those re-derived (or skipped deriving) the E.164 independently,
+  // so a legacy-accepted format (e.g. a dotted phone) that got NORMALISED
+  // on first insert would miss its own pre-check AND its own race re-select
+  // on a second join, throwing "race on create but no row found" -> 500,
+  // even though the member genuinely already existed.
+  const resolvedPhone = resolveLegacyMemberE164(phone)
   const supabase = createServerSupabaseClient()
   const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
 
-  const existing = await findExistingMember(supabase, restaurantId, phone.value)
+  const existing = await findExistingMember(supabase, restaurantId, resolvedPhone.value)
   if (existing) {
     return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
   }
 
-  return createNewMember(restaurantId, phoneNumberId, phone, contactName, inboundText)
+  return createNewMember(restaurantId, phoneNumberId, phone, resolvedPhone, contactName, inboundText)
 }
 
 async function findExistingMember(
@@ -116,6 +93,7 @@ async function createNewMember(
   restaurantId: string,
   phoneNumberId: string,
   phone: PhoneNumber,
+  resolvedPhone: E164Phone,
   contactName?: string,
   inboundText?: string
 ): Promise<RegisterResult> {
@@ -132,14 +110,21 @@ async function createNewMember(
   // gracefully into the same returning-member flow as the pre-check branch.
   const result = await createOrGetMember({
     restaurantId,
-    phoneE164: resolveLegacyMemberE164(phone),
+    phoneE164: resolvedPhone,
     name: contactName ?? null,
     preferredLanguage: memberPreferredLanguage,
     source: 'whatsapp',
   })
 
   if (result.outcome === 'existing') {
-    const existing = await findMemberByPhone(restaurantId, phone.value)
+    // N-9: was `phone.value` (the un-repaired legacy format) -- the seam's
+    // OWN re-select above already resolved this conflict correctly (it was
+    // given `resolvedPhone`), but this SEPARATE lookup (needed only to fetch
+    // the full profile -- points/name/language -- the seam's result doesn't
+    // carry) missed the row whenever the stored phone was normalised from a
+    // legacy format, throwing the "race... no row found" error below on
+    // every second join with the same raw dotted/legacy input.
+    const existing = await findMemberByPhone(restaurantId, resolvedPhone.value)
     if (!existing) {
       // The row that caused the conflict is gone by the time we re-select --
       // surface as an error rather than silently fabricating a result.

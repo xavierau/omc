@@ -58,13 +58,52 @@ describe('MemberJob.partnerView (OD-11)', () => {
     expect(JSON.stringify(view)).not.toMatch(/consent|welcome|coupon|level/i)
   })
 
-  it('failed -> { status, error } only', () => {
+  it('failed -> { status, error } only, verbatim for a known/safe error code', () => {
     const job = MemberJob.fromProps(
-      baseProps({ status: 'failed', error: { code: 'internal', message: 'boom' } })
+      baseProps({ status: 'failed', error: { code: 'tenant_inactive', message: 'tenant_inactive' } })
     )
     expect(job.partnerView()).toEqual({
       status: 'failed',
-      error: { code: 'internal', message: 'boom' },
+      error: { code: 'tenant_inactive', message: 'tenant_inactive' },
+    })
+  })
+
+  // #6 (WI-17, confirmation review, grok): `code: 'internal'` marks a
+  // caught, untyped exception -- its message is whatever the underlying
+  // Postgres/driver/JS error said (I-3 redacts a phone-shaped run, nothing
+  // else). This assertion PROVES WRONG the pre-#6-fix behaviour the old
+  // 'failed -> { status, error } only' test asserted (verbatim passthrough
+  // of `message: 'boom'` for code:'internal') -- that test has been
+  // narrowed above to a known-safe code, and this block covers the
+  // code:'internal' case the fix actually changes.
+  describe('#6: code:\'internal\' never echoes the raw caught-exception message to the partner', () => {
+    it('a raw internal error message (containing a phone and stack-like text) is replaced with the fixed generic string', () => {
+      const job = MemberJob.fromProps(
+        baseProps({
+          status: 'failed',
+          error: {
+            code: 'internal',
+            message: 'insert into "members" ... duplicate key value (phone)=(***4567)\n    at Object.query (/app/pg.js:42:11)',
+          },
+        })
+      )
+      const view = job.partnerView()
+      expect(view).toEqual({
+        status: 'failed',
+        error: { code: 'internal', message: 'An internal error occurred while processing this request.' },
+      })
+      expect(JSON.stringify(view)).not.toMatch(/4567|pg\.js|at Object/)
+    })
+
+    it('the underlying raw message is still readable from the entity\'s own snapshot (server-side / owner-dashboard use, NOT stripped at the source)', () => {
+      const job = MemberJob.fromProps(
+        baseProps({ status: 'failed', error: { code: 'internal', message: 'raw db error text' } })
+      )
+      expect(job.snapshot.error).toEqual({ code: 'internal', message: 'raw db error text' })
+      // ...but partnerView() -- the ONLY partner-facing shape -- is generic.
+      expect((job.partnerView() as { error: { message: string } }).error.message).toBe(
+        'An internal error occurred while processing this request.'
+      )
     })
   })
 

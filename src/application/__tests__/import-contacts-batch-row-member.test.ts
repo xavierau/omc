@@ -90,3 +90,64 @@ describe('resolveMemberId — created flag (B3)', () => {
     }
   })
 })
+
+// N-8 (WI-17 confirmation review, G-3 gap 1): `row.phoneE164` is
+// `PhoneNumber.create(raw).value` -- the LEGACY, non-strict grammar (dots,
+// leading-zero digit runs tolerated), not already a valid E.164. Before this
+// fix, a bare `E164Phone.of(row.phoneE164)` threw for any legacy-accepted
+// format, landed in the generic catch, and was misclassified as
+// `duplicate_active` -- the row was rejected as if it were a DB conflict
+// when it was never imported at all.
+describe('resolveMemberId — N-8: legacy-accepted phone formats route through the SAME fallback the WhatsApp/web join paths use', () => {
+  it('a dotted phone format is imported via the fallback (created=true), NOT rejected as duplicate_active', async () => {
+    vi.mocked(createServerSupabaseClient).mockReturnValue(
+      buildClient({ insertResult: { id: 'mem-dotted' } })
+    )
+
+    const out = await resolveMemberId({
+      restaurantId: 'rest-1',
+      mergeExistingMembers: false,
+      // PhoneNumber.create('+852.9123.4567').value keeps the dots.
+      row: { phoneE164: '+852.9123.4567', name: null, preferredLanguage: null },
+    })
+
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.id).toBe('mem-dotted')
+      expect(out.created).toBe(true)
+    }
+  })
+
+  it('a genuinely unresolvable phone (letter-noised digit run) rejects with reason invalid_phone, never duplicate_active', async () => {
+    vi.mocked(createServerSupabaseClient).mockReturnValue(buildClient({}))
+
+    const out = await resolveMemberId({
+      restaurantId: 'rest-1',
+      mergeExistingMembers: false,
+      // PhoneNumber.create('98x765432').value: 9 digits, within [8,15], but
+      // the embedded letter defeats both E164Phone.of and parseE164Phone.
+      row: { phoneE164: '98x765432', name: null, preferredLanguage: null },
+    })
+
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.reject.reason).toBe('invalid_phone')
+      expect(out.reject.reason).not.toBe('duplicate_active')
+    }
+  })
+
+  it('a clean E.164 phone still resolves via the strict path (no behaviour change for the common case)', async () => {
+    vi.mocked(createServerSupabaseClient).mockReturnValue(
+      buildClient({ insertResult: { id: 'mem-clean' } })
+    )
+
+    const out = await resolveMemberId({
+      restaurantId: 'rest-1',
+      mergeExistingMembers: false,
+      row: { phoneE164: '+85291234567', name: null, preferredLanguage: null },
+    })
+
+    expect(out.ok).toBe(true)
+    if (out.ok) expect(out.id).toBe('mem-clean')
+  })
+})

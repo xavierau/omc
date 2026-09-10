@@ -12,9 +12,10 @@
 // here".
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { E164Phone } from '@/domain/value-objects/e164-phone'
+import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import type { ImportRowRejectReason } from '@/domain/services/__errors__/import-errors'
 import { createOrGetMember } from './create-or-get-member'
+import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>
 
@@ -47,10 +48,30 @@ export async function resolveMemberId(
 }
 
 async function createViaSeam(input: ResolveMemberInput): Promise<ResolveMemberOutcome> {
+  // N-8 (WI-17 confirmation review, G-3 gap 1): `input.row.phoneE164` is
+  // `PhoneNumber.create(raw).value` (import-contacts-batch-validation.ts) --
+  // the SAME legacy, non-strict grammar register-member.ts/register-member-web.ts
+  // accept (dots, leading-zero runs, etc.), not already a valid E.164. A
+  // bare `E164Phone.of` here used to throw for any legacy-accepted format
+  // this validator waved through, land in the catch below, and get
+  // misclassified as `duplicate_active` -- the row was silently rejected as
+  // a duplicate when it was never imported at all. Resolved via the SAME
+  // strict-then-fallback rule the other two member-creation paths use, in
+  // its OWN try/catch so a genuine parse failure (reason: `invalid_phone`)
+  // can never be confused with a DB/seam conflict (reason:
+  // `phone_already_member` / `duplicate_active`, below).
+  let phoneE164
+  try {
+    phoneE164 = resolveLegacyMemberE164(PhoneNumber.create(input.row.phoneE164))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return reject(input.row.phoneE164, 'invalid_phone', message)
+  }
+
   try {
     const result = await createOrGetMember({
       restaurantId: input.restaurantId,
-      phoneE164: E164Phone.of(input.row.phoneE164),
+      phoneE164,
       name: input.row.name,
       preferredLanguage: input.row.preferredLanguage,
       source: 'csv_import',

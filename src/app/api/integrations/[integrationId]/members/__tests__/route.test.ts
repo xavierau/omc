@@ -268,6 +268,50 @@ describe('POST /api/integrations/{integrationId}/members (INT-001 WI-3, US-1)', 
     expect(authenticateIntegrationV2).not.toHaveBeenCalled()
   })
 
+  it('N-1: the pre-auth throttle key is scoped by the TRUSTED client ip (nginx X-Real-IP), not left integration-only', async () => {
+    const takeToken = vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 })
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn().mockResolvedValue(1),
+      decr: vi.fn().mockResolvedValue(0),
+      get: vi.fn().mockResolvedValue(0),
+    } as never)
+    stubAuthOk()
+
+    await POST(
+      req({ phone: '+85298765432', consent_level: 'all' }, { 'x-real-ip': '203.0.113.42' }),
+      params()
+    )
+
+    // First takeToken call is the per-ip pre-auth bucket -- its key must
+    // include the trusted ip, not just the integration id.
+    expect(takeToken.mock.calls[0][0]).toContain('203.0.113.42')
+  })
+
+  it('N-1: a spoofed LEFTMOST X-Forwarded-For hop does not change the pre-auth throttle key -- only the rightmost (nginx-appended) hop is used', async () => {
+    const takeToken = vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 })
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn().mockResolvedValue(1),
+      decr: vi.fn().mockResolvedValue(0),
+      get: vi.fn().mockResolvedValue(0),
+    } as never)
+    stubAuthOk()
+
+    await POST(
+      req(
+        { phone: '+85298765432', consent_level: 'all' },
+        { 'x-forwarded-for': 'attacker-spoofed-identity, 203.0.113.42' }
+      ),
+      params()
+    )
+
+    expect(takeToken.mock.calls[0][0]).toContain('203.0.113.42')
+    expect(takeToken.mock.calls[0][0]).not.toContain('attacker-spoofed-identity')
+  })
+
   it('I-1: Redis unreachable on the pre-auth throttle -> 503, fails closed (never falls through to a DB read)', async () => {
     const takeToken = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
     vi.mocked(getInboundRateLimiter).mockReturnValue({

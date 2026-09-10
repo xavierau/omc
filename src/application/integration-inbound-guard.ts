@@ -37,8 +37,28 @@ export const REPLAY_WINDOW_SEC = 600
 // live in the DB row this gate exists to avoid reading): a fixed, generous
 // ceiling that only ever engages once genuinely flood-level traffic is
 // hitting an integration's URL, unauthenticated or not.
+//
+// N-1 (WI-17, confirmation review): this bucket used to be keyed on
+// `integrationId` ALONE -- a public URL parameter, not a secret -- and
+// gated ALL traffic to that integration. An unauthenticated caller flooding
+// the URL with junk could exhaust it and 429 the partner's OWN signed
+// traffic at the very first statement: exactly the outcome T-H5's "charge
+// after signature" rule exists to prevent, reintroduced one bucket earlier.
+// Fixed the same way I-2 fixed the auth-failure bucket's OWN
+// keying mistake, but the other direction: keyed on (integrationId,
+// TRUSTED client ip) below, so a flood from one real IP (however many
+// spoofed LEFTMOST X-Forwarded-For values it rotates through, since
+// `extractTrustedClientIp` reads only what nginx itself writes) throttles
+// itself without touching a different real IP's -- e.g. the partner's own
+// -- budget for the SAME integration. `PRE_AUTH_CEILING_*` below is kept as
+// a much higher, integrationId-ONLY last-resort ceiling purely to bound
+// aggregate DB-read cost against a genuinely distributed flood (many real
+// IPs each individually under the per-IP limit) -- see checkPreAuthThrottle.
 export const PRE_AUTH_RATE_PER_MIN = 300
 export const PRE_AUTH_BURST = 50
+export const PRE_AUTH_CEILING_MULTIPLIER = 10
+export const PRE_AUTH_CEILING_RATE_PER_MIN = PRE_AUTH_RATE_PER_MIN * PRE_AUTH_CEILING_MULTIPLIER
+export const PRE_AUTH_CEILING_BURST = PRE_AUTH_BURST * PRE_AUTH_CEILING_MULTIPLIER
 
 export interface GuardIntegration {
   id: string
@@ -107,8 +127,44 @@ export function nonceReplayBodyKey(integrationId: string, nonce: string, digest:
   return `int001:replaybody:${integrationId}:${nonce}:${digest}`
 }
 
-export function preAuthBucketKey(integrationId: string): string {
-  return `int001:preauth:${integrationId}`
+// N-1: keyed on (integrationId, trusted client ip) -- see extractTrustedClientIp.
+export function preAuthBucketKey(integrationId: string, clientIp: string): string {
+  return `int001:preauth:${integrationId}:${clientIp}`
+}
+
+// N-1: the last-resort, integrationId-ONLY ceiling -- see this file's own
+// N-1 header comment above PRE_AUTH_RATE_PER_MIN for what this bucket is
+// (and, as importantly, is NOT) for.
+export function preAuthCeilingBucketKey(integrationId: string): string {
+  return `int001:preauthceil:${integrationId}`
+}
+
+/**
+ * N-1: the trusted client IP for the pre-auth gate -- nginx sits in front
+ * of this app and sets `X-Real-IP` to `$remote_addr` (the actual TCP peer,
+ * never client-controlled) on every request, and appends that SAME value as
+ * the RIGHTMOST hop of `X-Forwarded-For` via `$proxy_add_x_forwarded_for`.
+ * Unlike `audit-logger.ts`'s `extractIp` (reads the FIRST X-Forwarded-For
+ * hop -- purely client-supplied text, freely spoofable, and fine for an
+ * audit-log ip_address column but not for a security-relevant rate-limit
+ * key), this reads ONLY the parts nginx itself writes: `X-Real-IP` first,
+ * then the rightmost `X-Forwarded-For` hop as a fallback for a deployment
+ * without `X-Real-IP` set. A caller with no proxy in front of it at all
+ * (local dev, tests) gets `'unknown'` -- still a valid, single shared
+ * bucket key, just not IP-differentiated.
+ */
+export function extractTrustedClientIp(request: Request): string {
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp && realIp.trim()) return realIp.trim()
+  const xff = request.headers.get('x-forwarded-for')
+  if (xff) {
+    const hops = xff
+      .split(',')
+      .map((hop) => hop.trim())
+      .filter((hop) => hop.length > 0)
+    if (hops.length > 0) return hops[hops.length - 1]
+  }
+  return 'unknown'
 }
 
 export type PreAuthThrottleDecision =
@@ -117,24 +173,45 @@ export type PreAuthThrottleDecision =
   | { ok: false; status: 503; error: 'queue_unavailable' }
 
 /**
- * I-1: the very first thing the route calls -- before `findIntegrationSettingsById`,
- * before `authenticateIntegrationV2` (itself another Postgres read), before
- * `request.text()` buffers the body. Keyed on `integrationId` alone (the
- * URL param, not a secret), so it needs no DB row and no signature to
- * compute. Fails CLOSED on a Redis outage (T-H5's posture): an outage must
- * not silently let an unbounded, uncounted flood through to the DB reads
- * this gate exists to protect.
+ * I-1/N-1: the very first thing the route calls -- before
+ * `findIntegrationSettingsById`, before `authenticateIntegrationV2` (itself
+ * another Postgres read), before `request.text()` buffers the body. Two
+ * buckets, checked in order:
+ *   1. (integrationId, trustedClientIp) -- the PRIMARY defence (N-1): a
+ *      flood from one real IP throttles itself without ever touching a
+ *      DIFFERENT real IP's budget for the same integration, so an
+ *      unauthenticated flood can no longer 429 the partner's own signed
+ *      traffic. Checked first and returns immediately on rejection, so a
+ *      throttled caller never also consumes the ceiling bucket below.
+ *   2. integrationId ALONE, a much higher ceiling -- a last-resort guard
+ *      against a genuinely DISTRIBUTED flood (many distinct real IPs, each
+ *      individually under bucket 1's limit) that would otherwise still
+ *      reach Postgres in aggregate. Only requests that already cleared
+ *      bucket 1 count against it, so ordinary multi-IP partner traffic
+ *      never comes close to tripping it.
+ * Needs no DB row and no signature to compute either check. Fails CLOSED on
+ * a Redis outage (T-H5's posture): an outage must not silently let an
+ * unbounded, uncounted flood through to the DB reads this gate exists to
+ * protect.
  */
 export async function checkPreAuthThrottle(
   rateLimiter: RateLimiterPort,
-  integrationId: string
+  integrationId: string,
+  clientIp: string
 ): Promise<PreAuthThrottleDecision> {
   try {
-    const result = await rateLimiter.takeToken(preAuthBucketKey(integrationId), {
+    const perIp = await rateLimiter.takeToken(preAuthBucketKey(integrationId, clientIp), {
       ratePerMin: PRE_AUTH_RATE_PER_MIN,
       burst: PRE_AUTH_BURST,
     })
-    if (!result.allowed) {
+    if (!perIp.allowed) {
+      return { ok: false, status: 429, error: 'rate_limited' }
+    }
+    const ceiling = await rateLimiter.takeToken(preAuthCeilingBucketKey(integrationId), {
+      ratePerMin: PRE_AUTH_CEILING_RATE_PER_MIN,
+      burst: PRE_AUTH_CEILING_BURST,
+    })
+    if (!ceiling.allowed) {
       return { ok: false, status: 429, error: 'rate_limited' }
     }
     return { ok: true }

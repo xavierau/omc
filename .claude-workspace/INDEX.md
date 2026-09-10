@@ -104,6 +104,7 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi14-backend](artifacts/2026-09-10-int-001-wi14-backend.md) — WI-14+addendum: analyzer fix round + grok G-1..G-5, mig 074-076; gate green, see hand-off for open items (senior-backend-dev)
 - [2026-09-10-int-001-wi15-frontend](artifacts/2026-09-10-int-001-wi15-frontend.md) — WI-15: settings-fetch failure now shows error panel + Retry, not silent/misleading text (react-frontend-dev)
 - [2026-09-10-int-001-wi16-backend](artifacts/2026-09-10-int-001-wi16-backend.md) — WI-16: grok I-4 ruling + rest of G-5 mutation routes; parallel w/ WI-14 addendum (senior-backend-dev)
+- [2026-09-10-int-001-wi17-backend](artifacts/2026-09-10-int-001-wi17-backend.md) — WI-17: N-1 trusted-ip bucket, N-2 (no fix needed), N-8/N-9 phone-resolver DRY, #6 generic error msg; gate green (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

@@ -151,7 +151,8 @@ lines all cast the literal to `::text` before array-append.
 
 | Key pattern | TTL | Purpose |
 |---|---|---|
-| `int001:preauth:{integrationId}` | 120s (re-armed on every use) | **(WI-14 I-1)** cheap pre-auth throttle, generous (300/min, burst 50) — checked BEFORE any Postgres read or body buffering, keyed on `integrationId` alone so it needs no DB row |
+| `int001:preauth:{integrationId}:{trustedClientIp}` | 120s (re-armed on every use) | **(WI-14 I-1, re-keyed WI-17 N-1)** cheap pre-auth throttle, generous (300/min, burst 50) — checked BEFORE any Postgres read or body buffering, needs no DB row. **Ops precondition**: nginx MUST set `X-Real-IP` to the real connecting peer (or append it as the rightmost `X-Forwarded-For` hop via `$proxy_add_x_forwarded_for`) — `extractTrustedClientIp` reads ONLY those two, never the client-supplied leftmost XFF hop. Without that header set correctly every request resolves to the shared `'unknown'` bucket, degrading back to the pre-N-1 integrationId-only behaviour (an unauthenticated flood could then 429 the partner's own traffic) |
+| `int001:preauthceil:{integrationId}` | 120s (re-armed on every use) | **(WI-17 N-1)** integrationId-ONLY last-resort ceiling, 10x the per-ip rate/burst (3000/min, burst 500) — bounds aggregate DB-read cost against a genuinely distributed flood (many real IPs each individually under the per-ip limit above); only requests that already clear the per-ip bucket count against it |
 | `int001:idem:{jobId}` | 24h (86400s) | fast-path idempotency cache for a create request's content-addressed job id — Postgres's `job_id` primary key is the actual correctness backstop |
 | `int001:depth:{integrationId}` | none (plain counter, INCR/DECR) | per-integration in-flight job count against `inbound_queue_cap` (default 500) — reconciled against Postgres every 5 minutes, see §7 |
 | `int001:rl:{integrationId}` | 120s (re-armed on every use) | partner token bucket (default 60/min, burst 20) |

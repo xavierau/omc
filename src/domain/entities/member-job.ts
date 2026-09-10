@@ -40,6 +40,20 @@ export type MemberJobPartnerView =
   | { status: 'succeeded'; member_id: string; outcome: MemberJobOutcome }
   | { status: 'failed'; error: MemberJobError }
 
+// #6 (WI-17 confirmation review, grok): `code: 'internal'` marks a CAUGHT,
+// untyped exception (process-member-create-job.ts's generic catch) -- its
+// `message` is whatever the underlying Postgres/driver/JS error said
+// (phone-redacted by I-3, nothing else redacted). That raw text is for
+// ops/the tenant owner ONLY: it stays exactly as persisted, still readable
+// via `snapshot.error.message` (the owner's activity log, WI-8) and the
+// Slack alert `process-member-create-job.ts` sends alongside it -- this
+// constant is substituted ONLY in `partnerView()` below, never written back
+// to the stored row. Every OTHER code this job ever finalises with
+// (`tenant_inactive`, `integration_paused` -- `PermanentJobFailure`'s own
+// `code`, which IS its `message`) is already a fixed, safe, non-internal
+// string and passes through unchanged.
+const GENERIC_INTERNAL_ERROR_MESSAGE = 'An internal error occurred while processing this request.'
+
 export class MemberJob {
   private constructor(private readonly props: MemberJobProps) {}
 
@@ -67,7 +81,11 @@ export class MemberJob {
     if (!p.error) {
       throw new Error('MemberJob: failed status requires an error')
     }
-    return { status: 'failed', error: p.error }
+    // #6: 'internal' is the one code whose message is an arbitrary caught
+    // exception's text, never partner-safe -- see GENERIC_INTERNAL_ERROR_MESSAGE.
+    const error: MemberJobError =
+      p.error.code === 'internal' ? { code: p.error.code, message: GENERIC_INTERNAL_ERROR_MESSAGE } : p.error
+    return { status: 'failed', error }
   }
 
   isExpired(now: Date): boolean {

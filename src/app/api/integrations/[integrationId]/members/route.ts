@@ -13,6 +13,7 @@ import {
   DEFAULT_PARTNER_BURST,
   DEFAULT_PARTNER_RATE_PER_MIN,
   checkPreAuthThrottle,
+  extractTrustedClientIp,
 } from '@/application/integration-inbound-guard'
 import { systemClock } from '@/infrastructure/clock/system-clock'
 import { validateCreateMemberBody } from '@/infrastructure/validation/integration-member-validators'
@@ -44,13 +45,15 @@ function jobIdKeyOrThrow(): string {
 export async function POST(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   const { integrationId } = await params
 
-  // I-1/I-2: cheap, integration-scoped throttle checked BEFORE anything
+  // I-1/N-1: cheap, integration-scoped throttle checked BEFORE anything
   // else -- no Postgres read (not `findIntegrationSettingsById` below, not
   // `findPosIntegrationById` inside authenticateIntegrationV2) and no body
-  // buffering has happened yet. Keyed on integrationId alone, so a
-  // client-controlled header can't be used to dodge it (I-2's XFF-spoofing
-  // lesson applied here too).
-  const preAuth = await checkPreAuthThrottle(getInboundRateLimiter(), integrationId)
+  // buffering has happened yet. Keyed on (integrationId, trusted client ip)
+  // -- see integration-inbound-guard.ts's own N-1 comment for why this is
+  // the TRUSTED ip (nginx's own X-Real-IP / rightmost XFF hop), not the
+  // client-controlled first hop I-2 found unsafe for the auth-failure
+  // bucket.
+  const preAuth = await checkPreAuthThrottle(getInboundRateLimiter(), integrationId, extractTrustedClientIp(request))
   if (!preAuth.ok) {
     const headers = preAuth.status === 429 ? { 'Retry-After': '5' } : undefined
     return NextResponse.json({ error: preAuth.error }, { status: preAuth.status, headers })

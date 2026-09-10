@@ -21,13 +21,14 @@ import { GET } from '../route'
 const INTEGRATION_ID = 'int-1'
 const JOB_ID = 'mj_abc'
 
-function req(): NextRequest {
+function req(headers: Record<string, string> = {}): NextRequest {
   return new NextRequest(`http://localhost/api/integrations/${INTEGRATION_ID}/members/jobs/${JOB_ID}`, {
     method: 'GET',
     headers: {
       'x-omc-timestamp': '1700000000',
       'x-omc-nonce': 'a'.repeat(16),
       'x-omc-signature': 'v2=' + 'b'.repeat(64),
+      ...headers,
     },
   })
 }
@@ -137,6 +138,26 @@ describe('GET /api/integrations/{integrationId}/members/jobs/{jobId} (INT-001 WI
     expect(json).toEqual({ status: 'queued', submitted_at: '2026-09-10T00:00:00.000Z', attempts: 0 })
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('replayed'), expect.anything())
     warnSpy.mockRestore()
+  })
+
+  it('N-1: the pre-auth throttle key is scoped by the TRUSTED client ip (nginx X-Real-IP)', async () => {
+    const takeToken = vi.fn().mockResolvedValue({ allowed: true, remaining: 99, retryAfterSec: 0 })
+    vi.mocked(getInboundRateLimiter).mockReturnValue({
+      takeToken,
+      incrWindow: vi.fn().mockResolvedValue({ allowed: true, count: 1 }),
+      incr: vi.fn(),
+      decr: vi.fn(),
+      get: vi.fn(),
+    } as never)
+    stubAuthOk()
+    vi.mocked(getMemberJob).mockResolvedValue({
+      ok: true,
+      view: { status: 'queued', submitted_at: '2026-09-10T00:00:00.000Z', attempts: 0 },
+    })
+
+    await GET(req({ 'x-real-ip': '203.0.113.42' }), params())
+
+    expect(takeToken.mock.calls[0][0]).toContain('203.0.113.42')
   })
 
   it('I-1: Redis unreachable on the pre-auth throttle -> 503, fails closed', async () => {

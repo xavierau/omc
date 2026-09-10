@@ -10,10 +10,10 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { E164Phone } from '@/domain/value-objects/e164-phone'
-import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
+import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
+import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -21,27 +21,14 @@ interface WebRegisterResult {
   couponCode?: string
 }
 
-/**
- * G-3 (WI-14, grok review): see register-member.ts's identical helper for
- * the full mechanism -- `PhoneNumber.create` accepts formats (e.g.
- * containing a dot) that `E164Phone.of`'s strict assertion rejects, which
- * used to throw uncaught and 500 the web QR join. Falls back to the same
- * robust parser the partner API path uses before giving up; a genuinely
- * unresolvable residual (letters, leading-zero digit runs -- found by the
- * fast-check property suite) re-throws in `PhoneNumber.create`'s OWN error
- * shape so this route's own `message.includes('Invalid phone')` -> 400
- * mapping still recognises it, instead of falling through to a 500.
- * Exported for the property-test suite (register-member-web.property.test.ts).
- */
-export function resolveLegacyMemberE164(phone: PhoneNumber): E164Phone {
-  try {
-    return E164Phone.of(phone.value)
-  } catch {
-    const parsed = parseE164Phone(phone.value)
-    if (parsed instanceof E164Phone) return parsed
-    throw new Error(`Invalid phone number: ${phone.value}`)
-  }
-}
+// G-3 / N-8: the strict-then-fallback E.164 resolver itself now lives in
+// resolve-legacy-member-e164.ts (shared with register-member.ts and, as of
+// N-8, import-contacts-batch-row-member.ts). Re-exported under this
+// module's own name so existing importers -- including
+// resolve-legacy-member-e164.property.test.ts's
+// `resolveLegacyMemberE164 as resolveWebLegacyE164` import -- are
+// unaffected by the extraction.
+export { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 export async function registerMemberWeb(
   rawPhone: string,
@@ -49,24 +36,32 @@ export async function registerMemberWeb(
   restaurantId: string
 ): Promise<WebRegisterResult> {
   const phone = PhoneNumber.create(rawPhone)
+  // N-9 (WI-17 confirmation review): resolved ONCE and used for the
+  // pre-check below -- was `phone.value` (the un-repaired legacy format),
+  // so a member first created via the fallback (stored normalised) missed
+  // its own pre-check on a second join with the same raw dotted/legacy
+  // input, fell into the seam, and only avoided a 500 because the seam's
+  // OWN re-select (member-create-repository.ts, fed this SAME resolved
+  // value) already found the row correctly.
+  const resolvedPhone = resolveLegacyMemberE164(phone)
   const supabase = createServerSupabaseClient()
 
   const { data: existing } = await supabase
     .from('members')
     .select('id')
     .eq('restaurant_id', restaurantId)
-    .eq('phone', phone.value)
+    .eq('phone', resolvedPhone.value)
     .single()
 
   if (existing) {
     return { isNew: false, memberId: existing.id }
   }
 
-  return createNewWebMember(phone, contactName, restaurantId)
+  return createNewWebMember(resolvedPhone, contactName, restaurantId)
 }
 
 async function createNewWebMember(
-  phone: PhoneNumber,
+  resolvedPhone: E164Phone,
   name: string,
   restaurantId: string
 ): Promise<WebRegisterResult> {
@@ -79,7 +74,7 @@ async function createNewWebMember(
   // threw and now degrades gracefully to the same isNew:false result.
   const result = await createOrGetMember({
     restaurantId,
-    phoneE164: resolveLegacyMemberE164(phone),
+    phoneE164: resolvedPhone,
     name,
     preferredLanguage: null,
     source: 'web',

@@ -20,14 +20,18 @@ import {
   AUTH_FAILURE_WINDOW_SEC,
   DEFAULT_PARTNER_BURST,
   DEFAULT_PARTNER_RATE_PER_MIN,
+  PRE_AUTH_BURST,
+  PRE_AUTH_CEILING_BURST,
   TIMESTAMP_TOLERANCE_SEC,
   authFailureBucketKey,
   checkPreAuthThrottle,
+  extractTrustedClientIp,
   guardInboundRequest,
   nonceReplayBodyKey,
   nonceReplayKey,
   partnerBucketKey,
   preAuthBucketKey,
+  preAuthCeilingBucketKey,
   type GuardInboundRequestInput,
 } from '../integration-inbound-guard'
 
@@ -307,32 +311,107 @@ describe('guardInboundRequest: auth-failure bucket (T-H5 poisoning defence)', ()
   })
 })
 
-describe('checkPreAuthThrottle (I-1: cheap pre-auth gate, before any DB read or body buffering)', () => {
+describe('checkPreAuthThrottle (I-1/N-1: cheap pre-auth gate, before any DB read or body buffering)', () => {
   it('allows a request within the generous default budget', async () => {
     const clock = new FakeClock(NOW)
     const rateLimiter = new FakeRateLimiter(clock)
-    const decision = await checkPreAuthThrottle(rateLimiter, 'int-1')
+    const decision = await checkPreAuthThrottle(rateLimiter, 'int-1', '203.0.113.9')
     expect(decision).toEqual({ ok: true })
   })
 
-  it('a flood against ONE integration eventually 429s, keyed on integrationId only (no DB/body needed to compute the key)', async () => {
+  it('a flood against ONE (integration, ip) eventually 429s', async () => {
     const clock = new FakeClock(NOW)
     const rateLimiter = new FakeRateLimiter(clock)
     const decisions = []
     for (let i = 0; i < 400; i += 1) {
-      decisions.push(await checkPreAuthThrottle(rateLimiter, 'int-flood'))
+      decisions.push(await checkPreAuthThrottle(rateLimiter, 'int-flood', '203.0.113.9'))
     }
     expect(decisions.some((d) => !d.ok && d.status === 429 && d.error === 'rate_limited')).toBe(true)
   })
 
-  it('a flood against integration A never consumes integration B budget', async () => {
+  it('a flood against integration A never consumes integration B budget (same ip)', async () => {
     const clock = new FakeClock(NOW)
     const rateLimiter = new FakeRateLimiter(clock)
     for (let i = 0; i < 400; i += 1) {
-      await checkPreAuthThrottle(rateLimiter, 'int-a')
+      await checkPreAuthThrottle(rateLimiter, 'int-a', '203.0.113.9')
     }
-    const decisionB = await checkPreAuthThrottle(rateLimiter, 'int-b')
+    const decisionB = await checkPreAuthThrottle(rateLimiter, 'int-b', '203.0.113.9')
     expect(decisionB).toEqual({ ok: true })
+  })
+
+  // N-1: the actual bug this dispatch fixes -- an unauthenticated flood
+  // used to be keyed on integrationId ALONE, so it could 429 a partner's
+  // own signed traffic on the SAME integration. Rotating the LEFTMOST
+  // X-Forwarded-For value (the one `extractTrustedClientIp` deliberately
+  // ignores) doesn't help the attacker: every request still shares the same
+  // TRUSTED ip, so they all land in the same per-ip bucket and throttle
+  // themselves -- while a different real ip (the partner's) on the SAME
+  // integration gets an untouched budget.
+  describe('N-1: per-ip bucket isolates an unauthenticated flood from the partner\'s own traffic', () => {
+    it('1000 requests from rotating spoofed identities but ONE real (trusted) ip do not 429 a concurrent request from a DIFFERENT real ip on the same integration', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      const attackerDecisions = []
+      for (let i = 0; i < 1000; i += 1) {
+        // The attacker's TRUSTED ip never changes -- only what they'd send
+        // as a leftmost X-Forwarded-For hop would, which this bucket never
+        // sees at all (the route resolves clientIp via extractTrustedClientIp
+        // before this function is ever called).
+        attackerDecisions.push(await checkPreAuthThrottle(rateLimiter, 'int-1', '198.51.100.7'))
+      }
+      // The attacker's own bucket throttles them (proves the flood was real).
+      expect(attackerDecisions.some((d) => !d.ok && d.status === 429)).toBe(true)
+
+      // A concurrent, legitimate request from the PARTNER's own real ip on
+      // the SAME integration must sail through untouched.
+      const partnerDecision = await checkPreAuthThrottle(rateLimiter, 'int-1', '203.0.113.55')
+      expect(partnerDecision).toEqual({ ok: true })
+    })
+
+    it('the same 1000-request flood from ONE real ip IS throttled (never silently let through)', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      let sawThrottle = false
+      for (let i = 0; i < 1000; i += 1) {
+        const decision = await checkPreAuthThrottle(rateLimiter, 'int-1', '198.51.100.7')
+        if (!decision.ok && decision.status === 429) sawThrottle = true
+      }
+      expect(sawThrottle).toBe(true)
+    })
+
+    it('the integrationId-only ceiling still trips on a TRUE distributed flood (many distinct real ips, each individually under the per-ip limit)', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      const decisions = []
+      // One request per distinct ip -- always clears the per-ip bucket
+      // (burst >= 1), so every one of these attempts the ceiling bucket.
+      // PRE_AUTH_CEILING_BURST is a fixed initial capacity with the clock
+      // frozen (no refill), so this must eventually trip it.
+      for (let i = 0; i < PRE_AUTH_CEILING_BURST + 50; i += 1) {
+        decisions.push(await checkPreAuthThrottle(rateLimiter, 'int-1', `distinct-ip-${i}`))
+      }
+      expect(decisions.some((d) => !d.ok && d.status === 429 && d.error === 'rate_limited')).toBe(true)
+    })
+
+    it('a request throttled by the per-ip bucket never also consumes the ceiling bucket (short-circuits before the ceiling check)', async () => {
+      const clock = new FakeClock(NOW)
+      const rateLimiter = new FakeRateLimiter(clock)
+      // Exhaust ONE ip's per-ip bucket well past its own limit.
+      for (let i = 0; i < PRE_AUTH_BURST + 20; i += 1) {
+        await checkPreAuthThrottle(rateLimiter, 'int-1', '198.51.100.7')
+      }
+      // The ceiling bucket itself must still be untouched -- proven by a
+      // fresh ip immediately getting the full per-ip burst (which would
+      // itself trip the ceiling if the flood above had also been charged
+      // to it, since the ceiling's burst is only 10x one ip's burst and
+      // the flood above sent far more than 10x PRE_AUTH_BURST attempts).
+      let allowedForFreshIp = 0
+      for (let i = 0; i < PRE_AUTH_BURST; i += 1) {
+        const decision = await checkPreAuthThrottle(rateLimiter, 'int-1', '203.0.113.200')
+        if (decision.ok) allowedForFreshIp += 1
+      }
+      expect(allowedForFreshIp).toBe(PRE_AUTH_BURST)
+    })
   })
 
   it('fails CLOSED (503 queue_unavailable) when Redis itself is unreachable -- never lets an unauthenticated flood through uncounted (T-H5 posture)', async () => {
@@ -356,12 +435,50 @@ describe('checkPreAuthThrottle (I-1: cheap pre-auth gate, before any DB read or 
         throw new Error('ECONNREFUSED')
       },
     }
-    const decision = await checkPreAuthThrottle(throwing, 'int-1')
+    const decision = await checkPreAuthThrottle(throwing, 'int-1', '203.0.113.9')
     expect(decision).toEqual({ ok: false, status: 503, error: 'queue_unavailable' })
   })
 
-  it('preAuthBucketKey scopes to the integration (distinct keys per integration)', () => {
-    expect(preAuthBucketKey('int-1')).not.toBe(preAuthBucketKey('int-2'))
+  it('preAuthBucketKey scopes to (integration, ip) -- distinct keys per integration and per ip', () => {
+    expect(preAuthBucketKey('int-1', '1.2.3.4')).not.toBe(preAuthBucketKey('int-2', '1.2.3.4'))
+    expect(preAuthBucketKey('int-1', '1.2.3.4')).not.toBe(preAuthBucketKey('int-1', '5.6.7.8'))
+  })
+
+  it('preAuthCeilingBucketKey scopes to the integration only', () => {
+    expect(preAuthCeilingBucketKey('int-1')).not.toBe(preAuthCeilingBucketKey('int-2'))
+  })
+})
+
+describe('extractTrustedClientIp (N-1)', () => {
+  function req(headers: Record<string, string>): Request {
+    return new Request('https://example.test/x', { headers })
+  }
+
+  it('prefers X-Real-IP (nginx-set, never client-controlled)', () => {
+    expect(
+      extractTrustedClientIp(req({ 'x-real-ip': '203.0.113.10', 'x-forwarded-for': '9.9.9.9, 203.0.113.10' }))
+    ).toBe('203.0.113.10')
+  })
+
+  it('falls back to the RIGHTMOST X-Forwarded-For hop (the one nginx itself appends), never the leftmost client-supplied one', () => {
+    expect(extractTrustedClientIp(req({ 'x-forwarded-for': '9.9.9.9, 8.8.8.8, 203.0.113.10' }))).toBe(
+      '203.0.113.10'
+    )
+  })
+
+  it('a single-hop X-Forwarded-For (no proxy chain) is used as-is', () => {
+    expect(extractTrustedClientIp(req({ 'x-forwarded-for': '203.0.113.10' }))).toBe('203.0.113.10')
+  })
+
+  it('returns "unknown" when neither header is present, rather than throwing', () => {
+    expect(extractTrustedClientIp(req({}))).toBe('unknown')
+  })
+
+  it('an attacker spoofing ONLY the leftmost X-Forwarded-For hop cannot change the resolved trusted ip', () => {
+    const a = extractTrustedClientIp(req({ 'x-forwarded-for': 'spoofed-identity-1, 203.0.113.10' }))
+    const b = extractTrustedClientIp(req({ 'x-forwarded-for': 'spoofed-identity-2, 203.0.113.10' }))
+    expect(a).toBe('203.0.113.10')
+    expect(b).toBe('203.0.113.10')
   })
 })
 

@@ -12,6 +12,7 @@ import {
   DEFAULT_PARTNER_BURST,
   DEFAULT_PARTNER_RATE_PER_MIN,
   checkPreAuthThrottle,
+  extractTrustedClientIp,
 } from '@/application/integration-inbound-guard'
 import { systemClock } from '@/infrastructure/clock/system-clock'
 import { findIntegrationSettingsById } from '@/infrastructure/supabase/repositories/integration-settings-repository'
@@ -25,9 +26,10 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   const { integrationId, jobId } = await params
 
-  // I-1/I-2: see members/route.ts's own comment -- same cheap,
-  // integration-scoped gate before either Postgres read.
-  const preAuth = await checkPreAuthThrottle(getInboundRateLimiter(), integrationId)
+  // I-1/N-1: see members/route.ts's own comment -- same cheap,
+  // (integrationId, trusted client ip)-scoped gate before either Postgres
+  // read.
+  const preAuth = await checkPreAuthThrottle(getInboundRateLimiter(), integrationId, extractTrustedClientIp(request))
   if (!preAuth.ok) {
     const headers = preAuth.status === 429 ? { 'Retry-After': '5' } : undefined
     return NextResponse.json({ error: preAuth.error }, { status: preAuth.status, headers })
