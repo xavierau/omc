@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Campaign } from '@/domain/entities/campaign'
 
 const mockSelect = vi.fn()
-const mockEq = vi.fn()
-const mockLt = vi.fn()
 const mockFrom = vi.fn()
 const mockRpc = vi.fn()
 
@@ -56,16 +54,58 @@ function memberRows(ids: string[]): Record<string, unknown>[] {
   return ids.map((id) => ({ ...memberRow, id }))
 }
 
+interface TablePage {
+  filters: Array<[string, string, unknown]>
+  ordered: string[]
+  range: [number, number]
+}
+
+/**
+ * A `from('members').select(...)` chain that windows like PostgREST does:
+ * `.range(from, to)` resolves to THAT slice, so the walk ends on an empty
+ * page. A mock that replayed the whole set on every call would never
+ * terminate -- which is the shape of the bug this replaces: the promo and
+ * winback branches issued an UNPAGED select, silently truncated at the
+ * project's `max-rows` (review F1).
+ *
+ * Each page records the filters it applied and the columns it ordered by, so
+ * a test can claim that the winback cutoff is re-applied on page 2 as much as
+ * on page 1, and that the walk carries the total order readAllPages requires.
+ */
 function setupChain(result: { data: unknown[]; error: null }) {
-  const thenable = {
-    eq: mockEq,
-    lt: mockLt,
-    then: (resolve: (v: unknown) => void) => resolve(result),
-  }
-  mockFrom.mockReturnValue({ select: mockSelect })
-  mockSelect.mockReturnValue(thenable)
-  mockEq.mockReturnValue(thenable)
-  mockLt.mockReturnValue(thenable)
+  const rows = result.data as Record<string, unknown>[]
+  const pages: TablePage[] = []
+  mockFrom.mockReset()
+  mockFrom.mockImplementation((table: string) => {
+    if (table !== 'members') {
+      throw new Error(`unexpected from('${table}'): this branch reads members`)
+    }
+    return { select: mockSelect }
+  })
+  mockSelect.mockImplementation(() => {
+    const page: TablePage = { filters: [], ordered: [], range: [0, -1] }
+    const chain = {
+      eq(column: string, value: unknown) {
+        page.filters.push(['eq', column, value])
+        return chain
+      },
+      lt(column: string, value: unknown) {
+        page.filters.push(['lt', column, value])
+        return chain
+      },
+      order(column: string) {
+        page.ordered.push(column)
+        return chain
+      },
+      range(from: number, to: number) {
+        page.range = [from, to]
+        pages.push(page)
+        return Promise.resolve({ data: rows.slice(from, to + 1), error: null })
+      },
+    }
+    return chain
+  })
+  return { pages }
 }
 
 interface RpcArgs {
@@ -224,6 +264,68 @@ describe('resolveTargetMembers', () => {
 
     expect(result).toHaveLength(1)
     expect(mockFrom).toHaveBeenCalledWith('members')
+  })
+
+  // F1 (gstack review) -- the promo/'all' and winback branches used to issue
+  // an UNPAGED select. PostgREST truncates one at `max-rows` (1000) with NO
+  // error, and #161 is what makes that reachable: before it, every tenant was
+  // capped at 1,000 sends/month anyway, so the read cap was invisible. After
+  // it a growth tenant enforces 10,000, and the read cap is the only thing
+  // left silently deciding who is left out of a "completed" campaign.
+  const bulkRows = (n: number) =>
+    memberRows(Array.from({ length: n }, (_, i) => `m-${i}`))
+
+  function cutoffsOf(pages: TablePage[]): unknown[] {
+    return pages.map(
+      (page) =>
+        page.filters.find(([op, column]) => op === 'lt' && column === 'last_visit_at')?.[2]
+    )
+  }
+
+  it('pages a 1,500-member promo audience to completion, in a total order', async () => {
+    const campaign = buildCampaign({ type: 'promo', targetAudience: 'all' })
+    const read = setupChain({ data: bulkRows(1500), error: null })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toHaveLength(1500)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1500)
+    expect(read.pages.map((page) => page.range)).toEqual([
+      [0, 999],
+      [1000, 1999],
+      [1500, 2499],
+    ])
+    for (const page of read.pages) {
+      expect(page.ordered).toEqual(['id'])
+      expect(page.filters).toContainEqual(['eq', 'restaurant_id', 'r-1'])
+      expect(page.filters).toContainEqual(['eq', 'status', 'active'])
+    }
+  })
+
+  it('pages a 1,500-member winback audience to completion, re-applying the cutoff on EVERY page', async () => {
+    // A page walk that dropped `.lt('last_visit_at', cutoff)` after the first
+    // request would return the tenant's whole active list from page 2 on --
+    // recently-visiting customers included -- and nothing downstream would
+    // notice, because the count would still look plausible.
+    const campaign = buildCampaign({
+      type: 'winback',
+      targetAudience: 'all',
+      schedule: { inactiveDays: 60 },
+    })
+    const read = setupChain({ data: bulkRows(1500), error: null })
+
+    const result = await resolveTargetMembers(campaign, 'r-1')
+
+    expect(result).toHaveLength(1500)
+    expect(read.pages).toHaveLength(3)
+    for (const page of read.pages) {
+      expect(page.ordered).toEqual(['id'])
+      expect(page.filters).toContainEqual(['eq', 'restaurant_id', 'r-1'])
+      expect(page.filters).toContainEqual(['eq', 'status', 'active'])
+    }
+    const cutoffs = cutoffsOf(read.pages)
+    expect(cutoffs.every((value) => typeof value === 'string')).toBe(true)
+    expect(new Set(cutoffs).size).toBe(1)
   })
 
   it('returns empty array for birthday campaigns', async () => {
