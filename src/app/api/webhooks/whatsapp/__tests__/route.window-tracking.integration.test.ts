@@ -243,10 +243,18 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 }))
 
 const ORIGINAL_SECRET = process.env.KAPSO_WEBHOOK_SECRET
+let POST: typeof import('../route').POST
 
 beforeAll(() => {
   delete process.env.KAPSO_WEBHOOK_SECRET
 })
+
+beforeAll(async () => {
+  // Cold graph load happens once here, outside any it(), so it is no
+  // longer racing vitest's 5s default testTimeout under host load
+  // (investigations/2026-09-10-sec-005-next-16-3-import-hang).
+  ;({ POST } = await import('../route'))
+}, 60_000)
 
 afterAll(() => {
   if (ORIGINAL_SECRET !== undefined) {
@@ -309,7 +317,6 @@ function buildInboundBody(opts: InboundOpts = {}): unknown {
 }
 
 async function postWebhook(body: unknown): Promise<{ status: number }> {
-  const { POST } = await import('../route')
   const req = new Request('http://localhost/api/webhooks/whatsapp', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

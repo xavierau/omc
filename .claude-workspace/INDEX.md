@@ -87,6 +87,9 @@ no artifact files were lost._
 
 ### Artifacts
 
+**SEC-005 — next 16.2.1 → 16.3.4 upgrade (2026-09-10)**
+- [2026-09-10-sec-005-next-upgrade](artifacts/2026-09-10-sec-005-next-upgrade.md) — version chosen, advisories closed, supply-chain verdict clean; BLOCKING: vitest webhook-hang regression on 16.3.x, not CI-001 (senior-backend-dev)
+
 **INT-001 — Bidirectional member-creation API (2026-09-10)**
 - [2026-09-10-int-001-wi0-backend](artifacts/2026-09-10-int-001-wi0-backend.md) — WI-0: pre-existing integration-route vuln fixes (T-C4/T-H1/T-M5/OQ-5), full suite green (senior-backend-dev)
 - [2026-09-10-int-001-wi1-backend](artifacts/2026-09-10-int-001-wi1-backend.md) — WI-1: migrations 069–072 (scratch-DB validated), domain/seam layer (T-C1/T-C2/T-H6/T-H1) (senior-backend-dev)
