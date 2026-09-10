@@ -109,6 +109,7 @@ no artifact files were lost._
 - [2026-09-10-int-001-wi16-backend](artifacts/2026-09-10-int-001-wi16-backend.md) — WI-16: grok I-4 ruling + rest of G-5 mutation routes; parallel w/ WI-14 addendum (senior-backend-dev)
 - [2026-09-10-int-001-wi17-backend](artifacts/2026-09-10-int-001-wi17-backend.md) — WI-17: N-1 trusted-ip bucket, N-2 (no fix needed), N-8/N-9 phone-resolver DRY, #6 generic error msg; gate green (senior-backend-dev)
 - [2026-09-10-int-001-wi18-backend](artifacts/2026-09-10-int-001-wi18-backend.md) — WI-18: CSV merge pre-check normalises phone before query (red-green); partner-doc throttle paragraph now matches guard code (senior-backend-dev)
+- [2026-09-10-int-001-wi19-backend](artifacts/2026-09-10-int-001-wi19-backend.md) — WI-19 prod fix-forward: D1 settings row trigger (077), D2 last_response_excerpt + schema-contract gate, cold-Redis warm-up (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)
