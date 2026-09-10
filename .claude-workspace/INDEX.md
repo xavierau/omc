@@ -96,6 +96,7 @@ no artifact files were lost._
 - [2026-09-10-camp-013-recipient-rpc-backend](artifacts/2026-09-10-camp-013-recipient-rpc-backend.md) — WI-2: mig 079 two set-returning RPCs, chunk path deleted, scratch-validated (senior-backend-dev)
 - [2026-09-10-camp-012-013-integration-note](artifacts/2026-09-10-camp-012-013-integration-note.md) — WI-3: PASS on all 4 criteria (senior-backend-dev)
 - [2026-09-10-camp-012-013-review-fixes-backend](artifacts/2026-09-10-camp-012-013-review-fixes-backend.md) — #161/#162 review round: 7 findings fixed, DB test added (senior-backend-dev)
+- [2026-09-10-camp-012-013-gstack-review-fixes-backend](artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend.md) — gstack round: F1 promo/winback paging, F2 admin fallback, F3 test:db, F4 partition assertions (senior-backend-dev)
 
 **SEC-005 — next 16.2.1 → 16.3.4 upgrade (2026-09-10)**
 - [2026-09-10-sec-005-next-upgrade](artifacts/2026-09-10-sec-005-next-upgrade.md) — version chosen, advisories closed, supply-chain verdict clean; BLOCKING: vitest webhook-hang regression on 16.3.x, not CI-001 (senior-backend-dev)
