@@ -23,6 +23,22 @@ import {
 /** Plan's own stated default for `inbound_queue_cap` when unset. */
 const DEFAULT_QUEUE_CAP = 500
 
+/** Grok finding #8: a resume click used to fire a single unbounded
+ * `Promise.all` over every paused row (up to `inbound_queue_cap`, default
+ * 500) -- up to 500 parallel PostgREST reads+writes at once on the shared
+ * 4GB VM, contending with the inbound/outbound workers. Bounded to the
+ * SAME sub-batch ceiling `execute-campaign-batch.ts` already established
+ * for the identical class of risk (many independent per-row read+write
+ * pairs fired from one admin action). */
+export const RESUME_CONCURRENCY_LIMIT = 20
+
+async function processInBatches<T>(items: T[], worker: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += RESUME_CONCURRENCY_LIMIT) {
+    const batch = items.slice(i, i + RESUME_CONCURRENCY_LIMIT)
+    await Promise.all(batch.map(worker))
+  }
+}
+
 export type ResumeOutboundResult =
   | { ok: true; requeued: number; deadLettered: number }
   | { ok: false; error: 'integration_not_found' | 'url_invalid' }
@@ -51,8 +67,8 @@ export async function resumeOutbound(integrationId: string, restaurantId: string
   const toRequeue = pausedIds.slice(0, cap)
   const toDeadLetter = pausedIds.slice(cap)
 
-  await Promise.all(toRequeue.map(requeueOne))
-  await Promise.all(toDeadLetter.map(deadLetterOne))
+  await processInBatches(toRequeue, requeueOne)
+  await processInBatches(toDeadLetter, deadLetterOne)
 
   return { ok: true, requeued: toRequeue.length, deadLettered: toDeadLetter.length }
 }

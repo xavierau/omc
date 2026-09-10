@@ -21,7 +21,7 @@ import {
 } from '@/infrastructure/supabase/repositories/integration-settings-repository'
 import { IntegrationDelivery, type IntegrationDeliveryProps } from '@/domain/entities/integration-delivery'
 import { IntegrationSettings, type IntegrationSettingsProps } from '@/domain/entities/integration-settings'
-import { resumeOutbound } from '../resume-outbound'
+import { resumeOutbound, RESUME_CONCURRENCY_LIMIT } from '../resume-outbound'
 
 function pausedDelivery(id: string): IntegrationDelivery {
   const props: IntegrationDeliveryProps = {
@@ -158,5 +158,35 @@ describe('resumeOutbound (US-9)', () => {
 
     const result = await resumeOutbound('int-1', 'r-1')
     expect(result).toEqual({ ok: true, requeued: 3, deadLettered: 0 })
+  })
+
+  // Grok finding #8: a full Promise.all over every paused row (up to the
+  // 500-row cap) used to fire that many parallel PostgREST reads+writes at
+  // once -- a resume on a heavily-paused integration could contend with
+  // the shared VM's inbound/outbound workers. Bounded to
+  // RESUME_CONCURRENCY_LIMIT (mirrors execute-campaign-batch.ts's own
+  // CONCURRENCY_LIMIT=20 precedent for the identical class of risk).
+  it('finding #8: never more than RESUME_CONCURRENCY_LIMIT findDeliveryById calls in flight at once, and still processes every row correctly', async () => {
+    const ids = Array.from({ length: 55 }, (_, i) => `del-${i}`)
+    vi.mocked(findIntegrationSettingsByIdForRestaurant).mockResolvedValue(settings({ inboundQueueCap: 500 }))
+    vi.mocked(findAllPausedDeliveryIdsForIntegration).mockResolvedValue(ids)
+
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(findDeliveryById).mockImplementation(async (id: string) => {
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      inFlight -= 1
+      return pausedDelivery(id)
+    })
+
+    const result = await resumeOutbound('int-1', 'r-1')
+
+    expect(result).toEqual({ ok: true, requeued: 55, deadLettered: 0 })
+    expect(saveDelivery).toHaveBeenCalledTimes(55)
+    expect(maxInFlight).toBeLessThanOrEqual(RESUME_CONCURRENCY_LIMIT)
+    // Also proves it's genuinely batched, not serialised down to 1 at a time.
+    expect(maxInFlight).toBeGreaterThan(1)
   })
 })
