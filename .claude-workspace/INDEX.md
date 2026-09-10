@@ -88,6 +88,9 @@ no artifact files were lost._
 
 ### Artifacts
 
+**CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**
+- [2026-09-10-camp-012-guardrail-defaults-backend](artifacts/2026-09-10-camp-012-guardrail-defaults-backend.md) — WI-1 #161: mig 078 seed trigger (senior-backend-dev)
+
 **SEC-005 — next 16.2.1 → 16.3.4 upgrade (2026-09-10)**
 - [2026-09-10-sec-005-next-upgrade](artifacts/2026-09-10-sec-005-next-upgrade.md) — version chosen, advisories closed, supply-chain verdict clean; BLOCKING: vitest webhook-hang regression on 16.3.x, not CI-001 (senior-backend-dev)
 
