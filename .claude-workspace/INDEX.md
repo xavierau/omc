@@ -88,6 +88,9 @@ no artifact files were lost._
 
 ### Artifacts
 
+**CAMP-013 — #162 campaign recipient RPCs (2026-09-10)**
+- [2026-09-10-camp-013-recipient-rpc-backend](artifacts/2026-09-10-camp-013-recipient-rpc-backend.md) — WI-2: mig 079 two set-returning RPCs, chunk path deleted, scratch-validated (senior-backend-dev)
+
 **SEC-005 — next 16.2.1 → 16.3.4 upgrade (2026-09-10)**
 - [2026-09-10-sec-005-next-upgrade](artifacts/2026-09-10-sec-005-next-upgrade.md) — version chosen, advisories closed, supply-chain verdict clean; BLOCKING: vitest webhook-hang regression on 16.3.x, not CI-001 (senior-backend-dev)
 
