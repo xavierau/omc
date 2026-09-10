@@ -64,6 +64,16 @@ function normalisedWhere(fnSource: string): string {
   return match![1].replace(/\s+/g, ' ').trim()
 }
 
+/** Runs of whitespace collapsed. Migration 067 aligns its own predicates
+ * with padding (`m.restaurant_id  = p_restaurant_id`); aligning 079 the same
+ * way would turn every substring assertion below red on a pure reformat.
+ * `normalisedWhere` (the 067 parity check) already used this technique --
+ * this extends it to the rest, and the predicates themselves stay exact
+ * (review M-4). */
+function normalised(fnSource: string): string {
+  return fnSource.replace(/\s+/g, ' ')
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -91,13 +101,13 @@ describe('migration 079: recipient RPC contract (#162)', () => {
       })
 
       it('scopes to the caller tenant and to active members only', () => {
-        expect(source()).toContain('m.restaurant_id = p_restaurant_id')
-        expect(source()).toContain("m.status = 'active'")
+        expect(normalised(source())).toContain('m.restaurant_id = p_restaurant_id')
+        expect(normalised(source())).toContain("m.status = 'active'")
       })
 
       it('applies a total order and the p_limit/p_offset paging contract', () => {
-        expect(source()).toContain('ORDER BY m.id')
-        expect(source()).toContain('LIMIT p_limit OFFSET p_offset')
+        expect(normalised(source())).toContain('ORDER BY m.id')
+        expect(normalised(source())).toContain('LIMIT p_limit OFFSET p_offset')
       })
 
       it('is LANGUAGE sql STABLE and not SECURITY DEFINER', () => {
@@ -106,7 +116,7 @@ describe('migration 079: recipient RPC contract (#162)', () => {
           migration079.indexOf(declaration) + declaration.length
         )
         expect(after).toMatch(/^LANGUAGE sql STABLE/)
-        expect(declaration).not.toContain('SECURITY DEFINER')
+        expect(normalised(declaration)).not.toContain('SECURITY DEFINER')
       })
 
       it('is locked down to service_role on its exact signature (migration 064 pattern)', () => {
@@ -131,12 +141,12 @@ describe('migration 079: recipient RPC contract (#162)', () => {
 
   it('the tags RPC filters on the tag array', () => {
     const source = functionSource(migration079, TAGS_FN)
-    expect(source).toContain('mt.restaurant_id = p_restaurant_id')
-    expect(source).toContain('mt.tag_id = ANY(p_tag_ids)')
+    expect(normalised(source)).toContain('mt.restaurant_id = p_restaurant_id')
+    expect(normalised(source)).toContain('mt.tag_id = ANY(p_tag_ids)')
   })
 
   it('the tags RPC dedupes a member carrying several selected tags', () => {
-    expect(functionSource(migration079, TAGS_FN)).toContain('DISTINCT ON (m.id)')
+    expect(normalised(functionSource(migration079, TAGS_FN))).toContain('DISTINCT ON (m.id)')
   })
 
   it('the tags RPC selects the same rows migration 067 counts', () => {
@@ -149,7 +159,7 @@ describe('migration 079: recipient RPC contract (#162)', () => {
 
   it('the selection RPC scopes through campaigns.restaurant_id (campaign_members has no tenant column)', () => {
     const source = functionSource(migration079, SELECTION_FN)
-    expect(source).toContain('c.restaurant_id = p_restaurant_id')
-    expect(source).toContain('cm.campaign_id = p_campaign_id')
+    expect(normalised(source)).toContain('c.restaurant_id = p_restaurant_id')
+    expect(normalised(source)).toContain('cm.campaign_id = p_campaign_id')
   })
 })
