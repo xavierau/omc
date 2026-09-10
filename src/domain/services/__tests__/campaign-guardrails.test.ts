@@ -14,17 +14,45 @@ describe('checkMonthlyLimit', () => {
     expect(result.reason).toBeUndefined()
   })
 
-  it('blocks when sends + target >= limit', () => {
+  it('blocks when sends + target > limit', () => {
     const result = checkMonthlyLimit(800, 300, 1000)
     expect(result.allowed).toBe(false)
     expect(result.reason).toBeDefined()
   })
 
-  it('blocks when sends already at limit with target=0', () => {
+  // #161 D2: the limit is now inclusive -- a tenant on a 1,000 quota can
+  // actually use all 1,000 sends. Rewritten (not deleted) from the old
+  // `>=` case, which blocked this exact input.
+  it('allows when sends already used the full limit and target=0', () => {
     const result = checkMonthlyLimit(1000, 0, 1000)
+    expect(result.allowed).toBe(true)
+    expect(result.reason).toBeUndefined()
+  })
+
+  it('allows when target alone exactly fills the limit (0 sends so far)', () => {
+    const result = checkMonthlyLimit(0, 1000, 1000)
+    expect(result.allowed).toBe(true)
+  })
+
+  it('blocks when sends + target is exactly one over the limit', () => {
+    const result = checkMonthlyLimit(1, 1000, 1000)
     expect(result.allowed).toBe(false)
     expect(result.reason).toBeDefined()
   })
+
+  // Property: for all sends, target, limit >= 0, allowed iff sends+target
+  // does not exceed limit. Grid includes the inclusive boundary itself.
+  it.each([
+    [0, 0, 0], [0, 0, 1000], [500, 200, 1000], [1000, 0, 1000],
+    [999, 1, 1000], [1000, 1, 1000], [800, 300, 1000], [0, 1000, 1000],
+    [1, 1000, 1000], [1000, 1000, 1000], [1, 0, 0],
+  ])(
+    'allowed(%i, %i, %i) === (sends + target <= limit)',
+    (sends, target, limit) => {
+      const expected = sends + target <= limit
+      expect(checkMonthlyLimit(sends, target, limit).allowed).toBe(expected)
+    }
+  )
 })
 
 describe('checkUnsubscribeRate', () => {

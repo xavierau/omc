@@ -11,6 +11,13 @@ vi.mock(
   })
 )
 
+vi.mock(
+  '@/infrastructure/supabase/repositories/restaurant-repository',
+  () => ({
+    getRestaurantPlan: vi.fn(),
+  })
+)
+
 import { checkCampaignGuardrails } from '../check-campaign-guardrails'
 import {
   getSettingsForTenant,
@@ -18,11 +25,13 @@ import {
   getTodayCampaignCount,
   getUnsubscribeStats,
 } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
+import { getRestaurantPlan } from '@/infrastructure/supabase/repositories/restaurant-repository'
 
 const mockGetSettings = vi.mocked(getSettingsForTenant)
 const mockMonthlySends = vi.mocked(getMonthlyTenantSends)
 const mockDailyCount = vi.mocked(getTodayCampaignCount)
 const mockUnsubStats = vi.mocked(getUnsubscribeStats)
+const mockGetRestaurantPlan = vi.mocked(getRestaurantPlan)
 
 const RESTAURANT_ID = 'rest-1'
 
@@ -56,7 +65,13 @@ function setupMocks(opts: {
   dailyCount?: number
   unsubStats?: { total: number; unsubscribed: number }
 } = {}) {
-  mockGetSettings.mockResolvedValue(opts.settings ?? makeSettings())
+  // #161: `opts.settings === undefined` (not provided) means "use the
+  // default full row"; `opts.settings === null` (provided explicitly)
+  // means "no tenant_campaign_settings row exists" and must reach
+  // resolveSettings as null, not collapse into a default row via `??`.
+  mockGetSettings.mockResolvedValue(
+    opts.settings === undefined ? makeSettings() : opts.settings
+  )
   mockMonthlySends.mockResolvedValue(opts.monthlySends ?? 100)
   mockDailyCount.mockResolvedValue(opts.dailyCount ?? 0)
   mockUnsubStats.mockResolvedValue(
@@ -233,5 +248,59 @@ describe('checkCampaignGuardrails', () => {
       // Both gates fire — distinct messages so ops can see both reasons.
       expect(result.violations.length).toBeGreaterThanOrEqual(2)
     })
+  })
+})
+
+// #161: resolveSettings falls back to a plan-derived limit (instead of the
+// hardcoded starter default) when no tenant_campaign_settings row exists,
+// and surfaces the fallback via a single console.warn.
+describe('#161 resolveSettings plan-derived fallback', () => {
+  it('derives the limit from restaurants.plan when no settings row exists (A3)', async () => {
+    mockGetRestaurantPlan.mockResolvedValue('growth')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setupMocks({ settings: null, monthlySends: 5000 })
+
+    const result = await checkCampaignGuardrails(RESTAURANT_ID, 4000)
+
+    expect(result.allowed).toBe(true)
+    expect(result.usage.monthlyLimit).toBe(10000)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    const [message] = warnSpy.mock.calls[0]
+    expect(message).toContain(RESTAURANT_ID)
+    expect(message).toContain('plan=growth')
+    expect(message).toContain('monthlySendLimit=10000')
+    warnSpy.mockRestore()
+  })
+
+  it('falls back to starter when restaurants.plan lookup returns null (A4)', async () => {
+    mockGetRestaurantPlan.mockResolvedValue(null)
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setupMocks({ settings: null })
+
+    const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+    expect(result.usage.monthlyLimit).toBe(1000)
+    expect(warnSpy.mock.calls[0][0]).toContain('plan=starter')
+    warnSpy.mockRestore()
+  })
+
+  it('does not consult restaurants.plan or warn when a settings row exists (A5)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setupMocks()
+
+    await checkCampaignGuardrails(RESTAURANT_ID, 50)
+
+    expect(mockGetRestaurantPlan).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('fails closed: a throwing plan lookup rejects the guardrail check (A6, D3)', async () => {
+    mockGetRestaurantPlan.mockRejectedValue(new Error('db down'))
+    setupMocks({ settings: null })
+
+    await expect(
+      checkCampaignGuardrails(RESTAURANT_ID, 50)
+    ).rejects.toThrow('db down')
   })
 })
