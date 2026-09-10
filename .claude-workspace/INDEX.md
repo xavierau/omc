@@ -37,6 +37,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-09-10-camp-012-013-release-runbook](deploys/2026-09-10-camp-012-013-release-runbook.md) — CAMP-012/013 (#164→#168) to prod: main 4aa7752 → release 7884616, mig 078+079, gate 1 growth/5 starter, pids 1740620/1740730, health 200 (devops-engineer)
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
