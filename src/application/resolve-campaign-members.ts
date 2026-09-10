@@ -2,9 +2,11 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
-import { chunk, fetchTaggedMemberIds } from './resolve-campaign-members-chunks'
+import { dedupeById, readAllPages } from './resolve-campaign-members-chunks'
 
-const MEMBER_COLUMNS =
+// Exported so the migration-079 contract test can tie the RPCs' RETURNS
+// TABLE column list to the columns mapRowToMember actually consumes (D8).
+export const MEMBER_COLUMNS =
   'id, restaurant_id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, pmm_throttled_until, unreachable_at'
 
 export async function resolveTargetMembers(
@@ -30,6 +32,24 @@ export async function resolveTargetMembers(
   return []
 }
 
+// The active-member half of the promo and winback reads. Both branches page
+// it: an unpaged select is truncated at the project's `max-rows` (1000) with
+// NO error, and #161 is what makes that reachable -- before it every tenant
+// was capped at 1,000 sends/month anyway, after it a growth tenant enforces
+// 10,000 and the read cap is the only thing left silently deciding who is
+// left out of a campaign the worker then marks completed (review F1).
+// `.order('id')` supplies the total order readAllPages requires.
+function activeMembersOf(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  restaurantId: string
+) {
+  return supabase
+    .from('members')
+    .select(MEMBER_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'active')
+}
+
 async function fetchWinbackMembers(
   campaign: Campaign,
   restaurantId: string
@@ -41,55 +61,58 @@ async function fetchWinbackMembers(
   ).toISOString()
 
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'active')
-    .lt('last_visit_at', cutoff)
-
-  if (error) throw new Error(`fetchWinbackMembers: ${error.message}`)
-  return (data ?? []).map(mapRowToMember)
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchWinbackMembers',
+    (from, to) =>
+      activeMembersOf(supabase, restaurantId)
+        .lt('last_visit_at', cutoff)
+        .order('id')
+        .range(from, to)
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 async function fetchActiveMembers(
   restaurantId: string
 ): Promise<Member[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'active')
-
-  if (error) throw new Error(`fetchActiveMembers: ${error.message}`)
-  return (data ?? []).map(mapRowToMember)
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchActiveMembers',
+    (from, to) => activeMembersOf(supabase, restaurantId).order('id').range(from, to)
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
+// Recipients resolve INSIDE the database (migration 079). The old shape read
+// campaign_members, then fed every member UUID back through `.in('id', ids)`;
+// PostgREST echoes that query in the `content-location` response header and
+// undici aborts the read above ~390 ids, failing the campaign (#162).
 async function fetchSelectedMembers(
   campaignId: string,
   restaurantId: string
 ): Promise<Member[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('campaign_members')
-    .select('member_id')
-    .eq('campaign_id', campaignId)
-  if (error) throw new Error(`fetchSelectedMembers: ${error.message}`)
-  const memberIds = (data ?? []).map((r) => r.member_id as string)
-  if (memberIds.length === 0) return []
-  const { data: members, error: mErr } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .in('id', memberIds)
-  if (mErr) throw new Error(`fetchSelectedMembers: ${mErr.message}`)
-  return (members ?? []).map(mapRowToMember)
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchSelectedMembers',
+    (from, to) =>
+      supabase.rpc('active_members_by_campaign_selection', {
+        p_restaurant_id: restaurantId,
+        p_campaign_id: campaignId,
+        p_limit: to - from + 1,
+        p_offset: from,
+      })
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 // Target-by-tag resolves to whoever carries the linked tag(s) at SEND time
-// (dynamic membership). Mirrors the two-step fetchSelectedMembers shape and
-// stays tenant-scoped via restaurant_id on member_tags.
+// (dynamic membership). The member_tags/members join now runs in Postgres
+// (migration 079) instead of as a two-step client-side join: tenant-scoped
+// by BOTH restaurant_id predicates, deduped by DISTINCT ON (m.id) so a
+// member carrying two selected tags is one recipient, and selecting exactly
+// the set RPC 067 counts. Still paged -- a set-returning RPC is subject to
+// PostgREST `max-rows` too -- but with p_limit/p_offset, never by shipping
+// member ids back into a URL filter.
 async function fetchTagMembers(
   campaign: Campaign,
   restaurantId: string
@@ -97,36 +120,17 @@ async function fetchTagMembers(
   const tagIds = await getCampaignTagIds(campaign.id)
   if (tagIds.length === 0) return []
   const supabase = createServerSupabaseClient()
-  // Paged read: unpaged, PostgREST caps this at `max-rows` (1000) without an
-  // error, so a 4,000-member tag would send to a quarter of the audience the
-  // live recipient count promised — review I-5(a).
-  const memberIds = await fetchTaggedMemberIds(supabase, restaurantId, tagIds)
-  if (memberIds.length === 0) return []
-  return fetchMembersByIds(memberIds, restaurantId)
-}
-
-// PostgREST URL length blows up before 500 UUIDs join a query string (R-8 / B4.4).
-const MEMBER_ID_CHUNK_SIZE = 500
-
-async function fetchMembersByIds(
-  memberIds: string[],
-  restaurantId: string
-): Promise<Member[]> {
-  const supabase = createServerSupabaseClient()
-  const chunks = chunk(memberIds, MEMBER_ID_CHUNK_SIZE)
-  const members: Member[] = []
-  for (const idChunk of chunks) {
-    // status='active' matches the other branches above and RPC 067's count.
-    const { data, error } = await supabase
-      .from('members')
-      .select(MEMBER_COLUMNS)
-      .eq('restaurant_id', restaurantId)
-      .eq('status', 'active')
-      .in('id', idChunk)
-    if (error) throw new Error(`fetchMembersByIds: ${error.message}`)
-    members.push(...(data ?? []).map(mapRowToMember))
-  }
-  return members
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchTagMembers',
+    (from, to) =>
+      supabase.rpc('active_members_by_tags', {
+        p_restaurant_id: restaurantId,
+        p_tag_ids: tagIds,
+        p_limit: to - from + 1,
+        p_offset: from,
+      })
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 function mapRowToMember(row: Record<string, unknown>): Member {

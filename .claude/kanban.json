@@ -3198,6 +3198,79 @@
           "released": "main@5f2369a → release 3680ffe (BUILD_ID eg46F8RozAOtTEZ_2yaLt)",
           "review": "gemini APPROVED · grok CONDITIONAL (fixed) · qa ACCEPTED-WITH-GAPS (AC-19.1–19.4 PASS) · ui-test-runner PASS on dev (template BOM/rows verified at byte level; 2 layout findings fixed: {maxRows, number}, 44px touch target)",
           "notes": "2026-08-28: client-generated import-template.csv (BOM+CRLF, 4 rows incl. \"Chan, Tai Man\" and 陳大文) pinned to parseCsv by a round-trip test; always-visible CSV format help with aliases, en|zh_hk rule, ; tags and limits, en + zh-HK; key-list test guards both locales. Released with WONB-018 (PR #149 → #152 → main 5f2369a)."
+        },
+        {
+          "id": "CAMP-012",
+          "title": "tenant_campaign_settings empty for every tenant: plan-derived seed on create + 078 backfill + plan-derived fallback (#161)",
+          "description": "GitHub #161. Prod had zero tenant_campaign_settings rows; resolveSettings() silently fell back to DEFAULT_SETTINGS (starter 1,000/month) so restaurants.plan was cosmetic and a growth-plan customer (Kushiro, 5 year batch 6) was blocked at 817/1000. Fix: migration 078 AFTER INSERT trigger on restaurants seeding the row with monthly_send_limit derived from plan + idempotent backfill (ON CONFLICT DO NOTHING; Kushiro row untouched); resolveSettings fallback derives from restaurants.plan via planCampaignQuota + console.warn when taken; checkMonthlyLimit >= → > so limit is inclusive. Out of scope: getTodayCampaignCount created_at keying (follow-up).",
+          "labels": [
+            "bug",
+            "campaigns",
+            "guardrails",
+            "migration",
+            "P1"
+          ],
+          "github_issue": 161,
+          "related": [
+            "github:161",
+            "kanban:CAMP-013",
+            "kanban:MSG-002"
+          ],
+          "priority": "high",
+          "sprint": "whatsapp_quality_safeguards",
+          "branch": "fix/issues-161-162",
+          "workspace_artifacts": [
+            "plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc",
+            "artifacts/2026-09-10-camp-012-guardrail-defaults-backend",
+            "artifacts/2026-09-10-camp-012-013-integration-note",
+            "reviews/2026-09-10-camp-012-013-analyzer",
+            "reviews/2026-09-10-camp-012-013-grok",
+            "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
+            "reviews/2026-09-10-camp-012-013-gstack-review",
+            "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
+            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+          ],
+          "started_at": "2026-09-10",
+          "pr": 164,
+          "completed": "2026-09-10",
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+        },
+        {
+          "id": "CAMP-013",
+          "title": "Resolve campaign recipients in one server-side RPC — remove .in(id, uuids) URL round-trip (#162)",
+          "description": "GitHub #162. fetchTagMembers chunks member UUIDs into .in(id, ...) URL filters; PostgREST echoes the query in the content-location response header and undici aborts above ~390 ids (UND_ERR_HEADERS_OVERFLOW → \"fetch failed\" → campaign terminally fails). fetchSelectedMembers has the same defect unchunked and unpaged (silent max-rows truncation). Fix: set-returning RPCs active_members_by_tags + active_members_by_campaign_selection (sibling of 067: DISTINCT ON member, both restaurant_id predicates, 064 REVOKE/GRANT lockdown), paged via p_limit/p_offset through readAllPages; MEMBER_ID_CHUNK_SIZE / fetchMembersByIds / tag-path chunk() removed. Look-only audit of member-tag-bulk.ts, campaign-members-repository.ts, integration-event-repository.ts.",
+          "labels": [
+            "enhancement",
+            "bug",
+            "campaigns",
+            "performance",
+            "migration",
+            "P1"
+          ],
+          "github_issue": 162,
+          "related": [
+            "github:162",
+            "kanban:CAMP-012",
+            "kanban:TAG-001"
+          ],
+          "priority": "high",
+          "sprint": "whatsapp_quality_safeguards",
+          "branch": "fix/issues-161-162",
+          "workspace_artifacts": [
+            "plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc",
+            "artifacts/2026-09-10-camp-013-recipient-rpc-backend",
+            "artifacts/2026-09-10-camp-012-013-integration-note",
+            "reviews/2026-09-10-camp-012-013-analyzer",
+            "reviews/2026-09-10-camp-012-013-grok",
+            "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
+            "reviews/2026-09-10-camp-012-013-gstack-review",
+            "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
+            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+          ],
+          "started_at": "2026-09-10",
+          "pr": 164,
+          "completed": "2026-09-10",
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
         }
       ]
     },

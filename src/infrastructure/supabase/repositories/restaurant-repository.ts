@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
+import { isValidPlan } from '@/domain/value-objects/tenant-plan'
 import type { TenantStatus } from '@/domain/entities/restaurant'
 import {
   resolveReplyConfig,
@@ -68,6 +69,27 @@ export async function getRestaurantTenantStatus(
   if (error) throw new Error(`getRestaurantTenantStatus: ${error.message}`)
   if (!data) return null
   return { status: data.status as TenantStatus, trialExpiresAt: data.trial_expires_at as string | null }
+}
+
+/**
+ * #161 (CAMP-012): backs the plan-derived guardrail fallback in
+ * check-campaign-guardrails.ts. Throws on error (fail-closed, D3) rather
+ * than degrading -- a guardrail that silently "allows" on a DB error is
+ * worse than a failed send. A value outside the CHECK('starter','growth',
+ * 'pro') set coerces to 'starter' rather than propagating garbage.
+ */
+export async function getRestaurantPlan(
+  restaurantId: string
+): Promise<TenantPlan | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('plan')
+    .eq('id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`getRestaurantPlan: ${error.message}`)
+  if (!data) return null
+  return isValidPlan(data.plan) ? data.plan : 'starter'
 }
 
 export async function getRestaurantName(restaurantId: string): Promise<string> {
