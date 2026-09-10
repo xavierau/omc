@@ -3,7 +3,7 @@ import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-a
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { checkAdminRateLimit } from '@/infrastructure/rate-limit/admin-rate-limit'
 import { updateTenantCampaignSettings } from '@/application/update-tenant-campaign-settings'
-import { DEFAULT_SETTINGS } from '@/domain/services/campaign-guardrails'
+import { planDerivedDefaults } from '@/application/check-campaign-guardrails'
 import {
   getSettingsForTenant,
   getMonthlyTenantSends,
@@ -32,7 +32,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       getUnsubscribeStats(id),
     ])
 
-    const effectiveSettings = settings ?? { restaurantId: id, ...DEFAULT_SETTINGS }
+    // #161: the same plan-derived fallback the guardrail enforces, so this
+    // view cannot report a quota the send path disagrees with (review F2).
+    const effectiveSettings = settings ?? (await planDerivedDefaults(id))
     const unsubscribeRate = unsubStats.total > 0
       ? unsubStats.unsubscribed / unsubStats.total
       : 0

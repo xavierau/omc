@@ -15,6 +15,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
 - [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
 - [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
@@ -39,6 +40,10 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-10-camp-012-013-delta-analyzer](reviews/2026-09-10-camp-012-013-delta-analyzer.md) — PR #164 fix delta: APPROVED, 3 Minor (analyzer)
+- [2026-09-10-camp-012-013-gstack-review](reviews/2026-09-10-camp-012-013-gstack-review.md) — PR #164 gstack /review: ISSUES_FOUND — 0 Critical, 5 Informational, quality 7.5/10 (claude)
+- [2026-09-10-camp-012-013-grok](reviews/2026-09-10-camp-012-013-grok.md) — #161/#162: CONDITIONAL — 1 Important, 1 Minor (grok-cli-reviewer)
+- [2026-09-10-camp-012-013-analyzer](reviews/2026-09-10-camp-012-013-analyzer.md) — #161/#162: CONDITIONAL — 0 Critical, 3 Important (code-review-analyzer)
 - [2026-09-10-int-001-confirmation](reviews/2026-09-10-int-001-confirmation.md) — INT-001 fix rounds: CONDITIONAL — 19 closed / 2 partial / 11 open, 2 new Important (N-1 pre-auth throttle, N-2 attempt budget) (code-review-analyzer)
 - [2026-09-10-int-001-analyzer](reviews/2026-09-10-int-001-analyzer.md) — INT-001 branch: BLOCKED — 2 Critical (outbound exhaustion never dead-letters; resume no-op on jobId dedup), 8 Important (code-review-analyzer)
 - [2026-09-10-int-001-grok](reviews/2026-09-10-int-001-grok.md) — INT-001 branch: BLOCKED — 1 Critical (next unpatched, req #13), 8 Important (grok-cli-reviewer)
@@ -86,6 +91,13 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**
+- [2026-09-10-camp-012-guardrail-defaults-backend](artifacts/2026-09-10-camp-012-guardrail-defaults-backend.md) — WI-1 #161: mig 078 seed trigger (senior-backend-dev)
+- [2026-09-10-camp-013-recipient-rpc-backend](artifacts/2026-09-10-camp-013-recipient-rpc-backend.md) — WI-2: mig 079 two set-returning RPCs, chunk path deleted, scratch-validated (senior-backend-dev)
+- [2026-09-10-camp-012-013-integration-note](artifacts/2026-09-10-camp-012-013-integration-note.md) — WI-3: PASS on all 4 criteria (senior-backend-dev)
+- [2026-09-10-camp-012-013-review-fixes-backend](artifacts/2026-09-10-camp-012-013-review-fixes-backend.md) — #161/#162 review round: 7 findings fixed, DB test added (senior-backend-dev)
+- [2026-09-10-camp-012-013-gstack-review-fixes-backend](artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend.md) — gstack round: F1 promo/winback paging, F2 admin fallback, F3 test:db, F4 partition assertions (senior-backend-dev)
 
 **SEC-005 — next 16.2.1 → 16.3.4 upgrade (2026-09-10)**
 - [2026-09-10-sec-005-next-upgrade](artifacts/2026-09-10-sec-005-next-upgrade.md) — version chosen, advisories closed, supply-chain verdict clean; BLOCKING: vitest webhook-hang regression on 16.3.x, not CI-001 (senior-backend-dev)

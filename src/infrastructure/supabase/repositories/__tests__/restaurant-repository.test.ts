@@ -16,6 +16,7 @@ import {
   updateContactFlowIdIfEmpty,
   getRestaurantEmailContext,
   getRestaurantTenantStatus,
+  getRestaurantPlan,
 } from '../restaurant-repository'
 import { DEFAULT_REPLY_FEATURES } from '@/domain/services/reply-config'
 import { DEFAULT_TOPICS, DEFAULT_LABELS } from '@/domain/services/contact-config'
@@ -641,5 +642,58 @@ describe('getRestaurantTenantStatus (INT-001 WI-3)', () => {
     vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
 
     await expect(getRestaurantTenantStatus('r-1')).rejects.toThrow(/connection failed/)
+  })
+})
+
+describe('getRestaurantPlan (#161 A7)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('selects only plan by id and returns it', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { plan: 'pro' }, error: null })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    const result = await getRestaurantPlan('r-1')
+
+    expect(from).toHaveBeenCalledWith('restaurants')
+    expect(select).toHaveBeenCalledWith('plan')
+    expect(eq).toHaveBeenCalledWith('id', 'r-1')
+    expect(result).toBe('pro')
+  })
+
+  it('returns null when the restaurant is not found', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    const result = await getRestaurantPlan('missing')
+
+    expect(result).toBeNull()
+  })
+
+  it('throws on a database error', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { message: 'connection failed' } })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    await expect(getRestaurantPlan('r-1')).rejects.toThrow(/connection failed/)
+  })
+
+  it('coerces a value outside the starter/growth/pro CHECK set to "starter"', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { plan: 'enterprise' }, error: null })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    const result = await getRestaurantPlan('r-1')
+
+    expect(result).toBe('starter')
   })
 })
