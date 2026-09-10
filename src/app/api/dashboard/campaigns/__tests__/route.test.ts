@@ -1,0 +1,609 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
+
+vi.mock('@/infrastructure/supabase/guards/tenant-guard')
+vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
+  // Keep the real error class so `instanceof` checks in route.ts match
+  // when tests simulate repository failures.
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/campaign-repository')
+  >('@/infrastructure/supabase/repositories/campaign-repository')
+  return {
+    ...actual,
+    createCampaign: vi.fn(),
+    listCampaigns: vi.fn(),
+    setCampaignMembers: vi.fn(),
+    remapWelcomeCampaign: vi.fn(),
+  }
+})
+vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+vi.mock('@/application/build-campaign-template-review-states', () => ({
+  buildCampaignTemplateReviewStates: vi.fn().mockResolvedValue(new Map()),
+}))
+vi.mock('@/infrastructure/supabase/repositories/member-tag-repository', async () => {
+  // Keep the real CrossTenantTagError so `instanceof` checks match.
+  const actual = await vi.importActual<
+    typeof import('@/infrastructure/supabase/repositories/member-tag-repository')
+  >('@/infrastructure/supabase/repositories/member-tag-repository')
+  return { ...actual, assertTagsBelongToTenant: vi.fn() }
+})
+vi.mock('@/application/set-campaign-tags', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/application/set-campaign-tags')
+  >('@/application/set-campaign-tags')
+  return { ...actual, setCampaignTags: vi.fn() }
+})
+
+import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
+import {
+  createCampaign,
+  listCampaigns,
+  setCampaignMembers,
+  remapWelcomeCampaign,
+  CampaignUniqueViolationError,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
+import {
+  getRestaurantDefaultLanguage,
+  getOnboardingSettings,
+} from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { buildCampaignTemplateReviewStates } from '@/application/build-campaign-template-review-states'
+import {
+  assertTagsBelongToTenant,
+  CrossTenantTagError,
+} from '@/infrastructure/supabase/repositories/member-tag-repository'
+import { setCampaignTags } from '@/application/set-campaign-tags'
+import { POST, GET } from '../route'
+import type { Campaign } from '@/domain/entities/campaign'
+
+const RESTAURANT_ID = 'rest-1'
+
+function postRequest(body: unknown): NextRequest {
+  return new NextRequest('http://localhost/api/dashboard/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
+  return {
+    id: 'c-1',
+    restaurantId: RESTAURANT_ID,
+    name: 'Name',
+    type: 'promo',
+    template: 'LEG',
+    templateEn: null,
+    templateZhHk: null,
+    imageUrlEn: null,
+    imageUrlZhHk: null,
+    couponConfig: null,
+    schedule: null,
+    scheduledAt: null,
+    status: 'draft',
+    failureReason: null,
+    isChargeable: true,
+    chargeableSentCount: 0,
+    nonChargeableSentCount: 0,
+    redeemedCount: 0,
+    whatsappTemplateId: null,
+    targetAudience: 'all',
+    createdAt: '2026-04-20T00:00:00Z',
+    ...overrides,
+  }
+}
+
+describe('POST /api/dashboard/campaigns', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(createCampaign).mockResolvedValue(buildCampaign())
+    vi.mocked(setCampaignMembers).mockResolvedValue(undefined)
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(remapWelcomeCampaign).mockResolvedValue(undefined as never)
+    vi.mocked(getOnboardingSettings).mockResolvedValue({
+      welcomeCampaignId: null,
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+  })
+
+  it('rejects when name is missing', async () => {
+    const r = await POST(postRequest({ type: 'promo', templateEn: 'hi' }))
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects when type is invalid', async () => {
+    const r = await POST(postRequest({ name: 'n', type: 'xxx', templateEn: 'hi' }))
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects inline send with no template in any language and no wa template', async () => {
+    const r = await POST(postRequest({ name: 'n', type: 'promo' }))
+    expect(r.status).toBe(400)
+    const body = await r.json()
+    expect(body.error).toContain('templateEn')
+  })
+
+  it('accepts bilingual templateEn', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi {{name}}' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateEn: 'Hi {{name}}',
+        templateZhHk: null,
+      })
+    )
+  })
+
+  it('accepts bilingual templateZhHk', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateZhHk: '你好' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateEn: null,
+        templateZhHk: '你好',
+      })
+    )
+  })
+
+  it('accepts whatsappTemplateId alone without inline text', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', whatsappTemplateId: 'tpl-1' })
+    )
+    expect(r.status).toBe(201)
+  })
+
+  it('back-compat: legacy template-only copies value to templateZhHk', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', template: 'LegacyOnly' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'LegacyOnly',
+        templateEn: null,
+        templateZhHk: 'LegacyOnly',
+      })
+    )
+  })
+
+  it('does not override explicit templateZhHk with legacy template', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'promo',
+        template: 'LegacyOnly',
+        templateZhHk: '你好',
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateZhHk: '你好',
+      })
+    )
+  })
+
+  it('rejects oversize bilingual template', async () => {
+    const big = 'a'.repeat(1025)
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: big })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('derives legacy template from EN when default_language=en and only EN is sent', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('en')
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+        templateEn: 'Hi',
+        templateZhHk: null,
+      })
+    )
+  })
+
+  it('cross-language fallback: default_language=zh_hk but only EN sent uses EN for legacy', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('zh_hk')
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+      })
+    )
+  })
+
+  it('picks default_language value for legacy when both languages are sent', async () => {
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValueOnce('en')
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'promo',
+        templateEn: 'Hi',
+        templateZhHk: '你好',
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: 'Hi',
+      })
+    )
+  })
+
+  it('leaves legacy as empty string when only whatsappTemplateId is used', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', whatsappTemplateId: 'tpl-1' })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyTemplate: '',
+      })
+    )
+  })
+
+  it('passes restaurantId to setCampaignMembers for cross-tenant validation', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'promo',
+        templateEn: 'Hi',
+        targetAudience: 'selected',
+        memberIds: ['m-1', 'm-2'],
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(setCampaignMembers).toHaveBeenCalledWith('c-1', ['m-1', 'm-2'], RESTAURANT_ID)
+  })
+
+  // FIX 2: partial unique index forbids two active welcome campaigns per
+  // restaurant. When the DB rejects the insert with 23505, surface a 409
+  // with a friendly message instead of a generic 500.
+  it('returns 409 when a second active welcome campaign violates the unique index', async () => {
+    vi.mocked(createCampaign).mockRejectedValueOnce(
+      new CampaignUniqueViolationError(
+        'idx_campaigns_one_active_welcome_per_restaurant',
+        'duplicate key value violates unique constraint'
+      )
+    )
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        status: 'active',
+      })
+    )
+    expect(r.status).toBe(409)
+    const body = await r.json()
+    expect(body.error).toContain('welcome campaign already exists')
+  })
+
+  // FIX 3: creating a welcome campaign via the form should auto-map it
+  // as THE welcome campaign so the RPC flips is_chargeable=false (intent:
+  // admins who create type='welcome' mean it to be the one).
+  it('auto-maps newly created welcome campaigns via remapWelcomeCampaign', async () => {
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-1', type: 'welcome' })
+    )
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      null,
+      'new-welcome-1'
+    )
+  })
+
+  it('auto-map passes previous welcome campaign id when one already mapped', async () => {
+    vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+      welcomeCampaignId: 'old-welcome-7',
+      returningMemberTemplate: null,
+      returningMemberTemplateEn: null,
+      returningMemberTemplateZhHk: null,
+      defaultLanguage: 'zh_hk',
+    })
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-2', type: 'welcome' })
+    )
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      'old-welcome-7',
+      'new-welcome-2'
+    )
+  })
+
+  it('does not call remapWelcomeCampaign for non-welcome campaign types', async () => {
+    const r = await POST(
+      postRequest({ name: 'n', type: 'promo', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+    expect(remapWelcomeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('does not block the response when remapWelcomeCampaign fails (best-effort)', async () => {
+    vi.mocked(createCampaign).mockResolvedValueOnce(
+      buildCampaign({ id: 'new-welcome-3', type: 'welcome' })
+    )
+    vi.mocked(remapWelcomeCampaign).mockRejectedValueOnce(new Error('rpc down'))
+    const r = await POST(
+      postRequest({ name: 'n', type: 'welcome', templateEn: 'Hi' })
+    )
+    expect(r.status).toBe(201)
+  })
+
+  // FIX 3: image URL validation — reject non-https, non-bucket, or cross-tenant URLs.
+  it('rejects imageUrlEn with javascript: scheme', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'javascript:alert(1)',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn served over http:// (non-https)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'http://evil.com/x.png',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn pointing at another tenant prefix', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          'https://host/storage/v1/object/public/campaign-images/other-tenant-9/c/en.png',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('accepts imageUrlEn with the correct https + bucket + tenant prefix', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/draft-xyz/en.png`,
+      })
+    )
+    expect(r.status).toBe(201)
+  })
+
+  // FIX 1: hardened URL host validation via WHATWG URL parser. Attackers
+  // who embed the campaign-images path after an attacker-controlled host,
+  // userinfo (credential smuggling), or an unparseable URL must be rejected
+  // even before the tenant-prefix check.
+  it('rejects imageUrlEn with an unparseable URL (not a valid URL at all)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn: 'not a url at all',
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+  it('rejects imageUrlEn containing userinfo (credential smuggling)', async () => {
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'welcome',
+        templateEn: 'Hi',
+        imageUrlEn:
+          `https://user:pass@host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/c/en.png`,
+      })
+    )
+    expect(r.status).toBe(400)
+  })
+
+
+  // FIX 2: image URLs are welcome-only. A non-welcome type must have both
+  // image URLs coerced to null server-side even if the caller includes them.
+  it('forces image URLs to null when type !== welcome (POST scope guard)', async () => {
+    const validUrl =
+      `https://host/storage/v1/object/public/campaign-images/${RESTAURANT_ID}/draft-abc/en.png`
+    const r = await POST(
+      postRequest({
+        name: 'n',
+        type: 'winback',
+        templateEn: 'Hi',
+        imageUrlEn: validUrl,
+        imageUrlZhHk: validUrl,
+      })
+    )
+    expect(r.status).toBe(201)
+    expect(createCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageUrlEn: null,
+        imageUrlZhHk: null,
+      })
+    )
+  })
+})
+
+describe('GET /api/dashboard/campaigns', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(listCampaigns).mockResolvedValue([])
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(new Map())
+  })
+
+  it('returns campaigns list', async () => {
+    const r = await GET()
+    expect(r.status).toBe(200)
+  })
+
+  // Issue #102 fix 4: dashboard campaigns API gains optional
+  // `failureReason` (from the Campaign entity) and `templateReview`
+  // (computed per-campaign) fields so the UI can explain a blocked/failed
+  // send instead of failing silently.
+  it('includes failureReason from the campaign entity', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', status: 'failed', failureReason: 'boom' }),
+    ])
+
+    const r = await GET()
+    const body = await r.json()
+    expect(body.campaigns[0].failureReason).toBe('boom')
+  })
+
+  it('attaches templateReview only to campaigns present in the computed state map', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', whatsappTemplateId: 'tpl-1' }),
+      buildCampaign({ id: 'c-2', whatsappTemplateId: null }),
+    ])
+    vi.mocked(buildCampaignTemplateReviewStates).mockResolvedValue(
+      new Map([['c-1', { required: true, status: 'pending' }]])
+    )
+
+    const r = await GET()
+    const body = await r.json()
+    const byId = Object.fromEntries(
+      body.campaigns.map((c: { id: string }) => [c.id, c])
+    )
+    expect(byId['c-1'].templateReview).toEqual({ required: true, status: 'pending' })
+    expect('templateReview' in byId['c-2']).toBe(false)
+  })
+
+  it('computes review states using the tenant restaurantId and the fetched campaigns', async () => {
+    const campaigns = [buildCampaign({ id: 'c-1' })]
+    vi.mocked(listCampaigns).mockResolvedValue(campaigns)
+
+    await GET()
+
+    expect(buildCampaignTemplateReviewStates).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      campaigns
+    )
+  })
+
+  // Review round 2, item 9: degrade OFF (REPLY-001 precedent) — the
+  // Send-button explanation is a nice-to-have; the list itself must stay
+  // available even when the enrichment subsystem (trust check / template
+  // lookup / review-queue lookup) errors.
+  it('degrades OFF (still returns the list, minus templateReview) when the enrichment throws', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'c-1', status: 'failed', failureReason: 'boom' }),
+    ])
+    vi.mocked(buildCampaignTemplateReviewStates).mockRejectedValue(
+      new Error('template_review_queue unreachable')
+    )
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const r = await GET()
+    const body = await r.json()
+
+    expect(r.status).toBe(200)
+    expect(body.campaigns).toHaveLength(1)
+    // failureReason still comes straight from the campaign entity — no
+    // extra query, so it survives the enrichment failure untouched.
+    expect(body.campaigns[0].failureReason).toBe('boom')
+    expect('templateReview' in body.campaigns[0]).toBe(false)
+
+    errSpy.mockRestore()
+  })
+})
+
+describe('POST /api/dashboard/campaigns — tag targeting', () => {
+  const TAG_A = '11111111-1111-4111-8111-111111111111'
+
+  function tagBody(tagIds: unknown) {
+    return postRequest({
+      name: 'n',
+      type: 'promo',
+      templateEn: 'hi',
+      targetAudience: 'tag',
+      tagIds,
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(createCampaign).mockResolvedValue(buildCampaign({ targetAudience: 'tag' }))
+    vi.mocked(getRestaurantDefaultLanguage).mockResolvedValue('zh_hk')
+    vi.mocked(assertTagsBelongToTenant).mockResolvedValue(undefined)
+    vi.mocked(setCampaignTags).mockResolvedValue(undefined)
+  })
+
+  it('asserts tag ownership BEFORE createCampaign (no orphan tag campaign)', async () => {
+    vi.mocked(assertTagsBelongToTenant).mockRejectedValueOnce(
+      new CrossTenantTagError('Invalid tag IDs')
+    )
+
+    const r = await POST(tagBody([TAG_A]))
+
+    expect(r.status).toBe(403)
+    // The orphan this prevents: a campaign row already written with
+    // target_audience='tag' and no campaign_tags rows behind it.
+    expect(createCampaign).not.toHaveBeenCalled()
+    expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+
+  it('creates the campaign and links the tags when ownership holds', async () => {
+    const r = await POST(tagBody([TAG_A]))
+
+    expect(r.status).toBe(201)
+    expect(assertTagsBelongToTenant).toHaveBeenCalledWith([TAG_A], RESTAURANT_ID)
+    expect(setCampaignTags).toHaveBeenCalledWith('c-1', [TAG_A], RESTAURANT_ID)
+  })
+
+  it('rejects a non-UUID tag id with 400 before any tenant query', async () => {
+    const r = await POST(tagBody(['not-a-uuid']))
+
+    expect(r.status).toBe(400)
+    expect(assertTagsBelongToTenant).not.toHaveBeenCalled()
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+})

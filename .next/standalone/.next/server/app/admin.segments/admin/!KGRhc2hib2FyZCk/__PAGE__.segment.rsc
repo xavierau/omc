@@ -1,0 +1,26 @@
+1:"$Sreact.fragment"
+2:I[47257,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"ClientPageRoot"]
+3:I[22085,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js","/_next/static/chunks/3_vx93uv4xj4e.js","/_next/static/chunks/3ye8tu-9c637_.js","/_next/static/chunks/1gln4skv1smvz.js","/_next/static/chunks/02lgrwnjld_g2.js"],"default"]
+6:I[97367,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"OutletBoundary"]
+7:"$Sreact.suspense"
+b:I[97367,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"ViewportBoundary"]
+c:I[97367,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"MetadataBoundary"]
+d:I[27201,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"IconMark"]
+f:I[3556,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js","/_next/static/chunks/3_vx93uv4xj4e.js","/_next/static/chunks/3ye8tu-9c637_.js","/_next/static/chunks/1gln4skv1smvz.js"],"AdminSidebar"]
+10:I[39756,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"default"]
+11:I[37457,["/_next/static/chunks/2_b75x8woym56.js","/_next/static/chunks/01-knzfsw0um2.js"],"default"]
+a:X
+14:X
+14:C
+0:{"buildId":"3d4MGZIglesEHuevjn8cK","data":[{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/02lgrwnjld_g2.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":"$@9","staleTime":"$a","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$Lb",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$Lc",null,{"children":["$","$7",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"OhMyClient"}],["$","meta","1",{"name":"description","content":"No App Required — WhatsApp-powered CRM & loyalty platform"}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$Ld","3",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":"$@e","staleTime":"$a","varyParams":null},{"rsc":["$","$1","c",{"children":[[["$","script","script-0",{"src":"/_next/static/chunks/3_vx93uv4xj4e.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/3ye8tu-9c637_.js","async":true}],["$","script","script-2",{"src":"/_next/static/chunks/1gln4skv1smvz.js","async":true}]],["$","div",null,{"className":"flex min-h-screen","children":[["$","$Lf",null,{}],["$","main",null,{"className":"flex-1 bg-background p-6 pl-16 lg:pl-8 lg:p-8 overflow-auto","children":["$","$L10",null,{"parallelRouterKey":"children","template":["$","$L11",null,{}]}]}]]}]]}],"isPartial":"$@12","staleTime":"$a","varyParams":null},{"rsc":["$","$1","c",{"children":[null,["$","$L10",null,{"parallelRouterKey":"children","template":["$","$L11",null,{}]}]]}],"isPartial":"$@13","staleTime":"$a","varyParams":"$14"}],"isUpgradeableISRFallback":false,"a":"$@15","rootVaryParams":null,"needsRuntimeRequest":"$@16"}
+4:{}
+5:"$0:data:0:rsc:props:children:0:props:serverProvidedParams:params"
+8:null
+16:true
+a:300
+a:C
+15:0
+e:"$undefined"
+12:"$undefined"
+13:"$undefined"
+9:"$undefined"

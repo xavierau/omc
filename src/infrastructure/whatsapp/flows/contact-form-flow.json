@@ -1,0 +1,97 @@
+{
+  "version": "7.2",
+  "screens": [
+    {
+      "id": "CONTACT_FORM",
+      "title": "${data.title}",
+      "terminal": true,
+      "data": {
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "訂座查詢", "title": "訂座查詢" },
+            { "id": "其他查詢", "title": "其他查詢" }
+          ]
+        },
+        "phone": {
+          "type": "string",
+          "__example__": "+85291234567"
+        },
+        "title": {
+          "type": "string",
+          "__example__": "聯絡我們"
+        },
+        "namelabel": {
+          "type": "string",
+          "__example__": "姓名"
+        },
+        "phonelabel": {
+          "type": "string",
+          "__example__": "WhatsApp 號碼"
+        },
+        "topiclabel": {
+          "type": "string",
+          "__example__": "查詢主題"
+        },
+        "submitlabel": {
+          "type": "string",
+          "__example__": "提交"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "contact_form",
+            "initValues": {
+              "clientWhatsapp": "${data.phone}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "clientName",
+                "label": "${data.namelabel}",
+                "inputType": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "clientWhatsapp",
+                "label": "${data.phonelabel}",
+                "inputType": "phone",
+                "required": true
+              },
+              {
+                "type": "Dropdown",
+                "name": "topic",
+                "label": "${data.topiclabel}",
+                "required": true,
+                "dataSource": "${data.topics}"
+              },
+              {
+                "type": "Footer",
+                "label": "${data.submitlabel}",
+                "onClickAction": {
+                  "name": "complete",
+                  "payload": {
+                    "clientName": "${form.clientName}",
+                    "clientWhatsapp": "${form.clientWhatsapp}",
+                    "topic": "${form.topic}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

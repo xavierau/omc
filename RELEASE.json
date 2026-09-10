@@ -1,0 +1,9 @@
+{
+  "source_ref": "release-camp-012-013",
+  "source_commit": "4aa77522ce865109f7d5660aa5e68b527376c86b",
+  "source_subject": "Merge pull request #168 from xavierau/release-camp-012-013 (release: #161 guardrail defaults + #162 recipient RPCs, migrations 078+079)",
+  "build_id": "3d4MGZIglesEHuevjn8cK",
+  "built_at": "2026-09-10T07:25:43Z",
+  "built_by": "xavier.au@gmail.com",
+  "node": "v22.21.1"
+}
