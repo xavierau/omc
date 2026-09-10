@@ -155,16 +155,52 @@ let rateLimiter: RedisRateLimiter | null = null
 
 /** Shared `RateLimiterPort` for the whole inbound pipeline (auth guard +
  * per-integration depth counter). Lazily constructed so importing this
- * module never opens a Redis connection at build/import time. */
+ * module never opens a Redis connection at build/import time.
+ *
+ * Cold-start fix (WI-19): `getFailFastRedisOptions()`'s `lazyConnect: true`
+ * would otherwise defer the TCP handshake to the client's FIRST command --
+ * combined with `enableOfflineQueue: false` (T-H5 fail-fast), that first
+ * command is rejected outright before the handshake has a chance to
+ * finish (`503 queue_unavailable` on the very first signed request after
+ * every restart, prod smoke 2026-09-10). Calling `.connect()` here, right
+ * at construction, starts the handshake as soon as ANYTHING first touches
+ * this module (a real request, or `warmInboundRateLimiter()` at boot)
+ * instead of waiting for the first `.takeToken()`/`.incrWindow()`. The
+ * promise is intentionally not awaited here -- this function's own
+ * callers (`checkPreAuthThrottle` etc.) stay synchronous; a request that
+ * still races the handshake keeps the SAME `queue_unavailable` fail-closed
+ * fallback as before, just for a much smaller window. */
 export function getInboundRateLimiter(): RedisRateLimiter {
   if (!rateLimiter) {
     rateLimiterClient = new Redis(getFailFastRedisOptions())
     rateLimiterClient.on('error', (err) => {
       console.error('[IntegrationInboundQueue] rate-limiter Redis error:', err.message)
     })
+    void rateLimiterClient.connect().catch((err: Error) => {
+      console.error('[IntegrationInboundQueue] rate-limiter warm-up connect failed:', err.message)
+    })
     rateLimiter = new RedisRateLimiter(rateLimiterClient)
   }
   return rateLimiter
+}
+
+/** Awaits the shared rate-limiter client reaching `ready`, bounded by
+ * `timeoutMs`. Called once at process boot (src/instrumentation.ts) so the
+ * FIRST real signed partner request after a deploy doesn't race the
+ * initial handshake `getInboundRateLimiter()` above kicks off. Never
+ * rejects: a timeout or connection failure here just means the app starts
+ * serving before Redis is confirmed ready, which is exactly the pre-fix
+ * status quo -- warming is a latency optimisation on top of the
+ * request-time fail-closed catch, not a new invariant, so a Redis outage
+ * at boot must never block the app from starting. */
+export async function warmInboundRateLimiter(timeoutMs = 3000): Promise<void> {
+  getInboundRateLimiter()
+  const client = rateLimiterClient
+  if (!client || client.status === 'ready') return
+  await new Promise<void>((resolve) => {
+    client.once('ready', () => resolve())
+    setTimeout(resolve, timeoutMs)
+  })
 }
 
 export function getInboundQueueDepthSource(): QueueDepthSource {

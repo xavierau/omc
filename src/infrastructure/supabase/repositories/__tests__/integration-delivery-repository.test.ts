@@ -47,7 +47,7 @@ function toRow(props: IntegrationDeliveryProps) {
     last_http_status: props.lastHttpStatus,
     last_error_code: props.lastErrorCode,
     last_latency_ms: props.lastLatencyMs,
-    response_excerpt: props.responseExcerpt,
+    last_response_excerpt: props.responseExcerpt,
     next_retry_at: props.nextRetryAt,
     enqueued_at: props.enqueuedAt,
     delivered_at: props.deliveredAt,

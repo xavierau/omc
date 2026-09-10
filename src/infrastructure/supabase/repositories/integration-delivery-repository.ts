@@ -20,7 +20,13 @@ interface DeliveryRow {
   last_http_status: number | null
   last_error_code: string | null
   last_latency_ms: number | null
-  response_excerpt: string | null
+  // D2 fix (INT-001 WI-19): migration 071 named this column
+  // `last_response_excerpt`; this repository read/wrote `response_excerpt`
+  // (a column that never existed), so every relay-scheduler tick and every
+  // delivery-attempt write failed in production
+  // (.claude-workspace/deploys/2026-09-10-int-001-release-runbook.md, D2).
+  // Guarded going forward by integration-schema-contract.test.ts.
+  last_response_excerpt: string | null
   next_retry_at: string | null
   enqueued_at: string | null
   delivered_at: string | null
@@ -29,7 +35,7 @@ interface DeliveryRow {
 }
 
 const SELECT_COLUMNS =
-  'id, integration_id, restaurant_id, event_id, status, attempts, last_http_status, last_error_code, last_latency_ms, response_excerpt, next_retry_at, enqueued_at, delivered_at, dead_lettered_at, retried_at'
+  'id, integration_id, restaurant_id, event_id, status, attempts, last_http_status, last_error_code, last_latency_ms, last_response_excerpt, next_retry_at, enqueued_at, delivered_at, dead_lettered_at, retried_at'
 
 function toEntity(row: DeliveryRow): IntegrationDelivery {
   const props: IntegrationDeliveryProps = {
@@ -42,7 +48,7 @@ function toEntity(row: DeliveryRow): IntegrationDelivery {
     lastHttpStatus: row.last_http_status,
     lastErrorCode: row.last_error_code,
     lastLatencyMs: row.last_latency_ms,
-    responseExcerpt: row.response_excerpt,
+    responseExcerpt: row.last_response_excerpt,
     nextRetryAt: row.next_retry_at,
     enqueuedAt: row.enqueued_at,
     deliveredAt: row.delivered_at,
@@ -102,7 +108,7 @@ export async function saveDelivery(delivery: IntegrationDelivery): Promise<void>
       last_http_status: s.lastHttpStatus,
       last_error_code: s.lastErrorCode,
       last_latency_ms: s.lastLatencyMs,
-      response_excerpt: s.responseExcerpt,
+      last_response_excerpt: s.responseExcerpt,
       next_retry_at: s.nextRetryAt,
       enqueued_at: s.enqueuedAt,
       delivered_at: s.deliveredAt,
