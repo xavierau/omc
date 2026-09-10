@@ -69,7 +69,8 @@ export function checkMonthlyLimit(
   targetMemberCount: number,
   monthlyLimit: number
 ): GuardrailResult {
-  if (currentMonthSends + targetMemberCount >= monthlyLimit) {
+  // #161 D2: inclusive -- a tenant on a 1,000 quota can use all 1,000 sends.
+  if (currentMonthSends + targetMemberCount > monthlyLimit) {
     return {
       allowed: false,
       reason: `Monthly send limit reached: ${currentMonthSends}/${monthlyLimit} used, target ${targetMemberCount}`,
