@@ -15,6 +15,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
 - [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
 - [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
