@@ -1528,35 +1528,6 @@
             "WAQ-006"
           ],
           "playbook_ref": "docs/playbooks/staff-number-onboarding-and-marketing.md §6.2 Strategy B"
-        },
-        {
-          "id": "INT-001",
-          "title": "Bidirectional member-creation API — inbound partner endpoint + outbound member.created webhook",
-          "description": "Audit 2026-09-09: no external API exists in either direction. Inbound: no API-key/partner endpoint creates members; the only outside-reachable member-creating route is the unauthenticated public QR join form /api/join/[slug]; the HMAC-signed POS webhook + /api/integrations/[id]/points/* only award/deduct points for an existing member and store unmatched transactions for later claiming. Outbound: member creation triggers only the Kapso welcome message — no member record is ever pushed to a POS/CRM/loyalty provider. Scope: (1) INBOUND — POST /api/integrations/[integrationId]/members (create-or-get by phone, idempotent, returns member id + status) authenticated with the existing per-integration HMAC (verify-signature.ts) or a new tenant API key; must pass the WAQ-004 consent/import gate (consent source = 'partner_api', no marketing without explicit opt-in) and reuse register-member domain logic, not a new insert path. (2) OUTBOUND — emit member.created (and member.updated) to a per-integration outbound webhook URL, HMAC-signed with the integration secret, retried with backoff + dead-letter, fired from the single member-creation seam so all three existing paths (WhatsApp onboarding, web join, CSV import) publish it. (3) Dashboard: integration settings UI for outbound URL + secret rotation, delivery log. Security-architect threat model required (auth, PII, tenant isolation, replay). Decide with product whether inbound also hardens /api/join/[slug] (rate limit/signature). CONSTRAINT — queue-bounded, never exhaust resources (Redis/BullMQ, reuse src/infrastructure/queue/* precedent): (a) INBOUND route does the minimum synchronously — verify HMAC/API key, validate + normalize payload, enqueue a member-create job with jobId = hash(integrationId, phone) for idempotency — then returns 202 Accepted with the job id; the member insert, consent-gate evaluation, welcome message and outbound fan-out all run in the worker, never in the request handler. Apply a per-integration rate limit at the edge (Redis token bucket, e.g. N req/min per integrationId, 429 + Retry-After) and a per-integration queue-depth cap (reject with 429/503 when the integration already has more than M waiting jobs) so one partner cannot flood the queue for all tenants. Enforce a request body size limit and a batch size limit if batch create is offered. (b) OUTBOUND webhook deliveries are jobs on a dedicated 'integration-outbound' queue with worker concurrency capped (start at 2-4, configurable), BullMQ limiter (max jobs per duration) plus per-destination-host budget, per-request timeout (5s) with no more than 5 attempts of exponential backoff, dead-letter on exhaustion with a Slack alert, and removeOnComplete/removeOnFail counts bounded exactly like event-dispatch-queue.ts (#102 Part B lesson: unbounded sets grew to 6,642 stuck jobs). Circuit-break a destination that fails consecutively (pause deliveries for that integration, surface in the dashboard delivery log) instead of retrying it forever. (c) Workers run in the long-running worker process (ensureWorkerStarted precedent), not inside Next.js request handlers; prod VM is e2-medium/4GB shared by 17 sites, so concurrency and memory per job must be budgeted and load-tested before release. (d) A GET /api/integrations/[integrationId]/members/jobs/[jobId] (or equivalent) lets the partner poll the async result; document the 202 + polling contract.",
-          "priority": "medium",
-          "labels": [
-            "api",
-            "backend",
-            "fullstack",
-            "integrations",
-            "queue",
-            "reliability",
-            "security",
-            "webhook"
-          ],
-          "related": [
-            "kanban:MBL-020",
-            "kanban:WAQ-004",
-            "kanban:MBL-011"
-          ],
-          "notes": "Related: MBL-020 proposes auto-enrolling a member on POS phone match (POS-driven creation, cross-brand); WAQ-004 names a 'member creation API' as a future import-gate boundary. Existing seams: src/application/register-member.ts, register-member-web.ts, import-contacts-batch-row-member.ts; HMAC auth in src/app/api/integrations/[integrationId]/verify-signature.ts; PosApi port has no customer methods. import-members-with-consent.ts is dead code (no prod caller) — do not build on it. Queue precedent: campaign-queue.ts (concurrency 1, attempts 3), event-dispatch-queue.ts (attempts 5, bounded removeOnComplete/removeOnFail), email-job-processor.ts (permanent vs transient error classification — reuse that split so 4xx from a partner endpoint does not burn retries). REDIS_URL already in .env.example; worker started via ensureWorkerStarted in the daemon process.",
-          "branch": "feature/int-001-member-api",
-          "worktree": "~/Code/js/whatsapp-crm--int-001-member-api",
-          "workspace_artifacts": [
-            "specs/2026-09-10-int-001-member-creation-api.md",
-            "threats/2026-09-10-int-001-member-creation-api.md",
-            "plans/2026-09-10-int-001-member-creation-api.md"
-          ]
         }
       ]
     },
@@ -1609,6 +1580,60 @@
             "reviews/2026-07-17-tpl-004-image-header-upload-gemini-r2.md"
           ],
           "pr": "https://github.com/xavierau/omc/pull/68"
+        },
+        {
+          "id": "INT-001",
+          "title": "Bidirectional member-creation API — inbound partner endpoint + outbound member.created webhook",
+          "description": "Audit 2026-09-09: no external API exists in either direction. Inbound: no API-key/partner endpoint creates members; the only outside-reachable member-creating route is the unauthenticated public QR join form /api/join/[slug]; the HMAC-signed POS webhook + /api/integrations/[id]/points/* only award/deduct points for an existing member and store unmatched transactions for later claiming. Outbound: member creation triggers only the Kapso welcome message — no member record is ever pushed to a POS/CRM/loyalty provider. Scope: (1) INBOUND — POST /api/integrations/[integrationId]/members (create-or-get by phone, idempotent, returns member id + status) authenticated with the existing per-integration HMAC (verify-signature.ts) or a new tenant API key; must pass the WAQ-004 consent/import gate (consent source = 'partner_api', no marketing without explicit opt-in) and reuse register-member domain logic, not a new insert path. (2) OUTBOUND — emit member.created (and member.updated) to a per-integration outbound webhook URL, HMAC-signed with the integration secret, retried with backoff + dead-letter, fired from the single member-creation seam so all three existing paths (WhatsApp onboarding, web join, CSV import) publish it. (3) Dashboard: integration settings UI for outbound URL + secret rotation, delivery log. Security-architect threat model required (auth, PII, tenant isolation, replay). Decide with product whether inbound also hardens /api/join/[slug] (rate limit/signature). CONSTRAINT — queue-bounded, never exhaust resources (Redis/BullMQ, reuse src/infrastructure/queue/* precedent): (a) INBOUND route does the minimum synchronously — verify HMAC/API key, validate + normalize payload, enqueue a member-create job with jobId = hash(integrationId, phone) for idempotency — then returns 202 Accepted with the job id; the member insert, consent-gate evaluation, welcome message and outbound fan-out all run in the worker, never in the request handler. Apply a per-integration rate limit at the edge (Redis token bucket, e.g. N req/min per integrationId, 429 + Retry-After) and a per-integration queue-depth cap (reject with 429/503 when the integration already has more than M waiting jobs) so one partner cannot flood the queue for all tenants. Enforce a request body size limit and a batch size limit if batch create is offered. (b) OUTBOUND webhook deliveries are jobs on a dedicated 'integration-outbound' queue with worker concurrency capped (start at 2-4, configurable), BullMQ limiter (max jobs per duration) plus per-destination-host budget, per-request timeout (5s) with no more than 5 attempts of exponential backoff, dead-letter on exhaustion with a Slack alert, and removeOnComplete/removeOnFail counts bounded exactly like event-dispatch-queue.ts (#102 Part B lesson: unbounded sets grew to 6,642 stuck jobs). Circuit-break a destination that fails consecutively (pause deliveries for that integration, surface in the dashboard delivery log) instead of retrying it forever. (c) Workers run in the long-running worker process (ensureWorkerStarted precedent), not inside Next.js request handlers; prod VM is e2-medium/4GB shared by 17 sites, so concurrency and memory per job must be budgeted and load-tested before release. (d) A GET /api/integrations/[integrationId]/members/jobs/[jobId] (or equivalent) lets the partner poll the async result; document the 202 + polling contract.",
+          "priority": "medium",
+          "labels": [
+            "api",
+            "backend",
+            "fullstack",
+            "integrations",
+            "queue",
+            "reliability",
+            "security",
+            "webhook"
+          ],
+          "related": [
+            "kanban:MBL-020",
+            "kanban:WAQ-004",
+            "kanban:MBL-011"
+          ],
+          "notes": "Related: MBL-020 proposes auto-enrolling a member on POS phone match (POS-driven creation, cross-brand); WAQ-004 names a 'member creation API' as a future import-gate boundary. Existing seams: src/application/register-member.ts, register-member-web.ts, import-contacts-batch-row-member.ts; HMAC auth in src/app/api/integrations/[integrationId]/verify-signature.ts; PosApi port has no customer methods. import-members-with-consent.ts is dead code (no prod caller) — do not build on it. Queue precedent: campaign-queue.ts (concurrency 1, attempts 3), event-dispatch-queue.ts (attempts 5, bounded removeOnComplete/removeOnFail), email-job-processor.ts (permanent vs transient error classification — reuse that split so 4xx from a partner endpoint does not burn retries). REDIS_URL already in .env.example; worker started via ensureWorkerStarted in the daemon process. | 2026-09-10: implemented on feature/int-001-member-api (WI-0..WI-16, migrations 069–076); gate green (tsc, eslint, vitest 5556/0, build); reviews: analyzer BLOCKED→fixed round 1, grok BLOCKED→fixed round 2, gemini lane 403-unavailable; residual blocker for shipping the public route = SEC-005 (next upgrade); DEV browser walk partial (schema-dependent flows unverified pre-prod); prod Node ≥22.19 unconfirmed for undici 8.",
+          "branch": "feature/int-001-member-api",
+          "worktree": "~/Code/js/whatsapp-crm--int-001-member-api",
+          "workspace_artifacts": [
+            "artifacts/2026-09-09-ui-test-runner-handoff",
+            "artifacts/2026-09-10-int-001-wi0-backend",
+            "artifacts/2026-09-10-int-001-wi1-backend",
+            "artifacts/2026-09-10-int-001-wi10-frontend",
+            "artifacts/2026-09-10-int-001-wi11-backend",
+            "artifacts/2026-09-10-int-001-wi13-backend",
+            "artifacts/2026-09-10-int-001-wi14-backend",
+            "artifacts/2026-09-10-int-001-wi15-frontend",
+            "artifacts/2026-09-10-int-001-wi16-backend",
+            "artifacts/2026-09-10-int-001-wi2-backend",
+            "artifacts/2026-09-10-int-001-wi3-backend",
+            "artifacts/2026-09-10-int-001-wi4-backend",
+            "artifacts/2026-09-10-int-001-wi5-backend",
+            "artifacts/2026-09-10-int-001-wi6-backend",
+            "artifacts/2026-09-10-int-001-wi7-backend",
+            "artifacts/2026-09-10-int-001-wi8-backend",
+            "artifacts/2026-09-10-int-001-wi9-frontend",
+            "artifacts/2026-09-10-ui-test-runner-handoff",
+            "plans/2026-09-10-int-001-member-creation-api",
+            "plans/2026-09-10-int-001-member-creation-api.md",
+            "reviews/2026-09-10-int-001-analyzer",
+            "reviews/2026-09-10-int-001-grok",
+            "specs/2026-09-10-int-001-member-creation-api",
+            "specs/2026-09-10-int-001-member-creation-api.md",
+            "tests/2026-09-10-int-001-ui-walk",
+            "threats/2026-09-10-int-001-member-creation-api",
+            "threats/2026-09-10-int-001-member-creation-api.md",
+            "ui-map/flows/int-001-integrations-dashboard"
+          ]
         }
       ]
     },
