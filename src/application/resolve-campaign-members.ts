@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
-import { readAllPages } from './resolve-campaign-members-chunks'
+import { dedupeById, readAllPages } from './resolve-campaign-members-chunks'
 
 // Exported so the migration-079 contract test can tie the RPCs' RETURNS
 // TABLE column list to the columns mapRowToMember actually consumes (D8).
@@ -87,7 +87,7 @@ async function fetchSelectedMembers(
         p_offset: from,
       })
   )
-  return rows.map(mapRowToMember)
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 // Target-by-tag resolves to whoever carries the linked tag(s) at SEND time
@@ -115,7 +115,7 @@ async function fetchTagMembers(
         p_offset: from,
       })
   )
-  return rows.map(mapRowToMember)
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 function mapRowToMember(row: Record<string, unknown>): Member {
