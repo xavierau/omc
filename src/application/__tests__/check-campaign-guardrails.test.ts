@@ -65,7 +65,13 @@ function setupMocks(opts: {
   dailyCount?: number
   unsubStats?: { total: number; unsubscribed: number }
 } = {}) {
-  mockGetSettings.mockResolvedValue(opts.settings ?? makeSettings())
+  // #161: `opts.settings === undefined` (not provided) means "use the
+  // default full row"; `opts.settings === null` (provided explicitly)
+  // means "no tenant_campaign_settings row exists" and must reach
+  // resolveSettings as null, not collapse into a default row via `??`.
+  mockGetSettings.mockResolvedValue(
+    opts.settings === undefined ? makeSettings() : opts.settings
+  )
   mockMonthlySends.mockResolvedValue(opts.monthlySends ?? 100)
   mockDailyCount.mockResolvedValue(opts.dailyCount ?? 0)
   mockUnsubStats.mockResolvedValue(
