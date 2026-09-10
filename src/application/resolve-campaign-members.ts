@@ -32,6 +32,24 @@ export async function resolveTargetMembers(
   return []
 }
 
+// The active-member half of the promo and winback reads. Both branches page
+// it: an unpaged select is truncated at the project's `max-rows` (1000) with
+// NO error, and #161 is what makes that reachable -- before it every tenant
+// was capped at 1,000 sends/month anyway, after it a growth tenant enforces
+// 10,000 and the read cap is the only thing left silently deciding who is
+// left out of a campaign the worker then marks completed (review F1).
+// `.order('id')` supplies the total order readAllPages requires.
+function activeMembersOf(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  restaurantId: string
+) {
+  return supabase
+    .from('members')
+    .select(MEMBER_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'active')
+}
+
 async function fetchWinbackMembers(
   campaign: Campaign,
   restaurantId: string
@@ -43,29 +61,26 @@ async function fetchWinbackMembers(
   ).toISOString()
 
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'active')
-    .lt('last_visit_at', cutoff)
-
-  if (error) throw new Error(`fetchWinbackMembers: ${error.message}`)
-  return (data ?? []).map(mapRowToMember)
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchWinbackMembers',
+    (from, to) =>
+      activeMembersOf(supabase, restaurantId)
+        .lt('last_visit_at', cutoff)
+        .order('id')
+        .range(from, to)
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 async function fetchActiveMembers(
   restaurantId: string
 ): Promise<Member[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('members')
-    .select(MEMBER_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'active')
-
-  if (error) throw new Error(`fetchActiveMembers: ${error.message}`)
-  return (data ?? []).map(mapRowToMember)
+  const rows = await readAllPages<Record<string, unknown>>(
+    'fetchActiveMembers',
+    (from, to) => activeMembersOf(supabase, restaurantId).order('id').range(from, to)
+  )
+  return dedupeById(rows.map(mapRowToMember))
 }
 
 // Recipients resolve INSIDE the database (migration 079). The old shape read
