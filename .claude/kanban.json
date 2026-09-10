@@ -1597,9 +1597,10 @@
             "webhook"
           ],
           "related": [
+            "github:155",
+            "kanban:MBL-011",
             "kanban:MBL-020",
-            "kanban:WAQ-004",
-            "kanban:MBL-011"
+            "kanban:WAQ-004"
           ],
           "notes": "Related: MBL-020 proposes auto-enrolling a member on POS phone match (POS-driven creation, cross-brand); WAQ-004 names a 'member creation API' as a future import-gate boundary. Existing seams: src/application/register-member.ts, register-member-web.ts, import-contacts-batch-row-member.ts; HMAC auth in src/app/api/integrations/[integrationId]/verify-signature.ts; PosApi port has no customer methods. import-members-with-consent.ts is dead code (no prod caller) — do not build on it. Queue precedent: campaign-queue.ts (concurrency 1, attempts 3), event-dispatch-queue.ts (attempts 5, bounded removeOnComplete/removeOnFail), email-job-processor.ts (permanent vs transient error classification — reuse that split so 4xx from a partner endpoint does not burn retries). REDIS_URL already in .env.example; worker started via ensureWorkerStarted in the daemon process. | 2026-09-10: implemented on feature/int-001-member-api (WI-0..WI-16, migrations 069–076); gate green (tsc, eslint, vitest 5556/0, build); reviews: analyzer BLOCKED→fixed round 1, grok BLOCKED→fixed round 2, gemini lane 403-unavailable; residual blocker for shipping the public route = SEC-005 (next upgrade); DEV browser walk partial (schema-dependent flows unverified pre-prod); prod Node ≥22.19 unconfirmed for undici 8.",
           "branch": "feature/int-001-member-api",
@@ -1633,7 +1634,8 @@
             "threats/2026-09-10-int-001-member-creation-api",
             "threats/2026-09-10-int-001-member-creation-api.md",
             "ui-map/flows/int-001-integrations-dashboard"
-          ]
+          ],
+          "github_pr": 155
         }
       ]
     },
