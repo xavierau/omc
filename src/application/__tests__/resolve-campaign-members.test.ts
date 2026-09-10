@@ -450,44 +450,77 @@ describe('resolveTargetMembers', () => {
     expect(result[0].id).toBe('m-2')
   })
 
-  it('passes the caller tenant as p_restaurant_id on both branches (cross-tenant scoping)', async () => {
-    // The SQL-side proof (a poisoned member_tags.restaurant_id yields no row)
-    // lives in migration 079 + the scratch-DB run; here we prove the caller
-    // never widens the scope it asks for.
-    setupCampaignTags([{ tag_id: 't-1' }])
+  // Review (Grok, Important): the three tests below used to carry the names
+  // of #162's isolation / dedupe / status acceptance criteria, but a mocked
+  // `supabase.rpc` cannot see migration 079's SQL -- a poisoned member_tags
+  // row, `DISTINCT ON (m.id)` and `m.status = 'active'` are properties of
+  // the database, and mocking them proves nothing about them. They are
+  // asserted against real Postgres in
+  // src/infrastructure/supabase/__tests__/recipient-rpcs.db.test.ts. What a
+  // mock CAN prove is the request this caller makes and the mapping it does,
+  // so that is all these three claim now.
+  it('calls each RPC with exactly the tenant-scoped arguments it was given', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }, { tag_id: 't-2' }])
     const tagRpc = pagingRpc([])
     await resolveTargetMembers(tagCampaign(), 'r-1')
-    expect(tagRpc.calls[0].args.p_restaurant_id).toBe('r-1')
+    expect(tagRpc.calls[0].name).toBe('active_members_by_tags')
+    expect(tagRpc.calls[0].args).toEqual({
+      p_restaurant_id: 'r-1',
+      p_tag_ids: ['t-1', 't-2'],
+      p_limit: 1000,
+      p_offset: 0,
+    })
 
     mockRpc.mockReset()
     const selectedRpc = pagingRpc([])
     await resolveTargetMembers(selectedCampaign(), 'r-1')
-    expect(selectedRpc.calls[0].args.p_restaurant_id).toBe('r-1')
+    expect(selectedRpc.calls[0].name).toBe('active_members_by_campaign_selection')
+    expect(selectedRpc.calls[0].args).toEqual({
+      p_restaurant_id: 'r-1',
+      p_campaign_id: 'camp-1',
+      p_limit: 1000,
+      p_offset: 0,
+    })
   })
 
-  it('sends both linked tag ids in one RPC call and yields one recipient per member', async () => {
-    // A member carrying two selected tags must receive exactly ONE message.
-    // DISTINCT ON (m.id) does that server-side (asserted structurally in the
-    // 079 contract test and on the scratch DB); here the branch must not
-    // re-introduce a duplicate by calling once per tag.
+  it('sends EVERY linked tag id in one RPC call, never one call per tag', async () => {
+    // Server-side dedupe only helps if the whole tag set goes out in a single
+    // query; one call per tag would return a member once per tag it carries.
+    // (That the RPC itself dedupes is the DB test's job.)
     setupCampaignTags([{ tag_id: 't-1' }, { tag_id: 't-2' }])
     const rpc = pagingRpc(memberRows(['m-1']))
 
     const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
-    expect(rpc.calls[0].args.p_tag_ids).toEqual(['t-1', 't-2'])
+    for (const call of rpc.calls) {
+      expect(call.args.p_tag_ids).toEqual(['t-1', 't-2'])
+    }
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('m-1')
   })
 
-  it('returns no unsubscribed member on the tag branch (status filtered server-side)', async () => {
-    // The RPC applies m.status = 'active' (079); an unsubscribed member
-    // carrying the tag never reaches the worker at all.
+  it('maps the RPC result through unchanged (the caller filters nothing)', async () => {
+    // `m.status = 'active'` lives in the RPC (079) and is proven in the DB
+    // test. The complementary property here -- the one a mock CAN see -- is
+    // that this branch adds no filter of its own: whatever the RPC returns is
+    // what the worker gets, mapped column for column.
     setupCampaignTags([{ tag_id: 't-1' }])
-    pagingRpc([])
+    pagingRpc([
+      { ...memberRow, id: 'm-1' },
+      {
+        ...memberRow,
+        id: 'm-9',
+        status: 'unsubscribed',
+        preferred_language: 'zh-HK',
+        points_balance: 42,
+      },
+    ])
 
     const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
-    expect(result).toEqual([])
+    expect(result.map((m) => m.id)).toEqual(['m-1', 'm-9'])
+    expect(result.map((m) => m.status)).toEqual(['active', 'unsubscribed'])
+    expect(result[1].preferredLanguage).toBe('zh-HK')
+    expect(result[1].pointsBalance).toBe(42)
   })
 })
