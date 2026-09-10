@@ -29,7 +29,15 @@ import type { Campaign } from '@/domain/entities/campaign'
 import { okResult } from '@/test-utils/send-result'
 
 const mockSingle = vi.fn()
-const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle })
+const mockMaybeSingle = vi.fn()
+// N-9 (WI-17): extended to also expose maybeSingle -- insertMember's own
+// 23505 re-select (member-create-repository.ts's selectMemberByPhone) uses
+// `.eq().eq().maybeSingle()`, the SAME chain shape as this file's
+// findExistingMember/findMemberByPhone `.single()` calls, since every
+// `.from('members')` call in these tests routes through this ONE shared
+// mock. Additive only -- no existing test calls maybeSingle, so this
+// changes nothing for them.
+const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockMaybeSingle })
 const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 })
 const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 })
 const mockInsertSingle = vi.fn()
@@ -208,6 +216,77 @@ describe('registerMember', () => {
       VALID_PHONE,
       'Welcome to our loyalty program, Bob!\n\nYou\'ve received a welcome gift!\nUse code: WELCOME1\n\nReply POINTS to check balance, or send a receipt photo to earn points.'
     )
+  })
+
+  // G-3 (Grok review): WI-7's seam refactor wraps `PhoneNumber.create`'s
+  // output in `E164Phone.of`, a STRICT format assertion. `PhoneNumber.create`
+  // only strips `[\s\-()]` -- it keeps dots -- so a raw phone like
+  // "+852.9123.4567" (which the OLD pre-seam code accepted, since it never
+  // ran through a strict E.164 check) now throws uncaught inside
+  // `E164Phone.of`, 500-ing the whole WhatsApp join with no member created.
+  // Fixed by falling back to the robust `parseE164Phone` (the SAME parser
+  // the partner API path already uses) when the strict path throws --
+  // repairs a legacy-accepted format into a valid E.164 instead of
+  // crashing, without weakening validation for genuinely invalid input.
+  it('G-3: a dotted phone format the legacy PhoneNumber VO accepted no longer 500s -- parsed via the fallback and the member is created with the clean E.164 value', async () => {
+    mockSingle.mockResolvedValueOnce({ data: null, error: null })
+    mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+    const result = await registerMember(RESTAURANT_ID, '+852.9123.4567', 'Bob')
+
+    expect(result).toEqual({
+      isNew: true,
+      memberId: 'm-new',
+      pointsBalance: 0,
+      couponCode: 'WELCOME1',
+    })
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+85291234567' })
+    )
+  })
+
+  // N-9 (WI-17, confirmation review): the pre-check (findExistingMember)
+  // and the race re-select (findMemberByPhone) used to look up by the
+  // un-repaired `phone.value` -- so a member first created via the G-3
+  // fallback (stored NORMALISED) missed both lookups on a second join with
+  // the same raw legacy input, and the race branch threw "race on create
+  // but no row found" -> 500, even though the member genuinely existed.
+  describe('N-9: pre-check and race re-select use the RESOLVED E.164 value, not the raw legacy phone', () => {
+    it('the pre-check queries by the RESOLVED value for a dotted legacy phone', async () => {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+      await registerMember(RESTAURANT_ID, '+852.9123.4567', 'Bob')
+
+      expect(mockEq2).toHaveBeenCalledWith('phone', '+85291234567')
+      expect(mockEq2).not.toHaveBeenCalledWith('phone', '+852.9123.4567')
+    })
+
+    it('a genuine race (pre-check misses, insert hits 23505) re-selects by the RESOLVED value -- returns the returning-member flow instead of throwing/500', async () => {
+      // Pre-check: misses (another request is mid-insert for this number).
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      // insertMember's own INSERT attempt hits the unique index.
+      mockInsertSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      })
+      // insertMember's OWN re-select (member-create-repository.ts, fed the
+      // resolved E164Phone by createOrGetMember) finds the row -- this leg
+      // was already correct before this fix.
+      mockMaybeSingle.mockResolvedValueOnce({ data: { id: 'm-race', status: 'active' }, error: null })
+      // registerMember's OWN re-select (findMemberByPhone) -- THIS fix's
+      // target: only succeeds if it queries by the resolved value too.
+      mockSingle.mockResolvedValueOnce({
+        data: { id: 'm-race', points_balance: 10, name: 'Bob', preferred_language: null },
+        error: null,
+      })
+
+      const result = await registerMember(RESTAURANT_ID, '+852.9123.4567', 'Bob')
+
+      expect(result).toEqual({ isNew: false, memberId: 'm-race', pointsBalance: 10 })
+      expect(mockEq2).not.toHaveBeenCalledWith('phone', '+852.9123.4567')
+      expect(mockEq2).toHaveBeenCalledWith('phone', '+85291234567')
+    })
   })
 
   it('uses mapped welcome campaign: renders template, creates campaign coupon, increments non-chargeable counter', async () => {

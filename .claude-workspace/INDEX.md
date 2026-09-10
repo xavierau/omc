@@ -11,9 +11,11 @@ no artifact files were lost._
 - [ui-map/INDEX.md](ui-map/INDEX.md) — scaffolded 2026-08-24 (ui-test-runner), all fields TODO, no run has occurred yet
 
 ### Specs
+- [2026-09-10-int-001-member-creation-api](specs/2026-09-10-int-001-member-creation-api.md) — INT-001 member API + webhook PRD rev2 (product-manager)
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
 - [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
 - [2026-08-28-wonb-018-019-csv-parser-and-template](plans/2026-08-28-wonb-018-019-csv-parser-and-template.md) — #148/#147 CSV plan (solution-architect)
 - [2026-08-28-tag-001-issues-138-139](plans/2026-08-28-tag-001-issues-138-139.md) — #138/#139 deltas on PR #51: 12 items, mig 067 (solution-architect)
@@ -29,6 +31,7 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-build-plan](plans/2026-06-09-stamp-collection-build-plan.md) — Stamp Collection MVP, reviewed and build-ready (solution-architect)
 
 ### Threats
+- [2026-09-10-int-001-member-creation-api](threats/2026-09-10-int-001-member-creation-api.md) — INT-001: CONDITIONAL, 4 Critical, 8 High (security-architect)
 - [2026-06-09-stamp-collection-plan-review](threats/2026-06-09-stamp-collection-plan-review.md) — Threat model review of the Stamp Collection plan, post-LOCKED decisions (security-architect)
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
@@ -36,6 +39,9 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-10-int-001-confirmation](reviews/2026-09-10-int-001-confirmation.md) — INT-001 fix rounds: CONDITIONAL — 19 closed / 2 partial / 11 open, 2 new Important (N-1 pre-auth throttle, N-2 attempt budget) (code-review-analyzer)
+- [2026-09-10-int-001-analyzer](reviews/2026-09-10-int-001-analyzer.md) — INT-001 branch: BLOCKED — 2 Critical (outbound exhaustion never dead-letters; resume no-op on jobId dedup), 8 Important (code-review-analyzer)
+- [2026-09-10-int-001-grok](reviews/2026-09-10-int-001-grok.md) — INT-001 branch: BLOCKED — 1 Critical (next unpatched, req #13), 8 Important (grok-cli-reviewer)
 - [2026-09-09-tpl-011-video-header-analyzer](reviews/2026-09-09-tpl-011-video-header-analyzer.md) — TPL-011 1fa9012: CONDITIONAL — 0 Critical, 2 Important (video pre-check message, unverified Kapso ingest), 7 Minor (code-review-analyzer)
 - [2026-08-28-tag-001-issues-138-139-gemini](reviews/2026-08-28-tag-001-issues-138-139-gemini.md) — #138/#139 d728bb4: CONDITIONAL — 1 Critical (NUL byte made a source file binary; fixed) (gemini-cli-reviewer)
 - [2026-08-28-tag-001-issues-138-139-analyzer](reviews/2026-08-28-tag-001-issues-138-139-analyzer.md) — #138/#139 d728bb4 second lane: CONDITIONAL — 0 Critical, 5 Important (NUL byte, CSV tag feedback, bulk success line, raw enum error, audience-scale reads), 13 Minor (code-review-analyzer)
@@ -70,6 +76,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-09-10-int-001-ui-walk](tests/2026-09-10-int-001-ui-walk.md) — WI-12: BLOCKED by DEV PostgREST schema-cache gap; list/create/inbound-rotate PASS, 2 frontend defects found (ui-test-runner)
 - [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
 - [2026-08-24-issue-111-acceptance-verdict](tests/2026-08-24-issue-111-acceptance-verdict.md) — #111 member-detail IDOR: acceptance verdict **PASSED** on AC1–AC6, mutation-tested; 6 non-blocking gaps (qa-engineer)
@@ -79,6 +86,26 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**INT-001 — Bidirectional member-creation API (2026-09-10)**
+- [2026-09-10-int-001-wi0-backend](artifacts/2026-09-10-int-001-wi0-backend.md) — WI-0: pre-existing integration-route vuln fixes (T-C4/T-H1/T-M5/OQ-5), full suite green (senior-backend-dev)
+- [2026-09-10-int-001-wi1-backend](artifacts/2026-09-10-int-001-wi1-backend.md) — WI-1: migrations 069–072 (scratch-DB validated), domain/seam layer (T-C1/T-C2/T-H6/T-H1) (senior-backend-dev)
+- [2026-09-10-int-001-wi2-backend](artifacts/2026-09-10-int-001-wi2-backend.md) — WI-2: inbound auth v2 guard + Redis rate limiter, job-id construction, admin limits (T-H2/T-H3/T-H5/T-M7/T-M12/T-L3) (senior-backend-dev)
+- [2026-09-10-int-001-wi5-backend](artifacts/2026-09-10-int-001-wi5-backend.md) — WI-5: SSRF guard + resolve-and-pin undici sender, shared URL validator (T-C3/T-L3/T-M6), undici pin, fake+real contract suite (senior-backend-dev)
+- [2026-09-10-int-001-wi3-backend](artifacts/2026-09-10-int-001-wi3-backend.md) — WI-3: inbound POST/GET routes, queue+worker, member-create job, welcome decision, job repo (T-H3b/H4/H7/M1) (senior-backend-dev)
+- [2026-09-10-int-001-wi6-backend](artifacts/2026-09-10-int-001-wi6-backend.md) — WI-6: outbound queue, delivery processor, breaker, dead-letter, retry/resume/test, relay+sweeper (T-H7/T-M4/T-M8/T-L4/T-M2) (senior-backend-dev)
+- [2026-09-10-int-001-wi8-backend](artifacts/2026-09-10-int-001-wi8-backend.md) — WI-8: dashboard settings/secret/deliveries/retry/resume/test/activity APIs (T-M5/T-M6/T-M11) (senior-backend-dev)
+- [2026-09-10-int-001-wi7-backend](artifacts/2026-09-10-int-001-wi7-backend.md) — WI-7: 3 legacy paths routed through the seam, boundary test (T-H6), member.updated verified, mig 071 bugfix (senior-backend-dev)
+- [2026-09-10-int-001-wi4-backend](artifacts/2026-09-10-int-001-wi4-backend.md) — WI-4: welcome-send job — send-time re-checks reuse decideWelcome, idempotent mint (OD-15), hourly send cap (T-H8/T-M11) (senior-backend-dev)
+- [2026-09-10-int-001-wi11-backend](artifacts/2026-09-10-int-001-wi11-backend.md) — WI-11: partner API doc + ops playbook + .env.example + load test + fake-rate-limiter fix; prod Node version unconfirmed (senior-backend-dev)
+- [2026-09-10-int-001-wi9-frontend](artifacts/2026-09-10-int-001-wi9-frontend.md) — WI-9: dashboard Integrations list+detail, 4 settings cards, sidebar nav, 88 i18n keys ×2 locales, 173 tests (react-frontend-dev)
+- [2026-09-10-int-001-wi13-backend](artifacts/2026-09-10-int-001-wi13-backend.md) — WI-13: origin_integration_id on member.updated (mig 073) + depth-counter rebuild sweep (senior-backend-dev)
+- [2026-09-10-int-001-wi10-frontend](artifacts/2026-09-10-int-001-wi10-frontend.md) — WI-10: delivery log + activity log tabs, paused banner + resume, retry, test-event→delivery link, 134 tests (react-frontend-dev)
+- [2026-09-10-int-001-wi14-backend](artifacts/2026-09-10-int-001-wi14-backend.md) — WI-14+addendum: analyzer fix round + grok G-1..G-5, mig 074-076; gate green, see hand-off for open items (senior-backend-dev)
+- [2026-09-10-int-001-wi15-frontend](artifacts/2026-09-10-int-001-wi15-frontend.md) — WI-15: settings-fetch failure now shows error panel + Retry, not silent/misleading text (react-frontend-dev)
+- [2026-09-10-int-001-wi16-backend](artifacts/2026-09-10-int-001-wi16-backend.md) — WI-16: grok I-4 ruling + rest of G-5 mutation routes; parallel w/ WI-14 addendum (senior-backend-dev)
+- [2026-09-10-int-001-wi17-backend](artifacts/2026-09-10-int-001-wi17-backend.md) — WI-17: N-1 trusted-ip bucket, N-2 (no fix needed), N-8/N-9 phone-resolver DRY, #6 generic error msg; gate green (senior-backend-dev)
+- [2026-09-10-int-001-wi18-backend](artifacts/2026-09-10-int-001-wi18-backend.md) — WI-18: CSV merge pre-check normalises phone before query (red-green); partner-doc throttle paragraph now matches guard code (senior-backend-dev)
 
 **TPL-011 — VIDEO template header (2026-09-09)**
 - [2026-09-09-ui-test-runner-handoff](artifacts/2026-09-09-ui-test-runner-handoff.md) — I-1 UI verification handoff, incident note (ui-test-runner)

@@ -83,6 +83,34 @@ export async function findCouponByMemberAndCampaign(
   return data ? mapRowToCoupon(data) : null
 }
 
+// INT-001 WI-4 (OD-15): idempotency lookup for the campaign-less welcome
+// mint. `mint-welcome-coupon-idempotent.ts` checks here BEFORE calling
+// `createWelcomeCoupon` as the primary (normal-retry) idempotency path; a
+// genuine concurrent race is now also caught at the DB level by
+// `uniq_coupons_welcome_member` (migration 076, WI-14 G-2 — `type='welcome'`
+// mirrors `uniq_coupon_campaign_member` on type='promo' from migration 053),
+// which the caller's catch-and-re-select recovers from. Most recent first:
+// a member should only ever have one, but this is the safe read if that
+// invariant is ever violated.
+export async function findWelcomeCouponByMember(
+  restaurantId: string,
+  memberId: string
+): Promise<Coupon | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
+    .eq('type', 'welcome')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(`findWelcomeCouponByMember: ${error.message}`)
+  return data ? mapRowToCoupon(data) : null
+}
+
 export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {
   const supabase = createServerSupabaseClient()
   const { restaurantId, page, pageSize, type, isActive } = params
