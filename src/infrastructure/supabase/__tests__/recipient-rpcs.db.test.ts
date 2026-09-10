@@ -38,15 +38,13 @@
  *      .claude-workspace/artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend.md).
  *   2. PGDATABASE=<scratch db> npm run test:db
  *
- * `npm run test:db` runs EVERY gated file in this directory. Today only this
- * one connects to a scratch database; the other four
- * (stamp-rpc / stamp-rls / platform-settings / coupon-claim-idempotency) go
- * through PostgREST with supabase-js and say in their own headers that the
- * rig they need was never built, so they FAIL rather than skip once the gate
- * is open. Until that rig exists, run this file alone:
- *
- *   PGDATABASE=<scratch db> RUN_DB_TESTS=1 npx vitest run \
- *     src/infrastructure/supabase/__tests__/recipient-rpcs.db.test.ts
+ * `test:db` names THIS FILE, not the directory, and that is deliberate: the
+ * other four gated files here (stamp-rpc / stamp-rls / platform-settings /
+ * coupon-claim-idempotency) go through PostgREST with supabase-js and each
+ * says in its own header that the rig it needs was never built, so opening
+ * the gate on them makes them FAIL rather than skip. A script that is red by
+ * construction is a script nobody runs, which is the finding it was added to
+ * close. Widen the script when that rig lands, one file at a time.
  */
 import { execFileSync } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'

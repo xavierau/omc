@@ -79,7 +79,8 @@ row missing after 078's backfill is exactly the event that warning exists to
 surface, and an admin opening the tab is a fine place to surface it.
 
 **4. F3 is implemented exactly as briefed, and the script is knowingly
-imperfect.** `"test:db": "RUN_DB_TESTS=1 vitest run src/infrastructure/supabase/__tests__"`
+imperfect.** *(SUPERSEDED by the F3 follow-up at the end of this note — the
+script now names the single runnable file. Kept for the reasoning.)* `"test:db": "RUN_DB_TESTS=1 vitest run src/infrastructure/supabase/__tests__"`
 runs all five gated files in that directory. Only `recipient-rpcs.db.test.ts`
 connects to a scratch database via `psql`; the other four
 (`stamp-rpc`, `stamp-rls`, `platform-settings`, `coupon-claim-idempotency`)
@@ -202,8 +203,9 @@ the fix, so the two failures isolate the divergence rather than the route.
   `active_members_by_tags` smoke call and write it into the deploy artifact.
 - **A1 / A2 (4/10)** — `resolve-campaign-members-chunks.ts` naming and 078's
   missing REVOKE/GRANT. Both are the reviewer's own "leave it"; unchanged.
-- **`npm run test:db` is red by construction** — see Key Decision 4. Either
-  narrow the glob or build the PostgREST rig the other four files need.
+- ~~**`npm run test:db` is red by construction**~~ — closed by the F3 follow-up
+  below (the script was narrowed). Building the PostgREST rig the other four
+  gated files need remains open, and is plan-sized.
 - **The promo/winback OFFSET curve is now the same shape as F5's.** F1 converts
   two unpaged reads into range walks over `members`, which has
   `idx_members_restaurant` — a 100,000-member `pro` promo audience is 101 page
@@ -227,3 +229,55 @@ the fix, so the two failures isolate the divergence rather than the route.
 - The F4 fixture adds 1,500 members / 1,500 member_tags / 1,500 campaign_members
   to the seed. Cleanup is unchanged: `DELETE FROM restaurants WHERE id IN (A, B)`
   by exact id, never a prefix sweep.
+
+---
+
+## F3 follow-up — `test:db` narrowed to the runnable file
+
+Coordinator follow-up on the caveat raised in Key Decision 4: take the
+recommendation rather than ship a script that is red by construction.
+
+**Disposition: recommendation taken.** `package.json`'s `test:db` now names the
+single file instead of the directory:
+
+```diff
+-    "test:db": "RUN_DB_TESTS=1 vitest run src/infrastructure/supabase/__tests__",
++    "test:db": "RUN_DB_TESTS=1 vitest run src/infrastructure/supabase/__tests__/recipient-rpcs.db.test.ts",
+```
+
+The `recipient-rpcs.db.test.ts` header paragraph that described the directory
+glob — and the now-redundant single-file command it offered as a workaround —
+is replaced by one that states the script targets this file **deliberately**,
+why (the other four gated files need the PostgREST rig that was never built, so
+opening the gate on them makes them fail rather than skip), and when to widen
+it (as that rig lands, one file at a time). No other wording in the file refers
+to the directory form.
+
+Verified green through the script itself, not just the file path — scratch DB
+`scratch_camp_fix2` rebuilt at 001..079 and dropped after:
+
+```
+$ PGDATABASE=scratch_camp_fix2 npm run test:db
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Duration  2.36s
+```
+
+### Gate (after the follow-up)
+
+```
+$ npx vitest run
+ Test Files  536 passed | 7 skipped (543)
+      Tests  5653 passed | 46 skipped | 2 todo (5701)
+   Duration  46.24s
+
+$ npx tsc --noEmit
+TSC_EXIT=0        (no output)
+
+$ npx eslint src/infrastructure/supabase/__tests__/recipient-rpcs.db.test.ts
+ESLINT_EXIT=0     (no output)
+```
+
+Two files touched; only one is an eslint target — `package.json` is not linted
+by this repo's flat config, so the ESLint line above covers the whole of the
+lintable change.
