@@ -39,6 +39,34 @@ function extractPlanCaseBody(sql: string): string {
   return fnMatch[1]
 }
 
+/** The `restaurant_seed_campaign_settings()` body only -- scoped so the
+ * backfill statement further down the file cannot satisfy an assertion meant
+ * for the trigger. */
+function triggerFunctionSource(sql: string): string {
+  const start = sql.indexOf('CREATE OR REPLACE FUNCTION restaurant_seed_campaign_settings')
+  if (start < 0) throw new Error('restaurant_seed_campaign_settings() not declared in migration 078')
+  const end = sql.indexOf('LANGUAGE plpgsql', start)
+  if (end < 0) throw new Error('restaurant_seed_campaign_settings() is not LANGUAGE plpgsql')
+  return sql.slice(start, end)
+}
+
+/** Everything after `CREATE TRIGGER` -- i.e. the backfill statement, with the
+ * trigger function's own INSERT excluded by construction. */
+function backfillStatement(sql: string): string {
+  const start = sql.indexOf('CREATE TRIGGER')
+  if (start < 0) throw new Error('no CREATE TRIGGER in migration 078')
+  const after = sql.slice(start)
+  const match = /INSERT INTO tenant_campaign_settings[\s\S]*?;/i.exec(after)
+  if (!match) throw new Error('no backfill INSERT INTO tenant_campaign_settings after the trigger')
+  return match[0]
+}
+
+/** Runs of whitespace collapsed, so a pure reformat cannot turn an assertion
+ * red while the substring it looks for is still exact. */
+function normalise(text: string): string {
+  return text.replace(/\s+/g, ' ')
+}
+
 describe('#161 migration 078 <-> planCampaignQuota parity (A8)', () => {
   let caseMap: Map<string, number>
   let elseValue: number | null
@@ -88,6 +116,18 @@ describe('#161 migration 078 trigger + backfill shape (A9)', () => {
 
   it('backfills tenant_campaign_settings from a SELECT over restaurants', () => {
     expect(sql).toMatch(/INSERT INTO tenant_campaign_settings[\s\S]*?SELECT[\s\S]*?FROM restaurants/i)
+  })
+
+  // Review I-2: without these two, replacing either call site with a literal
+  // (`VALUES (NEW.id, 1000)`) leaves every assertion in this file green while
+  // every new growth/pro tenant is seeded at the starter cap forever -- the
+  // exact #161 bug, re-shipped under a test named "red on drift".
+  it('the trigger seeds the quota through plan_monthly_send_limit, never a literal', () => {
+    expect(normalise(triggerFunctionSource(sql))).toContain('plan_monthly_send_limit(NEW.plan)')
+  })
+
+  it('the backfill seeds the quota through plan_monthly_send_limit, never a literal', () => {
+    expect(normalise(backfillStatement(sql))).toContain('plan_monthly_send_limit(plan)')
   })
 
   it("the trigger's INSERT column list is a subset of tenant_campaign_settings's real columns", () => {
