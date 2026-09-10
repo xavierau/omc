@@ -109,7 +109,11 @@ async function resolveSettings(
   return planDerivedDefaults(restaurantId)
 }
 
-async function planDerivedDefaults(
+// Exported because the platform-admin campaign-settings view has the SAME
+// null-settings fallback, and a view that reports a different quota from the
+// one the worker enforces is worse than no view: an admin "correcting" the
+// number PUTs a real row at the wrong limit (review F2).
+export async function planDerivedDefaults(
   restaurantId: string
 ): Promise<TenantCampaignSettings> {
   const plan = (await getRestaurantPlan(restaurantId)) ?? 'starter'
