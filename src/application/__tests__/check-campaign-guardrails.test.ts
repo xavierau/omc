@@ -160,12 +160,27 @@ describe('checkCampaignGuardrails', () => {
     expect(result.violations.length).toBeGreaterThanOrEqual(3)
   })
 
-  it('uses default settings when no tenant settings exist', async () => {
+  it('uses plan-derived defaults when no tenant settings exist', async () => {
+    // Review M-1 (#161): this case used to leave getRestaurantPlan unmocked,
+    // relying on vi.fn() returning undefined and `?? 'starter'`. A later test
+    // pinning 'growth' plus a change in execution order would have silently
+    // exercised the growth quota while the case still only asserted
+    // allowed === true -- it would no longer pin the starter default it was
+    // written for. Pin the plan explicitly, and assert the fallback warning
+    // (the operational signal that migration 078 failed to seed the row)
+    // instead of leaking it into the suite's output.
+    mockGetRestaurantPlan.mockResolvedValue('starter')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     setupMocks({ settings: null, monthlySends: 10 })
+
     const result = await checkCampaignGuardrails(RESTAURANT_ID, 50)
 
     expect(result.allowed).toBe(true)
+    expect(result.usage.monthlyLimit).toBe(1000)
     expect(mockGetSettings).toHaveBeenCalledWith(RESTAURANT_ID)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0][0]).toContain(RESTAURANT_ID)
+    warnSpy.mockRestore()
   })
 
   it('includes warning when approaching monthly limit', async () => {
