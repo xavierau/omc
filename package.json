@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:db": "RUN_DB_TESTS=1 vitest run src/infrastructure/supabase/__tests__",
     "seed:demo": "npx tsx scripts/seed-demo-data.ts",
     "resend:welcome": "npx tsx scripts/resend-welcome.ts",
     "deploy:contact-flow": "npx tsx scripts/deploy-contact-flow.ts",
