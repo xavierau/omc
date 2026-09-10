@@ -19,3 +19,14 @@ the first real run.
 | `/dashboard/wa-templates` (Create/Edit sheet) | Video header hint text (shown only when Header=Video) | `[data-testid="video-header-hint"]` | 2026-09-09 tpl-011-video-header-ui |
 | `/dashboard/wa-templates` (Create/Edit sheet) | Image header hint text (shown only when Header=Image) | `[data-testid="image-header-hint"]` | 2026-09-09 tpl-011-video-header-ui |
 | `/dashboard/wa-templates` (Create/Edit sheet) | Submit / Cancel / Close buttons — plain English literals, not i18n'd | button text `Create`/`Update`/`Cancel`/`Close` | 2026-09-09 tpl-011-video-header-ui |
+| `/dashboard/integrations` (list) | name input | `[data-testid="integration-create-name-input"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations` (list) | Create submit button | `[data-testid="integration-create-submit"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations` (list) | create-form error (e.g. empty name) | `[data-testid="integration-create-error"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations` (list) | rows container / one row link | `[data-testid="integration-rows"]` / `[data-testid="integration-row-<id>"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` (detail) | name / status / provider | `[data-testid="integration-detail-name"]` / `[data-testid="integration-detail-status"]` / `[data-testid="integration-detail-provider"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` (detail) | tabs | Radix `TabsTrigger` text `設定`/`傳送記錄`/`活動` (zh-HK; no data-testid on the triggers themselves) | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` Settings tab | inbound card root | `[data-testid="inbound-credentials-card"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` Settings tab | webhook URL readonly field | `[data-testid="inbound-webhook-url"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` Settings tab | rotate request / confirm / confirm-button / rotating / reveal / revealed-secret / copy / reveal-done | `[data-testid="inbound-rotate-request"]` / `[data-testid="inbound-rotate-confirm"]` / `[data-testid="inbound-rotate-confirm-button"]` / `[data-testid="inbound-rotating"]` / `[data-testid="inbound-secret-reveal"]` / `[data-testid="inbound-revealed-secret"]` / `[data-testid="inbound-copy-secret"]` / `[data-testid="inbound-reveal-done"]` | 2026-09-10 int-001-ui-walk (full rotate→confirm→reveal-once→dismiss cycle driven; secret confirmed cleared from the DOM after dismiss) |
+| `/dashboard/integrations/[id]` Deliveries tab | admin-only / settings-unavailable text (also renders here when `GET .../settings` fails even for an actual admin — see flow note) | `[data-testid="deliveries-admin-only"]` | 2026-09-10 int-001-ui-walk |
+| `/dashboard/integrations/[id]` Activity tab | activity card, load-failed text | `[data-testid="activity-log-card"]` / `[data-testid="activity-log-error"]` | 2026-09-10 int-001-ui-walk |

@@ -10,8 +10,10 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
-import { loyaltyToken } from '@/domain/value-objects/loyalty-token'
+import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
+import { createOrGetMember } from './create-or-get-member'
+import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -19,58 +21,77 @@ interface WebRegisterResult {
   couponCode?: string
 }
 
+// G-3 / N-8: the strict-then-fallback E.164 resolver itself now lives in
+// resolve-legacy-member-e164.ts (shared with register-member.ts and, as of
+// N-8, import-contacts-batch-row-member.ts). Re-exported under this
+// module's own name so existing importers -- including
+// resolve-legacy-member-e164.property.test.ts's
+// `resolveLegacyMemberE164 as resolveWebLegacyE164` import -- are
+// unaffected by the extraction.
+export { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+
 export async function registerMemberWeb(
   rawPhone: string,
   contactName: string,
   restaurantId: string
 ): Promise<WebRegisterResult> {
   const phone = PhoneNumber.create(rawPhone)
+  // N-9 (WI-17 confirmation review): resolved ONCE and used for the
+  // pre-check below -- was `phone.value` (the un-repaired legacy format),
+  // so a member first created via the fallback (stored normalised) missed
+  // its own pre-check on a second join with the same raw dotted/legacy
+  // input, fell into the seam, and only avoided a 500 because the seam's
+  // OWN re-select (member-create-repository.ts, fed this SAME resolved
+  // value) already found the row correctly.
+  const resolvedPhone = resolveLegacyMemberE164(phone)
   const supabase = createServerSupabaseClient()
 
   const { data: existing } = await supabase
     .from('members')
     .select('id')
     .eq('restaurant_id', restaurantId)
-    .eq('phone', phone.value)
+    .eq('phone', resolvedPhone.value)
     .single()
 
   if (existing) {
     return { isNew: false, memberId: existing.id }
   }
 
-  return createNewWebMember(supabase, phone, contactName, restaurantId)
+  return createNewWebMember(resolvedPhone, contactName, restaurantId)
 }
 
 async function createNewWebMember(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  phone: PhoneNumber,
+  resolvedPhone: E164Phone,
   name: string,
   restaurantId: string
 ): Promise<WebRegisterResult> {
-  const { data: newMember, error } = await supabase
-    .from('members')
-    .insert({
-      restaurant_id: restaurantId,
-      phone: phone.value,
-      status: 'active',
-      name,
-      loyalty_token: loyaltyToken(),
-    })
-    .select('id')
-    .single()
+  // INT-001 T-H6: creation routes through the single member-creation seam
+  // (member.created fans out to enabled integrations with source:'web'). A
+  // 23505 on (restaurant_id, phone) now resolves to outcome:'existing'
+  // rather than an insert failure -- the pre-check above already covers the
+  // common case, so this only bites on a genuine race between two
+  // near-simultaneous submissions for the same number, which previously
+  // threw and now degrades gracefully to the same isNew:false result.
+  const result = await createOrGetMember({
+    restaurantId,
+    phoneE164: resolvedPhone,
+    name,
+    preferredLanguage: null,
+    source: 'web',
+  })
 
-  if (error || !newMember) {
-    throw new Error(`registerMemberWeb: ${error?.message}`)
+  if (result.outcome === 'existing') {
+    return { isNew: false, memberId: result.memberId }
   }
 
   const campaign = await resolveWelcomeCampaign(restaurantId)
   const coupon = campaign
-    ? await mintCampaignCoupon(restaurantId, newMember.id, campaign, name)
-    : await createWelcomeCoupon(restaurantId, newMember.id)
+    ? await mintCampaignCoupon(restaurantId, result.memberId, campaign, name)
+    : await createWelcomeCoupon(restaurantId, result.memberId)
 
   await emitEvent({
     restaurantId,
-    memberId: newMember.id,
+    memberId: result.memberId,
     type: 'join',
     dataJson: {
       source: 'web',
@@ -79,7 +100,7 @@ async function createNewWebMember(
     },
   })
 
-  return { isNew: true, memberId: newMember.id, couponCode: coupon.code }
+  return { isNew: true, memberId: result.memberId, couponCode: coupon.code }
 }
 
 async function resolveWelcomeCampaign(

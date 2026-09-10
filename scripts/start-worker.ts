@@ -15,18 +15,34 @@ import {
   ensureWorkerStarted as startEmailWorker,
   getWorker as getEmailWorker,
 } from '@/infrastructure/queue/email-queue'
+import {
+  ensureWorkerStarted as startIntegrationInboundWorker,
+  getWorker as getIntegrationInboundWorker,
+} from '@/infrastructure/queue/integration-inbound-queue'
+import {
+  ensureWorkerStarted as startIntegrationOutboundWorker,
+  getWorker as getIntegrationOutboundWorker,
+} from '@/infrastructure/queue/integration-outbound-processor'
 
 function startAll(): void {
   startCampaignWorker()
   startEventDispatchWorker()
   startReceiptWorker()
   startEmailWorker()
-  console.log('Workers started: campaign, event-dispatch, receipt, email-send')
+  startIntegrationInboundWorker()
+  startIntegrationOutboundWorker()
+  console.log('Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound')
 }
 
 function activeWorkers(): Worker[] {
-  return [getCampaignWorker(), getEventDispatchWorker(), getReceiptWorker(), getEmailWorker()]
-    .filter((w): w is Worker => w !== null)
+  return [
+    getCampaignWorker(),
+    getEventDispatchWorker(),
+    getReceiptWorker(),
+    getEmailWorker(),
+    getIntegrationInboundWorker(),
+    getIntegrationOutboundWorker(),
+  ].filter((w): w is Worker => w !== null)
 }
 
 let shuttingDown = false

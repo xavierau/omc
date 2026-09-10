@@ -7,13 +7,16 @@ import {
   updatePosIntegration,
   deletePosIntegration,
   findPosIntegrationsByRestaurant,
+  findPosIntegrationByIdForRestaurant,
 } from '@/infrastructure/supabase/repositories/pos-integration-repository'
 import {
   createIntegration,
   updateIntegration,
   deleteIntegration,
   listIntegrations,
+  getIntegration,
   regenerateWebhookSecret,
+  rotateInboundSecret,
 } from '../configure-pos-integration'
 import { buildPosFieldMapping } from '@/test-utils/builders'
 
@@ -73,28 +76,42 @@ describe('configure-pos-integration', () => {
   describe('updateIntegration', () => {
     it('throws on invalid fieldMapping', async () => {
       await expect(
-        updateIntegration('id-1', {
+        updateIntegration('id-1', 'rest-1', {
           fieldMapping: { bad: true } as never,
         })
       ).rejects.toThrow('Invalid field mapping')
     })
 
-    it('delegates to repository', async () => {
+    it('delegates to repository, scoped by restaurantId (G-5, SEC-001/#111 pattern)', async () => {
       vi.mocked(updatePosIntegration).mockResolvedValue(undefined)
 
-      await updateIntegration('id-1', { name: 'Updated' })
+      await updateIntegration('id-1', 'rest-1', { name: 'Updated' })
 
-      expect(updatePosIntegration).toHaveBeenCalledWith('id-1', { name: 'Updated' })
+      expect(updatePosIntegration).toHaveBeenCalledWith('id-1', 'rest-1', { name: 'Updated' })
+    })
+
+    it('never forwards webhookSecret to the repository, even if smuggled onto the updates object at runtime (T-C4 defense in depth)', async () => {
+      vi.mocked(updatePosIntegration).mockResolvedValue(undefined)
+
+      // Simulates a caller that bypasses the route-level allowlist and the
+      // TS parameter type (erased at runtime) by attaching an extra key.
+      const smuggled = { name: 'Updated', webhookSecret: 'attacker-chosen-secret' } as never
+
+      await updateIntegration('id-1', 'rest-1', smuggled)
+
+      expect(updatePosIntegration).toHaveBeenCalledWith('id-1', 'rest-1', { name: 'Updated' })
+      const [, , forwarded] = vi.mocked(updatePosIntegration).mock.calls[0]
+      expect(forwarded).not.toHaveProperty('webhookSecret')
     })
   })
 
   describe('deleteIntegration', () => {
-    it('delegates to repository', async () => {
+    it('delegates to repository, scoped by restaurantId (G-5, SEC-001/#111 pattern)', async () => {
       vi.mocked(deletePosIntegration).mockResolvedValue(undefined)
 
-      await deleteIntegration('id-1')
+      await deleteIntegration('id-1', 'rest-1')
 
-      expect(deletePosIntegration).toHaveBeenCalledWith('id-1')
+      expect(deletePosIntegration).toHaveBeenCalledWith('id-1', 'rest-1')
     })
   })
 
@@ -116,6 +133,51 @@ describe('configure-pos-integration', () => {
 
       expect(secret).toHaveLength(64)
       expect(/^[0-9a-f]+$/.test(secret)).toBe(true)
+    })
+  })
+
+  describe('getIntegration', () => {
+    it('delegates to the restaurant-scoped repository query (issue #111 lesson — not fetch-then-compare)', async () => {
+      const mockIntegration = { id: 'int-1', restaurantId: 'rest-1' }
+      vi.mocked(findPosIntegrationByIdForRestaurant).mockResolvedValue(mockIntegration as never)
+
+      const result = await getIntegration('int-1', 'rest-1')
+
+      expect(result).toEqual(mockIntegration)
+      expect(findPosIntegrationByIdForRestaurant).toHaveBeenCalledWith('int-1', 'rest-1')
+    })
+
+    it('returns null for a foreign-tenant id', async () => {
+      vi.mocked(findPosIntegrationByIdForRestaurant).mockResolvedValue(null)
+
+      const result = await getIntegration('int-1', 'rest-2')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('rotateInboundSecret', () => {
+    it('mints a new secret, persists it scoped by restaurantId (G-5, SEC-001/#111 pattern), and returns it once', async () => {
+      vi.mocked(updatePosIntegration).mockResolvedValue(undefined)
+      vi.spyOn(console, 'info').mockImplementation(() => {})
+
+      const secret = await rotateInboundSecret('int-1', 'rest-1', 'user-1')
+
+      expect(secret).toHaveLength(64)
+      expect(/^[0-9a-f]+$/.test(secret)).toBe(true)
+      expect(updatePosIntegration).toHaveBeenCalledWith('int-1', 'rest-1', { webhookSecret: secret })
+    })
+
+    it('logs the rotation (WI-0 console audit placeholder; WI-1 adds the DB row)', async () => {
+      vi.mocked(updatePosIntegration).mockResolvedValue(undefined)
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+      await rotateInboundSecret('int-1', 'rest-1', 'user-1')
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        'pos_integration.inbound_secret_rotated',
+        expect.objectContaining({ integrationId: 'int-1', rotatedBy: 'user-1' })
+      )
     })
   })
 })

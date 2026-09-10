@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { TenantPlan } from '@/domain/value-objects/tenant-plan'
+import type { TenantStatus } from '@/domain/entities/restaurant'
 import {
   resolveReplyConfig,
   type ResolvedReplyConfig,
@@ -46,6 +47,27 @@ export async function getRestaurantPhoneNumberId(
     return ''
   }
   return phoneNumberId
+}
+
+/**
+ * INT-001 WI-3: `{ status, trialExpiresAt }` for the `isTenantAccessible`
+ * domain check (member-create job's `tenant_inactive` gate) -- the same
+ * `restaurants.status`/`trial_expires_at` pair `proxy.ts`'s
+ * `isTenantBlocked` already reads, exposed as a plain repository function
+ * so the job processor doesn't need its own ad-hoc query.
+ */
+export async function getRestaurantTenantStatus(
+  restaurantId: string
+): Promise<{ status: TenantStatus; trialExpiresAt: string | null } | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('status, trial_expires_at')
+    .eq('id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`getRestaurantTenantStatus: ${error.message}`)
+  if (!data) return null
+  return { status: data.status as TenantStatus, trialExpiresAt: data.trial_expires_at as string | null }
 }
 
 export async function getRestaurantName(restaurantId: string): Promise<string> {

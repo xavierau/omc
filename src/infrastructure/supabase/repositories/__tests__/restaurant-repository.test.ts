@@ -15,6 +15,7 @@ import {
   updateContactFlowId,
   updateContactFlowIdIfEmpty,
   getRestaurantEmailContext,
+  getRestaurantTenantStatus,
 } from '../restaurant-repository'
 import { DEFAULT_REPLY_FEATURES } from '@/domain/services/reply-config'
 import { DEFAULT_TOPICS, DEFAULT_LABELS } from '@/domain/services/contact-config'
@@ -601,5 +602,44 @@ describe('getRestaurantEmailContext', () => {
     const result = await getRestaurantEmailContext('restaurant-1')
 
     expect(result).toEqual({ name: '', whatsappNumber: null })
+  })
+})
+
+describe('getRestaurantTenantStatus (INT-001 WI-3)', () => {
+  it('returns status + trialExpiresAt for an existing restaurant', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { status: 'trial', trial_expires_at: '2026-10-01T00:00:00.000Z' },
+      error: null,
+    })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    const result = await getRestaurantTenantStatus('r-1')
+
+    expect(result).toEqual({ status: 'trial', trialExpiresAt: '2026-10-01T00:00:00.000Z' })
+  })
+
+  it('returns null for an unknown restaurant', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    const result = await getRestaurantTenantStatus('missing')
+
+    expect(result).toBeNull()
+  })
+
+  it('throws on a database error rather than degrading (this is a security-relevant gate, not a display value)', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { message: 'connection failed' } })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    const from = vi.fn().mockReturnValue({ select })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from } as never)
+
+    await expect(getRestaurantTenantStatus('r-1')).rejects.toThrow(/connection failed/)
   })
 })

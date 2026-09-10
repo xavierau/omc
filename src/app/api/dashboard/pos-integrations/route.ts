@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createIntegration, listIntegrations } from '@/application/configure-pos-integration'
+import { toPublicIntegration } from '@/application/dtos/public-integration'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 
@@ -7,7 +8,7 @@ export async function GET() {
   try {
     const { restaurantId } = await getTenantContext()
     const integrations = await listIntegrations(restaurantId)
-    return NextResponse.json({ data: integrations })
+    return NextResponse.json({ data: integrations.map(toPublicIntegration) })
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
