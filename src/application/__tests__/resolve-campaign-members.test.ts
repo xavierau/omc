@@ -102,6 +102,24 @@ function pagingRpc(rows: Record<string, unknown>[], maxRows = Infinity) {
 }
 
 /**
+ * A scripted page sequence: call k receives `pages[k]`, and everything past
+ * the end is an empty page. `pagingRpc` slices one fixed array, so it can
+ * never hand the same id back twice -- this one can, which is exactly what a
+ * concurrent `member_tags` INSERT does to an OFFSET walk: every row at or
+ * after the new member shifts down one position, so the row that sat on the
+ * page boundary is returned AGAIN on the next page (review I-1, #162).
+ */
+function scriptedPagesRpc(pages: Record<string, unknown>[][]) {
+  const calls: Array<{ name: string; args: RpcArgs }> = []
+  mockRpc.mockImplementation((name: string, args: RpcArgs) => {
+    const page = pages[calls.length] ?? []
+    calls.push({ name, args })
+    return Promise.resolve({ data: page, error: null })
+  })
+  return { calls }
+}
+
+/**
  * The tag branch still reads `campaign_tags` through `from()`; every other
  * table access is a bug now (#162), so the implementation throws loudly here
  * rather than quietly returning `undefined` and failing on a later `.select`.
@@ -396,6 +414,30 @@ describe('resolveTargetMembers', () => {
   })
 
   // B8
+  // I-1 (review, #162) -- cross-page dedupe. `DISTINCT ON (m.id)` dedupes
+  // WITHIN one page; it cannot see a row an earlier page already returned.
+  // The deleted `fetchTaggedMemberIds` closed this with a `new Set` over the
+  // whole walk; nothing replaced it, so a merchant tagging members mid-send
+  // could get one recipient messaged (and charged) twice.
+  it('yields a member once when two consecutive pages overlap (tag branch)', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    scriptedPagesRpc([memberRows(['m-1', 'm-2']), memberRows(['m-2', 'm-3'])])
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(result.map((m) => m.id)).toEqual(['m-1', 'm-2', 'm-3'])
+    expect(result.filter((m) => m.id === 'm-2')).toHaveLength(1)
+  })
+
+  it('yields a member once when two consecutive pages overlap (selected branch)', async () => {
+    scriptedPagesRpc([memberRows(['m-1', 'm-2']), memberRows(['m-2', 'm-3'])])
+
+    const result = await resolveTargetMembers(selectedCampaign(), 'r-1')
+
+    expect(result.map((m) => m.id)).toEqual(['m-1', 'm-2', 'm-3'])
+    expect(result.filter((m) => m.id === 'm-2')).toHaveLength(1)
+  })
+
   it('includes a member tagged AFTER campaign creation (dynamic membership)', async () => {
     // The tag link existed at create time; m-2 was tagged later. The RPC joins
     // member_tags live at SEND time, so m-2 is resolved.
