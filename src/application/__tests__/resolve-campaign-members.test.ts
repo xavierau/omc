@@ -4,11 +4,11 @@ import type { Campaign } from '@/domain/entities/campaign'
 const mockSelect = vi.fn()
 const mockEq = vi.fn()
 const mockLt = vi.fn()
-const mockIn = vi.fn()
 const mockFrom = vi.fn()
+const mockRpc = vi.fn()
 
 vi.mock('@/infrastructure/supabase/client', () => ({
-  createServerSupabaseClient: vi.fn(() => ({ from: mockFrom })),
+  createServerSupabaseClient: vi.fn(() => ({ from: mockFrom, rpc: mockRpc })),
 }))
 
 import { resolveTargetMembers } from '@/application/resolve-campaign-members'
@@ -52,166 +52,85 @@ const memberRow = {
   preferred_language: null,
 }
 
+function memberRows(ids: string[]): Record<string, unknown>[] {
+  return ids.map((id) => ({ ...memberRow, id }))
+}
+
 function setupChain(result: { data: unknown[]; error: null }) {
   const thenable = {
     eq: mockEq,
     lt: mockLt,
-    in: mockIn,
     then: (resolve: (v: unknown) => void) => resolve(result),
   }
   mockFrom.mockReturnValue({ select: mockSelect })
   mockSelect.mockReturnValue(thenable)
   mockEq.mockReturnValue(thenable)
   mockLt.mockReturnValue(thenable)
-  mockIn.mockReturnValue(thenable)
+}
+
+interface RpcArgs {
+  p_restaurant_id: string
+  p_limit: number
+  p_offset: number
+  p_tag_ids?: string[]
+  p_campaign_id?: string
 }
 
 /**
- * member_tags is read through `.order().order().range(from, to)` in a loop
- * (review I-5(a)), so the mock has to slice like PostgREST does — a mock that
- * replayed the whole set for every page would never produce the empty page
- * that ends the loop.
+ * Both recipient branches page a set-returning RPC (migration 079) with
+ * p_limit/p_offset instead of shipping member UUIDs back through a URL
+ * filter (#162 — PostgREST echoes the query in `content-location` and undici
+ * aborts above ~390 ids). The mock has to slice like PostgREST does: a mock
+ * that replayed the whole set for every call would never produce the empty
+ * page that ends readAllPages' loop.
  *
  * `maxRows` simulates a project whose PostgREST `max-rows` is BELOW the page
- * size: the server silently returns fewer rows than the requested range
- * (review round 2, #2).
+ * size — the server silently returns fewer rows than `p_limit` asked for, so
+ * the loop must advance by rows RECEIVED (review round 2, #2).
  */
-function pagingRange(rows: { member_id: string }[], maxRows = Infinity) {
-  const pages: Array<[number, number]> = []
-  const orderedColumns: string[] = []
-  const range = vi.fn((from: number, to: number) => {
-    pages.push([from, to])
-    const size = Math.min(to - from + 1, maxRows)
-    return Promise.resolve({ data: rows.slice(from, from + size), error: null })
+function pagingRpc(rows: Record<string, unknown>[], maxRows = Infinity) {
+  const calls: Array<{ name: string; args: RpcArgs }> = []
+  mockRpc.mockImplementation((name: string, args: RpcArgs) => {
+    calls.push({ name, args })
+    const size = Math.min(args.p_limit, maxRows)
+    return Promise.resolve({
+      data: rows.slice(args.p_offset, args.p_offset + size),
+      error: null,
+    })
   })
-  const chain: Record<string, unknown> = { range }
-  chain.order = vi.fn((column: string) => {
-    orderedColumns.push(column)
-    return chain
-  })
-  return { pages, orderedColumns, range, chain }
+  return { calls, offsets: () => calls.map((c) => c.args.p_offset) }
 }
 
 /**
- * Tag branch wired by TABLE rather than by call order, because the paged
- * member_tags read issues one `from('member_tags')` per page — a queue of
- * `mockReturnValueOnce`s runs out on page 2. The members lookup echoes back
- * whatever ids each chunk asked for, so chunking is observable.
+ * The tag branch still reads `campaign_tags` through `from()`; every other
+ * table access is a bug now (#162), so the implementation throws loudly here
+ * rather than quietly returning `undefined` and failing on a later `.select`.
  */
-function setupPagedTagChain(memberIds: string[], maxRows = Infinity) {
-  const paging = pagingRange(memberIds.map((id) => ({ member_id: id })), maxRows)
-  const memberTagsIn = vi.fn().mockReturnValue(paging.chain)
-  const memberTagsEq = vi.fn().mockReturnValue({ in: memberTagsIn })
-  const membersIn = vi.fn((_col: string, ids: string[]) =>
-    Promise.resolve({ data: ids.map((id) => ({ ...memberRow, id })), error: null })
-  )
+function setupCampaignTags(tagRows: { tag_id: string }[]) {
   mockFrom.mockReset()
-  mockFrom.mockImplementation((table: string) => {
-    if (table === 'campaign_tags') {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: [{ tag_id: 't-1' }], error: null }),
-        }),
-      }
-    }
-    if (table === 'member_tags') {
-      return { select: vi.fn().mockReturnValue({ eq: memberTagsEq }) }
-    }
-    return {
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ in: membersIn }) }),
-      }),
-    }
-  })
-  return { paging, memberTagsEq, memberTagsIn, membersIn }
-}
-
-/**
- * Wire the three tables of the tag branch:
- *   campaign_tags → select('tag_id').eq('campaign_id')       → tagRows
- *   member_tags   → select('member_id').eq('restaurant_id').in('tag_id')
- *                     .order().order().range()               → memberTagRows
- *   members       → select(cols).eq('restaurant_id').eq('status','active').in('id') → memberRows
- */
-function setupTagChain(opts: {
-  tagRows: { tag_id: string }[]
-  memberTagRows?: { member_id: string }[]
-  memberRows?: Record<string, unknown>[]
-}) {
-  // clearAllMocks (beforeEach) does NOT flush the mockReturnValueOnce queue, so
-  // reset here to drop any unconsumed queued mocks from an early-returning test.
-  mockFrom.mockReset()
-  const campaignTagsEq = vi
-    .fn()
-    .mockResolvedValue({ data: opts.tagRows, error: null })
-  const memberTagsPaging = pagingRange(opts.memberTagRows ?? [])
-  const memberTagsIn = vi.fn().mockReturnValue(memberTagsPaging.chain)
-  const memberTagsEq = vi.fn().mockReturnValue({ in: memberTagsIn })
-  const membersIn = vi
-    .fn()
-    .mockResolvedValue({ data: opts.memberRows ?? [], error: null })
-  const membersStatusEq = vi.fn().mockReturnValue({ in: membersIn })
-  const membersEq = vi.fn().mockReturnValue({ eq: membersStatusEq })
-
-  // Wired by TABLE, not by call order: the paged member_tags read always ends
-  // on an EMPTY page, so it issues at least two `from('member_tags')` calls and
-  // a queue of `mockReturnValueOnce`s would hand page 2 the members mock.
+  const campaignTagsEq = vi.fn().mockResolvedValue({ data: tagRows, error: null })
   mockFrom.mockImplementation((table: string) => {
     if (table === 'campaign_tags') {
       return { select: vi.fn().mockReturnValue({ eq: campaignTagsEq }) }
     }
-    if (table === 'member_tags') {
-      return { select: vi.fn().mockReturnValue({ eq: memberTagsEq }) }
-    }
-    return { select: vi.fn().mockReturnValue({ eq: membersEq }) }
+    throw new Error(`unexpected from('${table}'): recipients must resolve via RPC`)
   })
+  return { campaignTagsEq }
+}
 
-  return {
-    campaignTagsEq,
-    memberTagsEq,
-    memberTagsIn,
-    memberTagsPages: memberTagsPaging.pages,
-    membersEq,
-    membersStatusEq,
-    membersIn,
-  }
+function tagCampaign() {
+  return buildCampaign({ targetAudience: 'tag' })
+}
+
+function selectedCampaign() {
+  return buildCampaign({ targetAudience: 'selected' })
 }
 
 describe('resolveTargetMembers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('fetches selected members via campaign_members join', async () => {
-    const campaign = buildCampaign({ targetAudience: 'selected' })
-
-    // First call: campaign_members query
-    mockFrom.mockReturnValueOnce({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({
-          data: [{ member_id: 'm-1' }, { member_id: 'm-2' }],
-          error: null,
-        }),
-      }),
-    })
-
-    // Second call: members query
-    mockFrom.mockReturnValueOnce({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          in: vi.fn().mockResolvedValue({
-            data: [memberRow, { ...memberRow, id: 'm-2', name: 'Bob' }],
-            error: null,
-          }),
-        }),
-      }),
-    })
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    expect(result).toHaveLength(2)
-    expect(mockFrom).toHaveBeenCalledWith('campaign_members')
-    expect(mockFrom).toHaveBeenCalledWith('members')
+    mockFrom.mockReset()
+    mockRpc.mockReset()
   })
 
   it('fetches active members for promo campaigns', async () => {
@@ -298,197 +217,235 @@ describe('resolveTargetMembers', () => {
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
-  it('resolves members carrying a linked tag (tag branch)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    setupTagChain({
-      tagRows: [{ tag_id: 't-1' }],
-      memberTagRows: [{ member_id: 'm-1' }],
-      memberRows: [memberRow],
-    })
+  // B1
+  it('resolves the tag branch through active_members_by_tags, never through a member table read', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    pagingRpc(memberRows(['m-1']))
 
-    const result = await resolveTargetMembers(campaign, 'r-1')
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
-    expect(result).toHaveLength(1)
-    expect(result[0].id).toBe('m-1')
     expect(mockFrom).toHaveBeenCalledWith('campaign_tags')
-    expect(mockFrom).toHaveBeenCalledWith('member_tags')
-    expect(mockFrom).toHaveBeenCalledWith('members')
+    expect(mockRpc).toHaveBeenCalledWith('active_members_by_tags', {
+      p_restaurant_id: 'r-1',
+      p_tag_ids: ['t-1'],
+      p_limit: 1000,
+      p_offset: 0,
+    })
+    expect(mockFrom).not.toHaveBeenCalledWith('member_tags')
+    expect(mockFrom).not.toHaveBeenCalledWith('members')
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: 'm-1',
+      restaurantId: 'r-1',
+      phone: '85291234567',
+      pointsBalance: 100,
+      status: 'active',
+    })
   })
 
-  it('includes a member tagged AFTER campaign creation (dynamic membership)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    // The tag link existed at create time; m-2 was tagged later. Because the
-    // branch reads member_tags live at send time, m-2 is resolved.
-    setupTagChain({
-      tagRows: [{ tag_id: 't-1' }],
-      memberTagRows: [{ member_id: 'm-2' }],
-      memberRows: [{ ...memberRow, id: 'm-2', name: 'Newbie' }],
-    })
+  // B2
+  it('resolves the selected branch through active_members_by_campaign_selection with no table reads at all', async () => {
+    pagingRpc(memberRows(['m-1', 'm-2']))
 
-    const result = await resolveTargetMembers(campaign, 'r-1')
+    const result = await resolveTargetMembers(selectedCampaign(), 'r-1')
+
+    expect(mockRpc).toHaveBeenCalledWith('active_members_by_campaign_selection', {
+      p_restaurant_id: 'r-1',
+      p_campaign_id: 'camp-1',
+      p_limit: 1000,
+      p_offset: 0,
+    })
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(result.map((m) => m.id)).toEqual(['m-1', 'm-2'])
+  })
+
+  // B3 — the #162 invariant: no member UUID ever leaves the process.
+  it('never puts a member id into an outbound request (tag branch)', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    pagingRpc(memberRows(['m-1', 'm-2', 'm-3']))
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    const outbound = JSON.stringify(mockRpc.mock.calls)
+    for (const member of result) {
+      expect(outbound).not.toContain(member.id)
+    }
+    expect(mockFrom).not.toHaveBeenCalledWith('members')
+  })
+
+  it('never puts a member id into an outbound request (selected branch)', async () => {
+    pagingRpc(memberRows(['m-1', 'm-2', 'm-3']))
+
+    const result = await resolveTargetMembers(selectedCampaign(), 'r-1')
+
+    const outbound = JSON.stringify(mockRpc.mock.calls)
+    for (const member of result) {
+      expect(outbound).not.toContain(member.id)
+    }
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  // B4
+  it('pages a 1,200-member tag audience to completion', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const rpc = pagingRpc(memberRows(Array.from({ length: 1200 }, (_, i) => `m-${i}`)))
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(rpc.offsets()).toEqual([0, 1000, 1200])
+    expect(result).toHaveLength(1200)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
+  })
+
+  it('pages a 1,200-member selected audience to completion', async () => {
+    const rpc = pagingRpc(memberRows(Array.from({ length: 1200 }, (_, i) => `m-${i}`)))
+
+    const result = await resolveTargetMembers(selectedCampaign(), 'r-1')
+
+    expect(rpc.offsets()).toEqual([0, 1000, 1200])
+    expect(result).toHaveLength(1200)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
+  })
+
+  // B5 — the readAllPages contract survives the move to p_limit/p_offset.
+  it('pages 2,500 rows and ends on the empty page', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const rpc = pagingRpc(memberRows(Array.from({ length: 2500 }, (_, i) => `m-${i}`)))
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(rpc.offsets()).toEqual([0, 1000, 2000, 2500])
+    expect(result).toHaveLength(2500)
+  })
+
+  it('stops on the empty page when the row count is an exact multiple of the page size', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const rpc = pagingRpc(memberRows(Array.from({ length: 1000 }, (_, i) => `m-${i}`)))
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(rpc.offsets()).toEqual([0, 1000])
+    expect(result).toHaveLength(1000)
+  })
+
+  it('resolves every row when the project max-rows is BELOW the page size', async () => {
+    // 1,200 rows on a project capped at 500 rows per call: a loop that stopped
+    // on a short page would return 500; one advancing by p_limit would SKIP
+    // rows 500-999.
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const rpc = pagingRpc(
+      memberRows(Array.from({ length: 1200 }, (_, i) => `m-${i}`)),
+      500
+    )
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(rpc.offsets()).toEqual([0, 500, 1000, 1200])
+    expect(result).toHaveLength(1200)
+    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
+  })
+
+  // B6
+  it('resolves to [] when the campaign has no linked tags (no RPC call)', async () => {
+    setupCampaignTags([])
+    pagingRpc([])
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(result).toEqual([])
+    expect(mockFrom).toHaveBeenCalledWith('campaign_tags')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('resolves to [] when the linked tag has 0 members (one RPC call, no member read)', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const rpc = pagingRpc([])
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
+
+    expect(result).toEqual([])
+    expect(rpc.calls).toHaveLength(1)
+    expect(mockFrom).not.toHaveBeenCalledWith('members')
+  })
+
+  it('resolves to [] when the campaign has no selected members', async () => {
+    const rpc = pagingRpc([])
+
+    const result = await resolveTargetMembers(selectedCampaign(), 'r-1')
+
+    expect(result).toEqual([])
+    expect(rpc.calls).toHaveLength(1)
+  })
+
+  // B7
+  it('surfaces an RPC error from the tag branch as fetchTagMembers: <message>', async () => {
+    setupCampaignTags([{ tag_id: 't-1' }])
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'db down' } })
+
+    await expect(resolveTargetMembers(tagCampaign(), 'r-1')).rejects.toThrow(
+      'fetchTagMembers: db down'
+    )
+  })
+
+  it('surfaces an RPC error from the selected branch as fetchSelectedMembers: <message>', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'db down' } })
+
+    await expect(resolveTargetMembers(selectedCampaign(), 'r-1')).rejects.toThrow(
+      'fetchSelectedMembers: db down'
+    )
+  })
+
+  // B8
+  it('includes a member tagged AFTER campaign creation (dynamic membership)', async () => {
+    // The tag link existed at create time; m-2 was tagged later. The RPC joins
+    // member_tags live at SEND time, so m-2 is resolved.
+    setupCampaignTags([{ tag_id: 't-1' }])
+    pagingRpc(memberRows(['m-2']))
+
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('m-2')
   })
 
-  it('resolves to [] when the linked tag has 0 members (no error, no members query)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    setupTagChain({ tagRows: [{ tag_id: 't-1' }], memberTagRows: [] })
+  it('passes the caller tenant as p_restaurant_id on both branches (cross-tenant scoping)', async () => {
+    // The SQL-side proof (a poisoned member_tags.restaurant_id yields no row)
+    // lives in migration 079 + the scratch-DB run; here we prove the caller
+    // never widens the scope it asks for.
+    setupCampaignTags([{ tag_id: 't-1' }])
+    const tagRpc = pagingRpc([])
+    await resolveTargetMembers(tagCampaign(), 'r-1')
+    expect(tagRpc.calls[0].args.p_restaurant_id).toBe('r-1')
 
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    expect(result).toEqual([])
-    expect(mockFrom).toHaveBeenCalledWith('member_tags')
-    expect(mockFrom).not.toHaveBeenCalledWith('members')
+    mockRpc.mockReset()
+    const selectedRpc = pagingRpc([])
+    await resolveTargetMembers(selectedCampaign(), 'r-1')
+    expect(selectedRpc.calls[0].args.p_restaurant_id).toBe('r-1')
   })
 
-  it('resolves to [] when the campaign has no linked tags (no member_tags query)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    setupTagChain({ tagRows: [] })
+  it('sends both linked tag ids in one RPC call and yields one recipient per member', async () => {
+    // A member carrying two selected tags must receive exactly ONE message.
+    // DISTINCT ON (m.id) does that server-side (asserted structurally in the
+    // 079 contract test and on the scratch DB); here the branch must not
+    // re-introduce a duplicate by calling once per tag.
+    setupCampaignTags([{ tag_id: 't-1' }, { tag_id: 't-2' }])
+    const rpc = pagingRpc(memberRows(['m-1']))
 
-    const result = await resolveTargetMembers(campaign, 'r-1')
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
-    expect(result).toEqual([])
-    expect(mockFrom).toHaveBeenCalledWith('campaign_tags')
-    expect(mockFrom).not.toHaveBeenCalledWith('member_tags')
-  })
-
-  it('does not resolve a cross-tenant tag: member_tags is scoped by restaurant_id', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    // member_tags scoped to r-1 returns nothing — the tag's members live in
-    // another tenant, so nothing is resolved.
-    const mocks = setupTagChain({
-      tagRows: [{ tag_id: 't-1' }],
-      memberTagRows: [],
-    })
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    expect(result).toEqual([])
-    expect(mocks.memberTagsEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
-  })
-
-  it('dedups a member that carries two linked tags', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const mocks = setupTagChain({
-      tagRows: [{ tag_id: 't-1' }, { tag_id: 't-2' }],
-      memberTagRows: [{ member_id: 'm-1' }, { member_id: 'm-1' }],
-      memberRows: [memberRow],
-    })
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    // Deduped to a single id before the members lookup.
-    expect(mocks.membersIn).toHaveBeenCalledWith('id', ['m-1'])
+    expect(rpc.calls[0].args.p_tag_ids).toEqual(['t-1', 't-2'])
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('m-1')
   })
 
-  it('chunks fetchMembersByIds at 500 ids per .in() and concatenates every chunk (B4.4)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const memberIds = Array.from({ length: 1200 }, (_, i) => `m-${i}`)
+  it('returns no unsubscribed member on the tag branch (status filtered server-side)', async () => {
+    // The RPC applies m.status = 'active' (079); an unsubscribed member
+    // carrying the tag never reaches the worker at all.
+    setupCampaignTags([{ tag_id: 't-1' }])
+    pagingRpc([])
 
-    const mocks = setupPagedTagChain(memberIds)
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    const membersInCalls = mocks.membersIn.mock.calls.map(([, ids]) => ids)
-    expect(membersInCalls).toHaveLength(3)
-    expect(membersInCalls[0]).toHaveLength(500)
-    expect(membersInCalls[1]).toHaveLength(500)
-    expect(membersInCalls[2]).toHaveLength(200)
-    expect(result).toHaveLength(1200)
-    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
-  })
-
-  it('pages the member_tags read at 1000 rows so ids past max-rows still send (I-5a)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const memberIds = Array.from({ length: 2500 }, (_, i) => `m-${i}`)
-    const mocks = setupPagedTagChain(memberIds)
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    // 2,500 rows = two full pages, a 500-row page, then the empty page that
-    // ends the loop. The cursor advances by rows RECEIVED, so the last request
-    // resumes at 2500 rather than at the requested page boundary.
-    expect(mocks.paging.pages).toEqual([
-      [0, 999],
-      [1000, 1999],
-      [2000, 2999],
-      [2500, 3499],
-    ])
-    // Tenant scoping and the tag predicate survive the rewrite.
-    expect(mocks.memberTagsEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
-    expect(mocks.memberTagsIn).toHaveBeenCalledWith('tag_id', ['t-1'])
-    // Every id past the max-rows cap is resolved, not just the first page.
-    expect(result).toHaveLength(2500)
-    expect(new Set(result.map((m) => m.id)).size).toBe(2500)
-  })
-
-  it('orders the paged read by the member_tags primary key before .range()', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const mocks = setupPagedTagChain(['m-1', 'm-2'])
-
-    await resolveTargetMembers(campaign, 'r-1')
-
-    // Without a total order, PostgREST may return rows in a different order
-    // per request, so a `.range()` walk can repeat or skip rows (round 2, #2).
-    // EVERY page request must carry the full primary-key order, not just the first.
-    expect(mocks.paging.orderedColumns).toEqual(
-      mocks.paging.pages.flatMap(() => ['member_id', 'tag_id'])
-    )
-  })
-
-  it('stops paging on the empty page when the row count is an exact multiple of the page size', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const mocks = setupPagedTagChain(Array.from({ length: 1000 }, (_, i) => `m-${i}`))
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    expect(mocks.paging.pages).toEqual([
-      [0, 999],
-      [1000, 1999],
-    ])
-    expect(result).toHaveLength(1000)
-  })
-
-  it('resolves every row when the project max-rows is BELOW the page size', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    // 1,200 rows on a project capped at 500 rows per request: a loop that
-    // stopped on a short page would return 500; one that advanced by pageSize
-    // would silently SKIP rows 500-999.
-    const mocks = setupPagedTagChain(
-      Array.from({ length: 1200 }, (_, i) => `m-${i}`),
-      500
-    )
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
-
-    expect(mocks.paging.pages).toEqual([
-      [0, 999],
-      [500, 1499],
-      [1000, 1999],
-      [1200, 2199],
-    ])
-    expect(result).toHaveLength(1200)
-    expect(new Set(result.map((m) => m.id)).size).toBe(1200)
-  })
-
-  it('filters the tag branch to active members only (fetchMembersByIds status filter)', async () => {
-    const campaign = buildCampaign({ targetAudience: 'tag' })
-    const mocks = setupTagChain({
-      tagRows: [{ tag_id: 't-1' }],
-      memberTagRows: [{ member_id: 'm-inactive' }],
-      // The real query applies .eq('status', 'active') server-side, so an
-      // unsubscribed member's row never comes back even though it carries
-      // the tag.
-      memberRows: [],
-    })
-
-    const result = await resolveTargetMembers(campaign, 'r-1')
+    const result = await resolveTargetMembers(tagCampaign(), 'r-1')
 
     expect(result).toEqual([])
-    expect(mocks.membersEq).toHaveBeenCalledWith('restaurant_id', 'r-1')
-    expect(mocks.membersStatusEq).toHaveBeenCalledWith('status', 'active')
   })
 })
