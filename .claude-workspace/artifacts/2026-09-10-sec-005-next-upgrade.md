@@ -122,3 +122,51 @@ merging, or reproduce against a real npm registry to rule out a sandbox package-
   reproducible test regression under next 16.3.x that I could not root-cause within budget.
 - If a real Next.js 16.3.x release (outside this sandbox registry) is available to test against,
   that would be the fastest way to settle whether this is a genuine upstream defect.
+
+## Follow-up — test fix applied (2026-09-10, senior-backend-dev)
+
+`investigations/2026-09-10-sec-005-next-16-3-import-hang` (bug-hunter) refutes the "indefinite
+hang" and "possible sandbox package-build artifact" framing in the blocking finding above: package
+integrity was independently confirmed byte-identical against the npm registry (tarball checksum
+match, `dist.fileCount` match, 0-file `rsync -rcn` diff), and the delay is a cold per-worker Vite
+transform of the `route.ts` import graph (180 files, all under `src/`, zero under `node_modules/`)
+racing vitest's 5 s default `testTimeout` — reproduced identically on next 16.2.1 under the same
+host load, so it is not version-specific. Not upstream, not packaging — a pre-existing timing
+margin in the test files, amplified by host CPU contention (~22 parallel agent sessions at the
+time of the original run).
+
+**Fix applied**, per the investigation's "Recommended Fix": in the four files that call
+`await import('../route')` inside a per-test/per-call helper — `route.quality-event`,
+`route.status-event`, `route.window-tracking`, `route.template-status` (all
+`.integration.test.ts`) — the import now happens once in a `beforeAll(async () => { ({ POST } =
+await import('../route')) }, 60_000)`, and the captured `POST` is reused across every test in the
+file. This both removes the 5 s race on the cold load and removes the mechanism behind the
+duplicate-row pollution described above (a timed-out test's orphaned `import → POST → state.push`
+chain completing during the next test).
+
+**Discrepancy from the investigation**: its file list also named
+`route.opt-in-prompt.integration.test.ts` as sharing "the same top-level-await pattern." On
+inspection it does not — that file statically imports `routeMessage` from `../handlers` at module
+top level and contains no dynamic `await import('../route')` anywhere, so it was never subject to
+the per-test-timeout race and received no change. Flagging this for the investigation record
+rather than silently applying an inapplicable edit.
+
+### Verification table
+
+| Check | Result |
+|---|---|
+| Pre-fix baseline, `route.quality-event` alone | FAIL — 4/15 failed: 3× `Test timed out in 5000ms`, 1× `toHaveLength(1)` received 3 (duplicate-row pollution) |
+| Pre-fix baseline, `route.status-event` alone | FAIL — 1/11 failed: `Test timed out in 5000ms` on the first test |
+| Pre-fix baseline, `route.window-tracking` alone | PASS 4/4 (host was momentarily quieter for this run — consistent with the investigation's load-dependence finding, not a contradiction) |
+| Post-fix: the 3 previously-failing files together, ×4 consecutive runs | 30/30 passed every run (host load averages 151/143/249 → 217/169/244 across the runs) |
+| Post-fix: all 5 files in the investigation's list, together | 54/54 passed |
+| Post-fix: full suite (`npx vitest run`) | 530 files / 5580 tests passed, 27 skipped, 2 todo, **0 failures** |
+| Stress check (investigation step 2): `--testTimeout=150` on the 3 files | 1/30 failed, pure `Test timed out in 150ms` — **no** `toHaveLength` assertion errors, confirming the pollution mechanism is gone |
+| `npx tsc --noEmit` | clean |
+| `npx eslint` on the 4 touched files | 0 errors; 2 pre-existing warnings (`_opts`/`_cols` unused at lines 193/207 of `route.quality-event`, confirmed present on the unmodified file too) — unrelated to this diff |
+
+### Deferred
+
+- Investigation step 3 (`update memory project_flaky_webhook_integration_tests / CI-001 to point at
+  this cause`) is not done here — out of this work item's scope (test files + this artifact + the
+  PR body only). Should follow as a quick memory update once this PR lands.
