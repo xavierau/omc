@@ -13,6 +13,7 @@
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { ImportRowRejectReason } from '@/domain/services/__errors__/import-errors'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
@@ -40,14 +41,7 @@ export async function resolveMemberId(
   input: ResolveMemberInput
 ): Promise<ResolveMemberOutcome> {
   const supabase = createServerSupabaseClient()
-  if (input.mergeExistingMembers) {
-    const existing = await findMemberId(supabase, input.restaurantId, input.row.phoneE164)
-    if (existing) return { ok: true, id: existing, created: false }
-  }
-  return createViaSeam(input)
-}
 
-async function createViaSeam(input: ResolveMemberInput): Promise<ResolveMemberOutcome> {
   // N-8 (WI-17 confirmation review, G-3 gap 1): `input.row.phoneE164` is
   // `PhoneNumber.create(raw).value` (import-contacts-batch-validation.ts) --
   // the SAME legacy, non-strict grammar register-member.ts/register-member-web.ts
@@ -56,11 +50,22 @@ async function createViaSeam(input: ResolveMemberInput): Promise<ResolveMemberOu
   // this validator waved through, land in the catch below, and get
   // misclassified as `duplicate_active` -- the row was silently rejected as
   // a duplicate when it was never imported at all. Resolved via the SAME
-  // strict-then-fallback rule the other two member-creation paths use, in
-  // its OWN try/catch so a genuine parse failure (reason: `invalid_phone`)
-  // can never be confused with a DB/seam conflict (reason:
+  // strict-then-fallback rule the other two member-creation paths use, ONCE,
+  // up front, in its OWN try/catch so a genuine parse failure (reason:
+  // `invalid_phone`) can never be confused with a DB/seam conflict (reason:
   // `phone_already_member` / `duplicate_active`, below).
-  let phoneE164
+  //
+  // WI-18: resolved BEFORE the merge pre-check (not just before the seam
+  // call) -- the merge pre-check's own SELECT must match what the create
+  // path actually stores (the normalised value), not the raw legacy-accepted
+  // string. Querying the raw string used to miss a row that was imported via
+  // this SAME fallback on an earlier run: `findMemberId` reported "no
+  // existing member", so the row fell through to `createViaSeam` and
+  // attempted a SECOND insert -- which the seam's own 23505-reselect happens
+  // to catch and resolve to `outcome:'existing'`, but only by coincidence of
+  // the DB's unique index existing, not because the pre-check actually did
+  // its job.
+  let phoneE164: E164Phone
   try {
     phoneE164 = resolveLegacyMemberE164(PhoneNumber.create(input.row.phoneE164))
   } catch (err) {
@@ -68,6 +73,17 @@ async function createViaSeam(input: ResolveMemberInput): Promise<ResolveMemberOu
     return reject(input.row.phoneE164, 'invalid_phone', message)
   }
 
+  if (input.mergeExistingMembers) {
+    const existing = await findMemberId(supabase, input.restaurantId, phoneE164.value)
+    if (existing) return { ok: true, id: existing, created: false }
+  }
+  return createViaSeam(input, phoneE164)
+}
+
+async function createViaSeam(
+  input: ResolveMemberInput,
+  phoneE164: E164Phone
+): Promise<ResolveMemberOutcome> {
   try {
     const result = await createOrGetMember({
       restaurantId: input.restaurantId,

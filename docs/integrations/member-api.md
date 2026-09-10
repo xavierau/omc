@@ -422,10 +422,29 @@ value you sent — only which field and which code.
 | 404 | `not_found` | (poll only) unknown `jobId`, or a `jobId` that belongs to a different integration — byte-identical either way, so a foreign job id cannot be distinguished from a nonexistent one |
 | 410 | `result_expired` | (poll only) the job finished more than 24 hours ago |
 
-Also charged before the signature check fully resolves: **10 consecutive
-authentication failures per `(integrationId, your IP)` per 60 seconds** trips a
-separate `429` — this protects the partner rate limit itself from being burned by an
-attacker probing bad signatures, and does not count against your normal request budget.
+Three more throttles guard this endpoint, on top of (and checked independently of) the
+per-integration rate limit in the `rate_limited` row above. None of them count against
+your normal request budget:
+
+1. **Pre-auth, per source IP** — the very first check on every request, before your
+   timestamp or signature is even evaluated: 300 requests/min (burst 50), keyed on
+   `(integrationId, source IP)`. "Source IP" is never a client-supplied header — it's
+   whatever the platform's edge proxy sets as `X-Real-IP` for the real connecting peer,
+   falling back to the rightmost hop it appends itself to `X-Forwarded-For` — so this
+   bucket can't be starved by spoofing a header. Exhausting it only throttles traffic
+   from that one source; a flood from one IP never 429s a different caller hitting the
+   same `integrationId`.
+2. **Pre-auth, integration-wide ceiling** — a last-resort cap on `integrationId` alone,
+   10x bucket 1 (3,000 requests/min, burst 500). This only engages under a genuinely
+   distributed flood spread across many source IPs, each individually under bucket 1's
+   limit, and exists to bound the platform's own read cost rather than to police any
+   single caller.
+3. **Auth-failure bucket** — charged only once your timestamp or signature has actually
+   been checked and failed: **10 failures per `integrationId` per 60 seconds** trips a
+   separate `429`. This bucket is keyed on `integrationId` alone, not on IP — an earlier
+   version keyed it per-IP too, but the IP visible at that point in the request was a
+   client-supplied header an attacker could rotate freely, so integration-wide keying is
+   what actually protects the bucket from being bypassed.
 
 **Validation errors** (`422`):
 
