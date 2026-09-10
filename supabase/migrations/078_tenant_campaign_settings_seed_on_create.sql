@@ -61,6 +61,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_restaurant_seed_campaign_settings ON restaurants;
 CREATE TRIGGER trg_restaurant_seed_campaign_settings
   AFTER INSERT ON restaurants
   FOR EACH ROW EXECUTE FUNCTION restaurant_seed_campaign_settings();
