@@ -1,19 +1,11 @@
-import type { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-
-type ServerSupabase = ReturnType<typeof createServerSupabaseClient>
-
 /**
- * Generic array chunking, extracted out of resolve-campaign-members.ts
- * (which sits at the 150-line budget) to keep `.in('id', ids)` calls under
- * PostgREST's URL-length limit — R-8 / B4.4.
+ * Paging helper for the campaign recipient reads in
+ * resolve-campaign-members.ts. It used to also hold a generic `chunk()` for
+ * keeping `.in('id', ids)` calls under PostgREST's URL length; both that
+ * helper and the member-id round trip it served are gone with #162 —
+ * recipients now resolve through the migration-079 RPCs, so nothing chunks
+ * ids any more and only the page walk remains.
  */
-export function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size))
-  }
-  return chunks
-}
 
 /** PostgREST's own default `max-rows`; one round trip per page. */
 export const READ_PAGE_SIZE = 1000
@@ -27,8 +19,10 @@ interface PageResult<T> {
  * Walk a PostgREST read page by page until an EMPTY page arrives.
  *
  * An unpaged read is truncated at the project's `max-rows` (Supabase default
- * 1000) with NO error — the caller just silently sees fewer rows. Any read that
- * can exceed that must therefore drive `.range()` itself (review I-5(a)).
+ * 1000) with NO error — the caller just silently sees fewer rows, and this
+ * applies to a set-returning RPC's result as much as to a table read. Any read
+ * that can exceed the cap must therefore drive its own window: `.range()` for
+ * a table read, `p_limit`/`p_offset` for an RPC (review I-5(a), #162).
  *
  * Two details that a short-page loop gets wrong when the project's `max-rows`
  * is configured BELOW `pageSize` (review round 2, #2):
@@ -36,9 +30,10 @@ interface PageResult<T> {
  *  - advancing the cursor by `pageSize` skips every row the server withheld.
  * So the loop ends only on an empty page and advances by rows RECEIVED.
  *
- * `fetchPage` must apply a total `.order()` before `.range()` — without one,
- * PostgREST is free to return a different row order per request and the walk
- * can repeat or drop rows across page boundaries.
+ * `fetchPage` must impose a total order on the rows it windows — `.order()`
+ * on a table read, `ORDER BY` inside the function for an RPC. Without one,
+ * a different row order per request lets the walk repeat or drop rows across
+ * page boundaries.
  */
 export async function readAllPages<T>(
   label: string,
@@ -54,32 +49,4 @@ export async function readAllPages<T>(
     rows.push(...page)
     from += page.length
   }
-}
-
-/**
- * Deduped member ids carrying any of `tagIds`, tenant-scoped and fully paged.
- * The campaign recipient count (RPC 067) counts every row, so this read must
- * too or the send targets a subset of the audience the merchant was shown.
- *
- * Ordered by the `member_tags` primary key — a total order is what makes the
- * page boundaries stable across the separate requests `.range()` issues.
- */
-export async function fetchTaggedMemberIds(
-  supabase: ServerSupabase,
-  restaurantId: string,
-  tagIds: string[]
-): Promise<string[]> {
-  const rows = await readAllPages<{ member_id: string }>(
-    'fetchTagMembers',
-    (from, to) =>
-      supabase
-        .from('member_tags')
-        .select('member_id')
-        .eq('restaurant_id', restaurantId)
-        .in('tag_id', tagIds)
-        .order('member_id')
-        .order('tag_id')
-        .range(from, to)
-  )
-  return [...new Set(rows.map((r) => r.member_id))]
 }
