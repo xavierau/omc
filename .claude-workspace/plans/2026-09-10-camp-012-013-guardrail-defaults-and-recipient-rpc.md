@@ -345,7 +345,7 @@ Depends on: WI-1, WI-2.
 | I-9 | Tests new: `plan-quota-migration-contract.test.ts`, `recipient-rpc-migration-contract.test.ts`, `getRestaurantPlan` tests | WI-1 / WI-2 |
 | I-10 | Regression: `enforce-campaign-guardrails.test.ts`, `change-tenant-plan.test.ts`, `execute-campaign.test.ts`, `tag-audience-repository.test.ts` green | WI-3 |
 | I-11 | Deploy: `deploy.sh` `supabase db push --linked --include-all` applies 078+079 — no new env vars, no Forge job, no seed change | WI-3 (release notes) |
-| I-12 | Not applicable (verified): routes, nav, i18n, feature flags, DI bindings, permissions, kanban (orchestrator) | — |
+| I-12 | **Corrected post-review (gstack F2):** `app/api/admin/tenants/[id]/campaign-settings/route.ts` GET IS a second null-settings fallback and now calls the exported `planDerivedDefaults`. Nav, i18n, feature flags, DI bindings, permissions: not applicable (verified); kanban (orchestrator) | WI-1 |
 
 ## Acceptance Criteria
 
