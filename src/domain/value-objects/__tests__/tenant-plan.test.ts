@@ -4,6 +4,7 @@ import {
   isValidPlan,
   type TenantPlan,
 } from '@/domain/value-objects/tenant-plan'
+import { DEFAULT_SETTINGS } from '@/domain/services/campaign-guardrails'
 
 describe('planCampaignQuota', () => {
   it('returns 1000 for starter', () => {
@@ -30,4 +31,12 @@ describe('isValidPlan', () => {
       expect(isValidPlan(value)).toBe(false)
     }
   )
+})
+
+// #161 A2: ties the hardcoded DEFAULT_SETTINGS fallback constant to the VO
+// so a future quota change to 'starter' cannot drift the two apart silently.
+describe('DEFAULT_SETTINGS.monthlySendLimit parity', () => {
+  it('equals planCampaignQuota("starter")', () => {
+    expect(DEFAULT_SETTINGS.monthlySendLimit).toBe(planCampaignQuota('starter'))
+  })
 })
