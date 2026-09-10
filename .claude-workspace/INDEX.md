@@ -39,6 +39,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-09-10-int-001-confirmation](reviews/2026-09-10-int-001-confirmation.md) — INT-001 fix rounds: CONDITIONAL — 19 closed / 2 partial / 11 open, 2 new Important (N-1 pre-auth throttle, N-2 attempt budget) (code-review-analyzer)
 - [2026-09-10-int-001-analyzer](reviews/2026-09-10-int-001-analyzer.md) — INT-001 branch: BLOCKED — 2 Critical (outbound exhaustion never dead-letters; resume no-op on jobId dedup), 8 Important (code-review-analyzer)
 - [2026-09-10-int-001-grok](reviews/2026-09-10-int-001-grok.md) — INT-001 branch: BLOCKED — 1 Critical (next unpatched, req #13), 8 Important (grok-cli-reviewer)
 - [2026-09-09-tpl-011-video-header-analyzer](reviews/2026-09-09-tpl-011-video-header-analyzer.md) — TPL-011 1fa9012: CONDITIONAL — 0 Critical, 2 Important (video pre-check message, unverified Kapso ingest), 7 Minor (code-review-analyzer)
