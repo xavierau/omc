@@ -2,9 +2,8 @@
 
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
+import { NO_TAG_FILTER } from '@/lib/constants'
 import { TagCombobox } from './tag-combobox'
-
-export const NO_TAG_FILTER = 'none'
 
 interface MemberTagFilterProps {
   tagId: string | null

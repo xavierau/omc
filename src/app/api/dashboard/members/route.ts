@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getMembers, NO_TAG_FILTER } from '@/infrastructure/supabase/repositories/member-repository'
+import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
+import { NO_TAG_FILTER } from '@/lib/constants'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
 import { getMemberQualityEvidenceSafe } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 import { getMemberQualitiesSafe } from '@/infrastructure/supabase/repositories/member-delivery-quality'

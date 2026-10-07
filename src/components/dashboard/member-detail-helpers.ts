@@ -1,3 +1,6 @@
+import type { ContactQuality } from '@/domain/value-objects/contact-quality'
+import type { MemberQualityEvidence } from '@/infrastructure/supabase/repositories/member-quality-evidence'
+
 /**
  * Client-side helper that loads a member's detail from the dashboard API.
  * Isolated from the panel component so vitest (which is configured for
@@ -14,31 +17,6 @@ export async function fetchMemberDetail<T>(memberId: string): Promise<T | null> 
   return (await res.json()) as T
 }
 
-export type QualityReason = 'unreachable' | 'no_data' | 'meets_green' | 'meets_yellow' | 'below_yellow'
-
-export interface QualityEvidence {
-  quality: {
-    rating: 'green' | 'yellow' | 'red' | 'unknown'
-    deliveryRate: number | null
-    sampleSize: number
-    reason: QualityReason
-  }
-  windowDays: number
-  thresholds: { green: number; yellow: number }
-  counts: { delivered: number; read: number; failed: number; pending: number }
-  unreachableAt: string | null
-  pmmThrottledUntil: string | null
-  recentMessages: {
-    id: string
-    queuedAt: string
-    status: string
-    category: string
-    templateName: string | null
-    errorCode: string | null
-    errorTitle: string | null
-  }[]
-}
-
 export interface QualityVerdict {
   key: string
   values: Record<string, string | number>
@@ -47,7 +25,7 @@ export interface QualityVerdict {
 const pct = (fraction: number) => Math.round(fraction * 100)
 
 /** One verdict sentence per reason; window and thresholds come from the payload. */
-export function buildQualityVerdict(e: QualityEvidence, formatDate: (iso: string) => string): QualityVerdict {
+export function buildQualityVerdict(e: MemberQualityEvidence, formatDate: (iso: string) => string): QualityVerdict {
   const { quality, windowDays: days, thresholds, counts } = e
   const rate = {
     delivered: counts.delivered,
@@ -71,4 +49,21 @@ export function buildQualityVerdict(e: QualityEvidence, formatDate: (iso: string
 
 export function isPmmThrottled(until: string | null, now: Date = new Date()): boolean {
   return until !== null && new Date(until).getTime() > now.getTime()
+}
+
+/** Tooltip copy per reason, so a Red never contradicts itself (unreachable has no rate to quote). */
+export function buildQualityTooltip(q: ContactQuality, days: number): QualityVerdict {
+  if (q.reason === 'unreachable') return { key: 'qualityUnreachableTooltip', values: {} }
+  if (q.reason === 'no_data' || q.deliveryRate === null) return { key: 'qualityNoDataTooltip', values: { days } }
+  return { key: 'qualityTooltip', values: { rate: pct(q.deliveryRate), count: q.sampleSize, days } }
+}
+
+/** After a refetch, the last page that still has rows (never below 1, never past the end). */
+export function clampPage(page: number, totalPages: number): number {
+  return totalPages >= 1 && page > totalPages ? totalPages : page
+}
+
+export function formatDate(d: string | null): string {
+  if (!d) return '\u2014'
+  return new Date(d).toLocaleDateString('en-HK', { month: 'short', day: 'numeric', year: 'numeric' })
 }

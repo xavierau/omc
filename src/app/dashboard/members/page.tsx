@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
+import { clampPage } from '@/components/dashboard/member-detail-helpers'
 import { MemberTable } from '@/components/dashboard/member-table'
 import { MemberPagination } from '@/components/dashboard/member-pagination'
 import { MemberTagFilter } from '@/components/dashboard/member-tag-filter'
@@ -49,6 +50,7 @@ export default function MembersPage() {
     sortBy,
     sortOrder,
     tagId: tagId ?? undefined,
+    includeQuality: true,
   })
 
   const handleTagFilter = useCallback((id: string | null) => {
@@ -86,9 +88,17 @@ export default function MembersPage() {
     setSelectedIds([])
   }
 
+  // A bulk tag can empty the current page under a tag filter; step back to the
+  // last page that still has rows instead of rendering "Showing 21-20 of 20".
+  const refetchAndClamp = async () => {
+    const fresh = await refetch()
+    const target = clampPage(page, fresh?.totalPages ?? 0)
+    if (target !== page) setPage(target)
+  }
+
   const handleBulkTagSuccess = () => {
-    refetch()
     setSelectedIds([])
+    void refetchAndClamp()
   }
 
   if (error) {
@@ -116,7 +126,7 @@ export default function MembersPage() {
           tag filter changes the selection out from under it — the bulk-tag
           success/error flow itself does not touch these, so it survives. */}
       <MemberBulkTagBar
-        key={`${page}-${debouncedSearch}-${tagId ?? ''}`}
+        key={`${page}-${pageSize}-${debouncedSearch}-${tagId ?? ''}`}
         selectedIds={selectedIds}
         onClear={() => setSelectedIds([])}
         onSuccess={handleBulkTagSuccess}

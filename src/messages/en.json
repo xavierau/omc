@@ -155,6 +155,7 @@
     "qualityRed": "Red",
     "qualityNoData": "No data",
     "qualityTooltip": "{rate}% delivered ({count} msgs, {days} days)",
+    "qualityUnreachableTooltip": "Meta reported this number cannot receive WhatsApp (131026)",
     "qualityNoDataTooltip": "No messages in the last {days} days",
     "qualityEvidenceTitle": "Contact quality",
     "qualityEvidenceUnavailable": "Quality evidence unavailable",

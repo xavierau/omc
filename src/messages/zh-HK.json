@@ -155,6 +155,7 @@
     "qualityRed": "紅色",
     "qualityNoData": "暫無數據",
     "qualityTooltip": "{rate}% 已送達（{count} 則訊息，{days} 日）",
+    "qualityUnreachableTooltip": "Meta 回報此號碼無法接收 WhatsApp（131026）",
     "qualityNoDataTooltip": "過去 {days} 日沒有訊息",
     "qualityEvidenceTitle": "聯絡品質",
     "qualityEvidenceUnavailable": "暫無品質證據",

@@ -6,3 +6,5 @@ export const EVENTS_PAGE_SIZE = 50
 export const MEMBERS_PAGE_SIZE = 20
 export const COUPONS_PAGE_SIZE = 20
 export const REALTIME_POLL_INTERVAL_MS = 5000
+/** Members list tag filter value meaning 'carries zero tags'. */
+export const NO_TAG_FILTER = 'none'

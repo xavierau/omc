@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   buildQualityVerdict,
   isPmmThrottled,
-  type QualityEvidence,
 } from '@/components/dashboard/member-detail-helpers'
+import type { MemberQualityEvidence as QualityEvidence } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 
 const fmt = (iso: string) => `D(${iso})`
 

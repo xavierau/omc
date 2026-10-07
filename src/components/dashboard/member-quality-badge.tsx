@@ -2,11 +2,15 @@
 
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
-import { CONTACT_QUALITY_WINDOW_DAYS } from '@/domain/value-objects/contact-quality'
-import type { MemberQuality } from '@/hooks/use-members'
+import {
+  CONTACT_QUALITY_WINDOW_DAYS,
+  UNKNOWN_CONTACT_QUALITY,
+  type ContactQuality,
+} from '@/domain/value-objects/contact-quality'
+import { buildQualityTooltip } from './member-detail-helpers'
 
 // Tones mirror RatingBadge in src/app/admin/(dashboard)/quality/page.tsx.
-const TONE_CLASS: Record<MemberQuality['rating'], string> = {
+const TONE_CLASS: Record<ContactQuality['rating'], string> = {
   green: 'bg-green-500/15 text-green-700 dark:text-green-300',
   yellow: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300',
   red: 'bg-red-500/15 text-red-700 dark:text-red-300',
@@ -20,22 +24,17 @@ const LABEL_KEY = {
   unknown: 'qualityNoData',
 } as const
 
-const NO_DATA: MemberQuality = { rating: 'unknown', deliveryRate: null, sampleSize: 0 }
-
 interface MemberQualityBadgeProps {
   memberId: string
-  quality?: MemberQuality
+  quality?: ContactQuality
   testId?: string
 }
 
 export function MemberQualityBadge({ memberId, quality, testId }: MemberQualityBadgeProps) {
   const t = useTranslations('members')
-  const q = quality ?? NO_DATA
-  const days = CONTACT_QUALITY_WINDOW_DAYS
-  const title =
-    q.sampleSize === 0 || q.deliveryRate === null
-      ? t('qualityNoDataTooltip', { days })
-      : t('qualityTooltip', { rate: Math.round(q.deliveryRate * 100), count: q.sampleSize, days })
+  const q = quality ?? UNKNOWN_CONTACT_QUALITY
+  const tip = buildQualityTooltip(q, CONTACT_QUALITY_WINDOW_DAYS)
+  const title = t(tip.key, tip.values)
 
   return (
     <Badge

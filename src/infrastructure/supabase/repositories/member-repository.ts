@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '../client'
 
 // getMembers + its list-query types live in member-list-query.ts (keeps this
 // file within the 150-line budget); re-exported so existing importers still work.
-export { getMembers, NO_TAG_FILTER } from './member-list-query'
+export { getMembers } from './member-list-query'
 export type { MemberRow, MemberTagLite, MemberListParams, MemberListResult } from './member-list-query'
 
 export type PreferredLanguageCode = 'en' | 'zh_hk'

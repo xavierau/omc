@@ -6,11 +6,12 @@ import { MemberQualityBadge } from './member-quality-badge'
 import {
   buildQualityVerdict,
   isPmmThrottled,
-  type QualityEvidence,
+  formatDate,
 } from './member-detail-helpers'
+import type { MemberQualityEvidence } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 
 type Translate = ReturnType<typeof useTranslations<'members'>>
-type Message = QualityEvidence['recentMessages'][number]
+type Message = MemberQualityEvidence['recentMessages'][number]
 
 const STATUS_KEY: Record<string, string> = {
   queued: 'qualityMsgStatusQueued',
@@ -20,11 +21,7 @@ const STATUS_KEY: Record<string, string> = {
   failed: 'qualityMsgStatusFailed',
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-HK', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function Counts({ counts, t }: { counts: QualityEvidence['counts']; t: Translate }) {
+function Counts({ counts, t }: { counts: MemberQualityEvidence['counts']; t: Translate }) {
   const items = [
     ['qualityCountDelivered', counts.delivered],
     ['qualityCountRead', counts.read],
@@ -53,7 +50,7 @@ function MessageRow({ m, t }: { m: Message; t: Translate }) {
     >
       <div className="min-w-0">
         <p className="truncate">
-          <span className="text-muted-foreground mr-2">{fmtDate(m.queuedAt)}</span>
+          <span className="text-muted-foreground mr-2">{formatDate(m.queuedAt)}</span>
           {m.templateName ?? m.category}
         </p>
         {failed && m.errorCode && (
@@ -67,20 +64,20 @@ function MessageRow({ m, t }: { m: Message; t: Translate }) {
   )
 }
 
-function Flags({ e, t }: { e: QualityEvidence; t: Translate }) {
+function Flags({ e, t }: { e: MemberQualityEvidence; t: Translate }) {
   return (
     <>
       {e.unreachableAt && (
-        <p className="text-sm text-red-700 dark:text-red-300">{t('qualityFlagUnreachable', { date: fmtDate(e.unreachableAt) })}</p>
+        <p className="text-sm text-red-700 dark:text-red-300">{t('qualityFlagUnreachable', { date: formatDate(e.unreachableAt) })}</p>
       )}
       {isPmmThrottled(e.pmmThrottledUntil) && e.pmmThrottledUntil && (
-        <p className="text-sm text-yellow-700 dark:text-yellow-300">{t('qualityFlagThrottled', { date: fmtDate(e.pmmThrottledUntil) })}</p>
+        <p className="text-sm text-yellow-700 dark:text-yellow-300">{t('qualityFlagThrottled', { date: formatDate(e.pmmThrottledUntil) })}</p>
       )}
     </>
   )
 }
 
-export function MemberQualityEvidenceSection({ memberId, evidence }: { memberId: string; evidence: QualityEvidence | null }) {
+export function MemberQualityEvidenceSection({ memberId, evidence }: { memberId: string; evidence: MemberQualityEvidence | null }) {
   const t = useTranslations('members')
   if (!evidence) {
     return (
@@ -89,7 +86,7 @@ export function MemberQualityEvidenceSection({ memberId, evidence }: { memberId:
       </p>
     )
   }
-  const verdict = buildQualityVerdict(evidence, fmtDate)
+  const verdict = buildQualityVerdict(evidence, formatDate)
   return (
     <div className="space-y-3" data-testid="member-quality-evidence">
       <h3 className="text-sm font-semibold">{t('qualityEvidenceTitle')}</h3>

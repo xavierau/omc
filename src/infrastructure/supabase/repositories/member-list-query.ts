@@ -3,6 +3,7 @@
 // tags embed (member_tags → tags) surfaced as a flat `tags` array on each row.
 
 import { createServerSupabaseClient } from '../client'
+import { NO_TAG_FILTER } from '@/lib/constants'
 
 export interface MemberTagLite {
   id: string
@@ -53,7 +54,6 @@ const SELECT_COLUMNS =
 const TAG_FILTER_EMBED = 'tag_filter:member_tags!inner(tag_id)'
 
 // MEM-001 sentinel: `tagId=none` lists members with no tags at all.
-export const NO_TAG_FILTER = 'none'
 
 // Anti-join for the sentinel: a LEFT embed filtered `is null` keeps only
 // members with zero member_tags rows. Same alias as the inner-join variant;
