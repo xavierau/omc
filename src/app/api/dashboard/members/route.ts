@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
+import { getMembers, NO_TAG_FILTER } from '@/infrastructure/supabase/repositories/member-repository'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberQualitiesSafe } from '@/infrastructure/supabase/repositories/member-delivery-quality'
+import { UNKNOWN_CONTACT_QUALITY } from '@/domain/value-objects/contact-quality'
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { isValidUUID } from '@/infrastructure/validation/validators'
 
 // Upper bound for a caller-supplied ?pageSize=. Lets high-volume consumers
-// (e.g. the campaign member picker, GH #103) request a larger single page
+// (e.g. the campaign member picker, GH #103; the members table's 250 option, MEM-001) request a larger single page
 // without opening the endpoint to unbounded requests.
-const MAX_MEMBERS_PAGE_SIZE = 200
+const MAX_MEMBERS_PAGE_SIZE = 250
 
 export function resolvePageSize(raw: string | null): number {
   const parsed = parseInt(raw ?? '', 10)
@@ -56,7 +58,7 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
   const tagId = searchParams.get('tagId') ?? undefined
   // A non-UUID tagId reaches PostgREST as `invalid input syntax for type uuid`,
   // which the catch-all reports as a 500 for bad client input (round 2, #8).
-  if (tagId !== undefined && !isValidUUID(tagId)) {
+  if (tagId !== undefined && tagId !== NO_TAG_FILTER && !isValidUUID(tagId)) {
     return NextResponse.json({ error: 'tagId must be a UUID' }, { status: 400 })
   }
   const pageSize = resolvePageSize(searchParams.get('pageSize'))
@@ -71,8 +73,15 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
     tagId,
   })
 
+  const qualities = await getMemberQualitiesSafe(restaurantId, result.members)
+  const members = result.members.map((member) => {
+    const { unreachable_at, ...wire } = member
+    void unreachable_at // consumed by the quality rating; not part of the wire shape
+    return { ...wire, quality: qualities.get(member.id) ?? { ...UNKNOWN_CONTACT_QUALITY } }
+  })
+
   return NextResponse.json({
-    members: result.members,
+    members,
     total: result.total,
     page,
     pageSize,

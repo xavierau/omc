@@ -19,6 +19,8 @@ export interface MemberRow {
   joined_at: string
   last_visit_at: string | null
   preferred_language: string | null
+  // MEM-001: feeds the quality rating (unreachable -> red); stripped by the route.
+  unreachable_at: string | null
   tags: MemberTagLite[]
 }
 
@@ -29,6 +31,7 @@ export interface MemberListParams {
   search?: string
   sortBy?: 'name' | 'points_balance' | 'last_visit_at' | 'joined_at'
   sortOrder?: 'asc' | 'desc'
+  /** A tag uuid, or NO_TAG_FILTER for members carrying zero tags. */
   tagId?: string
 }
 
@@ -38,7 +41,7 @@ export interface MemberListResult {
 }
 
 const SELECT_COLUMNS =
-  'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, member_tags(tags(id, name, color))'
+  'id, phone, name, points_balance, status, joined_at, last_visit_at, preferred_language, unreachable_at, member_tags(tags(id, name, color))'
 
 // Tag filter as an embedded INNER JOIN, aliased so it does not collide with the
 // display embed above. It replaces a pre-fetch of every member id for the tag,
@@ -49,6 +52,14 @@ const SELECT_COLUMNS =
 // so the Tags column still shows ALL of each member's tags.
 const TAG_FILTER_EMBED = 'tag_filter:member_tags!inner(tag_id)'
 
+// MEM-001 sentinel: `tagId=none` lists members with no tags at all.
+export const NO_TAG_FILTER = 'none'
+
+// Anti-join for the sentinel: a LEFT embed filtered `is null` keeps only
+// members with zero member_tags rows. Same alias as the inner-join variant;
+// the tenant filter and `count: exact` apply unchanged.
+const TAG_ABSENT_EMBED = 'tag_filter:member_tags(tag_id)'
+
 export async function getMembers(params: MemberListParams): Promise<MemberListResult> {
   const { restaurantId, page, pageSize, search, sortBy = 'last_visit_at', sortOrder = 'desc', tagId } = params
 
@@ -57,7 +68,12 @@ export async function getMembers(params: MemberListParams): Promise<MemberListRe
   // literals, though it parses either one on its own.
   const supabase = createServerSupabaseClient()
   const members = supabase.from('members')
-  let query = tagId
+  let query = tagId === NO_TAG_FILTER
+    ? members
+        .select(`${SELECT_COLUMNS}, ${TAG_ABSENT_EMBED}`, { count: 'exact' })
+        .eq('restaurant_id', restaurantId)
+        .is('tag_filter', null)
+    : tagId
     ? members
         .select(`${SELECT_COLUMNS}, ${TAG_FILTER_EMBED}`, { count: 'exact' })
         .eq('restaurant_id', restaurantId)

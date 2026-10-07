@@ -4,10 +4,12 @@ import { NextRequest } from 'next/server'
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/member-repository')
 vi.mock('@/infrastructure/supabase/repositories/member-detail-repository')
+vi.mock('@/infrastructure/supabase/client', () => ({ createServerSupabaseClient: vi.fn() }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { GET, resolvePageSize } from '../route'
 
@@ -49,8 +51,13 @@ describe('resolvePageSize', () => {
     expect(resolvePageSize('200')).toBe(200)
   })
 
+  it('honors the 250 cap exactly', () => {
+    expect(resolvePageSize('250')).toBe(250)
+  })
+
   it('clamps a requested size over the cap', () => {
-    expect(resolvePageSize('99999')).toBe(200)
+    expect(resolvePageSize('300')).toBe(250)
+    expect(resolvePageSize('99999')).toBe(250)
   })
 })
 
@@ -75,13 +82,24 @@ describe('GET /api/dashboard/members pageSize', () => {
     expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 200 }))
   })
 
+  it('honors pageSize=250 and clamps 300 to 250', async () => {
+    tenantOk()
+    membersOk()
+
+    await GET(req('?pageSize=250'))
+    await GET(req('?pageSize=300'))
+
+    expect(getMembers).toHaveBeenNthCalledWith(1, expect.objectContaining({ pageSize: 250 }))
+    expect(getMembers).toHaveBeenNthCalledWith(2, expect.objectContaining({ pageSize: 250 }))
+  })
+
   it('clamps an over-cap pageSize request', async () => {
     tenantOk()
     membersOk()
 
     await GET(req('?pageSize=99999'))
 
-    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 200 }))
+    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 250 }))
   })
 
   it('echoes the effective pageSize and totalPages in the response', async () => {
@@ -232,10 +250,76 @@ describe('GET /api/dashboard/members — tagId filter validation', () => {
     expect(getMembers).not.toHaveBeenCalled()
   })
 
+  it('passes the tagId=none sentinel through to getMembers', async () => {
+    const r = await GET(req('?tagId=none'))
+
+    expect(r.status).toBe(200)
+    expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ tagId: 'none' }))
+  })
+
   it('leaves the filter off when tagId is absent', async () => {
     const r = await GET(req(''))
 
     expect(r.status).toBe(200)
     expect(getMembers).toHaveBeenCalledWith(expect.objectContaining({ tagId: undefined }))
+  })
+})
+
+describe('GET /api/dashboard/members quality', () => {
+  const rows = [
+    { id: 'm-ok', unreachable_at: null },
+    { id: 'm-bad', unreachable_at: '2026-01-01T00:00:00Z' },
+    { id: 'm-none', unreachable_at: null },
+  ]
+  const listed = () =>
+    vi.mocked(getMembers).mockResolvedValue({
+      members: rows.map((r) => ({ ...r, phone: '+852', name: null, points_balance: 0, status: 'active',
+        joined_at: '', last_visit_at: null, preferred_language: null, tags: [] })),
+      total: 3,
+    })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    tenantOk()
+    listed()
+  })
+
+  it('attaches a classified quality object to every member and strips unreachable_at', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ member_id: 'm-ok', delivered: '9', failed: '1' }],
+      error: null,
+    })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ rpc } as never)
+
+    const json = await (await GET(req('?pageSize=250'))).json()
+
+    expect(rpc).toHaveBeenCalledWith('member_delivery_quality', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_member_ids: ['m-ok', 'm-bad', 'm-none'],
+      p_window_days: 90,
+    })
+    expect(json.members.map((m: { quality: unknown }) => m.quality)).toEqual([
+      { rating: 'green', deliveryRate: 0.9, sampleSize: 10 },
+      { rating: 'red', deliveryRate: null, sampleSize: 0 },
+      { rating: 'unknown', deliveryRate: null, sampleSize: 0 },
+    ])
+    expect(json.members[0]).not.toHaveProperty('unreachable_at')
+  })
+
+  it('degrades to 200 with unknown quality when the RPC errors', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(createServerSupabaseClient).mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'function does not exist' } }),
+    } as never)
+
+    const res = await GET(req())
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    for (const m of json.members) {
+      expect(m.quality).toEqual({ rating: 'unknown', deliveryRate: null, sampleSize: 0 })
+    }
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('member_delivery_quality'), expect.anything())
+    warn.mockRestore()
   })
 })
