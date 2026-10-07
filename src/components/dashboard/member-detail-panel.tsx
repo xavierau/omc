@@ -8,7 +8,9 @@ import { Separator } from '@/components/ui/separator'
 import { MemberDeleteSection } from './member-delete-section'
 import { MemberStampReversalSection } from './member-stamp-reversal-section'
 import { MemberTagsSection } from './member-tags-section'
-import { fetchMemberDetail } from './member-detail-helpers'
+import { fetchMemberDetail, formatDate } from './member-detail-helpers'
+import type { MemberQualityEvidence } from '@/infrastructure/supabase/repositories/member-quality-evidence'
+import { MemberQualityEvidenceSection } from './member-quality-evidence-section'
 
 interface MemberDetail {
   id: string
@@ -22,6 +24,7 @@ interface MemberDetail {
   coupons: { id: string; code: string; type: string; status: string; redeemed_at: string | null; discount_type: string | null; discount_value: number | null }[]
   visitCount: number
   tags?: { id: string; name: string; color: string }[]
+  qualityEvidence?: MemberQualityEvidence | null
 }
 
 interface MemberDetailPanelProps {
@@ -30,11 +33,6 @@ interface MemberDetailPanelProps {
   onClose: () => void
   onDeleted?: () => void
   onTagsChanged?: () => void
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return '\u2014'
-  return new Date(d).toLocaleDateString('en-HK', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function MemberInfo({ member }: { member: MemberDetail }) {
@@ -162,6 +160,8 @@ export function MemberDetailPanel({ memberId, open, onClose, onDeleted, onTagsCh
               <MemberInfo member={member} />
               <Separator />
               <MemberTagsSection memberId={member.id} tags={member.tags ?? []} onChanged={onTagsChanged} />
+              <Separator />
+              <MemberQualityEvidenceSection memberId={member.id} evidence={member.qualityEvidence ?? null} />
               <Separator />
               <ReceiptList receipts={member.receipts} />
               <Separator />

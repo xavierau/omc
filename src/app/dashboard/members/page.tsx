@@ -4,7 +4,9 @@ import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useMembers } from '@/hooks/use-members'
+import { clampPage } from '@/components/dashboard/member-detail-helpers'
 import { MemberTable } from '@/components/dashboard/member-table'
+import { MemberPagination } from '@/components/dashboard/member-pagination'
 import { MemberTagFilter } from '@/components/dashboard/member-tag-filter'
 import { MemberBulkTagBar } from '@/components/dashboard/member-bulk-tag-bar'
 import { MemberDetailPanel } from '@/components/dashboard/member-detail-panel'
@@ -16,6 +18,7 @@ export default function MembersPage() {
   const tc = useTranslations('common')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [sortBy, setSortBy] = useState('last_visit_at')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
@@ -43,9 +46,11 @@ export default function MembersPage() {
   const { data, isLoading, error, refetch } = useMembers({
     search: debouncedSearch,
     page,
+    pageSize,
     sortBy,
     sortOrder,
     tagId: tagId ?? undefined,
+    includeQuality: true,
   })
 
   const handleTagFilter = useCallback((id: string | null) => {
@@ -77,9 +82,23 @@ export default function MembersPage() {
     setSelectedIds([])
   }
 
-  const handleBulkTagSuccess = () => {
-    refetch()
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setPage(1)
     setSelectedIds([])
+  }
+
+  // A bulk tag can empty the current page under a tag filter; step back to the
+  // last page that still has rows instead of rendering "Showing 21-20 of 20".
+  const refetchAndClamp = async () => {
+    const fresh = await refetch()
+    const target = clampPage(page, fresh?.totalPages ?? 0)
+    if (target !== page) setPage(target)
+  }
+
+  const handleBulkTagSuccess = () => {
+    setSelectedIds([])
+    void refetchAndClamp()
   }
 
   if (error) {
@@ -107,7 +126,7 @@ export default function MembersPage() {
           tag filter changes the selection out from under it — the bulk-tag
           success/error flow itself does not touch these, so it survives. */}
       <MemberBulkTagBar
-        key={`${page}-${debouncedSearch}-${tagId ?? ''}`}
+        key={`${page}-${pageSize}-${debouncedSearch}-${tagId ?? ''}`}
         selectedIds={selectedIds}
         onClear={() => setSelectedIds([])}
         onSuccess={handleBulkTagSuccess}
@@ -124,6 +143,7 @@ export default function MembersPage() {
         onSelectMember={handleSelectMember}
         page={page}
         onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
         selectedIds={selectedIds}
         onToggle={handleToggle}
         onToggleAll={setSelectedIds}
@@ -161,13 +181,14 @@ interface MembersContentProps {
   onSelectMember: (id: string) => void
   page: number
   onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
   selectedIds: string[]
   onToggle: (id: string) => void
   onToggleAll: (ids: string[]) => void
 }
 
 function MembersContent({
-  data, isLoading, search, tagFiltered, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange,
+  data, isLoading, search, tagFiltered, onSearchChange, sortBy, sortOrder, onSort, onSelectMember, page, onPageChange, onPageSizeChange,
   selectedIds, onToggle, onToggleAll,
 }: MembersContentProps) {
   const t = useTranslations('members')
@@ -213,41 +234,16 @@ function MembersContent({
         onToggle={onToggle}
         onToggleAll={onToggleAll}
       />
-      {data.totalPages > 1 && (
-        <PaginationSection data={data} page={page} onPageChange={onPageChange} />
+      {data.total > 0 && (
+        <MemberPagination
+          page={page}
+          pageSize={data.pageSize}
+          total={data.total}
+          totalPages={data.totalPages}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
       )}
     </>
-  )
-}
-
-function PaginationSection({
-  data,
-  page,
-  onPageChange,
-}: {
-  data: NonNullable<ReturnType<typeof useMembers>['data']>
-  page: number
-  onPageChange: (page: number) => void
-}) {
-  const tc = useTranslations('common')
-
-  return (
-    <div className="flex items-center justify-between">
-      <p className="text-sm text-muted-foreground">
-        {tc('showing', {
-          start: (data.page - 1) * data.pageSize + 1,
-          end: Math.min(data.page * data.pageSize, data.total),
-          total: data.total,
-        })}
-      </p>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-          {tc('previous')}
-        </Button>
-        <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => onPageChange(page + 1)}>
-          {tc('next')}
-        </Button>
-      </div>
-    </div>
   )
 }

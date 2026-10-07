@@ -57,3 +57,28 @@ export async function markMemberUnreachable(
     .eq('restaurant_id', restaurantId)
   if (error) throw new Error(`markMemberUnreachable: ${error.message}`)
 }
+
+/**
+ * MEM-004: clear `members.unreachable_at` for the member with this phone, in
+ * ONE conditional UPDATE (no preceding read). Scoped by `restaurant_id` and
+ * guarded by `unreachable_at IS NOT NULL`, so it is idempotent and only the
+ * first of concurrent callers matches a row. Returns the cleared member id, or
+ * null when the phone is unknown or the flag was already null. Pmm throttle and
+ * consent are untouched.
+ */
+export async function clearMemberUnreachable(
+  restaurantId: string,
+  phoneE164: string
+): Promise<{ memberId: string } | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('members')
+    .update({ unreachable_at: null })
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', phoneE164)
+    .not('unreachable_at', 'is', null)
+    .select('id')
+  if (error) throw new Error(`clearMemberUnreachable: ${error.message}`)
+  if (!data || data.length === 0) return null
+  return { memberId: data[0].id as string }
+}

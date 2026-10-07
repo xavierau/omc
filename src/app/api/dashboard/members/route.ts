@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
+import { NO_TAG_FILTER } from '@/lib/constants'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberQualityEvidenceSafe } from '@/infrastructure/supabase/repositories/member-quality-evidence'
+import { getMemberQualitiesSafe } from '@/infrastructure/supabase/repositories/member-delivery-quality'
+import { UNKNOWN_CONTACT_QUALITY } from '@/domain/value-objects/contact-quality'
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { isValidUUID } from '@/infrastructure/validation/validators'
 
 // Upper bound for a caller-supplied ?pageSize=. Lets high-volume consumers
-// (e.g. the campaign member picker, GH #103) request a larger single page
+// (e.g. the campaign member picker, GH #103; the members table's 250 option, MEM-001) request a larger single page
 // without opening the endpoint to unbounded requests.
-const MAX_MEMBERS_PAGE_SIZE = 200
+const MAX_MEMBERS_PAGE_SIZE = 250
 
 export function resolvePageSize(raw: string | null): number {
   const parsed = parseInt(raw ?? '', 10)
   if (!Number.isFinite(parsed) || parsed <= 0) return MEMBERS_PAGE_SIZE
   return Math.min(parsed, MAX_MEMBERS_PAGE_SIZE)
+}
+
+function wantsQuality(searchParams: URLSearchParams): boolean {
+  return searchParams
+    .getAll('include')
+    .flatMap((v) => v.split(','))
+    .some((v) => v.trim() === 'quality')
 }
 
 export async function GET(request: NextRequest) {
@@ -41,11 +52,16 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleMemberDetail(memberId: string, restaurantId: string) {
-  const member = await getMemberDetailForRestaurant(memberId, restaurantId)
+  // Evidence is tenant-scoped in its own queries and never throws, so it runs
+  // in parallel with the detail lookup; a 404 simply discards it.
+  const [member, qualityEvidence] = await Promise.all([
+    getMemberDetailForRestaurant(memberId, restaurantId),
+    getMemberQualityEvidenceSafe(memberId, restaurantId),
+  ])
   if (!member) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }
-  return NextResponse.json(member)
+  return NextResponse.json({ ...member, qualityEvidence })
 }
 
 async function handleMemberList(searchParams: URLSearchParams, restaurantId: string) {
@@ -56,7 +72,7 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
   const tagId = searchParams.get('tagId') ?? undefined
   // A non-UUID tagId reaches PostgREST as `invalid input syntax for type uuid`,
   // which the catch-all reports as a 500 for bad client input (round 2, #8).
-  if (tagId !== undefined && !isValidUUID(tagId)) {
+  if (tagId !== undefined && tagId !== NO_TAG_FILTER && !isValidUUID(tagId)) {
     return NextResponse.json({ error: 'tagId must be a UUID' }, { status: 400 })
   }
   const pageSize = resolvePageSize(searchParams.get('pageSize'))
@@ -71,8 +87,20 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
     tagId,
   })
 
+  // Quality is opt-in (?include=quality): it costs an aggregate over
+  // whatsapp_messages, which callers like the campaign picker don't need.
+  const qualities = wantsQuality(searchParams)
+    ? await getMemberQualitiesSafe(restaurantId, result.members)
+    : null
+  const members = result.members.map((member) => {
+    const { unreachable_at, ...wire } = member
+    void unreachable_at // consumed by the quality rating; not part of the wire shape
+    if (!qualities) return wire
+    return { ...wire, quality: qualities.get(member.id) ?? { ...UNKNOWN_CONTACT_QUALITY } }
+  })
+
   return NextResponse.json({
-    members: result.members,
+    members,
     total: result.total,
     page,
     pageSize,
