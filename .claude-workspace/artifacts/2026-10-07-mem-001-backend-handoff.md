@@ -7,6 +7,7 @@ created: 2026-10-07
 status: active
 item: MEM-001
 state: done
+brief: inline
 base: b9f1f25
 head: 7c1b92f2
 branch: feature/mem-001-members-table
@@ -15,6 +16,7 @@ stage: poc
 gate: {result: none, at: none}
 next: {owner: react-frontend-dev, action: "build members table UI against the quality contract"}
 blockers: []
+refs: [kanban:MEM-001]
 ---
 ac:
   AC-1: {result: pass, evidence: "npx vitest run src/domain/value-objects/__tests__/contact-quality.test.ts: 11 passed (unreachable->red, 0 sample->unknown, 0.90 green / 0.8999 yellow / 0.60 yellow / 0.5999 red)"}
@@ -22,6 +24,7 @@ ac:
   AC-3: {result: pass, evidence: "scratch PG17, migrations 001..079 + auth/storage stubs, 080 applied inside BEGIN..ROLLBACK (function absent afterwards). Seeded aa01: 3 delivered(2 delivered+1 read), 1 failed, plus sent, queued, inbound, a >90d failed, and another tenant's row. RPC returned aa01 delivered=3 failed=1, aa02 0/0, tenant-B member omitted; tenant A asking only for a tenant-B id -> 0 rows. Grants: service_role t, anon f, authenticated f. Planner uses idx_wa_messages_member_queued (index-only scan)."}
   AC-4: {result: pass, evidence: "tsc --noEmit under resource-lock heavy: clean (exit 0, no output). eslint on touched files: 0 warnings/errors in touched files (repo uses npm; pnpm not installed)."}
   AC-5: {result: pass, evidence: "kanban.json MEM-001 in_progress; committed on feature/mem-001-members-table, not pushed"}
+failed: []
 decisions:
   - "Contract per member: quality {rating:'green'|'yellow'|'red'|'unknown', deliveryRate:number|null, sampleSize:number}. unreachable_at is selected for the rating and stripped from the wire (not in the response)."
   - "RPC takes a third param p_window_days int DEFAULT 90, filled from CONTACT_QUALITY_WINDOW_DAYS, so the 90 lives in one place (domain constant). Brief named only 2 params; default keeps the 2-arg call valid."
@@ -38,6 +41,7 @@ unverified:
 review_focus:
   - "src/infrastructure/supabase/repositories/member-list-query.ts: TAG_ABSENT_EMBED + .is('tag_filter', null) branch"
   - "supabase/migrations/080_member_delivery_quality.sql: tenant predicates on both joins"
-scope_drift: []
+scope_drift:
+  - "src/infrastructure/supabase/repositories/member-list-query.ts — getMembers lives here (re-exported by member-repository.ts), not matched by the member-repository*.ts glob; the no-tag filter and unreachable_at select could not be done elsewhere. Flagged for caller; no one pre-approved."
 next_step: "Frontend: add 20/50/100/250 selector, no-tag option sending tagId=none, quality column reading member.quality; apply 080 on DEV before browser walk."
 ---
