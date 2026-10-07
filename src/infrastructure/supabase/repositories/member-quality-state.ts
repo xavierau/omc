@@ -57,3 +57,39 @@ export async function markMemberUnreachable(
     .eq('restaurant_id', restaurantId)
   if (error) throw new Error(`markMemberUnreachable: ${error.message}`)
 }
+
+/**
+ * MEM-004: clear `members.unreachable_at` for the member with this phone.
+ * Scoped by `restaurant_id` in the query itself, and conditional on the flag
+ * still holding the value we read (compare-and-swap), so it is idempotent and
+ * only writes when set. Returns the cleared member + previous value, or null
+ * when the phone is unknown, the flag was already null, or a concurrent writer
+ * changed it first. Pmm throttle and consent are untouched.
+ */
+export async function clearMemberUnreachable(
+  restaurantId: string,
+  phoneE164: string
+): Promise<{ memberId: string; previousUnreachableAt: string } | null> {
+  const supabase = createServerSupabaseClient()
+  const { data: member, error: readError } = await supabase
+    .from('members')
+    .select('id, unreachable_at')
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', phoneE164)
+    .not('unreachable_at', 'is', null)
+    .maybeSingle()
+  if (readError) throw new Error(`clearMemberUnreachable: ${readError.message}`)
+  if (!member) return null
+
+  const previous = member.unreachable_at as string
+  const { data: updated, error } = await supabase
+    .from('members')
+    .update({ unreachable_at: null })
+    .eq('restaurant_id', restaurantId)
+    .eq('id', member.id as string)
+    .eq('unreachable_at', previous)
+    .select('id')
+  if (error) throw new Error(`clearMemberUnreachable: ${error.message}`)
+  if (!updated || updated.length === 0) return null
+  return { memberId: member.id as string, previousUnreachableAt: previous }
+}
