@@ -1,8 +1,9 @@
 // MEM-001b: why a member has their contact-quality rating. The rating comes
 // from the same classifier and the same inputs (outbound, in-window,
 // delivered incl. read / failed, unreachable flag) as the list column, so the
-// two never disagree. Reads whatsapp_messages directly, scoped by tenant AND
-// member in the query itself; message text is never selected.
+// two never disagree: counts come from the same member_delivery_quality RPC
+// (migration 080) as the list. The newest messages are a separate scoped query,
+// limited to RECENT_LIMIT; message text is never selected.
 
 import { createServerSupabaseClient } from '../client'
 import {
@@ -14,9 +15,6 @@ import {
 
 const MESSAGE_COLUMNS = 'id, queued_at, status, category, template_name, error_code, error_title'
 const RECENT_LIMIT = 20
-// Safety bound. Beyond it counts would be partial and could disagree with the
-// list RPC, so we fail (-> null evidence) rather than show a wrong explanation.
-const ROW_CAP = 5000
 
 interface MessageRow {
   id: string
@@ -48,6 +46,13 @@ export interface MemberQualityEvidence {
   recentMessages: RecentMessage[]
 }
 
+interface CountsRow {
+  delivered: number | string
+  read: number | string
+  failed: number | string
+  pending: number | string
+}
+
 export async function getMemberQualityEvidence(
   memberId: string,
   restaurantId: string
@@ -55,13 +60,18 @@ export async function getMemberQualityEvidence(
   const supabase = createServerSupabaseClient()
   const since = new Date(Date.now() - CONTACT_QUALITY_WINDOW_DAYS * 86_400_000).toISOString()
 
-  const [memberRes, messagesRes] = await Promise.all([
+  const [memberRes, countsRes, messagesRes] = await Promise.all([
     supabase
       .from('members')
       .select('unreachable_at, pmm_throttled_until')
       .eq('id', memberId)
       .eq('restaurant_id', restaurantId)
-      .single(),
+      .maybeSingle(),
+    supabase.rpc('member_delivery_quality', {
+      p_restaurant_id: restaurantId,
+      p_member_ids: [memberId],
+      p_window_days: CONTACT_QUALITY_WINDOW_DAYS,
+    }),
     supabase
       .from('whatsapp_messages')
       .select(MESSAGE_COLUMNS)
@@ -70,16 +80,16 @@ export async function getMemberQualityEvidence(
       .eq('direction', 'outbound')
       .gte('queued_at', since)
       .order('queued_at', { ascending: false })
-      .limit(ROW_CAP),
+      .limit(RECENT_LIMIT),
   ])
 
   if (memberRes.error) throw new Error(`member_quality_evidence(members): ${memberRes.error.message}`)
+  if (countsRes.error) throw new Error(`member_quality_evidence(counts): ${countsRes.error.message}`)
   if (messagesRes.error) throw new Error(`member_quality_evidence(messages): ${messagesRes.error.message}`)
   if (!memberRes.data) return null
-  const rows = (messagesRes.data ?? []) as MessageRow[]
-  if (rows.length >= ROW_CAP) throw new Error('member_quality_evidence: row cap reached')
+  const countsRow = ((countsRes.data ?? []) as CountsRow[])[0]
 
-  return buildEvidence(memberRes.data as MemberFlags, rows)
+  return buildEvidence(memberRes.data as MemberFlags, countsRow, (messagesRes.data ?? []) as MessageRow[])
 }
 
 interface MemberFlags {
@@ -87,13 +97,13 @@ interface MemberFlags {
   pmm_throttled_until: string | null
 }
 
-function buildEvidence(flags: MemberFlags, rows: MessageRow[]): MemberQualityEvidence {
-  const count = (...statuses: string[]) => rows.filter((r) => statuses.includes(r.status)).length
+function buildEvidence(flags: MemberFlags, row: CountsRow | undefined, messages: MessageRow[]): MemberQualityEvidence {
+  // bigint columns can arrive as strings; coerce. No row = member has no in-window messages.
   const counts = {
-    delivered: count('delivered', 'read'),
-    read: count('read'),
-    failed: count('failed'),
-    pending: count('queued', 'sent'),
+    delivered: Number(row?.delivered ?? 0),
+    read: Number(row?.read ?? 0),
+    failed: Number(row?.failed ?? 0),
+    pending: Number(row?.pending ?? 0),
   }
   return {
     quality: classifyContactQuality({
@@ -106,7 +116,7 @@ function buildEvidence(flags: MemberFlags, rows: MessageRow[]): MemberQualityEvi
     counts,
     unreachableAt: flags.unreachable_at,
     pmmThrottledUntil: flags.pmm_throttled_until,
-    recentMessages: rows.slice(0, RECENT_LIMIT).map(toRecentMessage),
+    recentMessages: messages.map(toRecentMessage),
   }
 }
 

@@ -7,7 +7,7 @@ type LogFn = (level: 'info' | 'warn' | 'error', event: string, data: unknown) =>
 /**
  * MEM-004: an inbound message from a contact proves the WhatsApp account works
  * again (131026 is not permanent), so clear `members.unreachable_at` and record
- * a `reachability_restored` event. Only the cleared case emits (the clear is
+ * a `reachability_restored` event (single conditional UPDATE). Only the cleared case emits (the clear is
  * conditional). NEVER throws — inbound processing must not depend on this.
  *
  * Returns true when a flag was cleared. `pmm_throttled_until` and consent are
@@ -34,7 +34,7 @@ export async function restoreMemberReachability(
       memberId: cleared.memberId,
       type: 'reachability_restored',
       dataJson: {
-        previous_unreachable_at: cleared.previousUnreachableAt,
+        member_id: cleared.memberId,
         trigger_message_type: messageType,
       },
     })

@@ -20,6 +20,13 @@ export function resolvePageSize(raw: string | null): number {
   return Math.min(parsed, MAX_MEMBERS_PAGE_SIZE)
 }
 
+function wantsQuality(searchParams: URLSearchParams): boolean {
+  return searchParams
+    .getAll('include')
+    .flatMap((v) => v.split(','))
+    .some((v) => v.trim() === 'quality')
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { restaurantId } = await getTenantContext()
@@ -44,11 +51,15 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleMemberDetail(memberId: string, restaurantId: string) {
-  const member = await getMemberDetailForRestaurant(memberId, restaurantId)
+  // Evidence is tenant-scoped in its own queries and never throws, so it runs
+  // in parallel with the detail lookup; a 404 simply discards it.
+  const [member, qualityEvidence] = await Promise.all([
+    getMemberDetailForRestaurant(memberId, restaurantId),
+    getMemberQualityEvidenceSafe(memberId, restaurantId),
+  ])
   if (!member) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }
-  const qualityEvidence = await getMemberQualityEvidenceSafe(memberId, restaurantId)
   return NextResponse.json({ ...member, qualityEvidence })
 }
 
@@ -75,10 +86,15 @@ async function handleMemberList(searchParams: URLSearchParams, restaurantId: str
     tagId,
   })
 
-  const qualities = await getMemberQualitiesSafe(restaurantId, result.members)
+  // Quality is opt-in (?include=quality): it costs an aggregate over
+  // whatsapp_messages, which callers like the campaign picker don't need.
+  const qualities = wantsQuality(searchParams)
+    ? await getMemberQualitiesSafe(restaurantId, result.members)
+    : null
   const members = result.members.map((member) => {
     const { unreachable_at, ...wire } = member
     void unreachable_at // consumed by the quality rating; not part of the wire shape
+    if (!qualities) return wire
     return { ...wire, quality: qualities.get(member.id) ?? { ...UNKNOWN_CONTACT_QUALITY } }
   })
 

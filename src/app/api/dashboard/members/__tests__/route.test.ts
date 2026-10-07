@@ -224,11 +224,13 @@ describe('GET /api/dashboard/members?id=', () => {
     expect(json.phone).toBe(memberDetail.phone)
   })
 
-  it('does not look up evidence for a member that 404s', async () => {
+  it('a member that 404s discards the (parallel) evidence lookup and leaks nothing', async () => {
     tenantOk()
     vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(null)
-    await GET(req(`?id=${MEMBER_ID}`))
-    expect(getMemberQualityEvidenceSafe).not.toHaveBeenCalled()
+    vi.mocked(getMemberQualityEvidenceSafe).mockResolvedValue(null)
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'Member not found' })
   })
 
   it('never reaches the lookup when auth fails', async () => {
@@ -331,6 +333,29 @@ describe('GET /api/dashboard/members quality', () => {
     listed()
   })
 
+  it('without include=quality: no RPC call, no quality key, unreachable_at still stripped', async () => {
+    const rpc = vi.fn()
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ rpc } as never)
+
+    const json = await (await GET(req('?pageSize=250'))).json()
+
+    expect(rpc).not.toHaveBeenCalled()
+    for (const m of json.members) {
+      expect(m).not.toHaveProperty('quality')
+      expect(m).not.toHaveProperty('unreachable_at')
+    }
+  })
+
+  it('include=quality works in a comma list and attaches quality', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null })
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ rpc } as never)
+
+    const json = await (await GET(req('?include=foo,quality'))).json()
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(json.members[0]).toHaveProperty('quality')
+  })
+
   it('attaches a classified quality object to every member and strips unreachable_at', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [{ member_id: 'm-ok', delivered: '9', failed: '1' }],
@@ -338,7 +363,7 @@ describe('GET /api/dashboard/members quality', () => {
     })
     vi.mocked(createServerSupabaseClient).mockReturnValue({ rpc } as never)
 
-    const json = await (await GET(req('?pageSize=250'))).json()
+    const json = await (await GET(req('?pageSize=250&include=quality'))).json()
 
     expect(rpc).toHaveBeenCalledWith('member_delivery_quality', {
       p_restaurant_id: RESTAURANT_ID,
@@ -359,7 +384,7 @@ describe('GET /api/dashboard/members quality', () => {
       rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'function does not exist' } }),
     } as never)
 
-    const res = await GET(req())
+    const res = await GET(req('?include=quality'))
     const json = await res.json()
 
     expect(res.status).toBe(200)

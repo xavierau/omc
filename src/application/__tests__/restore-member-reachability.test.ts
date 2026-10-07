@@ -12,7 +12,6 @@ import { clearMemberUnreachable } from '@/infrastructure/supabase/repositories/m
 import { emitEvent } from '@/application/emit-event'
 
 const args = { restaurantId: 'r-1', phoneE164: '+85291234567', messageType: 'text' }
-const PREV = '2026-09-01T00:00:00.000Z'
 
 describe('restoreMemberReachability (MEM-004)', () => {
   const log = vi.fn()
@@ -21,10 +20,9 @@ describe('restoreMemberReachability (MEM-004)', () => {
     vi.mocked(emitEvent).mockResolvedValue('evt-1')
   })
 
-  it('clears unreachable_at and emits reachability_restored with previous value + message type', async () => {
+  it('clears unreachable_at and emits reachability_restored with member id + message type', async () => {
     vi.mocked(clearMemberUnreachable).mockResolvedValue({
       memberId: 'm-1',
-      previousUnreachableAt: PREV,
     })
 
     const restored = await restoreMemberReachability(args, log)
@@ -36,7 +34,7 @@ describe('restoreMemberReachability (MEM-004)', () => {
       restaurantId: 'r-1',
       memberId: 'm-1',
       type: 'reachability_restored',
-      dataJson: { previous_unreachable_at: PREV, trigger_message_type: 'text' },
+      dataJson: { member_id: 'm-1', trigger_message_type: 'text' },
     })
   })
 
@@ -61,7 +59,6 @@ describe('restoreMemberReachability (MEM-004)', () => {
   it('swallows an event failure (e.g. 081 not applied) with a warn; the clear stands', async () => {
     vi.mocked(clearMemberUnreachable).mockResolvedValue({
       memberId: 'm-1',
-      previousUnreachableAt: PREV,
     })
     vi.mocked(emitEvent).mockRejectedValue(new Error('events_type_check violation'))
 
