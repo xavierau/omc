@@ -32,3 +32,4 @@ the first real run.
 | `/dashboard/integrations/[id]` Activity tab | activity card, load-failed text | `[data-testid="activity-log-card"]` / `[data-testid="activity-log-error"]` | 2026-09-10 int-001-ui-walk |
 | `/dashboard/members` | page-size select / first / prev / next / last | `[data-testid="members-page-size-select"]` / `members-pagination-first` / `-prev` / `-next` / `-last` | 2026-10-07 mem-001 (mocked-API walk) |
 | `/dashboard/members` | "No tag" filter chip, per-row quality badge | `[data-testid="members-tag-filter-no-tag"]` / `[data-testid="members-row-<id>-quality"]` | 2026-10-07 mem-001 (mocked-API walk) |
+| `/dashboard/members` (detail panel) | contact quality evidence root / verdict sentence / per-message row / degrade line / badge | `[data-testid="member-quality-evidence"]` / `member-quality-verdict` / `member-quality-message-<id>` / `member-quality-evidence-unavailable` / `member-quality-evidence-badge` | 2026-10-07 mem-001b (mocked-API walk) |

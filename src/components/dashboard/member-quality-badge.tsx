@@ -22,7 +22,13 @@ const LABEL_KEY = {
 
 const NO_DATA: MemberQuality = { rating: 'unknown', deliveryRate: null, sampleSize: 0 }
 
-export function MemberQualityBadge({ memberId, quality }: { memberId: string; quality?: MemberQuality }) {
+interface MemberQualityBadgeProps {
+  memberId: string
+  quality?: MemberQuality
+  testId?: string
+}
+
+export function MemberQualityBadge({ memberId, quality, testId }: MemberQualityBadgeProps) {
   const t = useTranslations('members')
   const q = quality ?? NO_DATA
   const days = CONTACT_QUALITY_WINDOW_DAYS
@@ -36,7 +42,7 @@ export function MemberQualityBadge({ memberId, quality }: { memberId: string; qu
       variant="outline"
       className={TONE_CLASS[q.rating]}
       title={title}
-      data-testid={`members-row-${memberId}-quality`}
+      data-testid={testId ?? `members-row-${memberId}-quality`}
     >
       {t(LABEL_KEY[q.rating])}
     </Badge>
