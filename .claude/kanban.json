@@ -6,6 +6,28 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "MEM-002",
+          "title": "Blended contact engagement score: delivery + read rate + replied in last 90d (conversation_windows), opt-out/unreachable force red",
+          "description": "Follow-up to MEM-001/001b (owner accepted 2026-10-07). Replace the delivery-only rating with a blended engagement score: delivery rate + read rate + replied within 90d (conversation_windows). Opt-out or unreachable force red. Must keep list column and detail evidence on one shared classifier.",
+          "priority": "low",
+          "labels": [
+            "members",
+            "dashboard",
+            "backend"
+          ]
+        },
+        {
+          "id": "MEM-003",
+          "title": "Capture engagement events: template quick-reply taps, inbound message log in whatsapp_messages, link-click tracking",
+          "description": "Prerequisite data for MEM-002 (owner accepted 2026-10-07). Capture template quick-reply taps, log inbound messages in whatsapp_messages, and track link clicks so engagement can be scored beyond delivery/read.",
+          "priority": "low",
+          "labels": [
+            "members",
+            "whatsapp",
+            "backend"
+          ]
+        },
+        {
           "id": "CAMP-004",
           "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
           "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",

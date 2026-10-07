@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMembers, NO_TAG_FILTER } from '@/infrastructure/supabase/repositories/member-repository'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberQualityEvidenceSafe } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 import { getMemberQualitiesSafe } from '@/infrastructure/supabase/repositories/member-delivery-quality'
 import { UNKNOWN_CONTACT_QUALITY } from '@/domain/value-objects/contact-quality'
 import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
@@ -47,7 +48,8 @@ async function handleMemberDetail(memberId: string, restaurantId: string) {
   if (!member) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }
-  return NextResponse.json(member)
+  const qualityEvidence = await getMemberQualityEvidenceSafe(memberId, restaurantId)
+  return NextResponse.json({ ...member, qualityEvidence })
 }
 
 async function handleMemberList(searchParams: URLSearchParams, restaurantId: string) {

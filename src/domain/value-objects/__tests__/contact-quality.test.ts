@@ -29,6 +29,7 @@ describe('classifyContactQuality', () => {
       rating: 'unknown',
       deliveryRate: null,
       sampleSize: 0,
+      reason: 'no_data',
     })
   })
 
@@ -48,6 +49,20 @@ describe('classifyContactQuality', () => {
       rating: 'yellow',
       deliveryRate: 0.75,
       sampleSize: 4,
+      reason: 'meets_yellow',
     })
+  })
+
+  it.each([
+    [0, 0, true, 'unreachable'],
+    [100, 0, true, 'unreachable'],
+    [0, 0, false, 'no_data'],
+    [9, 1, false, 'meets_green'], // 0.90 exactly
+    [6, 4, false, 'meets_yellow'], // 0.60 exactly
+    [8999, 1001, false, 'meets_yellow'],
+    [5999, 4001, false, 'below_yellow'],
+    [0, 5, false, 'below_yellow'],
+  ])('delivered=%i failed=%i unreachable=%s -> reason %s', (d, f, unreachable, reason) => {
+    expect(classifyContactQuality({ ...counts(d, f), unreachable }).reason).toBe(reason)
   })
 })

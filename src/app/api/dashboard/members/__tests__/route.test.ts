@@ -4,11 +4,13 @@ import { NextRequest } from 'next/server'
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/member-repository')
 vi.mock('@/infrastructure/supabase/repositories/member-detail-repository')
+vi.mock('@/infrastructure/supabase/repositories/member-quality-evidence')
 vi.mock('@/infrastructure/supabase/client', () => ({ createServerSupabaseClient: vi.fn() }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getMembers } from '@/infrastructure/supabase/repositories/member-repository'
 import { getMemberDetailForRestaurant } from '@/infrastructure/supabase/repositories/member-detail-repository'
+import { getMemberQualityEvidenceSafe } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { GET, resolvePageSize } from '../route'
@@ -176,12 +178,57 @@ describe('GET /api/dashboard/members?id=', () => {
   it('returns 200 with the payload unchanged on the happy path', async () => {
     tenantOk()
     vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(memberDetail as never)
+    vi.mocked(getMemberQualityEvidenceSafe).mockResolvedValue(null)
 
     const res = await GET(req(`?id=${MEMBER_ID}`))
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json).toEqual(memberDetail)
+    expect(json).toEqual({ ...memberDetail, qualityEvidence: null })
+  })
+
+  it('attaches qualityEvidence, fetched with the caller tenant and the member id', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(memberDetail as never)
+    const evidence = {
+      quality: { rating: 'yellow', deliveryRate: 0.75, sampleSize: 4, reason: 'meets_yellow' },
+      windowDays: 90,
+      thresholds: { green: 0.9, yellow: 0.6 },
+      counts: { delivered: 3, read: 2, failed: 1, pending: 2 },
+      unreachableAt: null,
+      pmmThrottledUntil: null,
+      recentMessages: [
+        { id: 'w1', queuedAt: '2026-10-01T00:00:00Z', status: 'failed', category: 'marketing',
+          templateName: 'promo', errorCode: '131026', errorTitle: 'Undeliverable' },
+      ],
+    }
+    vi.mocked(getMemberQualityEvidenceSafe).mockResolvedValue(evidence as never)
+
+    const json = await (await GET(req(`?id=${MEMBER_ID}`))).json()
+
+    expect(getMemberQualityEvidenceSafe).toHaveBeenCalledWith(MEMBER_ID, RESTAURANT_ID)
+    expect(json.qualityEvidence).toEqual(evidence)
+    expect(json.receipts).toEqual([])
+  })
+
+  it('answers 200 with qualityEvidence null when evidence is unavailable', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(memberDetail as never)
+    vi.mocked(getMemberQualityEvidenceSafe).mockResolvedValue(null)
+
+    const res = await GET(req(`?id=${MEMBER_ID}`))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.qualityEvidence).toBeNull()
+    expect(json.phone).toBe(memberDetail.phone)
+  })
+
+  it('does not look up evidence for a member that 404s', async () => {
+    tenantOk()
+    vi.mocked(getMemberDetailForRestaurant).mockResolvedValue(null)
+    await GET(req(`?id=${MEMBER_ID}`))
+    expect(getMemberQualityEvidenceSafe).not.toHaveBeenCalled()
   })
 
   it('never reaches the lookup when auth fails', async () => {
@@ -299,9 +346,9 @@ describe('GET /api/dashboard/members quality', () => {
       p_window_days: 90,
     })
     expect(json.members.map((m: { quality: unknown }) => m.quality)).toEqual([
-      { rating: 'green', deliveryRate: 0.9, sampleSize: 10 },
-      { rating: 'red', deliveryRate: null, sampleSize: 0 },
-      { rating: 'unknown', deliveryRate: null, sampleSize: 0 },
+      { rating: 'green', deliveryRate: 0.9, sampleSize: 10, reason: 'meets_green' },
+      { rating: 'red', deliveryRate: null, sampleSize: 0, reason: 'unreachable' },
+      { rating: 'unknown', deliveryRate: null, sampleSize: 0, reason: 'no_data' },
     ])
     expect(json.members[0]).not.toHaveProperty('unreachable_at')
   })
@@ -317,7 +364,7 @@ describe('GET /api/dashboard/members quality', () => {
 
     expect(res.status).toBe(200)
     for (const m of json.members) {
-      expect(m.quality).toEqual({ rating: 'unknown', deliveryRate: null, sampleSize: 0 })
+      expect(m.quality).toEqual({ rating: 'unknown', deliveryRate: null, sampleSize: 0, reason: 'no_data' })
     }
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('member_delivery_quality'), expect.anything())
     warn.mockRestore()
