@@ -1,0 +1,38 @@
+{
+  "_comment": "SYNTHETIC — replace with real Kapso sandbox capture before merge per addendum §5.2. Shape based on @kapso/whatsapp-cloud-api/dist/server.d.ts:21-30 (MessageStatusUpdate) + Meta Cloud API documented errors[] inner shape (`{ code, title, error_data: { details } }`). 131026 represents 'Recipient cannot receive message' — typically a number not on WhatsApp or that has blocked the sender.",
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-123",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "85291234567",
+              "phone_number_id": "WAQ002_TEST_PHONE_NUMBER_ID"
+            },
+            "statuses": [
+              {
+                "id": "wamid.WAQ003_FAILED_131026",
+                "status": "failed",
+                "timestamp": "1762257610",
+                "recipient_id": "85299999999",
+                "errors": [
+                  {
+                    "code": 131026,
+                    "title": "Recipient cannot receive message",
+                    "error_data": {
+                      "details": "Recipient is not a WhatsApp user or has blocked the sender."
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

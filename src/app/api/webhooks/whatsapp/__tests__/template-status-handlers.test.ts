@@ -1,0 +1,383 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('@/infrastructure/supabase/idempotency', () => ({
+  tryMarkProcessed: vi.fn(),
+}))
+vi.mock(
+  '@/infrastructure/supabase/repositories/whatsapp-template-repository',
+  () => ({
+    findByMetaTemplateId: vi.fn(),
+    findByNameAndLanguage: vi.fn(),
+    update: vi.fn(),
+  })
+)
+
+import { tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
+import {
+  findByMetaTemplateId,
+  findByNameAndLanguage,
+  update as updateTemplate,
+} from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import { routeTemplateStatusEvent } from '../template-status-handlers'
+import { SYNCABLE_STATUSES } from '@/domain/services/meta-template-status'
+import type { LogFn } from '@/domain/ports/whatsapp-webhooks'
+import type {
+  TemplateStatus,
+  WhatsAppTemplate,
+} from '@/domain/entities/whatsapp-template'
+
+function metaTemplateStatusBody(
+  changes: Array<{
+    metaTemplateId?: number | string | null
+    templateName?: string | null
+    language?: string | null
+    event?: string
+    reason?: string
+  }>,
+  wabaId = 'WABA-1'
+) {
+  return {
+    entry: [
+      {
+        id: wabaId,
+        changes: changes.map((c) => ({
+          field: 'message_template_status_update',
+          value: {
+            event: c.event ?? 'APPROVED',
+            ...(c.metaTemplateId !== null && {
+              message_template_id: c.metaTemplateId ?? 111,
+            }),
+            ...(c.templateName !== null && {
+              message_template_name: c.templateName ?? 'offer_promotion',
+            }),
+            ...(c.language !== null && {
+              message_template_language: c.language ?? 'zh_HK',
+            }),
+            ...(c.reason !== undefined && { reason: c.reason }),
+          },
+        })),
+      },
+    ],
+  }
+}
+
+function singleChangeBody(opts: {
+  metaTemplateId?: number | string | null
+  templateName?: string | null
+  language?: string | null
+  event?: string
+  reason?: string
+} = {}) {
+  return metaTemplateStatusBody([opts])
+}
+
+function templateFixture(overrides: Partial<WhatsAppTemplate> = {}): WhatsAppTemplate {
+  return {
+    id: 'tpl-1',
+    restaurantId: 'rest-1',
+    metaTemplateId: '111',
+    name: 'offer_promotion',
+    language: 'zh_HK',
+    category: 'MARKETING',
+    status: 'pending',
+    components: [],
+    parameterFormat: 'NAMED',
+    rejectionReason: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('routeTemplateStatusEvent', () => {
+  let logs: Array<[string, string, unknown]>
+  const log: LogFn = (level, event, data) => {
+    logs.push([level, event, data])
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    logs = []
+    vi.mocked(tryMarkProcessed).mockResolvedValue('new')
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(null)
+    vi.mocked(findByNameAndLanguage).mockResolvedValue(null)
+    vi.mocked(updateTemplate).mockResolvedValue(templateFixture())
+  })
+
+  it('APPROVED on local pending (found by meta id) updates with no rejectionReason key', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'approved' })
+    const updated = logs.find((l) => l[1] === 'webhook.template_status_updated')
+    expect(updated?.[2]).toMatchObject({
+      templateId: 'tpl-1',
+      oldStatus: 'pending',
+      newStatus: 'approved',
+    })
+  })
+
+  // A webhook must never write a status the cron cannot revisit: rejected /
+  // disabled are outside SYNCABLE_STATUSES, so persisting one here would put
+  // the row permanently beyond the cron's reach. One stale REJECTED landing
+  // after a real APPROVED would then brick the template forever. These
+  // transitions are logged and left to the cron, which reads live Meta state.
+  it('REJECTED with a textual reason is deferred to the cron, not written', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    await routeTemplateStatusEvent(
+      singleChangeBody({ event: 'REJECTED', reason: 'Sample media mismatch' }),
+      'rest-1',
+      log
+    )
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+    const deferred = logs.find(
+      (l) => l[1] === 'webhook.template_status_deferred_to_cron'
+    )
+    expect(deferred?.[2]).toMatchObject({
+      templateId: 'tpl-1',
+      oldStatus: 'pending',
+      newStatus: 'rejected',
+    })
+  })
+
+  it('REJECTED never strands an approved row outside the cron reach', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'approved' })
+    )
+
+    await routeTemplateStatusEvent(
+      singleChangeBody({ event: 'REJECTED', reason: 'NONE' }),
+      'rest-1',
+      log
+    )
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  // Guards the wrong-row write: a same-name row exists and would be found by
+  // the fallback, but the event named a meta id we don't hold — that row is a
+  // different Meta template (e.g. an edit re-submitted under a new id).
+  it('a meta-id miss does NOT fall back onto a same-name row', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(null)
+    vi.mocked(findByNameAndLanguage).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(findByNameAndLanguage).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  it('null meta id goes straight to the name+language fallback (meta-id lookup skipped)', async () => {
+    vi.mocked(findByNameAndLanguage).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    await routeTemplateStatusEvent(
+      singleChangeBody({ event: 'APPROVED', metaTemplateId: null }),
+      'rest-1',
+      log
+    )
+
+    expect(findByMetaTemplateId).not.toHaveBeenCalled()
+    expect(findByNameAndLanguage).toHaveBeenCalledWith(
+      'rest-1',
+      'offer_promotion',
+      'zh_HK'
+    )
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+  })
+
+  it('unknown template (both lookups miss) warns and does not update or throw', async () => {
+    await expect(
+      routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+    ).resolves.toBeUndefined()
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+    const warned = logs.find((l) => l[1] === 'webhook.template_not_found')
+    expect(warned).toBeDefined()
+  })
+
+  it.each<TemplateStatus>(['draft', 'rejected', 'disabled'])(
+    'local status %s is never mutated by the webhook',
+    async (status) => {
+      vi.mocked(findByMetaTemplateId).mockResolvedValue(templateFixture({ status }))
+
+      await routeTemplateStatusEvent(
+        singleChangeBody({ event: 'APPROVED' }),
+        'rest-1',
+        log
+      )
+
+      expect(updateTemplate).not.toHaveBeenCalled()
+    }
+  )
+
+  it('same mapped status as current: no-op write suppression', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'approved' })
+    )
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  it('unmapped event logs and skips lookup entirely', async () => {
+    await routeTemplateStatusEvent(
+      singleChangeBody({ event: 'IN_APPEAL' }),
+      'rest-1',
+      log
+    )
+
+    expect(findByMetaTemplateId).not.toHaveBeenCalled()
+    expect(findByNameAndLanguage).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    const unmapped = logs.find((l) => l[1] === 'webhook.template_status_unmapped')
+    expect(unmapped?.[2]).toMatchObject({ event: 'IN_APPEAL' })
+  })
+
+  it('duplicate delivery: tryMarkProcessed returns duplicate, nothing else runs', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('duplicate')
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(findByMetaTemplateId).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  it('idempotency claim error throws with the idempotency.error prefix', async () => {
+    vi.mocked(tryMarkProcessed).mockResolvedValue('error')
+
+    await expect(
+      routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+    ).rejects.toThrow(/^idempotency\.error/)
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+  })
+
+  it('batched payload: 2 entries -> 2 claims, 2 updates; one unknown template does not stop the other', async () => {
+    vi.mocked(findByMetaTemplateId).mockImplementation(async (_restaurantId, metaTemplateId) => {
+      if (metaTemplateId === '111') return templateFixture({ status: 'pending' })
+      return null
+    })
+
+    const body = metaTemplateStatusBody([
+      { metaTemplateId: 111, templateName: 'offer_promotion', event: 'APPROVED' },
+      { metaTemplateId: 999, templateName: 'unknown_tpl', event: 'APPROVED' },
+    ])
+
+    await routeTemplateStatusEvent(body, 'rest-1', log)
+
+    expect(tryMarkProcessed).toHaveBeenCalledTimes(2)
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'approved' })
+    const warned = logs.find((l) => l[1] === 'webhook.template_not_found')
+    expect(warned).toBeDefined()
+  })
+
+  it('PAUSED event maps and applies per the write-guard', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'approved' })
+    )
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'PAUSED' }), 'rest-1', log)
+
+    expect(updateTemplate).toHaveBeenCalledWith('tpl-1', { status: 'paused' })
+  })
+
+  it('DISABLED is deferred to the cron rather than written', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'paused' })
+    )
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'DISABLED' }), 'rest-1', log)
+
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(
+      logs.some((l) => l[1] === 'webhook.template_status_deferred_to_cron')
+    ).toBe(true)
+  })
+
+  // Guards the invariant the whole LWW design rests on, across EVERY event
+  // Meta can send — including the terminal ones, which is what makes this
+  // fail if the TO-guard is removed.
+  it.each(['APPROVED', 'PENDING', 'PAUSED', 'REJECTED', 'DISABLED'])(
+    'never writes a status outside the cron reach (%s)',
+    async (event) => {
+      vi.mocked(findByMetaTemplateId).mockResolvedValue(
+        templateFixture({ status: 'pending' })
+      )
+
+      await routeTemplateStatusEvent(singleChangeBody({ event }), 'rest-1', log)
+
+      for (const call of vi.mocked(updateTemplate).mock.calls) {
+        expect(SYNCABLE_STATUSES).toContain(call[1].status)
+      }
+    }
+  )
+
+  // The meta-id lookup is authoritative: a miss means the event names a
+  // DIFFERENT Meta template, so falling back on name+language would attach
+  // it to the wrong row (e.g. an edited template's re-submitted row).
+  it('a meta-id miss is a no-op — it never falls back to name+language', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(null)
+
+    await routeTemplateStatusEvent(singleChangeBody({ event: 'APPROVED' }), 'rest-1', log)
+
+    expect(findByNameAndLanguage).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(logs.some((l) => l[1] === 'webhook.template_not_found')).toBe(true)
+  })
+
+  // Meta may batch entries from several WABAs; the tenant was resolved from
+  // entry[0] only. Names are tenant-scoped and collision-prone, so a foreign
+  // entry processed under this tenant could write the wrong tenant's row.
+  it('skips entries whose WABA differs from the one that resolved the tenant', async () => {
+    vi.mocked(findByMetaTemplateId).mockResolvedValue(
+      templateFixture({ status: 'pending' })
+    )
+
+    const body = {
+      entry: [
+        {
+          id: 'WABA-1',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED', message_template_id: 111 },
+            },
+          ],
+        },
+        {
+          id: 'WABA-OTHER-TENANT',
+          changes: [
+            {
+              field: 'message_template_status_update',
+              value: { event: 'APPROVED', message_template_id: 222 },
+            },
+          ],
+        },
+      ],
+    }
+
+    await routeTemplateStatusEvent(body, 'rest-1', log)
+
+    expect(findByMetaTemplateId).toHaveBeenCalledTimes(1)
+    expect(findByMetaTemplateId).toHaveBeenCalledWith('rest-1', '111')
+    expect(updateTemplate).toHaveBeenCalledTimes(1)
+    const foreign = logs.find(
+      (l) => l[1] === 'webhook.template_status_foreign_waba'
+    )
+    expect(foreign?.[2]).toMatchObject({ entryWabaId: 'WABA-OTHER-TENANT' })
+  })
+})

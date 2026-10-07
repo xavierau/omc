@@ -1,0 +1,9 @@
+{
+  "source_ref": "release-mem-001",
+  "source_commit": "d73b7e2a1a5e042e82594b6b582b6b3041713c96",
+  "source_subject": "Merge pull request #172 from xavierau/develop (release: MEM-001 members table paging/No-tag/contact quality + MEM-004 reachability restore, migrations 080+081)",
+  "build_id": "AkWQ9N80t9yjaXRQRWYWu",
+  "built_at": "2026-10-07T08:46:47Z",
+  "built_by": "xavier.au@gmail.com",
+  "node": "v22.21.1"
+}
