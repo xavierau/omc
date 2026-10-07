@@ -148,7 +148,21 @@
     "bulkUntagSuccess": "已從 {count} 位會員移除 {tags}。",
     "bulkTagTooMany": "最多只可選擇 500 位會員。",
     "bulkTagForbidden": "一個或多個標籤無法使用。",
-    "bulkTagFailed": "無法更新標籤，請再試一次。"
+    "bulkTagFailed": "無法更新標籤，請再試一次。",
+    "qualityColumn": "聯絡品質",
+    "qualityGreen": "綠色",
+    "qualityYellow": "黃色",
+    "qualityRed": "紅色",
+    "qualityNoData": "暫無數據",
+    "qualityTooltip": "{rate}% 已送達（{count} 則訊息，{days} 日）",
+    "qualityNoDataTooltip": "過去 {days} 日沒有訊息",
+    "noTagOption": "沒有標籤",
+    "pageSizeLabel": "每頁列數",
+    "pageFirst": "第一頁",
+    "pagePrevious": "上一頁",
+    "pageNext": "下一頁",
+    "pageLast": "最後一頁",
+    "pageOf": "第 {page} 頁，共 {total} 頁"
   },
   "coupons": {
     "heading": "優惠券",

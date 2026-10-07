@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTenant } from '@/hooks/use-tenant'
 
+export interface MemberQuality {
+  rating: 'green' | 'yellow' | 'red' | 'unknown'
+  deliveryRate: number | null
+  sampleSize: number
+}
+
 export interface Member {
   id: string
   phone: string
@@ -12,6 +18,7 @@ export interface Member {
   joined_at: string
   last_visit_at: string | null
   tags?: { id: string; name: string; color: string }[]
+  quality?: MemberQuality
 }
 
 export interface MembersResponse {
@@ -25,6 +32,7 @@ export interface MembersResponse {
 interface UseMembersParams {
   search?: string
   page?: number
+  pageSize?: number
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
   tagId?: string
@@ -32,6 +40,7 @@ interface UseMembersParams {
 
 interface MembersQueryParams {
   page: number
+  pageSize?: number
   sortBy: string
   sortOrder: string
   search?: string
@@ -44,13 +53,14 @@ export function buildMembersQuery(params: MembersQueryParams): string {
     sortBy: params.sortBy,
     sortOrder: params.sortOrder,
   })
+  if (params.pageSize) queryParams.set('pageSize', String(params.pageSize))
   if (params.search) queryParams.set('search', params.search)
   if (params.tagId) queryParams.set('tagId', params.tagId)
   return queryParams.toString()
 }
 
 export function useMembers(params: UseMembersParams = {}) {
-  const { search = '', page = 1, sortBy = 'last_visit_at', sortOrder = 'desc', tagId } = params
+  const { search = '', page = 1, pageSize, sortBy = 'last_visit_at', sortOrder = 'desc', tagId } = params
   const { restaurantId } = useTenant()
   const [data, setData] = useState<MembersResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -61,7 +71,7 @@ export function useMembers(params: UseMembersParams = {}) {
     try {
       setIsLoading(true)
       setError(null)
-      const query = buildMembersQuery({ page, sortBy, sortOrder, search, tagId })
+      const query = buildMembersQuery({ page, pageSize, sortBy, sortOrder, search, tagId })
 
       const res = await fetch(`/api/dashboard/members?${query}`)
       if (!res.ok) throw new Error('Failed to fetch members')
@@ -72,7 +82,7 @@ export function useMembers(params: UseMembersParams = {}) {
     } finally {
       setIsLoading(false)
     }
-  }, [page, search, sortBy, sortOrder, tagId, restaurantId])
+  }, [page, pageSize, search, sortBy, sortOrder, tagId, restaurantId])
 
   useEffect(() => {
     fetchMembers()

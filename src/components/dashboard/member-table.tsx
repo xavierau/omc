@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { SelectAllHeaderCell, RowSelectCell } from './member-table-select-cell'
+import { MemberQualityBadge } from './member-quality-badge'
+import type { MemberQuality } from '@/hooks/use-members'
 
 interface Member {
   id: string
@@ -15,6 +17,7 @@ interface Member {
   joined_at: string
   last_visit_at: string | null
   tags?: { id: string; name: string; color: string }[]
+  quality?: MemberQuality
 }
 
 interface MemberTableProps {
@@ -109,6 +112,7 @@ export function MemberTable({
                 </TableHead>
               ))}
               <TableHead>{t('tagsColumn')}</TableHead>
+              <TableHead>{t('qualityColumn')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,6 +138,7 @@ export function MemberTable({
                 <TableCell className="text-muted-foreground">{formatDate(member.last_visit_at)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(member.joined_at)}</TableCell>
                 <TableCell><MemberTagChips tags={member.tags} /></TableCell>
+                <TableCell><MemberQualityBadge memberId={member.id} quality={member.quality} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

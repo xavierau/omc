@@ -1512,7 +1512,7 @@
         {
           "id": "MEM-001",
           "title": "Members table: 250 page size, no-tag filter, contact quality column",
-          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend (next item): 20/50/100/250 selector, paging, no-tag option in the tag filter, quality column.",
+          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
           "priority": "medium",
           "labels": [
             "members",
@@ -1521,7 +1521,8 @@
           ],
           "branch": "feature/mem-001-members-table",
           "workspace_artifacts": [
-            "artifacts/2026-10-07-mem-001-backend-handoff.md"
+            "artifacts/2026-10-07-mem-001-backend-handoff.md",
+            "artifacts/2026-10-07-mem-001-frontend-handoff.md"
           ]
         },
         {

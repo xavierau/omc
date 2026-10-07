@@ -148,7 +148,21 @@
     "bulkUntagSuccess": "Removed {tags} from {count} members.",
     "bulkTagTooMany": "Select at most 500 members.",
     "bulkTagForbidden": "One or more tags are not available.",
-    "bulkTagFailed": "Couldn't update tags. Please try again."
+    "bulkTagFailed": "Couldn't update tags. Please try again.",
+    "qualityColumn": "Contact quality",
+    "qualityGreen": "Green",
+    "qualityYellow": "Yellow",
+    "qualityRed": "Red",
+    "qualityNoData": "No data",
+    "qualityTooltip": "{rate}% delivered ({count} msgs, {days} days)",
+    "qualityNoDataTooltip": "No messages in the last {days} days",
+    "noTagOption": "No tag",
+    "pageSizeLabel": "Rows per page",
+    "pageFirst": "First",
+    "pagePrevious": "Previous",
+    "pageNext": "Next",
+    "pageLast": "Last",
+    "pageOf": "Page {page} of {total}"
   },
   "coupons": {
     "heading": "Coupons",
