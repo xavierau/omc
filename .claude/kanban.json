@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-09-10",
+  "updated_at": "2026-10-07",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1531,40 +1531,6 @@
     "in_progress": {
       "label": "In Progress",
       "tasks": [
-        {
-          "id": "MEM-004",
-          "title": "Inbound message from a contact clears members.unreachable_at (+ reachability_restored event type, migration 081)",
-          "description": "Owner approved 2026-10-07 (r2). 131026 is not permanent, and an inbound message proves the account works again. routeMessage calls restoreMemberReachability for every inbound (not status webhooks): conditional, tenant-scoped clear of unreachable_at + one reachability_restored event {previous_unreachable_at, trigger_message_type}. Never blocks inbound. Does not touch pmm_throttled_until or consent. Migration 081 (events_type_check + EventType) validated on a scratch DB; NOT applied to DEV/prod, so until applied the clear works but the event insert warns.",
-          "priority": "medium",
-          "labels": [
-            "members",
-            "webhook",
-            "backend"
-          ],
-          "branch": "feature/mem-001-members-table",
-          "workspace_artifacts": [
-            "artifacts/2026-10-07-mem-004-backend-handoff.md"
-          ],
-          "related": [
-            "kanban:MEM-001"
-          ]
-        },
-        {
-          "id": "MEM-001",
-          "title": "Members table: 250 page size, no-tag filter, contact quality column",
-          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
-          "priority": "medium",
-          "labels": [
-            "members",
-            "dashboard",
-            "backend"
-          ],
-          "branch": "feature/mem-001-members-table",
-          "workspace_artifacts": [
-            "artifacts/2026-10-07-mem-001-backend-handoff.md",
-            "artifacts/2026-10-07-mem-001-frontend-handoff.md"
-          ]
-        },
         {
           "id": "WONB-008",
           "mvp_critical": true,
@@ -3331,6 +3297,52 @@
           "pr": 164,
           "completed": "2026-09-10",
           "notes": "Squash-merged to develop via PR #164 on 2026-09-10; RELEASED to prod 2026-09-10 07:26Z via PR #168 (main 4aa77522, release 7884616, BUILD_ID 3d4MGZIglesEHuevjn8cK); entitlement gate passed (Kushiro growth + 5 starter), post-deploy checks all green. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+        },
+        {
+          "id": "MEM-001",
+          "title": "Members table: 250 page size, no-tag filter, contact quality column",
+          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "dashboard",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-001-backend-handoff.md",
+            "artifacts/2026-10-07-mem-001-frontend-handoff.md",
+            "deploys/2026-10-07-mem-001-004-release-runbook"
+          ],
+          "completed": "2026-10-07",
+          "pr": 172,
+          "related": [
+            "github:172"
+          ],
+          "notes": "RELEASED to prod 2026-10-07 08:52Z via PR #172 (develop 07316f36 -> main d73b7e2a, release 0071fa3, BUILD_ID AkWQ9N80t9yjaXRQRWYWu); migrations 080 + 081 applied by deploy.sh after backup gate (managed backup 1887852771 + events export). Post-deploy DB/PostgREST checks green; authenticated browser smoke NOT run (no pinned prod test account)."
+        },
+        {
+          "id": "MEM-004",
+          "title": "Inbound message from a contact clears members.unreachable_at (+ reachability_restored event type, migration 081)",
+          "description": "Owner approved 2026-10-07 (r2). 131026 is not permanent, and an inbound message proves the account works again. routeMessage calls restoreMemberReachability for every inbound (not status webhooks): conditional, tenant-scoped clear of unreachable_at + one reachability_restored event {previous_unreachable_at, trigger_message_type}. Never blocks inbound. Does not touch pmm_throttled_until or consent. Migration 081 (events_type_check + EventType) validated on a scratch DB; NOT applied to DEV/prod, so until applied the clear works but the event insert warns.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "webhook",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-004-backend-handoff.md",
+            "deploys/2026-10-07-mem-001-004-release-runbook"
+          ],
+          "related": [
+            "kanban:MEM-001",
+            "github:172"
+          ],
+          "completed": "2026-10-07",
+          "pr": 172,
+          "notes": "RELEASED to prod 2026-10-07 08:52Z via PR #172 (develop 07316f36 -> main d73b7e2a, release 0071fa3, BUILD_ID AkWQ9N80t9yjaXRQRWYWu); migrations 080 + 081 applied by deploy.sh after backup gate (managed backup 1887852771 + events export). Post-deploy DB/PostgREST checks green; authenticated browser smoke NOT run (no pinned prod test account)."
         }
       ]
     },
