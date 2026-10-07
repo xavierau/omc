@@ -9,6 +9,7 @@ item: MEM-001
 state: done
 brief: inline
 base: b8d8f6dd
+head: 4cf57f8d
 branch: feature/mem-001-members-table
 pushed: false
 stage: poc
@@ -21,8 +22,13 @@ ac:
   AC-1: {result: pass, evidence: "vitest contact-quality.test.ts: 19 passed (each reason at its boundary; prior rating assertions intact)"}
   AC-2: {result: pass, evidence: "vitest members route.test.ts: 29 passed (evidence attached, null -> 200, 404 skips evidence, list quality now carries reason)"}
   AC-3: {result: pass, evidence: "member-quality-evidence.test.ts (7 passed) asserts .eq restaurant_id + member_id + direction=outbound on whatsapp_messages, .eq id + restaurant_id on members, select lacks content_preview and *"}
-  AC-4: {result: partial, evidence: "tsc --noEmit under heavy lock: single error in gitignored .next/dev/types/validator.ts referencing deleted src/app/mem001-preview/page (stale generated file, not in diff); no errors in src. eslint on 6 touched files: clean. Committed, not pushed. kanban MEM-002/MEM-003 in backlog."}
+  AC-4: {result: pass, evidence: "tsc --noEmit under heavy lock: single error in gitignored .next/dev/types/validator.ts referencing deleted src/app/mem001-preview/page (stale generated file, not in diff); no errors in src. eslint on 6 touched files: clean. Committed, not pushed. kanban MEM-002/MEM-003 in backlog."}
 failed: []
+invariants:
+  - "Rating from classifyContactQuality with the same inputs as the list; thresholds/window only in contact-quality.ts."
+  - "Evidence queries scoped by restaurant_id and member_id in the query; no content_preview."
+review_focus:
+  - "src/infrastructure/supabase/repositories/member-quality-evidence.ts: row cap throw, status counting"
 decisions:
   - "Counts from fetched rows (all in-window outbound, cap 5000), not the RPC: gives read/pending too. At the cap the fetch throws -> evidence null, rather than counts that could disagree with the list RPC."
   - "Evidence lives in new member-quality-evidence.ts (its own member flags query: unreachable_at, pmm_throttled_until); member-detail-repository untouched. Route attaches it after the 404 check."
