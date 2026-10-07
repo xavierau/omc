@@ -6,6 +6,28 @@
       "label": "Backlog",
       "tasks": [
         {
+          "id": "MEM-002",
+          "title": "Blended contact engagement score: delivery + read rate + replied in last 90d (conversation_windows), opt-out/unreachable force red",
+          "description": "Follow-up to MEM-001/001b (owner accepted 2026-10-07). Replace the delivery-only rating with a blended engagement score: delivery rate + read rate + replied within 90d (conversation_windows). Opt-out or unreachable force red. Must keep list column and detail evidence on one shared classifier.",
+          "priority": "low",
+          "labels": [
+            "members",
+            "dashboard",
+            "backend"
+          ]
+        },
+        {
+          "id": "MEM-003",
+          "title": "Capture engagement events: template quick-reply taps, inbound message log in whatsapp_messages, link-click tracking",
+          "description": "Prerequisite data for MEM-002 (owner accepted 2026-10-07). Capture template quick-reply taps, log inbound messages in whatsapp_messages, and track link clicks so engagement can be scored beyond delivery/read.",
+          "priority": "low",
+          "labels": [
+            "members",
+            "whatsapp",
+            "backend"
+          ]
+        },
+        {
           "id": "CAMP-004",
           "title": "Explicit claim-campaign flag instead of inferring from QUICK_REPLY button shape",
           "description": "From CAMP-001 review (adversarial #4/#5). Broadcast mode is inferred purely from template shape (any QUICK_REPLY button → claim mode, first quick-reply payload overwritten with CLAIM_<id>). An admin picking a template with an unrelated quick-reply ('More info') silently gets claim behavior. A template with BOTH a {{1}} URL button and a quick-reply can't be satisfied in claim mode (no code) → send fails, whole campaign reverts. Add an explicit per-campaign claim flag (schema + builder UI) so mode is intentional, and validate template compatibility at save time.",
@@ -1509,6 +1531,40 @@
     "in_progress": {
       "label": "In Progress",
       "tasks": [
+        {
+          "id": "MEM-004",
+          "title": "Inbound message from a contact clears members.unreachable_at (+ reachability_restored event type, migration 081)",
+          "description": "Owner approved 2026-10-07 (r2). 131026 is not permanent, and an inbound message proves the account works again. routeMessage calls restoreMemberReachability for every inbound (not status webhooks): conditional, tenant-scoped clear of unreachable_at + one reachability_restored event {previous_unreachable_at, trigger_message_type}. Never blocks inbound. Does not touch pmm_throttled_until or consent. Migration 081 (events_type_check + EventType) validated on a scratch DB; NOT applied to DEV/prod, so until applied the clear works but the event insert warns.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "webhook",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-004-backend-handoff.md"
+          ],
+          "related": [
+            "kanban:MEM-001"
+          ]
+        },
+        {
+          "id": "MEM-001",
+          "title": "Members table: 250 page size, no-tag filter, contact quality column",
+          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "dashboard",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-001-backend-handoff.md",
+            "artifacts/2026-10-07-mem-001-frontend-handoff.md"
+          ]
+        },
         {
           "id": "WONB-008",
           "mvp_critical": true,

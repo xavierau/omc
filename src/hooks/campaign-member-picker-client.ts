@@ -25,7 +25,7 @@ export interface MemberPageResult {
 
 const ENDPOINT = '/api/dashboard/members'
 
-// Clamped server-side to 200 (see route.ts MAX_MEMBERS_PAGE_SIZE) — large
+// Clamped server-side to 250 (see route.ts MAX_MEMBERS_PAGE_SIZE) — large
 // enough to capture the full member list for essentially every tenant today.
 export const PICKER_PAGE_SIZE = 200
 

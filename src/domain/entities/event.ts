@@ -18,6 +18,7 @@ export type EventType =
   | 'consent_expired'
   | 'stamp'
   | 'stamp_reversal'
+  | 'reachability_restored'
 
 export interface CrmEvent {
   id: string

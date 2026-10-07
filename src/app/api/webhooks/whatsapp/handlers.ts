@@ -21,6 +21,7 @@ import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
 import { bumpServiceWindow } from './service-window'
+import { restoreMemberReachability } from '@/application/restore-member-reachability'
 import { maybePromptOptin } from './optin-prompt'
 import {
   handleOptinConfirmation,
@@ -35,6 +36,17 @@ export async function routeMessage(message: KapsoMessage, restaurantId: string, 
   // `service-window.ts` — the window is anchored on the user's webhook
   // `timestamp`, not server-receive time, and failure is non-fatal.
   await bumpServiceWindow(message, restaurantId, log)
+
+  // MEM-004: an inbound message proves the contact is reachable again — clear
+  // members.unreachable_at (131026). Never throws; runs before any early return.
+  await restoreMemberReachability(
+    {
+      restaurantId,
+      phoneE164: PhoneNumber.create(message.from).value,
+      messageType: message.type,
+    },
+    log
+  )
 
   // WONB-007: side-effect alongside dispatchRoute. Sends an opt-in
   // confirmation template for the first qualifying inbound from a member
