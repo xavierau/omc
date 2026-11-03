@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import type { CampaignFormState } from './campaign-form-types'
 import { CAMPAIGN_TEMPLATE_PLACEHOLDERS } from './campaign-form-types'
@@ -16,25 +15,6 @@ interface CampaignMessageTypeFieldProps {
   approvedTemplates: WhatsAppTemplate[]
   onChange: OnChange
   onTemplateChange: (next: { en: string; zhHk: string }) => void
-}
-
-/**
- * Approved templates for the picker. Lifted out of the field so the coupon
- * fields can read the selected template's components (claim mode, CAMP-EXPIRY-001).
- * The list route returns WhatsAppTemplate entities (ListTemplatesResult).
- */
-export function useApprovedWaTemplates(messageType: CampaignFormState['messageType']) {
-  const [approvedTemplates, setApprovedTemplates] = useState<WhatsAppTemplate[]>([])
-
-  useEffect(() => {
-    if (messageType !== 'wa_template') return
-    fetch('/api/dashboard/wa-templates?status=approved')
-      .then((r) => r.json())
-      .then((j) => setApprovedTemplates(j.templates ?? []))
-      .catch(() => setApprovedTemplates([]))
-  }, [messageType])
-
-  return approvedTemplates
 }
 
 export function CampaignMessageTypeField({

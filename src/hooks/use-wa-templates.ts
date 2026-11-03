@@ -19,14 +19,25 @@ interface Filters {
   category?: string
 }
 
-export function useWaTemplates(filters?: Filters) {
+interface Options {
+  /** false = do not fetch (e.g. the campaign form while inline text is chosen). Default true. */
+  enabled?: boolean
+}
+
+/**
+ * T lets a caller that needs the full entity (the campaign form reads
+ * components through the domain coupon rule) type the list as the route's
+ * real shape, WhatsAppTemplate. Defaults to the table's WaTemplate.
+ */
+export function useWaTemplates<T = WaTemplate>(filters?: Filters, options: Options = {}) {
+  const enabled = options.enabled ?? true
   const { restaurantId } = useTenant()
-  const [templates, setTemplates] = useState<WaTemplate[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [templates, setTemplates] = useState<T[]>([])
+  const [isLoading, setIsLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const fetchTemplates = useCallback(async () => {
-    if (!restaurantId) return
+    if (!restaurantId || !enabled) return
     try {
       setIsLoading(true)
       setError(null)
@@ -44,7 +55,7 @@ export function useWaTemplates(filters?: Filters) {
     } finally {
       setIsLoading(false)
     }
-  }, [filters?.status, filters?.category, restaurantId])
+  }, [filters?.status, filters?.category, restaurantId, enabled])
 
   useEffect(() => {
     fetchTemplates()

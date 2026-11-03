@@ -121,42 +121,48 @@ describe('campaign-form-fields', () => {
     })
   })
 
-  describe('couponFormMode (CAMP-EXPIRY-001 R1)', () => {
+  describe('couponFormMode (CAMP-EXPIRY-001 R2: adapter over couponRequirement)', () => {
     const waForm = (discountValue: string) =>
       inlineForm({ messageType: 'wa_template', whatsappTemplateId: 'wa-1', discountValue })
+    const plainInline = (discountValue: string) =>
+      inlineForm({ templateEn: 'Hi {{contactName}}', templateZhHk: '您好 {{contactName}}', discountValue })
 
-    it('inline + blank discount → marketing_only', () => {
-      expect(couponFormMode(inlineForm({ discountValue: '' }), null)).toEqual({
-        mode: 'marketing_only',
-        discount: null,
-      })
+    it('plain inline + blank discount → marketing_only', () => {
+      expect(couponFormMode(plainInline(''), null)).toEqual({ mode: 'marketing_only', discount: null })
     })
 
-    it('inline is never claim, even if a claim template is passed', () => {
-      expect(couponFormMode(inlineForm({ discountValue: '' }), claimTemplate).mode).toBe('marketing_only')
+    it('inline copy with {{couponCode}} + blank discount → blocked (Send would be refused)', () => {
+      expect(couponFormMode(inlineForm({ discountValue: '' }), null)).toEqual({ mode: 'blocked', discount: null })
     })
 
-    it('wa_template without a claim button (BODY only) + blank discount → marketing_only', () => {
+    it('inline only reads the inline texts, never a passed template', () => {
+      expect(couponFormMode(plainInline(''), claimTemplate).mode).toBe('marketing_only')
+    })
+
+    it('wa_template ignores leftover inline texts', () => {
+      // inlineForm's default copy contains {{couponCode}}; a BODY-only template still decides.
       expect(couponFormMode(waForm(''), bodyOnlyTemplate).mode).toBe('marketing_only')
     })
 
-    it('wa_template with a QUICK_REPLY claim button + blank discount → claim_no_discount', () => {
-      expect(couponFormMode(waForm(''), claimTemplate)).toEqual({
-        mode: 'claim_no_discount',
-        discount: null,
-      })
+    it('wa_template with a QUICK_REPLY claim button + blank discount → blocked', () => {
+      expect(couponFormMode(waForm(''), claimTemplate)).toEqual({ mode: 'blocked', discount: null })
+    })
+
+    it('wa_template whose template object is not resolved (loading, failed, not in the list) → unknown', () => {
+      expect(couponFormMode(waForm(''), null)).toEqual({ mode: 'unknown', discount: null })
     })
 
     it.each([
-      ['inline', inlineForm({ discountValue: '10' }), null],
+      ['inline with {{couponCode}}', inlineForm({ discountValue: '10' }), null],
       ['wa_template non-claim', waForm('10'), bodyOnlyTemplate],
       ['wa_template claim', waForm('10'), claimTemplate],
+      ['wa_template unresolved', waForm('10'), null],
     ] as const)('%s + "10" → discount 10', (_label, form, template) => {
       expect(couponFormMode(form, template)).toEqual({ mode: 'discount', discount: 10 })
     })
 
     it.each(['0', '-5', 'abc'])('treats discountValue %j as no discount', (discountValue) => {
-      expect(couponFormMode(inlineForm({ discountValue }), null)).toEqual({
+      expect(couponFormMode(plainInline(discountValue), null)).toEqual({
         mode: 'marketing_only',
         discount: null,
       })

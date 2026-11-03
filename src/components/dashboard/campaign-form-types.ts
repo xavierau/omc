@@ -1,4 +1,4 @@
-import { isClaimTemplate } from '@/domain/services/campaign-mode'
+import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 export interface CampaignFormState {
@@ -63,12 +63,15 @@ export interface CampaignRequestBody {
 }
 
 /**
- * What a send of this form does with coupons, mirroring sendToMember's order
- * (execute-campaign-broadcast.ts): a claim-button template mints a coupon on tap
- * even without couponConfig (no discount, never expires); otherwise no discount
- * → marketing-only (no coupon, #134). Expiry is saved only in 'discount' mode.
+ * What a send of this form will do with coupons, decided by the same
+ * couponRequirement rule the pre-send guard (enforceCouponParams) enforces:
+ * 'discount' = couponConfig set · 'marketing_only' = message only, no coupon
+ * (#134) · 'blocked' = the message needs a coupon, so Send will be refused ·
+ * 'unknown' = a WhatsApp template is chosen but not resolved (loading, fetch
+ * failed, or not in the loaded page), so no guess is shown. Expiry is saved
+ * only in 'discount' mode.
  */
-export type CouponFormMode = 'discount' | 'marketing_only' | 'claim_no_discount'
+export type CouponFormMode = 'discount' | 'marketing_only' | 'blocked' | 'unknown'
 
 export interface CouponFormModeResult {
   mode: CouponFormMode
@@ -76,14 +79,27 @@ export interface CouponFormModeResult {
   discount: number | null
 }
 
+const MODE_BY_REQUIREMENT: Record<CouponRequirement['kind'], CouponFormMode> = {
+  satisfied: 'discount',
+  marketing_only: 'marketing_only',
+  blocked: 'blocked',
+}
+
 export function couponFormMode(
-  form: Pick<CampaignFormState, 'messageType' | 'discountValue'>,
+  form: Pick<CampaignFormState, 'messageType' | 'discountValue' | 'templateEn' | 'templateZhHk'>,
   selectedTemplate: WhatsAppTemplate | null
 ): CouponFormModeResult {
   const discount = parseCouponDiscount(form)
-  if (discount !== null) return { mode: 'discount', discount }
-  const isClaim = form.messageType === 'wa_template' && isClaimTemplate(selectedTemplate)
-  return { mode: isClaim ? 'claim_no_discount' : 'marketing_only', discount: null }
+  const usesWaTemplate = form.messageType === 'wa_template'
+  if (usesWaTemplate && !selectedTemplate && discount === null) {
+    return { mode: 'unknown', discount }
+  }
+  const requirement = couponRequirement({
+    hasCouponConfig: discount !== null,
+    template: usesWaTemplate ? selectedTemplate : null,
+    inlineTexts: usesWaTemplate ? [] : [form.templateEn, form.templateZhHk],
+  })
+  return { mode: MODE_BY_REQUIREMENT[requirement.kind], discount }
 }
 
 function parseCouponDiscount(form: Pick<CampaignFormState, 'discountValue'>): number | null {
