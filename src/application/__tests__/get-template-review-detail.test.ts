@@ -6,6 +6,7 @@ import {
   getTemplateReviewDetail,
   enrichTemplateReviews,
   type TemplateReviewDetailDeps,
+  type ReviewEnrichmentDeps,
 } from '../get-template-review-detail'
 import { TemplateReview, type TemplateReviewProps } from '@/domain/entities/template-review'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
@@ -72,14 +73,20 @@ function campaign(overrides: Partial<TemplateCampaignRow> = {}): TemplateCampaig
 function deps(overrides: Partial<TemplateReviewDetailDeps> = {}): TemplateReviewDetailDeps {
   return {
     findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps())),
-    findRestaurantNames: vi.fn(async () => new Map([[RESTAURANT, 'Bicho']])),
-    findUserEmails: vi.fn(async () => new Map([[SUBMITTER, 'owner@bicho.hk']])),
     findTemplateById: vi.fn(async () => template()),
     findLatestTemplateByName: vi.fn(async () => null),
     listCampaignsUsingTemplate: vi.fn(async () => [campaign()]),
     getCampaignTagIds: vi.fn(async () => ['tag-1', 'tag-2']),
     countActiveMembersByTags: vi.fn(async () => 42),
     countCampaignMembers: vi.fn(async () => 7),
+    ...overrides,
+  }
+}
+
+function enrichDeps(overrides: Partial<ReviewEnrichmentDeps> = {}): ReviewEnrichmentDeps {
+  return {
+    findRestaurantNames: vi.fn(async () => new Map([[RESTAURANT, 'Bicho']])),
+    findUserEmails: vi.fn(async () => new Map([[SUBMITTER, 'owner@bicho.hk']])),
     ...overrides,
   }
 }
@@ -119,11 +126,10 @@ describe('getTemplateReviewDetail', () => {
     expect(d.findTemplateById).not.toHaveBeenCalled()
     expect(d.findLatestTemplateByName).toHaveBeenCalledWith(RESTAURANT, 'nov_promo_2026')
     expect(detail?.template?.id).toBe('tpl-by-name')
-    expect(detail?.templateMissing).toBe(false)
     expect(d.listCampaignsUsingTemplate).toHaveBeenCalledWith(RESTAURANT, 'tpl-by-name')
   })
 
-  it('never falls back by name when the templateId is set but no longer resolves — flags templateMissing', async () => {
+  it('never falls back by name when the templateId is set but no longer resolves — template null, campaigns unknown', async () => {
     const d = deps({
       findTemplateById: vi.fn(async () => null),
       findLatestTemplateByName: vi.fn(async () => template({ id: 'tpl-2' })),
@@ -132,12 +138,13 @@ describe('getTemplateReviewDetail', () => {
 
     expect(d.findLatestTemplateByName).not.toHaveBeenCalled()
     expect(detail?.template).toBeNull()
-    expect(detail?.templateMissing).toBe(true)
-    expect(detail?.campaigns).toEqual([])
+    expect(detail).not.toHaveProperty('templateMissing')
+    expect(detail?.campaigns).toBeNull()
+    expect(detail?.campaignsError).toBe(false)
     expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
   })
 
-  it('flags templateMissing when the name fallback finds nothing either', async () => {
+  it('returns a null template when the name fallback finds nothing either', async () => {
     const d = deps({
       findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ templateId: null }))),
       findLatestTemplateByName: vi.fn(async () => null),
@@ -145,23 +152,48 @@ describe('getTemplateReviewDetail', () => {
     const detail = await getTemplateReviewDetail('rev-1', d)
 
     expect(detail?.template).toBeNull()
-    expect(detail?.templateMissing).toBe(true)
+    expect(detail?.campaigns).toBeNull()
     expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
   })
 
-  it('reports templateMissing false when the review templateId resolves', async () => {
+  it('carries no restaurant / submitter enrichment — the list row already has it', async () => {
     const detail = await getTemplateReviewDetail('rev-1', deps())
-    expect(detail?.templateMissing).toBe(false)
+
+    expect(Object.keys(detail ?? {}).sort()).toEqual(['campaigns', 'campaignsError', 'review', 'template'])
+    expect(detail?.review.id).toBe('rev-1')
   })
 
-  it('returns restaurant name and submitter email instead of bare ids', async () => {
-    const d = deps()
+  it('degrades a failed campaign listing to campaigns null + campaignsError, logged once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const d = deps({ listCampaignsUsingTemplate: vi.fn(async () => { throw new Error('campaigns down') }) })
     const detail = await getTemplateReviewDetail('rev-1', d)
 
-    expect(detail?.restaurant).toEqual({ id: RESTAURANT, name: 'Bicho' })
-    expect(detail?.submitterEmail).toBe('owner@bicho.hk')
-    expect(d.findUserEmails).toHaveBeenCalledTimes(1)
-    expect(detail?.review.id).toBe('rev-1')
+    expect(detail?.template?.id).toBe('tpl-1')
+    expect(detail?.campaigns).toBeNull()
+    expect(detail?.campaignsError).toBe(true)
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('degrades a throwing name-fallback lookup to template null + campaignsError, logged once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const d = deps({
+      findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ templateId: null }))),
+      findLatestTemplateByName: vi.fn(async () => { throw new Error('templates down') }),
+    })
+    const detail = await getTemplateReviewDetail('rev-1', d)
+
+    expect(detail?.template).toBeNull()
+    expect(detail?.campaigns).toBeNull()
+    expect(detail?.campaignsError).toBe(true)
+    expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('reports campaignsError false when the listing succeeds', async () => {
+    const detail = await getTemplateReviewDetail('rev-1', deps())
+    expect(detail?.campaignsError).toBe(false)
   })
 
   it('returns campaigns with coupon config and a tag audience size', async () => {
@@ -185,7 +217,7 @@ describe('getTemplateReviewDetail', () => {
     const detail = await getTemplateReviewDetail('rev-1', d)
 
     expect(d.countCampaignMembers).toHaveBeenCalledWith('sel')
-    expect(detail?.campaigns.map((c) => [c.id, c.audienceSize, c.couponConfig])).toEqual([
+    expect(detail?.campaigns?.map((c) => [c.id, c.audienceSize, c.couponConfig])).toEqual([
       ['sel', 7, null],
       ['all', null, campaign().couponConfig],
     ])
@@ -196,28 +228,17 @@ describe('getTemplateReviewDetail', () => {
     const d = deps({ getCampaignTagIds: vi.fn(async () => { throw new Error('no campaign_tags') }) })
     const detail = await getTemplateReviewDetail('rev-1', d)
 
-    expect(detail?.campaigns[0].audienceSize).toBeNull()
+    expect(detail?.campaigns?.[0].audienceSize).toBeNull()
     expect(warn).toHaveBeenCalled()
     warn.mockRestore()
   })
 
-  it('skips the email lookup for a legacy "unknown" submitter', async () => {
-    const d = deps({
-      findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ submittedBy: 'unknown' }))),
-    })
-    const detail = await getTemplateReviewDetail('rev-1', d)
-    expect(d.findUserEmails).not.toHaveBeenCalled()
-    expect(detail?.submitterEmail).toBeNull()
-  })
 })
 
 describe('enrichTemplateReviews', () => {
   it('adds restaurantName and submitterEmail with one restaurant query and ONE user listing per request', async () => {
     const other = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
-    const d = deps({
-      findRestaurantNames: vi.fn(async () => new Map([[RESTAURANT, 'Bicho']])),
-      findUserEmails: vi.fn(async () => new Map([[SUBMITTER, 'owner@bicho.hk']])),
-    })
+    const d = enrichDeps()
     const rows = await enrichTemplateReviews(
       [
         reviewProps({ id: 'r1' }),
@@ -238,7 +259,7 @@ describe('enrichTemplateReviews', () => {
   })
 
   it('leaves names and emails null when both lookups come back empty (degraded)', async () => {
-    const d = deps({
+    const d = enrichDeps({
       findRestaurantNames: vi.fn(async () => new Map()),
       findUserEmails: vi.fn(async () => new Map()),
     })
@@ -246,8 +267,15 @@ describe('enrichTemplateReviews', () => {
     expect([row.restaurantName, row.submitterEmail]).toEqual([null, null])
   })
 
+  it('skips the email lookup for a legacy "unknown" submitter', async () => {
+    const d = enrichDeps()
+    const [row] = await enrichTemplateReviews([reviewProps({ submittedBy: 'unknown' })], d)
+    expect(d.findUserEmails).not.toHaveBeenCalled()
+    expect(row.submitterEmail).toBeNull()
+  })
+
   it('makes no lookups for an empty list', async () => {
-    const d = deps()
+    const d = enrichDeps()
     expect(await enrichTemplateReviews([], d)).toEqual([])
     expect(d.findRestaurantNames).not.toHaveBeenCalled()
   })

@@ -3,8 +3,8 @@
 // Action values map 1:1 to the application-layer ReviewAction union.
 //
 // WAQ-011-DETAIL: GET /api/admin/template-reviews/[id] — read-only detail for
-// the review panel (template components, campaigns using it, restaurant name,
-// submitter email). Platform admin only.
+// the review panel (template components, campaigns using it; campaigns
+// degrade to campaignsError instead of a 500). Platform admin only.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-admin-guard'

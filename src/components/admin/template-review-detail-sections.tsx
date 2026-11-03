@@ -43,7 +43,7 @@ export function TemplateReviewDetailSections({ review, state }: {
           {t('detailLoading')}
         </p>
       ) : (
-        <LoadedSections detail={detail} t={t} />
+        <LoadedSections detail={detail} onRetry={refetch} t={t} />
       )}
     </>
   )
@@ -61,21 +61,38 @@ function SubmittedContent({ text, t }: { text: string | null; t: T }) {
   )
 }
 
-function LoadedSections({ detail, t }: { detail: TemplateReviewDetail; t: T }) {
+// A null template means the record could not be loaded (deleted, or the
+// lookup failed) — never asserted as absent. Campaigns are listed by template,
+// so without one there is nothing truthful to say about them unless a lookup
+// failed outright (campaignsError).
+function LoadedSections({ detail, onRetry, t }: {
+  detail: TemplateReviewDetail
+  onRetry: () => void
+  t: T
+}) {
   return (
     <>
       <Section title={t('sectionCurrentTemplate')}>
-        {detail.template && !detail.templateMissing ? (
+        {detail.template ? (
           <TemplateReviewPreview components={detail.template.components} />
         ) : (
-          <p data-testid="template-review-template-missing" role="status" className="text-muted-foreground">
-            {t('templateMissing')}
-          </p>
+          <div data-testid="template-review-template-missing" role="status" className="space-y-2">
+            <p className="text-muted-foreground">{t('templateUnavailable')}</p>
+            <Button variant="outline" size="sm" onClick={onRetry}>{t('detailRetry')}</Button>
+          </div>
         )}
       </Section>
-      <Section title={t('sectionCampaigns')}>
-        <TemplateReviewCampaigns campaigns={detail.campaigns} />
-      </Section>
+      {(detail.template || detail.campaignsError) && (
+        <Section title={t('sectionCampaigns')}>
+          {detail.campaignsError || !detail.campaigns ? (
+            <p data-testid="template-review-campaigns-error" role="status" className="text-muted-foreground">
+              {t('campaignsError')}
+            </p>
+          ) : (
+            <TemplateReviewCampaigns campaigns={detail.campaigns} />
+          )}
+        </Section>
+      )}
     </>
   )
 }
@@ -94,14 +111,13 @@ function ReviewSummary({ review, detail, t }: {
   detail: TemplateReviewDetail | null
   t: T
 }) {
-  const restaurantName = review.restaurantName ?? detail?.restaurant.name ?? null
-  const email = review.submitterEmail ?? detail?.submitterEmail ?? null
+  // Names come from the list row (the list route enriches it); the detail adds only the template.
   const tpl = detail?.template ?? null
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
       <dt className="text-muted-foreground">{t('panelTenant')}</dt>
       <dd title={t('restaurantIdTooltip', { id: review.restaurantId })}>
-        {restaurantName ?? review.restaurantId}
+        {review.restaurantName ?? review.restaurantId}
       </dd>
       <dt className="text-muted-foreground">{t('panelTemplate')}</dt><dd>{review.templateName}</dd>
       <dt className="text-muted-foreground">{t('panelLanguage')}</dt><dd>{tpl?.language ?? '—'}</dd>
@@ -112,7 +128,7 @@ function ReviewSummary({ review, detail, t }: {
       <dt className="text-muted-foreground">{t('panelSubmitted')}</dt>
       <dd>{new Date(review.submittedAt).toLocaleString('en-HK')}</dd>
       <dt className="text-muted-foreground">{t('panelSubmittedBy')}</dt>
-      <dd className="break-all">{email ?? t('panelSubmitterUnknown')}</dd>
+      <dd className="break-all">{review.submitterEmail ?? t('panelSubmitterUnknown')}</dd>
     </dl>
   )
 }

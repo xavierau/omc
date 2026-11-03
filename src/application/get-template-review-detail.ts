@@ -1,6 +1,7 @@
 // WAQ-011-DETAIL: everything a platform admin needs to judge a template
-// review — the full template, every campaign that sends it, and readable
-// names instead of ids. Read-only. Callers (admin routes) MUST have run
+// review — the full template and every campaign that sends it (the list row
+// already carries the readable restaurant name and submitter email; the list
+// route enriches it via enrichTemplateReviews below). Read-only. Callers (admin routes) MUST have run
 // assertPlatformAdmin first: these lookups cross tenants.
 
 import type { TemplateReview, TemplateReviewProps } from '@/domain/entities/template-review'
@@ -18,11 +19,14 @@ import {
   type TemplateCampaignRow,
 } from '@/infrastructure/supabase/repositories/template-review-detail-queries'
 
-export interface TemplateReviewDetailDeps {
-  findReviewById(id: string): Promise<TemplateReview | null>
+export interface ReviewEnrichmentDeps {
   findRestaurantNames(ids: string[]): Promise<Map<string, string>>
   /** Every auth user's email by id — ONE call per request, not per row. */
   findUserEmails(): Promise<Map<string, string>>
+}
+
+export interface TemplateReviewDetailDeps {
+  findReviewById(id: string): Promise<TemplateReview | null>
   findTemplateById(id: string, restaurantId: string): Promise<WhatsAppTemplate | null>
   findLatestTemplateByName(restaurantId: string, name: string): Promise<WhatsAppTemplate | null>
   listCampaignsUsingTemplate(restaurantId: string, templateId: string): Promise<TemplateCampaignRow[]>
@@ -31,10 +35,13 @@ export interface TemplateReviewDetailDeps {
   countCampaignMembers(campaignId: string): Promise<number>
 }
 
-const defaultDeps: TemplateReviewDetailDeps = {
-  findReviewById: findTemplateReviewById,
+const enrichmentDeps: ReviewEnrichmentDeps = {
   findRestaurantNames: findRestaurantNamesByIds,
   findUserEmails: listUserEmailsById,
+}
+
+const defaultDeps: TemplateReviewDetailDeps = {
+  findReviewById: findTemplateReviewById,
   findTemplateById: findByIdForRestaurant,
   findLatestTemplateByName: findLatestTemplateByNameForRestaurant,
   listCampaignsUsingTemplate,
@@ -55,13 +62,19 @@ export interface TemplateReviewDetailCampaign extends TemplateCampaignRow {
 
 export interface TemplateReviewDetail {
   review: TemplateReviewProps
-  restaurant: { id: string; name: string | null }
-  submitterEmail: string | null
+  /**
+   * null = no template record could be loaded (deleted, or the lookup failed —
+   * findTemplateById cannot tell them apart). The UI shows a notice, never a guess.
+   */
   template: TemplateReviewDetailTemplate | null
-  /** true when no template record could be resolved — the UI shows a notice, never a guess. */
-  templateMissing: boolean
-  campaigns: TemplateReviewDetailCampaign[]
+  /** null = unknown: no template to list by, or the listing failed (campaignsError). */
+  campaigns: TemplateReviewDetailCampaign[] | null
+  /** true when a lookup threw — the panel says so instead of claiming "no campaigns". */
+  campaignsError: boolean
 }
+
+type ResolvedTemplate = { template: WhatsAppTemplate | null; failed: boolean }
+type CampaignsResult = Pick<TemplateReviewDetail, 'campaigns' | 'campaignsError'>
 
 export type EnrichedTemplateReview = TemplateReviewProps & {
   restaurantName: string | null
@@ -75,25 +88,19 @@ export async function getTemplateReviewDetail(
   const found = await deps.findReviewById(reviewId)
   if (!found) return null
   const review = { ...found.snapshot }
-  const [[enriched], template] = await Promise.all([
-    enrichTemplateReviews([review], deps),
-    resolveTemplate(review, deps),
-  ])
-  const campaigns = template ? await loadCampaigns(review.restaurantId, template.id, deps) : []
+  const resolved = await resolveTemplate(review, deps)
+  const campaigns = await campaignsFor(review.restaurantId, resolved, deps)
   return {
     review,
-    restaurant: { id: review.restaurantId, name: enriched.restaurantName },
-    submitterEmail: enriched.submitterEmail,
-    template: template ? pickTemplate(template) : null,
-    templateMissing: template === null,
-    campaigns,
+    template: resolved.template ? pickTemplate(resolved.template) : null,
+    ...campaigns,
   }
 }
 
 /** One restaurant query and one user listing for the whole list — no per-row calls. */
 export async function enrichTemplateReviews(
   reviews: TemplateReviewProps[],
-  deps: Pick<TemplateReviewDetailDeps, 'findRestaurantNames' | 'findUserEmails'> = defaultDeps
+  deps: ReviewEnrichmentDeps = enrichmentDeps
 ): Promise<EnrichedTemplateReview[]> {
   if (reviews.length === 0) return []
   // Legacy rows carry submittedBy 'unknown' (template-review-mapper) — not a user.
@@ -114,13 +121,37 @@ export async function enrichTemplateReviews(
 // template of the same name (findTemplateById swallows errors, so a null may
 // also be a failed read; either way nothing else is shown). The name fallback
 // is for id-less reviews only; the review row carries no language
-// (template_review_queue has none), so it is latest-by-name.
+// (template_review_queue has none), so it is latest-by-name. A lookup that
+// throws degrades to "could not be loaded" instead of failing the panel.
 async function resolveTemplate(
   review: TemplateReviewProps,
   deps: TemplateReviewDetailDeps
-): Promise<WhatsAppTemplate | null> {
-  if (review.templateId) return deps.findTemplateById(review.templateId, review.restaurantId)
-  return deps.findLatestTemplateByName(review.restaurantId, review.templateName)
+): Promise<ResolvedTemplate> {
+  try {
+    const template = review.templateId
+      ? await deps.findTemplateById(review.templateId, review.restaurantId)
+      : await deps.findLatestTemplateByName(review.restaurantId, review.templateName)
+    return { template, failed: false }
+  } catch (err) {
+    console.warn(`getTemplateReviewDetail: template lookup for review ${review.id} failed:`, err)
+    return { template: null, failed: true }
+  }
+}
+
+// At most one warn per request: a failed template lookup never reaches the listing.
+async function campaignsFor(
+  restaurantId: string,
+  { template, failed }: ResolvedTemplate,
+  deps: TemplateReviewDetailDeps
+): Promise<CampaignsResult> {
+  if (failed) return { campaigns: null, campaignsError: true }
+  if (!template) return { campaigns: null, campaignsError: false }
+  try {
+    return { campaigns: await loadCampaigns(restaurantId, template.id, deps), campaignsError: false }
+  } catch (err) {
+    console.warn(`getTemplateReviewDetail: campaigns for template ${template.id} failed:`, err)
+    return { campaigns: null, campaignsError: true }
+  }
 }
 
 async function loadCampaigns(

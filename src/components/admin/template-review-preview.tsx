@@ -2,7 +2,8 @@
 
 // WAQ-011-DETAIL: the template as a WhatsApp message bubble, so the admin
 // judges what members would actually receive. Everything renders as text;
-// media URLs pass through safeHttpsUrl (https only) in the model.
+// media URLs pass through safeHttpsUrl (https only) and the media-host
+// allowlist in the model — an off-list URL is printed, never loaded.
 
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
@@ -51,6 +52,13 @@ function HeaderView({ header, t }: { header: PreviewHeader | null; t: T }) {
       )
     case 'video':
       return <video src={header.url} controls preload="metadata" className="w-full bg-muted" />
+    case 'external':
+      return (
+        <div data-testid="template-review-preview-media-external" className="border-b bg-muted/60 px-3 py-4 text-xs text-muted-foreground">
+          <p>{t('previewMediaExternal')}</p>
+          <p className="mt-1 break-all">{header.url}</p>
+        </div>
+      )
     case 'document':
       return <MutedHeader label={t('previewDocument')} href={header.url} />
     case 'media-unavailable':

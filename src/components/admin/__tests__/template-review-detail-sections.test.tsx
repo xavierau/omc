@@ -9,6 +9,7 @@ import {
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
     values ? `${key}:${JSON.stringify(values)}` : key,
+  useFormatter: () => ({ dateTime: (d: Date) => d.toISOString() }),
 }))
 
 import { TemplateReviewDetailSections } from '@/components/admin/template-review-detail-sections'
@@ -63,8 +64,6 @@ function review(overrides: Partial<TemplateReviewItem> = {}): TemplateReviewItem
 function detail(overrides: Partial<TemplateReviewDetail> = {}): TemplateReviewDetail {
   return {
     review: review(),
-    restaurant: { id: 'rest-1', name: 'Bicho' },
-    submitterEmail: 'owner@bicho.hk',
     template: {
       id: 'tpl-1',
       name: 'nov_promo_2026',
@@ -73,8 +72,8 @@ function detail(overrides: Partial<TemplateReviewDetail> = {}): TemplateReviewDe
       status: 'approved',
       components: [{ type: 'BODY', text: 'Current body' }],
     },
-    templateMissing: false,
     campaigns: [],
+    campaignsError: false,
     ...overrides,
   } as TemplateReviewDetail
 }
@@ -112,10 +111,40 @@ describe('TemplateReviewDetailSections', () => {
     expect(tree.map(text)).toContain('sectionCurrentTemplate')
   })
 
-  it('shows a notice instead of the preview when the template is missing', () => {
-    const tree = render(review(), loaded(detail({ template: null, templateMissing: true })))
-    expect(indexOfTestId(tree, 'template-review-template-missing')).toBeGreaterThanOrEqual(0)
+  it('says the template record could not be loaded (not that it does not exist) and offers retry', () => {
+    const refetch = vi.fn()
+    const tree = render(review(), { ...loaded(detail({ template: null, campaigns: null })), refetch })
+    const i = indexOfTestId(tree, 'template-review-template-missing')
+    expect(i).toBeGreaterThanOrEqual(0)
     expect(indexOfTestId(tree, 'template-review-preview')).toBe(-1)
+    const notice = tree.slice(i)
+    expect(notice.map(text)).toContain('templateUnavailable')
+    expect(tree.map(text)).not.toContain('templateMissing')
+    const retry = notice.find((el) => el.type === Button)
+    expect(retry).toBeDefined()
+    ;(retry!.props as { onClick: () => void }).onClick()
+    expect(refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not claim "no campaigns" when the template could not be loaded', () => {
+    const tree = render(review(), loaded(detail({ template: null, campaigns: null })))
+    expect(indexOfTestId(tree, 'template-review-campaigns-empty')).toBe(-1)
+  })
+
+  it('shows a short campaigns-error notice instead of failing the panel', () => {
+    const tree = render(review(), loaded(detail({ campaigns: null, campaignsError: true })))
+    const i = indexOfTestId(tree, 'template-review-campaigns-error')
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(tree.slice(i).map(text)).toContain('campaignsError')
+    expect(indexOfTestId(tree, 'template-review-preview')).toBeGreaterThanOrEqual(0)
+    expect(indexOfTestId(tree, 'template-review-campaigns-empty')).toBe(-1)
+  })
+
+  it('takes restaurant name and submitter email from the list row only', () => {
+    const tree = render(review({ restaurantName: null, submitterEmail: null }), loaded(detail()))
+    const all = tree.map(text)
+    expect(all).toContain('rest-1')
+    expect(all).toContain('panelSubmitterUnknown')
   })
 
   it('says so when the submission carried no text', () => {

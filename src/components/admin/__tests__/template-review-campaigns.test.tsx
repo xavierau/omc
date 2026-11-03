@@ -6,9 +6,12 @@ import {
   type ReactNode,
 } from 'react'
 
+const dateTime = vi.fn((d: Date, o: Record<string, unknown>) => `fmt(${d.toISOString()},${String(o.timeZone)})`)
+
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
     values ? `${key}:${JSON.stringify(values)}` : key,
+  useFormatter: () => ({ dateTime }),
 }))
 
 import { TemplateReviewCampaigns } from '@/components/admin/template-review-campaigns'
@@ -110,9 +113,10 @@ describe('TemplateReviewCampaigns', () => {
       expect(label({ status: 'active', schedule: { trigger: 'birthday' } })).toContain('campaignAutomatic')
     })
 
-    it('says Scheduled <date> for a one-off scheduledAt', () => {
+    it('says Scheduled <date> for a one-off scheduledAt, formatted by next-intl for the active locale in HK time', () => {
       const all = label({ scheduledAt: '2026-11-10T02:00:00Z' })
-      expect(all.some((x) => x.startsWith('campaignScheduled:'))).toBe(true)
+      expect(all).toContain('campaignScheduled:{"date":"fmt(2026-11-10T02:00:00.000Z,Asia/Hong_Kong)"}')
+      expect(dateTime).toHaveBeenCalled()
     })
 
     it('says Manual send otherwise — never Send now', () => {

@@ -70,10 +70,9 @@ describe('GET /api/admin/template-reviews/[id]', () => {
   it('returns 200 with the detail shape', async () => {
     const detail = {
       review: { id: REVIEW_ID, templateName: 'nov_promo_2026' },
-      restaurant: { id: 'r-1', name: 'Bicho' },
-      submitterEmail: 'owner@bicho.hk',
       template: { id: 't-1', name: 'nov_promo_2026', language: 'zh_HK', category: 'MARKETING', status: 'pending', components: [] },
       campaigns: [{ id: 'c-1', audienceSize: 42 }],
+      campaignsError: false,
     }
     mockDetail.mockResolvedValue(detail as never)
 
