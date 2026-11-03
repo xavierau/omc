@@ -7,14 +7,14 @@ created: 2026-11-03
 status: active
 item: WAQ-011-DETAIL-R2
 state: done
-brief: inline (brief-v1 WAQ-011-DETAIL-R2)
+brief: inline
 base: 0ea713cd
-head: see commit "fix: admin template review detail — fresh-on-reopen, degraded campaigns, media allowlist (review round 2)" on feature/admin-template-review-detail
+head: 4962e4104d75e5afbfaa3eed015e31ddc2b190b7
 branch: feature/admin-template-review-detail
 pushed: true
 stage: poc
 suite_changed: false
-gate: {result: none, at: null}
+gate: {result: none, at: none}
 next: {owner: main, action: "re-review PR https://github.com/xavierau/omc/pull/174 (round 2); add testids template-review-campaigns-error + template-review-preview-media-external to ui-map/testid-registry.md"}
 blockers: []
 refs: [artifacts/2026-11-03-waq-011-detail-r1-handoff, artifacts/2026-11-03-waq-011-detail-r2-evidence]
