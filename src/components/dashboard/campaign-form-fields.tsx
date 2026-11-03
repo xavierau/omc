@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
-import type { CampaignFormState } from './campaign-form-types'
+import { hasCouponDiscount, type CampaignFormState } from './campaign-form-types'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
 export {
@@ -13,6 +13,7 @@ export {
   CAMPAIGN_TEMPLATE_PLACEHOLDERS,
   buildCampaignRequestBody,
   validateCampaignForm,
+  hasCouponDiscount,
 } from './campaign-form-types'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -78,6 +79,7 @@ export function CampaignFormFields({
 
 function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onChange: OnChange }) {
   const t = useTranslations('campaigns')
+  const issuesCoupon = hasCouponDiscount(form)
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">{t('couponConfig')}</legend>
@@ -95,8 +97,23 @@ function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onCha
           placeholder={form.discountType === 'percentage' ? '20' : '50'}
         />
       </Field>
+      {!issuesCoupon && (
+        <div
+          role="status"
+          data-testid="campaign-coupon-no-discount-alert"
+          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+        >
+          {t('couponNoDiscountAlert')}
+        </div>
+      )}
       <Field label={t('expiryDays')}>
-        <Input type="number" value={form.expiresInDays} onChange={(e) => onChange('expiresInDays', e.target.value)} placeholder="30" />
+        <Input
+          type="number"
+          value={form.expiresInDays}
+          onChange={(e) => onChange('expiresInDays', e.target.value)}
+          placeholder="30"
+          disabled={!issuesCoupon}
+        />
       </Field>
     </fieldset>
   )

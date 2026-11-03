@@ -4,6 +4,7 @@ import {
   initialCampaignForm,
   CAMPAIGN_TEMPLATE_PLACEHOLDERS,
   validateCampaignForm,
+  hasCouponDiscount,
   type CampaignFormState,
 } from '@/components/dashboard/campaign-form-fields'
 
@@ -83,6 +84,33 @@ describe('campaign-form-fields', () => {
     it('emits null couponConfig when discountValue is empty', () => {
       const body = buildCampaignRequestBody(inlineForm({ discountValue: '' }))
       expect(body.couponConfig).toBeNull()
+    })
+
+    it('keeps couponConfig null for blank discount even when expiry is set (marketing-only, #134)', () => {
+      const body = buildCampaignRequestBody(inlineForm({ discountValue: '', expiresInDays: '60' }))
+      expect(body.couponConfig).toBeNull()
+    })
+
+    it('saves expiresInDays 60 when discount is 10 and expiry is 60', () => {
+      const body = buildCampaignRequestBody(inlineForm({ discountValue: '10', expiresInDays: '60' }))
+      expect(body.couponConfig?.expiresInDays).toBe(60)
+    })
+  })
+
+  describe('hasCouponDiscount (CAMP-EXPIRY-001)', () => {
+    it.each(['', '0', '-5', 'abc'])('is false for discountValue %j', (discountValue) => {
+      expect(hasCouponDiscount(inlineForm({ discountValue }))).toBe(false)
+    })
+
+    it('is true for discountValue "10"', () => {
+      expect(hasCouponDiscount(inlineForm({ discountValue: '10' }))).toBe(true)
+    })
+
+    it('agrees with buildCampaignRequestBody on whether a coupon is issued', () => {
+      for (const discountValue of ['', '0', '0.5', '10', '-1']) {
+        const form = inlineForm({ discountValue })
+        expect(buildCampaignRequestBody(form).couponConfig !== null).toBe(hasCouponDiscount(form))
+      }
     })
   })
 

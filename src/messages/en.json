@@ -260,6 +260,7 @@
     "fixedAmount": "Fixed Amount (HK$)",
     "discountValue": "Discount Value",
     "expiryDays": "Expiry (days)",
+    "couponNoDiscountAlert": "No discount value: this campaign sends the message only. No coupon or QR code is issued, and expiry days are not saved. Enter a discount value to issue a coupon.",
     "execution": "Execution",
     "executionNow": "Send manually",
     "executionSchedule": "Schedule",

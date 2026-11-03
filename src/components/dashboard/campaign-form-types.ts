@@ -59,6 +59,15 @@ export interface CampaignRequestBody {
   tagIds?: string[]
 }
 
+/**
+ * Whether the form issues a coupon. False → couponConfig is sent as null:
+ * the campaign is marketing-only (no coupon, no QR) and expiry is not saved (#134).
+ * Single source for both the request body and the form's no-discount alert.
+ */
+export function hasCouponDiscount(form: Pick<CampaignFormState, 'discountValue'>): boolean {
+  return Number(form.discountValue) > 0
+}
+
 export function buildCampaignRequestBody(form: CampaignFormState): CampaignRequestBody {
   const useWaTemplate = form.messageType === 'wa_template'
   const discountValue = Number(form.discountValue)
@@ -72,14 +81,13 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
     imageUrlEn: isWelcome ? nullIfBlank(form.imageUrlEn) : null,
     imageUrlZhHk: isWelcome ? nullIfBlank(form.imageUrlZhHk) : null,
     whatsappTemplateId: useWaTemplate ? form.whatsappTemplateId : null,
-    couponConfig:
-      discountValue > 0
-        ? {
-            discountType: form.discountType,
-            discountValue,
-            expiresInDays: Number(form.expiresInDays) || 30,
-          }
-        : null,
+    couponConfig: hasCouponDiscount(form)
+      ? {
+          discountType: form.discountType,
+          discountValue,
+          expiresInDays: Number(form.expiresInDays) || 30,
+        }
+      : null,
     scheduledAt:
       form.execution === 'schedule' && form.scheduledAt
         ? new Date(form.scheduledAt).toISOString()
