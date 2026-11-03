@@ -9,6 +9,7 @@ item: WAQ-011-DETAIL-R1
 state: done
 brief: inline (brief-v1 WAQ-011-DETAIL-R1)
 base: 805727c9
+head: 16d70f46
 branch: feature/admin-template-review-detail
 pushed: true
 stage: poc
