@@ -16,7 +16,10 @@ interface SubmitReviewInput {
 
 const MAX_PREVIEW_LEN = 4000
 
-export function extractTemplateBodyText(components: Record<string, unknown>[]): string {
+// Entity components (TemplateComponent, an interface) or raw stored rows.
+export function extractTemplateBodyText(
+  components: ReadonlyArray<{ type?: unknown; text?: unknown } | Record<string, unknown>>
+): string {
   const body = components.find((c) => c.type === 'BODY')
   const text = body?.text
   return typeof text === 'string' ? text.slice(0, MAX_PREVIEW_LEN) : ''

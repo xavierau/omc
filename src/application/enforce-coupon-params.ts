@@ -1,23 +1,21 @@
 import type { Campaign } from '@/domain/entities/campaign'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import {
-  isClaimTemplate,
-  templateExpectsCouponCode,
-} from '@/domain/services/campaign-mode'
+  couponRequirement,
+  type CouponRequirementReason,
+} from '@/domain/services/coupon-requirement'
 
 const PRE_SEND_CHECK_SUFFIX =
   'This is an OhMyClient pre-send check; Meta was not contacted.'
 
-type CouponConfigMissingReason = 'template' | 'claim' | 'inline'
-
 export class CampaignCouponConfigMissingError extends Error {
-  constructor(subject: string, reason: CouponConfigMissingReason = 'template') {
+  constructor(subject: string, reason: CouponRequirementReason = 'template') {
     super(buildMessage(subject, reason))
     this.name = 'CampaignCouponConfigMissingError'
   }
 }
 
-function buildMessage(subject: string, reason: CouponConfigMissingReason): string {
+function buildMessage(subject: string, reason: CouponRequirementReason): string {
   switch (reason) {
     case 'claim':
       return (
@@ -41,45 +39,22 @@ function buildMessage(subject: string, reason: CouponConfigMissingReason): strin
   }
 }
 
-// #134 / I-1 round 2: an inline (template === null) campaign renders its
-// copy through the same {{code}}/{{discount}} substitution as a real
-// template's body — a null couponConfig blanks the placeholder instead of
-// throwing, so a coupon-less campaign silently ships "use code  for  off".
-const INLINE_COUPON_PLACEHOLDERS = ['{{code}}', '{{couponCode}}', '{{discount}}']
-
-function inlineCopyExpectsCoupon(campaign: Campaign): string | null {
-  const texts = [campaign.templateEn, campaign.templateZhHk, campaign.template]
-  for (const text of texts) {
-    if (!text) continue
-    for (const placeholder of INLINE_COUPON_PLACEHOLDERS) {
-      if (text.includes(placeholder)) return placeholder
-    }
-  }
-  return null
-}
-
 /**
  * #134 / I-1 round 2: `couponConfig === null` means "plain announcement,
  * nothing coupon-related will ever be supplied or minted". Refuse any
  * campaign with no coupon config whose message would need coupon data —
- * a real template (R1/R3) or inline copy (R4).
+ * a real template (R1/R3) or inline copy (R4). The rule itself lives in
+ * couponRequirement, shared with the campaign form (CAMP-EXPIRY-001 R2).
  */
 export function enforceCouponParams(
   campaign: Campaign,
   template: WhatsAppTemplate | null
 ): void {
-  if (campaign.couponConfig) return
-  if (!template) {
-    const placeholder = inlineCopyExpectsCoupon(campaign)
-    if (placeholder) throw new CampaignCouponConfigMissingError(placeholder, 'inline')
-    return
-  }
-  // Claim mode mints the coupon lazily at tap time (claimCampaignCoupon), so
-  // a claim template with no coupon config would hand out discount-less
-  // coupons — exactly what #134 removed from eager broadcast.
-  if (isClaimTemplate(template)) {
-    throw new CampaignCouponConfigMissingError(template.name, 'claim')
-  }
-  if (!templateExpectsCouponCode(template)) return
-  throw new CampaignCouponConfigMissingError(template.name, 'template')
+  const requirement = couponRequirement({
+    hasCouponConfig: Boolean(campaign.couponConfig),
+    template,
+    inlineTexts: [campaign.templateEn, campaign.templateZhHk, campaign.template],
+  })
+  if (requirement.kind !== 'blocked') return
+  throw new CampaignCouponConfigMissingError(requirement.subject, requirement.reason)
 }

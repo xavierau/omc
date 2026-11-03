@@ -113,11 +113,16 @@ export function applyWaTemplateFormChange(
   return { ...form, headerType, headerMediaUrl: '' }
 }
 
-export function templateToFormState(
-  t: { name: string; language: string; category: string; components: Record<string, unknown>[] }
-): WaTemplateFormState {
+export function templateToFormState(t: {
+  name: string
+  language: string
+  category: string
+  components: ReadonlyArray<{ type?: unknown; text?: unknown }>
+}): WaTemplateFormState {
   const state: WaTemplateFormState = { ...initialWaTemplateForm, name: t.name, language: t.language, category: t.category }
-  for (const c of t.components) {
+  for (const component of t.components) {
+    // Accepts entity components and raw stored rows alike; read both as plain records.
+    const c: Record<string, unknown> = Object.fromEntries(Object.entries(component))
     if (c.type === 'HEADER' && c.format === 'TEXT') { state.headerType = 'text'; state.headerText = (c.text as string) ?? '' }
     else if (c.type === 'HEADER' && c.format === 'IMAGE') { state.headerType = 'image'; state.headerMediaUrl = extractMediaUrl(c) }
     else if (c.type === 'HEADER' && c.format === 'VIDEO') { state.headerType = 'video'; state.headerMediaUrl = extractMediaUrl(c) }

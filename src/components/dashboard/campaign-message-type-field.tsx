@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import type { CampaignFormState } from './campaign-form-types'
 import { CAMPAIGN_TEMPLATE_PLACEHOLDERS } from './campaign-form-types'
 import { BilingualTemplateEditor } from './bilingual-template-editor'
-import type { WaTemplate } from '@/hooks/use-wa-templates'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
 
@@ -13,26 +12,18 @@ type OnChange = (key: keyof CampaignFormState, value: string) => void
 
 interface CampaignMessageTypeFieldProps {
   form: CampaignFormState
+  approvedTemplates: WhatsAppTemplate[]
   onChange: OnChange
   onTemplateChange: (next: { en: string; zhHk: string }) => void
 }
 
 export function CampaignMessageTypeField({
   form,
+  approvedTemplates,
   onChange,
   onTemplateChange,
 }: CampaignMessageTypeFieldProps) {
   const t = useTranslations('campaigns')
-  const [approvedTemplates, setApprovedTemplates] = useState<WaTemplate[]>([])
-
-  useEffect(() => {
-    if (form.messageType !== 'wa_template') return
-    fetch('/api/dashboard/wa-templates?status=approved')
-      .then((r) => r.json())
-      .then((j) => setApprovedTemplates(j.templates ?? []))
-      .catch(() => setApprovedTemplates([]))
-  }, [form.messageType])
-
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">{t('messageType')}</legend>
@@ -110,7 +101,7 @@ function WaTemplateSelect({
   onChange,
 }: {
   value: string
-  templates: WaTemplate[]
+  templates: WhatsAppTemplate[]
   onChange: (v: string) => void
 }) {
   const t = useTranslations('campaigns')

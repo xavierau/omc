@@ -33,3 +33,8 @@ the first real run.
 | `/dashboard/members` | page-size select / first / prev / next / last | `[data-testid="members-page-size-select"]` / `members-pagination-first` / `-prev` / `-next` / `-last` | 2026-10-07 mem-001 (mocked-API walk) |
 | `/dashboard/members` | "No tag" filter chip, per-row quality badge | `[data-testid="members-tag-filter-no-tag"]` / `[data-testid="members-row-<id>-quality"]` | 2026-10-07 mem-001 (mocked-API walk) |
 | `/dashboard/members` (detail panel) | contact quality evidence root / verdict sentence / per-message row / degrade line / badge | `[data-testid="member-quality-evidence"]` / `member-quality-verdict` / `member-quality-message-<id>` / `member-quality-evidence-unavailable` / `member-quality-evidence-badge` | 2026-10-07 mem-001b (mocked-API walk) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: no discount, message only (marketing_only) | `[data-testid="campaign-coupon-no-discount-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: message needs a coupon, Send will be refused (blocked) | `[data-testid="campaign-coupon-blocked-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: welcome campaign requires a discount | `[data-testid="campaign-coupon-welcome-required-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon check pending while the selected template loads | `[data-testid="campaign-coupon-mode-checking"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon check unavailable (template load failed) | `[data-testid="campaign-coupon-mode-error"]` | 2026-11-03 camp-expiry-001 (PR #173) |

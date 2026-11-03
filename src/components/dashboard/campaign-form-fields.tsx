@@ -5,7 +5,16 @@ import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
-import type { CampaignFormState } from './campaign-form-types'
+import {
+  couponFormMode,
+  pickerTemplates,
+  singleTemplateIdToFetch,
+  templateLookup,
+  type CampaignFormState,
+  type CouponFormModeResult,
+  type TemplateLookup,
+} from './campaign-form-types'
+import { useWaTemplate, useWaTemplates } from '@/hooks/use-wa-templates'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
 export {
@@ -13,6 +22,7 @@ export {
   CAMPAIGN_TEMPLATE_PLACEHOLDERS,
   buildCampaignRequestBody,
   validateCampaignForm,
+  couponFormMode,
 } from './campaign-form-types'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -39,6 +49,11 @@ export function CampaignFormFields({
   onTemplateChange,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
+  // A selected id missing from the approved list's first page (or no longer
+  // approved) is fetched on its own; only a failed or pending lookup is 'unknown'.
+  const list = useWaTemplates({ status: 'approved' }, { enabled: form.messageType === 'wa_template' })
+  const single = useWaTemplate(singleTemplateIdToFetch(form, list))
+  const lookup = templateLookup(form, list, single)
   return (
     <div className="space-y-4 mt-4">
       <Field label={t('formName')}>
@@ -61,7 +76,12 @@ export function CampaignFormFields({
         onMemberIdsChange={onMemberIdsChange}
         onTagIdsChange={onTagIdsChange}
       />
-      <CampaignMessageTypeField form={form} onChange={onChange} onTemplateChange={onTemplateChange} />
+      <CampaignMessageTypeField
+        form={form}
+        approvedTemplates={pickerTemplates(list.templates, lookup)}
+        onChange={onChange}
+        onTemplateChange={onTemplateChange}
+      />
       {form.type === 'welcome' && (
         <WelcomeImageFields
           form={form}
@@ -70,19 +90,30 @@ export function CampaignFormFields({
           onChange={onChange}
         />
       )}
-      <CouponConfigFields form={form} onChange={onChange} />
+      <CouponConfigFields form={form} lookup={lookup} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
     </div>
   )
 }
 
-function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onChange: OnChange }) {
+interface CouponConfigFieldsProps {
+  form: CampaignFormState
+  lookup: TemplateLookup
+  onChange: OnChange
+}
+
+function CouponConfigFields({ form, lookup, onChange }: CouponConfigFieldsProps) {
   const t = useTranslations('campaigns')
+  const result = couponFormMode(form, lookup)
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">{t('couponConfig')}</legend>
       <Field label={t('discountType')}>
-        <select value={form.discountType} onChange={(e) => onChange('discountType', e.target.value)} className={selectClass}>
+        <select
+          value={form.discountType}
+          onChange={(e) => onChange('discountType', e.target.value)}
+          className={selectClass}
+        >
           <option value="percentage">{t('percentage')}</option>
           <option value="fixed_amount">{t('fixedAmount')}</option>
         </select>
@@ -95,10 +126,55 @@ function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onCha
           placeholder={form.discountType === 'percentage' ? '20' : '50'}
         />
       </Field>
+      <CouponModeAlert result={result} />
       <Field label={t('expiryDays')}>
-        <Input type="number" value={form.expiresInDays} onChange={(e) => onChange('expiresInDays', e.target.value)} placeholder="30" />
+        <Input
+          type="number"
+          value={form.expiresInDays}
+          onChange={(e) => onChange('expiresInDays', e.target.value)}
+          placeholder="30"
+          disabled={result.mode !== 'discount'}
+        />
       </Field>
     </fieldset>
+  )
+}
+
+const ALERT_COPY = {
+  marketing_only: { key: 'couponNoDiscountAlert', testId: 'campaign-coupon-no-discount-alert' },
+  blocked: { key: 'couponBlockedAlert', testId: 'campaign-coupon-blocked-alert' },
+  welcome_requires_discount: {
+    key: 'couponWelcomeRequiredAlert',
+    testId: 'campaign-coupon-welcome-required-alert',
+  },
+} as const
+
+const PENDING_COPY = {
+  loading: { key: 'couponModeChecking', testId: 'campaign-coupon-mode-checking' },
+  error: { key: 'couponModeError', testId: 'campaign-coupon-mode-error' },
+} as const
+
+function CouponModeAlert({ result }: { result: CouponFormModeResult }) {
+  const t = useTranslations('campaigns')
+  if (result.mode === 'discount') return null
+  if (result.mode === 'unknown') {
+    if (result.pending === 'unselected') return null
+    const { key, testId } = PENDING_COPY[result.pending]
+    return (
+      <p role="status" data-testid={testId} className="text-xs text-muted-foreground">
+        {t(key)}
+      </p>
+    )
+  }
+  const { key, testId } = ALERT_COPY[result.mode]
+  return (
+    <div
+      role="status"
+      data-testid={testId}
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+    >
+      {t(key)}
+    </div>
   )
 }
 
