@@ -49,6 +49,8 @@ function review(overrides: Partial<TemplateReviewItem> = {}): TemplateReviewItem
     reviewedBy: null,
     reviewedAt: null,
     reviewNotes: null,
+    restaurantName: 'Kushiro',
+    submitterEmail: 'owner@kushiro.hk',
     ...overrides,
   }
 }
@@ -66,10 +68,29 @@ describe('TemplateReviewTable', () => {
     )
     const cells = tree.filter((el) => typeof el.type === 'function' && el.type.name === 'TableCell')
     const texts = cells.map((c) => (c.props as { children?: unknown }).children)
-    expect(texts).toContain('rest-kushiro')
+    expect(texts).toContain('Kushiro')
+    expect(texts).not.toContain('rest-kushiro')
     expect(texts).toContain('5th_anniversary')
     expect(texts).toContain(240)
     expect(texts).toContain('Come celebrate our 5th anniversary with 20% off!')
+  })
+
+  it('keeps the restaurant id as a muted tooltip on the name cell', () => {
+    const tree = renderTree(
+      <TemplateReviewTable reviews={[review()]} onReview={() => {}} />
+    )
+    const cells = tree.filter((el) => typeof el.type === 'function' && el.type.name === 'TableCell')
+    const nameCell = cells.find((c) => (c.props as { children?: unknown }).children === 'Kushiro')
+    expect((nameCell?.props as { title?: string }).title).toBe('t:restaurantIdTooltip')
+  })
+
+  it('falls back to the restaurant id when the name could not be resolved', () => {
+    const tree = renderTree(
+      <TemplateReviewTable reviews={[review({ restaurantName: null })]} onReview={() => {}} />
+    )
+    const cells = tree.filter((el) => typeof el.type === 'function' && el.type.name === 'TableCell')
+    const texts = cells.map((c) => (c.props as { children?: unknown }).children)
+    expect(texts).toContain('rest-kushiro')
   })
 
   it('falls back to a dash when audience size is unknown', () => {

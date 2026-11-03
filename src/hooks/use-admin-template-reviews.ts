@@ -22,6 +22,9 @@ export interface TemplateReviewItem {
   reviewedBy: string | null
   reviewedAt: string | null
   reviewNotes: string | null
+  /** WAQ-011-DETAIL: resolved server-side; null when the lookup found nothing. */
+  restaurantName: string | null
+  submitterEmail: string | null
 }
 
 interface TemplateReviewsResponse {
