@@ -5,9 +5,16 @@ import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
-import { couponFormMode, type CampaignFormState } from './campaign-form-types'
-import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { useWaTemplates } from '@/hooks/use-wa-templates'
+import {
+  couponFormMode,
+  pickerTemplates,
+  singleTemplateIdToFetch,
+  templateLookup,
+  type CampaignFormState,
+  type CouponFormModeResult,
+  type TemplateLookup,
+} from './campaign-form-types'
+import { useWaTemplate, useWaTemplates } from '@/hooks/use-wa-templates'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
 export {
@@ -42,13 +49,11 @@ export function CampaignFormFields({
   onTemplateChange,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
-  // The route returns WhatsAppTemplate entities (ListTemplatesResult). A selected
-  // id missing from this page resolves to null → coupon mode 'unknown', never a guess.
-  const { templates: approvedTemplates } = useWaTemplates<WhatsAppTemplate>(
-    { status: 'approved' },
-    { enabled: form.messageType === 'wa_template' }
-  )
-  const selectedTemplate = approvedTemplates.find((tpl) => tpl.id === form.whatsappTemplateId) ?? null
+  // A selected id missing from the approved list's first page (or no longer
+  // approved) is fetched on its own; only a failed or pending lookup is 'unknown'.
+  const list = useWaTemplates({ status: 'approved' }, { enabled: form.messageType === 'wa_template' })
+  const single = useWaTemplate(singleTemplateIdToFetch(form, list))
+  const lookup = templateLookup(form, list, single)
   return (
     <div className="space-y-4 mt-4">
       <Field label={t('formName')}>
@@ -73,7 +78,7 @@ export function CampaignFormFields({
       />
       <CampaignMessageTypeField
         form={form}
-        approvedTemplates={approvedTemplates}
+        approvedTemplates={pickerTemplates(list.templates, lookup)}
         onChange={onChange}
         onTemplateChange={onTemplateChange}
       />
@@ -85,7 +90,7 @@ export function CampaignFormFields({
           onChange={onChange}
         />
       )}
-      <CouponConfigFields form={form} selectedTemplate={selectedTemplate} onChange={onChange} />
+      <CouponConfigFields form={form} lookup={lookup} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
     </div>
   )
@@ -93,13 +98,13 @@ export function CampaignFormFields({
 
 interface CouponConfigFieldsProps {
   form: CampaignFormState
-  selectedTemplate: WhatsAppTemplate | null
+  lookup: TemplateLookup
   onChange: OnChange
 }
 
-function CouponConfigFields({ form, selectedTemplate, onChange }: CouponConfigFieldsProps) {
+function CouponConfigFields({ form, lookup, onChange }: CouponConfigFieldsProps) {
   const t = useTranslations('campaigns')
-  const { mode } = couponFormMode(form, selectedTemplate)
+  const result = couponFormMode(form, lookup)
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">{t('couponConfig')}</legend>
@@ -121,14 +126,14 @@ function CouponConfigFields({ form, selectedTemplate, onChange }: CouponConfigFi
           placeholder={form.discountType === 'percentage' ? '20' : '50'}
         />
       </Field>
-      <CouponModeAlert mode={mode} />
+      <CouponModeAlert result={result} />
       <Field label={t('expiryDays')}>
         <Input
           type="number"
           value={form.expiresInDays}
           onChange={(e) => onChange('expiresInDays', e.target.value)}
           placeholder="30"
-          disabled={mode !== 'discount'}
+          disabled={result.mode !== 'discount'}
         />
       </Field>
     </fieldset>
@@ -138,12 +143,30 @@ function CouponConfigFields({ form, selectedTemplate, onChange }: CouponConfigFi
 const ALERT_COPY = {
   marketing_only: { key: 'couponNoDiscountAlert', testId: 'campaign-coupon-no-discount-alert' },
   blocked: { key: 'couponBlockedAlert', testId: 'campaign-coupon-blocked-alert' },
+  welcome_requires_discount: {
+    key: 'couponWelcomeRequiredAlert',
+    testId: 'campaign-coupon-welcome-required-alert',
+  },
 } as const
 
-function CouponModeAlert({ mode }: { mode: ReturnType<typeof couponFormMode>['mode'] }) {
+const PENDING_COPY = {
+  loading: { key: 'couponModeChecking', testId: 'campaign-coupon-mode-checking' },
+  error: { key: 'couponModeError', testId: 'campaign-coupon-mode-error' },
+} as const
+
+function CouponModeAlert({ result }: { result: CouponFormModeResult }) {
   const t = useTranslations('campaigns')
-  if (mode === 'discount' || mode === 'unknown') return null
-  const { key, testId } = ALERT_COPY[mode]
+  if (result.mode === 'discount') return null
+  if (result.mode === 'unknown') {
+    if (result.pending === 'unselected') return null
+    const { key, testId } = PENDING_COPY[result.pending]
+    return (
+      <p role="status" data-testid={testId} className="text-xs text-muted-foreground">
+        {t(key)}
+      </p>
+    )
+  }
+  const { key, testId } = ALERT_COPY[result.mode]
   return (
     <div
       role="status"
