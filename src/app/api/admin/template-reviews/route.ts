@@ -2,12 +2,14 @@
 // Lists pending template reviews across all tenants for the admin queue.
 // Query: ?status=pending|approved|rejected|changes_requested (defaults
 // to 'pending' since that's the action queue). Platform admin only.
+// Each row carries restaurantName + submitterEmail (WAQ-011-DETAIL).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-admin-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { checkAdminRateLimit } from '@/infrastructure/rate-limit/admin-rate-limit'
 import { listTemplateReviewsByStatus } from '@/infrastructure/supabase/repositories/template-review-repository'
+import { enrichTemplateReviews } from '@/application/get-template-review-detail'
 import {
   isReviewStatus,
   type ReviewStatus,
@@ -24,10 +26,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
     const rows = await listTemplateReviewsByStatus({ status })
-    return NextResponse.json({
-      status,
-      reviews: rows.map((r) => r.snapshot),
-    })
+    // WAQ-011-DETAIL: restaurant name + submitter email so the table shows
+    // people-readable names, not UUIDs.
+    const reviews = await enrichTemplateReviews(rows.map((r) => ({ ...r.snapshot })))
+    return NextResponse.json({ status, reviews })
   } catch (error) {
     return handleError(error, 'Template reviews list error')
   }
