@@ -45,9 +45,11 @@ function CampaignCard({ campaign: c, t }: { campaign: TemplateReviewDetailCampai
   )
 }
 
+// 'selected' is a count of picked campaign_members rows, not active reach.
 function audienceLabel(c: TemplateReviewDetailCampaign, t: T): string {
   const label = t(`audience.${c.targetAudience}`)
   if (c.audienceSize === null) return t('campaignAudienceUnknown', { label })
+  if (c.targetAudience === 'selected') return t('campaignAudienceSelected', { count: c.audienceSize })
   return t('campaignAudienceSize', { label, count: c.audienceSize })
 }
 
@@ -60,7 +62,14 @@ function couponLabel(c: TemplateReviewDetailCampaign, t: T): string {
     : t('campaignCouponFixed', values)
 }
 
+// Finished campaigns report their outcome; a `schedule` JSON means trigger/
+// recurring sends (welcome, birthday, winback); otherwise one-off or manual.
 function scheduleLabel(c: TemplateReviewDetailCampaign, t: T): string {
-  if (!c.scheduledAt) return t('campaignSendNow')
-  return t('campaignScheduled', { date: new Date(c.scheduledAt).toLocaleString('en-HK') })
+  if (c.status === 'completed') return t('campaignScheduleSent')
+  if (c.status === 'failed') return t('campaignScheduleFailed')
+  if (c.schedule) return t('campaignAutomatic')
+  if (c.scheduledAt) {
+    return t('campaignScheduled', { date: new Date(c.scheduledAt).toLocaleString('en-HK') })
+  }
+  return t('campaignManualSend')
 }

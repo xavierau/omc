@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
 import {
   submitTemplateReviewDecision,
   runTemplateReviewDecision,
@@ -11,7 +10,9 @@ import {
   type ReviewDecisionAction,
 } from './template-review-decision'
 import type { TemplateReviewItem } from '@/hooks/use-admin-template-reviews'
+import { useAdminTemplateReviewDetail } from '@/hooks/use-admin-template-review-detail'
 import { TemplateReviewDetailSections } from './template-review-detail-sections'
+import { DecisionButtons } from './template-review-decision-buttons'
 
 interface Props {
   review: TemplateReviewItem | null
@@ -19,9 +20,10 @@ interface Props {
   onDecided: () => void
 }
 
-// Stateful container — owns the notes field + in-flight action, delegating the
-// read-only detail to TemplateReviewDetailSections (WAQ-011-DETAIL: summary,
-// template preview, campaigns) / DecisionOutcomeSummary. Not unit-tested
+// Stateful container — owns the notes field + in-flight action and the detail
+// fetch (so the decision buttons can wait for it), delegating the read-only
+// detail to TemplateReviewDetailSections (WAQ-011-DETAIL: summary, submitted
+// content, current template, campaigns) / DecisionOutcomeSummary. Not unit-tested
 // directly (useState makes it opaque to the shallow renderTree helper); its
 // pending-vs-decided branch is a plain `review.status === 'pending'` read (no
 // independent logic to test), and the failure-refetch behavior is covered via
@@ -31,6 +33,7 @@ export function TemplateReviewDecisionSheet({ review, onOpenChange, onDecided }:
   const [notes, setNotes] = useState('')
   const [submittingAction, setSubmittingAction] = useState<ReviewDecisionAction | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const detailState = useAdminTemplateReviewDetail(review?.id ?? null)
 
   useEffect(() => {
     setNotes('')
@@ -70,13 +73,14 @@ export function TemplateReviewDecisionSheet({ review, onOpenChange, onDecided }:
           <SheetDescription>{t('panelDescription')}</SheetDescription>
         </SheetHeader>
         <div className="px-4 pb-4 space-y-5 text-sm">
-          <TemplateReviewDetailSections review={review} />
+          <TemplateReviewDetailSections review={review} state={detailState} />
           {isPending ? (
             <>
               <NotesField notes={notes} onChange={setNotes} t={t} />
               {error && <p className="text-sm text-destructive">{error}</p>}
               <DecisionButtons
                 submittingAction={submittingAction}
+                locked={detailState.isLoading}
                 onDecide={handleDecide}
                 t={t}
               />
@@ -126,26 +130,5 @@ function DecisionOutcomeSummary({ review, t }: { review: TemplateReviewItem; t: 
       <dt className="text-muted-foreground">{t('panelReviewNotes')}</dt>
       <dd className="whitespace-pre-wrap">{review.reviewNotes || t('panelNoNotes')}</dd>
     </dl>
-  )
-}
-
-function DecisionButtons({ submittingAction, onDecide, t }: {
-  submittingAction: ReviewDecisionAction | null
-  onDecide: (action: ReviewDecisionAction) => void
-  t: T
-}) {
-  const busy = Boolean(submittingAction)
-  return (
-    <div className="flex gap-2 flex-wrap">
-      <Button onClick={() => onDecide('approve')} disabled={busy}>
-        {submittingAction === 'approve' ? t('submitting') : t('approve')}
-      </Button>
-      <Button variant="destructive" onClick={() => onDecide('reject')} disabled={busy}>
-        {submittingAction === 'reject' ? t('submitting') : t('reject')}
-      </Button>
-      <Button variant="outline" onClick={() => onDecide('request_changes')} disabled={busy}>
-        {submittingAction === 'request_changes' ? t('submitting') : t('requestChanges')}
-      </Button>
-    </div>
   )
 }

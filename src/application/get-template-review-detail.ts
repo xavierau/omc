@@ -9,7 +9,8 @@ import { findTemplateReviewById } from '@/infrastructure/supabase/repositories/t
 import { findByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
 import { countActiveMembersByTags } from '@/infrastructure/supabase/repositories/tag-audience-repository'
-import { findRestaurantNamesByIds, findUserEmailById } from '@/infrastructure/supabase/repositories/admin-identity-lookups'
+import { findRestaurantNamesByIds, listUserEmailsById } from '@/infrastructure/supabase/repositories/admin-identity-lookups'
+import { isValidUUID } from '@/infrastructure/validation/validators'
 import {
   findLatestTemplateByNameForRestaurant,
   listCampaignsUsingTemplate,
@@ -20,7 +21,8 @@ import {
 export interface TemplateReviewDetailDeps {
   findReviewById(id: string): Promise<TemplateReview | null>
   findRestaurantNames(ids: string[]): Promise<Map<string, string>>
-  findUserEmail(userId: string): Promise<string | null>
+  /** Every auth user's email by id — ONE call per request, not per row. */
+  findUserEmails(): Promise<Map<string, string>>
   findTemplateById(id: string, restaurantId: string): Promise<WhatsAppTemplate | null>
   findLatestTemplateByName(restaurantId: string, name: string): Promise<WhatsAppTemplate | null>
   listCampaignsUsingTemplate(restaurantId: string, templateId: string): Promise<TemplateCampaignRow[]>
@@ -32,7 +34,7 @@ export interface TemplateReviewDetailDeps {
 const defaultDeps: TemplateReviewDetailDeps = {
   findReviewById: findTemplateReviewById,
   findRestaurantNames: findRestaurantNamesByIds,
-  findUserEmail: findUserEmailById,
+  findUserEmails: listUserEmailsById,
   findTemplateById: findByIdForRestaurant,
   findLatestTemplateByName: findLatestTemplateByNameForRestaurant,
   listCampaignsUsingTemplate,
@@ -56,6 +58,8 @@ export interface TemplateReviewDetail {
   restaurant: { id: string; name: string | null }
   submitterEmail: string | null
   template: TemplateReviewDetailTemplate | null
+  /** true when no template record could be resolved — the UI shows a notice, never a guess. */
+  templateMissing: boolean
   campaigns: TemplateReviewDetailCampaign[]
 }
 
@@ -81,37 +85,41 @@ export async function getTemplateReviewDetail(
     restaurant: { id: review.restaurantId, name: enriched.restaurantName },
     submitterEmail: enriched.submitterEmail,
     template: template ? pickTemplate(template) : null,
+    templateMissing: template === null,
     campaigns,
   }
 }
 
-/** One restaurant query for the whole list; one email lookup per distinct submitter. */
+/** One restaurant query and one user listing for the whole list — no per-row calls. */
 export async function enrichTemplateReviews(
   reviews: TemplateReviewProps[],
-  deps: Pick<TemplateReviewDetailDeps, 'findRestaurantNames' | 'findUserEmail'> = defaultDeps
+  deps: Pick<TemplateReviewDetailDeps, 'findRestaurantNames' | 'findUserEmails'> = defaultDeps
 ): Promise<EnrichedTemplateReview[]> {
   if (reviews.length === 0) return []
-  const submitters = distinct(reviews.map((r) => r.submittedBy)).filter(isUuid)
+  // Legacy rows carry submittedBy 'unknown' (template-review-mapper) — not a user.
+  const hasUserSubmitter = reviews.some((r) => isValidUUID(r.submittedBy))
   const [names, emails] = await Promise.all([
     deps.findRestaurantNames(distinct(reviews.map((r) => r.restaurantId))),
-    Promise.all(submitters.map(async (id) => [id, await deps.findUserEmail(id)] as const)),
+    hasUserSubmitter ? deps.findUserEmails() : Promise.resolve(new Map<string, string>()),
   ])
-  const emailById = new Map(emails)
   return reviews.map((r) => ({
     ...r,
     restaurantName: names.get(r.restaurantId) ?? null,
-    submitterEmail: emailById.get(r.submittedBy) ?? null,
+    submitterEmail: emails.get(r.submittedBy) ?? null,
   }))
 }
 
+// The admin must judge what was submitted: a review that names a template id
+// resolves ONLY that id — a missing row is reported, never swapped for another
+// template of the same name (findTemplateById swallows errors, so a null may
+// also be a failed read; either way nothing else is shown). The name fallback
+// is for id-less reviews only; the review row carries no language
+// (template_review_queue has none), so it is latest-by-name.
 async function resolveTemplate(
   review: TemplateReviewProps,
   deps: TemplateReviewDetailDeps
 ): Promise<WhatsAppTemplate | null> {
-  if (review.templateId) {
-    const byId = await deps.findTemplateById(review.templateId, review.restaurantId)
-    if (byId) return byId
-  }
+  if (review.templateId) return deps.findTemplateById(review.templateId, review.restaurantId)
   return deps.findLatestTemplateByName(review.restaurantId, review.templateName)
 }
 
@@ -157,11 +165,4 @@ function pickTemplate(t: WhatsAppTemplate): TemplateReviewDetailTemplate {
 
 function distinct(values: string[]): string[] {
   return Array.from(new Set(values))
-}
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-// Legacy rows carry submittedBy 'unknown' (template-review-mapper) — not a user.
-function isUuid(value: string): boolean {
-  return UUID_REGEX.test(value)
 }

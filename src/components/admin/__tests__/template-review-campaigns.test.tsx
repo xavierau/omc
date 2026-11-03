@@ -48,6 +48,7 @@ function campaign(overrides: Partial<TemplateReviewDetailCampaign> = {}): Templa
     audienceSize: 42,
     couponConfig: { discountType: 'percentage', discountValue: 20, expiresInDays: 14 },
     scheduledAt: null,
+    schedule: null,
     createdAt: '2026-10-31T00:00:00Z',
     ...overrides,
   }
@@ -71,7 +72,8 @@ describe('TemplateReviewCampaigns', () => {
     expect(all).toContain('November promo')
     expect(all).toContain('campaignAudienceSize:{"label":"audience.tag","count":42}')
     expect(all).toContain('campaignCouponPercent:{"value":20,"days":14}')
-    expect(all).toContain('campaignSendNow')
+    expect(all).toContain('campaignManualSend')
+    expect(all).not.toContain('campaignSendNow')
   })
 
   it('says "No coupon", a fixed discount, and an unknown size where they apply', () => {
@@ -86,5 +88,37 @@ describe('TemplateReviewCampaigns', () => {
     expect(all).toContain('campaignNoCoupon')
     expect(all).toContain('campaignAudienceUnknown:{"label":"audience.all"}')
     expect(all).toContain('campaignCouponFixed:{"value":50,"days":7}')
+  })
+
+  it('labels a selected audience as a count of selected rows, not reach', () => {
+    const all = texts(
+      <TemplateReviewCampaigns campaigns={[campaign({ targetAudience: 'selected', audienceSize: 3 })]} />
+    )
+    expect(all).toContain('campaignAudienceSelected:{"count":3}')
+  })
+
+  describe('schedule label', () => {
+    const label = (overrides: Partial<TemplateReviewDetailCampaign>) =>
+      texts(<TemplateReviewCampaigns campaigns={[campaign(overrides)]} />)
+
+    it('shows the localized status for a completed or failed campaign', () => {
+      expect(label({ status: 'completed', scheduledAt: '2026-11-10T02:00:00Z' })).toContain('campaignScheduleSent')
+      expect(label({ status: 'failed', schedule: { trigger: 'birthday' } })).toContain('campaignScheduleFailed')
+    })
+
+    it('says Automatic for a trigger/recurring schedule', () => {
+      expect(label({ status: 'active', schedule: { trigger: 'birthday' } })).toContain('campaignAutomatic')
+    })
+
+    it('says Scheduled <date> for a one-off scheduledAt', () => {
+      const all = label({ scheduledAt: '2026-11-10T02:00:00Z' })
+      expect(all.some((x) => x.startsWith('campaignScheduled:'))).toBe(true)
+    })
+
+    it('says Manual send otherwise — never Send now', () => {
+      const all = label({})
+      expect(all).toContain('campaignManualSend')
+      expect(all).not.toContain('campaignSendNow')
+    })
   })
 })

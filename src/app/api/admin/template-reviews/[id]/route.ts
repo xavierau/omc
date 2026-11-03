@@ -16,8 +16,8 @@ import {
 } from '@/application/review-template'
 import { ForbiddenError } from '@/application/forbidden-error'
 import { getTemplateReviewDetail } from '@/application/get-template-review-detail'
+import { isValidUUID } from '@/infrastructure/validation/validators'
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_ACTIONS: readonly ReviewAction[] = [
   'approve',
   'reject',
@@ -35,7 +35,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
     const { id } = await params
-    if (!UUID_REGEX.test(id)) {
+    if (!isValidUUID(id)) {
       return NextResponse.json({ error: 'Invalid review ID' }, { status: 400 })
     }
     const detail = await getTemplateReviewDetail(id)
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
     const { id } = await params
-    if (!UUID_REGEX.test(id)) {
+    if (!isValidUUID(id)) {
       return NextResponse.json({ error: 'Invalid review ID' }, { status: 400 })
     }
     const parsed = await parseBody(request)

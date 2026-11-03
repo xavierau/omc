@@ -63,6 +63,7 @@ function campaign(overrides: Partial<TemplateCampaignRow> = {}): TemplateCampaig
     targetAudience: 'tag',
     couponConfig: { discountType: 'percentage', discountValue: 20, expiresInDays: 14 },
     scheduledAt: null,
+    schedule: null,
     createdAt: '2026-10-31T00:00:00Z',
     ...overrides,
   }
@@ -72,7 +73,7 @@ function deps(overrides: Partial<TemplateReviewDetailDeps> = {}): TemplateReview
   return {
     findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps())),
     findRestaurantNames: vi.fn(async () => new Map([[RESTAURANT, 'Bicho']])),
-    findUserEmail: vi.fn(async () => 'owner@bicho.hk'),
+    findUserEmails: vi.fn(async () => new Map([[SUBMITTER, 'owner@bicho.hk']])),
     findTemplateById: vi.fn(async () => template()),
     findLatestTemplateByName: vi.fn(async () => null),
     listCampaignsUsingTemplate: vi.fn(async () => [campaign()]),
@@ -106,7 +107,9 @@ describe('getTemplateReviewDetail', () => {
     })
   })
 
-  it('falls back to the latest template by (restaurant, name) when the review has no templateId', async () => {
+  it('falls back to the latest template by (restaurant, name) only when the review has no templateId', async () => {
+    // The review snapshot carries no language (template_review_queue has no
+    // language column), so the name fallback is latest-by-name.
     const d = deps({
       findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ templateId: null }))),
       findLatestTemplateByName: vi.fn(async () => template({ id: 'tpl-by-name' })),
@@ -116,28 +119,39 @@ describe('getTemplateReviewDetail', () => {
     expect(d.findTemplateById).not.toHaveBeenCalled()
     expect(d.findLatestTemplateByName).toHaveBeenCalledWith(RESTAURANT, 'nov_promo_2026')
     expect(detail?.template?.id).toBe('tpl-by-name')
+    expect(detail?.templateMissing).toBe(false)
     expect(d.listCampaignsUsingTemplate).toHaveBeenCalledWith(RESTAURANT, 'tpl-by-name')
   })
 
-  it('falls back to the name lookup when the templateId no longer resolves', async () => {
+  it('never falls back by name when the templateId is set but no longer resolves — flags templateMissing', async () => {
     const d = deps({
       findTemplateById: vi.fn(async () => null),
       findLatestTemplateByName: vi.fn(async () => template({ id: 'tpl-2' })),
     })
     const detail = await getTemplateReviewDetail('rev-1', d)
-    expect(detail?.template?.id).toBe('tpl-2')
+
+    expect(d.findLatestTemplateByName).not.toHaveBeenCalled()
+    expect(detail?.template).toBeNull()
+    expect(detail?.templateMissing).toBe(true)
+    expect(detail?.campaigns).toEqual([])
+    expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
   })
 
-  it('returns template null and no campaigns when no template matches', async () => {
+  it('flags templateMissing when the name fallback finds nothing either', async () => {
     const d = deps({
-      findTemplateById: vi.fn(async () => null),
+      findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ templateId: null }))),
       findLatestTemplateByName: vi.fn(async () => null),
     })
     const detail = await getTemplateReviewDetail('rev-1', d)
 
     expect(detail?.template).toBeNull()
-    expect(detail?.campaigns).toEqual([])
+    expect(detail?.templateMissing).toBe(true)
     expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
+  })
+
+  it('reports templateMissing false when the review templateId resolves', async () => {
+    const detail = await getTemplateReviewDetail('rev-1', deps())
+    expect(detail?.templateMissing).toBe(false)
   })
 
   it('returns restaurant name and submitter email instead of bare ids', async () => {
@@ -146,7 +160,7 @@ describe('getTemplateReviewDetail', () => {
 
     expect(detail?.restaurant).toEqual({ id: RESTAURANT, name: 'Bicho' })
     expect(detail?.submitterEmail).toBe('owner@bicho.hk')
-    expect(d.findUserEmail).toHaveBeenCalledWith(SUBMITTER)
+    expect(d.findUserEmails).toHaveBeenCalledTimes(1)
     expect(detail?.review.id).toBe('rev-1')
   })
 
@@ -192,17 +206,17 @@ describe('getTemplateReviewDetail', () => {
       findReviewById: vi.fn(async () => TemplateReview.fromProps(reviewProps({ submittedBy: 'unknown' }))),
     })
     const detail = await getTemplateReviewDetail('rev-1', d)
-    expect(d.findUserEmail).not.toHaveBeenCalled()
+    expect(d.findUserEmails).not.toHaveBeenCalled()
     expect(detail?.submitterEmail).toBeNull()
   })
 })
 
 describe('enrichTemplateReviews', () => {
-  it('adds restaurantName and submitterEmail using one restaurant query and one lookup per distinct submitter', async () => {
+  it('adds restaurantName and submitterEmail with one restaurant query and ONE user listing per request', async () => {
     const other = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
     const d = deps({
       findRestaurantNames: vi.fn(async () => new Map([[RESTAURANT, 'Bicho']])),
-      findUserEmail: vi.fn(async (id: string) => (id === SUBMITTER ? 'owner@bicho.hk' : null)),
+      findUserEmails: vi.fn(async () => new Map([[SUBMITTER, 'owner@bicho.hk']])),
     })
     const rows = await enrichTemplateReviews(
       [
@@ -215,12 +229,21 @@ describe('enrichTemplateReviews', () => {
 
     expect(d.findRestaurantNames).toHaveBeenCalledTimes(1)
     expect(d.findRestaurantNames).toHaveBeenCalledWith([RESTAURANT, other])
-    expect(d.findUserEmail).toHaveBeenCalledTimes(2)
+    expect(d.findUserEmails).toHaveBeenCalledTimes(1)
     expect(rows.map((r) => [r.id, r.restaurantName, r.submitterEmail])).toEqual([
       ['r1', 'Bicho', 'owner@bicho.hk'],
       ['r2', 'Bicho', 'owner@bicho.hk'],
       ['r3', null, null],
     ])
+  })
+
+  it('leaves names and emails null when both lookups come back empty (degraded)', async () => {
+    const d = deps({
+      findRestaurantNames: vi.fn(async () => new Map()),
+      findUserEmails: vi.fn(async () => new Map()),
+    })
+    const [row] = await enrichTemplateReviews([reviewProps()], d)
+    expect([row.restaurantName, row.submitterEmail]).toEqual([null, null])
   })
 
   it('makes no lookups for an empty list', async () => {

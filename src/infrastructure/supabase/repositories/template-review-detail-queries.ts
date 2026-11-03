@@ -4,22 +4,17 @@
 
 import { createServerSupabaseClient } from '../client'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import type { Campaign, CouponConfig } from '@/domain/entities/campaign'
+import type { Campaign } from '@/domain/entities/campaign'
 import { mapRowToTemplate, type WhatsAppTemplateRow } from './whatsapp-template-mapper'
+import { mapRowToCampaign } from './campaign-mapper'
 
-export interface TemplateCampaignRow {
-  id: string
-  name: string | null
-  type: Campaign['type']
-  status: Campaign['status']
-  targetAudience: Campaign['targetAudience']
-  couponConfig: CouponConfig | null
-  scheduledAt: string | null
-  createdAt: string
-}
+export type TemplateCampaignRow = Pick<
+  Campaign,
+  'id' | 'name' | 'type' | 'status' | 'targetAudience' | 'couponConfig' | 'schedule' | 'scheduledAt' | 'createdAt'
+>
 
 const CAMPAIGN_COLUMNS =
-  'id, name, type, status, target_audience, coupon_config, scheduled_at, created_at'
+  'id, name, type, status, target_audience, coupon_config, schedule, scheduled_at, created_at'
 
 // Campaigns per template are few; the cap keeps the panel bounded anyway.
 const CAMPAIGN_LIMIT = 50
@@ -56,7 +51,7 @@ export async function listCampaignsUsingTemplate(
     .order('created_at', { ascending: false })
     .limit(CAMPAIGN_LIMIT)
   if (error) throw new Error(`listCampaignsUsingTemplate: ${error.message}`)
-  return ((data ?? []) as Record<string, unknown>[]).map(toCampaignRow)
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => pickCampaignRow(mapRowToCampaign(row)))
 }
 
 /** Head count — never reads the member ids (no max-rows truncation). */
@@ -70,15 +65,16 @@ export async function countCampaignMembers(campaignId: string): Promise<number> 
   return count ?? 0
 }
 
-function toCampaignRow(row: Record<string, unknown>): TemplateCampaignRow {
+function pickCampaignRow(c: Campaign): TemplateCampaignRow {
   return {
-    id: row.id as string,
-    name: (row.name as string | null) ?? null,
-    type: row.type as Campaign['type'],
-    status: row.status as Campaign['status'],
-    targetAudience: (row.target_audience as Campaign['targetAudience']) ?? 'all',
-    couponConfig: (row.coupon_config as CouponConfig | null) ?? null,
-    scheduledAt: (row.scheduled_at as string | null) ?? null,
-    createdAt: row.created_at as string,
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    status: c.status,
+    targetAudience: c.targetAudience,
+    couponConfig: c.couponConfig,
+    schedule: c.schedule,
+    scheduledAt: c.scheduledAt,
+    createdAt: c.createdAt,
   }
 }

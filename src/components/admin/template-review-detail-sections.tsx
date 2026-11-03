@@ -1,29 +1,37 @@
 'use client'
 
 // WAQ-011-DETAIL: the read-only half of the review panel — Summary,
-// Template preview, Campaigns. Fetches the detail when the panel opens; the
-// summary renders at once from the list row and fills in template facts.
+// Submitted content, Current template, Campaigns. The detail state comes from
+// the sheet (it also gates the decision buttons). Summary and Submitted
+// content render at once from the list row, in every state: the admin judges
+// the submission, and the current template is shown only as context.
 
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import type { TemplateReviewItem } from '@/hooks/use-admin-template-reviews'
-import {
-  useAdminTemplateReviewDetail,
-  type TemplateReviewDetail,
+import type {
+  TemplateReviewDetail,
+  TemplateReviewDetailState,
 } from '@/hooks/use-admin-template-review-detail'
 import { TemplateReviewPreview } from './template-review-preview'
 import { TemplateReviewCampaigns } from './template-review-campaigns'
 
 type T = ReturnType<typeof useTranslations>
 
-export function TemplateReviewDetailSections({ review }: { review: TemplateReviewItem }) {
+export function TemplateReviewDetailSections({ review, state }: {
+  review: TemplateReviewItem
+  state: TemplateReviewDetailState
+}) {
   const t = useTranslations('adminTemplateReviews')
-  const { detail, isLoading, error, refetch } = useAdminTemplateReviewDetail(review.id)
+  const { detail, isLoading, error, refetch } = state
   return (
     <>
       <Section title={t('sectionSummary')}>
         <ReviewSummary review={review} detail={detail} t={t} />
+      </Section>
+      <Section title={t('sectionSubmittedContent')}>
+        <SubmittedContent text={review.contentPreview} t={t} />
       </Section>
       {error ? (
         <div data-testid="template-review-detail-error" role="alert" className="space-y-2">
@@ -35,27 +43,34 @@ export function TemplateReviewDetailSections({ review }: { review: TemplateRevie
           {t('detailLoading')}
         </p>
       ) : (
-        <LoadedSections review={review} detail={detail} t={t} />
+        <LoadedSections detail={detail} t={t} />
       )}
     </>
   )
 }
 
-function LoadedSections({ review, detail, t }: {
-  review: TemplateReviewItem
-  detail: TemplateReviewDetail
-  t: T
-}) {
+function SubmittedContent({ text, t }: { text: string | null; t: T }) {
+  return (
+    <div data-testid="template-review-submitted-content" className="rounded-md border p-3">
+      {text ? (
+        <p className="whitespace-pre-wrap break-words leading-relaxed">{text}</p>
+      ) : (
+        <p className="text-muted-foreground">{t('submittedContentEmpty')}</p>
+      )}
+    </div>
+  )
+}
+
+function LoadedSections({ detail, t }: { detail: TemplateReviewDetail; t: T }) {
   return (
     <>
-      <Section title={t('sectionPreview')}>
-        {detail.template ? (
+      <Section title={t('sectionCurrentTemplate')}>
+        {detail.template && !detail.templateMissing ? (
           <TemplateReviewPreview components={detail.template.components} />
         ) : (
-          <div className="space-y-1">
-            <p className="text-muted-foreground">{t('templateMissing')}</p>
-            {review.contentPreview && <p className="whitespace-pre-wrap">{review.contentPreview}</p>}
-          </div>
+          <p data-testid="template-review-template-missing" role="status" className="text-muted-foreground">
+            {t('templateMissing')}
+          </p>
         )}
       </Section>
       <Section title={t('sectionCampaigns')}>
@@ -92,6 +107,8 @@ function ReviewSummary({ review, detail, t }: {
       <dt className="text-muted-foreground">{t('panelLanguage')}</dt><dd>{tpl?.language ?? '—'}</dd>
       <dt className="text-muted-foreground">{t('panelCategory')}</dt><dd>{tpl?.category ?? '—'}</dd>
       <dt className="text-muted-foreground">{t('panelMetaStatus')}</dt><dd>{tpl?.status ?? '—'}</dd>
+      <dt className="text-muted-foreground">{t('panelSubmittedAudience')}</dt>
+      <dd>{review.targetAudienceSize === null ? '—' : review.targetAudienceSize.toLocaleString('en-HK')}</dd>
       <dt className="text-muted-foreground">{t('panelSubmitted')}</dt>
       <dd>{new Date(review.submittedAt).toLocaleString('en-HK')}</dd>
       <dt className="text-muted-foreground">{t('panelSubmittedBy')}</dt>

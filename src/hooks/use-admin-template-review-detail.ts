@@ -55,3 +55,5 @@ export function useAdminTemplateReviewDetail(reviewId: string | null) {
     refetch,
   }
 }
+
+export type TemplateReviewDetailState = ReturnType<typeof useAdminTemplateReviewDetail>
