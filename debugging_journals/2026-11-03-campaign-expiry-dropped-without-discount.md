@@ -10,10 +10,17 @@ A merchant edited prod campaign `6fff0fa9…` ("Nov promo_batch1", a free-item o
 - `couponConfig: null` is the deliberate marketing-only mode (#134): `execute-campaign-broadcast.ts` sends the message with no coupon and no QR. The send semantics were correct. The form just never told the merchant about them, and it let them type an expiry that could not be saved.
 
 ## Fix
-- Added `hasCouponDiscount(form)` in `campaign-form-types.ts`. It is now the only definition of "this form issues a coupon". `buildCampaignRequestBody` uses it to decide `couponConfig`, and the form uses it for the UI.
-- `CouponConfigFields` (`campaign-form-fields.tsx`): when `hasCouponDiscount` is false it shows an amber `role="status"` notice (`data-testid="campaign-coupon-no-discount-alert"`, i18n key `campaigns.couponNoDiscountAlert` in en and zh-HK). The notice says no coupon or QR code will be issued and the expiry will not be saved. The Expiry input is disabled in that state.
-- Send semantics are unchanged: a blank or 0 discount still sends `couponConfig: null`.
+- Round 0 (PR #173, commit 8286d286) added `hasCouponDiscount(form)` and one amber notice saying "no coupon or QR code is issued". Review found that notice is wrong for claim-button templates: `sendToMember` (`execute-campaign-broadcast.ts`) checks `isClaimTemplate` before `couponConfig`, and `claim-campaign-coupon.ts` mints a coupon on tap even when `couponConfig` is null. That coupon has no discount and never expires (`expiresAt` null).
+- Round 1 (review round 1) replaced the predicate with `couponFormMode(form, selectedTemplate)` in `campaign-form-types.ts`. It returns `{ mode, discount }`, with the mode in the same order as `sendToMember`:
+  - `discount`: the discount value is > 0. A coupon is issued and the expiry is saved.
+  - `claim_no_discount`: no discount, and the selected WhatsApp template is a claim template (`isClaimTemplate` from `src/domain/services/campaign-mode.ts`, the function the sender uses). Inline campaigns are never claim campaigns.
+  - `marketing_only`: anything else. No coupon is issued (#134).
+- `CouponConfigFields` (`campaign-form-fields.tsx`) shows the existing notice for `marketing_only` (`campaign-coupon-no-discount-alert`, `campaigns.couponNoDiscountAlert`). For `claim_no_discount` it shows a second notice (`campaign-coupon-claim-no-discount-alert`, `campaigns.couponClaimNoDiscountAlert`). In both modes the Discount Type and Expiry fields are disabled.
+- The approved-template list moved out of `CampaignMessageTypeField` into `useApprovedWaTemplates`, so the coupon fields can see the selected template's components. No new route was added.
+- Send and server semantics are unchanged. `couponConfig` is null whenever the discount is not > 0, and `buildCampaignRequestBody` uses the same parsed discount.
 
 ## Prevention
-- One shared predicate means the form's warning and the request body cannot disagree about when a coupon exists. A test in `campaign-form-fields.test.ts` asserts that `buildCampaignRequestBody(form).couponConfig !== null` equals `hasCouponDiscount(form)` for blank, 0, 0.5, 10 and -1.
-- Rule of thumb: a form field that a mode silently ignores must be disabled in that mode, and the form must say why.
+- The form's mode copies the sender's branch order and calls the sender's own `isClaimTemplate`. A form helper that only looked at the form fields could not see the claim path. That is how round 0 shipped a wrong "no coupon" message for claim templates, even though its request-body check was internally consistent.
+- Tests in `campaign-form-fields.test.ts` check the mode for each send path. Inline with a blank discount gives `marketing_only`. A BODY-only template with a blank discount gives `marketing_only`. A QUICK_REPLY claim template with a blank discount gives `claim_no_discount`. Any send with a discount of 10 gives `discount`.
+- Rule of thumb: when a form explains what a send will do, derive the explanation from the sender's own decision functions, in the sender's order. Never restate them from the form's fields alone.
+- Rule of thumb: a field that a mode silently ignores must be disabled in that mode, and the form must say why.

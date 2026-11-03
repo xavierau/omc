@@ -4,7 +4,8 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-03
-status: active
+status: superseded
+superseded_by: artifacts/2026-11-03-camp-expiry-001-r1-handoff
 item: CAMP-EXPIRY-001
 state: done
 brief: inline

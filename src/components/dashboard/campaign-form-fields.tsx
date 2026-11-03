@@ -2,10 +2,11 @@
 
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
-import { CampaignMessageTypeField } from './campaign-message-type-field'
+import { CampaignMessageTypeField, useApprovedWaTemplates } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
-import { hasCouponDiscount, type CampaignFormState } from './campaign-form-types'
+import { couponFormMode, type CampaignFormState } from './campaign-form-types'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
 export {
@@ -13,7 +14,7 @@ export {
   CAMPAIGN_TEMPLATE_PLACEHOLDERS,
   buildCampaignRequestBody,
   validateCampaignForm,
-  hasCouponDiscount,
+  couponFormMode,
 } from './campaign-form-types'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -40,6 +41,8 @@ export function CampaignFormFields({
   onTemplateChange,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
+  const approvedTemplates = useApprovedWaTemplates(form.messageType)
+  const selectedTemplate = approvedTemplates.find((tpl) => tpl.id === form.whatsappTemplateId) ?? null
   return (
     <div className="space-y-4 mt-4">
       <Field label={t('formName')}>
@@ -62,7 +65,12 @@ export function CampaignFormFields({
         onMemberIdsChange={onMemberIdsChange}
         onTagIdsChange={onTagIdsChange}
       />
-      <CampaignMessageTypeField form={form} onChange={onChange} onTemplateChange={onTemplateChange} />
+      <CampaignMessageTypeField
+        form={form}
+        approvedTemplates={approvedTemplates}
+        onChange={onChange}
+        onTemplateChange={onTemplateChange}
+      />
       {form.type === 'welcome' && (
         <WelcomeImageFields
           form={form}
@@ -71,20 +79,32 @@ export function CampaignFormFields({
           onChange={onChange}
         />
       )}
-      <CouponConfigFields form={form} onChange={onChange} />
+      <CouponConfigFields form={form} selectedTemplate={selectedTemplate} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
     </div>
   )
 }
 
-function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onChange: OnChange }) {
+interface CouponConfigFieldsProps {
+  form: CampaignFormState
+  selectedTemplate: WhatsAppTemplate | null
+  onChange: OnChange
+}
+
+function CouponConfigFields({ form, selectedTemplate, onChange }: CouponConfigFieldsProps) {
   const t = useTranslations('campaigns')
-  const issuesCoupon = hasCouponDiscount(form)
+  const { mode } = couponFormMode(form, selectedTemplate)
+  const noDiscount = mode !== 'discount'
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
       <legend className="text-sm font-medium px-1">{t('couponConfig')}</legend>
       <Field label={t('discountType')}>
-        <select value={form.discountType} onChange={(e) => onChange('discountType', e.target.value)} className={selectClass}>
+        <select
+          value={form.discountType}
+          onChange={(e) => onChange('discountType', e.target.value)}
+          className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}
+          disabled={noDiscount}
+        >
           <option value="percentage">{t('percentage')}</option>
           <option value="fixed_amount">{t('fixedAmount')}</option>
         </select>
@@ -97,25 +117,37 @@ function CouponConfigFields({ form, onChange }: { form: CampaignFormState; onCha
           placeholder={form.discountType === 'percentage' ? '20' : '50'}
         />
       </Field>
-      {!issuesCoupon && (
-        <div
-          role="status"
-          data-testid="campaign-coupon-no-discount-alert"
-          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
-        >
-          {t('couponNoDiscountAlert')}
-        </div>
-      )}
+      <CouponModeAlert mode={mode} />
       <Field label={t('expiryDays')}>
         <Input
           type="number"
           value={form.expiresInDays}
           onChange={(e) => onChange('expiresInDays', e.target.value)}
           placeholder="30"
-          disabled={!issuesCoupon}
+          disabled={noDiscount}
         />
       </Field>
     </fieldset>
+  )
+}
+
+const ALERT_COPY = {
+  marketing_only: { key: 'couponNoDiscountAlert', testId: 'campaign-coupon-no-discount-alert' },
+  claim_no_discount: { key: 'couponClaimNoDiscountAlert', testId: 'campaign-coupon-claim-no-discount-alert' },
+} as const
+
+function CouponModeAlert({ mode }: { mode: ReturnType<typeof couponFormMode>['mode'] }) {
+  const t = useTranslations('campaigns')
+  if (mode === 'discount') return null
+  const { key, testId } = ALERT_COPY[mode]
+  return (
+    <div
+      role="status"
+      data-testid={testId}
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+    >
+      {t(key)}
+    </div>
   )
 }
 

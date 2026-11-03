@@ -4,9 +4,33 @@ import {
   initialCampaignForm,
   CAMPAIGN_TEMPLATE_PLACEHOLDERS,
   validateCampaignForm,
-  hasCouponDiscount,
+  couponFormMode,
   type CampaignFormState,
 } from '@/components/dashboard/campaign-form-fields'
+import type { WhatsAppTemplate, TemplateComponent } from '@/domain/entities/whatsapp-template'
+
+function waTemplate(components: TemplateComponent[]): WhatsAppTemplate {
+  return {
+    id: 'wa-1',
+    restaurantId: 'r-1',
+    metaTemplateId: 'meta-1',
+    name: 'promo_claim',
+    language: 'zh_HK',
+    category: 'MARKETING',
+    status: 'approved',
+    components,
+    parameterFormat: 'NAMED',
+    rejectionReason: null,
+    createdAt: '2026-11-01T00:00:00Z',
+    updatedAt: '2026-11-01T00:00:00Z',
+  }
+}
+
+const bodyOnlyTemplate = waTemplate([{ type: 'BODY', text: 'Hi {{name}}' }])
+const claimTemplate = waTemplate([
+  { type: 'BODY', text: 'Tap to claim your gift' },
+  { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Claim' }] },
+])
 
 function inlineForm(overrides: Partial<CampaignFormState> = {}): CampaignFormState {
   return {
@@ -97,20 +121,45 @@ describe('campaign-form-fields', () => {
     })
   })
 
-  describe('hasCouponDiscount (CAMP-EXPIRY-001)', () => {
-    it.each(['', '0', '-5', 'abc'])('is false for discountValue %j', (discountValue) => {
-      expect(hasCouponDiscount(inlineForm({ discountValue }))).toBe(false)
+  describe('couponFormMode (CAMP-EXPIRY-001 R1)', () => {
+    const waForm = (discountValue: string) =>
+      inlineForm({ messageType: 'wa_template', whatsappTemplateId: 'wa-1', discountValue })
+
+    it('inline + blank discount → marketing_only', () => {
+      expect(couponFormMode(inlineForm({ discountValue: '' }), null)).toEqual({
+        mode: 'marketing_only',
+        discount: null,
+      })
     })
 
-    it('is true for discountValue "10"', () => {
-      expect(hasCouponDiscount(inlineForm({ discountValue: '10' }))).toBe(true)
+    it('inline is never claim, even if a claim template is passed', () => {
+      expect(couponFormMode(inlineForm({ discountValue: '' }), claimTemplate).mode).toBe('marketing_only')
     })
 
-    it('agrees with buildCampaignRequestBody on whether a coupon is issued', () => {
-      for (const discountValue of ['', '0', '0.5', '10', '-1']) {
-        const form = inlineForm({ discountValue })
-        expect(buildCampaignRequestBody(form).couponConfig !== null).toBe(hasCouponDiscount(form))
-      }
+    it('wa_template without a claim button (BODY only) + blank discount → marketing_only', () => {
+      expect(couponFormMode(waForm(''), bodyOnlyTemplate).mode).toBe('marketing_only')
+    })
+
+    it('wa_template with a QUICK_REPLY claim button + blank discount → claim_no_discount', () => {
+      expect(couponFormMode(waForm(''), claimTemplate)).toEqual({
+        mode: 'claim_no_discount',
+        discount: null,
+      })
+    })
+
+    it.each([
+      ['inline', inlineForm({ discountValue: '10' }), null],
+      ['wa_template non-claim', waForm('10'), bodyOnlyTemplate],
+      ['wa_template claim', waForm('10'), claimTemplate],
+    ] as const)('%s + "10" → discount 10', (_label, form, template) => {
+      expect(couponFormMode(form, template)).toEqual({ mode: 'discount', discount: 10 })
+    })
+
+    it.each(['0', '-5', 'abc'])('treats discountValue %j as no discount', (discountValue) => {
+      expect(couponFormMode(inlineForm({ discountValue }), null)).toEqual({
+        mode: 'marketing_only',
+        discount: null,
+      })
     })
   })
 

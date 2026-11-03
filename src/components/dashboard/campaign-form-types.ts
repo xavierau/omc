@@ -1,3 +1,6 @@
+import { isClaimTemplate } from '@/domain/services/campaign-mode'
+import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+
 export interface CampaignFormState {
   name: string
   type: string
@@ -60,17 +63,37 @@ export interface CampaignRequestBody {
 }
 
 /**
- * Whether the form issues a coupon. False → couponConfig is sent as null:
- * the campaign is marketing-only (no coupon, no QR) and expiry is not saved (#134).
- * Single source for both the request body and the form's no-discount alert.
+ * What a send of this form does with coupons, mirroring sendToMember's order
+ * (execute-campaign-broadcast.ts): a claim-button template mints a coupon on tap
+ * even without couponConfig (no discount, never expires); otherwise no discount
+ * → marketing-only (no coupon, #134). Expiry is saved only in 'discount' mode.
  */
-export function hasCouponDiscount(form: Pick<CampaignFormState, 'discountValue'>): boolean {
-  return Number(form.discountValue) > 0
+export type CouponFormMode = 'discount' | 'marketing_only' | 'claim_no_discount'
+
+export interface CouponFormModeResult {
+  mode: CouponFormMode
+  /** Parsed discountValue when > 0, else null (couponConfig is then null). */
+  discount: number | null
+}
+
+export function couponFormMode(
+  form: Pick<CampaignFormState, 'messageType' | 'discountValue'>,
+  selectedTemplate: WhatsAppTemplate | null
+): CouponFormModeResult {
+  const discount = parseCouponDiscount(form)
+  if (discount !== null) return { mode: 'discount', discount }
+  const isClaim = form.messageType === 'wa_template' && isClaimTemplate(selectedTemplate)
+  return { mode: isClaim ? 'claim_no_discount' : 'marketing_only', discount: null }
+}
+
+function parseCouponDiscount(form: Pick<CampaignFormState, 'discountValue'>): number | null {
+  const value = Number(form.discountValue)
+  return value > 0 ? value : null
 }
 
 export function buildCampaignRequestBody(form: CampaignFormState): CampaignRequestBody {
   const useWaTemplate = form.messageType === 'wa_template'
-  const discountValue = Number(form.discountValue)
+  const discountValue = parseCouponDiscount(form)
   // Image attachments are locked to welcome campaigns only (ONBOARD-010).
   const isWelcome = form.type === 'welcome'
   const body: CampaignRequestBody = {
@@ -81,7 +104,7 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
     imageUrlEn: isWelcome ? nullIfBlank(form.imageUrlEn) : null,
     imageUrlZhHk: isWelcome ? nullIfBlank(form.imageUrlZhHk) : null,
     whatsappTemplateId: useWaTemplate ? form.whatsappTemplateId : null,
-    couponConfig: hasCouponDiscount(form)
+    couponConfig: discountValue !== null
       ? {
           discountType: form.discountType,
           discountValue,

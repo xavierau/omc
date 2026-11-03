@@ -261,6 +261,7 @@
     "discountValue": "Discount Value",
     "expiryDays": "Expiry (days)",
     "couponNoDiscountAlert": "No discount value: this campaign sends the message only. No coupon or QR code is issued, and expiry days are not saved. Enter a discount value to issue a coupon.",
+    "couponClaimNoDiscountAlert": "Claim-button template with no discount value: customers get a coupon when they tap claim, but it has no discount and never expires. Enter a discount value to set an expiry.",
     "execution": "Execution",
     "executionNow": "Send manually",
     "executionSchedule": "Schedule",

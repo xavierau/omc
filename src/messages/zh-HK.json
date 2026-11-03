@@ -261,6 +261,7 @@
     "discountValue": "折扣數值",
     "expiryDays": "有效期（天）",
     "couponNoDiscountAlert": "未設定折扣數值：此推廣只會發送訊息，不會發出優惠券或QR碼，有效期亦不會儲存。請輸入折扣數值以發出優惠券。",
+    "couponClaimNoDiscountAlert": "領取按鈕範本未設定折扣數值：顧客按領取後會收到優惠券，但沒有折扣及永不過期。請輸入折扣數值以設定有效期。",
     "execution": "執行方式",
     "executionNow": "手動發送",
     "executionSchedule": "排程發送",
