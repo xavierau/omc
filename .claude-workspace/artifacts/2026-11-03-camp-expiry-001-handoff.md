@@ -30,6 +30,15 @@ decisions:
   - "Alert is a styled div copying campaign-guardrail-banner's amber classes (no Alert primitive in src/components/ui) — decide_yourself"
   - "Alert sits between Discount Value and Expiry inside the coupon fieldset, so it is next to the field it explains"
   - "Expiry is disabled but keeps its value. Re-entering a discount re-enables it with what the merchant typed"
+failed:
+  - tried: "chrome-devtools MCP for the browser pass"
+    why: "its shared Chrome profile was already held by another session"
+    evidence: "new_page error: browser already running for ~/.cache/chrome-devtools-mcp/chrome-profile"
+    replaced_by: "playwright-core 1.58.2 in the scratchpad, driving the cached Chromium 1208 headless"
+  - tried: "edit (PATCH) save round-trip on DEV"
+    why: "DEV schema cache lacks campaigns.failure_reason, so PATCH returns 500"
+    evidence: "dev log: updateCampaign: Could not find the 'failure_reason' column of 'campaigns' in the schema cache"
+    replaced_by: "create (POST) round-trip plus a DB read of coupon_config.expiresInDays=60"
 invariants:
   - "couponConfig stays null when Number(discountValue) > 0 is false (marketing-only send, #134)"
 unverified:
