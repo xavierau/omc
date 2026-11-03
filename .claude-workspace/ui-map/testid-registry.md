@@ -39,3 +39,8 @@ the first real run.
 | `/admin/template-reviews` (detail panel) | submitted content | `[data-testid="template-review-submitted-content"]` | 2026-11-03 waq-011-detail (PR #174) |
 | `/admin/template-reviews` (detail panel) | template-could-not-be-loaded notice / campaigns-error notice | `[data-testid="template-review-template-missing"]` / `[data-testid="template-review-campaigns-error"]` | 2026-11-03 waq-011-detail (PR #174) |
 | `/admin/template-reviews` (detail panel) | off-allowlist media header (IMAGE/VIDEO/DOCUMENT URL as text, no href) | `[data-testid="template-review-preview-media-external"]` | 2026-11-03 waq-011-detail (PR #174) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: no discount, message only (marketing_only) | `[data-testid="campaign-coupon-no-discount-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: message needs a coupon, Send will be refused (blocked) | `[data-testid="campaign-coupon-blocked-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: welcome campaign requires a discount | `[data-testid="campaign-coupon-welcome-required-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon check pending while the selected template loads | `[data-testid="campaign-coupon-mode-checking"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` Create/Edit sheet | coupon check unavailable (template load failed) | `[data-testid="campaign-coupon-mode-error"]` | 2026-11-03 camp-expiry-001 (PR #173) |
