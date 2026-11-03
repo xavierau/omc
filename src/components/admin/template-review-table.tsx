@@ -40,7 +40,12 @@ export function TemplateReviewTable({ reviews, onReview }: Props) {
       <TableBody>
         {reviews.map((r) => (
           <TableRow key={r.id}>
-            <TableCell className="font-medium">{r.restaurantId}</TableCell>
+            <TableCell
+              className="font-medium"
+              title={t('restaurantIdTooltip', { id: r.restaurantId })}
+            >
+              {r.restaurantName ?? r.restaurantId}
+            </TableCell>
             <TableCell>{r.templateName}</TableCell>
             <TableCell className="text-right">{r.targetAudienceSize ?? '—'}</TableCell>
             <TableCell

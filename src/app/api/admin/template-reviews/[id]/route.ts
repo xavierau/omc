@@ -1,6 +1,10 @@
 // WAQ-011: POST /api/admin/template-reviews/[id]
 // Platform-admin decision endpoint. Body: { action, notes? }.
 // Action values map 1:1 to the application-layer ReviewAction union.
+//
+// WAQ-011-DETAIL: GET /api/admin/template-reviews/[id] — read-only detail for
+// the review panel (template components, campaigns using it, restaurant name,
+// submitter email). Platform admin only.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-admin-guard'
@@ -11,6 +15,7 @@ import {
   type ReviewAction,
 } from '@/application/review-template'
 import { ForbiddenError } from '@/application/forbidden-error'
+import { getTemplateReviewDetail } from '@/application/get-template-review-detail'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_ACTIONS: readonly ReviewAction[] = [
@@ -21,6 +26,26 @@ const VALID_ACTIONS: readonly ReviewAction[] = [
 
 interface RouteParams {
   params: Promise<{ id: string }>
+}
+
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  try {
+    const { userId } = await assertPlatformAdmin()
+    if (!checkAdminRateLimit(userId).success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+    const { id } = await params
+    if (!UUID_REGEX.test(id)) {
+      return NextResponse.json({ error: 'Invalid review ID' }, { status: 400 })
+    }
+    const detail = await getTemplateReviewDetail(id)
+    if (!detail) {
+      return NextResponse.json({ error: 'Review not found' }, { status: 404 })
+    }
+    return NextResponse.json(detail)
+  } catch (error) {
+    return handleError(error, 'Template review detail error')
+  }
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
