@@ -90,6 +90,15 @@ describe('buildTemplatePreview', () => {
     expect(header(format, url)).toEqual({ kind: format === 'VIDEO' ? 'video' : 'image', url })
   })
 
+  it('links a DOCUMENT header only on an allowlisted host; off-list is external text', () => {
+    const doc = (url: string) =>
+      buildTemplatePreview([{ type: 'HEADER', format: 'DOCUMENT', example: { headerHandle: [url] } }], SUPABASE).header
+    const pdf = 'https://x.supabase.co/storage/v1/object/public/wa-template-media/r/menu.pdf'
+    expect(doc(pdf)).toEqual({ kind: 'document', url: pdf })
+    expect(doc('https://attacker.example/menu.pdf')).toEqual({ kind: 'external', url: 'https://attacker.example/menu.pdf' })
+    expect(doc('4::minted')).toEqual({ kind: 'document', url: null })
+  })
+
   it('admits no media host from storage when NEXT_PUBLIC_SUPABASE_URL is unset', () => {
     expect(
       buildTemplatePreview([{ type: 'HEADER', format: 'IMAGE', example: { headerHandle: [IMG] } }], undefined).header

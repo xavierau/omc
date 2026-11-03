@@ -62,9 +62,9 @@ function SubmittedContent({ text, t }: { text: string | null; t: T }) {
 }
 
 // A null template means the record could not be loaded (deleted, or the
-// lookup failed) — never asserted as absent. Campaigns are listed by template,
-// so without one there is nothing truthful to say about them unless a lookup
-// failed outright (campaignsError).
+// lookup failed) — never asserted as absent. Campaigns are listed by the
+// review's template id, so they render whenever that listing succeeded, with
+// or without the template row; null campaigns without an error = unknown.
 function LoadedSections({ detail, onRetry, t }: {
   detail: TemplateReviewDetail
   onRetry: () => void
@@ -82,7 +82,7 @@ function LoadedSections({ detail, onRetry, t }: {
           </div>
         )}
       </Section>
-      {(detail.template || detail.campaignsError) && (
+      {(detail.campaigns || detail.campaignsError) && (
         <Section title={t('sectionCampaigns')}>
           {detail.campaignsError || !detail.campaigns ? (
             <p data-testid="template-review-campaigns-error" role="status" className="text-muted-foreground">

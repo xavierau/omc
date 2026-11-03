@@ -131,6 +131,22 @@ describe('TemplateReviewDetailSections', () => {
     expect(indexOfTestId(tree, 'template-review-campaigns-empty')).toBe(-1)
   })
 
+  it('lists the campaigns even when the template record could not be loaded', () => {
+    const camp = {
+      id: 'camp-9', name: 'Still wired', type: 'promo', status: 'active', targetAudience: 'all',
+      couponConfig: null, schedule: null, scheduledAt: null, createdAt: '2026-10-31T00:00:00Z', audienceSize: null,
+    }
+    const tree = render(review(), loaded(detail({ template: null, campaigns: [camp] } as Partial<TemplateReviewDetail>)))
+    expect(indexOfTestId(tree, 'template-review-template-missing')).toBeGreaterThanOrEqual(0)
+    expect(tree.map(text)).toContain('sectionCampaigns')
+    expect(indexOfTestId(tree, 'template-review-campaign-camp-9')).toBeGreaterThanOrEqual(0)
+  })
+
+  it('says "no campaigns" when the template is gone but the listing by its id succeeded empty', () => {
+    const tree = render(review(), loaded(detail({ template: null, campaigns: [] })))
+    expect(indexOfTestId(tree, 'template-review-campaigns-empty')).toBeGreaterThanOrEqual(0)
+  })
+
   it('shows a short campaigns-error notice instead of failing the panel', () => {
     const tree = render(review(), loaded(detail({ campaigns: null, campaignsError: true })))
     const i = indexOfTestId(tree, 'template-review-campaigns-error')

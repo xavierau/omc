@@ -71,11 +71,14 @@ function couponLabel(c: TemplateReviewDetailCampaign, t: T): string {
     : t('campaignCouponFixed', values)
 }
 
-// Finished campaigns report their outcome; a `schedule` JSON means trigger/
-// recurring sends (welcome, birthday, winback); otherwise one-off or manual.
+// Finished campaigns report their outcome; draft and paused ones send nothing
+// until resumed, so they show their status — never "Scheduled". For active /
+// sending: a `schedule` JSON means trigger/recurring sends (welcome, birthday,
+// winback); otherwise one-off or manual.
 function scheduleLabel(c: TemplateReviewDetailCampaign, t: T, format: Format): string {
   if (c.status === 'completed') return t('campaignScheduleSent')
   if (c.status === 'failed') return t('campaignScheduleFailed')
+  if (c.status === 'draft' || c.status === 'paused') return t(`campaignStatus.${c.status}`)
   if (c.schedule) return t('campaignAutomatic')
   if (c.scheduledAt) {
     return t('campaignScheduled', { date: format.dateTime(new Date(c.scheduledAt), SCHEDULE_FORMAT) })

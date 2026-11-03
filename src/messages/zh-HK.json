@@ -563,7 +563,7 @@
     "messages": "訊息",
     "rate": "費率",
     "commission": "佣金",
-    "backToReferrers": "← 推薦人",
+    "backToReferrers": "\u2190 推薦人",
     "commissionHistory": "佣金紀錄",
     "noCommissions": "尚無佣金",
     "assignReferrer": "推薦人",

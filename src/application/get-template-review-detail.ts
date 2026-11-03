@@ -67,7 +67,11 @@ export interface TemplateReviewDetail {
    * findTemplateById cannot tell them apart). The UI shows a notice, never a guess.
    */
   template: TemplateReviewDetailTemplate | null
-  /** null = unknown: no template to list by, or the listing failed (campaignsError). */
+  /**
+   * Listed by the review's templateId whenever it has one, even when the
+   * template row did not resolve. null = unknown: an id-less review whose name
+   * lookup found nothing, or a failed lookup/listing (campaignsError).
+   */
   campaigns: TemplateReviewDetailCampaign[] | null
   /** true when a lookup threw — the panel says so instead of claiming "no campaigns". */
   campaignsError: boolean
@@ -89,7 +93,12 @@ export async function getTemplateReviewDetail(
   if (!found) return null
   const review = { ...found.snapshot }
   const resolved = await resolveTemplate(review, deps)
-  const campaigns = await campaignsFor(review.restaurantId, resolved, deps)
+  // Campaigns still wired to the review's template must show even when that
+  // row is gone (soft-deleted) or its lookup failed: list by the id itself.
+  const listBy = review.templateId ?? resolved.template?.id ?? null
+  const campaigns: CampaignsResult = listBy
+    ? await campaignsFor(review.restaurantId, listBy, deps)
+    : { campaigns: null, campaignsError: resolved.failed }
   return {
     review,
     template: resolved.template ? pickTemplate(resolved.template) : null,
@@ -138,18 +147,15 @@ async function resolveTemplate(
   }
 }
 
-// At most one warn per request: a failed template lookup never reaches the listing.
 async function campaignsFor(
   restaurantId: string,
-  { template, failed }: ResolvedTemplate,
+  templateId: string,
   deps: TemplateReviewDetailDeps
 ): Promise<CampaignsResult> {
-  if (failed) return { campaigns: null, campaignsError: true }
-  if (!template) return { campaigns: null, campaignsError: false }
   try {
-    return { campaigns: await loadCampaigns(restaurantId, template.id, deps), campaignsError: false }
+    return { campaigns: await loadCampaigns(restaurantId, templateId, deps), campaignsError: false }
   } catch (err) {
-    console.warn(`getTemplateReviewDetail: campaigns for template ${template.id} failed:`, err)
+    console.warn(`getTemplateReviewDetail: campaigns for template ${templateId} failed:`, err)
     return { campaigns: null, campaignsError: true }
   }
 }

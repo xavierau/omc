@@ -129,7 +129,7 @@ describe('getTemplateReviewDetail', () => {
     expect(d.listCampaignsUsingTemplate).toHaveBeenCalledWith(RESTAURANT, 'tpl-by-name')
   })
 
-  it('never falls back by name when the templateId is set but no longer resolves — template null, campaigns unknown', async () => {
+  it('never falls back by name when the templateId is set but no longer resolves — template null, campaigns still listed by that id', async () => {
     const d = deps({
       findTemplateById: vi.fn(async () => null),
       findLatestTemplateByName: vi.fn(async () => template({ id: 'tpl-2' })),
@@ -139,9 +139,36 @@ describe('getTemplateReviewDetail', () => {
     expect(d.findLatestTemplateByName).not.toHaveBeenCalled()
     expect(detail?.template).toBeNull()
     expect(detail).not.toHaveProperty('templateMissing')
-    expect(detail?.campaigns).toBeNull()
+    expect(d.listCampaignsUsingTemplate).toHaveBeenCalledWith(RESTAURANT, 'tpl-1')
+    expect(detail?.campaigns?.map((c) => c.id)).toEqual(['camp-1'])
     expect(detail?.campaignsError).toBe(false)
-    expect(d.listCampaignsUsingTemplate).not.toHaveBeenCalled()
+  })
+
+  it('still lists campaigns by the review templateId when the template lookup throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const d = deps({ findTemplateById: vi.fn(async () => { throw new Error('templates down') }) })
+    const detail = await getTemplateReviewDetail('rev-1', d)
+
+    expect(detail?.template).toBeNull()
+    expect(d.listCampaignsUsingTemplate).toHaveBeenCalledWith(RESTAURANT, 'tpl-1')
+    expect(detail?.campaigns?.map((c) => c.id)).toEqual(['camp-1'])
+    expect(detail?.campaignsError).toBe(false)
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('reports campaignsError when the templateId does not resolve and the listing fails too', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const d = deps({
+      findTemplateById: vi.fn(async () => null),
+      listCampaignsUsingTemplate: vi.fn(async () => { throw new Error('campaigns down') }),
+    })
+    const detail = await getTemplateReviewDetail('rev-1', d)
+
+    expect(detail?.template).toBeNull()
+    expect(detail?.campaigns).toBeNull()
+    expect(detail?.campaignsError).toBe(true)
+    warn.mockRestore()
   })
 
   it('returns a null template when the name fallback finds nothing either', async () => {

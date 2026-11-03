@@ -30,7 +30,7 @@ function flatten(node: ReactNode): ReactElement[] {
   return out
 }
 
-const render = (url: string, format: 'IMAGE' | 'VIDEO' = 'IMAGE') => {
+const render = (url: string, format: 'IMAGE' | 'VIDEO' | 'DOCUMENT' = 'IMAGE') => {
   const components: TemplateComponent[] = [
     { type: 'HEADER', format, example: { header_handle: [url] } },
     { type: 'BODY', text: 'Body' },
@@ -66,7 +66,13 @@ describe('TemplateReviewPreview media header', () => {
     expect((video?.props as { src?: string })?.src).toBe(url)
   })
 
-  it.each(['IMAGE', 'VIDEO'] as const)('prints an attacker-host %s URL as plain text and loads nothing', (format) => {
+  it('links a DOCUMENT on the project Supabase host', () => {
+    const url = 'https://proj.supabase.co/storage/v1/object/public/wa-template-media/menu.pdf'
+    const a = render(url, 'DOCUMENT').find((el) => el.type === 'a')
+    expect((a?.props as { href?: string })?.href).toBe(url)
+  })
+
+  it.each(['IMAGE', 'VIDEO', 'DOCUMENT'] as const)('prints an attacker-host %s URL as plain text and loads nothing', (format) => {
     const url = 'https://attacker.example/track.gif'
     const tree = render(url, format)
     expect(loaders(tree)).toEqual([])

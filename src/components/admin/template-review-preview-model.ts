@@ -1,9 +1,10 @@
 // WAQ-011-DETAIL: turns stored template components into what the admin
 // preview bubble renders. Media URLs are admitted only as https — anything
 // else (a minted `4:` handle, http, javascript:) renders as "no preview".
-// IMAGE/VIDEO headers load only from the project's Supabase storage or Meta's
-// media hosts: the URL is tenant-controlled, and loading it from anywhere else
-// would make the platform admin's browser call a third party (r2, R2-5).
+// IMAGE/VIDEO headers load, and DOCUMENT headers link, only from the project's
+// Supabase storage or Meta's media hosts: the URL is tenant-controlled, and
+// loading or linking it from anywhere else would point the platform admin's
+// browser at a third party (r2 R2-5, r3 R3-3).
 
 import type {
   TemplateComponent,
@@ -81,9 +82,9 @@ function toHeader(c: TemplateComponent | undefined, supabaseUrl: string | undefi
   const format = c.format ?? 'TEXT'
   if (format === 'TEXT') return c.text ? { kind: 'text', text: c.text } : null
   const url = safeHttpsUrl(readHeaderHandle(c)?.[0])
+  if (url && !isAllowedMediaUrl(url, supabaseUrl)) return { kind: 'external', url }
   if (format === 'DOCUMENT') return { kind: 'document', url }
   if (!url) return { kind: 'media-unavailable' }
-  if (!isAllowedMediaUrl(url, supabaseUrl)) return { kind: 'external', url }
   return { kind: format === 'VIDEO' ? 'video' : 'image', url }
 }
 

@@ -75,7 +75,7 @@ describe('TemplateReviewCampaigns', () => {
     expect(all).toContain('November promo')
     expect(all).toContain('campaignAudienceSize:{"label":"audience.tag","count":42}')
     expect(all).toContain('campaignCouponPercent:{"value":20,"days":14}')
-    expect(all).toContain('campaignManualSend')
+    expect(all).toContain('campaignStatus.draft')
     expect(all).not.toContain('campaignSendNow')
   })
 
@@ -113,14 +113,21 @@ describe('TemplateReviewCampaigns', () => {
       expect(label({ status: 'active', schedule: { trigger: 'birthday' } })).toContain('campaignAutomatic')
     })
 
-    it('says Scheduled <date> for a one-off scheduledAt, formatted by next-intl for the active locale in HK time', () => {
-      const all = label({ scheduledAt: '2026-11-10T02:00:00Z' })
+    it.each(['active', 'sending'] as const)('says Scheduled <date> for a %s one-off scheduledAt, formatted by next-intl in HK time', (status) => {
+      const all = label({ status, scheduledAt: '2026-11-10T02:00:00Z' })
       expect(all).toContain('campaignScheduled:{"date":"fmt(2026-11-10T02:00:00.000Z,Asia/Hong_Kong)"}')
       expect(dateTime).toHaveBeenCalled()
     })
 
+    it.each(['draft', 'paused'] as const)('shows the %s status label, never Scheduled, even with a scheduledAt or schedule', (status) => {
+      const withDate = label({ status, scheduledAt: '2026-11-10T02:00:00Z' })
+      expect(withDate).toContain(`campaignStatus.${status}`)
+      expect(withDate.some((s) => s.startsWith('campaignScheduled'))).toBe(false)
+      expect(label({ status, schedule: { trigger: 'birthday' } })).toContain(`campaignStatus.${status}`)
+    })
+
     it('says Manual send otherwise — never Send now', () => {
-      const all = label({})
+      const all = label({ status: 'active' })
       expect(all).toContain('campaignManualSend')
       expect(all).not.toContain('campaignSendNow')
     })

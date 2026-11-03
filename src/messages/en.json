@@ -563,7 +563,7 @@
     "messages": "Messages",
     "rate": "Rate",
     "commission": "Commission",
-    "backToReferrers": "← Referrers",
+    "backToReferrers": "\u2190 Referrers",
     "commissionHistory": "Commission History",
     "noCommissions": "No commissions yet",
     "assignReferrer": "Referrer",
