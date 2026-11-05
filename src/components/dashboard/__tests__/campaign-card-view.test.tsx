@@ -12,7 +12,12 @@ vi.mock('next-intl', () => ({
 }))
 
 import { CampaignCardView, type CampaignCardViewProps } from '@/components/dashboard/campaign-card-view'
-import { deliveryUnknownReason } from '@/domain/services/campaign-delivery-failure-reason'
+import {
+  deliveryFailureReason,
+  deliveryUnknownReason,
+} from '@/domain/services/campaign-delivery-failure-reason'
+import enMessages from '@/messages/en.json'
+import zhHkMessages from '@/messages/zh-HK.json'
 
 function flatten(node: ReactNode): ReactElement[] {
   const out: ReactElement[] = []
@@ -168,6 +173,13 @@ describe('CampaignCardView re-run action (CAMP-014)', () => {
     expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
   })
 
+  it('is hidden for a 131047 failure: the reason says to create a new campaign', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ ...failed, failureReason: deliveryFailureReason('131047', null, null) })} />
+    )
+    expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
+  })
+
   it('is hidden for a welcome campaign', () => {
     const tree = renderTree(<CampaignCardView {...baseProps({ ...failed, type: 'welcome' })} />)
     expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
@@ -207,6 +219,23 @@ describe('CampaignCardView QR-only warning (CAMP-014)', () => {
     expect(byTestId(tree, 'campaign-qr-only-warning')).toBeDefined()
   })
 
+  it('an active card can still change its template, so it keeps the change-it wording', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status: 'active', qrOnlyCoupon: true })} />)
+    const warning = byTestId(tree, 'campaign-qr-only-warning')
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrOnlyWarning')
+  })
+
+  it('a failed card cannot change its template, so it words the remedy as a new campaign', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status: 'failed', qrOnlyCoupon: true })} />)
+    const warning = byTestId(tree, 'campaign-qr-only-warning')
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrOnlyWarningFailed')
+    for (const messages of [enMessages, zhHkMessages]) {
+      expect(messages.campaigns.qrOnlyWarningFailed).toBeTruthy()
+    }
+    expect(enMessages.campaigns.qrOnlyWarningFailed).toContain('create a new campaign')
+    expect(zhHkMessages.campaigns.qrOnlyWarningFailed).toContain('建立新推廣')
+  })
+
   it('sits above the re-run action', () => {
     const tree = renderTree(
       <CampaignCardView {...baseProps({ status: 'failed', failureReason: 'x', qrOnlyCoupon: true })} />
@@ -235,6 +264,16 @@ describe('CampaignCardView QR failure warning (CAMP-014)', () => {
     )
     const warning = byTestId(tree, 'campaign-qr-failed-warning')
     expect((warning?.props as { children?: unknown }).children).toBe('t:qrFailedWarning:{"count":3}')
+  })
+
+  // A storage outage writes the same rows as a Meta rejection, so the wording
+  // must not claim which system decided.
+  it('names no deciding system, in either language', () => {
+    expect(enMessages.campaigns.qrFailedWarning).toContain('could not be delivered')
+    expect(enMessages.campaigns.qrFailedWarning).toContain('did not receive their code')
+    for (const messages of [enMessages, zhHkMessages]) {
+      expect(messages.campaigns.qrFailedWarning).not.toMatch(/meta|whatsapp/i)
+    }
   })
 
   it('stays quiet on an all-failed campaign: the reason already explains it', () => {

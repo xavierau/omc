@@ -74,10 +74,29 @@ describe('RerunCampaignDialog (CAMP-014)', () => {
     }
   })
 
+  const texts = (tree: ReactElement[]) =>
+    JSON.stringify(tree.map((el) => (el.props as { children?: unknown }).children))
+
   it('says it messages real customers', () => {
     const { tree } = render()
-    expect(JSON.stringify(tree.map((el) => (el.props as { children?: unknown }).children))).toContain(
-      't:rerunConfirmBody'
+    expect(texts(tree)).toContain('t:rerunConfirmBody')
+  })
+
+  it('states that coupons keep their original expiry', () => {
+    const { tree } = render()
+    expect(texts(tree)).toContain('t:rerunCouponExpiry')
+  })
+
+  it('repeats the QR-only warning, in its create-a-new-campaign wording, when the flag is set', () => {
+    const { tree } = render({ qrOnlyCoupon: true })
+    const warning = tree.find(
+      (el) => (el.props as Record<string, unknown>)['data-testid'] === 'campaign-rerun-qr-only-warning'
     )
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrOnlyWarningFailed')
+  })
+
+  it('shows no QR-only warning without the flag', () => {
+    const { tree } = render()
+    expect(texts(tree)).not.toContain('qrOnlyWarning')
   })
 })

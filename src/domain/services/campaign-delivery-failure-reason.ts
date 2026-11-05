@@ -10,6 +10,10 @@
 const NOT_OHMYCLIENT =
   'This is not an OhMyClient review or template issue.'
 
+// The 131047 wording and its predicate share this phrase, as delivery-unknown
+// does below, so /rerun's refusal cannot drift from what a run stored.
+const NO_SERVICE_WINDOW_PHRASE = 'no open 24-hour customer service window'
+
 const REJECTED_131042 = 'WhatsApp (Meta) rejected every message in this campaign:'
 const BILLING_PAGE = 'Meta Business Manager → Billing & payments'
 // A Meta title is outside text; keep the reason inside FAILURE_REASON_MAX_LEN.
@@ -24,7 +28,7 @@ export function deliveryFailureReason(
   if (errorCode === '131047') {
     return (
       'WhatsApp (Meta) rejected every message in this campaign: the recipients ' +
-      'had no open 24-hour customer service window (Meta error 131047). ' +
+      `had ${NO_SERVICE_WINDOW_PHRASE} (Meta error 131047). ` +
       'Free-form messages only reach customers who replied within the last ' +
       '24 hours. Create a new campaign with an approved template that has a ' +
       "quick-reply (claim) button, because a failed campaign's template cannot " +
@@ -36,6 +40,10 @@ export function deliveryFailureReason(
     `it was sent${describeError(errorCode, errorTitle)}. Check the number's ` +
     `health in Meta Business Manager before re-running. ${NOT_OHMYCLIENT}`
   )
+}
+
+export function isNoServiceWindowReason(reason: string | null | undefined): boolean {
+  return reason?.includes(NO_SERVICE_WINDOW_PHRASE) ?? false
 }
 
 function paymentFailureReason(errorDetails: string | null): string {

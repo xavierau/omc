@@ -24,7 +24,7 @@ function buildCampaign(o: Partial<Campaign> = {}): Campaign {
     imageUrlZhHk: null, couponConfig: null, schedule: null, scheduledAt: null,
     status: 'active', failureReason: null, isChargeable: true, chargeableSentCount: 0,
     nonChargeableSentCount: 0, redeemedCount: 0, whatsappTemplateId: null,
-    targetAudience: 'all', createdAt: '2024-01-01T00:00:00Z', ...o,
+    targetAudience: 'all', createdAt: '2024-01-01T00:00:00Z', lastEnqueuedAt: null, ...o,
   }
 }
 

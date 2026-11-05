@@ -11,9 +11,10 @@ export interface QrOnlyCouponInput {
   template: WhatsAppTemplate | null
 }
 
-// A template's code travels in a variable or a button. {{discount}} is not a
-// code, which is why templateExpectsCouponCode cannot answer this question.
-const CODE_PARAMETERS = ['code', 'couponCode']
+// A template's code travels in the one variable or button the sender fills.
+// {{discount}} is not a code, which is why templateExpectsCouponCode cannot answer
+// this question. {{couponCode}} and COPY_CODE go out unfilled, so they carry nothing.
+const CODE_PARAMETER = 'code'
 
 /**
  * CAMP-014: true when a coupon code reaches the customer only in the free-form
@@ -30,7 +31,7 @@ export function isQrOnlyCouponCampaign(input: QrOnlyCouponInput): boolean {
 }
 
 function templateCarriesCode(template: WhatsAppTemplate): boolean {
-  if (extractParameters(template).some((p) => CODE_PARAMETERS.includes(p))) return true
+  if (extractParameters(template).includes(CODE_PARAMETER)) return true
   const buttons = template.components.find((c) => c.type === 'BUTTONS')?.buttons ?? []
-  return buttons.some((b) => isDynamicUrlButton(b) || b.type === 'COPY_CODE')
+  return buttons.some(isDynamicUrlButton)
 }

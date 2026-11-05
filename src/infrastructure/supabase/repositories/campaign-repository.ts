@@ -322,6 +322,49 @@ export async function reviveFailedCampaign(
   return (data?.length ?? 0) > 0
 }
 
+/**
+ * CAMP-014: undo a revive whose enqueue failed, so a re-run reported as failed
+ * cannot still fire from the cron. Compare-and-swap on `status='active'`: a row
+ * that has moved on is left alone and answers false.
+ */
+export async function restoreCampaignFailure(
+  id: string,
+  restaurantId: string,
+  failureReason: string | null
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'failed', failure_reason: failureReason })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'active')
+    .select('id')
+
+  if (error) throw new Error(`restoreCampaignFailure: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * CAMP-014: stamp the enqueue time without taking the lease, for a re-run of an
+ * unscheduled campaign whose lease is still held. No cron can pick that campaign
+ * up, so waiting for the lease to lapse would leave it stranded.
+ */
+export async function stampCampaignEnqueued(
+  id: string,
+  restaurantId: string
+): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('campaigns')
+    .update({ last_enqueued_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'active')
+
+  if (error) throw new Error(`stampCampaignEnqueued: ${error.message}`)
+}
+
 export async function getDueCampaigns(): Promise<Campaign[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase

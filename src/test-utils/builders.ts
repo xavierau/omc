@@ -57,6 +57,7 @@ export function buildCampaign(
     whatsappTemplateId: null,
     targetAudience: 'all',
     createdAt: '2025-01-01T00:00:00Z',
+    lastEnqueuedAt: null,
     ...overrides,
   }
 }

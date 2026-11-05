@@ -96,6 +96,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     whatsappTemplateId: null,
     targetAudience: 'all',
     createdAt: '2026-04-20T00:00:00Z',
+    lastEnqueuedAt: null,
     ...overrides,
   }
 }
@@ -571,6 +572,14 @@ describe('GET /api/dashboard/campaigns — QR visibility (CAMP-014)', () => {
     restaurantId: RESTAURANT_ID,
     components: [{ type: 'BODY', text: 'Use {{code}}' }],
   })
+  const claimTemplate = buildWhatsAppTemplate({
+    id: 'tpl-claim',
+    restaurantId: RESTAURANT_ID,
+    components: [
+      { type: 'BODY', text: 'Tap to claim' },
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Claim' }] },
+    ],
+  })
 
   async function list() {
     const r = await GET()
@@ -612,11 +621,11 @@ describe('GET /api/dashboard/campaigns — QR visibility (CAMP-014)', () => {
     expect(findManyByIdsForRestaurant).toHaveBeenCalledTimes(1)
   })
 
-  it('returns the failed-QR count, scoped to the tenant, for campaigns with counted sends', async () => {
+  it('counts failed QR images only for QR-only campaigns with counted sends, scoped to the tenant', async () => {
     vi.mocked(listCampaigns).mockResolvedValue([
-      buildCampaign({ id: 'sent', chargeableSentCount: 5, status: 'completed' }),
-      buildCampaign({ id: 'free', nonChargeableSentCount: 2, status: 'completed' }),
-      buildCampaign({ id: 'none', status: 'failed' }),
+      buildCampaign({ id: 'sent', couponConfig: COUPON, whatsappTemplateId: 'tpl-qr', chargeableSentCount: 5, status: 'completed' }),
+      buildCampaign({ id: 'free', couponConfig: COUPON, whatsappTemplateId: 'tpl-qr', nonChargeableSentCount: 2, status: 'completed' }),
+      buildCampaign({ id: 'unsent', couponConfig: COUPON, whatsappTemplateId: 'tpl-qr', status: 'failed' }),
     ])
     vi.mocked(countFailedCampaignQrImages).mockImplementation(async ({ campaignId }) =>
       campaignId === 'sent' ? 3 : 0
@@ -629,10 +638,58 @@ describe('GET /api/dashboard/campaigns — QR visibility (CAMP-014)', () => {
     expect(countFailedCampaignQrImages).toHaveBeenCalledWith({
       campaignId: 'sent',
       restaurantId: RESTAURANT_ID,
+      queuedSince: null,
     })
     // The card warns only with counted sends, so an all-failed campaign costs no query.
-    expect('qrFailedCount' in byId.none).toBe(false)
+    expect('qrFailedCount' in byId.unsent).toBe(false)
     expect(countFailedCampaignQrImages).toHaveBeenCalledTimes(2)
+  })
+
+  it('passes last_enqueued_at as the lower bound, so a re-run stops counting the earlier run', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({
+        id: 'qr',
+        couponConfig: COUPON,
+        whatsappTemplateId: 'tpl-qr',
+        chargeableSentCount: 5,
+        lastEnqueuedAt: '2026-11-05T01:00:00Z',
+      }),
+    ])
+
+    await list()
+
+    expect(countFailedCampaignQrImages).toHaveBeenCalledWith({
+      campaignId: 'qr',
+      restaurantId: RESTAURANT_ID,
+      queuedSince: '2026-11-05T01:00:00Z',
+    })
+  })
+
+  it('a claim campaign and a template carrying the code get no count and issue no count query', async () => {
+    vi.mocked(findManyByIdsForRestaurant).mockResolvedValue([claimTemplate, codeTemplate])
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'claim', couponConfig: COUPON, whatsappTemplateId: 'tpl-claim', chargeableSentCount: 5 }),
+      buildCampaign({ id: 'code', couponConfig: COUPON, whatsappTemplateId: 'tpl-code', chargeableSentCount: 5 }),
+    ])
+
+    const { byId } = await list()
+
+    expect('qrFailedCount' in byId.claim).toBe(false)
+    expect('qrFailedCount' in byId.code).toBe(false)
+    expect(countFailedCampaignQrImages).not.toHaveBeenCalled()
+  })
+
+  it('a coupon-less campaign costs no query at all', async () => {
+    vi.mocked(listCampaigns).mockResolvedValue([
+      buildCampaign({ id: 'plain', couponConfig: null, whatsappTemplateId: 'tpl-qr', chargeableSentCount: 5 }),
+    ])
+
+    const { byId } = await list()
+
+    expect('qrFailedCount' in byId.plain).toBe(false)
+    expect('qrOnlyCoupon' in byId.plain).toBe(false)
+    expect(countFailedCampaignQrImages).not.toHaveBeenCalled()
+    expect(findManyByIdsForRestaurant).toHaveBeenCalledWith([], RESTAURANT_ID)
   })
 
   it('degrades to no count when the count query errors, without failing the list', async () => {
@@ -650,19 +707,18 @@ describe('GET /api/dashboard/campaigns — QR visibility (CAMP-014)', () => {
     errSpy.mockRestore()
   })
 
-  it('degrades to no flag when the template read errors, without failing the list', async () => {
+  it('degrades to no flag and no count when the template read errors, without failing the list', async () => {
     vi.mocked(listCampaigns).mockResolvedValue([
       buildCampaign({ id: 'qr', couponConfig: COUPON, whatsappTemplateId: 'tpl-qr', chargeableSentCount: 5 }),
     ])
     vi.mocked(findManyByIdsForRestaurant).mockRejectedValue(new Error('templates down'))
-    vi.mocked(countFailedCampaignQrImages).mockResolvedValue(4)
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const { status, byId } = await list()
 
     expect(status).toBe(200)
     expect('qrOnlyCoupon' in byId.qr).toBe(false)
-    expect(byId.qr.qrFailedCount).toBe(4)
+    expect('qrFailedCount' in byId.qr).toBe(false)
     errSpy.mockRestore()
   })
 })

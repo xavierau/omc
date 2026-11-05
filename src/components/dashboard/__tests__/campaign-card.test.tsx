@@ -99,9 +99,9 @@ describe('CampaignCard re-run flow (CAMP-014)', () => {
     expect(byTestId(render(), 'campaign-rerun-confirm')).toBeUndefined()
   })
 
-  it('a server rejection closes the confirmation and shows in the execute-error slot', async () => {
+  it.each([409, 500])('a %i closes the confirmation, shows the server message and refetches', async (status) => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Template not approved' }), { status: 409 })
+      new Response(JSON.stringify({ error: 'OhMyClient could not confirm delivery' }), { status })
     )
 
     click(byTestId(render(), 'campaign-rerun-button'))
@@ -110,8 +110,53 @@ describe('CampaignCard re-run flow (CAMP-014)', () => {
     const tree = render()
     expect(byTestId(tree, 'campaign-rerun-confirm')).toBeUndefined()
     const err = byTestId(tree, 'campaign-execute-error')
-    expect(JSON.stringify((err?.props as { children?: unknown }).children)).toContain('Template not approved')
+    expect(JSON.stringify((err?.props as { children?: unknown }).children)).toContain(
+      'OhMyClient could not confirm delivery'
+    )
+    // The row may have moved under the card, so the list is read again.
+    expect(onExecute).toHaveBeenCalledTimes(1)
+  })
+
+  it('a rejected Send Now still does not refetch: only re-run changed', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: 'Daily cap' }), { status: 403 }))
+    const active = flatten(
+      CampaignCard({
+        id: 'camp-1',
+        name: 'Nov promo',
+        type: 'promo',
+        status: 'active',
+        sentCount: 0,
+        redeemedCount: 0,
+        onExecute,
+      })
+    )
+    const send = active.find((el) => (el.props as { children?: unknown }).children === 't:sendNow')
+
+    await click(send)
+
     expect(onExecute).not.toHaveBeenCalled()
+  })
+
+  it('hands the QR-only flag to the confirmation sheet', () => {
+    h.rewind()
+    const open = () =>
+      flatten(
+        CampaignCard({
+          id: 'camp-1',
+          name: 'Nov promo',
+          type: 'promo',
+          status: 'failed',
+          sentCount: 0,
+          redeemedCount: 0,
+          failureReason: 'Meta said no',
+          qrOnlyCoupon: true,
+          onExecute,
+        })
+      )
+    click(byTestId(open(), 'campaign-rerun-button'))
+    h.rewind()
+
+    expect(byTestId(open(), 'campaign-rerun-qr-only-warning')).toBeDefined()
   })
 
   it('a network failure shows the fallback message', async () => {

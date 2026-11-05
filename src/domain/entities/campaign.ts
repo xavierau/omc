@@ -34,6 +34,8 @@ export interface Campaign {
   whatsappTemplateId: string | null
   targetAudience: 'all' | 'selected' | 'tag'
   createdAt: string
+  /** The enqueue lease stamp (migration 061): when a run was last enqueued. */
+  lastEnqueuedAt: string | null
 }
 
 export interface CouponConfig {

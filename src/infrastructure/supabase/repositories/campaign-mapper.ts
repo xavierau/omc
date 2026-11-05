@@ -72,6 +72,7 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     targetAudience:
       (row.target_audience as Campaign['targetAudience']) ?? 'all',
     createdAt: row.created_at as string,
+    lastEnqueuedAt: (row.last_enqueued_at as string | null) ?? null,
   }
 }
 

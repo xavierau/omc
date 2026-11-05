@@ -39,6 +39,8 @@ export function CampaignCard({ id, onExecute, ...rest }: CampaignCardProps) {
       const res = await fetch(`/api/dashboard/campaigns/${id}/${action}`, { method: 'POST' })
       if (!res.ok) {
         setExecuteError(await readExecuteError(res, tg('executeErrorFallback')))
+        // A refused or failed re-run may have moved the row, so read it again.
+        if (action === 'rerun') onExecute?.()
         return
       }
       onExecute?.()
@@ -67,6 +69,7 @@ export function CampaignCard({ id, onExecute, ...rest }: CampaignCardProps) {
       <RerunCampaignDialog
         open={rerunOpen}
         busy={executing}
+        qrOnlyCoupon={rest.qrOnlyCoupon}
         onOpenChange={setRerunOpen}
         onConfirm={handleConfirmRerun}
       />

@@ -174,6 +174,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     whatsappTemplateId: null,
     targetAudience: 'all',
     createdAt: '2024-01-01T00:00:00Z',
+    lastEnqueuedAt: null,
     ...overrides,
   }
 }
@@ -576,6 +577,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -799,6 +801,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -903,6 +906,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -1158,6 +1162,7 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -1575,6 +1580,48 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     expect(reason).not.toMatch(/currency/i)
   })
 
+  // CAMP-014 I2: the CAS lost, but an errored member's delivery is unknown, so
+  // the reason must not say Meta rejected every message and invite a re-run.
+  it('a retracted run with errored members writes the delivery-unknown reason (sent 1, errored 2)', async () => {
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      buildMember({ id: 'm-1', phone: '85291111111' }),
+      buildMember({ id: 'm-2', phone: '85292222222' }),
+      buildMember({ id: 'm-3', phone: '85293333333' }),
+    ])
+    vi.mocked(insertQueued)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockRejectedValueOnce(new Error('db down'))
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails: 'payment has been restricted',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(isDeliveryUnknownReason(reason)).toBe(true)
+    expect(reason).toContain('2 message sends')
+    expect(reason).not.toContain('re-run the campaign')
+  })
+
+  it('a retracted run with no errored member keeps the Meta wording', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails: 'payment has been restricted',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(isDeliveryUnknownReason(reason)).toBe(false)
+    expect(reason).toContain('restricted')
+  })
+
   // CAMP-014: /rerun refuses on this predicate, so it must match what a real
   // run writes, not a copy of the sentence in a test.
   it('the reason an errored run writes is the one the delivery-unknown predicate recognises', async () => {
@@ -1592,7 +1639,9 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     expect(isDeliveryUnknownReason(write?.[1].failureReason)).toBe(true)
   })
 
-  it('an all-sends-failed reason is not delivery-unknown, so it stays re-runnable', async () => {
+  // The reason alone does not refuse this one: /rerun's row-evidence guard does
+  // (rerun-evidence-transport-failure.test.ts).
+  it('an all-sends-failed reason is not worded as delivery-unknown', async () => {
     vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(failResult('kapso_send_error'))
 
     await executeCampaign('camp-1', 'r-1')

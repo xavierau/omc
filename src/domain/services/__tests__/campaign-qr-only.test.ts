@@ -33,8 +33,10 @@ describe('qr-only coupon rule (CAMP-014)', () => {
     expect(rule([{ type: 'BODY', text: 'Use {{code}}' }])).toBe(false)
   })
 
-  it('{{couponCode}} in the body carries the code', () => {
-    expect(rule([{ type: 'BODY', text: 'Use {{couponCode}}' }])).toBe(false)
+  // paramValues holds only customer_name, code and discount, so the sender
+  // would send this variable empty: it carries nothing.
+  it('{{couponCode}} in the body does not carry the code: the sender never fills it', () => {
+    expect(rule([{ type: 'BODY', text: 'Use {{couponCode}}' }])).toBe(true)
   })
 
   it('a dynamic URL button carries the code', () => {
@@ -46,8 +48,8 @@ describe('qr-only coupon rule (CAMP-014)', () => {
     ).toBe(false)
   })
 
-  it('a COPY_CODE button carries the code', () => {
-    expect(rule([PLAIN_BODY, { type: 'BUTTONS', buttons: [{ type: 'COPY_CODE', text: 'Copy' }] }])).toBe(false)
+  it('a COPY_CODE button does not carry the code: the sender never fills it', () => {
+    expect(rule([PLAIN_BODY, { type: 'BUTTONS', buttons: [{ type: 'COPY_CODE', text: 'Copy' }] }])).toBe(true)
   })
 
   it('{{discount}} alone does not carry a code', () => {

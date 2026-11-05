@@ -117,35 +117,48 @@ async function finalizeCampaignRun(args: {
     return
   }
   if (await completeCampaignRunIfCounted(campaignId)) return
-  await failRunRetractedByMeta(campaignId, args.restaurantId)
+  await failRunRetractedByMeta(campaignId, args.restaurantId, counters)
 }
 
 // The CAS lost. The expected cause is Meta rejection webhooks retracting
 // every counted send while the batch was still running — word the reason
 // from the latest rejected body row so the tenant sees Meta's actual error.
 // With no rejected row on record, never assert a Meta rejection (WAQ-014:
-// name only the system that actually decided). The write is scoped to
-// `sending` so a status the tenant changed mid-run is left alone.
+// name only the system that actually decided). An `errored` member's delivery
+// is unknown whatever the other rows say, so that reason wins. The write is
+// scoped to `sending` so a status the tenant changed mid-run is left alone.
 const NO_COUNTED_SEND_REASON =
   'No sent message remained counted when this run finished. Check the ' +
   "campaign's message log before re-running."
 
 async function failRunRetractedByMeta(
   campaignId: string,
-  restaurantId: string
+  restaurantId: string,
+  counters: SkipCounters
 ): Promise<void> {
-  const latest = await findLatestCampaignFailure(campaignId, restaurantId)
-  const reason = latest
-    ? deliveryFailureReason(latest.errorCode, latest.errorTitle, latest.errorDetails)
-    : NO_COUNTED_SEND_REASON
+  const reason =
+    counters.errored > 0
+      ? deliveryUnknownReason(counters.failed + counters.errored, counters.errored)
+      : await retractedRunReason(campaignId, restaurantId)
   const written = await failCampaignRunIfSending(campaignId, reason)
   if (!written) {
     console.warn('[Campaign] finalize skipped — status changed mid-run', { campaignId })
   }
 }
 
+async function retractedRunReason(
+  campaignId: string,
+  restaurantId: string
+): Promise<string> {
+  const latest = await findLatestCampaignFailure(campaignId, restaurantId)
+  return latest
+    ? deliveryFailureReason(latest.errorCode, latest.errorTitle, latest.errorDetails)
+    : NO_COUNTED_SEND_REASON
+}
+
 // The failed card offers a re-run (POST .../rerun, CAMP-014), except on the
-// delivery-unknown reason, which that route refuses.
+// reasons rerunBlock names. That route also refuses when the message rows cannot
+// prove Meta's rejection (rerun-evidence-guard.ts), even with this wording.
 function totalFailureReason(
   counters: SkipCounters,
   template: WhatsAppTemplate | null

@@ -6,6 +6,8 @@ vi.mock('../../client', () => ({
 
 import { createServerSupabaseClient } from '../../client'
 import {
+  countCampaignBodyRows,
+  countFailedBodyRowsWithoutMetaCode,
   countFailedCampaignQrImages,
   findLatestCampaignFailure,
 } from '../whatsapp-message-campaign-queries'
@@ -13,20 +15,65 @@ import {
 function chainClient(result: Record<string, unknown>) {
   const select = vi.fn()
   const eq = vi.fn()
+  const gte = vi.fn()
+  const inFilter = vi.fn()
+  const is = vi.fn()
   const chain: Record<string, unknown> = {
     select,
     eq,
-    in: () => chain,
+    gte,
+    in: inFilter,
+    is,
     order: () => chain,
     limit: () => chain,
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  select.mockReturnValue(chain)
-  eq.mockReturnValue(chain)
+  for (const fn of [select, eq, gte, inFilter, is]) fn.mockReturnValue(chain)
   vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
-  return { select, eq }
+  return { select, eq, gte, inFilter, is }
 }
+
+describe('rerun evidence counts (CAMP-014)', () => {
+  beforeEach(() => vi.clearAllMocks())
+  const scope = { campaignId: 'c-1', restaurantId: 'r-1' }
+
+  it('countCampaignBodyRows: exact head count of template and text rows for the tenant', async () => {
+    const { select, eq, inFilter } = chainClient({ count: 250, error: null })
+
+    await expect(countCampaignBodyRows(scope)).resolves.toBe(250)
+
+    expect(select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
+    expect(eq.mock.calls).toEqual([
+      ['campaign_id', 'c-1'],
+      ['restaurant_id', 'r-1'],
+    ])
+    expect(inFilter).toHaveBeenCalledWith('message_type', ['template', 'text'])
+  })
+
+  it('countFailedBodyRowsWithoutMetaCode: failed body rows whose error_code is null', async () => {
+    const { select, eq, inFilter, is } = chainClient({ count: 2, error: null })
+
+    await expect(countFailedBodyRowsWithoutMetaCode(scope)).resolves.toBe(2)
+
+    expect(select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
+    expect(eq.mock.calls).toEqual([
+      ['campaign_id', 'c-1'],
+      ['restaurant_id', 'r-1'],
+      ['status', 'failed'],
+    ])
+    expect(inFilter).toHaveBeenCalledWith('message_type', ['template', 'text'])
+    expect(is).toHaveBeenCalledWith('error_code', null)
+  })
+
+  it.each([
+    ['countCampaignBodyRows', countCampaignBodyRows],
+    ['countFailedBodyRowsWithoutMetaCode', countFailedBodyRowsWithoutMetaCode],
+  ])('%s throws on a query error, never reading it as zero', async (name, count) => {
+    chainClient({ count: null, error: { message: 'db down' } })
+    await expect(count(scope)).rejects.toThrow(`${name}: db down`)
+  })
+})
 
 describe('countFailedCampaignQrImages (CAMP-014)', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -46,6 +93,26 @@ describe('countFailedCampaignQrImages (CAMP-014)', () => {
         ['status', 'failed'],
       ])
     )
+  })
+
+  it('applies queued_at >= the lower bound when one is given, so a re-run stops counting the earlier run', async () => {
+    const { gte } = chainClient({ count: 1, error: null })
+
+    await countFailedCampaignQrImages({
+      campaignId: 'c-1',
+      restaurantId: 'r-1',
+      queuedSince: '2026-11-05T01:00:00Z',
+    })
+
+    expect(gte).toHaveBeenCalledWith('queued_at', '2026-11-05T01:00:00Z')
+  })
+
+  it.each([[null], [undefined]])('applies no lower bound for %s', async (queuedSince) => {
+    const { gte } = chainClient({ count: 1, error: null })
+
+    await countFailedCampaignQrImages({ campaignId: 'c-1', restaurantId: 'r-1', queuedSince })
+
+    expect(gte).not.toHaveBeenCalled()
   })
 
   it('reads a null count as zero', async () => {

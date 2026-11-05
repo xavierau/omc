@@ -102,7 +102,11 @@ export function CampaignCardView({
         {showQrFailed && (
           <QrNotice testId="campaign-qr-failed-warning">{t('qrFailedWarning', { count: qrFailedCount ?? 0 })}</QrNotice>
         )}
-        {showQrOnly && <QrNotice testId="campaign-qr-only-warning">{t('qrOnlyWarning')}</QrNotice>}
+        {showQrOnly && (
+          <QrNotice testId="campaign-qr-only-warning">
+            {t(status === 'failed' ? 'qrOnlyWarningFailed' : 'qrOnlyWarning')}
+          </QrNotice>
+        )}
         {canSendNow && (
           <Button size="sm" variant="outline" onClick={onExecute} disabled={blocked} className="w-full">
             {executing ? t('sending') : t('sendNow')}

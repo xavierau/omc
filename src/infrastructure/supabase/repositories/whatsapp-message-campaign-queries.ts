@@ -54,20 +54,65 @@ export async function findLatestCampaignFailure(
  * Coupon-QR images that failed for a campaign (CAMP-014). `image` on a campaign
  * row is only ever the QR (execute-campaign-send.ts, claim-handler.ts). An exact
  * head count, never a row read: PostgREST max-rows silently caps row reads.
- * Covered by `idx_wa_messages_campaign_status`.
+ * Covered by `idx_wa_messages_campaign_status`. `queuedSince` drops earlier
+ * runs, when the campaign has a last-enqueued stamp to bound them by.
  */
 export async function countFailedCampaignQrImages(args: {
   campaignId: string
   restaurantId: string
+  queuedSince?: string | null
 }): Promise<number> {
   const supabase = createServerSupabaseClient()
-  const { count, error } = await supabase
+  const failed = supabase
     .from('whatsapp_messages')
     .select('id', { count: 'exact', head: true })
     .eq('campaign_id', args.campaignId)
     .eq('restaurant_id', args.restaurantId)
     .eq('message_type', 'image')
     .eq('status', 'failed')
+  const { count, error } = await (args.queuedSince
+    ? failed.gte('queued_at', args.queuedSince)
+    : failed)
   if (error) throw new Error(`countFailedCampaignQrImages: ${error.message}`)
+  return count ?? 0
+}
+
+export interface CampaignScope {
+  campaignId: string
+  restaurantId: string
+}
+
+/**
+ * Body rows on record for a campaign (CAMP-014). Zero means the per-member ledger
+ * has nothing to skip with, so /rerun cannot tell who already got the message.
+ */
+export async function countCampaignBodyRows(scope: CampaignScope): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', scope.campaignId)
+    .eq('restaurant_id', scope.restaurantId)
+    .in('message_type', CAMPAIGN_BODY_MESSAGE_TYPES as unknown as string[])
+  if (error) throw new Error(`countCampaignBodyRows: ${error.message}`)
+  return count ?? 0
+}
+
+/**
+ * Failed body rows with no Meta code (CAMP-014): our side recorded the failure
+ * (kapso_send_error, kapso_no_message_id, send_threw) with no decision from Meta,
+ * so the customer may have received the message.
+ */
+export async function countFailedBodyRowsWithoutMetaCode(scope: CampaignScope): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', scope.campaignId)
+    .eq('restaurant_id', scope.restaurantId)
+    .eq('status', 'failed')
+    .in('message_type', CAMPAIGN_BODY_MESSAGE_TYPES as unknown as string[])
+    .is('error_code', null)
+  if (error) throw new Error(`countFailedBodyRowsWithoutMetaCode: ${error.message}`)
   return count ?? 0
 }
