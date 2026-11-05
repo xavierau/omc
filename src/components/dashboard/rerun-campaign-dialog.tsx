@@ -8,12 +8,13 @@ interface RerunCampaignDialogProps {
   open: boolean
   busy: boolean
   qrOnlyCoupon?: boolean
+  hasCouponConfig?: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
 }
 
 // A re-run messages real customers, so it takes an explicit second step (CAMP-014).
-export function RerunCampaignDialog({ open, busy, qrOnlyCoupon, onOpenChange, onConfirm }: RerunCampaignDialogProps) {
+export function RerunCampaignDialog({ open, busy, qrOnlyCoupon, hasCouponConfig, onOpenChange, onConfirm }: RerunCampaignDialogProps) {
   const t = useTranslations('campaigns')
   const tc = useTranslations('common')
   return (
@@ -24,7 +25,7 @@ export function RerunCampaignDialog({ open, busy, qrOnlyCoupon, onOpenChange, on
         </SheetHeader>
         <div className="px-4 pb-4 space-y-4 mt-4">
           <p className="text-sm text-muted-foreground">{t('rerunConfirmBody')}</p>
-          <p className="text-sm text-muted-foreground">{t('rerunCouponExpiry')}</p>
+          {hasCouponConfig !== false && <p className="text-sm text-muted-foreground">{t('rerunCouponExpiry')}</p>}
           {qrOnlyCoupon && (
             <div
               role="status"

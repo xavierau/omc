@@ -18,6 +18,7 @@ interface CampaignCardProps {
   templateReview?: CampaignTemplateReviewGate | null
   qrOnlyCoupon?: boolean
   qrFailedCount?: number
+  hasCouponConfig?: boolean
   onExecute?: () => void
   onEdit?: () => void
   sendDisabled?: boolean
@@ -26,7 +27,7 @@ interface CampaignCardProps {
 // Stateful container — owns the execute and re-run requests + their error and
 // the re-run confirmation, delegating all rendering to the pure CampaignCardView
 // (mirrors StampCampaignCard).
-export function CampaignCard({ id, onExecute, ...rest }: CampaignCardProps) {
+export function CampaignCard({ id, onExecute, hasCouponConfig, ...rest }: CampaignCardProps) {
   const tg = useTranslations('campaignSendGate')
   const [executing, setExecuting] = useState(false)
   const [executeError, setExecuteError] = useState<string | null>(null)
@@ -70,6 +71,7 @@ export function CampaignCard({ id, onExecute, ...rest }: CampaignCardProps) {
         open={rerunOpen}
         busy={executing}
         qrOnlyCoupon={rest.qrOnlyCoupon}
+        hasCouponConfig={hasCouponConfig}
         onOpenChange={setRerunOpen}
         onConfirm={handleConfirmRerun}
       />

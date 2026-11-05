@@ -99,9 +99,12 @@ export async function countCampaignBodyRows(scope: CampaignScope): Promise<numbe
 }
 
 /**
- * Failed body rows with no Meta code (CAMP-014): our side recorded the failure
- * (kapso_send_error, kapso_no_message_id, send_threw) with no decision from Meta,
- * so the customer may have received the message.
+ * Failed body rows with no Meta code (CAMP-014): error_code is null or not all
+ * digits. Null means our side recorded the failure (kapso_send_error,
+ * kapso_no_message_id, send_threw) with no decision from Meta; internal_orphan means
+ * the sweep lost track of the row. Either way the customer may have received the
+ * message. An allow-list of Meta's numeric codes, so any future internal code counts
+ * too. The null test is explicit because a regex comparison against NULL matches nothing.
  */
 export async function countFailedBodyRowsWithoutMetaCode(scope: CampaignScope): Promise<number> {
   const supabase = createServerSupabaseClient()
@@ -112,7 +115,7 @@ export async function countFailedBodyRowsWithoutMetaCode(scope: CampaignScope): 
     .eq('restaurant_id', scope.restaurantId)
     .eq('status', 'failed')
     .in('message_type', CAMPAIGN_BODY_MESSAGE_TYPES as unknown as string[])
-    .is('error_code', null)
+    .or('error_code.is.null,error_code.not.match.^[0-9]+$')
   if (error) throw new Error(`countFailedBodyRowsWithoutMetaCode: ${error.message}`)
   return count ?? 0
 }

@@ -82,7 +82,17 @@ describe('RerunCampaignDialog (CAMP-014)', () => {
     expect(texts(tree)).toContain('t:rerunConfirmBody')
   })
 
-  it('states that coupons keep their original expiry', () => {
+  it('states that coupons keep their original expiry when the campaign has a coupon config', () => {
+    const { tree } = render({ hasCouponConfig: true })
+    expect(texts(tree)).toContain('t:rerunCouponExpiry')
+  })
+
+  it('says nothing about coupon expiry when the campaign has no coupon config', () => {
+    const { tree } = render({ hasCouponConfig: false })
+    expect(texts(tree)).not.toContain('t:rerunCouponExpiry')
+  })
+
+  it('keeps the expiry line when it is not told either way', () => {
     const { tree } = render()
     expect(texts(tree)).toContain('t:rerunCouponExpiry')
   })

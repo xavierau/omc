@@ -159,6 +159,30 @@ describe('CampaignCard re-run flow (CAMP-014)', () => {
     expect(byTestId(open(), 'campaign-rerun-qr-only-warning')).toBeDefined()
   })
 
+  it('hands the coupon-config flag to the confirmation sheet', () => {
+    h.rewind()
+    const open = () =>
+      flatten(
+        CampaignCard({
+          id: 'camp-1',
+          name: 'Nov promo',
+          type: 'promo',
+          status: 'failed',
+          sentCount: 0,
+          redeemedCount: 0,
+          failureReason: 'Meta said no',
+          hasCouponConfig: false,
+          onExecute,
+        })
+      )
+    click(byTestId(open(), 'campaign-rerun-button'))
+    h.rewind()
+
+    const texts = JSON.stringify(open().map((el) => (el.props as { children?: unknown }).children))
+    expect(texts).toContain('t:rerunConfirmBody')
+    expect(texts).not.toContain('t:rerunCouponExpiry')
+  })
+
   it('a network failure shows the fallback message', async () => {
     fetchMock.mockRejectedValue(new Error('offline'))
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

@@ -10,9 +10,10 @@ export type RerunEvidenceRefusal = 'delivery_unconfirmed' | 'coupons_expired'
 
 /**
  * CAMP-014: a re-run messages real customers, so it proceeds only when our rows
- * prove Meta definitively rejected the earlier sends. Non-failed body rows do not
- * refuse, because the per-member ledger skips those members. Exact head counts,
- * no row reads. A query error propagates, so the caller fails closed.
+ * prove Meta definitively rejected the earlier sends: every failed body row must
+ * carry Meta's numeric code. Non-failed body rows do not refuse, because the
+ * per-member ledger skips those members. Exact head counts, no row reads. A query
+ * error propagates, so the caller fails closed.
  */
 export async function findRerunEvidenceRefusal(
   campaign: Campaign

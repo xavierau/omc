@@ -5,6 +5,7 @@ vi.mock('../../client', () => ({
 }))
 
 import { createServerSupabaseClient } from '../../client'
+import { fakeTable, type FakeRow } from '@/test-utils/fake-postgrest-table'
 import {
   countCampaignBodyRows,
   countFailedBodyRowsWithoutMetaCode,
@@ -17,21 +18,21 @@ function chainClient(result: Record<string, unknown>) {
   const eq = vi.fn()
   const gte = vi.fn()
   const inFilter = vi.fn()
-  const is = vi.fn()
+  const or = vi.fn()
   const chain: Record<string, unknown> = {
     select,
     eq,
     gte,
     in: inFilter,
-    is,
+    or,
     order: () => chain,
     limit: () => chain,
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const fn of [select, eq, gte, inFilter, is]) fn.mockReturnValue(chain)
+  for (const fn of [select, eq, gte, inFilter, or]) fn.mockReturnValue(chain)
   vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
-  return { select, eq, gte, inFilter, is }
+  return { select, eq, gte, inFilter, or }
 }
 
 describe('rerun evidence counts (CAMP-014)', () => {
@@ -51,8 +52,8 @@ describe('rerun evidence counts (CAMP-014)', () => {
     expect(inFilter).toHaveBeenCalledWith('message_type', ['template', 'text'])
   })
 
-  it('countFailedBodyRowsWithoutMetaCode: failed body rows whose error_code is null', async () => {
-    const { select, eq, inFilter, is } = chainClient({ count: 2, error: null })
+  it('countFailedBodyRowsWithoutMetaCode: failed body rows whose error_code is not all digits', async () => {
+    const { select, eq, inFilter, or } = chainClient({ count: 2, error: null })
 
     await expect(countFailedBodyRowsWithoutMetaCode(scope)).resolves.toBe(2)
 
@@ -63,7 +64,46 @@ describe('rerun evidence counts (CAMP-014)', () => {
       ['status', 'failed'],
     ])
     expect(inFilter).toHaveBeenCalledWith('message_type', ['template', 'text'])
-    expect(is).toHaveBeenCalledWith('error_code', null)
+    expect(or).toHaveBeenCalledWith('error_code.is.null,error_code.not.match.^[0-9]+$')
+  })
+
+  describe('countFailedBodyRowsWithoutMetaCode over rows', () => {
+    const row = (overrides: FakeRow = {}): FakeRow => ({
+      campaign_id: 'c-1',
+      restaurant_id: 'r-1',
+      status: 'failed',
+      message_type: 'template',
+      error_code: '131042',
+      ...overrides,
+    })
+    const countOver = (rows: FakeRow[]) => {
+      vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => fakeTable(rows) } as never)
+      return countFailedBodyRowsWithoutMetaCode(scope)
+    }
+
+    it.each([
+      ['null', null],
+      ['the sweep\'s internal_orphan', 'internal_orphan'],
+      ['an invented internal code', 'some_new_code'],
+      ['digits with a suffix', '131042x'],
+      ['an empty string', ''],
+    ])('refuses %s', async (_name, code) => {
+      await expect(countOver([row(), row({ error_code: code })])).resolves.toBe(1)
+    })
+
+    it.each([['131042'], ['130472']])('passes Meta code %s', async (code) => {
+      await expect(countOver([row({ error_code: code })])).resolves.toBe(0)
+    })
+
+    it('counts only failed body rows of this campaign', async () => {
+      const unrelated = [
+        row({ error_code: null, status: 'sent' }),
+        row({ error_code: 'internal_orphan', message_type: 'image' }),
+        row({ error_code: null, campaign_id: 'c-2' }),
+        row({ error_code: null, restaurant_id: 'r-2' }),
+      ]
+      await expect(countOver(unrelated)).resolves.toBe(0)
+    })
   })
 
   it.each([

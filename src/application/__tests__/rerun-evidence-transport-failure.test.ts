@@ -29,53 +29,6 @@ vi.mock('@/infrastructure/supabase/client', () => ({
   }),
 }))
 
-// A small PostgREST stand-in: filters accumulate, awaiting applies them.
-type Row = Record<string, unknown>
-function fakeTable(rows: Row[]) {
-  const filters: Array<(row: Row) => boolean> = []
-  let patch: Row | null = null
-  let inserted: Row | null = null
-  const matching = () => rows.filter((row) => filters.every((keep) => keep(row)))
-  const chain = {
-    select: () => chain,
-    insert: (row: Row) => {
-      inserted = row
-      return chain
-    },
-    update: (values: Row) => {
-      patch = values
-      return chain
-    },
-    eq: (column: string, value: unknown) => {
-      filters.push((row) => row[column] === value)
-      return chain
-    },
-    neq: (column: string, value: unknown) => {
-      filters.push((row) => row[column] !== value)
-      return chain
-    },
-    in: (column: string, values: unknown[]) => {
-      filters.push((row) => values.includes(row[column]))
-      return chain
-    },
-    is: (column: string, value: unknown) => {
-      filters.push((row) => (row[column] ?? null) === value)
-      return chain
-    },
-    lt: (column: string, value: string) => {
-      filters.push((row) => String(row[column]) < value)
-      return chain
-    },
-    then: (resolve: (result: unknown) => unknown) => {
-      if (inserted) rows.push(inserted)
-      if (patch) matching().forEach((row) => Object.assign(row, patch))
-      const found = matching()
-      return Promise.resolve({ data: found, count: found.length, error: null }).then(resolve)
-    },
-  }
-  return chain
-}
-
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', () => ({
   getCampaignById: vi.fn(),
   incrementCampaignSent: vi.fn(),
@@ -115,6 +68,7 @@ vi.mock('@/application/enforce-template-review', () => ({
 }))
 vi.mock('@/application/emit-event', () => ({ emitEvent: vi.fn() }))
 
+import { fakeTable } from '@/test-utils/fake-postgrest-table'
 import { executeCampaign } from '@/application/execute-campaign'
 import { findRerunEvidenceRefusal } from '@/application/rerun-evidence-guard'
 import { rerunBlock } from '@/domain/services/campaign-rerun'
