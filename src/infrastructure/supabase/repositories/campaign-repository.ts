@@ -299,6 +299,29 @@ export async function markCampaignFailed(
   return (data?.length ?? 0) > 0
 }
 
+/**
+ * CAMP-014: tenant re-run of a failed campaign. Compare-and-swap on
+ * `status='failed'` so exactly one of two concurrent requests wins, clearing
+ * the reason in the same statement (non-null only while failed, campaign.ts).
+ * Throws on a query error: "no row" must keep meaning "someone else won".
+ */
+export async function reviveFailedCampaign(
+  id: string,
+  restaurantId: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'active', failure_reason: null })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'failed')
+    .select('id')
+
+  if (error) throw new Error(`reviveFailedCampaign: ${error.message}`)
+  return (data?.length ?? 0) > 0
+}
+
 export async function getDueCampaigns(): Promise<Campaign[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase

@@ -10,6 +10,7 @@ import {
   incrementCampaignSent,
   createCampaign,
   markCampaignFailed,
+  reviveFailedCampaign,
   getCampaignByIdForRestaurant,
   getDueCampaigns,
 } from '../campaign-repository'
@@ -271,6 +272,45 @@ describe('markCampaignFailed', () => {
 
     await expect(markCampaignFailed('camp-1', 'boom')).rejects.toThrow(
       'markCampaignFailed: db down'
+    )
+  })
+})
+
+describe('reviveFailedCampaign (CAMP-014)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function reviveClient(result: { data: unknown; error: unknown }) {
+    const update = vi.fn()
+    const eq = vi.fn()
+    const chain = { update, eq, select: () => Promise.resolve(result) }
+    update.mockReturnValue(chain)
+    eq.mockReturnValue(chain)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
+    return { update, eq }
+  }
+
+  it('moves failed to active, clears the reason, and is scoped by tenant and status', async () => {
+    const { update, eq } = reviveClient({ data: [{ id: 'camp-1' }], error: null })
+
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).resolves.toBe(true)
+
+    expect(update).toHaveBeenCalledWith({ status: 'active', failure_reason: null })
+    expect(eq.mock.calls).toEqual([
+      ['id', 'camp-1'],
+      ['restaurant_id', 'rest-1'],
+      ['status', 'failed'],
+    ])
+  })
+
+  it('returns false when another request already won the row', async () => {
+    reviveClient({ data: [], error: null })
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).resolves.toBe(false)
+  })
+
+  it('throws on a query error rather than reading it as a lost race', async () => {
+    reviveClient({ data: null, error: { message: 'db down' } })
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).rejects.toThrow(
+      'reviveFailedCampaign: db down'
     )
   })
 })

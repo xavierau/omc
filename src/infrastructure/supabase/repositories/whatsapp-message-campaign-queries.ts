@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from '../client'
 export interface CampaignFailure {
   errorCode: string | null
   errorTitle: string | null
+  errorDetails: string | null
 }
 
 // Body message types are the ones the batch counts as a send (template or
@@ -27,7 +28,7 @@ export async function findLatestCampaignFailure(
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('whatsapp_messages')
-    .select('error_code, error_title')
+    .select('error_code, error_title, error_details')
     .eq('campaign_id', campaignId)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'failed')
@@ -37,6 +38,36 @@ export async function findLatestCampaignFailure(
     .maybeSingle()
   if (error) throw new Error(`findLatestCampaignFailure: ${error.message}`)
   if (!data) return null
-  const row = data as { error_code: string | null; error_title: string | null }
-  return { errorCode: row.error_code ?? null, errorTitle: row.error_title ?? null }
+  const row = data as {
+    error_code: string | null
+    error_title: string | null
+    error_details: string | null
+  }
+  return {
+    errorCode: row.error_code ?? null,
+    errorTitle: row.error_title ?? null,
+    errorDetails: row.error_details ?? null,
+  }
+}
+
+/**
+ * Coupon-QR images that failed for a campaign (CAMP-014). `image` on a campaign
+ * row is only ever the QR (execute-campaign-send.ts, claim-handler.ts). An exact
+ * head count, never a row read: PostgREST max-rows silently caps row reads.
+ * Covered by `idx_wa_messages_campaign_status`.
+ */
+export async function countFailedCampaignQrImages(args: {
+  campaignId: string
+  restaurantId: string
+}): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', args.campaignId)
+    .eq('restaurant_id', args.restaurantId)
+    .eq('message_type', 'image')
+    .eq('status', 'failed')
+  if (error) throw new Error(`countFailedCampaignQrImages: ${error.message}`)
+  return count ?? 0
 }

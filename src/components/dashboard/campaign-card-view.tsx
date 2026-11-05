@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { reviewGateReasonKey, type CampaignTemplateReviewGate } from './campaign-send-gate'
+import { rerunBlock } from '@/domain/services/campaign-rerun'
 
 export interface CampaignCardViewProps {
   name: string | null
@@ -17,10 +18,14 @@ export interface CampaignCardViewProps {
   scheduledAt?: string | null
   failureReason?: string | null
   templateReview?: CampaignTemplateReviewGate | null
+  qrOnlyCoupon?: boolean
+  qrFailedCount?: number
   executing: boolean
   executeError: string | null
   sendDisabled?: boolean
   onExecute: () => void
+  /** Asks for confirmation; the container owns the dialog and the request. */
+  onRequestRerun?: () => void
   onEdit?: () => void
 }
 
@@ -47,16 +52,21 @@ function formatDate(iso: string): string {
 // stamp-campaign-card / stamp-campaign-card-view split.
 export function CampaignCardView({
   name, type, status, sentCount, redeemedCount, scheduledAt,
-  failureReason, templateReview, executing, executeError, sendDisabled, onExecute, onEdit,
+  failureReason, templateReview, qrOnlyCoupon, qrFailedCount,
+  executing, executeError, sendDisabled, onExecute, onRequestRerun, onEdit,
 }: CampaignCardViewProps) {
   const t = useTranslations('campaigns')
   const tg = useTranslations('campaignSendGate')
   const rate = sentCount > 0 ? (redeemedCount / sentCount) * 100 : 0
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1)
   const canSendNow = status === 'active' && type !== 'welcome'
+  const canRerun = rerunBlock({ type, status, failureReason }) === null
   const canEdit = ['draft', 'active', 'paused'].includes(status)
   const gateReasonKey = reviewGateReasonKey(templateReview)
   const gateReason = gateReasonKey ? tg(gateReasonKey) : null
+  const blocked = executing || Boolean(sendDisabled) || Boolean(gateReason)
+  const showQrOnly = Boolean(qrOnlyCoupon) && (status === 'active' || status === 'failed')
+  const showQrFailed = (qrFailedCount ?? 0) > 0 && sentCount > 0
 
   return (
     <Card>
@@ -89,31 +99,51 @@ export function CampaignCardView({
             <p className={cn('text-lg font-semibold', getRedemptionColor(rate))}>{rate.toFixed(0)}%</p>
           </div>
         </div>
+        {showQrFailed && (
+          <QrNotice testId="campaign-qr-failed-warning">{t('qrFailedWarning', { count: qrFailedCount ?? 0 })}</QrNotice>
+        )}
+        {showQrOnly && <QrNotice testId="campaign-qr-only-warning">{t('qrOnlyWarning')}</QrNotice>}
         {canSendNow && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onExecute}
-              disabled={executing || sendDisabled || Boolean(gateReason)}
-              className="w-full"
-            >
-              {executing ? t('sending') : t('sendNow')}
-            </Button>
-            {gateReason && (
-              <p data-testid="campaign-gate-reason" className="text-xs text-muted-foreground mt-1">
-                {gateReason}
-              </p>
-            )}
-            {executeError && (
-              <p data-testid="campaign-execute-error" className="text-xs text-destructive mt-1">
-                {executeError}
-              </p>
-            )}
-          </>
+          <Button size="sm" variant="outline" onClick={onExecute} disabled={blocked} className="w-full">
+            {executing ? t('sending') : t('sendNow')}
+          </Button>
+        )}
+        {canRerun && (
+          <Button
+            data-testid="campaign-rerun-button"
+            size="sm"
+            variant="outline"
+            onClick={onRequestRerun}
+            disabled={blocked}
+            className="w-full"
+          >
+            {executing ? t('rerunning') : t('rerun')}
+          </Button>
+        )}
+        {(canSendNow || canRerun) && gateReason && (
+          <p data-testid="campaign-gate-reason" className="text-xs text-muted-foreground mt-1">
+            {gateReason}
+          </p>
+        )}
+        {(canSendNow || canRerun) && executeError && (
+          <p data-testid="campaign-execute-error" className="text-xs text-destructive mt-1">
+            {executeError}
+          </p>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function QrNotice({ testId, children }: { testId: string; children: React.ReactNode }) {
+  return (
+    <div
+      role="status"
+      data-testid={testId}
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 mb-3"
+    >
+      {children}
+    </div>
   )
 }
 

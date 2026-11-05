@@ -123,6 +123,7 @@ import {
 import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
 import { findCouponsByMembersAndCampaign } from '@/infrastructure/supabase/repositories/coupon-campaign-queries'
 import { findMemberIdsWithCountedSend } from '@/infrastructure/supabase/repositories/whatsapp-message-ledger-queries'
+import { isDeliveryUnknownReason } from '@/domain/services/campaign-delivery-failure-reason'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { emitEvent } from '@/application/emit-event'
@@ -1539,6 +1540,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(findLatestCampaignFailure).mockResolvedValue({
       errorCode: '131042',
       errorTitle: 'Business eligibility payment issue',
+      errorDetails: null,
     })
 
     await executeCampaign('camp-1', 'r-1')
@@ -1554,6 +1556,53 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     })
   })
 
+  // CAMP-014: the second caller of deliveryFailureReason words from the
+  // latest row's detail too, or a run retracted before finalize keeps the
+  // wrong cause while the webhook path has the right one.
+  it('words a retracted run from the latest rejected row detail', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails:
+        'Message failed to send because your WhatsApp Business account payment has been restricted.',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(reason).toContain('restricted')
+    expect(reason).not.toMatch(/currency/i)
+  })
+
+  // CAMP-014: /rerun refuses on this predicate, so it must match what a real
+  // run writes, not a copy of the sentence in a test.
+  it('the reason an errored run writes is the one the delivery-unknown predicate recognises', async () => {
+    // A rejection outside the BSP call is `errored`: delivery is unknown.
+    vi.mocked(insertQueued)
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockRejectedValueOnce(new Error('db down'))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const write = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(write?.[1].failureReason).toContain('Contact support')
+    expect(isDeliveryUnknownReason(write?.[1].failureReason)).toBe(true)
+  })
+
+  it('an all-sends-failed reason is not delivery-unknown, so it stays re-runnable', async () => {
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(failResult('kapso_send_error'))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const write = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(isDeliveryUnknownReason(write?.[1].failureReason)).toBe(false)
+  })
+
   it('interleaving: a retraction landing between the batch and finalize still ends failed, never completed', async () => {
     // Simulate the webhook zeroing the counters while sendInBatches is still
     // running: the CAS observes the drained counters and refuses.
@@ -1564,6 +1613,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(findLatestCampaignFailure).mockResolvedValue({
       errorCode: '131047',
       errorTitle: 'Re-engagement message',
+      errorDetails: null,
     })
 
     await executeCampaign('camp-1', 'r-1')

@@ -68,6 +68,8 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             scheduledAt={c.scheduledAt}
             failureReason={c.failureReason}
             templateReview={c.templateReview}
+            qrOnlyCoupon={c.qrOnlyCoupon}
+            qrFailedCount={c.qrFailedCount}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
             sendDisabled={sendDisabled}

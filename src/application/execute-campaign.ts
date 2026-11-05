@@ -6,7 +6,10 @@ import {
   failCampaignRunIfSending,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
-import { deliveryFailureReason } from '@/domain/services/campaign-delivery-failure-reason'
+import {
+  deliveryFailureReason,
+  deliveryUnknownReason,
+} from '@/domain/services/campaign-delivery-failure-reason'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { getRestaurantDefaultLanguage } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
@@ -79,9 +82,9 @@ export async function executeCampaign(
 // incident showed 2/2 Meta rejections as a completed campaign with 0 sent
 // and no failure_reason. Terminal `failed` + reason (not a throw): a throw
 // would revert to `active` and burn 3 blind BullMQ retries on what is
-// almost always a deterministic template mismatch; the operator can revive
-// via PATCH once the template is fixed (the revival guard clears the
-// reason). Skips don't count as failures, so an all-skipped run (e.g. no
+// almost always a deterministic template mismatch; the tenant re-runs from
+// the failed card once the cause is fixed (POST .../rerun clears the reason).
+// Skips don't count as failures, so an all-skipped run (e.g. no
 // consent) still completes as before. The reason is tenant-visible: fixed
 // wording only, never raw send-error internals — and it names the deciding
 // system (template vs connection vs unknown), never a look-alike.
@@ -133,7 +136,7 @@ async function failRunRetractedByMeta(
 ): Promise<void> {
   const latest = await findLatestCampaignFailure(campaignId, restaurantId)
   const reason = latest
-    ? deliveryFailureReason(latest.errorCode, latest.errorTitle)
+    ? deliveryFailureReason(latest.errorCode, latest.errorTitle, latest.errorDetails)
     : NO_COUNTED_SEND_REASON
   const written = await failCampaignRunIfSending(campaignId, reason)
   if (!written) {
@@ -141,9 +144,8 @@ async function failRunRetractedByMeta(
   }
 }
 
-// Wording deliberately names no revival mechanism: the dashboard has no
-// status control for failed campaigns (review #127, follow-up #129) —
-// reactivation is an operator PATCH today.
+// The failed card offers a re-run (POST .../rerun, CAMP-014), except on the
+// delivery-unknown reason, which that route refuses.
 function totalFailureReason(
   counters: SkipCounters,
   template: WhatsAppTemplate | null
@@ -153,11 +155,7 @@ function totalFailureReason(
   // against a blind re-run that would double-send.
   if (counters.errored > 0) {
     const broken = counters.failed + counters.errored
-    return (
-      `${broken} message sends did not complete and delivery could not be ` +
-      `confirmed for ${counters.errored} of them. Contact support before ` +
-      're-running this campaign.'
-    )
+    return deliveryUnknownReason(broken, counters.errored)
   }
   if (template) {
     return (

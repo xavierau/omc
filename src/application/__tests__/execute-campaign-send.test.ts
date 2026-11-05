@@ -32,8 +32,15 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-repository', ()
 import {
   sendCampaignBody,
   sendClaimBody,
+  sendCouponQr,
 } from '@/application/execute-campaign-send'
-import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { sendImageMessage, sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { uploadCouponQr } from '@/infrastructure/supabase/storage'
+import {
+  attachKapsoMessageId,
+  insertQueued,
+  markFailedNoBspId,
+} from '@/infrastructure/supabase/repositories/whatsapp-message-repository'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
 
 function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
@@ -174,5 +181,68 @@ describe('sendClaimBody (claim mode)', () => {
     await sendClaimBody(buildMember(), ctx)
 
     expect(sendTextMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendCouponQr (CAMP-014)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(insertQueued).mockResolvedValue(undefined)
+    vi.mocked(attachKapsoMessageId).mockResolvedValue(undefined)
+    vi.mocked(markFailedNoBspId).mockResolvedValue(undefined)
+    vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
+    vi.mocked(sendImageMessage).mockResolvedValue(okResult('wamid.image'))
+  })
+
+  it('an upload failure leaves a failed image row and does not throw', async () => {
+    vi.mocked(uploadCouponQr).mockRejectedValue(new Error('storage down'))
+
+    await expect(
+      sendCouponQr(buildMember(), buildCtx({ trackingEnabled: true }), 'CODE1')
+    ).resolves.toBeUndefined()
+
+    const queued = vi.mocked(insertQueued).mock.calls[0][0]
+    expect(queued.snapshot.messageType).toBe('image')
+    expect(queued.snapshot.campaignId).toBe('camp-1')
+    expect(markFailedNoBspId).toHaveBeenCalledWith(
+      queued.snapshot.id,
+      expect.objectContaining({ title: 'send_threw', details: 'storage down' })
+    )
+    expect(sendImageMessage).not.toHaveBeenCalled()
+  })
+
+  it('an upload failure with tracking off still does not fail the member', async () => {
+    vi.mocked(uploadCouponQr).mockRejectedValue(new Error('storage down'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await expect(
+      sendCouponQr(buildMember(), buildCtx({ trackingEnabled: false }), 'CODE1')
+    ).resolves.toBeUndefined()
+
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('a tracking write failure does not fail the member either', async () => {
+    vi.mocked(insertQueued).mockRejectedValue(new Error('db down'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await expect(
+      sendCouponQr(buildMember(), buildCtx({ trackingEnabled: true }), 'CODE1')
+    ).resolves.toBeUndefined()
+    warn.mockRestore()
+  })
+
+  it('the happy path uploads, then sends the image with the uploaded URL', async () => {
+    await sendCouponQr(buildMember(), buildCtx({ trackingEnabled: true }), 'CODE1')
+
+    expect(sendImageMessage).toHaveBeenCalledWith(
+      'phone-1',
+      '85290000001',
+      'https://qr.example.com/img.png',
+      'Your code: CODE1'
+    )
+    expect(attachKapsoMessageId).toHaveBeenCalledTimes(1)
+    expect(markFailedNoBspId).not.toHaveBeenCalled()
   })
 })

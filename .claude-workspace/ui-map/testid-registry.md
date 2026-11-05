@@ -44,3 +44,8 @@ the first real run.
 | `/dashboard/campaigns` Create/Edit sheet | coupon notice: welcome campaign requires a discount | `[data-testid="campaign-coupon-welcome-required-alert"]` | 2026-11-03 camp-expiry-001 (PR #173) |
 | `/dashboard/campaigns` Create/Edit sheet | coupon check pending while the selected template loads | `[data-testid="campaign-coupon-mode-checking"]` | 2026-11-03 camp-expiry-001 (PR #173) |
 | `/dashboard/campaigns` Create/Edit sheet | coupon check unavailable (template load failed) | `[data-testid="campaign-coupon-mode-error"]` | 2026-11-03 camp-expiry-001 (PR #173) |
+| `/dashboard/campaigns` failed card | re-run action (opens confirmation; hidden for welcome and delivery-unknown) | `[data-testid="campaign-rerun-button"]` | 2026-11-05 camp-014 render tests only, no browser run yet |
+| `/dashboard/campaigns` failed card, re-run sheet | confirm re-run (the only control that sends) | `[data-testid="campaign-rerun-confirm"]` | 2026-11-05 camp-014 render tests only, no browser run yet |
+| `/dashboard/campaigns` active / failed card | QR-only warning: code only in the free-form QR | `[data-testid="campaign-qr-only-warning"]` | 2026-11-05 camp-014 render tests only, no browser run yet |
+| `/dashboard/campaigns` card | QR failure warning: count > 0 and sends counted | `[data-testid="campaign-qr-failed-warning"]` | 2026-11-05 camp-014 render tests only, no browser run yet |
+| `/dashboard/campaigns` Create/Edit sheet | coupon notice: selected template leaves the code only in the QR (warn only) | `[data-testid="campaign-coupon-qr-only-alert"]` | 2026-11-05 camp-014 render tests only, no browser run yet |

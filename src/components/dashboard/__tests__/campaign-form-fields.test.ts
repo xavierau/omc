@@ -8,6 +8,7 @@ import {
   type CampaignFormState,
 } from '@/components/dashboard/campaign-form-fields'
 import {
+  couponFormQrOnly,
   templateLookup,
   singleTemplateIdToFetch,
   pickerTemplates,
@@ -126,6 +127,41 @@ describe('campaign-form-fields', () => {
     it('saves expiresInDays 60 when discount is 10 and expiry is 60', () => {
       const body = buildCampaignRequestBody(inlineForm({ discountValue: '10', expiresInDays: '60' }))
       expect(body.couponConfig?.expiresInDays).toBe(60)
+    })
+  })
+
+  describe('couponFormQrOnly (CAMP-014: warn only, on the shared domain rule)', () => {
+    const qrOnlyTemplate = waTemplate([{ type: 'HEADER', format: 'IMAGE' }, { type: 'BODY', text: 'Show your QR' }])
+    const form = (overrides: Partial<CampaignFormState> = {}) =>
+      inlineForm({ messageType: 'wa_template', whatsappTemplateId: 'wa-1', discountValue: '10', ...overrides })
+    const resolved = (template: WhatsAppTemplate): TemplateLookup => ({ status: 'resolved', template })
+
+    it('warns when the selected template leaves the code only in the QR', () => {
+      expect(couponFormQrOnly(form(), resolved(qrOnlyTemplate))).toBe(true)
+    })
+
+    it('does not warn for a claim template', () => {
+      expect(couponFormQrOnly(form(), resolved(claimTemplate))).toBe(false)
+    })
+
+    it('does not warn without a discount: no coupon is issued', () => {
+      expect(couponFormQrOnly(form({ discountValue: '' }), resolved(qrOnlyTemplate))).toBe(false)
+    })
+
+    it('does not warn for a welcome campaign', () => {
+      expect(couponFormQrOnly(form({ type: 'welcome' }), resolved(qrOnlyTemplate))).toBe(false)
+    })
+
+    it('does not warn for inline copy, even with a stale resolved lookup', () => {
+      expect(couponFormQrOnly(form({ messageType: 'inline' }), resolved(qrOnlyTemplate))).toBe(false)
+    })
+
+    it.each(['loading', 'error', 'unselected'] as const)('does not warn while the lookup is %s', (status) => {
+      expect(couponFormQrOnly(form(), { status })).toBe(false)
+    })
+
+    it('never blocks: validation still passes for a qr-only template', () => {
+      expect(validateCampaignForm(form({ name: 'Promo' }))).toBeNull()
     })
   })
 
