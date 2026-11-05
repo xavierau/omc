@@ -10,6 +10,7 @@ import {
   countCampaignBodyRows,
   countFailedBodyRowsWithoutMetaCode,
   countFailedCampaignQrImages,
+  countQueuedBodyRowsWithoutWamid,
   findLatestCampaignFailure,
 } from '../whatsapp-message-campaign-queries'
 
@@ -19,20 +20,22 @@ function chainClient(result: Record<string, unknown>) {
   const gte = vi.fn()
   const inFilter = vi.fn()
   const or = vi.fn()
+  const is = vi.fn()
   const chain: Record<string, unknown> = {
     select,
     eq,
     gte,
     in: inFilter,
     or,
+    is,
     order: () => chain,
     limit: () => chain,
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const fn of [select, eq, gte, inFilter, or]) fn.mockReturnValue(chain)
+  for (const fn of [select, eq, gte, inFilter, or, is]) fn.mockReturnValue(chain)
   vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
-  return { select, eq, gte, inFilter, or }
+  return { select, eq, gte, inFilter, or, is }
 }
 
 describe('rerun evidence counts (CAMP-014)', () => {
@@ -106,9 +109,56 @@ describe('rerun evidence counts (CAMP-014)', () => {
     })
   })
 
+  it('countQueuedBodyRowsWithoutWamid: queued body rows with a null kapso_message_id', async () => {
+    const { select, eq, inFilter, is } = chainClient({ count: 3, error: null })
+
+    await expect(countQueuedBodyRowsWithoutWamid(scope)).resolves.toBe(3)
+
+    expect(select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
+    expect(eq.mock.calls).toEqual([
+      ['campaign_id', 'c-1'],
+      ['restaurant_id', 'r-1'],
+      ['status', 'queued'],
+    ])
+    expect(inFilter).toHaveBeenCalledWith('message_type', ['template', 'text'])
+    expect(is).toHaveBeenCalledWith('kapso_message_id', null)
+  })
+
+  describe('countQueuedBodyRowsWithoutWamid over rows', () => {
+    const row = (overrides: FakeRow = {}): FakeRow => ({
+      campaign_id: 'c-1',
+      restaurant_id: 'r-1',
+      status: 'queued',
+      message_type: 'template',
+      kapso_message_id: null,
+      ...overrides,
+    })
+    const countOver = (rows: FakeRow[]) => {
+      vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => fakeTable(rows) } as never)
+      return countQueuedBodyRowsWithoutWamid(scope)
+    }
+
+    it.each([['template'], ['text']])('counts a queued %s row with no wamid', async (message_type) => {
+      await expect(countOver([row({ message_type })])).resolves.toBe(1)
+    })
+
+    it('ignores other statuses, a saved wamid, QR images, other campaigns and other tenants', async () => {
+      const unrelated = [
+        row({ status: 'sent' }),
+        row({ status: 'failed' }),
+        row({ kapso_message_id: 'wamid.saved' }),
+        row({ message_type: 'image' }),
+        row({ campaign_id: 'c-2' }),
+        row({ restaurant_id: 'r-2' }),
+      ]
+      await expect(countOver(unrelated)).resolves.toBe(0)
+    })
+  })
+
   it.each([
     ['countCampaignBodyRows', countCampaignBodyRows],
     ['countFailedBodyRowsWithoutMetaCode', countFailedBodyRowsWithoutMetaCode],
+    ['countQueuedBodyRowsWithoutWamid', countQueuedBodyRowsWithoutWamid],
   ])('%s throws on a query error, never reading it as zero', async (name, count) => {
     chainClient({ count: null, error: { message: 'db down' } })
     await expect(count(scope)).rejects.toThrow(`${name}: db down`)

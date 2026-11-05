@@ -18,6 +18,7 @@ vi.mock('@/infrastructure/queue/campaign-queue', () => ({
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries', () => ({
   countCampaignBodyRows: vi.fn(),
   countFailedBodyRowsWithoutMetaCode: vi.fn(),
+  countQueuedBodyRowsWithoutWamid: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/coupon-campaign-queries', () => ({
   countExpiredCampaignCoupons: vi.fn(),
@@ -47,6 +48,7 @@ import { addCampaignJob } from '@/infrastructure/queue/campaign-queue'
 import {
   countCampaignBodyRows,
   countFailedBodyRowsWithoutMetaCode,
+  countQueuedBodyRowsWithoutWamid,
 } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
 import { countExpiredCampaignCoupons } from '@/infrastructure/supabase/repositories/coupon-campaign-queries'
 import {
@@ -107,6 +109,7 @@ describe('POST /api/dashboard/campaigns/[id]/rerun', () => {
     // Default evidence: a ledger exists and every failure carries Meta's code.
     vi.mocked(countCampaignBodyRows).mockResolvedValue(250)
     vi.mocked(countFailedBodyRowsWithoutMetaCode).mockResolvedValue(0)
+    vi.mocked(countQueuedBodyRowsWithoutWamid).mockResolvedValue(0)
     vi.mocked(countExpiredCampaignCoupons).mockResolvedValue(0)
     vi.mocked(stampCampaignEnqueued).mockResolvedValue(undefined)
     vi.mocked(restoreCampaignFailure).mockResolvedValue(true)
@@ -265,6 +268,20 @@ describe('POST /api/dashboard/campaigns/[id]/rerun', () => {
       expectRefusedUntouched()
     })
 
+    it('one body row queued with no wamid among many: 409', async () => {
+      vi.mocked(countQueuedBodyRowsWithoutWamid).mockResolvedValue(1)
+
+      const r = await call()
+
+      expect(r.status).toBe(409)
+      expect((await r.json()).error).toContain('OhMyClient')
+      expect(countQueuedBodyRowsWithoutWamid).toHaveBeenCalledWith({
+        campaignId: CAMPAIGN_ID,
+        restaurantId: RESTAURANT_ID,
+      })
+      expectRefusedUntouched()
+    })
+
     it('an expired coupon: 409 saying to create a new campaign', async () => {
       vi.mocked(countExpiredCampaignCoupons).mockResolvedValue(1)
 
@@ -292,6 +309,7 @@ describe('POST /api/dashboard/campaigns/[id]/rerun', () => {
     it.each([
       ['the body-row count', () => vi.mocked(countCampaignBodyRows)],
       ['the no-code count', () => vi.mocked(countFailedBodyRowsWithoutMetaCode)],
+      ['the queued-no-wamid count', () => vi.mocked(countQueuedBodyRowsWithoutWamid)],
       ['the coupon count', () => vi.mocked(countExpiredCampaignCoupons)],
     ])('a query error in %s fails closed: 500 with no write', async (_name, mock) => {
       mock().mockRejectedValue(new Error('db://secret-host down'))

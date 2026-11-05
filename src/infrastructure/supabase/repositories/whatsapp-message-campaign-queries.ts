@@ -119,3 +119,22 @@ export async function countFailedBodyRowsWithoutMetaCode(scope: CampaignScope): 
   if (error) throw new Error(`countFailedBodyRowsWithoutMetaCode: ${error.message}`)
   return count ?? 0
 }
+
+/**
+ * Body rows still queued with no wamid (CAMP-014). A send ends with a wamid or a failed
+ * row, so outside an in-flight call this means saving the outcome was lost and the
+ * customer may have received the message. The sweep turns these into internal_orphan.
+ */
+export async function countQueuedBodyRowsWithoutWamid(scope: CampaignScope): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', scope.campaignId)
+    .eq('restaurant_id', scope.restaurantId)
+    .eq('status', 'queued')
+    .in('message_type', CAMPAIGN_BODY_MESSAGE_TYPES as unknown as string[])
+    .is('kapso_message_id', null)
+  if (error) throw new Error(`countQueuedBodyRowsWithoutWamid: ${error.message}`)
+  return count ?? 0
+}

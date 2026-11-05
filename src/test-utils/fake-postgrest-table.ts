@@ -10,6 +10,11 @@ interface FakeTableOptions {
   updateError?: (patch: FakeRow, matched: FakeRow[]) => string | null
 }
 
+interface OrderOptions {
+  ascending?: boolean
+  nullsFirst?: boolean
+}
+
 // A comparison against NULL is unknown, and NOT unknown is still unknown.
 function comparison(operator: string, value: string): (cell: unknown) => boolean {
   if (operator === 'eq') return (cell) => cell === value
@@ -35,11 +40,31 @@ function parseOrTerm(term: string): RowFilter {
   }
 }
 
+// PostgREST's default puts NULLs last ascending and first descending.
+function byColumn(column: string, { ascending = true, nullsFirst = !ascending }: OrderOptions) {
+  return (a: FakeRow, b: FakeRow): number => {
+    const left = a[column] ?? null
+    const right = b[column] ?? null
+    if (left === null || right === null) {
+      if (left === right) return 0
+      return (left === null) === nullsFirst ? -1 : 1
+    }
+    const order = String(left).localeCompare(String(right))
+    return ascending ? order : -order
+  }
+}
+
 export function fakeTable(rows: FakeRow[], options: FakeTableOptions = {}) {
   const filters: RowFilter[] = []
   let patch: FakeRow | null = null
   let inserted: FakeRow | null = null
-  const matching = () => rows.filter((row) => filters.every((keep) => keep(row)))
+  let ordering: ((a: FakeRow, b: FakeRow) => number) | null = null
+  let cap = Infinity
+  const selected = () => {
+    const found = rows.filter((row) => filters.every((keep) => keep(row)))
+    if (ordering) found.sort(ordering)
+    return found.slice(0, cap)
+  }
   const chain = {
     select: () => chain,
     insert: (row: FakeRow) => {
@@ -75,9 +100,23 @@ export function fakeTable(rows: FakeRow[], options: FakeTableOptions = {}) {
       filters.push((row) => terms.some((term) => term(row)))
       return chain
     },
+    order: (column: string, options: OrderOptions = {}) => {
+      ordering = byColumn(column, options)
+      return chain
+    },
+    limit: (count: number) => {
+      cap = count
+      return chain
+    },
+    maybeSingle: () => {
+      const found = selected()
+      return found.length > 1
+        ? Promise.resolve({ data: null, error: { message: 'multiple rows returned' } })
+        : Promise.resolve({ data: found[0] ?? null, error: null })
+    },
     then: (resolve: (result: unknown) => unknown) => {
       if (inserted) rows.push(inserted)
-      const found = matching()
+      const found = selected()
       const failure = patch && options.updateError?.(patch, found)
       if (failure) {
         return Promise.resolve({ data: null, count: null, error: { message: failure } }).then(resolve)
