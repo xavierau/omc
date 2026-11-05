@@ -1,4 +1,5 @@
 import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
+import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 export interface CampaignFormState {
@@ -159,6 +160,18 @@ export function couponFormMode(form: CouponModeForm, lookup: TemplateLookup): Co
     inlineTexts: usesWaTemplate ? [] : [form.templateEn, form.templateZhHk],
   })
   return { mode: MODE_BY_REQUIREMENT[requirement.kind] }
+}
+
+/** CAMP-014: warn (never block) when the selected template leaves the code only in the QR. */
+export function couponFormQrOnly(
+  form: Pick<CampaignFormState, 'type' | 'messageType' | 'discountValue'>,
+  lookup: TemplateLookup
+): boolean {
+  return isQrOnlyCouponCampaign({
+    type: form.type,
+    hasCouponConfig: parseCouponDiscount(form) !== null,
+    template: form.messageType === 'wa_template' && lookup.status === 'resolved' ? lookup.template : null,
+  })
 }
 
 /** The one "has a discount" rule: the discount value when > 0, else null (couponConfig is then null). */

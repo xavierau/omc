@@ -15,6 +15,9 @@ export type { Campaign }
 export type DashboardCampaign = Campaign & {
   failureReason?: string | null
   templateReview?: CampaignTemplateReviewGate | null
+  // CAMP-014: absent when not applicable or when the enrichment degraded off.
+  qrOnlyCoupon?: boolean
+  qrFailedCount?: number
 }
 
 export function useCampaigns() {

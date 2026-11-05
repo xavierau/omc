@@ -67,7 +67,6 @@ export async function sendCouponQr(
   code: string
 ): Promise<void> {
   try {
-    const qrUrl = await uploadCouponQr(code)
     await recordOutboundSend({
       restaurantId: ctx.campaign.restaurantId,
       memberId: member.id,
@@ -77,8 +76,12 @@ export async function sendCouponQr(
       messageType: 'image',
       contentPreview: `Your code: ${code}`,
       trackingEnabled: ctx.trackingEnabled,
-      send: () =>
-        sendImageMessage(ctx.phoneNumberId, member.phone, qrUrl, `Your code: ${code}`),
+      // The upload is part of the tracked send: a failed upload is a customer
+      // without a code, so it must leave a failed row like any other (CAMP-014).
+      send: async () => {
+        const qrUrl = await uploadCouponQr(code)
+        return sendImageMessage(ctx.phoneNumberId, member.phone, qrUrl, `Your code: ${code}`)
+      },
     })
   } catch (err) {
     console.warn('[Campaign] QR send failed:', (err as Error).message)

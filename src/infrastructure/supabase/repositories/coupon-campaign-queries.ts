@@ -34,3 +34,19 @@ export async function findCouponsByMembersAndCampaign(args: {
   }
   return out
 }
+
+/** Coupons of this campaign already past their expiry (CAMP-014). Head count only. */
+export async function countExpiredCampaignCoupons(args: {
+  campaignId: string
+  restaurantId: string
+}): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('coupons')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', args.campaignId)
+    .eq('restaurant_id', args.restaurantId)
+    .lt('expires_at', new Date().toISOString())
+  if (error) throw new Error(`countExpiredCampaignCoupons: ${error.message}`)
+  return count ?? 0
+}

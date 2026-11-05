@@ -23,7 +23,8 @@ export default function CampaignsPage() {
   const sendDisabled = guardrails.data ? !guardrails.data.allowed : false
 
   if (error) return <ErrorFallback onRetry={refetch} />
-  if (isLoading) return <LoadingSkeleton />
+  // Only the first load: a refetch that unmounts the cards loses a refusal shown on one.
+  if (isLoading && campaigns.length === 0) return <LoadingSkeleton />
   if (campaigns.length === 0) return <EmptyCampaigns onCreate={() => setFormOpen(true)} formOpen={formOpen} setFormOpen={setFormOpen} refetch={refetch} />
 
   const active = campaigns.filter((c) => c.status === 'active')
@@ -68,6 +69,9 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             scheduledAt={c.scheduledAt}
             failureReason={c.failureReason}
             templateReview={c.templateReview}
+            qrOnlyCoupon={c.qrOnlyCoupon}
+            qrFailedCount={c.qrFailedCount}
+            hasCouponConfig={Boolean(c.couponConfig)}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
             sendDisabled={sendDisabled}

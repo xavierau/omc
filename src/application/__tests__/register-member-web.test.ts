@@ -56,6 +56,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     whatsappTemplateId: null,
     targetAudience: 'all',
     createdAt: '2026-04-20T00:00:00Z',
+    lastEnqueuedAt: null,
     ...overrides,
   }
 }

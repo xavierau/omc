@@ -7,6 +7,7 @@ import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
 import {
   couponFormMode,
+  couponFormQrOnly,
   pickerTemplates,
   singleTemplateIdToFetch,
   templateLookup,
@@ -127,6 +128,7 @@ function CouponConfigFields({ form, lookup, onChange }: CouponConfigFieldsProps)
         />
       </Field>
       <CouponModeAlert result={result} />
+      {couponFormQrOnly(form, lookup) && <CouponAlertBox testId="campaign-coupon-qr-only-alert">{t('couponQrOnlyAlert')}</CouponAlertBox>}
       <Field label={t('expiryDays')}>
         <Input
           type="number"
@@ -167,13 +169,17 @@ function CouponModeAlert({ result }: { result: CouponFormModeResult }) {
     )
   }
   const { key, testId } = ALERT_COPY[result.mode]
+  return <CouponAlertBox testId={testId}>{t(key)}</CouponAlertBox>
+}
+
+function CouponAlertBox({ testId, children }: { testId: string; children: React.ReactNode }) {
   return (
     <div
       role="status"
       data-testid={testId}
       className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
     >
-      {t(key)}
+      {children}
     </div>
   )
 }
