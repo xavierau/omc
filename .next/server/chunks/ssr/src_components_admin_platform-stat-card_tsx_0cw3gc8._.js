@@ -1,0 +1,3 @@
+module.exports=[81507,a=>{"use strict";var b=a.i(87924),c=a.i(91119);a.s(["PlatformStatCard",0,function({value:a,label:d,subtitle:e}){return(0,b.jsx)(c.Card,{children:(0,b.jsxs)(c.CardContent,{className:"p-6",children:[(0,b.jsx)("p",{className:"text-[32px] font-bold leading-none text-foreground",children:a}),(0,b.jsx)("p",{className:"text-sm text-muted-foreground mt-2",children:d}),e&&(0,b.jsx)("p",{className:"text-xs text-muted-foreground/70 mt-1",children:e})]})})}])}];
+
+//# sourceMappingURL=src_components_admin_platform-stat-card_tsx_0cw3gc8._.js.map

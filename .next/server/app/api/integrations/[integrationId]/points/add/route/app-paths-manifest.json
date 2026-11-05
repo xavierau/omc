@@ -1,0 +1,3 @@
+{
+  "/api/integrations/[integrationId]/points/add/route": "app/api/integrations/[integrationId]/points/add/route.js"
+}

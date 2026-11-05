@@ -1,0 +1,23 @@
+{
+  "_comment": "SYNTHETIC — replace with real Meta sandbox capture before merge per addendum §5.2. Shape based on Meta Cloud API account_update webhook docs (https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/components#account-update).",
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-WAQ006",
+      "time": 1777896000,
+      "changes": [
+        {
+          "field": "account_update",
+          "value": {
+            "event": "account_quality_update",
+            "phone_number": "85291234567",
+            "phone_number_id": "WAQ002_TEST_PHONE_NUMBER_ID",
+            "current_limit": "TIER_1K",
+            "old_limit": "TIER_10K",
+            "quality": "yellow"
+          }
+        }
+      ]
+    }
+  ]
+}

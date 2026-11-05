@@ -1,0 +1,9 @@
+{
+  "source_ref": "release-camp014",
+  "source_commit": "84f46297768cc6db9d62f85da46ba130d2a13e0c",
+  "source_subject": "Merge pull request #177 from xavierau/develop (release: CAMP-014 failed-campaign reason, safe re-run, QR visibility)",
+  "build_id": "THI1PO_omqiN4JkzDp8Ly",
+  "built_at": "2026-11-05T04:52:53Z",
+  "built_by": "xavier.au@gmail.com",
+  "node": "v22.21.1"
+}
