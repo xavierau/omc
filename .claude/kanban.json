@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-10-07",
+  "updated_at": "2026-11-05",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1524,6 +1524,20 @@
           ],
           "related": [
             "kanban:REPLY-007"
+          ]
+        },
+        {
+          "id": "CAMP-015",
+          "title": "CAMP-014 accepted follow-ups (11 items from its reviews)",
+          "description": "Accepted at the CAMP-014 release. Source: reviews/2026-11-05-camp-014-*.\n1. Redis outage makes addCampaignJob hang so revert does not run (maxRetriesPerRequest null + offline queue)\n2. Reason and 131047 refusal come from one row, not the whole run\n3. Delivery-unknown relies on a substring of display text, and PATCH revive bypasses the guard\n4. All-skipped re-run ends completed with 0 sent\n5. QR count by last_enqueued_at hides failures for members skipped by a re-run\n6. Coupon guard refuses on any expired coupon, including claim campaigns, and ignores deactivated ones\n7. Failed refetch replaces the list\n8. Refusal messages and failure reasons are English on the zh-HK UI\n9. Sweep can remove an orphan from the ledger for retry and PATCH paths\n10. Claim-handler upload outside the tracked send\n11. findLatestCampaignFailure can choose a null-code row",
+          "priority": "medium",
+          "labels": [
+            "campaigns",
+            "follow-up"
+          ],
+          "related": [
+            "kanban:CAMP-014",
+            "github:176"
           ]
         }
       ]
@@ -3343,6 +3357,39 @@
           "completed": "2026-10-07",
           "pr": 172,
           "notes": "RELEASED to prod 2026-10-07 08:52Z via PR #172 (develop 07316f36 -> main d73b7e2a, release 0071fa3, BUILD_ID AkWQ9N80t9yjaXRQRWYWu); migrations 080 + 081 applied by deploy.sh after backup gate (managed backup 1887852771 + events export). Post-deploy DB/PostgREST checks green; authenticated browser smoke NOT run (no pinned prod test account)."
+        },
+        {
+          "id": "CAMP-014",
+          "title": "Failed-campaign reason from Meta's detail, safe tenant re-run, QR failure visibility",
+          "description": "Bicho 'Nov promo_batch1' failed with a reason blaming a missing billing currency, while Meta's detail said payment restricted, and the reason told the tenant to re-run with no action on the card. Fix: reason branches on Meta's error detail; guarded POST /api/dashboard/campaigns/[id]/rerun plus a confirm dialog on failed cards; QR image failures shown on the campaign.",
+          "labels": [
+            "bug",
+            "campaigns",
+            "P1"
+          ],
+          "related": [
+            "github:176",
+            "github:177",
+            "kanban:CAMP-015",
+            "kanban:CAMP-008"
+          ],
+          "priority": "high",
+          "branch": "fix/camp-014-failed-campaign-remedy",
+          "workspace_artifacts": [
+            "investigations/2026-11-05-bicho-campaign-131042-wrong-reason",
+            "plans/2026-11-05-camp-014-failed-campaign-remedy",
+            "artifacts/2026-11-05-camp-014-dev-handoff",
+            "artifacts/2026-11-05-camp-014-dev-round2-handoff",
+            "reviews/2026-11-05-camp-014-absence",
+            "reviews/2026-11-05-camp-014-re-review",
+            "reviews/2026-11-05-camp-014-re-review-2",
+            "reviews/2026-11-05-camp-014-re-review-3",
+            "deploys/2026-11-05-camp-014-release-runbook"
+          ],
+          "started_at": "2026-11-05",
+          "pr": 176,
+          "completed": "2026-11-05",
+          "notes": "RELEASED to prod 2026-11-05 04:56Z via PR #177 (develop 329cabd1 -> main 84f46297, release b0b4ef0, BUILD_ID THI1PO_omqiN4JkzDp8Ly). No migrations. Read-only checks green; authenticated UI smoke NOT run. The stored reasons on Bicho and 長盈行 were left unchanged: owner decides separately. Accepted follow-ups: CAMP-015."
         }
       ]
     },
