@@ -71,6 +71,7 @@ function CampaignSection({ title, campaigns, onExecute, onEdit, sendDisabled }: 
             templateReview={c.templateReview}
             qrOnlyCoupon={c.qrOnlyCoupon}
             qrFailedCount={c.qrFailedCount}
+            hasCouponConfig={Boolean(c.couponConfig)}
             onExecute={onExecute}
             onEdit={() => onEdit(c)}
             sendDisabled={sendDisabled}
