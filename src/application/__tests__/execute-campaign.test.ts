@@ -123,6 +123,7 @@ import {
 import { findLatestCampaignFailure } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
 import { findCouponsByMembersAndCampaign } from '@/infrastructure/supabase/repositories/coupon-campaign-queries'
 import { findMemberIdsWithCountedSend } from '@/infrastructure/supabase/repositories/whatsapp-message-ledger-queries'
+import { isDeliveryUnknownReason } from '@/domain/services/campaign-delivery-failure-reason'
 import { createCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { emitEvent } from '@/application/emit-event'
@@ -173,6 +174,7 @@ function buildCampaign(overrides: Partial<Campaign> = {}): Campaign {
     whatsappTemplateId: null,
     targetAudience: 'all',
     createdAt: '2024-01-01T00:00:00Z',
+    lastEnqueuedAt: null,
     ...overrides,
   }
 }
@@ -575,6 +577,7 @@ describe('executeCampaign — WAQ-004 marketing consent gate', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -798,6 +801,7 @@ describe('executeCampaign with WAQ_TRACK_MESSAGES=1 (per addendum §4.3)', () =>
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -902,6 +906,7 @@ describe('executeCampaign — WAQ-007 per-user marketing cooldown', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -1157,6 +1162,7 @@ describe('executeCampaign — WAQ-010 engagement-tier pacing', () => {
       whatsappTemplateId: null,
       targetAudience: 'all',
       createdAt: '2024-01-01T00:00:00Z',
+      lastEnqueuedAt: null,
       ...overrides,
     }
   }
@@ -1539,6 +1545,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(findLatestCampaignFailure).mockResolvedValue({
       errorCode: '131042',
       errorTitle: 'Business eligibility payment issue',
+      errorDetails: null,
     })
 
     await executeCampaign('camp-1', 'r-1')
@@ -1554,6 +1561,97 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     })
   })
 
+  // CAMP-014: the second caller of deliveryFailureReason words from the
+  // latest row's detail too, or a run retracted before finalize keeps the
+  // wrong cause while the webhook path has the right one.
+  it('words a retracted run from the latest rejected row detail', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails:
+        'Message failed to send because your WhatsApp Business account payment has been restricted.',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(reason).toContain('restricted')
+    expect(reason).not.toMatch(/currency/i)
+  })
+
+  // CAMP-014 I2: the CAS lost, but an errored member's delivery is unknown, so
+  // the reason must not say Meta rejected every message and invite a re-run.
+  it('a retracted run with errored members writes the delivery-unknown reason (sent 1, errored 2)', async () => {
+    vi.mocked(resolveTargetMembers).mockResolvedValue([
+      buildMember({ id: 'm-1', phone: '85291111111' }),
+      buildMember({ id: 'm-2', phone: '85292222222' }),
+      buildMember({ id: 'm-3', phone: '85293333333' }),
+    ])
+    vi.mocked(insertQueued)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockRejectedValueOnce(new Error('db down'))
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails: 'payment has been restricted',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(isDeliveryUnknownReason(reason)).toBe(true)
+    expect(reason).toContain('2 message sends')
+    expect(reason).not.toContain('re-run the campaign')
+  })
+
+  it('a retracted run with no errored member keeps the Meta wording', async () => {
+    vi.mocked(completeCampaignRunIfCounted).mockResolvedValue(false)
+    vi.mocked(findLatestCampaignFailure).mockResolvedValue({
+      errorCode: '131042',
+      errorTitle: 'Business eligibility payment issue',
+      errorDetails: 'payment has been restricted',
+    })
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const [, reason] = vi.mocked(failCampaignRunIfSending).mock.calls[0]
+    expect(isDeliveryUnknownReason(reason)).toBe(false)
+    expect(reason).toContain('restricted')
+  })
+
+  // CAMP-014: /rerun refuses on this predicate, so it must match what a real
+  // run writes, not a copy of the sentence in a test.
+  it('the reason an errored run writes is the one the delivery-unknown predicate recognises', async () => {
+    // A rejection outside the BSP call is `errored`: delivery is unknown.
+    vi.mocked(insertQueued)
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockRejectedValueOnce(new Error('db down'))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const write = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(write?.[1].failureReason).toContain('Contact support')
+    expect(isDeliveryUnknownReason(write?.[1].failureReason)).toBe(true)
+  })
+
+  // The reason alone does not refuse this one: /rerun's row-evidence guard does
+  // (rerun-evidence-transport-failure.test.ts).
+  it('an all-sends-failed reason is not worded as delivery-unknown', async () => {
+    vi.mocked(sendWhatsAppTemplateMessage).mockResolvedValue(failResult('kapso_send_error'))
+
+    await executeCampaign('camp-1', 'r-1')
+
+    const write = vi
+      .mocked(updateCampaign)
+      .mock.calls.find(([, changes]) => changes.status === 'failed')
+    expect(isDeliveryUnknownReason(write?.[1].failureReason)).toBe(false)
+  })
+
   it('interleaving: a retraction landing between the batch and finalize still ends failed, never completed', async () => {
     // Simulate the webhook zeroing the counters while sendInBatches is still
     // running: the CAS observes the drained counters and refuses.
@@ -1564,6 +1662,7 @@ describe('executeCampaign — #127 all-failed runs and media-header guard (CAMP-
     vi.mocked(findLatestCampaignFailure).mockResolvedValue({
       errorCode: '131047',
       errorTitle: 'Re-engagement message',
+      errorDetails: null,
     })
 
     await executeCampaign('camp-1', 'r-1')

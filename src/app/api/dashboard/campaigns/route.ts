@@ -15,6 +15,7 @@ import { setCampaignTags } from '@/application/set-campaign-tags'
 import { parseCreateBody } from './parse-create-body'
 import { handleError } from './campaign-error-response'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from './with-template-review'
+import { withQrStatus, safeCampaignQrStates } from './with-qr-status'
 import type { LanguageCode } from '@/domain/value-objects/language'
 import type { Campaign } from '@/domain/entities/campaign'
 
@@ -24,9 +25,12 @@ export async function GET() {
     const campaigns = await listCampaigns(restaurantId)
     // Issue #102 fix 4: let the UI explain a disabled Send button instead
     // of failing silently. Degrades OFF on enrichment failure (item 2).
-    const reviewStates = await safeCampaignTemplateReviewStates(restaurantId, campaigns)
+    const [reviewStates, qrStates] = await Promise.all([
+      safeCampaignTemplateReviewStates(restaurantId, campaigns),
+      safeCampaignQrStates(restaurantId, campaigns),
+    ])
     return NextResponse.json({
-      campaigns: campaigns.map((c) => withTemplateReview(c, reviewStates)),
+      campaigns: campaigns.map((c) => withQrStatus(withTemplateReview(c, reviewStates), qrStates)),
     })
   } catch (error) {
     return handleError(error, 'Campaigns API error', 'Failed to load campaigns')

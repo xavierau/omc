@@ -52,7 +52,11 @@ export async function reconcileCampaignSendFailure(
     const result = await retractCampaignSent({
       campaignId: after.campaignId,
       restaurantId: after.restaurantId,
-      failureReason: deliveryFailureReason(after.errorCode, after.errorTitle),
+      failureReason: deliveryFailureReason(
+        after.errorCode,
+        after.errorTitle,
+        after.errorDetails
+      ),
     })
     if (!result) {
       args.log('warn', 'campaign.retract_no_match', context)

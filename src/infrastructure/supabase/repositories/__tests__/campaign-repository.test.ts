@@ -10,6 +10,9 @@ import {
   incrementCampaignSent,
   createCampaign,
   markCampaignFailed,
+  reviveFailedCampaign,
+  restoreCampaignFailure,
+  stampCampaignEnqueued,
   getCampaignByIdForRestaurant,
   getDueCampaigns,
 } from '../campaign-repository'
@@ -37,6 +40,13 @@ function buildRow(overrides: Record<string, unknown> = {}): Record<string, unkno
 }
 
 describe('mapRowToCampaign', () => {
+  it('maps last_enqueued_at, null when never enqueued', () => {
+    expect(mapRowToCampaign(buildRow()).lastEnqueuedAt).toBeNull()
+    expect(
+      mapRowToCampaign(buildRow({ last_enqueued_at: '2026-11-05T01:00:00Z' })).lastEnqueuedAt
+    ).toBe('2026-11-05T01:00:00Z')
+  })
+
   it('maps snake_case DB row to camelCase Campaign with split counters', () => {
     const campaign = mapRowToCampaign(buildRow())
     expect(campaign).toMatchObject({
@@ -271,6 +281,122 @@ describe('markCampaignFailed', () => {
 
     await expect(markCampaignFailed('camp-1', 'boom')).rejects.toThrow(
       'markCampaignFailed: db down'
+    )
+  })
+})
+
+describe('reviveFailedCampaign (CAMP-014)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function reviveClient(result: { data: unknown; error: unknown }) {
+    const update = vi.fn()
+    const eq = vi.fn()
+    const chain = { update, eq, select: () => Promise.resolve(result) }
+    update.mockReturnValue(chain)
+    eq.mockReturnValue(chain)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
+    return { update, eq }
+  }
+
+  it('moves failed to active, clears the reason, and is scoped by tenant and status', async () => {
+    const { update, eq } = reviveClient({ data: [{ id: 'camp-1' }], error: null })
+
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).resolves.toBe(true)
+
+    expect(update).toHaveBeenCalledWith({ status: 'active', failure_reason: null })
+    expect(eq.mock.calls).toEqual([
+      ['id', 'camp-1'],
+      ['restaurant_id', 'rest-1'],
+      ['status', 'failed'],
+    ])
+  })
+
+  it('returns false when another request already won the row', async () => {
+    reviveClient({ data: [], error: null })
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).resolves.toBe(false)
+  })
+
+  it('throws on a query error rather than reading it as a lost race', async () => {
+    reviveClient({ data: null, error: { message: 'db down' } })
+    await expect(reviveFailedCampaign('camp-1', 'rest-1')).rejects.toThrow(
+      'reviveFailedCampaign: db down'
+    )
+  })
+})
+
+describe('restoreCampaignFailure (CAMP-014)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function restoreClient(result: { data: unknown; error: unknown }) {
+    const update = vi.fn()
+    const eq = vi.fn()
+    const chain = { update, eq, select: () => Promise.resolve(result) }
+    update.mockReturnValue(chain)
+    eq.mockReturnValue(chain)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
+    return { update, eq }
+  }
+
+  it('moves active back to failed with the reason, scoped by tenant and status', async () => {
+    const { update, eq } = restoreClient({ data: [{ id: 'camp-1' }], error: null })
+
+    await expect(restoreCampaignFailure('camp-1', 'rest-1', 'Meta said no')).resolves.toBe(true)
+
+    expect(update).toHaveBeenCalledWith({ status: 'failed', failure_reason: 'Meta said no' })
+    expect(eq.mock.calls).toEqual([
+      ['id', 'camp-1'],
+      ['restaurant_id', 'rest-1'],
+      ['status', 'active'],
+    ])
+  })
+
+  it('returns false when the row already left active', async () => {
+    restoreClient({ data: [], error: null })
+    await expect(restoreCampaignFailure('camp-1', 'rest-1', 'x')).resolves.toBe(false)
+  })
+
+  it('throws on a query error', async () => {
+    restoreClient({ data: null, error: { message: 'db down' } })
+    await expect(restoreCampaignFailure('camp-1', 'rest-1', 'x')).rejects.toThrow(
+      'restoreCampaignFailure: db down'
+    )
+  })
+})
+
+describe('stampCampaignEnqueued (CAMP-014)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function stampClient(result: { error: unknown }) {
+    const update = vi.fn()
+    const eq = vi.fn()
+    const chain = {
+      update,
+      eq,
+      then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
+    }
+    update.mockReturnValue(chain)
+    eq.mockReturnValue(chain)
+    vi.mocked(createServerSupabaseClient).mockReturnValue({ from: () => chain } as never)
+    return { update, eq }
+  }
+
+  it('stamps last_enqueued_at regardless of the lease, scoped by tenant and active', async () => {
+    const { update, eq } = stampClient({ error: null })
+
+    await stampCampaignEnqueued('camp-1', 'rest-1')
+
+    expect(update).toHaveBeenCalledWith({ last_enqueued_at: expect.any(String) })
+    expect(eq.mock.calls).toEqual([
+      ['id', 'camp-1'],
+      ['restaurant_id', 'rest-1'],
+      ['status', 'active'],
+    ])
+  })
+
+  it('throws on a query error', async () => {
+    stampClient({ error: { message: 'db down' } })
+    await expect(stampCampaignEnqueued('camp-1', 'rest-1')).rejects.toThrow(
+      'stampCampaignEnqueued: db down'
     )
   })
 })

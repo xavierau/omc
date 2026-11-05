@@ -12,6 +12,12 @@ vi.mock('next-intl', () => ({
 }))
 
 import { CampaignCardView, type CampaignCardViewProps } from '@/components/dashboard/campaign-card-view'
+import {
+  deliveryFailureReason,
+  deliveryUnknownReason,
+} from '@/domain/services/campaign-delivery-failure-reason'
+import enMessages from '@/messages/en.json'
+import zhHkMessages from '@/messages/zh-HK.json'
 
 function flatten(node: ReactNode): ReactElement[] {
   const out: ReactElement[] = []
@@ -145,5 +151,142 @@ describe('CampaignCardView send button availability', () => {
   it('disables send when sendDisabled is set regardless of the gate', () => {
     const tree = renderTree(<CampaignCardView {...baseProps({ sendDisabled: true })} />)
     expect((sendButton(tree)?.props as { disabled?: boolean }).disabled).toBe(true)
+  })
+})
+
+describe('CampaignCardView re-run action (CAMP-014)', () => {
+  const failed = { status: 'failed', failureReason: 'Meta said no', sentCount: 0 }
+
+  it('a failed campaign offers re-run, and clicking only asks for confirmation', () => {
+    const onRequestRerun = vi.fn()
+    const tree = renderTree(<CampaignCardView {...baseProps({ ...failed, onRequestRerun })} />)
+    const button = byTestId(tree, 'campaign-rerun-button')
+    expect(button).toBeDefined()
+    ;(button?.props as { onClick: () => void }).onClick()
+    expect(onRequestRerun).toHaveBeenCalledTimes(1)
+  })
+
+  it('is hidden for a delivery-unknown failure: the send may already have gone out', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ ...failed, failureReason: deliveryUnknownReason(5, 2) })} />
+    )
+    expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
+  })
+
+  it('is hidden for a 131047 failure: the reason says to create a new campaign', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ ...failed, failureReason: deliveryFailureReason('131047', null, null) })} />
+    )
+    expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
+  })
+
+  it('is hidden for a welcome campaign', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ ...failed, type: 'welcome' })} />)
+    expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
+  })
+
+  it.each(['draft', 'active', 'sending', 'paused', 'completed'])('is hidden for a %s campaign', (status) => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status })} />)
+    expect(byTestId(tree, 'campaign-rerun-button')).toBeUndefined()
+  })
+
+  it('shows a server rejection in the execute-error slot on a failed card', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ ...failed, executeError: 'Daily cap hit' })} />)
+    const err = byTestId(tree, 'campaign-execute-error')
+    expect(JSON.stringify((err?.props as { children?: unknown }).children)).toContain('Daily cap hit')
+  })
+
+  it('is disabled while running, under a guardrail block or a review gate', () => {
+    const disabledFor = (o: Partial<CampaignCardViewProps>) => {
+      const tree = renderTree(<CampaignCardView {...baseProps({ ...failed, ...o })} />)
+      return (byTestId(tree, 'campaign-rerun-button')?.props as { disabled?: boolean }).disabled
+    }
+    expect(disabledFor({})).toBe(false)
+    expect(disabledFor({ executing: true })).toBe(true)
+    expect(disabledFor({ sendDisabled: true })).toBe(true)
+    expect(disabledFor({ templateReview: { required: true, status: 'pending' } })).toBe(true)
+  })
+
+  it('a failed card offers re-run, not send now', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps(failed)} />)
+    expect(sendButton(tree)).toBeUndefined()
+  })
+})
+
+describe('CampaignCardView QR-only warning (CAMP-014)', () => {
+  it.each(['active', 'failed'])('shows on a %s card', (status) => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status, qrOnlyCoupon: true })} />)
+    expect(byTestId(tree, 'campaign-qr-only-warning')).toBeDefined()
+  })
+
+  it('an active card can still change its template, so it keeps the change-it wording', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status: 'active', qrOnlyCoupon: true })} />)
+    const warning = byTestId(tree, 'campaign-qr-only-warning')
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrOnlyWarning')
+  })
+
+  it('a failed card cannot change its template, so it words the remedy as a new campaign', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status: 'failed', qrOnlyCoupon: true })} />)
+    const warning = byTestId(tree, 'campaign-qr-only-warning')
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrOnlyWarningFailed')
+    for (const messages of [enMessages, zhHkMessages]) {
+      expect(messages.campaigns.qrOnlyWarningFailed).toBeTruthy()
+    }
+    expect(enMessages.campaigns.qrOnlyWarningFailed).toContain('create a new campaign')
+    expect(zhHkMessages.campaigns.qrOnlyWarningFailed).toContain('建立新推廣')
+  })
+
+  it('sits above the re-run action', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ status: 'failed', failureReason: 'x', qrOnlyCoupon: true })} />
+    )
+    const warning = tree.indexOf(byTestId(tree, 'campaign-qr-only-warning') as ReactElement)
+    const action = tree.indexOf(byTestId(tree, 'campaign-rerun-button') as ReactElement)
+    expect(warning).toBeGreaterThanOrEqual(0)
+    expect(warning).toBeLessThan(action)
+  })
+
+  it.each(['draft', 'paused', 'completed', 'sending'])('does not show on a %s card', (status) => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status, qrOnlyCoupon: true })} />)
+    expect(byTestId(tree, 'campaign-qr-only-warning')).toBeUndefined()
+  })
+
+  it('does not show without the flag', () => {
+    const tree = renderTree(<CampaignCardView {...baseProps({ status: 'active' })} />)
+    expect(byTestId(tree, 'campaign-qr-only-warning')).toBeUndefined()
+  })
+})
+
+describe('CampaignCardView QR failure warning (CAMP-014)', () => {
+  it('shows the count when QR images failed and sends are counted', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ status: 'completed', sentCount: 10, qrFailedCount: 3 })} />
+    )
+    const warning = byTestId(tree, 'campaign-qr-failed-warning')
+    expect((warning?.props as { children?: unknown }).children).toBe('t:qrFailedWarning:{"count":3}')
+  })
+
+  // A storage outage writes the same rows as a Meta rejection, so the wording
+  // must not claim which system decided.
+  it('names no deciding system, in either language', () => {
+    expect(enMessages.campaigns.qrFailedWarning).toContain('could not be delivered')
+    expect(enMessages.campaigns.qrFailedWarning).toContain('did not receive their code')
+    for (const messages of [enMessages, zhHkMessages]) {
+      expect(messages.campaigns.qrFailedWarning).not.toMatch(/meta|whatsapp/i)
+    }
+  })
+
+  it('stays quiet on an all-failed campaign: the reason already explains it', () => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ status: 'failed', sentCount: 0, qrFailedCount: 250 })} />
+    )
+    expect(byTestId(tree, 'campaign-qr-failed-warning')).toBeUndefined()
+  })
+
+  it.each([[0], [undefined]])('stays quiet with a count of %s', (qrFailedCount) => {
+    const tree = renderTree(
+      <CampaignCardView {...baseProps({ status: 'completed', sentCount: 10, qrFailedCount })} />
+    )
+    expect(byTestId(tree, 'campaign-qr-failed-warning')).toBeUndefined()
   })
 })

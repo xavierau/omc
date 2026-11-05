@@ -78,6 +78,38 @@ describe('reconcileCampaignSendFailure (#131)', () => {
     expect(entry?.[2]).toMatchObject({ campaignId: 'camp-1', status: 'failed' })
   })
 
+  // CAMP-014: the reason is worded from Meta's detail on the row, not from one
+  // past incident's cause. Bicho's 250 rows said "restricted" and the card
+  // blamed a missing currency.
+  it('passes the row detail through: a restricted payment never reads as a missing currency', async () => {
+    await reconcileCampaignSendFailure({
+      before: message(),
+      after: failed131042({
+        errorDetails:
+          'Message failed to send because your WhatsApp Business account payment has been restricted.',
+      }),
+      log,
+    })
+
+    const { failureReason } = vi.mocked(retractCampaignSent).mock.calls[0][0]
+    expect(failureReason).toContain('restricted')
+    expect(failureReason).not.toMatch(/currency/i)
+  })
+
+  it('passes the row detail through: a currency detail keeps the currency wording', async () => {
+    await reconcileCampaignSendFailure({
+      before: message(),
+      after: failed131042({
+        errorDetails:
+          'Message failed to send because your WhatsApp Business account currency is not configured.',
+      }),
+      log,
+    })
+
+    const { failureReason } = vi.mocked(retractCampaignSent).mock.calls[0][0]
+    expect(failureReason).toContain('billing currency')
+  })
+
   it('retracts an inline text body too (no-template campaigns are counted the same way)', async () => {
     await reconcileCampaignSendFailure({
       before: message({ messageType: 'text', category: 'service' }),
