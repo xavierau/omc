@@ -12,7 +12,8 @@ import {
   needsSubmission,
 } from '../booking-templates'
 import { buildBookingTemplateParams, sanitizeTemplateParam } from '../booking-message'
-import { TEMPLATE_KINDS } from '@/domain/value-objects/booking-config'
+import { TEMPLATE_KINDS, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import type { LanguageCode } from '@/domain/value-objects/language'
 import { validateTemplateName, extractParameters } from '@/domain/entities/whatsapp-template'
 import { buildWhatsAppTemplate } from '@/test-utils/builders'
 import { prepareTemplateComponents } from '../prepare-template-components'
@@ -69,6 +70,82 @@ describe('booking template copy (R21)', () => {
   it('maps app languages to Meta codes', () => {
     expect(metaLanguageCode('en')).toBe('en')
     expect(metaLanguageCode('zh_hk')).toBe('zh_HK')
+  })
+})
+
+// BOOK-001 F3: Meta rejected confirmed, declined and the en reminder (both
+// rejected languages) with 2388293 Params Words Ratio Exceeds Limit. The
+// owner-approved copy (2026-11-12) replaces them; received (both, pending at
+// Meta) and the zh_HK reminder (approved) keep their stored bodies.
+const APPROVED_COPY = {
+  confirmed: {
+    en: 'Your table booking is confirmed. Restaurant: {{restaurant}}. Date: {{date}}. Time: {{time}}. Party size: {{party_size}}. If your plans change, please reply to this message to let the restaurant know.',
+    zh_hk: '你的訂座已確認。餐廳:{{restaurant}}。日期:{{date}}。時間:{{time}}。人數:{{party_size}}位。如行程有變,請直接回覆此訊息通知餐廳。',
+  },
+  declined: {
+    en: 'Sorry, the restaurant could not accept your booking request for {{date}} at {{time}}. Reason: {{reason}}. You are welcome to choose another time and send a new request.',
+    zh_hk: '很抱歉,餐廳未能接受你在{{date}} {{time}}的訂座要求。原因:{{reason}}。歡迎選擇其他時間再次提交訂座要求。',
+  },
+  reminder: {
+    en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
+  },
+} as const
+
+const UNCHANGED_COPY = {
+  received: {
+    en: 'Hi {{name}}, we have received your booking request at {{restaurant}} for {{party_size}} on {{date}} at {{time}}. The restaurant will confirm it shortly.',
+    zh_hk: '你好{{name}},我們已收到你在{{restaurant}}的訂座要求:{{date}} {{time}},{{party_size}}位。餐廳確認後會再通知你。',
+  },
+  reminder: { zh_hk: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。' },
+} as const
+
+const entries = (copy: Record<string, Record<string, string>>) =>
+  Object.entries(copy).flatMap(([kind, byLang]) =>
+    Object.entries(byLang).map(([lang, body]) => ({ kind: kind as BookingTemplateKind, lang: lang as LanguageCode, body })))
+
+describe('booking template copy (F3, owner-approved 2026-11-12)', () => {
+  it.each(entries(APPROVED_COPY))('$kind/$lang is the approved copy', ({ kind, lang, body }) => {
+    expect(bookingTemplateBody(kind, lang)).toBe(body)
+  })
+
+  it.each(entries(UNCHANGED_COPY))('$kind/$lang is byte-identical to the body stored at Meta', ({ kind, lang, body }) => {
+    expect(bookingTemplateBody(kind, lang)).toBe(body)
+  })
+})
+
+// Guard against 2388293 (Params Words Ratio Exceeds Limit). Meta does not
+// publish the threshold; these floors are ours: 3 fixed words per parameter
+// in English, 6 fixed CJK characters per parameter in Chinese.
+const PLACEHOLDER = /\{\{\w+\}\}/g
+const placeholderCount = (body: string) => (body.match(PLACEHOLDER) ?? []).length
+const fixedText = (body: string) => body.replace(PLACEHOLDER, ' ')
+const fixedEnglishWords = (body: string) => (fixedText(body).match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? []).length
+const fixedCjkChars = (body: string) => (fixedText(body).match(/\p{Script=Han}/gu) ?? []).length
+const EN_WORDS_PER_PARAM = 3
+const ZH_CHARS_PER_PARAM = 6
+
+// Bodies already at Meta that sit under the floor and must stay byte-identical
+// (reminder zh_HK was approved at this ratio; received zh_HK is pending). Any
+// edit to one of them makes it a new submission, which must meet the floor.
+const FROZEN_BELOW_FLOOR: Partial<Record<`${BookingTemplateKind}/${LanguageCode}`, string>> = {
+  'received/zh_hk': UNCHANGED_COPY.received.zh_hk,
+  'reminder/zh_hk': UNCHANGED_COPY.reminder.zh_hk,
+}
+
+describe('booking template params-to-words floor (2388293 guard)', () => {
+  it.each(ALL)('$kind/$lang has enough fixed text per parameter', ({ kind, lang }) => {
+    const body = bookingTemplateBody(kind, lang)
+    const params = placeholderCount(body)
+    const fixed = lang === 'en' ? fixedEnglishWords(body) : fixedCjkChars(body)
+    const floor = (lang === 'en' ? EN_WORDS_PER_PARAM : ZH_CHARS_PER_PARAM) * params
+    if (FROZEN_BELOW_FLOOR[`${kind}/${lang}`] === body) return
+    expect(fixed, `${fixed} fixed for ${params} params`).toBeGreaterThanOrEqual(floor)
+  })
+
+  it('counts fixed text, not the placeholders', () => {
+    expect(fixedEnglishWords('Hi {{name}}, your table at {{restaurant}}.')).toBe(4)
+    expect(fixedCjkChars('你好{{name}},餐廳:{{restaurant}}。')).toBe(4)
+    expect(placeholderCount('a {{x}} b {{y}}')).toBe(2)
   })
 })
 
