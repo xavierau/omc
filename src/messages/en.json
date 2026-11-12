@@ -1421,6 +1421,65 @@
         "rejected": "Rejected",
         "failed": "Not sent",
         "not_submitted": "Not submitted"
+      },
+      "editor": {
+        "open": "Edit text",
+        "view": "View text",
+        "title": "{kind}: message text",
+        "hint": "Changes are sent to WhatsApp for approval as a new message. The approved version keeps sending until WhatsApp approves the new one.",
+        "close": "Close",
+        "readOnly": "Only admins can change booking messages.",
+        "insert": "Insert a detail",
+        "insertLabel": "Insert {detail}",
+        "placeholder": {
+          "name": "Customer name",
+          "restaurant": "Restaurant",
+          "date": "Date",
+          "time": "Time",
+          "party_size": "Party size",
+          "reason": "Decline reason"
+        },
+        "preview": "Preview with sample details",
+        "save": "Save",
+        "saveLabel": "Save {language} text",
+        "saving": "Saving...",
+        "reset": "Reset to default",
+        "resetLabel": "Reset {language} text to default",
+        "outcome": {
+          "submitted": "Saved. Waiting for WhatsApp approval.",
+          "already_live": "Saved. This text is already approved and in use.",
+          "not_sent": "Saved, but it couldn't be sent to WhatsApp. Save again to retry.",
+          "reset": "Default restored.",
+          "forbidden": "Only admins can change booking messages.",
+          "not_simple": "Save Simple booking first, then edit its messages.",
+          "error": "Couldn't save the message. Try again.",
+          "invalid": "Fix the problems above, then save again."
+        },
+        "errors": {
+          "empty": "Write the message text.",
+          "too_long": "Keep the message to 1,024 characters or fewer.",
+          "link": "Remove the link. Booking messages can't contain links.",
+          "unknown_placeholder": "{detail} isn't a detail this message can fill. Use the detail buttons instead.",
+          "missing_date": "Include {token} so the customer knows the day.",
+          "missing_time": "Include {token} so the customer knows the time.",
+          "placeholder_at_edge": "Start and end the message with words, not a detail. WhatsApp rejects it otherwise.",
+          "duplicate_placeholder": "{detail} appears more than once. Use each detail once."
+        },
+        "warnings": {
+          "low_ratio_en": "Few words around the details ({detail} per detail). WhatsApp may reject it; aim for 3 or more.",
+          "low_ratio_zh_hk": "Few characters around the details ({detail} per detail). WhatsApp may reject it; aim for 4 or more.",
+          "promotional_term": "“{detail}” can read as marketing. WhatsApp may reject a booking message that uses it."
+        },
+        "candidate": {
+          "pending": "Edit pending",
+          "rejected": "Edit rejected",
+          "failed": "Edit not sent",
+          "pendingNote": "{language}: your edit is waiting for WhatsApp approval.",
+          "rejectedNote": "{language}: WhatsApp rejected your edit. Reason: {reason}.",
+          "failedNote": "{language}: your edit didn't reach WhatsApp. Open the editor and save again.",
+          "noReason": "none given",
+          "oldInUse": "The previous approved version is still in use."
+        }
       }
     }
   }

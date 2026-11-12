@@ -104,7 +104,7 @@ describe('validateBookingTemplateBody warnings (save allowed)', () => {
     expect(result.warnings).toEqual([{ code: 'low_ratio', detail: '3.50' }])
   })
 
-  it.each(['Enjoy a free dessert', 'Our member offer', 'Big SALE tonight', 'Get 20% off', '享有會員優惠'])(
+  it.each(['Enjoy a free dessert', 'Our member offer', 'Members enjoy it', 'Weekly offers', 'Big SALE tonight', 'Get 20% off', '享有會員優惠'])(
     'warns on a promotional term: %s',
     (phrase) => {
       expect(warningCodes('en', `${EN_OK} ${phrase} with us.`)).toContain('promotional_term')

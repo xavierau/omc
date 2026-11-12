@@ -2,44 +2,101 @@
  * BOOK-001 W3: each booking template's status (pending / approved / rejected /
  * failed / not submitted), read from the restaurant's own whatsapp_templates
  * rows. The lookup is scoped to the restaurant.
+ *
+ * BOOK-002: rows include each slot's candidate (an edit awaiting Meta). An
+ * approved candidate is shown as the live template (lazy promotion), and the
+ * slot views carry what the message editor needs.
  */
 import {
   BOOKING_TEMPLATE_LANGUAGES,
+  bookingTemplateBody,
   bookingTemplateStatus,
+  type BookingTemplateStatus,
   type BookingTemplateStatuses,
 } from '@/domain/services/booking-templates'
-import { TEMPLATE_KINDS, type BookingConfig } from '@/domain/value-objects/booking-config'
+import {
+  bookingCandidateStatus,
+  resolveBookingTemplateSlot,
+  type BookingCandidateStatus,
+  type BookingSlotConfig,
+} from '@/domain/services/booking-template-slot'
+import { allowedBookingPlaceholders } from '@/domain/services/booking-template-body'
+import { TEMPLATE_KINDS, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import type { LanguageCode } from '@/domain/value-objects/language'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
-type TemplateIds = BookingConfig['templateIds']
 type FindTemplates = (ids: string[], restaurantId: string) => Promise<WhatsAppTemplate[]>
+type Rows = Map<string, WhatsAppTemplate>
 
-export async function templateRowsById(
-  ids: TemplateIds,
-  restaurantId: string,
-  findTemplates: FindTemplates
-): Promise<Map<string, WhatsAppTemplate>> {
-  const wanted = TEMPLATE_KINDS.flatMap((kind) => Object.values(ids[kind])).filter((id): id is string => !!id)
+export interface BookingTemplateSlotView {
+  status: BookingTemplateStatus
+  candidate: { status: BookingCandidateStatus; reason: string | null } | null
+  customBody: string | null
+  defaultBody: string
+  placeholders: string[]
+}
+
+export type BookingTemplateSlotViews = Record<BookingTemplateKind, Record<LanguageCode, BookingTemplateSlotView>>
+
+export interface BookingTemplateOverview {
+  templates: BookingTemplateStatuses
+  slots: BookingTemplateSlotViews
+}
+
+export async function templateRowsById(config: BookingSlotConfig, restaurantId: string, findTemplates: FindTemplates): Promise<Rows> {
+  const wanted = TEMPLATE_KINDS.flatMap((kind) => [
+    ...Object.values(config.templateIds[kind]),
+    ...Object.values(config.templateCandidates[kind]),
+  ]).filter((id): id is string => !!id)
   if (wanted.length === 0) return new Map()
   const rows = await findTemplates(wanted, restaurantId)
   return new Map(rows.map((t) => [t.id, t]))
 }
 
-export function statusesOf(ids: TemplateIds, rows: Map<string, WhatsAppTemplate>): BookingTemplateStatuses {
+function byKindAndLanguage<T>(build: (kind: BookingTemplateKind, lang: LanguageCode) => T): Record<BookingTemplateKind, Record<LanguageCode, T>> {
   const entries = TEMPLATE_KINDS.map((kind) => {
-    const byLang = BOOKING_TEMPLATE_LANGUAGES.map((lang) => {
-      const id = ids[kind][lang]
-      return [lang, bookingTemplateStatus(id ? rows.get(id) ?? null : null)] as const
-    })
+    const byLang = BOOKING_TEMPLATE_LANGUAGES.map((lang) => [lang, build(kind, lang)] as const)
     return [kind, Object.fromEntries(byLang)] as const
   })
-  return Object.fromEntries(entries) as BookingTemplateStatuses
+  return Object.fromEntries(entries) as Record<BookingTemplateKind, Record<LanguageCode, T>>
 }
 
-export async function bookingTemplateStatuses(
-  restaurantId: string,
-  deps: { getConfig(restaurantId: string): Promise<BookingConfig>; findTemplates: FindTemplates }
-): Promise<BookingTemplateStatuses> {
+function liveStatus(config: BookingSlotConfig, rows: Rows, kind: BookingTemplateKind, lang: LanguageCode): BookingTemplateStatus {
+  const slot = resolveBookingTemplateSlot(config, kind, lang, rows)
+  return bookingTemplateStatus(slot.currentId ? rows.get(slot.currentId) ?? null : null)
+}
+
+export function statusesOf(config: BookingSlotConfig, rows: Rows): BookingTemplateStatuses {
+  return byKindAndLanguage((kind, lang) => liveStatus(config, rows, kind, lang))
+}
+
+function slotView(config: BookingConfig, rows: Rows, kind: BookingTemplateKind, lang: LanguageCode): BookingTemplateSlotView {
+  const slot = resolveBookingTemplateSlot(config, kind, lang, rows)
+  const candidateRow = slot.candidateId ? rows.get(slot.candidateId) : undefined
+  const candidateStatus = bookingCandidateStatus(candidateRow)
+  return {
+    status: liveStatus(config, rows, kind, lang),
+    candidate: candidateStatus ? { status: candidateStatus, reason: candidateRow?.rejectionReason ?? null } : null,
+    customBody: config.templateBodies[kind][lang] ?? null,
+    defaultBody: bookingTemplateBody(kind, lang),
+    placeholders: allowedBookingPlaceholders(kind),
+  }
+}
+
+export function overviewOf(config: BookingConfig, rows: Rows): BookingTemplateOverview {
+  return { templates: statusesOf(config, rows), slots: byKindAndLanguage((kind, lang) => slotView(config, rows, kind, lang)) }
+}
+
+interface ReadDeps {
+  getConfig(restaurantId: string): Promise<BookingConfig>
+  findTemplates: FindTemplates
+}
+
+export async function bookingTemplateOverview(restaurantId: string, deps: ReadDeps): Promise<BookingTemplateOverview> {
   const config = await deps.getConfig(restaurantId)
-  return statusesOf(config.templateIds, await templateRowsById(config.templateIds, restaurantId, deps.findTemplates))
+  return overviewOf(config, await templateRowsById(config, restaurantId, deps.findTemplates))
+}
+
+export async function bookingTemplateStatuses(restaurantId: string, deps: ReadDeps): Promise<BookingTemplateStatuses> {
+  return (await bookingTemplateOverview(restaurantId, deps)).templates
 }

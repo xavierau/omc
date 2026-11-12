@@ -25,6 +25,7 @@ beforeEach(() => {
   deps = {
     getConfig: vi.fn().mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: { en: 'tpl-1', zh_hk: null } } }),
     findTemplate: vi.fn().mockResolvedValue(template('approved')),
+    promoteCandidate: vi.fn().mockResolvedValue(true),
     getPhoneNumberId: vi.fn().mockResolvedValue('pn-1'),
     isWindowOpen: vi.fn().mockResolvedValue(true),
     getLanguage: vi.fn().mockResolvedValue('en'),

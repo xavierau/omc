@@ -8,7 +8,13 @@
  * resolves to mode off, which is today's behaviour.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { resolveBookingConfig, isSafeHttpsUrl, type BookingConfig } from '@/domain/value-objects/booking-config'
+import { resolveBookingConfig, isSafeHttpsUrl, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import {
+  applyBookingTemplateEdit,
+  applyBookingTemplatePromotion,
+  type BookingTemplateEdit,
+} from '@/domain/services/booking-template-slot'
+import type { LanguageCode } from '@/domain/value-objects/language'
 import type { BookingRestaurantContext, BookingSettingsReader } from '@/domain/ports/booking'
 
 export async function getBookingConfig(restaurantId: string): Promise<BookingConfig> {
@@ -42,6 +48,11 @@ export async function updateBookingConfig(restaurantId: string, config: BookingC
  * still race (POC, accepted).
  */
 export async function saveBookingTemplateIds(restaurantId: string, templateIds: BookingConfig['templateIds']): Promise<void> {
+  const current = await readStoredConfig(restaurantId)
+  await updateBookingConfig(restaurantId, { ...current, templateIds })
+}
+
+async function readStoredConfig(restaurantId: string): Promise<BookingConfig> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('restaurants')
@@ -49,8 +60,37 @@ export async function saveBookingTemplateIds(restaurantId: string, templateIds: 
     .eq('id', restaurantId)
     .maybeSingle()
   if (error) throw new Error(`Failed to read booking config: ${error.message}`)
-  const current = resolveBookingConfig((data as { booking_config?: unknown } | null)?.booking_config)
-  await updateBookingConfig(restaurantId, { ...current, templateIds })
+  return resolveBookingConfig((data as { booking_config?: unknown } | null)?.booking_config)
+}
+
+/** BOOK-002: one message edit, written onto the current stored config (same race as above, POC). */
+export async function saveBookingTemplateEdit(restaurantId: string, edit: BookingTemplateEdit): Promise<void> {
+  const current = await readStoredConfig(restaurantId)
+  await updateBookingConfig(restaurantId, applyBookingTemplateEdit(current, edit))
+}
+
+/**
+ * BOOK-002: promote an approved candidate into templateIds. The update only
+ * matches while the stored candidate is still this id, so of concurrent
+ * senders exactly one writes; the rest get false. An edit that replaced the
+ * candidate meanwhile also wins over the promotion.
+ */
+export async function promoteBookingTemplateCandidate(
+  restaurantId: string,
+  kind: BookingTemplateKind,
+  language: LanguageCode,
+  candidateId: string
+): Promise<boolean> {
+  const next = applyBookingTemplatePromotion(await readStoredConfig(restaurantId), { kind, language }, candidateId)
+  if (!next) return false
+  const { data, error } = await createServerSupabaseClient()
+    .from('restaurants')
+    .update({ booking_config: next })
+    .eq('id', restaurantId)
+    .eq(`booking_config->templateCandidates->${kind}->>${language}`, candidateId)
+    .select('id')
+  if (error) throw new Error(`Failed to promote booking template: ${error.message}`)
+  return Array.isArray(data) && data.length > 0
 }
 
 export async function getBookingRestaurant(restaurantId: string): Promise<BookingRestaurantContext | null> {

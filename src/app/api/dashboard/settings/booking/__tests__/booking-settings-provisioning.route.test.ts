@@ -9,11 +9,17 @@ vi.mock('@/infrastructure/supabase/repositories/booking-config-repository')
 vi.mock('@/application/booking/booking-template-deps', () => ({
   provisionBookingTemplatesFor: vi.fn(),
   bookingTemplateStatusesFor: vi.fn(),
+  bookingTemplateOverviewFor: vi.fn(),
 }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getBookingConfig, updateBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
-import { provisionBookingTemplatesFor, bookingTemplateStatusesFor } from '@/application/booking/booking-template-deps'
+import {
+  provisionBookingTemplatesFor,
+  bookingTemplateStatusesFor,
+  bookingTemplateOverviewFor,
+} from '@/application/booking/booking-template-deps'
+import type { BookingTemplateSlotViews } from '@/application/booking/booking-template-statuses'
 import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { GET, PUT } from '../route'
@@ -21,6 +27,8 @@ import { GET, PUT } from '../route'
 const RID = 'rest-1'
 const all = (status: string) =>
   Object.fromEntries(['received', 'confirmed', 'declined', 'reminder'].map((k) => [k, { en: status, zh_hk: status }])) as BookingTemplateStatuses
+
+const SLOTS = { received: {} } as unknown as BookingTemplateSlotViews
 
 const put = (body: unknown) =>
   PUT(new NextRequest('http://localhost/api/dashboard/settings/booking', { method: 'PUT', body: JSON.stringify(body) }))
@@ -36,6 +44,7 @@ beforeEach(() => {
   vi.mocked(updateBookingConfig).mockResolvedValue()
   vi.mocked(provisionBookingTemplatesFor).mockResolvedValue(all('pending'))
   vi.mocked(bookingTemplateStatusesFor).mockResolvedValue(all('not_submitted'))
+  vi.mocked(bookingTemplateOverviewFor).mockResolvedValue({ templates: all('not_submitted'), slots: SLOTS })
 })
 
 describe('PUT booking settings → template provisioning', () => {
@@ -87,9 +96,10 @@ describe('GET booking settings', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       mode: 'external', externalUrl: 'https://inline.app/x', templates: all('not_submitted'), canEditBookingUrl: false,
+      templateEditor: { canEdit: false, slots: SLOTS },
     })
     expect(getBookingConfig).toHaveBeenCalledWith(RID)
-    expect(bookingTemplateStatusesFor).toHaveBeenCalledWith(RID)
+    expect(bookingTemplateOverviewFor).toHaveBeenCalledWith(RID)
   })
 
   // F4 (R14 ruling 2026-11-12): the campaign form shows the booking URL

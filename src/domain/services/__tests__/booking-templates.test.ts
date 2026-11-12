@@ -17,11 +17,8 @@ import type { LanguageCode } from '@/domain/value-objects/language'
 import { validateTemplateName, extractParameters } from '@/domain/entities/whatsapp-template'
 import { buildWhatsAppTemplate } from '@/test-utils/builders'
 import { prepareTemplateComponents } from '../prepare-template-components'
+import { PROMOTIONAL_TERMS } from '../booking-template-body'
 
-const PROMOTIONAL_TERMS = [
-  'offer', 'discount', 'promo', 'sale', 'free', 'coupon', 'deal', '% off', 'voucher', 'limited', 'special', 'member',
-  '優惠', '折', '免費', '推廣', '限時', '特價', '會員', '禮券', '著數',
-]
 const URL_PATTERN = /https?:|www\.|\.com|\.io|\.hk|\/b\//i
 
 const ALL = TEMPLATE_KINDS.flatMap((kind) => BOOKING_TEMPLATE_LANGUAGES.map((lang) => ({ kind, lang })))

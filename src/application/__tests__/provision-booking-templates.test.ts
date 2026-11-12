@@ -159,3 +159,61 @@ describe('provisionBookingTemplates', () => {
     expect(deps.findTemplates.mock.calls.every((c) => c[1] === RID)).toBe(true)
   })
 })
+
+// BOOK-002 B2-04: a Simple save resubmits a missing or rejected kind with the
+// restaurant's own text when it has one.
+describe('provisionBookingTemplates with custom text (BOOK-002)', () => {
+  const CUSTOM = 'Sorry, we cannot seat you on {{date}} at {{time}}. Reason: {{reason}}. Please pick another time with us.'
+  const bodyOf = (call: unknown[]) => (call[0] as { components: Array<{ text: string }> }).components[0].text
+
+  const withCustom = () => {
+    config = structuredClone(config)
+    config.templateBodies.declined.en = CUSTOM
+  }
+
+  it('a missing kind is submitted with the custom body, the other language with the default', async () => {
+    withCustom()
+    await provision()
+    const declined = deps.createTemplate.mock.calls.filter((c) => c[0].name.startsWith('booking_declined_'))
+    expect(declined.find((c) => c[0].language === 'en')?.[0].components).toEqual([{ type: 'BODY', text: CUSTOM }])
+    expect(bodyOf(declined.find((c) => c[0].language === 'zh_HK') as unknown[])).toContain('很抱歉')
+  })
+
+  it('a rejected kind is resubmitted with the custom body', async () => {
+    await provision()
+    const rejectedId = config.templateIds.declined.en as string
+    rows.set(rejectedId, { ...(rows.get(rejectedId) as WhatsAppTemplate), status: 'rejected' })
+    withCustom()
+    deps.createTemplate.mockClear()
+    await provision()
+    expect(deps.createTemplate).toHaveBeenCalledTimes(1)
+    expect(bodyOf(deps.createTemplate.mock.calls[0])).toBe(CUSTOM)
+  })
+
+  it('a failed draft is resubmitted in place with the custom body', async () => {
+    createdAs('draft')
+    await provision()
+    withCustom()
+    createdAs('pending')
+    deps.resubmitTemplate.mockClear()
+    await provision()
+    const call = deps.resubmitTemplate.mock.calls.find((c) => c[0] === config.templateIds.declined.en)
+    expect(call?.[2]).toEqual([{ type: 'BODY', text: CUSTOM }])
+  })
+
+  it('leaves a slot alone while its edit is pending at Meta, and counts an approved edit as live', async () => {
+    await provision()
+    for (const id of [config.templateIds.declined.en, config.templateIds.reminder.en] as string[]) {
+      rows.set(id, { ...(rows.get(id) as WhatsAppTemplate), status: 'rejected' })
+    }
+    rows.set('cand-p', buildWhatsAppTemplate({ id: 'cand-p', status: 'pending' }))
+    rows.set('cand-a', buildWhatsAppTemplate({ id: 'cand-a', status: 'approved' }))
+    config = structuredClone(config)
+    config.templateCandidates.declined.en = 'cand-p'
+    config.templateCandidates.reminder.en = 'cand-a'
+    deps.createTemplate.mockClear()
+    const statuses = await provision()
+    expect(deps.createTemplate).not.toHaveBeenCalled()
+    expect(statuses.reminder.en).toBe('approved')
+  })
+})
