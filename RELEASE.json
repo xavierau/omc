@@ -1,0 +1,9 @@
+{
+  "source_ref": "release-book001",
+  "source_commit": "cf8b4aa60f634d07dbe49b48e9ff8277b5e2a531",
+  "source_subject": "Merge pull request #183 from xavierau/develop",
+  "build_id": "aVfHeC7nQOiLbXFbj4ZO_",
+  "built_at": "2026-11-12T16:45:04Z",
+  "built_by": "xavier.au@gmail.com",
+  "node": "v22.21.1"
+}

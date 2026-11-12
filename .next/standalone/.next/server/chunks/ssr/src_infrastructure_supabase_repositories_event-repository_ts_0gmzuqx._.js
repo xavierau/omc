@@ -1,0 +1,3 @@
+module.exports=[30231,a=>{"use strict";var b=a.i(71335);async function c(a){let c=(0,b.createServerSupabaseClient)(),{data:d,error:e}=await c.from("events").insert({restaurant_id:a.restaurantId,member_id:a.memberId,type:a.type,data_json:a.dataJson??{},source:a.source??null}).select("id").single();if(e)throw Error(`createEvent: ${e.message}`);if(!d)throw Error("createEvent: no data returned");return d.id}a.s(["createEvent",0,c])}];
+
+//# sourceMappingURL=src_infrastructure_supabase_repositories_event-repository_ts_0gmzuqx._.js.map

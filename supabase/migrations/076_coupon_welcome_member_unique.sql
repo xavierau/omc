@@ -1,0 +1,55 @@
+-- INT-001 WI-14 (G-2, grok review): DB-level idempotency for the
+-- campaign-less welcome coupon mint (mint-welcome-coupon-idempotent.ts's
+-- `mintFallbackWelcomeCouponIdempotent`, used whenever `new_join_template_id`
+-- resolves to a specific template UUID rather than the `'default'` campaign
+-- path). Same shape as migration 053's `uniq_coupon_campaign_member` for
+-- the promo/claim-button path -- this closes the SAME class of gap for
+-- `type='welcome'`.
+--
+-- Bug: `coupon-repository.ts`'s own header comment on
+-- `findWelcomeCouponByMember` stated the (accurate, at the time) reasoning
+-- that `type='welcome'` coupons "carry no DB unique constraint... rather
+-- than catching a 23505 that would never happen for this type" -- so
+-- `mintFallbackWelcomeCouponIdempotent`'s check-first-then-catch-and-
+-- re-select pattern (mint-welcome-coupon-idempotent.ts) was relying
+-- ENTIRELY on the check-first read to avoid duplicates. Under a genuine
+-- concurrent race (a stalled BullMQ lock lets two `processWelcomeSendJob`
+-- workers run for the same `wel:{memberId}:{createJobId}` -- see WI-6's own
+-- flagged risk in the outbound-lock area), both workers' check-first read
+-- sees no existing coupon, both insert successfully -- the member gets TWO
+-- welcome coupons, silently, no error anywhere.
+--
+-- Fix: a partial unique index makes the LOSER's insert 23505 instead of
+-- succeeding. `createWelcomeCoupon`'s existing `.includes('unique')` catch
+-- (coupon-factory.ts) already retries on any unique-violation message before
+-- giving up; `mintFallbackWelcomeCouponIdempotent`'s own outer catch then
+-- re-selects and returns the winner's coupon -- this application code
+-- already existed and is unchanged by this migration; the constraint is
+-- what makes its catch branch reachable at all.
+--
+-- SCOPE -- mirrors 053's own documented scope note: this predicate
+-- constrains EVERY `welcome` coupon that has `member_id` set (campaign_id
+-- is always NULL for this path -- the campaign-present path mints
+-- `type='promo'` instead, already covered by 053's own index). A member
+-- with an existing `promo` welcome coupon (from the campaign path) is
+-- UNAFFECTED -- different `type`, different index.
+--
+-- DEPLOY GATE -- same caveats as 053: a non-CONCURRENTLY unique index
+-- briefly locks `coupons` for the build, and FAILS (aborting the deploy) if
+-- any pre-existing duplicate (restaurant_id, member_id) welcome pairs
+-- exist. BEFORE applying, run:
+--
+--   SELECT restaurant_id, member_id, count(*) FROM coupons
+--   WHERE type = 'welcome' AND member_id IS NOT NULL
+--   GROUP BY 1, 2 HAVING count(*) > 1;
+--
+-- If it returns rows, dedupe (keep the earliest active coupon per pair,
+-- review before deleting anything a customer may already hold) before
+-- deploying.
+--
+-- No RLS change (coupons already carries its tenant policy). IF NOT EXISTS
+-- keeps the migration re-runnable.
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_coupons_welcome_member
+  ON coupons (restaurant_id, member_id)
+  WHERE type = 'welcome' AND member_id IS NOT NULL;

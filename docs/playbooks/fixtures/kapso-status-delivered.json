@@ -1,0 +1,38 @@
+{
+  "_comment": "SYNTHETIC — replace with real Kapso sandbox capture before merge per addendum §5.2. Shape based on @kapso/whatsapp-cloud-api/dist/server.d.ts:21-30 (MessageStatusUpdate) and Meta Cloud API webhook envelope.",
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-123",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "85291234567",
+              "phone_number_id": "WAQ002_TEST_PHONE_NUMBER_ID"
+            },
+            "statuses": [
+              {
+                "id": "wamid.WAQ002_DELIVERED",
+                "status": "delivered",
+                "timestamp": "1762257602",
+                "recipient_id": "85291234567",
+                "conversation": {
+                  "id": "conv-1",
+                  "origin": { "type": "marketing" }
+                },
+                "pricing": {
+                  "billable": true,
+                  "pricing_model": "CBP",
+                  "category": "marketing"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

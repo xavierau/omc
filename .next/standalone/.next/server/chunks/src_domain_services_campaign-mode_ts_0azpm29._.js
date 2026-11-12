@@ -1,0 +1,3 @@
+module.exports=[73460,t=>{"use strict";var e=t.i(38097),n=t.i(65274);t.s(["isClaimTemplate",0,function(t){if(!t)return!1;let e=t.components.find(t=>"BUTTONS"===t.type);return!!e?.buttons?.some(t=>"QUICK_REPLY"===t.type)},"templateExpectsCouponCode",0,function(t){let o=(0,e.extractParameters)(t);if(o.includes("code")||o.includes("discount"))return!0;let s=t.components.find(t=>"BUTTONS"===t.type);return!!s?.buttons?.some(t=>(0,n.isCouponUrlButton)(t)||"COPY_CODE"===t.type)}])}];
+
+//# sourceMappingURL=src_domain_services_campaign-mode_ts_0azpm29._.js.map

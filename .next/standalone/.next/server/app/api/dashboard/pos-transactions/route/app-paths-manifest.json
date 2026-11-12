@@ -1,0 +1,3 @@
+{
+  "/api/dashboard/pos-transactions/route": "app/api/dashboard/pos-transactions/route.js"
+}
