@@ -77,3 +77,16 @@ export interface BookingMemberLookup {
   /** Existing member id for this phone at this restaurant; never creates one (R21). */
   findMemberId(restaurantId: string, phone: string): Promise<string | null>
 }
+
+/** W3 (AC-15): confirmed bookings awaiting their one reminder, across restaurants (cron only). */
+export interface BookingReminderStore {
+  /** Confirmed, reminder not sent, booking_date in [fromDate, toDate]. */
+  listReminderCandidates(fromDate: string, toDate: string, limit: number): Promise<BookingRequest[]>
+  /** Conditional UPDATE on reminder_sent_at IS NULL; true for exactly one caller. */
+  claimReminder(id: string, at: Date): Promise<boolean>
+}
+
+/** W3 (R19): clears name and notes on bookings dated before `beforeDate`; returns the rows changed. */
+export interface BookingRetentionStore {
+  purgePii(beforeDate: string, at: Date): Promise<number>
+}
