@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-09-10",
+  "updated_at": "2026-11-05",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1525,46 +1525,26 @@
           "related": [
             "kanban:REPLY-007"
           ]
+        },
+        {
+          "id": "CAMP-015",
+          "title": "CAMP-014 accepted follow-ups (11 items from its reviews)",
+          "description": "Accepted at the CAMP-014 release. Source: reviews/2026-11-05-camp-014-*.\n1. Redis outage makes addCampaignJob hang so revert does not run (maxRetriesPerRequest null + offline queue)\n2. Reason and 131047 refusal come from one row, not the whole run\n3. Delivery-unknown relies on a substring of display text, and PATCH revive bypasses the guard\n4. All-skipped re-run ends completed with 0 sent\n5. QR count by last_enqueued_at hides failures for members skipped by a re-run\n6. Coupon guard refuses on any expired coupon, including claim campaigns, and ignores deactivated ones\n7. Failed refetch replaces the list\n8. Refusal messages and failure reasons are English on the zh-HK UI\n9. Sweep can remove an orphan from the ledger for retry and PATCH paths\n10. Claim-handler upload outside the tracked send\n11. findLatestCampaignFailure can choose a null-code row",
+          "priority": "medium",
+          "labels": [
+            "campaigns",
+            "follow-up"
+          ],
+          "related": [
+            "kanban:CAMP-014",
+            "github:176"
+          ]
         }
       ]
     },
     "in_progress": {
       "label": "In Progress",
       "tasks": [
-        {
-          "id": "MEM-004",
-          "title": "Inbound message from a contact clears members.unreachable_at (+ reachability_restored event type, migration 081)",
-          "description": "Owner approved 2026-10-07 (r2). 131026 is not permanent, and an inbound message proves the account works again. routeMessage calls restoreMemberReachability for every inbound (not status webhooks): conditional, tenant-scoped clear of unreachable_at + one reachability_restored event {previous_unreachable_at, trigger_message_type}. Never blocks inbound. Does not touch pmm_throttled_until or consent. Migration 081 (events_type_check + EventType) validated on a scratch DB; NOT applied to DEV/prod, so until applied the clear works but the event insert warns.",
-          "priority": "medium",
-          "labels": [
-            "members",
-            "webhook",
-            "backend"
-          ],
-          "branch": "feature/mem-001-members-table",
-          "workspace_artifacts": [
-            "artifacts/2026-10-07-mem-004-backend-handoff.md"
-          ],
-          "related": [
-            "kanban:MEM-001"
-          ]
-        },
-        {
-          "id": "MEM-001",
-          "title": "Members table: 250 page size, no-tag filter, contact quality column",
-          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
-          "priority": "medium",
-          "labels": [
-            "members",
-            "dashboard",
-            "backend"
-          ],
-          "branch": "feature/mem-001-members-table",
-          "workspace_artifacts": [
-            "artifacts/2026-10-07-mem-001-backend-handoff.md",
-            "artifacts/2026-10-07-mem-001-frontend-handoff.md"
-          ]
-        },
         {
           "id": "WONB-008",
           "mvp_critical": true,
@@ -3270,7 +3250,8 @@
           "related": [
             "github:161",
             "kanban:CAMP-013",
-            "kanban:MSG-002"
+            "kanban:MSG-002",
+            "github:168"
           ],
           "priority": "high",
           "sprint": "whatsapp_quality_safeguards",
@@ -3284,12 +3265,13 @@
             "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
             "reviews/2026-09-10-camp-012-013-gstack-review",
             "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
-            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+            "reviews/2026-09-10-camp-012-013-delta-analyzer",
+            "deploys/2026-09-10-camp-012-013-release-runbook"
           ],
           "started_at": "2026-09-10",
           "pr": 164,
           "completed": "2026-09-10",
-          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; RELEASED to prod 2026-09-10 07:26Z via PR #168 (main 4aa77522, release 7884616, BUILD_ID 3d4MGZIglesEHuevjn8cK); entitlement gate passed (Kushiro growth + 5 starter), post-deploy checks all green. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
         },
         {
           "id": "CAMP-013",
@@ -3307,7 +3289,8 @@
           "related": [
             "github:162",
             "kanban:CAMP-012",
-            "kanban:TAG-001"
+            "kanban:TAG-001",
+            "github:168"
           ],
           "priority": "high",
           "sprint": "whatsapp_quality_safeguards",
@@ -3321,12 +3304,92 @@
             "artifacts/2026-09-10-camp-012-013-review-fixes-backend",
             "reviews/2026-09-10-camp-012-013-gstack-review",
             "artifacts/2026-09-10-camp-012-013-gstack-review-fixes-backend",
-            "reviews/2026-09-10-camp-012-013-delta-analyzer"
+            "reviews/2026-09-10-camp-012-013-delta-analyzer",
+            "deploys/2026-09-10-camp-012-013-release-runbook"
           ],
           "started_at": "2026-09-10",
           "pr": 164,
           "completed": "2026-09-10",
-          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; NOT yet released to main/prod. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+          "notes": "Squash-merged to develop via PR #164 on 2026-09-10; RELEASED to prod 2026-09-10 07:26Z via PR #168 (main 4aa77522, release 7884616, BUILD_ID 3d4MGZIglesEHuevjn8cK); entitlement gate passed (Kushiro growth + 5 starter), post-deploy checks all green. Migrations 078 (data-changing backfill) + 079 (DDL). Pre-deploy: sign off `SELECT plan, status, count(*) FROM restaurants GROUP BY 1,2` (backfill promotes plan → enforced quota). Post-deploy: 0 restaurants without a settings row; Kushiro row unchanged; capture per-page RPC timing. Behaviour change: promo/winback/tag/selected audiences >1,000 now resolve completely, so over-quota tenants get a BLOCKED campaign instead of a silent partial send. Follow-ups to file: created_at keying of daily/monthly counts; daily_campaign_limit=1 for all plans; .in() shape at member-tag-bulk / campaign-members-repository (selected CREATE ~390-capped) / integration-event-repository; getCampaignMemberIds unpaged → isMemberTargeted wrong >1,000."
+        },
+        {
+          "id": "MEM-001",
+          "title": "Members table: 250 page size, no-tag filter, contact quality column",
+          "description": "Owner request. Backend (this item): GET /api/dashboard/members accepts pageSize up to 250 (default 20), tagId=none (members with zero tags), and returns quality {rating,deliveryRate,sampleSize} per member (90d outbound delivery rate via member_delivery_quality RPC, migration 080; unreachable->red). Frontend DONE (2026-10-07, POC, browser-walked against mocked API): 20/50/100/250 selector, First/Prev/Next/Last paging, No tag option in the tag filter, quality column.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "dashboard",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-001-backend-handoff.md",
+            "artifacts/2026-10-07-mem-001-frontend-handoff.md",
+            "deploys/2026-10-07-mem-001-004-release-runbook"
+          ],
+          "completed": "2026-10-07",
+          "pr": 172,
+          "related": [
+            "github:172"
+          ],
+          "notes": "RELEASED to prod 2026-10-07 08:52Z via PR #172 (develop 07316f36 -> main d73b7e2a, release 0071fa3, BUILD_ID AkWQ9N80t9yjaXRQRWYWu); migrations 080 + 081 applied by deploy.sh after backup gate (managed backup 1887852771 + events export). Post-deploy DB/PostgREST checks green; authenticated browser smoke NOT run (no pinned prod test account)."
+        },
+        {
+          "id": "MEM-004",
+          "title": "Inbound message from a contact clears members.unreachable_at (+ reachability_restored event type, migration 081)",
+          "description": "Owner approved 2026-10-07 (r2). 131026 is not permanent, and an inbound message proves the account works again. routeMessage calls restoreMemberReachability for every inbound (not status webhooks): conditional, tenant-scoped clear of unreachable_at + one reachability_restored event {previous_unreachable_at, trigger_message_type}. Never blocks inbound. Does not touch pmm_throttled_until or consent. Migration 081 (events_type_check + EventType) validated on a scratch DB; NOT applied to DEV/prod, so until applied the clear works but the event insert warns.",
+          "priority": "medium",
+          "labels": [
+            "members",
+            "webhook",
+            "backend"
+          ],
+          "branch": "feature/mem-001-members-table",
+          "workspace_artifacts": [
+            "artifacts/2026-10-07-mem-004-backend-handoff.md",
+            "deploys/2026-10-07-mem-001-004-release-runbook"
+          ],
+          "related": [
+            "kanban:MEM-001",
+            "github:172"
+          ],
+          "completed": "2026-10-07",
+          "pr": 172,
+          "notes": "RELEASED to prod 2026-10-07 08:52Z via PR #172 (develop 07316f36 -> main d73b7e2a, release 0071fa3, BUILD_ID AkWQ9N80t9yjaXRQRWYWu); migrations 080 + 081 applied by deploy.sh after backup gate (managed backup 1887852771 + events export). Post-deploy DB/PostgREST checks green; authenticated browser smoke NOT run (no pinned prod test account)."
+        },
+        {
+          "id": "CAMP-014",
+          "title": "Failed-campaign reason from Meta's detail, safe tenant re-run, QR failure visibility",
+          "description": "Bicho 'Nov promo_batch1' failed with a reason blaming a missing billing currency, while Meta's detail said payment restricted, and the reason told the tenant to re-run with no action on the card. Fix: reason branches on Meta's error detail; guarded POST /api/dashboard/campaigns/[id]/rerun plus a confirm dialog on failed cards; QR image failures shown on the campaign.",
+          "labels": [
+            "bug",
+            "campaigns",
+            "P1"
+          ],
+          "related": [
+            "github:176",
+            "github:177",
+            "kanban:CAMP-015",
+            "kanban:CAMP-008"
+          ],
+          "priority": "high",
+          "branch": "fix/camp-014-failed-campaign-remedy",
+          "workspace_artifacts": [
+            "investigations/2026-11-05-bicho-campaign-131042-wrong-reason",
+            "plans/2026-11-05-camp-014-failed-campaign-remedy",
+            "artifacts/2026-11-05-camp-014-dev-handoff",
+            "artifacts/2026-11-05-camp-014-dev-round2-handoff",
+            "reviews/2026-11-05-camp-014-absence",
+            "reviews/2026-11-05-camp-014-re-review",
+            "reviews/2026-11-05-camp-014-re-review-2",
+            "reviews/2026-11-05-camp-014-re-review-3",
+            "deploys/2026-11-05-camp-014-release-runbook"
+          ],
+          "started_at": "2026-11-05",
+          "pr": 176,
+          "completed": "2026-11-05",
+          "notes": "RELEASED to prod 2026-11-05 04:56Z via PR #177 (develop 329cabd1 -> main 84f46297, release b0b4ef0, BUILD_ID THI1PO_omqiN4JkzDp8Ly). No migrations. Read-only checks green; authenticated UI smoke NOT run. The stored reasons on Bicho and 長盈行 were left unchanged: owner decides separately. Accepted follow-ups: CAMP-015."
         }
       ]
     },
