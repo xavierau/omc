@@ -27,6 +27,8 @@ import { sendInBatches, type SendContext } from './execute-campaign-batch'
 import type { SkipCounters } from './execute-campaign-batch-counters'
 import { getSettingsForTenant } from '@/infrastructure/supabase/repositories/campaign-settings-repository'
 import { isMessageTrackingEnabled } from './message-tracking-flag'
+import { bookNowSendContext } from './campaign-book-now-context'
+import { getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import {
   DEFAULT_PER_USER_MARKETING_CAP,
   type TenantCampaignSettings,
@@ -207,6 +209,8 @@ async function buildSendContext(
     trackingEnabled,
     perUserMarketingCap,
     pacingConfig: pacingConfigFrom(settings),
+    // BOOK-001 W3: link lifetime read once per run; null for non-Book-now.
+    bookNow: await bookNowSendContext(campaign, getBookingConfig),
   }
 }
 

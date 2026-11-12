@@ -1,8 +1,8 @@
 import {
   extractParameters,
-  isDynamicUrlButton,
   type WhatsAppTemplate,
 } from '../entities/whatsapp-template'
+import { isCouponUrlButton } from './book-now-button'
 
 /**
  * CAMP-001: broadcast mode is inferred from template shape — a template with
@@ -31,6 +31,9 @@ export function isClaimTemplate(template: WhatsAppTemplate | null): boolean {
  *    predicate should paper over by staying silent).
  * Used by enforceCouponParams to catch a coupon-less campaign that would
  * otherwise blast an empty/dead parameter to Meta.
+ *
+ * BOOK-001 W3: a Book now button (`https://…/b/{{1}}`) is filled with a booking
+ * token, not a coupon, so it does not count.
  */
 export function templateExpectsCouponCode(template: WhatsAppTemplate): boolean {
   const params = extractParameters(template)
@@ -38,7 +41,7 @@ export function templateExpectsCouponCode(template: WhatsAppTemplate): boolean {
   const buttonsComponent = template.components.find((c) => c.type === 'BUTTONS')
   return Boolean(
     buttonsComponent?.buttons?.some(
-      (b) => isDynamicUrlButton(b) || b.type === 'COPY_CODE'
+      (b) => isCouponUrlButton(b) || b.type === 'COPY_CODE'
     )
   )
 }

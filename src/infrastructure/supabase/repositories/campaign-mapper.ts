@@ -21,6 +21,9 @@ export interface CreateCampaignParams {
   whatsappTemplateId?: string | null
   targetAudience?: Campaign['targetAudience']
   status?: Campaign['status']
+  /** BOOK-001 W3 (migration 082). */
+  bookNowEnabled?: boolean
+  bookingUrl?: string | null
 }
 
 export interface UpdateCampaignParams {
@@ -46,6 +49,9 @@ export interface UpdateCampaignParams {
   status?: Campaign['status']
   /** Set alongside status: 'failed' by the queue worker (issue #102). */
   failureReason?: string | null
+  /** BOOK-001 W3 (migration 082). */
+  bookNowEnabled?: boolean
+  bookingUrl?: string | null
 }
 
 export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
@@ -73,7 +79,22 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
       (row.target_audience as Campaign['targetAudience']) ?? 'all',
     createdAt: row.created_at as string,
     lastEnqueuedAt: (row.last_enqueued_at as string | null) ?? null,
+    bookNowEnabled: (row.book_now_enabled as boolean | undefined) ?? false,
+    bookingUrl: (row.booking_url as string | null | undefined) ?? null,
   }
+}
+
+/**
+ * BOOK-001 W3: the Book now columns for an INSERT, only when set. A campaign
+ * without Book now sends neither key, so creating one keeps working on a
+ * database that has not run migration 082 yet (memory:
+ * principle_shared_select_migration_coupling).
+ */
+export function bookNowInsertColumns(params: CreateCampaignParams): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  if (params.bookNowEnabled) row.book_now_enabled = true
+  if (params.bookingUrl) row.booking_url = params.bookingUrl
+  return row
 }
 
 /**
@@ -102,6 +123,8 @@ export function buildCampaignUpdateRow(
   if (changes.targetAudience !== undefined) update.target_audience = changes.targetAudience
   if (changes.status !== undefined) update.status = changes.status
   if (changes.failureReason !== undefined) update.failure_reason = changes.failureReason
+  if (changes.bookNowEnabled !== undefined) update.book_now_enabled = changes.bookNowEnabled
+  if (changes.bookingUrl !== undefined) update.booking_url = changes.bookingUrl
 
   if (changes.template !== undefined) {
     update.template = changes.template

@@ -1,9 +1,9 @@
 import {
   extractParameters,
-  isDynamicUrlButton,
   type WhatsAppTemplate,
 } from '../entities/whatsapp-template'
 import { isClaimTemplate } from './campaign-mode'
+import { isCouponUrlButton } from './book-now-button'
 
 export interface QrOnlyCouponInput {
   type: string
@@ -30,8 +30,9 @@ export function isQrOnlyCouponCampaign(input: QrOnlyCouponInput): boolean {
   return !templateCarriesCode(template)
 }
 
+// A Book now button carries a booking token, not the code (BOOK-001).
 function templateCarriesCode(template: WhatsAppTemplate): boolean {
   if (extractParameters(template).includes(CODE_PARAMETER)) return true
   const buttons = template.components.find((c) => c.type === 'BUTTONS')?.buttons ?? []
-  return buttons.some(isDynamicUrlButton)
+  return buttons.some(isCouponUrlButton)
 }

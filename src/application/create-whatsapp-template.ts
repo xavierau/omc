@@ -11,12 +11,9 @@ import {
   findTemplateByNameAndLanguage,
   updateTemplate,
 } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
-import {
-  getMetaBusinessAccountId,
-  getRestaurantPhoneNumberId,
-  updateMetaBusinessAccountId,
-} from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { createMetaTemplate, resolveWabaId } from '@/infrastructure/whatsapp/templates'
+import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { createMetaTemplate } from '@/infrastructure/whatsapp/templates'
+import { ensureWabaId } from '@/application/ensure-waba-id'
 import {
   normalizeTemplateComponents,
   prepareTemplateComponents,
@@ -67,29 +64,13 @@ export async function createWhatsAppTemplate(
     components,
   })
 
-  // `||`, not `??`: an unset WABA is stored as '' rather than NULL, and '' must
-  // still fall through to auto-resolution or the draft is never submitted at all.
-  const businessAccountId = await getMetaBusinessAccountId(params.restaurantId)
-    || await autoResolveWabaId(params.restaurantId)
+  const businessAccountId = await ensureWabaId(params.restaurantId)
 
   if (!businessAccountId) {
     return { template }
   }
 
   return submitToMeta(template, businessAccountId, { ...params, components })
-}
-
-async function autoResolveWabaId(
-  restaurantId: string
-): Promise<string | null> {
-  const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
-  if (!phoneNumberId) return null
-
-  const wabaId = await resolveWabaId(phoneNumberId)
-  if (!wabaId) return null
-
-  await updateMetaBusinessAccountId(restaurantId, wabaId)
-  return wabaId
 }
 
 async function submitToMeta(

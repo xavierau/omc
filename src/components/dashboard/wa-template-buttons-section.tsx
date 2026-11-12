@@ -1,7 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-import { applyTemplateButtonChange, createTemplateButton } from './wa-template-form-types'
+import { addBookNowButton, applyTemplateButtonChange, createTemplateButton } from './wa-template-form-types'
 import type { TemplateButton, WaTemplateFormState } from './wa-template-form-types'
 
 const selectClass = 'h-8 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -20,6 +20,7 @@ export function WaTemplateButtonsSection({ buttons, onChange }: { buttons: Templ
   const removeButton = (i: number) => {
     onChange('buttons', buttons.filter((_, idx) => idx !== i))
   }
+  const canAddBookNow = buttons.length < 3 && !buttons.some((b) => b.type === 'BOOK_NOW_URL')
 
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3">
@@ -27,11 +28,23 @@ export function WaTemplateButtonsSection({ buttons, onChange }: { buttons: Templ
       {buttons.map((btn, i) => (
         <ButtonRow key={i} btn={btn} index={i} onUpdate={updateButton} onRemove={removeButton} />
       ))}
-      {buttons.length < 3 && (
-        <button type="button" onClick={addButton} className="text-sm text-primary hover:underline">
-          + Add button
-        </button>
-      )}
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {buttons.length < 3 && (
+          <button type="button" onClick={addButton} className="text-sm text-primary hover:underline">
+            + Add button
+          </button>
+        )}
+        {canAddBookNow && (
+          <button
+            type="button"
+            data-testid="booking-template-preset"
+            onClick={() => onChange('buttons', addBookNowButton(buttons))}
+            className="text-sm text-primary hover:underline"
+          >
+            + Book now button
+          </button>
+        )}
+      </div>
     </fieldset>
   )
 }
@@ -76,6 +89,7 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
           <option value="URL">URL</option>
           <option value="PHONE_NUMBER">Phone</option>
           <option value="COUPON_URL">Coupon Link</option>
+          <option value="BOOK_NOW_URL">Book now link</option>
           <option value="QUICK_REPLY">Quick reply</option>
         </select>
         <button
@@ -114,6 +128,12 @@ function ButtonRow({ btn, index, onUpdate, onRemove }: {
       {btn.type === 'COUPON_URL' && (
         <p className="text-xs text-muted-foreground">
           Links to the coupon page for each member
+        </p>
+      )}
+      {btn.type === 'BOOK_NOW_URL' && (
+        <p data-testid="booking-template-book-now-hint" className="text-xs text-muted-foreground">
+          Opens each customer&apos;s own booking link. Turn on Book now on the
+          campaign that uses this template
         </p>
       )}
       {btn.type === 'QUICK_REPLY' && (

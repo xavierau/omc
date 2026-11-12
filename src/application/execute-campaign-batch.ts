@@ -17,6 +17,7 @@ import type { PacingConfig } from '@/domain/value-objects/pacing-strategy'
 import { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
+import type { BookNowSendContext } from './campaign-book-now-context'
 
 // WAQ-010: between-chunk pause. Defaults to 1s (legacy BATCH_DELAY_MS) so
 // existing tests stay fast. Production may override via WAQ_BATCH_DELAY_MS.
@@ -44,6 +45,9 @@ export interface SendContext {
   // WAQ-010: per-tenant probe pacing. Captured at run-start so a mid-batch
   // settings update doesn't change ordering or chunk sizes partway through.
   pacingConfig: PacingConfig
+  // BOOK-001 W3 (AC-16): set for a Book now campaign; every template send
+  // mints the recipient's own booking token. Absent/null = no Book now.
+  bookNow?: BookNowSendContext | null
 }
 
 // #127 / CAMP-007: returns the tally so the orchestrator can distinguish an

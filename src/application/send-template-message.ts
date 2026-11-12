@@ -1,9 +1,9 @@
 import {
   isTemplateSendable,
   extractParameters,
-  isDynamicUrlButton,
 } from '@/domain/entities/whatsapp-template'
-import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import type { TemplateButton, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { isBookNowButton, isCouponUrlButton, templateHasBookNowButton } from '@/domain/services/book-now-button'
 import {
   isMediaHeader,
   readHeaderLink,
@@ -26,6 +26,20 @@ interface SendParams {
   // at the template's first QUICK_REPLY button index. Mutually exclusive with
   // `couponCode` in practice.
   claimPayload?: string
+  // BOOK-001 W3 (AC-16): the recipient's booking token, sent as the {{1}} of
+  // the Book now button (`https://…/b/{{1}}`). Coexists with `couponCode`.
+  bookingToken?: string
+}
+
+// BOOK-001 F2 (review S-2): a Book now button needs the recipient's token.
+// Only a Book now campaign send mints one; every other caller (partner-API
+// welcome, opt-in prompt, booking messages) would ship an unfilled dynamic
+// button that Meta refuses, so the send is refused here, before the network.
+export const BOOK_NOW_TOKEN_MISSING: SendResult = {
+  ok: false,
+  kapsoMessageId: null,
+  raw: null,
+  error: { title: 'book_now_token_missing' },
 }
 
 export async function sendWhatsAppTemplateMessage(
@@ -33,6 +47,9 @@ export async function sendWhatsAppTemplateMessage(
 ): Promise<SendResult> {
   if (!isTemplateSendable(params.template)) {
     throw new Error('Template is not approved for sending')
+  }
+  if (!params.bookingToken && templateHasBookNowButton(params.template)) {
+    return BOOK_NOW_TOKEN_MISSING
   }
   // #127 / CAMP-007: refuse to send a payload Meta is guaranteed to reject
   // (#132012) — a media header we cannot supply must fail loudly here, not
@@ -79,7 +96,10 @@ function buildHeaderParams(
 function buildButtonParams(
   params: SendParams
 ): TemplateButtonParam[] | undefined {
-  const url = buildUrlButtonParams(params.template, params.couponCode)
+  const url = buildUrlButtonParams(params.template, {
+    couponCode: params.couponCode,
+    bookingToken: params.bookingToken,
+  })
   const quickReply = buildQuickReplyButtonParams(
     params.template,
     params.claimPayload
@@ -123,12 +143,14 @@ function buildQuickReplyButtonParams(
   ]
 }
 
+// BOOK-001 W3: each dynamic URL button gets its own value on its own index —
+// the Book now button (found by its URL, never its position) the booking
+// token, every other one the coupon code. A button with no value is left out,
+// as before.
 function buildUrlButtonParams(
   template: WhatsAppTemplate,
-  couponCode?: string
+  values: { couponCode?: string; bookingToken?: string }
 ): UrlButtonParam[] | undefined {
-  if (!couponCode) return undefined
-
   const buttonsComponent = template.components.find(
     (c) => c.type === 'BUTTONS'
   )
@@ -137,15 +159,24 @@ function buildUrlButtonParams(
   const urlButtons: UrlButtonParam[] = []
 
   buttonsComponent.buttons.forEach((btn, index) => {
-    if (isDynamicUrlButton(btn)) {
-      urlButtons.push({
-        type: 'button',
-        subType: 'url',
-        index,
-        parameters: [{ type: 'text', text: couponCode }],
-      })
-    }
+    const text = urlButtonValue(btn, values)
+    if (!text) return
+    urlButtons.push({
+      type: 'button',
+      subType: 'url',
+      index,
+      parameters: [{ type: 'text', text }],
+    })
   })
 
   return urlButtons.length > 0 ? urlButtons : undefined
+}
+
+function urlButtonValue(
+  btn: TemplateButton,
+  values: { couponCode?: string; bookingToken?: string }
+): string | undefined {
+  if (isBookNowButton(btn)) return values.bookingToken
+  if (isCouponUrlButton(btn)) return values.couponCode
+  return undefined
 }
