@@ -19,6 +19,9 @@ export interface CampaignFormState {
   targetAudience: 'all' | 'selected' | 'tag'
   memberIds: string[]
   tagIds: string[]
+  /** BOOK-001 W3: Book now button on every send; booking URL override (External mode). */
+  bookNowEnabled: boolean
+  bookingUrl: string
 }
 
 export const CAMPAIGN_TEMPLATE_PLACEHOLDERS = [
@@ -45,6 +48,8 @@ export const initialCampaignForm: CampaignFormState = {
   targetAudience: 'all',
   memberIds: [],
   tagIds: [],
+  bookNowEnabled: false,
+  bookingUrl: '',
 }
 
 export interface CampaignRequestBody {
@@ -61,6 +66,8 @@ export interface CampaignRequestBody {
   targetAudience: 'all' | 'selected' | 'tag'
   memberIds?: string[]
   tagIds?: string[]
+  bookNowEnabled: boolean
+  bookingUrl: string | null
 }
 
 /**
@@ -206,6 +213,10 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
         : null,
     status: 'active',
     targetAudience: form.targetAudience,
+    // An inline campaign has no template, so no Book now button to fill; a
+    // welcome send has no booking token for it (F2).
+    bookNowEnabled: useWaTemplate && form.type !== 'welcome' && form.bookNowEnabled,
+    bookingUrl: nullIfBlank(form.bookingUrl),
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds
   if (form.targetAudience === 'tag') body.tagIds = form.tagIds

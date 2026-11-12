@@ -36,6 +36,14 @@ export interface Campaign {
   createdAt: string
   /** The enqueue lease stamp (migration 061): when a run was last enqueued. */
   lastEnqueuedAt: string | null
+  /**
+   * BOOK-001 W3 (migration 082): each send carries a Book now button with the
+   * recipient's own booking link. Absent = false (rows and fixtures that
+   * predate 082).
+   */
+  bookNowEnabled?: boolean
+  /** Campaign booking URL override for External link mode (AC-17); https only (R14). */
+  bookingUrl?: string | null
 }
 
 export interface CouponConfig {

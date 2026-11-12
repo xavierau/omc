@@ -1,5 +1,9 @@
+import { bookNowButtonUrl, bookNowExampleUrl, isBookNowButtonUrl } from '@/domain/services/book-now-button'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
+
 export interface TemplateButton {
-  type: 'URL' | 'PHONE_NUMBER' | 'COUPON_URL' | 'QUICK_REPLY' | 'UNSUPPORTED'
+  // BOOK_NOW_URL (BOOK-001 W3): the campaign Book now button, `${APP_URL}/b/{{1}}`.
+  type: 'URL' | 'PHONE_NUMBER' | 'COUPON_URL' | 'BOOK_NOW_URL' | 'QUICK_REPLY' | 'UNSUPPORTED'
   text: string
   url: string
   phoneNumber: string
@@ -17,6 +21,18 @@ export interface TemplateButton {
  */
 export function createTemplateButton(): TemplateButton {
   return { type: 'URL', text: '', url: '', phoneNumber: '' }
+}
+
+const MAX_BUTTONS = 3
+
+/**
+ * BOOK-001 W3: the "Book now button" preset. Adds one Book now button (each
+ * recipient's personal booking link) unless the template already has one or
+ * is full.
+ */
+export function addBookNowButton(buttons: TemplateButton[]): TemplateButton[] {
+  if (buttons.length >= MAX_BUTTONS || buttons.some((b) => b.type === 'BOOK_NOW_URL')) return buttons
+  return [...buttons, { type: 'BOOK_NOW_URL', text: 'Book now', url: '', phoneNumber: '' }]
 }
 
 /**
@@ -43,6 +59,10 @@ export function applyTemplateButtonChange(
  * operator knows which box to fill. Returns a user-facing message, or null.
  */
 export function validateWaTemplateButtons(buttons: TemplateButton[]): string | null {
+  // The sender fills one booking token per message, on the one Book now button.
+  if (buttons.filter((b) => b.type === 'BOOK_NOW_URL').length > 1) {
+    return 'A template can have only one Book now button'
+  }
   for (const [i, b] of buttons.entries()) {
     if (b.type === 'UNSUPPORTED') continue
     const name = `Button ${i + 1}`
@@ -155,6 +175,7 @@ type StoredTemplateButton = {
 function parseButtons(c: Record<string, unknown>): TemplateButton[] {
   const raw = c.buttons as StoredTemplateButton[] | undefined
   return (raw ?? []).map((b) => {
+    if (b.type === 'URL' && isBookNowButtonUrl(b.url)) return { type: 'BOOK_NOW_URL', text: b.text ?? '', url: '', phoneNumber: '' }
     const isCouponUrl = b.type === 'URL' && b.url?.includes('/coupon/')
     if (isCouponUrl) return { type: 'COUPON_URL', text: b.text ?? '', url: '', phoneNumber: '' }
     if (b.type === 'URL') return { type: 'URL', text: b.text ?? '', url: b.url ?? '', phoneNumber: '' }
@@ -189,6 +210,10 @@ export function buildWaTemplateRequestBody(form: WaTemplateFormState) {
     components.push({
       type: 'BUTTONS',
       buttons: form.buttons.map((b) => {
+        if (b.type === 'BOOK_NOW_URL') {
+          const appUrl = appBaseUrl()
+          return { type: 'URL' as const, text: b.text, url: bookNowButtonUrl(appUrl), example: [bookNowExampleUrl(appUrl)] }
+        }
         if (b.type === 'COUPON_URL') {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
           return {

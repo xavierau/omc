@@ -7,8 +7,12 @@ import type { TenantContext } from './tenant-guard'
  * against silent permission widening if a future role (e.g. 'viewer') is
  * added to user_tenants.role without updating this check (T-M5).
  */
+export function isTenantAdmin(ctx: Pick<TenantContext, 'role'>): boolean {
+  return ctx.role === 'admin'
+}
+
 export function requireTenantAdmin(ctx: Pick<TenantContext, 'role'>): void {
-  if (ctx.role !== 'admin') {
+  if (!isTenantAdmin(ctx)) {
     throw new AuthError('Forbidden', 403)
   }
 }

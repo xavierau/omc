@@ -18,6 +18,12 @@ const EXAMPLE_VALUES: Record<string, string> = {
   name: 'John',
   code: 'ABC123',
   discount: '20%',
+  // BOOK-001 W3: the booking UTILITY templates' parameters.
+  restaurant: 'Kushiro',
+  date: '2026-11-20',
+  time: '19:30',
+  party_size: '4',
+  reason: 'Fully booked',
 }
 
 const NAMED_PARAM_RE = /\{\{(\w+)\}\}/g
