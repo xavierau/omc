@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { CampaignMessageTypeField } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
+import { CampaignBookNowFields } from './campaign-book-now-fields'
 import {
   couponFormMode,
   couponFormQrOnly,
@@ -16,6 +17,7 @@ import {
   type TemplateLookup,
 } from './campaign-form-types'
 import { useWaTemplate, useWaTemplates } from '@/hooks/use-wa-templates'
+import { useBookingAvailability } from '@/hooks/use-booking-availability'
 
 export type { CampaignFormState, CampaignRequestBody } from './campaign-form-types'
 export {
@@ -38,6 +40,7 @@ interface CampaignFormFieldsProps {
   onMemberIdsChange: (ids: string[]) => void
   onTagIdsChange: (ids: string[]) => void
   onTemplateChange: (next: { en: string; zhHk: string }) => void
+  onBookNowToggle: (enabled: boolean) => void
 }
 
 export function CampaignFormFields({
@@ -48,6 +51,7 @@ export function CampaignFormFields({
   onMemberIdsChange,
   onTagIdsChange,
   onTemplateChange,
+  onBookNowToggle,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
   // A selected id missing from the approved list's first page (or no longer
@@ -55,6 +59,7 @@ export function CampaignFormFields({
   const list = useWaTemplates({ status: 'approved' }, { enabled: form.messageType === 'wa_template' })
   const single = useWaTemplate(singleTemplateIdToFetch(form, list))
   const lookup = templateLookup(form, list, single)
+  const bookingAvailability = useBookingAvailability()
   return (
     <div className="space-y-4 mt-4">
       <Field label={t('formName')}>
@@ -91,6 +96,13 @@ export function CampaignFormFields({
           onChange={onChange}
         />
       )}
+      <CampaignBookNowFields
+        form={form}
+        lookup={lookup}
+        availability={bookingAvailability}
+        onToggle={onBookNowToggle}
+        onChange={onChange}
+      />
       <CouponConfigFields form={form} lookup={lookup} onChange={onChange} />
       <ExecutionFields form={form} onChange={onChange} />
     </div>

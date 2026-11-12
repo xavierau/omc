@@ -56,6 +56,8 @@ function campaignToFormState(c: Campaign): CampaignFormState {
     targetAudience: c.targetAudience ?? 'all',
     memberIds: [],
     tagIds: [],
+    bookNowEnabled: c.bookNowEnabled ?? false,
+    bookingUrl: c.bookingUrl ?? '',
   }
 }
 
@@ -151,6 +153,7 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
             onMemberIdsChange={(ids) => setForm((p) => ({ ...p, memberIds: ids }))}
             onTagIdsChange={(ids) => setForm((p) => ({ ...p, tagIds: ids }))}
             onTemplateChange={handleTemplateChange}
+            onBookNowToggle={(enabled) => setForm((p) => ({ ...p, bookNowEnabled: enabled }))}
           />
           {error && <p className="text-sm text-destructive mt-2">{error}</p>}
           <div className="flex gap-2 mt-6">

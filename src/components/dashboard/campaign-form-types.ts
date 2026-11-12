@@ -1,6 +1,7 @@
 import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
 import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 export interface CampaignFormState {
   name: string
@@ -19,6 +20,9 @@ export interface CampaignFormState {
   targetAudience: 'all' | 'selected' | 'tag'
   memberIds: string[]
   tagIds: string[]
+  /** BOOK-001 W3: Book now button on every send; booking URL override (External mode). */
+  bookNowEnabled: boolean
+  bookingUrl: string
 }
 
 export const CAMPAIGN_TEMPLATE_PLACEHOLDERS = [
@@ -45,6 +49,8 @@ export const initialCampaignForm: CampaignFormState = {
   targetAudience: 'all',
   memberIds: [],
   tagIds: [],
+  bookNowEnabled: false,
+  bookingUrl: '',
 }
 
 export interface CampaignRequestBody {
@@ -61,6 +67,8 @@ export interface CampaignRequestBody {
   targetAudience: 'all' | 'selected' | 'tag'
   memberIds?: string[]
   tagIds?: string[]
+  bookNowEnabled: boolean
+  bookingUrl: string | null
 }
 
 /**
@@ -158,6 +166,7 @@ export function couponFormMode(form: CouponModeForm, lookup: TemplateLookup): Co
     hasCouponConfig: hasDiscount,
     template: usesWaTemplate && lookup.status === 'resolved' ? lookup.template : null,
     inlineTexts: usesWaTemplate ? [] : [form.templateEn, form.templateZhHk],
+    appUrl: appBaseUrl(),
   })
   return { mode: MODE_BY_REQUIREMENT[requirement.kind] }
 }
@@ -171,6 +180,7 @@ export function couponFormQrOnly(
     type: form.type,
     hasCouponConfig: parseCouponDiscount(form) !== null,
     template: form.messageType === 'wa_template' && lookup.status === 'resolved' ? lookup.template : null,
+    appUrl: appBaseUrl(),
   })
 }
 
@@ -206,6 +216,9 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
         : null,
     status: 'active',
     targetAudience: form.targetAudience,
+    // An inline campaign has no template, so no Book now button to fill.
+    bookNowEnabled: useWaTemplate && form.bookNowEnabled,
+    bookingUrl: nullIfBlank(form.bookingUrl),
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds
   if (form.targetAudience === 'tag') body.tagIds = form.tagIds

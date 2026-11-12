@@ -20,6 +20,8 @@ export interface CouponRequirementInput {
   template: WhatsAppTemplate | null
   /** Inline copy fields; only read when template is null. */
   inlineTexts: ReadonlyArray<string | null | undefined>
+  /** NEXT_PUBLIC_APP_URL, so a Book now button is not read as a coupon button (BOOK-001). */
+  appUrl?: string
 }
 
 // #134 / I-1 round 2: an inline campaign renders its copy through the same
@@ -37,7 +39,7 @@ export function couponRequirement(input: CouponRequirementInput): CouponRequirem
   // Claim mode mints the coupon lazily at tap time, so a claim template with no
   // coupon config would hand out discount-less coupons (#134).
   if (isClaimTemplate(template)) return blocked('claim', template.name)
-  if (templateExpectsCouponCode(template)) return blocked('template', template.name)
+  if (templateExpectsCouponCode(template, input.appUrl)) return blocked('template', template.name)
   return MARKETING_ONLY
 }
 

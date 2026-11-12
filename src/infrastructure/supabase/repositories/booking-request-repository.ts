@@ -8,7 +8,12 @@
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
-import type { BookingRequestStore, DecideBookingArgs } from '@/domain/ports/booking'
+import type {
+  BookingReminderStore,
+  BookingRequestStore,
+  BookingRetentionStore,
+  DecideBookingArgs,
+} from '@/domain/ports/booking'
 
 const BOOKING_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at'
@@ -129,6 +134,58 @@ export async function decideBookingRequest(args: DecideBookingArgs): Promise<Boo
     .maybeSingle()
   if (error) throw new Error(`decideBookingRequest: ${error.message}`)
   return data ? toBookingRequest(data as BookingRow) : null
+}
+
+/**
+ * W3 (AC-15): confirmed bookings still owed a reminder on the given HK dates,
+ * across restaurants (cron only; index booking_requests_reminder_due_idx).
+ */
+export async function listReminderCandidates(fromDate: string, toDate: string, limit: number): Promise<BookingRequest[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .select(BOOKING_COLUMNS)
+    .eq('status', 'confirmed')
+    .is('reminder_sent_at', null)
+    .gte('booking_date', fromDate)
+    .lte('booking_date', toDate)
+    .order('booking_date', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error(`listReminderCandidates: ${error.message}`)
+  return ((data ?? []) as BookingRow[]).map(toBookingRequest)
+}
+
+/** W3: the reminder claim. One conditional UPDATE, so one caller wins. */
+export async function claimBookingReminder(id: string, at: Date): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .update({ reminder_sent_at: at.toISOString() })
+    .eq('id', id)
+    .eq('status', 'confirmed')
+    .is('reminder_sent_at', null)
+    .select('id')
+  if (error) throw new Error(`claimBookingReminder: ${error.message}`)
+  return (data ?? []).length === 1
+}
+
+/** W3 (R19): clear name and notes on bookings dated before `beforeDate`, once. */
+export async function purgeBookingPii(beforeDate: string, at: Date): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .update({ name: null, notes: null, pii_purged_at: at.toISOString() })
+    .lt('booking_date', beforeDate)
+    .is('pii_purged_at', null)
+    .select('id')
+  if (error) throw new Error(`purgeBookingPii: ${error.message}`)
+  return (data ?? []).length
+}
+
+export const bookingCronStore: BookingReminderStore & BookingRetentionStore = {
+  listReminderCandidates,
+  claimReminder: claimBookingReminder,
+  purgePii: purgeBookingPii,
 }
 
 export const bookingRequestStore: BookingRequestStore = {

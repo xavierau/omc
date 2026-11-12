@@ -1,5 +1,6 @@
 /**
- * BOOK-001: the booking message sender (W1 now; W3 adds the reminder).
+ * BOOK-001: the booking message sender (W1; W3 adds per-language templates
+ * and the reminder cron caller).
  *
  * Ladder: the restaurant's APPROVED booking template for this kind ->
  * free-form text while the diner's 24-hour window is open -> not delivered.
@@ -31,19 +32,27 @@ function failed(input: BookingMessageInput, reason: string): BookingSendResult {
   return { delivered: false, reason: 'send_failed' }
 }
 
-async function approvedTemplate(deps: BookingSenderDeps, input: BookingMessageInput) {
+// W3: one template per language; the diner's own language first, then the
+// other one (a diner who reads English still gets the Chinese confirmation
+// rather than nothing outside the 24-hour window).
+async function approvedTemplate(deps: BookingSenderDeps, input: BookingMessageInput, language: LanguageCode) {
   const config = await deps.getConfig(input.restaurantId)
-  const id = config.templateIds[input.kind]
-  if (!id) return null
-  const template = await deps.findTemplate(id, input.restaurantId)
-  return template && isTemplateSendable(template) ? template : null
+  const byLanguage = config.templateIds[input.kind]
+  const order = [language, Language.of(language).other().code]
+  for (const id of order.map((lang) => byLanguage[lang])) {
+    if (!id) continue
+    const template = await deps.findTemplate(id, input.restaurantId)
+    if (template && isTemplateSendable(template)) return template
+  }
+  return null
 }
 
 async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Promise<BookingSendResult> {
   const phoneNumberId = await deps.getPhoneNumberId(input.restaurantId)
   if (!phoneNumberId) return { delivered: false, reason: 'no_sender' }
 
-  const template = await approvedTemplate(deps, input)
+  const language = await deps.getLanguage(input.restaurantId, input.phone)
+  const template = await approvedTemplate(deps, input, language)
   if (template) {
     const paramValues = buildBookingTemplateParams(input.details)
     const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
@@ -51,7 +60,6 @@ async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Pr
   }
 
   if (!(await deps.isWindowOpen(input.restaurantId, input.phone))) return { delivered: false, reason: 'outside_window' }
-  const language = await deps.getLanguage(input.restaurantId, input.phone)
   const result = await deps.sendText(phoneNumberId, input.phone, buildBookingText(input.kind, language, input.details))
   return result.ok ? { delivered: true, via: 'text' } : failed(input, result.error?.title ?? 'text_send_failed')
 }

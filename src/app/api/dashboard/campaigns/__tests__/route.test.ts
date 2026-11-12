@@ -22,6 +22,8 @@ vi.mock('@/application/build-campaign-template-review-states', () => ({
 }))
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', () => ({
   findManyByIdsForRestaurant: vi.fn().mockResolvedValue([]),
+  // BOOK-001 W3: the Book now guard reads the chosen template (no button here).
+  findByIdForRestaurant: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries', () => ({
   countFailedCampaignQrImages: vi.fn().mockResolvedValue(0),

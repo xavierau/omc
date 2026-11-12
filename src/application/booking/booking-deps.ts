@@ -3,7 +3,7 @@
  * their dependencies from here; tests pass in-memory fakes instead.
  */
 import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
-import { bookingRequestStore } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { bookingCronStore, bookingRequestStore } from '@/infrastructure/supabase/repositories/booking-request-repository'
 import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
@@ -17,6 +17,8 @@ import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/b
 import type { SubmitBookingDeps } from './submit-booking-request'
 import type { DecideBookingDeps } from './decide-booking-request'
 import type { ResolveBookingLinkDeps } from './resolve-booking-link'
+import type { SendBookingRemindersDeps } from './send-booking-reminders'
+import type { PurgeBookingPiiDeps } from './purge-booking-pii'
 
 const now = () => new Date()
 
@@ -56,4 +58,14 @@ export function decideBookingDeps(): DecideBookingDeps {
 
 export function resolveBookingLinkDeps(): ResolveBookingLinkDeps {
   return { tokens: bookingTokenStore, settings: bookingSettingsReader, now }
+}
+
+/** W3 (AC-15): the reminder cron. */
+export function bookingReminderDeps(): SendBookingRemindersDeps {
+  return { store: bookingCronStore, sender: bookingMessageSender(), settings: bookingSettingsReader, now }
+}
+
+/** W3 (R19): the retention cron. */
+export function bookingRetentionDeps(): PurgeBookingPiiDeps {
+  return { store: bookingCronStore, now }
 }

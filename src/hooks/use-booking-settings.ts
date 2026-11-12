@@ -7,6 +7,8 @@
  */
 import { useState } from 'react'
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
+import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
+import { parseTemplateStatuses } from './use-booking-availability'
 
 export interface BookingSettingsForm {
   mode: BookingMode
@@ -19,7 +21,7 @@ export interface BookingSettingsForm {
 }
 
 export type SaveBookingSettingsOutcome =
-  | { kind: 'saved'; config: BookingConfig }
+  | { kind: 'saved'; config: BookingConfig; templates: BookingTemplateStatuses | null }
   | { kind: 'fields'; errors: Record<string, string> }
   | { kind: 'forbidden' }
   | { kind: 'error' }
@@ -54,8 +56,8 @@ export function needsExternalUrl(form: BookingSettingsForm): boolean {
 }
 
 export function saveOutcome(status: number, body: unknown): SaveBookingSettingsOutcome {
-  const b = (body && typeof body === 'object' ? body : {}) as { config?: BookingConfig; fields?: Record<string, string> }
-  if (status === 200 && b.config) return { kind: 'saved', config: b.config }
+  const b = (body && typeof body === 'object' ? body : {}) as { config?: BookingConfig; fields?: Record<string, string>; templates?: unknown }
+  if (status === 200 && b.config) return { kind: 'saved', config: b.config, templates: parseTemplateStatuses(b.templates) }
   if (status === 400 && b.fields) return { kind: 'fields', errors: b.fields }
   if (status === 403) return { kind: 'forbidden' }
   return { kind: 'error' }

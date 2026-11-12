@@ -223,7 +223,7 @@ frequency and captures its output.
 
 **Every `/api/cron/*` route must have a job here.** A cron route with no
 caller is inert and invisible — it has bitten this project twice (#93
-sync-templates, #95 campaigns). The full list is exactly the three below; if a
+sync-templates, #95 campaigns). The full list is exactly the five below; if a
 new route is added under `src/app/api/cron/`, it ships with a wrapper in
 `scripts/cron/` and a row in this section, or it does nothing.
 
@@ -291,6 +291,37 @@ report. Idempotent and bounded: one age-filtered UPDATE.
 
 **Verify the first run**: expect JSON with `swept`. Zero is the normal steady
 state.
+
+### `booking-reminders`
+
+- **Command**: `bash /home/forge/<site-dir>/scripts/cron/booking-reminders.sh`
+- **User**: `forge`
+- **Frequency**: Custom — `*/5 * * * *`
+
+Wraps `GET /api/cron/booking-reminders` (BOOK-001, spec AC-15). Each confirmed
+booking that was made at least 3 hours ahead gets one WhatsApp reminder once
+it is within 3 hours of its time (Asia/Hong_Kong). The reminder is claimed with
+a conditional UPDATE on `booking_requests.reminder_sent_at IS NULL` before it is
+sent, so overlapping ticks cannot double-send, and a failed send is not retried
+(at most once per booking). Outside the diner's 24-hour window it needs the
+restaurant's approved `booking_reminder_*` UTILITY template.
+
+**Verify the first run**: expect JSON with `candidates`, `due`, `sent`,
+`notDelivered`, `claimLost`. All zeros just means nothing was due.
+
+### `booking-retention`
+
+- **Command**: `bash /home/forge/<site-dir>/scripts/cron/booking-retention.sh`
+- **User**: `forge`
+- **Frequency**: Custom — `30 3 * * *` (daily, 03:30 server time)
+
+Wraps `GET /api/cron/booking-retention` (BOOK-001, threat model R19, PDPO
+DPP2). Clears `name` and `notes` on bookings whose `booking_date` is more than
+180 days ago and stamps `pii_purged_at`; status, party size, dates and counts
+stay. Idempotent: rows already purged are not selected again. **This job is the
+retention control** — without it, booking PII is kept forever.
+
+**Verify the first run**: expect JSON with `purged` and `cutoffDate`.
 
 ### Verifying any of them
 

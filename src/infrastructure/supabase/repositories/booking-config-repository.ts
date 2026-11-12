@@ -35,6 +35,24 @@ export async function updateBookingConfig(restaurantId: string, config: BookingC
   if (error) throw new Error(`Failed to update booking config: ${error.message}`)
 }
 
+/**
+ * W3: write templateIds onto the CURRENT stored config (read just before), so
+ * provisioning never overwrites a settings save that landed meanwhile. A
+ * read-modify-write: two concurrent provisioning runs for one restaurant can
+ * still race (POC, accepted).
+ */
+export async function saveBookingTemplateIds(restaurantId: string, templateIds: BookingConfig['templateIds']): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('booking_config')
+    .eq('id', restaurantId)
+    .maybeSingle()
+  if (error) throw new Error(`Failed to read booking config: ${error.message}`)
+  const current = resolveBookingConfig((data as { booking_config?: unknown } | null)?.booking_config)
+  await updateBookingConfig(restaurantId, { ...current, templateIds })
+}
+
 export async function getBookingRestaurant(restaurantId: string): Promise<BookingRestaurantContext | null> {
   try {
     const supabase = createServerSupabaseClient()

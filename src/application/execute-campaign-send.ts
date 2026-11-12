@@ -3,6 +3,10 @@ import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { sendWhatsAppTemplateMessage } from './send-template-message'
 import { recordOutboundSend } from './record-outbound-send'
 import { formatDiscount } from './execute-campaign-coupon'
+import {
+  BOOK_NOW_LINK_UNAVAILABLE,
+  mintCampaignBookingToken,
+} from './campaign-book-now-context'
 import type { SendContext } from './execute-campaign-batch'
 import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
@@ -94,8 +98,11 @@ function sendBody(
   code: string,
   couponDescription: string
 ): Promise<SendResult> {
-  if (ctx.template) {
-    return sendViaTemplate(ctx.phoneNumberId, member, ctx.campaign, ctx.template, code)
+  const template = ctx.template
+  if (template) {
+    return withBookingToken(member, ctx, (extra) =>
+      sendViaTemplate(ctx.phoneNumberId, member, ctx.campaign, template, code, extra)
+    )
   }
   return sendTextMessage(ctx.phoneNumberId, member.phone, couponDescription)
 }
@@ -105,12 +112,30 @@ function resolveCategory(template: WhatsAppTemplate | null): MessageCategory {
   return template.category === 'MARKETING' ? 'marketing' : 'utility'
 }
 
+type BookingTokenExtra = { bookingToken?: string }
+
+// BOOK-001 W3 (AC-16): a Book now campaign mints the recipient's own
+// `campaign` token before every template send; a failed mint fails this send
+// (typed, recorded like any other) rather than shipping a dead button. Any
+// other campaign passes nothing extra, so its send is unchanged.
+async function withBookingToken(
+  member: Member,
+  ctx: SendContext,
+  send: (extra: BookingTokenExtra) => Promise<SendResult>
+): Promise<SendResult> {
+  if (!ctx.bookNow) return send({})
+  const token = await mintCampaignBookingToken(ctx.campaign, member, ctx.bookNow)
+  if (!token) return BOOK_NOW_LINK_UNAVAILABLE
+  return send({ bookingToken: token })
+}
+
 function sendViaTemplate(
   phoneNumberId: string,
   member: Member,
   campaign: Campaign,
   template: WhatsAppTemplate,
-  code: string
+  code: string,
+  extra: BookingTokenExtra
 ): Promise<SendResult> {
   const discount = formatDiscount(campaign.couponConfig)
   return sendWhatsAppTemplateMessage({
@@ -123,6 +148,7 @@ function sendViaTemplate(
       discount,
     },
     couponCode: code,
+    ...extra,
   })
 }
 
@@ -139,15 +165,19 @@ function sendClaimTemplate(
   member: Member,
   ctx: SendContext
 ): Promise<SendResult> {
-  if (!ctx.template) return Promise.resolve(CLAIM_NO_TEMPLATE)
-  return sendWhatsAppTemplateMessage({
-    phoneNumberId: ctx.phoneNumberId,
-    to: member.phone,
-    template: ctx.template,
-    paramValues: {
-      customer_name: member.name ?? 'there',
-      discount: formatDiscount(ctx.campaign.couponConfig),
-    },
-    claimPayload: `CLAIM_${ctx.campaign.id}`,
-  })
+  const template = ctx.template
+  if (!template) return Promise.resolve(CLAIM_NO_TEMPLATE)
+  return withBookingToken(member, ctx, (extra) =>
+    sendWhatsAppTemplateMessage({
+      phoneNumberId: ctx.phoneNumberId,
+      to: member.phone,
+      template,
+      paramValues: {
+        customer_name: member.name ?? 'there',
+        discount: formatDiscount(ctx.campaign.couponConfig),
+      },
+      claimPayload: `CLAIM_${ctx.campaign.id}`,
+      ...extra,
+    })
+  )
 }

@@ -321,7 +321,18 @@
     "recipientCount": "{count} 位有效會員將會收到",
     "recipientCountLoading": "正在計算收件人…",
     "recipientCountZero": "沒有有效會員持有這些標籤——此活動不會傳送給任何人。",
-    "recipientCountError": "無法計算收件人數目。"
+    "recipientCountError": "無法計算收件人數目。",
+    "bookNowTitle": "立即訂座",
+    "bookNowToggle": "加入「立即訂座」按鈕",
+    "bookNowToggleHint": "每位客人會收到自己的訂座連結。範本必須有「立即訂座」按鈕。",
+    "bookNowNoLink": "請先在設定中加入訂座連結",
+    "bookNowUrl": "此推廣的訂座連結(選填)",
+    "bookNowUrlHint": "留空則使用餐廳的訂座連結。必須以 https:// 開頭",
+    "bookNowPreview": "每則訊息都會附上「立即訂座」按鈕",
+    "bookNowIssue": {
+      "template_missing_button": "此範本沒有「立即訂座」按鈕。請選擇有此按鈕的範本,或關閉立即訂座。",
+      "toggle_off_with_button": "此範本有「立即訂座」按鈕。請開啟立即訂座,或選擇其他範本。"
+    }
   },
   "tags": {
     "title": "標籤",
@@ -1380,6 +1391,28 @@
       "invalid_https_url": "請使用 https:// 開頭的連結",
       "invalid_ttl": "請輸入 1 至 8760 的整數小時。",
       "invalid_party_size": "請輸入 1 至 100 的數字。"
+    },
+    "templates": {
+      "title": "WhatsApp 訂座訊息",
+      "hint": "儲存「簡易訂座」時會提交 WhatsApp 審批。審批通過前,過去 24 小時內沒有傳訊息的客人不會收到訊息。被拒的訊息會在下次儲存時重新提交。",
+      "unknown": "未能載入訊息狀態。請再儲存一次。",
+      "kind": {
+        "received": "已收到訂座要求",
+        "confirmed": "訂座已確認",
+        "declined": "未能接受訂座",
+        "reminder": "訂座提醒"
+      },
+      "lang": {
+        "en": "English",
+        "zh_hk": "中文"
+      },
+      "status": {
+        "approved": "已批核",
+        "pending": "審批中",
+        "rejected": "被拒",
+        "failed": "未能提交",
+        "not_submitted": "未提交"
+      }
     }
   }
 }
