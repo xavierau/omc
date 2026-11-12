@@ -266,3 +266,84 @@ git ls-remote origin refs/heads/release       # must read 034998bb5234961d611e9b
 Keep the Forge jobs: the old build serves both cron routes. Templates already submitted to Meta stay in the WABA.
 After a rollback, the old sender sends the old param set. A row submitted with the new copy would then miss or carry
 extra params, so roll back before the owner's Save, or accept that the new-copy rows fail to send until a re-release.
+
+## Release 3: BOOK-002 editable booking message text (#182), 2026-11-12 16:41–16:50Z (dev, BOOK-002-REL)
+
+**Outcome: DEPLOYED 16:46:32Z. No migration, no template submitted, no booking settings Save, no WhatsApp message
+sent. Every smoke check PASSES.** Prod serves `main@cf8b4aa6`, release **`25532d94`**, BUILD_ID
+**`aVfHeC7nQOiLbXFbj4ZO_`**. Go: the owner's pre-approval "1y" (2026-11-13 HKT) on condition of a passing re-review;
+`reviews/2026-11-13-book-002-re-review` is APPROVED (N1–N4 optional). Next, the owner presses Save once in booking
+settings, which resubmits the Meta-rejected zh_HK reminder with the 2026-11-13 copy.
+
+- **feature/book-002**: re-review artifact committed as `031ce796` (docs) and pushed. Gate: F1 at `69c00c41`,
+  `vitest run` (6,836 passed) and `tsc --noEmit` exit 0, `npm run build` exit 0 (`artifacts/2026-11-13-book-002-f1-handoff`);
+  `9190bde5` and `031ce796` add workspace docs only.
+- **PR #182** squash **`7642764c`** "feat: editable booking message text per restaurant (BOOK-002) (#182)" at 16:41:24Z.
+  ls-remote develop = `7642764c`.
+- **PR #183** (develop → main, "release: BOOK-002 editable booking message text (#182)"): MERGEABLE/CLEAN, so no
+  conflict resolution was needed. Merge commit **`cf8b4aa60f634d07dbe49b48e9ff8277b5e2a531`** at 16:41:48Z. ls-remote
+  main ✓, main contains `7642764c`, and main differs from develop only in workspace docs.
+- Against prod `1d398656`: no change to `supabase/`, `package*`, `scripts/` or `deploy.sh`. The PR adds
+  `PUT /api/dashboard/settings/booking/templates` and extends the settings GET.
+
+```
+cd /Users/xavierau/Code/js/whatsapp-crm-BOOK-001-worktree
+rtk proxy git commit -- .claude-workspace/reviews/2026-11-13-book-002-re-review.md; git push   # 031ce796
+gh pr merge 182 --squash --match-head-commit 031ce796…              # 7642764c
+gh pr create --base main --head develop; gh pr merge 183 --merge --match-head-commit 7642764c…   # cf8b4aa6
+cd /Users/xavierau/Code/js/whatsapp-crm--release-book001
+rtk proxy git fetch origin refs/heads/release:refs/heads/release-backup-397bc64
+rtk proxy git checkout -B release-book001 origin/main
+rtk proxy git push origin release-book001:refs/heads/release-book001
+SOURCE_REF=release-book001 resource-lock.py heavy -- bash scripts/release.sh   # exit 0, built on the Mac
+git ls-remote origin refs/heads/release                     # 25532d94 ✓ (was 397bc643)
+rtk proxy git push origin --delete release-book001          # ls-remote empty ✓
+```
+`release.sh`: `building release-book001 @ cf8b4aa`, `BUILD_ID aVfHeC7nQOiLbXFbj4ZO_`, secret scan clean,
+`397bc643...25532d94 -> release (forced update)`.
+
+| time (UTC) | event |
+|---|---|
+| 16:42:11 | box pre-flight. MemAvailable 2,328 MB, swap free 145 MB, load 0.02, disk 27,816 MB free. HEAD `397bc643`, BUILD_ID `riN6cf7pnVy9Nari180qV`, pids 3863259 / 3863333 |
+| 16:45:04 | bundle built on the Mac (`RELEASE.json.built_at`) |
+| 16:45:41 | Forge deployment **82836831** started (`25532d94`) |
+| — | `lockfile unchanged (5b141452304d) — skipping npm ci`. `supabase db push`: **Remote database is up to date** (no migration). Seed idempotent |
+| 16:46:26 / 16:46:30 | app daemon-746791 → **pid 3893164** (`npm start`), worker daemon-801730 → **pid 3893239** (`tsx scripts/start-worker.ts` in the checkout at `25532d94`), both RUNNING. `✓ Deploy complete` |
+| 16:46:32 | deployment `finished` |
+
+| smoke (16:46:52–16:50:18Z, read-only) | result |
+|---|---|
+| provenance | HEAD `25532d94`. RELEASE.json `source_commit cf8b4aa6…` == main tip, `build_id aVfHeC7nQOiLbXFbj4ZO_` == `.next/BUILD_ID`. Only dirt: ` M supabase/.temp/cli-latest` (as before). Other 2 supervisor programs untouched (pids 2283792 / 2283795, 19 days up) |
+| served build | `/login` embeds the new BUILD_ID once and the old one 0 times. Chunk `/_next/static/chunks/3yfl9fgvivx3-.js` returns 200 |
+| `GET /b/<random 43-char>` | **200**, `<title>Booking</title>`, `data-testid="booking-unavailable"`, `Cache-Control: no-store, max-age=0`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow` |
+| `POST /api/b/<random>` `{}` | **410** `{"error":"token_unusable","state":"unknown"}` |
+| cron routes | `/api/cron/booking-reminders` and `/api/cron/booking-retention` return **401** without a bearer and with a bad bearer |
+| existing | `/api/health` 200, `/login` 200, `/` 307 |
+| settings, no session | `GET /api/dashboard/settings/booking` **401** `{"error":"Unauthorized"}` (not 500; 401 before too). New `…/booking/templates`: PUT **401**, GET 405 (was 404 for both before) |
+| OhMyClient legacy `booking_config` (read only) | A tsx script in `/tmp` on the box (deleted after) ran the settings GET path from the deployed source with the site env: `getBookingConfig` + `bookingTemplateOverviewFor` for `2e578557-e903-4b1d-877e-598b43956c39`. Stored keys: `aiRoutingEnabled, campaignLinkTtlHours, chatLinkTtlHours, externalUrl, maxPartySize, mode, templateIds`, **no `rev`**, no `templateBodies`/`templateCandidates`. Resolved: mode simple, aiRouting false. All 8 slot views built: reminder.zh_hk `rejected`, the other 7 `pending`, no candidate, no custom text. No error. Only `select` calls, no write. App log: 0 `[BookingSettings] read failed` |
+| Forge job 2216322 | the 16:50:02Z tick logged `{"candidates":0,"due":0,"sent":0,"notDelivered":0,"claimLost":0}`. `run-cron-endpoint.sh` (unchanged) prints the body only on 2xx and the route's only 2xx is 200, so **HTTP 200** |
+| logs | app `✓ Ready in 329ms` plus the existing standalone warning. Worker: clean SIGTERM drain, all 6 queues started. 0 fatal, uncaught, unhandled, missing-module or Redis-error lines. One `[Booking] rate limiter unavailable, allowing: Error` from the smoke's first POST after boot, as in Finding 3. Two `[Kapso] Error listing templates: WhatsApp configuration not found` lines precede the restart (old build) |
+| not run | authenticated UI, booking settings Save, template edit, template submission, any send (owner resubmits) |
+
+**Rollback to Release 2** (ready, not executed; ETR ≈ 1–2 min). Release `397bc643` = `main@1d398656`, BUILD_ID
+`riN6cf7pnVy9Nari180qV`:
+```
+cd /Users/xavierau/Code/js/whatsapp-crm       # local refs are shared by every worktree of this repo
+rtk proxy git push --force origin release-backup-397bc64:refs/heads/release
+git ls-remote origin refs/heads/release       # must read 397bc643d72db499369fa6b2534a4ee7ab27d767
+# Forge redeploys; check RELEASE.json source_commit 1d398656, both pids change, /api/health 200,
+# /api/dashboard/settings/booking/templates back to 404.
+```
+Keep the Forge jobs: Release 2 serves both cron routes. No DB change to undo. Rows written by Release 3 carry `rev`,
+and may carry `templateBodies`/`templateCandidates`; Release 2 ignores those keys on read. A custom-text template
+created in Release 3 would be sent by the Release 2 sender with the default param set (inferred, not tested), so
+roll back before the owner edits any text, or accept that edited-text rows fail to send until a re-release.
+
+### Ops note: manual `booking_config` edits must bump `rev` (re-review N4)
+Since Release 3, every `booking_config` writer in the app is a compare-and-swap on `booking_config.rev`. A manual
+SQL edit that does not bump `rev` can be silently overwritten by an app write that read the row just before it. Any
+manual edit therefore also sets `rev = rev + 1` (absent counts as 0). The per-restaurant AI-routing enable is now:
+```sql
+UPDATE restaurants SET booking_config = jsonb_set(jsonb_set(booking_config, '{aiRoutingEnabled}', 'true'::jsonb), '{rev}', to_jsonb(COALESCE((booking_config->>'rev')::int, 0) + 1)) WHERE id = '<restaurant-uuid>';
+```
+This supersedes the SQL in `artifacts/2026-11-12-book-001-w2-handoff` (line 32), which does not bump `rev`.
