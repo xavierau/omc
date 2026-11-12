@@ -6,7 +6,11 @@
  * notes. Parameters are the NAMED ones W1's sender fills
  * (buildBookingTemplateParams: restaurant, name, date, time, party_size,
  * reason), already flattened and capped there (R16). Meta refuses a body that
- * starts or ends with a parameter. Diner copy awaits owner approval (spec OQ7).
+ * starts or ends with a parameter, and one with too few words per parameter
+ * (2388293). F3: confirmed, declined and the en reminder carry the copy the
+ * owner approved on 2026-11-12; received and the zh_HK reminder are the bodies
+ * already at Meta. Rows keep the body they were submitted with, so the sender
+ * fills each row's own params (bookingParamsForBody).
  */
 import type { TemplateComponent, TemplateStatus } from '../entities/whatsapp-template'
 import type { BookingTemplateKind } from '../value-objects/booking-config'
@@ -21,17 +25,17 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
     zh_hk: '你好{{name}},我們已收到你在{{restaurant}}的訂座要求:{{date}} {{time}},{{party_size}}位。餐廳確認後會再通知你。',
   },
   confirmed: {
-    en: 'Hi {{name}}, your booking at {{restaurant}} for {{party_size}} on {{date}} at {{time}} is confirmed.',
-    zh_hk: '你好{{name}},你在{{restaurant}}的訂座已確認:{{date}} {{time}},{{party_size}}位。',
+    en: 'Your table booking is confirmed. Restaurant: {{restaurant}}. Date: {{date}}. Time: {{time}}. Party size: {{party_size}}. If your plans change, please reply to this message to let the restaurant know.',
+    zh_hk: '你的訂座已確認。餐廳:{{restaurant}}。日期:{{date}}。時間:{{time}}。人數:{{party_size}}位。如行程有變,請直接回覆此訊息通知餐廳。',
   },
   declined: {
-    en: 'Hi {{name}}, sorry, {{restaurant}} cannot take your booking for {{party_size}} on {{date}} at {{time}}. Reason: {{reason}}.',
-    zh_hk: '你好{{name}},很抱歉,{{restaurant}}未能接受你的訂座:{{date}} {{time}},{{party_size}}位。原因:{{reason}}。',
+    en: 'Sorry, the restaurant could not accept your booking request for {{date}} at {{time}}. Reason: {{reason}}. You are welcome to choose another time and send a new request.',
+    zh_hk: '很抱歉,餐廳未能接受你在{{date}} {{time}}的訂座要求。原因:{{reason}}。歡迎選擇其他時間再次提交訂座要求。',
   },
   // F8 (review #6): the reminder window can open the evening before, so it
   // states the booking date, never "today".
   reminder: {
-    en: 'Reminder: your booking at {{restaurant}} for {{party_size}} is on {{date}} at {{time}}.',
+    en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
     zh_hk: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。',
   },
 }
