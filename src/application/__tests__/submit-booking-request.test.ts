@@ -88,6 +88,13 @@ describe('submitBookingRequest — R3 / AC-11 validation stores nothing and keep
     expect(tokens.rows[0].consumedAt).toBeNull()
   })
 
+  it('F6: today at a time already past in Hong Kong → time field error, nothing stored', async () => {
+    // NOW is 10:00 in Hong Kong.
+    const result = await submit({ ...BODY, date: '2026-11-12', time: '09:30' })
+    expect(result).toEqual({ ok: false, reason: 'invalid', errors: { time: 'past_time' } })
+    expect(requests.rows).toHaveLength(0)
+  })
+
   it("uses the restaurant's maximum party size", async () => {
     settings.setConfig(A, { mode: 'simple', maxPartySize: 6 })
     expect(await submit({ ...BODY, partySize: 7 })).toMatchObject({ reason: 'invalid', errors: { partySize: 'too_large' } })

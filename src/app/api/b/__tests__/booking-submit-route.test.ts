@@ -95,6 +95,18 @@ describe('POST /api/b/[token]', () => {
     expect(await res.json()).toEqual({ error: 'token_unusable', state: 'consumed' })
   })
 
+  // F11 (review #9, S-6): booking switched off while the form was open shows
+  // the booking-off page, not "this link doesn't work".
+  it('booking switched off after the page loaded → 410 with state off', async () => {
+    const off = new FakeBookingSettings()
+    off.setConfig(A, { mode: 'off' })
+    holder.deps!.settings = off
+    const res = await post(BODY)
+    expect(res.status).toBe(410)
+    expect(await res.json()).toEqual({ error: 'booking_unavailable', state: 'off' })
+    expect(requests.rows).toHaveLength(0)
+  })
+
   it('R11: the 11th submit from one IP within 60s gets 429', async () => {
     for (let i = 0; i < 10; i++) await post({}, { token: 'Q'.repeat(43) })
     const res = await post(BODY)

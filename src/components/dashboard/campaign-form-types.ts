@@ -1,7 +1,6 @@
 import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
 import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 export interface CampaignFormState {
   name: string
@@ -166,7 +165,6 @@ export function couponFormMode(form: CouponModeForm, lookup: TemplateLookup): Co
     hasCouponConfig: hasDiscount,
     template: usesWaTemplate && lookup.status === 'resolved' ? lookup.template : null,
     inlineTexts: usesWaTemplate ? [] : [form.templateEn, form.templateZhHk],
-    appUrl: appBaseUrl(),
   })
   return { mode: MODE_BY_REQUIREMENT[requirement.kind] }
 }
@@ -180,7 +178,6 @@ export function couponFormQrOnly(
     type: form.type,
     hasCouponConfig: parseCouponDiscount(form) !== null,
     template: form.messageType === 'wa_template' && lookup.status === 'resolved' ? lookup.template : null,
-    appUrl: appBaseUrl(),
   })
 }
 
@@ -216,8 +213,9 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
         : null,
     status: 'active',
     targetAudience: form.targetAudience,
-    // An inline campaign has no template, so no Book now button to fill.
-    bookNowEnabled: useWaTemplate && form.bookNowEnabled,
+    // An inline campaign has no template, so no Book now button to fill; a
+    // welcome send has no booking token for it (F2).
+    bookNowEnabled: useWaTemplate && form.type !== 'welcome' && form.bookNowEnabled,
     bookingUrl: nullIfBlank(form.bookingUrl),
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds

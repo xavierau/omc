@@ -6,7 +6,7 @@
  * the payload sends null for no expiry.
  */
 import { useState } from 'react'
-import { isSafeHttpsUrl, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
+import { isPartyMax, isSafeHttpsUrl, isTtl, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { parseTemplateStatuses } from './use-booking-availability'
 
@@ -50,13 +50,22 @@ function externalUrlPayload(form: BookingSettingsForm): string | null {
   return isSafeHttpsUrl(url) ? url : null
 }
 
+// Same idea for the fields only Simple mode shows (lifetimes, party size):
+// outside Simple an invalid draft is left out (undefined is dropped by
+// JSON.stringify), so the server keeps the saved value (review F1).
+function simpleOnly(form: BookingSettingsForm, value: unknown, valid: (v: unknown) => boolean): unknown {
+  return form.mode === 'simple' || valid(value) ? value : undefined
+}
+
+const isTtlOrNone = (v: unknown) => v === null || isTtl(v)
+
 export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
   return {
     mode: form.mode,
     externalUrl: externalUrlPayload(form),
-    chatLinkTtlHours: form.chatLinkNoExpiry ? null : toInt(form.chatLinkTtlHours),
-    campaignLinkTtlHours: form.campaignLinkNoExpiry ? null : toInt(form.campaignLinkTtlHours),
-    maxPartySize: toInt(form.maxPartySize),
+    chatLinkTtlHours: simpleOnly(form, form.chatLinkNoExpiry ? null : toInt(form.chatLinkTtlHours), isTtlOrNone),
+    campaignLinkTtlHours: simpleOnly(form, form.campaignLinkNoExpiry ? null : toInt(form.campaignLinkTtlHours), isTtlOrNone),
+    maxPartySize: simpleOnly(form, toInt(form.maxPartySize), isPartyMax),
   }
 }
 

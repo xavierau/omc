@@ -22,7 +22,7 @@ export function BookingNoticeLine({ notice }: { notice: BookingNotice | null }) 
     notice.kind === 'sent'
       ? t(notice.decision === 'confirm' ? 'confirmationSent' : 'declineSent')
       : notice.kind === 'already_handled'
-        ? t('alreadyHandled', { status: t(`status.${notice.status}`) })
+        ? t('alreadyHandled', { status: t(`alreadyHandledStatus.${notice.status}`) })
         : t('actionFailed')
   return (
     <p data-testid="booking-action-notice" data-kind={notice.kind} role="status" className={notice.kind === 'sent' ? 'text-sm text-foreground' : 'text-sm text-destructive'}>

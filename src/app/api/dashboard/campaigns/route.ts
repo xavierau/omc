@@ -13,7 +13,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { setCampaignTags } from '@/application/set-campaign-tags'
 import { parseCreateBody } from './parse-create-body'
-import { assertCampaignBookNow, parseBookNowFields } from './book-now-guard'
+import { assertCampaignBookNow, parseBookNowFields, requireAdminForBookingUrlChange } from './book-now-guard'
 import { handleError } from './campaign-error-response'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from './with-template-review'
 import { withQrStatus, safeCampaignQrStates } from './with-qr-status'
@@ -40,15 +40,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { restaurantId } = await getTenantContext()
+    const ctx = await getTenantContext()
+    const { restaurantId } = ctx
     const body = (await request.json()) as Record<string, unknown>
     const parsed = parseCreateBody(body, restaurantId)
     // BOOK-001 W3: toggle and template must agree; URL is https-only (R14).
     const bookNow = parseBookNowFields(body)
     const bookNowEnabled = bookNow.bookNowEnabled ?? false
     const bookingUrl = bookNow.bookingUrl ?? null
+    requireAdminForBookingUrlChange(ctx, bookingUrl, null)
     await assertCampaignBookNow({
       restaurantId,
+      type: parsed.type,
       enabled: bookNowEnabled,
       templateId: parsed.whatsappTemplateId,
       bookingUrl,

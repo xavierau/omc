@@ -109,11 +109,20 @@ describe('releaseBookingToken / findLiveChatToken', () => {
   })
 
   it('finds the newest live chat link for the sender at this restaurant', async () => {
-    const rec = use([{ data: { token: TOKEN } }])
+    const rec = use([{ data: { token: TOKEN, expires_at: null } }])
     expect(await findLiveChatToken('r-a', '+852', NOW)).toBe(TOKEN)
     expect(filtersOf(rec.queries[0])).toEqual([
       'eq:restaurant_id=r-a', 'eq:phone=+852', 'eq:source=chat', 'is:consumed_at=null',
       `or:expires_at.is.null,expires_at.gt.${NOW.toISOString()}`,
     ])
+  })
+
+  // F5 (review #3): reuse only with no expiry or >= 1h left, else mint anew.
+  it('does not reuse a live link with under an hour left; reuses one with an hour or more', async () => {
+    const left = (ms: number) => new Date(NOW.getTime() + ms).toISOString()
+    use([{ data: { token: TOKEN, expires_at: left(30 * 60_000) } }])
+    expect(await findLiveChatToken('r-a', '+852', NOW)).toBeNull()
+    use([{ data: { token: TOKEN, expires_at: left(3_600_000) } }])
+    expect(await findLiveChatToken('r-a', '+852', NOW)).toBe(TOKEN)
   })
 })

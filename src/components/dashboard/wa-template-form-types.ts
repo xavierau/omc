@@ -1,4 +1,4 @@
-import { bookNowButtonUrl, bookNowExampleUrl } from '@/domain/services/book-now-button'
+import { bookNowButtonUrl, bookNowExampleUrl, isBookNowButtonUrl } from '@/domain/services/book-now-button'
 import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 export interface TemplateButton {
@@ -174,9 +174,8 @@ type StoredTemplateButton = {
  */
 function parseButtons(c: Record<string, unknown>): TemplateButton[] {
   const raw = c.buttons as StoredTemplateButton[] | undefined
-  const bookNowUrl = bookNowButtonUrl(appBaseUrl())
   return (raw ?? []).map((b) => {
-    if (b.type === 'URL' && b.url === bookNowUrl) return { type: 'BOOK_NOW_URL', text: b.text ?? '', url: '', phoneNumber: '' }
+    if (b.type === 'URL' && isBookNowButtonUrl(b.url)) return { type: 'BOOK_NOW_URL', text: b.text ?? '', url: '', phoneNumber: '' }
     const isCouponUrl = b.type === 'URL' && b.url?.includes('/coupon/')
     if (isCouponUrl) return { type: 'COUPON_URL', text: b.text ?? '', url: '', phoneNumber: '' }
     if (b.type === 'URL') return { type: 'URL', text: b.text ?? '', url: b.url ?? '', phoneNumber: '' }

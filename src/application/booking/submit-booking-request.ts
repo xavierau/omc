@@ -13,6 +13,7 @@
  */
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import {
+  hongKongTime,
   hongKongToday,
   parseBookingSubmission,
   type BookingFieldErrors,
@@ -109,7 +110,9 @@ export async function submitBookingRequest(
   const config = await deps.settings.getConfig(peeked.owner.restaurantId)
   if (config.mode !== 'simple') return { ok: false, reason: 'booking_unavailable' }
 
-  const result = parseBookingSubmission(input.body, { today: hongKongToday(deps.now()), maxPartySize: config.maxPartySize })
+  const now = deps.now()
+  const rules = { today: hongKongToday(now), nowTime: hongKongTime(now), maxPartySize: config.maxPartySize }
+  const result = parseBookingSubmission(input.body, rules)
   if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
   if ((await deps.requests.countPending(peeked.owner.restaurantId, peeked.owner.phone)) >= MAX_PENDING_PER_PHONE) {
     return { ok: false, reason: 'too_many_pending' }

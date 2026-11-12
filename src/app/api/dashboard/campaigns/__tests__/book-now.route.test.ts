@@ -130,6 +130,88 @@ describe('POST /api/dashboard/campaigns with Book now', () => {
   })
 })
 
+// F2 (review S-2): the welcome send (partner API, onboarding) has no booking
+// token to put on a Book now button, so Meta would refuse every welcome.
+describe('Book now is refused on welcome campaigns', () => {
+  it('POST welcome with the toggle on → 400, nothing stored', async () => {
+    const res = await post({ ...base, type: 'welcome', bookNowEnabled: true })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/welcome/i)
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+
+  it('POST welcome on a template with the Book now button, toggle off → 400', async () => {
+    const res = await post({ ...base, type: 'welcome', bookNowEnabled: false })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/welcome/i)
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+
+  it('POST welcome on a plain template with the toggle off is accepted as before', async () => {
+    vi.mocked(findByIdForRestaurant).mockResolvedValue(tpl([]))
+    expect((await post({ ...base, type: 'welcome' })).status).toBe(201)
+  })
+
+  it('PATCH changing a Book now campaign to welcome → 400, nothing written', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign({ id: 'c-1', restaurantId: RID, whatsappTemplateId: 'tpl-1', bookNowEnabled: true }))
+    const res = await patch({ type: 'welcome' })
+    expect(res.status).toBe(400)
+    expect(updateCampaign).not.toHaveBeenCalled()
+  })
+
+  it('PATCH turning Book now on for a stored welcome campaign → 400', async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(buildCampaign({ id: 'c-1', restaurantId: RID, type: 'welcome', whatsappTemplateId: 'tpl-1' }))
+    expect((await patch({ bookNowEnabled: true })).status).toBe(400)
+    expect(updateCampaign).not.toHaveBeenCalled()
+  })
+})
+
+// F4 (threat model R14, ruling 2026-11-12, review S-3): every recipient is
+// redirected to the campaign booking URL, so setting or changing it is
+// admin-only. Staff may still toggle Book now and edit everything else.
+describe('campaign booking URL is admin-only (R14)', () => {
+  const asStaff = () =>
+    vi.mocked(getTenantContext).mockResolvedValue({ userId: 'u-2', restaurantId: RID, role: 'staff', tenantStatus: 'active' })
+  const stored = (bookingUrl: string | null) =>
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ id: 'c-1', restaurantId: RID, whatsappTemplateId: 'tpl-1', bookNowEnabled: true, bookingUrl })
+    )
+
+  it('staff POST with a booking URL → 403, nothing stored', async () => {
+    asStaff()
+    const res = await post({ ...base, bookNowEnabled: true, bookingUrl: 'https://phish.example/x' })
+    expect(res.status).toBe(403)
+    expect(createCampaign).not.toHaveBeenCalled()
+  })
+
+  it('staff POST with Book now on and no booking URL is accepted', async () => {
+    asStaff()
+    expect((await post({ ...base, bookNowEnabled: true, bookingUrl: null })).status).toBe(201)
+  })
+
+  it('staff PATCH setting or changing the booking URL → 403, nothing written', async () => {
+    asStaff()
+    stored(null)
+    expect((await patch({ bookingUrl: 'https://phish.example/x' })).status).toBe(403)
+    stored('https://inline.app/a')
+    expect((await patch({ bookingUrl: 'https://phish.example/x' })).status).toBe(403)
+    expect((await patch({ bookingUrl: null })).status).toBe(403)
+    expect(updateCampaign).not.toHaveBeenCalled()
+  })
+
+  it('staff PATCH that resends the stored URL with other edits is accepted', async () => {
+    asStaff()
+    stored('https://inline.app/a')
+    const res = await patch({ name: 'Renamed', bookNowEnabled: true, bookingUrl: ' https://inline.app/a ' })
+    expect(res.status).toBe(200)
+  })
+
+  it('admin PATCH changing the booking URL is accepted', async () => {
+    stored('https://inline.app/a')
+    expect((await patch({ bookingUrl: 'https://inline.app/b' })).status).toBe(200)
+  })
+})
+
 describe('PATCH /api/dashboard/campaigns/[id] with Book now', () => {
   it('persists the toggle and URL', async () => {
     const res = await patch({ bookNowEnabled: true, bookingUrl: 'https://inline.app/booking/kushiro' })

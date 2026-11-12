@@ -62,4 +62,28 @@ describe('URL button params with a Book now button', () => {
       { type: 'button', subType: 'url', index: 0, parameters: [{ type: 'text', text: 'SAVE20' }] },
     ])
   })
+
+  // F3 (review S-1): the worker reads NEXT_PUBLIC_APP_URL at runtime; the
+  // template's URL was baked in by the dashboard build. Drift must not move
+  // the coupon code onto the Book now button.
+  it.each([
+    ['unset', undefined],
+    ['a different host', 'https://new-domain.example'],
+  ])('worker NEXT_PUBLIC_APP_URL %s: Book now still gets the token, the coupon button the code', async (_label, env) => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', env as string)
+    await send([coupon, bookNow], { couponCode: 'SAVE20', bookingToken: 'tok_abc' })
+    expect(sentButtons()).toEqual([
+      { type: 'button', subType: 'url', index: 0, parameters: [{ type: 'text', text: 'SAVE20' }] },
+      { type: 'button', subType: 'url', index: 1, parameters: [{ type: 'text', text: 'tok_abc' }] },
+    ])
+  })
+
+  // F2 (review S-2): no caller may ship a Book now button without a token (the
+  // welcome, opt-in and booking-message paths never pass one). Meta would
+  // refuse the payload; refuse it here, before the network, with a typed result.
+  it('a Book now template with no booking token is refused before Meta is called', async () => {
+    const result = await send([coupon, bookNow], { couponCode: 'SAVE20' })
+    expect(result).toMatchObject({ ok: false, kapsoMessageId: null, error: { title: 'book_now_token_missing' } })
+    expect(sendTemplateMessage).not.toHaveBeenCalled()
+  })
 })

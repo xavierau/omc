@@ -1,6 +1,8 @@
 // BOOK-001 W3 (AC-16): the Book now button is a dynamic URL button whose URL is
-// exactly `${APP_URL}/b/{{1}}`. It is told apart from a coupon URL button by
-// that URL, never by position, and it never makes a template "need a coupon".
+// an https link whose path ends exactly with `/b/{{1}}`. It is told apart from
+// a coupon URL button by that path, never by position, and it never makes a
+// template "need a coupon". F3 (review S-1): no app-URL equality, so a worker
+// whose NEXT_PUBLIC_APP_URL is unset or differs still finds it.
 import { describe, it, expect } from 'vitest'
 import {
   bookNowButtonUrl,
@@ -29,44 +31,49 @@ describe('book-now button identity', () => {
     expect(bookNowExampleUrl(APP)).toMatch(new RegExp(`^${APP}/b/[A-Za-z0-9_-]+$`))
   })
 
-  it('matches only the exact app URL, not a look-alike on another host', () => {
-    expect(isBookNowButton(bookNow, APP)).toBe(true)
-    expect(isBookNowButton({ ...bookNow, url: 'https://evil.example/b/{{1}}' }, APP)).toBe(false)
-    expect(isBookNowButton({ ...bookNow, type: 'QUICK_REPLY' }, APP)).toBe(false)
-    expect(isBookNowButton(coupon, APP)).toBe(false)
+  it('matches an https URL whose path ends exactly with /b/{{1}}, on any host', () => {
+    expect(isBookNowButton(bookNow)).toBe(true)
+    expect(isBookNowButton({ ...bookNow, url: 'https://old-domain.example/b/{{1}}' })).toBe(true)
+    expect(isBookNowButton({ ...bookNow, url: 'https://app.example/tenant/b/{{1}}' })).toBe(true)
+    for (const url of ['http://app.example/b/{{1}}', 'https:///b/{{1}}', '/b/{{1}}', 'https://app.example/b/{{1}}/x',
+      'https://app.example/b/{{1}}?x=1', 'https://app.example/book/{{1}}', 'https://app.example/b/{{2}}', 'https://app.example/xb/{{1}}']) {
+      expect(isBookNowButton({ ...bookNow, url }), url).toBe(false)
+    }
+    expect(isBookNowButton({ ...bookNow, type: 'QUICK_REPLY' })).toBe(false)
+    expect(isBookNowButton(coupon)).toBe(false)
   })
 
   it('a coupon URL button is any dynamic URL button that is not Book now', () => {
-    expect(isCouponUrlButton(coupon, APP)).toBe(true)
-    expect(isCouponUrlButton(bookNow, APP)).toBe(false)
-    expect(isCouponUrlButton({ type: 'URL', text: 'Menu', url: 'https://x.example/menu' }, APP)).toBe(false)
+    expect(isCouponUrlButton(coupon)).toBe(true)
+    expect(isCouponUrlButton(bookNow)).toBe(false)
+    expect(isCouponUrlButton({ type: 'URL', text: 'Menu', url: 'https://x.example/menu' })).toBe(false)
   })
 
   it('finds the button wherever it sits in the BUTTONS component', () => {
-    expect(templateHasBookNowButton(withButtons([coupon, bookNow]), APP)).toBe(true)
-    expect(templateHasBookNowButton(withButtons([coupon]), APP)).toBe(false)
-    expect(templateHasBookNowButton(null, APP)).toBe(false)
+    expect(templateHasBookNowButton(withButtons([coupon, bookNow]))).toBe(true)
+    expect(templateHasBookNowButton(withButtons([coupon]))).toBe(false)
+    expect(templateHasBookNowButton(null)).toBe(false)
   })
 })
 
 describe('a Book now button does not make a template need a coupon', () => {
   it('templateExpectsCouponCode: Book now only → false; with a coupon button → true', () => {
-    expect(templateExpectsCouponCode(withButtons([bookNow]), APP)).toBe(false)
-    expect(templateExpectsCouponCode(withButtons([bookNow, coupon]), APP)).toBe(true)
+    expect(templateExpectsCouponCode(withButtons([bookNow]))).toBe(false)
+    expect(templateExpectsCouponCode(withButtons([bookNow, coupon]))).toBe(true)
   })
 
   it('couponRequirement: a coupon-less Book now campaign is marketing-only, not blocked', () => {
     expect(
-      couponRequirement({ hasCouponConfig: false, template: withButtons([bookNow]), inlineTexts: [], appUrl: APP })
+      couponRequirement({ hasCouponConfig: false, template: withButtons([bookNow]), inlineTexts: [] })
     ).toEqual({ kind: 'marketing_only' })
   })
 
   it('isQrOnlyCouponCampaign: a Book now button does not carry the coupon code', () => {
     expect(
-      isQrOnlyCouponCampaign({ type: 'promo', hasCouponConfig: true, template: withButtons([bookNow]), appUrl: APP })
+      isQrOnlyCouponCampaign({ type: 'promo', hasCouponConfig: true, template: withButtons([bookNow]) })
     ).toBe(true)
     expect(
-      isQrOnlyCouponCampaign({ type: 'promo', hasCouponConfig: true, template: withButtons([bookNow, coupon]), appUrl: APP })
+      isQrOnlyCouponCampaign({ type: 'promo', hasCouponConfig: true, template: withButtons([bookNow, coupon]) })
     ).toBe(false)
   })
 })

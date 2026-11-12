@@ -33,3 +33,17 @@ export function bookingTokenState(
   if (row.expiresAt !== null && Date.parse(row.expiresAt) <= now.getTime()) return 'expired'
   return 'valid'
 }
+
+/** F5 (review #3): the least time a reused chat link must have left. */
+export const CHAT_LINK_REUSE_MIN_MS = 3_600_000
+
+/**
+ * A repeat BOOK reuses the diner's live chat link only when it never expires
+ * or has at least an hour left; otherwise a fresh link is minted, so the
+ * diner is never sent one that dies before they can use it.
+ */
+export function isReusableChatLink(expiresAt: string | null, now: Date): boolean {
+  if (expiresAt === null) return true
+  const left = Date.parse(expiresAt) - now.getTime()
+  return left >= CHAT_LINK_REUSE_MIN_MS
+}

@@ -3,8 +3,7 @@ import {
   extractParameters,
 } from '@/domain/entities/whatsapp-template'
 import type { TemplateButton, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { isBookNowButton, isCouponUrlButton } from '@/domain/services/book-now-button'
-import { appBaseUrl } from '@/infrastructure/config/app-url'
+import { isBookNowButton, isCouponUrlButton, templateHasBookNowButton } from '@/domain/services/book-now-button'
 import {
   isMediaHeader,
   readHeaderLink,
@@ -28,8 +27,19 @@ interface SendParams {
   // `couponCode` in practice.
   claimPayload?: string
   // BOOK-001 W3 (AC-16): the recipient's booking token, sent as the {{1}} of
-  // the Book now button (`${APP_URL}/b/{{1}}`). Coexists with `couponCode`.
+  // the Book now button (`https://…/b/{{1}}`). Coexists with `couponCode`.
   bookingToken?: string
+}
+
+// BOOK-001 F2 (review S-2): a Book now button needs the recipient's token.
+// Only a Book now campaign send mints one; every other caller (partner-API
+// welcome, opt-in prompt, booking messages) would ship an unfilled dynamic
+// button that Meta refuses, so the send is refused here, before the network.
+export const BOOK_NOW_TOKEN_MISSING: SendResult = {
+  ok: false,
+  kapsoMessageId: null,
+  raw: null,
+  error: { title: 'book_now_token_missing' },
 }
 
 export async function sendWhatsAppTemplateMessage(
@@ -37,6 +47,9 @@ export async function sendWhatsAppTemplateMessage(
 ): Promise<SendResult> {
   if (!isTemplateSendable(params.template)) {
     throw new Error('Template is not approved for sending')
+  }
+  if (!params.bookingToken && templateHasBookNowButton(params.template)) {
+    return BOOK_NOW_TOKEN_MISSING
   }
   // #127 / CAMP-007: refuse to send a payload Meta is guaranteed to reject
   // (#132012) — a media header we cannot supply must fail loudly here, not
@@ -143,11 +156,10 @@ function buildUrlButtonParams(
   )
   if (!buttonsComponent?.buttons) return undefined
 
-  const appUrl = appBaseUrl()
   const urlButtons: UrlButtonParam[] = []
 
   buttonsComponent.buttons.forEach((btn, index) => {
-    const text = urlButtonValue(btn, appUrl, values)
+    const text = urlButtonValue(btn, values)
     if (!text) return
     urlButtons.push({
       type: 'button',
@@ -162,10 +174,9 @@ function buildUrlButtonParams(
 
 function urlButtonValue(
   btn: TemplateButton,
-  appUrl: string,
   values: { couponCode?: string; bookingToken?: string }
 ): string | undefined {
-  if (isBookNowButton(btn, appUrl)) return values.bookingToken
-  if (isCouponUrlButton(btn, appUrl)) return values.couponCode
+  if (isBookNowButton(btn)) return values.bookingToken
+  if (isCouponUrlButton(btn)) return values.couponCode
   return undefined
 }

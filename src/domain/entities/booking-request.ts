@@ -9,11 +9,14 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
 
 export type BookingStatus = 'pending' | 'confirmed' | 'declined'
 export type BookingDecision = 'confirmed' | 'declined'
+/** Whether the confirm/decline message reached the diner (F9); null = none yet. */
+export type DecisionMessageStatus = 'delivered' | 'not_delivered'
 
 /** R11: open requests one phone may hold at one restaurant. */
 export const MAX_PENDING_PER_PHONE = 3
 export const DECLINE_REASON_MAX = 200
-export const BOOKING_LIST_LIMIT = 200
+/** F10: the dashboard lists every pending request plus this many newest decided ones. */
+export const DECIDED_BOOKINGS_LIST_LIMIT = 200
 
 export interface BookingRequest {
   id: string
@@ -33,6 +36,7 @@ export interface BookingRequest {
   source: BookingLinkSource
   campaignId: string | null
   createdAt: string
+  decisionMessageStatus: DecisionMessageStatus | null
 }
 
 export interface NewBookingRequest {

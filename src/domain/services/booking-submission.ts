@@ -11,7 +11,7 @@
 export interface BookingSubmission {
   /** YYYY-MM-DD, today or later in Asia/Hong_Kong. */
   date: string
-  /** HH:MM, 24-hour. */
+  /** HH:MM, 24-hour; later than now when the date is today (F6). */
   time: string
   partySize: number
   name: string
@@ -36,6 +36,16 @@ export function hongKongToday(now: Date): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+  }).format(now)
+}
+
+/** The wall-clock time in Hong Kong as HH:MM (24-hour). */
+export function hongKongTime(now: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Hong_Kong',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
   }).format(now)
 }
 
@@ -86,9 +96,24 @@ function parseNotes(raw: unknown, errors: BookingFieldErrors): string | null {
   return notes === '' ? null : notes
 }
 
+export interface BookingSubmissionRules {
+  /** Hong Kong today, YYYY-MM-DD. */
+  today: string
+  /** Hong Kong now, HH:MM: a booking today must start later than this (F6). */
+  nowTime: string
+  maxPartySize: number
+}
+
+// F6 (review #4): today at a time already past is refused on the time field.
+// No upper bound on the date (spec AC-11 asks only for today or later).
+function checkNotPastToday(s: BookingSubmission, rules: BookingSubmissionRules, errors: BookingFieldErrors): void {
+  if (errors.date || errors.time) return
+  if (s.date === rules.today && s.time <= rules.nowTime) errors.time = 'past_time'
+}
+
 export function parseBookingSubmission(
   body: unknown,
-  rules: { today: string; maxPartySize: number }
+  rules: BookingSubmissionRules
 ): ParseBookingSubmissionResult {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, errors: { form: 'invalid_body' } }
   const b = body as Record<string, unknown>
@@ -103,5 +128,6 @@ export function parseBookingSubmission(
     name: parseName(b.name, errors),
     notes: parseNotes(b.notes, errors),
   }
+  checkNotPastToday(submission, rules, errors)
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, submission }
 }

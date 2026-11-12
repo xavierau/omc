@@ -10,7 +10,8 @@
  *     npx vitest run src/infrastructure/supabase/__tests__/booking-cron.db.test.ts
  *
  * The SQL mirrors booking-request-repository.ts claimBookingReminder and
- * purgeBookingPii.
+ * purgeBookingPii; listReminderCandidates calls booking_reminder_candidates
+ * (082) as is (F7).
  */
 import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -60,6 +61,52 @@ d('BOOK-001 W3 cron SQL (real Postgres)', () => {
   })
 
   afterAll(() => psql(`DELETE FROM restaurants WHERE id = '${R}'`))
+
+  // F7 (review #5, S-4): due = start in (now, now + 3h], booked >= 3h before
+  // the start, confirmed, not reminded; ordered by date then time.
+  describe('booking_reminder_candidates', () => {
+    const W = 'c0000000-0000-4000-8000-000000000'
+    const NOW = '2026-11-25T09:00:00Z' // 17:00 HKT on the 25th
+    const row = (n: number, date: string, time: string, created: string) =>
+      `INSERT INTO booking_requests (id, restaurant_id, phone, name, party_size, booking_date, booking_time, source, status, decided_at, created_at)
+       VALUES ('${W}${n.toString(16).padStart(3, '0')}', '${R}', '+85291110000', 'W', 2, '${date}', '${time}', 'chat', 'confirmed', now(), '${created}')`
+    const due = (limit: number) =>
+      psql(`SELECT string_agg(id::text, ',' ORDER BY ord) FROM (
+              SELECT id, row_number() OVER () AS ord
+              FROM booking_reminder_candidates('${NOW}'::timestamptz, 3, ${limit})) s`)
+    const id = (n: number) => `${W}${n.toString(16).padStart(3, '0')}`
+
+    beforeAll(() => {
+      psql(row(1, '2026-11-25', '19:30', '2026-11-20T00:00:00Z')) // due
+      psql(row(2, '2026-11-25', '18:00', '2026-11-20T00:00:00Z')) // due, earlier start
+      psql(row(3, '2026-11-25', '20:01', '2026-11-20T00:00:00Z')) // window not open (starts > now + 3h)
+      psql(row(4, '2026-11-25', '17:00', '2026-11-20T00:00:00Z')) // starts now: already started
+      psql(row(5, '2026-11-25', '19:00', '2026-11-25T08:30:00Z')) // booked 2.5h ahead: never due
+      psql(row(6, '2026-11-25', '20:00', '2026-11-25T09:00:00Z')) // booked exactly 3h ahead, starts at now + 3h: due
+      for (let n = 16; n < 40; n++) psql(row(n, '2026-11-25', '17:30', '2026-11-25T09:00:00Z')) // flood: booked late, earliest start
+    })
+
+    it('returns only due bookings, earliest start first, past a flood of never-due rows', () => {
+      expect(due(10)).toBe([id(2), id(1), id(6)].join(','))
+      expect(due(1)).toBe(id(2))
+    })
+
+    it('a window crossing midnight HKT finds the next-day booking', () => {
+      psql(row(7, '2026-11-26', '01:00', '2026-11-20T00:00:00Z'))
+      expect(psql(`SELECT count(*) FROM booking_reminder_candidates('2026-11-25T15:30:00Z'::timestamptz, 3, 10) WHERE id = '${id(7)}'`)).toBe('1')
+    })
+
+    it('skips reminded and non-confirmed bookings, and is service-role only', () => {
+      psql(`UPDATE booking_requests SET reminder_sent_at = now() WHERE id = '${id(2)}'`)
+      expect(due(10)).toBe([id(1), id(6)].join(','))
+      const grants = psql(`SELECT string_agg(grantee, ',' ORDER BY grantee) FROM information_schema.role_routine_grants
+                           WHERE routine_name = 'booking_reminder_candidates' AND privilege_type = 'EXECUTE'`)
+      expect(grants.split(',')).toContain('service_role')
+      expect(grants.split(',')).not.toContain('anon')
+      expect(grants.split(',')).not.toContain('authenticated')
+      expect(grants.split(',')).not.toContain('PUBLIC')
+    })
+  })
 
   it('lets exactly one of two concurrent reminder claims win (AC-15)', async () => {
     const results = await Promise.all([psqlAsync(claim(REMIND)), psqlAsync(claim(REMIND))])

@@ -40,6 +40,17 @@ describe('booking message copy', () => {
     expect(buildBookingText('received', 'zh_hk', details)).toContain('已收到')
   })
 
+  // F8 (review #6): the reminder text names the booking date, not "today".
+  it('writes the reminder with the booking date in both languages, never "today"', () => {
+    const details = { restaurantName: 'Kushiro', name: 'Chan', date: '2026-11-13', time: '00:30', partySize: 2 }
+    for (const lang of ['en', 'zh_hk'] as const) {
+      const text = buildBookingText('reminder', lang, details)
+      expect(text, lang).toContain('2026-11-13')
+      expect(text, lang).toContain('00:30')
+      expect(text, lang).not.toMatch(/today|今天|今日/i)
+    }
+  })
+
   it('includes a decline reason only when given', () => {
     expect(buildBookingText('declined', 'en', details)).not.toContain('Reason')
     expect(buildBookingText('declined', 'en', { ...details, declineReason: 'Full' })).toContain('Reason: Full')

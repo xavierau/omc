@@ -36,11 +36,6 @@ export function isReminderDue(b: ReminderCandidate, now: Date): boolean {
   return t >= opensAt && t < start && new Date(b.createdAt).getTime() <= opensAt
 }
 
-/** HK dates a due booking can fall on: today, and tomorrow when the window crosses midnight. */
-export function reminderDateRange(now: Date): { from: string; to: string } {
-  return { from: hongKongToday(now), to: hongKongToday(new Date(now.getTime() + LEAD_MS)) }
-}
-
 /** Bookings dated before this HK date are past retention (> 180 days ago). */
 export function retentionCutoffDate(now: Date): string {
   const today = new Date(`${hongKongToday(now)}T00:00:00Z`)

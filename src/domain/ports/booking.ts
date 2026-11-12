@@ -3,7 +3,7 @@
  * `src/infrastructure/supabase/repositories/booking-*-repository.ts`; tests
  * use in-memory fakes with the same atomicity (first claim wins).
  */
-import type { BookingDecision, BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
+import type { BookingDecision, BookingRequest, DecisionMessageStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingLinkSource, BookingTokenState } from '@/domain/services/booking-token'
 import type { BookingMessageDetails, BookingMessageKind } from '@/domain/services/booking-message'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
@@ -37,10 +37,13 @@ export interface DecideBookingArgs {
 export interface BookingRequestStore {
   insert(request: NewBookingRequest): Promise<BookingRequest>
   countPending(restaurantId: string, phone: string): Promise<number>
-  listForRestaurant(restaurantId: string, limit: number): Promise<BookingRequest[]>
+  /** Every pending request plus the newest `decidedLimit` decided ones, newest first (F10). */
+  listForRestaurant(restaurantId: string, decidedLimit: number): Promise<BookingRequest[]>
   findForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null>
   /** Conditional pending -> decision, scoped by restaurant; null if no row changed (R4, R6). */
   decide(args: DecideBookingArgs): Promise<BookingRequest | null>
+  /** Stores whether the decision message was delivered, scoped by restaurant (F9). */
+  recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
 }
 
 export interface BookingRestaurantContext {
@@ -80,8 +83,8 @@ export interface BookingMemberLookup {
 
 /** W3 (AC-15): confirmed bookings awaiting their one reminder, across restaurants (cron only). */
 export interface BookingReminderStore {
-  /** Confirmed, reminder not sent, booking_date in [fromDate, toDate]. */
-  listReminderCandidates(fromDate: string, toDate: string, limit: number): Promise<BookingRequest[]>
+  /** Confirmed, not reminded, due at `now` (start window applied by the store), earliest start first. */
+  listReminderCandidates(now: Date, limit: number): Promise<BookingRequest[]>
   /** Conditional UPDATE on reminder_sent_at IS NULL; true for exactly one caller. */
   claimReminder(id: string, at: Date): Promise<boolean>
 }

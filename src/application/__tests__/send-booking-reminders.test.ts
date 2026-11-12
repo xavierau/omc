@@ -90,6 +90,23 @@ describe('sendBookingReminders (AC-15)', () => {
     expect(sender.sent).toHaveLength(1)
   })
 
+  // F7: the store gets the run's instant and the batch limit; it returns only
+  // due bookings (SQL window), oldest start first.
+  it('asks the store for due bookings at this run\'s instant, bounded', async () => {
+    const spy = vi.spyOn(store, 'listReminderCandidates')
+    await sendBookingReminders(deps(IN_WINDOW))
+    expect(spy).toHaveBeenCalledWith(IN_WINDOW, 500)
+  })
+
+  it('a due booking behind more than a batch of not-yet-due ones is still reminded', async () => {
+    for (let i = 0; i < 600; i++) {
+      // Booked less than 3h ahead: confirmed, never due, sorted before the due one.
+      store.rows.unshift(cronBooking({ id: `late-${i}`, bookingTime: '19:00', createdAt: '2026-11-20T08:50:00.000Z' }))
+    }
+    expect(await sendBookingReminders(deps(IN_WINDOW))).toMatchObject({ sent: 1 })
+    expect(store.rows.find((r) => r.id === 'b-1')?.reminderSentAt).toBe(IN_WINDOW.toISOString())
+  })
+
   it('looks the restaurant name up once per restaurant per run', async () => {
     store.rows.push(cronBooking({ id: 'b-2', phone: '+85292222222' }))
     const spy = vi.spyOn(settings, 'getRestaurant')

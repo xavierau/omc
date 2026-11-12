@@ -22,7 +22,8 @@ function toResponse(result: SubmitBookingResult): NextResponse {
       // 410: terminal. The page swaps the form for the recovery link.
       return json({ error: 'token_unusable', state: result.state }, 410)
     case 'booking_unavailable':
-      return json({ error: 'booking_unavailable' }, 410)
+      // F11: booking was switched off after the page loaded → the off page.
+      return json({ error: 'booking_unavailable', state: 'off' }, 410)
     case 'invalid':
       return json({ error: 'invalid', fields: result.errors }, 400)
     case 'too_many_pending':

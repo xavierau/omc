@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { hongKongToday, parseBookingSubmission } from '../booking-submission'
+import { hongKongTime, hongKongToday, parseBookingSubmission } from '../booking-submission'
 
-const rules = { today: '2026-11-12', maxPartySize: 20 }
+const rules = { today: '2026-11-12', nowTime: '12:00', maxPartySize: 20 }
 const valid = { date: '2026-11-13', time: '19:30', partySize: 4, name: 'Chan Tai Man', notes: 'window seat' }
 
 function errorsFor(body: unknown) {
@@ -14,6 +14,26 @@ describe('hongKongToday', () => {
   it('uses Asia/Hong_Kong, not UTC (16:30 UTC is already tomorrow in HK)', () => {
     expect(hongKongToday(new Date('2026-11-12T16:30:00Z'))).toBe('2026-11-13')
     expect(hongKongToday(new Date('2026-11-12T15:59:00Z'))).toBe('2026-11-12')
+  })
+})
+
+describe('hongKongTime', () => {
+  it('is the HK wall-clock HH:MM', () => {
+    expect(hongKongTime(new Date('2026-11-12T02:05:00Z'))).toBe('10:05')
+    expect(hongKongTime(new Date('2026-11-12T16:30:00Z'))).toBe('00:30')
+  })
+})
+
+// F6 (review #4, S-7): today with a time already past is refused on the time
+// field; a later date at any time is fine. No upper date bound (owner FYI).
+describe('a time already past today', () => {
+  it.each(['11:59', '12:00'])('today at %s (now 12:00 HK) → time: past_time', (time) => {
+    expect(errorsFor({ ...valid, date: '2026-11-12', time })).toEqual({ time: 'past_time' })
+  })
+
+  it('today later than now, and tomorrow at an early hour, are accepted', () => {
+    expect(parseBookingSubmission({ ...valid, date: '2026-11-12', time: '12:01' }, rules).ok).toBe(true)
+    expect(parseBookingSubmission({ ...valid, date: '2026-11-13', time: '08:00' }, rules).ok).toBe(true)
   })
 })
 

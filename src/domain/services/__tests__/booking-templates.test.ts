@@ -57,6 +57,15 @@ describe('booking template copy (R21)', () => {
     for (const e of examples) expect(e.example).not.toBe('example')
   })
 
+  // F8 (review #6): the reminder can go out the evening before (the 3h window
+  // crosses midnight), so it states the booking date, never "today".
+  it.each(['en', 'zh_hk'] as const)('the %s reminder template states the booking date and time, not "today"', (lang) => {
+    const body = bookingTemplateBody('reminder', lang)
+    expect(body).toContain('{{date}}')
+    expect(body).toContain('{{time}}')
+    expect(body).not.toMatch(/today|今天|今日/i)
+  })
+
   it('maps app languages to Meta codes', () => {
     expect(metaLanguageCode('en')).toBe('en')
     expect(metaLanguageCode('zh_hk')).toBe('zh_HK')

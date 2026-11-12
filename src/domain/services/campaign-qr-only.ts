@@ -9,8 +9,6 @@ export interface QrOnlyCouponInput {
   type: string
   hasCouponConfig: boolean
   template: WhatsAppTemplate | null
-  /** NEXT_PUBLIC_APP_URL: a Book now button carries a booking token, not the code (BOOK-001). */
-  appUrl?: string
 }
 
 // A template's code travels in the one variable or button the sender fills.
@@ -29,11 +27,12 @@ export function isQrOnlyCouponCampaign(input: QrOnlyCouponInput): boolean {
   const { template } = input
   if (!template || !input.hasCouponConfig) return false
   if (input.type === 'welcome' || isClaimTemplate(template)) return false
-  return !templateCarriesCode(template, input.appUrl ?? '')
+  return !templateCarriesCode(template)
 }
 
-function templateCarriesCode(template: WhatsAppTemplate, appUrl: string): boolean {
+// A Book now button carries a booking token, not the code (BOOK-001).
+function templateCarriesCode(template: WhatsAppTemplate): boolean {
   if (extractParameters(template).includes(CODE_PARAMETER)) return true
   const buttons = template.components.find((c) => c.type === 'BUTTONS')?.buttons ?? []
-  return buttons.some((b) => isCouponUrlButton(b, appUrl))
+  return buttons.some(isCouponUrlButton)
 }

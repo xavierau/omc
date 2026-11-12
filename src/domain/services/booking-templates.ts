@@ -28,9 +28,11 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
     en: 'Hi {{name}}, sorry, {{restaurant}} cannot take your booking for {{party_size}} on {{date}} at {{time}}. Reason: {{reason}}.',
     zh_hk: '你好{{name}},很抱歉,{{restaurant}}未能接受你的訂座:{{date}} {{time}},{{party_size}}位。原因:{{reason}}。',
   },
+  // F8 (review #6): the reminder window can open the evening before, so it
+  // states the booking date, never "today".
   reminder: {
-    en: 'Reminder: your booking at {{restaurant}} for {{party_size}} is today at {{time}}.',
-    zh_hk: '提提你:你今天 {{time}} 在{{restaurant}}有{{party_size}}位的訂座。',
+    en: 'Reminder: your booking at {{restaurant}} for {{party_size}} is on {{date}} at {{time}}.',
+    zh_hk: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。',
   },
 }
 

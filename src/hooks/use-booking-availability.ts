@@ -13,6 +13,8 @@ import type { BookingTemplateStatus, BookingTemplateStatuses } from '@/domain/se
 export interface BookingAvailability {
   mode: BookingMode
   externalUrl: string | null
+  /** F4 (R14): admin only; anything else sees the campaign booking URL read-only. */
+  canEditBookingUrl: boolean
 }
 
 export interface BookingSettingsSummary {
@@ -39,22 +41,33 @@ export function parseBookingSettingsSummary(raw: unknown): BookingSettingsSummar
   const r = raw as Record<string, unknown>
   if (!BOOKING_MODES.includes(r.mode as BookingMode)) return null
   const externalUrl = typeof r.externalUrl === 'string' ? r.externalUrl : null
-  return { availability: { mode: r.mode as BookingMode, externalUrl }, templates: parseTemplateStatuses(r.templates) }
+  const availability = { mode: r.mode as BookingMode, externalUrl, canEditBookingUrl: r.canEditBookingUrl === true }
+  return { availability, templates: parseTemplateStatuses(r.templates) }
 }
 
-export function useBookingSettingsSummary(): BookingSettingsSummary | null {
-  const [summary, setSummary] = useState<BookingSettingsSummary | null>(null)
+export interface BookingSettingsSummaryState {
+  /** True until the first GET answers (F14: show loading, not "could not load"). */
+  loading: boolean
+  summary: BookingSettingsSummary | null
+}
+
+export function useBookingSettingsSummaryState(): BookingSettingsSummaryState {
+  const [state, setState] = useState<BookingSettingsSummaryState>({ loading: true, summary: null })
   useEffect(() => {
     let live = true
     fetch('/api/dashboard/settings/booking')
       .then((res) => (res.ok ? res.json() : null))
-      .then((json) => live && setSummary(parseBookingSettingsSummary(json)))
-      .catch(() => live && setSummary(null))
+      .then((json) => live && setState({ loading: false, summary: parseBookingSettingsSummary(json) }))
+      .catch(() => live && setState({ loading: false, summary: null }))
     return () => {
       live = false
     }
   }, [])
-  return summary
+  return state
+}
+
+export function useBookingSettingsSummary(): BookingSettingsSummary | null {
+  return useBookingSettingsSummaryState().summary
 }
 
 export function useBookingAvailability(): BookingAvailability | null {

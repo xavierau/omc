@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { decideBookingRequest, type DecideBookingDeps } from '../booking/decide-booking-request'
 import { FakeBookingRequests, FakeBookingSender, FakeBookingSettings } from '@/test-utils/fake-booking'
 
@@ -70,6 +70,24 @@ describe('decideBookingRequest', () => {
     sender.result = { delivered: false, reason: 'outside_window' }
     const result = await decide(idA, 'confirmed')
     expect(result).toMatchObject({ ok: true, delivered: false, booking: { status: 'confirmed' } })
+    expect(requests.rows[0].status).toBe('confirmed')
+  })
+
+  // F9 (review #7): the outcome is stored so the badge survives a reload.
+  it('stores not_delivered / delivered on the booking and returns it', async () => {
+    sender.result = { delivered: false, reason: 'outside_window' }
+    expect(await decide(idA, 'confirmed')).toMatchObject({ booking: { decisionMessageStatus: 'not_delivered' } })
+    expect(requests.rows[0].decisionMessageStatus).toBe('not_delivered')
+    sender.result = { delivered: true, via: 'text' }
+    const idA2 = await seed(A, 'tok-a2')
+    await decide(idA2, 'declined')
+    expect(requests.rows.find((r) => r.id === idA2)?.decisionMessageStatus).toBe('delivered')
+  })
+
+  it('a failure to store the outcome never fails the decision', async () => {
+    requests.failRecordDecisionMessage = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await decide(idA, 'confirmed')).toMatchObject({ ok: true, delivered: true })
     expect(requests.rows[0].status).toBe('confirmed')
   })
 })

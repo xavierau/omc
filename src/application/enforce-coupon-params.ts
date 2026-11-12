@@ -4,7 +4,6 @@ import {
   couponRequirement,
   type CouponRequirementReason,
 } from '@/domain/services/coupon-requirement'
-import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 const PRE_SEND_CHECK_SUFFIX =
   'This is an OhMyClient pre-send check; Meta was not contacted.'
@@ -55,7 +54,6 @@ export function enforceCouponParams(
     hasCouponConfig: Boolean(campaign.couponConfig),
     template,
     inlineTexts: [campaign.templateEn, campaign.templateZhHk, campaign.template],
-    appUrl: appBaseUrl(),
   })
   if (requirement.kind !== 'blocked') return
   throw new CampaignCouponConfigMissingError(requirement.subject, requirement.reason)

@@ -13,6 +13,7 @@ import {
   BOOKING_TOKEN_BYTES,
   bookingTokenExpiry,
   bookingTokenState,
+  isReusableChatLink,
   isWellFormedBookingToken,
   type BookingLinkSource,
 } from '@/domain/services/booking-token'
@@ -135,14 +136,15 @@ export async function releaseBookingToken(token: string, claimedAt: Date): Promi
 
 /**
  * W2 (R11): the sender's newest unconsumed, unexpired chat link, so a repeat
- * BOOK can reuse it instead of minting another live link.
+ * BOOK can reuse it instead of minting another live link. F5: null when that
+ * link has under an hour left (isReusableChatLink), so the caller mints anew.
  */
 export async function findLiveChatToken(restaurantId: string, phone: string, now: Date = new Date()): Promise<string | null> {
   try {
     const supabase = createServerSupabaseClient()
     const { data, error } = await supabase
       .from('booking_tokens')
-      .select('token')
+      .select('token, expires_at')
       .eq('restaurant_id', restaurantId)
       .eq('phone', phone)
       .eq('source', 'chat')
@@ -152,7 +154,8 @@ export async function findLiveChatToken(restaurantId: string, phone: string, now
       .limit(1)
       .maybeSingle()
     if (error || !data) return null
-    return (data as { token: string }).token
+    const row = data as { token: string; expires_at: string | null }
+    return isReusableChatLink(row.expires_at, now) ? row.token : null
   } catch {
     return null
   }

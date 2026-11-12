@@ -4,7 +4,7 @@
  * BOOK-001 AC-13/AC-14: one booking request. Name and notes are diner input,
  * rendered as plain text only (R3). Pending rows offer Confirm and Decline
  * (with an optional reason); a decision whose message did not go out shows
- * the "contact the diner" badge.
+ * the "contact the diner" badge, from this session or as stored (F9).
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -76,7 +76,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
         <Badge variant={STATUS_VARIANT[booking.status]} data-testid={`booking-row-${booking.id}-status`}>
           {t(`status.${booking.status}`)}
         </Badge>
-        {undelivered ? (
+        {undelivered || booking.decisionMessageStatus === 'not_delivered' ? (
           <Badge variant="outline" className="border-destructive text-foreground" data-testid={`booking-row-${booking.id}-not-delivered`}>
             {t('notDelivered')}
           </Badge>

@@ -32,6 +32,7 @@ beforeEach(() => {
     getConfig: vi.fn(async () => config),
     findTemplates: vi.fn(async (ids: string[]) => ids.map((id) => rows.get(id)).filter(Boolean)),
     createTemplate: vi.fn(),
+    resubmitTemplate: vi.fn(async (id: string) => ({ template: rows.get(id) })),
     saveTemplateIds: vi.fn(async (_rid, ids) => { config = { ...config, templateIds: ids } }),
     suffix: vi.fn(() => `s${++suffix}`),
   }
@@ -90,9 +91,52 @@ describe('provisionBookingTemplates', () => {
     const statuses = await provision()
     expect(statuses.confirmed).toEqual({ en: 'failed', zh_hk: 'failed' })
     deps.createTemplate.mockClear()
-    createdAs('pending')
+    // F12: the failed drafts are resubmitted in place, not created again.
+    deps.resubmitTemplate.mockImplementation(async (id: string) => {
+      const t = { ...(rows.get(id) as WhatsAppTemplate), status: 'pending' as const }
+      rows.set(id, t)
+      return { template: t }
+    })
     expect((await provision()).confirmed).toEqual({ en: 'pending', zh_hk: 'pending' })
+    expect(deps.createTemplate).not.toHaveBeenCalled()
+    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(8)
+  })
+
+  // F12 (review S-5): with the provider down, each Simple save used to leave
+  // 8 more draft rows in the restaurant's template list.
+  it('three saves with the provider failing leave 8 rows, not 24: a failed draft is resubmitted in place', async () => {
+    deps.createTemplate.mockImplementation(async (p) => {
+      const t = buildWhatsAppTemplate({ id: `t${++seq}`, restaurantId: RID, name: p.name, language: p.language, status: 'draft' })
+      rows.set(t.id, t)
+      return { template: t, error: 'Failed to submit template to Meta', errorCode: 'provider_error' }
+    })
+    await provision()
+    await provision()
+    const statuses = await provision()
+    expect(rows.size).toBe(8)
     expect(deps.createTemplate).toHaveBeenCalledTimes(8)
+    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(16)
+    expect(new Set(deps.resubmitTemplate.mock.calls.map((c) => c[1]))).toEqual(new Set([RID]))
+    expect(statuses.reminder).toEqual({ en: 'failed', zh_hk: 'failed' })
+  })
+
+  it('a resubmitted draft that reaches Meta keeps its id and reads pending', async () => {
+    deps.createTemplate.mockImplementation(async (p) => {
+      const t = buildWhatsAppTemplate({ id: `t${++seq}`, restaurantId: RID, name: p.name, language: p.language, status: 'draft' })
+      rows.set(t.id, t)
+      return { template: t }
+    })
+    await provision()
+    const draftId = config.templateIds.received.en as string
+    deps.resubmitTemplate.mockImplementation(async (id: string) => {
+      const t = { ...(rows.get(id) as WhatsAppTemplate), status: 'pending' as const }
+      rows.set(id, t)
+      return { template: t }
+    })
+    const statuses = await provision()
+    expect(config.templateIds.received.en).toBe(draftId)
+    expect(statuses.received.en).toBe('pending')
+    expect(rows.size).toBe(8)
   })
 
   it('a create that throws records not_submitted for that template and still saves the others', async () => {

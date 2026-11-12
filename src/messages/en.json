@@ -328,8 +328,10 @@
     "bookNowNoLink": "Add a booking link in settings",
     "bookNowUrl": "Booking link for this campaign (optional)",
     "bookNowUrlHint": "Uses the restaurant's booking link when empty. Must start with https://",
+    "bookNowUrlAdminOnly": "Only an admin can change this link.",
     "bookNowPreview": "Each message carries a Book now button",
     "bookNowIssue": {
+      "welcome_not_supported": "Book now isn't available on welcome messages. Pick a template without the Book now button.",
       "template_missing_button": "This template has no Book now button. Pick a template with one, or turn Book now off.",
       "toggle_off_with_button": "This template has a Book now button. Turn on Book now, or pick another template."
     }
@@ -1321,12 +1323,14 @@
     "unknownTitle": "This booking link doesn't work",
     "offTitle": "Online booking isn't available right now",
     "unavailableBody": "Ask the restaurant on WhatsApp and we'll send you a new link.",
+    "offBody": "Online booking isn't available for this restaurant. Please message the restaurant on WhatsApp to book.",
     "askOnWhatsapp": "Ask on WhatsApp",
     "askOnWhatsappManual": "Go back to the WhatsApp chat and send BOOK to get a new link.",
     "errors": {
       "required": "Please fill this in.",
       "invalid": "Please check this value.",
       "past": "Please choose today or a later date.",
+      "past_time": "Please choose a time later than now.",
       "too_small": "At least 1 person.",
       "too_large": "At most {max} people. For bigger groups, contact the restaurant.",
       "too_long": "This is too long.",
@@ -1358,6 +1362,10 @@
     "confirmationSent": "Confirmation sent",
     "declineSent": "Decline sent",
     "alreadyHandled": "This request was already {status}.",
+    "alreadyHandledStatus": {
+      "confirmed": "confirmed",
+      "declined": "declined"
+    },
     "actionFailed": "Couldn't update this request. Please try again."
   },
   "bookingSettings": {
@@ -1396,6 +1404,7 @@
       "title": "WhatsApp booking messages",
       "hint": "Submitted to WhatsApp for approval when you save Simple booking. Until approved, messages to customers who have not written in the last 24 hours are not delivered. A rejected message is resubmitted on your next save.",
       "unknown": "Couldn't load the message status. Save again to retry.",
+      "loading": "Loading message status...",
       "kind": {
         "received": "Request received",
         "confirmed": "Booking confirmed",

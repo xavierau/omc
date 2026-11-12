@@ -18,7 +18,16 @@ const VARIANT: Record<BookingTemplateStatus, { variant: 'default' | 'outline' | 
   not_submitted: { variant: 'secondary' },
 }
 
-export function BookingTemplateStatusList({ statuses }: { statuses: BookingTemplateStatuses | null }) {
+function NoStatuses({ loading }: { loading: boolean }) {
+  const t = useTranslations('bookingSettings')
+  return loading ? (
+    <p data-testid="booking-template-status-loading" role="status" className="text-xs text-muted-foreground">{t('templates.loading')}</p>
+  ) : (
+    <p data-testid="booking-template-status-unknown" className="text-xs text-muted-foreground">{t('templates.unknown')}</p>
+  )
+}
+
+export function BookingTemplateStatusList({ statuses, loading = false }: { statuses: BookingTemplateStatuses | null; loading?: boolean }) {
   const t = useTranslations('bookingSettings')
   return (
     <div className="space-y-2" data-testid="booking-template-statuses">
@@ -44,7 +53,7 @@ export function BookingTemplateStatusList({ statuses }: { statuses: BookingTempl
           ))}
         </ul>
       ) : (
-        <p data-testid="booking-template-status-unknown" className="text-xs text-muted-foreground">{t('templates.unknown')}</p>
+        <NoStatuses loading={loading} />
       )}
     </div>
   )

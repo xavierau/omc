@@ -9,11 +9,12 @@
  * W3: saving Simple booking then provisions the booking templates. The
  * settings are saved first and stay saved if provisioning fails; the response
  * carries each template's status. GET (any tenant member: the campaign form
- * needs the mode) returns the mode, the external URL and those statuses.
+ * needs the mode) returns the mode, the external URL, those statuses, and
+ * whether this member may set a campaign booking URL (admin only, F4/R14).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
-import { requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
+import { isTenantAdmin, requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { getBookingConfig, updateBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { parseBookingSettings, type BookingConfig } from '@/domain/value-objects/booking-config'
@@ -26,9 +27,10 @@ function authError(error: unknown) {
 
 export async function GET() {
   try {
-    const { restaurantId } = await getTenantContext()
+    const ctx = await getTenantContext()
+    const { restaurantId } = ctx
     const [config, templates] = await Promise.all([getBookingConfig(restaurantId), bookingTemplateStatusesFor(restaurantId)])
-    return NextResponse.json({ mode: config.mode, externalUrl: config.externalUrl, templates })
+    return NextResponse.json({ mode: config.mode, externalUrl: config.externalUrl, templates, canEditBookingUrl: isTenantAdmin(ctx) })
   } catch (error) {
     const denied = authError(error)
     if (denied) return denied

@@ -91,6 +91,29 @@ describe('dashboard bookings API', () => {
     expect(sender.sent[0].kind).toBe('declined')
   })
 
+  // F9 (review #7): decision with a failed send → reload → the list still
+  // says the message was not delivered.
+  it('a decision whose message failed is still marked not delivered in the list after a reload', async () => {
+    sender.result = { delivered: false, reason: 'outside_window' }
+    await confirm(req(), ctx(idA1))
+    const { bookings } = await (await list()).json()
+    expect(bookings.find((b: { id: string }) => b.id === idA1)).toMatchObject({ status: 'confirmed', decisionMessageStatus: 'not_delivered' })
+  })
+
+  // F10 (review #8): every pending request, plus the newest 200 decided ones.
+  it('lists every pending request even behind more than 200 newer decided ones', async () => {
+    for (let i = 0; i < 205; i++) {
+      const id = await seed(A, `d${i}`)
+      await store.requests.decide({ id, restaurantId: A, decision: 'confirmed', decidedBy: 'u', decidedAt: new Date(), declineReason: null })
+    }
+    const { bookings } = await (await list()).json()
+    const ids = bookings.map((b: { id: string }) => b.id)
+    expect(ids).toContain(idA1)
+    expect(ids).toContain(idA2)
+    expect(bookings.filter((b: { status: string }) => b.status === 'confirmed')).toHaveLength(200)
+    expect(bookings.every((b: { restaurantId: string }) => b.restaurantId === A)).toBe(true)
+  })
+
   it('AC-14 warning: delivered:false reaches the API response while the status is saved', async () => {
     sender.result = { delivered: false, reason: 'outside_window' }
     const res = await confirm(req(), ctx(idA1))

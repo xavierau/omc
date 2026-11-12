@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { needsExternalUrl, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
-import { useBookingSettingsSummary } from '@/hooks/use-booking-availability'
+import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability'
 import { BookingTemplateStatusList } from './booking-template-status-list'
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
 
@@ -65,8 +65,9 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
   const errors = outcome?.kind === 'fields' ? outcome.errors : {}
   const missingUrl = needsExternalUrl(form)
   // W3: statuses from GET on load, then from each save's response.
-  const summary = useBookingSettingsSummary()
-  const templates = (outcome?.kind === 'saved' ? outcome.templates : null) ?? summary?.templates ?? null
+  const { loading, summary } = useBookingSettingsSummaryState()
+  const saved = outcome?.kind === 'saved'
+  const templates = (saved ? outcome.templates : null) ?? summary?.templates ?? null
   return (
     <Card data-testid="booking-settings-section">
       <CardHeader>
@@ -94,7 +95,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
                 onChange={(e) => update('maxPartySize', e.target.value)} data-testid="booking-settings-max-party" />
               <FieldError code={errors.maxPartySize} testId="booking-settings-max-party-error" />
             </div>
-            <BookingTemplateStatusList statuses={templates} />
+            <BookingTemplateStatusList statuses={templates} loading={loading && !saved} />
           </>
         ) : null}
         <div className="flex items-center gap-3">

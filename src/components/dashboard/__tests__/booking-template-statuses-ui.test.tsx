@@ -32,6 +32,12 @@ describe('BookingTemplateStatusList', () => {
     expect(html.match(/data-testid="booking-template-status-[a-z]+-(en|zh_hk)"/g)).toHaveLength(8)
   })
 
+  it('shows loading while statuses are being fetched', () => {
+    const html = renderToStaticMarkup(<BookingTemplateStatusList statuses={null} loading />)
+    expect(html).toContain('data-testid="booking-template-status-loading"')
+    expect(html).not.toContain('booking-template-status-unknown')
+  })
+
   it('says the statuses are unknown when they could not be read', () => {
     expect(renderToStaticMarkup(<BookingTemplateStatusList statuses={null} />)).toContain(
       'data-testid="booking-template-status-unknown"'
@@ -40,6 +46,15 @@ describe('BookingTemplateStatusList', () => {
 })
 
 describe('settings section', () => {
+  // F14 (I1 FYI): before the first GET answers, the block says it is loading,
+  // not "Couldn't load the message status".
+  it('while the first status fetch is in flight it shows loading, not the could-not-load line', () => {
+    const html = renderToStaticMarkup(<BookingSettingsSection initialConfig={{ ...DEFAULT_BOOKING_CONFIG, mode: 'simple' }} />)
+    expect(html).toContain('data-testid="booking-template-status-loading"')
+    expect(html).toContain('bookingSettings.templates.loading')
+    expect(html).not.toContain('booking-template-status-unknown')
+  })
+
   it('Simple mode shows the template status block; External does not', () => {
     const simple = renderToStaticMarkup(<BookingSettingsSection initialConfig={{ ...DEFAULT_BOOKING_CONFIG, mode: 'simple' }} />)
     expect(simple).toContain('bookingSettings.templates.title')
@@ -57,11 +72,15 @@ describe('response parsing', () => {
     expect(saveOutcome(200, { config, templates: { bogus: true } })).toEqual({ kind: 'saved', config, templates: null })
   })
 
-  it('GET summary: mode, external URL and statuses; malformed → null', () => {
-    expect(parseBookingSettingsSummary({ mode: 'external', externalUrl: 'https://inline.app/x', templates: statuses })).toEqual({
-      availability: { mode: 'external', externalUrl: 'https://inline.app/x' },
+  it('GET summary: mode, external URL, URL edit right and statuses; malformed → null', () => {
+    expect(
+      parseBookingSettingsSummary({ mode: 'external', externalUrl: 'https://inline.app/x', templates: statuses, canEditBookingUrl: true })
+    ).toEqual({
+      availability: { mode: 'external', externalUrl: 'https://inline.app/x', canEditBookingUrl: true },
       templates: statuses,
     })
+    // F4: no flag → read-only (fail closed).
+    expect(parseBookingSettingsSummary({ mode: 'simple', externalUrl: null })?.availability.canEditBookingUrl).toBe(false)
     expect(parseBookingSettingsSummary({ mode: 'weird' })).toBeNull()
     expect(parseBookingSettingsSummary(null)).toBeNull()
   })

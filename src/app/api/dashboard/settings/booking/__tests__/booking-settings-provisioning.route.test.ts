@@ -85,8 +85,17 @@ describe('GET booking settings', () => {
     vi.mocked(getBookingConfig).mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, mode: 'external', externalUrl: 'https://inline.app/x' })
     const res = await GET()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ mode: 'external', externalUrl: 'https://inline.app/x', templates: all('not_submitted') })
+    expect(await res.json()).toEqual({
+      mode: 'external', externalUrl: 'https://inline.app/x', templates: all('not_submitted'), canEditBookingUrl: false,
+    })
     expect(getBookingConfig).toHaveBeenCalledWith(RID)
     expect(bookingTemplateStatusesFor).toHaveBeenCalledWith(RID)
+  })
+
+  // F4 (R14 ruling 2026-11-12): the campaign form shows the booking URL
+  // override read-only to anyone the API would refuse.
+  it('tells an admin they may edit a campaign booking URL', async () => {
+    as('admin')
+    expect((await (await GET()).json()).canEditBookingUrl).toBe(true)
   })
 })

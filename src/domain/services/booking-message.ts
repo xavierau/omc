@@ -54,7 +54,8 @@ const EN: Record<BookingMessageKind, Copy> = {
     `Hi ${d.name}, your booking at ${d.restaurant} for ${d.party_size} on ${d.date} at ${d.time} is confirmed. See you then!`,
   declined: (d) =>
     `Hi ${d.name}, sorry, ${d.restaurant} can't take your booking for ${d.party_size} on ${d.date} at ${d.time}.${d.reason !== '-' ? ` Reason: ${d.reason}` : ''}`,
-  reminder: (d) => `Reminder: your booking at ${d.restaurant} for ${d.party_size} is today at ${d.time}.`,
+  // F8: the 3h window can open the evening before, so the date, never "today".
+  reminder: (d) => `Reminder: your booking at ${d.restaurant} for ${d.party_size} is on ${d.date} at ${d.time}.`,
 }
 
 const ZH: Record<BookingMessageKind, Copy> = {
@@ -63,7 +64,7 @@ const ZH: Record<BookingMessageKind, Copy> = {
   confirmed: (d) => `${d.name}你好,你在${d.restaurant}的訂座已確認:${d.date} ${d.time},${d.party_size}位。到時見!`,
   declined: (d) =>
     `${d.name}你好,很抱歉,${d.restaurant}未能接受你的訂座:${d.date} ${d.time},${d.party_size}位。${d.reason !== '-' ? `原因:${d.reason}` : ''}`,
-  reminder: (d) => `提提你:你今天 ${d.time} 在${d.restaurant}有${d.party_size}位的訂座。`,
+  reminder: (d) => `提提你:你在${d.restaurant}有${d.party_size}位的訂座:${d.date} ${d.time}。`,
 }
 
 /** Free-form text for a diner whose 24-hour service window is open. */

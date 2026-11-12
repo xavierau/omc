@@ -8,7 +8,7 @@ import { parseCampaignBookingUrl, BOOK_NOW_ISSUE_MESSAGES } from '@/domain/servi
 import { campaignBookNowIssue, type CampaignBookNowInput } from '@/application/booking/campaign-book-now-check'
 import { findByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
-import { appBaseUrl } from '@/infrastructure/config/app-url'
+import { requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 
 export interface BookNowFields {
   bookNowEnabled?: boolean
@@ -32,12 +32,26 @@ export function parseBookNowFields(body: Record<string, unknown>): BookNowFields
   return fields
 }
 
+/**
+ * F4 (threat model R14, ruling 2026-11-12, review S-3): every recipient is
+ * redirected to the campaign booking URL, so setting or changing it needs the
+ * tenant admin role (403 otherwise). `next` undefined (not in the body) or
+ * equal to the stored URL is no change; staff may still toggle Book now.
+ */
+export function requireAdminForBookingUrlChange(
+  ctx: { role: string },
+  next: string | null | undefined,
+  current: string | null
+): void {
+  if (next === undefined || next === current) return
+  requireTenantAdmin(ctx)
+}
+
 /** Throws a 400 CampaignBodyError naming the problem, or returns. */
 export async function assertCampaignBookNow(input: CampaignBookNowInput): Promise<void> {
   const issue = await campaignBookNowIssue(input, {
     findTemplate: findByIdForRestaurant,
     getConfig: getBookingConfig,
-    appUrl: appBaseUrl(),
   })
   if (issue) throw new CampaignBodyError(400, BOOK_NOW_ISSUE_MESSAGES[issue])
 }

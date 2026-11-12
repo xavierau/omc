@@ -6,11 +6,18 @@ import { isSafeHttpsUrl, type BookingMode } from '../value-objects/booking-confi
  * campaign form, so the two cannot drift.
  */
 export type BookNowIssue =
+  | 'welcome_not_supported'
   | 'template_missing_button'
   | 'toggle_off_with_button'
   | 'no_booking_link'
 
 export interface BookNowCheck {
+  /**
+   * F2 (review S-2): welcome sends (partner API, onboarding) mint no booking
+   * token, so a Book now button there would go out unfilled and Meta would
+   * refuse every welcome. Book now is not offered on welcome campaigns.
+   */
+  welcome: boolean
   enabled: boolean
   templateHasButton: boolean
   /** The campaign's own override (already validated). */
@@ -25,6 +32,7 @@ function lacksExternalLink(c: Pick<BookNowCheck, 'mode' | 'externalUrl' | 'booki
 }
 
 export function bookNowIssue(c: BookNowCheck): BookNowIssue | null {
+  if (c.welcome && (c.enabled || c.templateHasButton)) return 'welcome_not_supported'
   if (c.enabled && !c.templateHasButton) return 'template_missing_button'
   if (!c.enabled && c.templateHasButton) return 'toggle_off_with_button'
   if (c.enabled && lacksExternalLink(c)) return 'no_booking_link'
@@ -33,6 +41,8 @@ export function bookNowIssue(c: BookNowCheck): BookNowIssue | null {
 
 /** API copy for each issue (the form shows its own i18n text). */
 export const BOOK_NOW_ISSUE_MESSAGES: Record<BookNowIssue, string> = {
+  welcome_not_supported:
+    'Book now is not available on welcome campaigns. Turn Book now off and pick a template without the Book now button.',
   template_missing_button:
     'Book now is on, but the selected WhatsApp template has no Book now button. Pick a template with the Book now button or turn Book now off.',
   toggle_off_with_button:
@@ -53,21 +63,25 @@ export function parseCampaignBookingUrl(raw: unknown): ParsedBookingUrl {
 }
 
 /**
- * What the campaign form shows for the toggle: hidden while booking is off
+ * What the campaign form shows for the toggle: on a welcome campaign, hidden,
+ * or only the "not on welcome" issue when the toggle or template has Book now
+ * (F2); hidden while booking is off
  * (unless this campaign already has it on, or its template carries the
  * button, so the admin can still fix a mismatch), disabled with "Add a
  * booking link in settings" in External mode with no link anywhere, else
  * available.
  */
-export type BookNowToggleState = 'hidden' | 'no_link' | 'available'
+export type BookNowToggleState = 'hidden' | 'welcome' | 'no_link' | 'available'
 
 export function bookNowToggleState(input: {
+  welcome?: boolean
   mode: BookingMode
   externalUrl: string | null
   campaignUrl: string | null
   enabled: boolean
   templateHasButton: boolean
 }): BookNowToggleState {
+  if (input.welcome) return input.enabled || input.templateHasButton ? 'welcome' : 'hidden'
   if (input.mode === 'off' && !input.enabled && !input.templateHasButton) return 'hidden'
   const lacksLink = lacksExternalLink({ ...input, bookingUrl: input.campaignUrl })
   return lacksLink ? 'no_link' : 'available'

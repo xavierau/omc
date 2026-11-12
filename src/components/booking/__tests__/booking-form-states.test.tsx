@@ -54,4 +54,39 @@ describe('booking page UI states (spec UI Feedback States)', () => {
     expect(html).toContain('booking.consumedTitle')
     expect(html).toContain('href="https://wa.me/852?text=BOOK"')
   })
+
+  // F11: the 410 for booking switched off carries state off → the off page.
+  it('a 410 booking_unavailable maps to the off state', () => {
+    expect(outcomeFromResponse(410, { error: 'booking_unavailable', state: 'off' })).toEqual({ kind: 'gone', state: 'off' })
+  })
+
+  // F14 (I1 FYI): booking off promises no new link; it says online booking is
+  // not available and to message the restaurant. The Ask on WhatsApp button
+  // stays where it was (a restaurant number is known); no "send BOOK" line.
+  it('booking off: the off copy, the WhatsApp button when there is a number, never the new-link line', () => {
+    const withNumber = renderToStaticMarkup(<BookingUnavailable reason="off" retryUrl="https://wa.me/852?text=BOOK" />)
+    expect(withNumber).toContain('booking.offTitle')
+    expect(withNumber).toContain('booking.offBody')
+    expect(withNumber).not.toContain('booking.unavailableBody')
+    expect(withNumber).toContain('data-testid="booking-ask-whatsapp"')
+    const noNumber = renderToStaticMarkup(<BookingUnavailable reason="off" retryUrl={null} />)
+    expect(noNumber).toContain('booking.offBody')
+    expect(noNumber).not.toContain('booking.askOnWhatsappManual')
+  })
+
+  it('booking off copy in both locales mentions no new link', async () => {
+    for (const locale of ['en', 'zh-HK']) {
+      const m = (await import(`@/messages/${locale}.json`)).default as { booking: Record<string, string> }
+      expect(m.booking.offBody, locale).toBeTruthy()
+      expect(m.booking.offBody, locale).not.toMatch(/new link|新連結/i)
+    }
+  })
+
+  // F6: the time field error for a time already past today has copy in both locales.
+  it('has past_time copy in both locales', async () => {
+    for (const locale of ['en', 'zh-HK']) {
+      const m = (await import(`@/messages/${locale}.json`)).default as { booking: { errors: Record<string, string> } }
+      expect(m.booking.errors.past_time, locale).toBeTruthy()
+    }
+  })
 })

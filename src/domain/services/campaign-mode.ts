@@ -32,17 +32,16 @@ export function isClaimTemplate(template: WhatsAppTemplate | null): boolean {
  * Used by enforceCouponParams to catch a coupon-less campaign that would
  * otherwise blast an empty/dead parameter to Meta.
  *
- * BOOK-001 W3: a Book now button (`${appUrl}/b/{{1}}`) is filled with a booking
- * token, not a coupon, so it does not count. `appUrl` defaults to '' (matches
- * no real button) for callers that predate Book now.
+ * BOOK-001 W3: a Book now button (`https://…/b/{{1}}`) is filled with a booking
+ * token, not a coupon, so it does not count.
  */
-export function templateExpectsCouponCode(template: WhatsAppTemplate, appUrl = ''): boolean {
+export function templateExpectsCouponCode(template: WhatsAppTemplate): boolean {
   const params = extractParameters(template)
   if (params.includes('code') || params.includes('discount')) return true
   const buttonsComponent = template.components.find((c) => c.type === 'BUTTONS')
   return Boolean(
     buttonsComponent?.buttons?.some(
-      (b) => isCouponUrlButton(b, appUrl) || b.type === 'COPY_CODE'
+      (b) => isCouponUrlButton(b) || b.type === 'COPY_CODE'
     )
   )
 }

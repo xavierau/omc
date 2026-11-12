@@ -10,6 +10,7 @@ import { buildBookingLinkUrl } from '@/domain/services/booking-intent'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 
 export interface ChatTokenSource {
+  /** A live chat link worth reusing (no expiry or ≥ 1h left, F5), else null. */
   findLiveChatToken(restaurantId: string, phone: string): Promise<string | null>
   /** A `chat` token; `ttlHours` null = no expiry. Returns null on failure. */
   mint(input: { restaurantId: string; phone: string; ttlHours: number | null }): Promise<string | null>

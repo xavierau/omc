@@ -6,7 +6,7 @@
  * once; a claimed reminder that fails to deliver is not retried (at most once
  * per booking). The sender never throws and logs a masked phone only.
  */
-import { isReminderDue, reminderDateRange } from '@/domain/services/booking-reminder'
+import { isReminderDue } from '@/domain/services/booking-reminder'
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingReminderStore, BookingSettingsReader } from '@/domain/ports/booking'
 
@@ -55,8 +55,8 @@ async function remind(deps: SendBookingRemindersDeps, names: RestaurantNames, b:
 
 export async function sendBookingReminders(deps: SendBookingRemindersDeps): Promise<ReminderRunResult> {
   const now = deps.now()
-  const { from, to } = reminderDateRange(now)
-  const candidates = await deps.store.listReminderCandidates(from, to, REMINDER_BATCH_LIMIT)
+  const candidates = await deps.store.listReminderCandidates(now, REMINDER_BATCH_LIMIT)
+  // The store already applies the window (F7); re-checked here as a guard.
   const due = candidates.filter((b) => isReminderDue(b, now))
   const names: RestaurantNames = new Map()
   const result: ReminderRunResult = { candidates: candidates.length, due: due.length, sent: 0, notDelivered: 0, claimLost: 0 }

@@ -18,11 +18,25 @@ interface Props {
   onChange: (key: keyof CampaignFormState, value: string) => void
 }
 
+/** F2: welcome campaigns carry no Book now; only say why. */
+function WelcomeNotice() {
+  const t = useTranslations('campaigns')
+  return (
+    <fieldset className="space-y-3 border border-input rounded-lg p-3" data-testid="campaign-book-now-section">
+      <legend className="text-sm font-medium px-1">{t('bookNowTitle')}</legend>
+      <p role="alert" data-testid="campaign-book-now-issue" className="text-xs text-destructive">{t('bookNowIssue.welcome_not_supported')}</p>
+    </fieldset>
+  )
+}
+
 export function CampaignBookNowFields({ form, lookup, availability, onToggle, onChange }: Props) {
   const t = useTranslations('campaigns')
   const view = bookNowFormView(form, lookup, availability)
   if (view.state === 'hidden') return null
+  if (view.state === 'welcome') return <WelcomeNotice />
   const disabled = view.state === 'no_link' && !form.bookNowEnabled
+  // F4 (R14): only an admin may set or change the campaign booking URL.
+  const urlReadOnly = availability?.canEditBookingUrl !== true
   return (
     <fieldset className="space-y-3 border border-input rounded-lg p-3" data-testid="campaign-book-now-section">
       <legend className="text-sm font-medium px-1">{t('bookNowTitle')}</legend>
@@ -38,8 +52,11 @@ export function CampaignBookNowFields({ form, lookup, availability, onToggle, on
         <div className="space-y-1">
           <label htmlFor="campaign-book-now-url" className="text-sm font-medium block">{t('bookNowUrl')}</label>
           <Input id="campaign-book-now-url" type="url" inputMode="url" placeholder="https://" value={form.bookingUrl}
-            onChange={(e) => onChange('bookingUrl', e.target.value)} data-testid="campaign-book-now-url" />
+            readOnly={urlReadOnly} onChange={(e) => onChange('bookingUrl', e.target.value)} data-testid="campaign-book-now-url" />
           <p className="text-xs text-muted-foreground">{t('bookNowUrlHint')}</p>
+          {urlReadOnly ? (
+            <p data-testid="campaign-book-now-url-admin-only" className="text-xs text-muted-foreground">{t('bookNowUrlAdminOnly')}</p>
+          ) : null}
         </div>
       ) : null}
       {view.issue ? (

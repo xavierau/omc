@@ -4,9 +4,11 @@
  * store their ids in booking_config.templateIds.
  *
  * Idempotent per (kind, language): a template that is pending or approved is
- * kept; a rejected, failed (never reached Meta) or missing one is submitted
- * again under a freshly minted name, since a name is unique per WABA forever
- * (memory: principle_whatsapp_flow_naming_and_waba_scope). Never throws for a
+ * kept; a rejected or missing one is submitted again under a freshly minted
+ * name, since a name is unique per WABA forever (memory:
+ * principle_whatsapp_flow_naming_and_waba_scope). A failed one (a stored draft
+ * that never reached Meta) is resubmitted in place, so a provider outage does
+ * not leave a new draft row per save (F12, review S-5). Never throws for a
  * single failed submission: that template reads `not_submitted`/`failed` and
  * the next save retries it. Settings are saved before this runs.
  */
@@ -36,6 +38,12 @@ export interface ProvisionBookingTemplatesDeps {
     category: TemplateCategory
     components: TemplateComponent[]
   }): Promise<{ template: WhatsAppTemplate; error?: string }>
+  /** Resubmits an existing draft row (same id, same name) with these components. */
+  resubmitTemplate(
+    id: string,
+    restaurantId: string,
+    components: TemplateComponent[]
+  ): Promise<{ template: WhatsAppTemplate; error?: string }>
   saveTemplateIds(restaurantId: string, ids: TemplateIds): Promise<void>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
   suffix(): string
@@ -45,29 +53,32 @@ interface Submission {
   kind: BookingTemplateKind
   language: LanguageCode
   name: string
+  /** The failed draft to resubmit in place; null = create a new row. */
+  draftId: string | null
 }
 
 function pendingSubmissions(ids: TemplateIds, rows: Map<string, WhatsAppTemplate>, deps: ProvisionBookingTemplatesDeps): Submission[] {
   return TEMPLATE_KINDS.flatMap((kind) => {
-    const languages = BOOKING_TEMPLATE_LANGUAGES.filter((lang) => {
-      const id = ids[kind][lang]
-      return needsSubmission(bookingTemplateStatus(id ? rows.get(id) ?? null : null))
+    const due = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => {
+      const id = ids[kind][language]
+      const status = bookingTemplateStatus(id ? rows.get(id) ?? null : null)
+      return needsSubmission(status) ? [{ language, draftId: status === 'failed' ? id : null }] : []
     })
-    if (languages.length === 0) return []
+    if (due.length === 0) return []
     const name = mintBookingTemplateName(kind, deps.suffix())
-    return languages.map((language) => ({ kind, language, name }))
+    return due.map((d) => ({ kind, name, ...d }))
   })
+}
+
+function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
+  const components = bookingTemplateComponents(s.kind, s.language)
+  if (s.draftId) return deps.resubmitTemplate(s.draftId, restaurantId, components)
+  return deps.createTemplate({ restaurantId, name: s.name, language: metaLanguageCode(s.language), category: 'UTILITY', components })
 }
 
 async function submit(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
   try {
-    const { template } = await deps.createTemplate({
-      restaurantId,
-      name: s.name,
-      language: metaLanguageCode(s.language),
-      category: 'UTILITY',
-      components: bookingTemplateComponents(s.kind, s.language),
-    })
+    const { template } = await send(restaurantId, s, deps)
     return template
   } catch (err) {
     console.warn('[Booking] template submission failed:', { kind: s.kind, language: s.language, error: (err as Error).message })

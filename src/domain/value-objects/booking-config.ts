@@ -61,8 +61,8 @@ export function isSafeHttpsUrl(value: unknown): value is string {
   }
 }
 
-const isTtl = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_TTL_HOURS
-const isPartyMax = (v: unknown): v is number =>
+export const isTtl = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_TTL_HOURS
+export const isPartyMax = (v: unknown): v is number =>
   Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_PARTY_SIZE_LIMIT
 
 function resolveTtl(raw: unknown, fallback: number): number | null {

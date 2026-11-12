@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { bookingDecisionOutcome, decideBooking, noticeFor } from '@/hooks/use-bookings'
 import { needsExternalUrl, saveOutcome, toForm, toPayload } from '@/hooks/use-booking-settings'
-import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, parseBookingSettings } from '@/domain/value-objects/booking-config'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -32,12 +32,21 @@ describe('use-bookings helpers', () => {
     expect(noticeFor('decline', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
   })
 
-  it('reads the zh-HK already-handled notice without a doubled 已', async () => {
-    const zh = (await import('@/messages/zh-HK.json')).default as { bookings: { alreadyHandled: string; status: Record<string, string> } }
+  // I1: zh-HK rendered '已已拒絕'. F14: en rendered 'already Declined' (the
+  // status badge word, capitalised). The notice has its own status words.
+  it('reads the already-handled notice naturally in both locales', async () => {
+    const line = async (locale: string, status: string) => {
+      const m = (await import(`@/messages/${locale}.json`)).default as {
+        bookings: { alreadyHandled: string; alreadyHandledStatus: Record<string, string> }
+      }
+      return m.bookings.alreadyHandled.replace('{status}', m.bookings.alreadyHandledStatus[status])
+    }
+    expect(await line('en', 'declined')).toBe('This request was already declined.')
+    expect(await line('en', 'confirmed')).toBe('This request was already confirmed.')
     for (const status of ['confirmed', 'declined']) {
-      const line = zh.bookings.alreadyHandled.replace('{status}', zh.bookings.status[status])
-      expect(line).not.toContain('已已')
-      expect(line).toContain(zh.bookings.status[status])
+      const zh = await line('zh-HK', status)
+      expect(zh).not.toContain('已已')
+      expect(zh).toMatch(/^此要求已(確認|拒絕)。$/)
     }
   })
 
@@ -66,6 +75,27 @@ describe('use-booking-settings helpers', () => {
     expect(toPayload({ ...base, mode: 'off', externalUrl: 'javascript:alert(1)' }).externalUrl).toBeNull()
     expect(toPayload({ ...base, mode: 'simple', externalUrl: ' https://inline.app/r/1 ' }).externalUrl).toBe('https://inline.app/r/1')
     expect(toPayload({ ...base, mode: 'external', externalUrl: 'http://not-https.test' }).externalUrl).toBe('http://not-https.test')
+  })
+
+  // F1 (review #1): lifetimes and party size are shown only in Simple mode. A
+  // draft left invalid there (0 hours) must not fail an Off or External save
+  // on a field those modes do not render.
+  it.each(['off', 'external'] as const)('Simple → 0 in a lifetime → %s → the save passes server validation', (mode) => {
+    const saved = { ...DEFAULT_BOOKING_CONFIG, mode: 'simple' as const, chatLinkTtlHours: 48, maxPartySize: 12 }
+    const form = { ...toForm(saved), chatLinkTtlHours: '0', campaignLinkTtlHours: '', maxPartySize: '0', mode, externalUrl: 'https://inline.app/r/1' }
+    const result = parseBookingSettings(JSON.parse(JSON.stringify(toPayload(form))), saved)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.config).toMatchObject({ mode, chatLinkTtlHours: 48, campaignLinkTtlHours: 168, maxPartySize: 12 })
+  })
+
+  it('outside Simple mode still sends a valid lifetime and party size the admin entered', () => {
+    const form = { ...toForm(DEFAULT_BOOKING_CONFIG), chatLinkTtlHours: '12', maxPartySize: '8', mode: 'off' as const }
+    expect(toPayload(form)).toMatchObject({ chatLinkTtlHours: 12, maxPartySize: 8 })
+  })
+
+  it('in Simple mode an invalid lifetime is still sent so the server shows the field error', () => {
+    const form = { ...toForm(DEFAULT_BOOKING_CONFIG), mode: 'simple' as const, chatLinkTtlHours: '0' }
+    expect(toPayload(form).chatLinkTtlHours).toBe(0)
   })
 
   it('flags external mode without a URL', () => {

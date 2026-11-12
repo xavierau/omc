@@ -17,6 +17,7 @@ const row = (id: string, status: BookingItem['status']): BookingItem => ({
   id, restaurantId: 'r', memberId: null, phone: '+85291234567', name: '<b>Chan</b>', partySize: 4,
   bookingDate: '2026-11-13', bookingTime: '19:30', notes: '<img src=x onerror=alert(1)>', status,
   declineReason: null, decidedBy: null, decidedAt: null, source: 'chat', campaignId: null, createdAt: '2026-11-12T00:00:00Z',
+  decisionMessageStatus: null,
 })
 
 const list = (props: Partial<Parameters<typeof BookingList>[0]>) =>
@@ -51,13 +52,20 @@ describe('Bookings dashboard', () => {
     expect(html).toContain('bookings.status.confirmed')
   })
 
+  // F9: after a reload the in-memory set is empty; the stored status decides.
+  it('AC-14 warning after a reload: the stored not_delivered status shows the badge', () => {
+    const html = list({ bookings: [{ ...row('b3', 'declined'), decisionMessageStatus: 'not_delivered' }] })
+    expect(html).toContain('data-testid="booking-row-b3-not-delivered"')
+    expect(list({ bookings: [{ ...row('b4', 'confirmed'), decisionMessageStatus: 'delivered' }] })).not.toContain('not-delivered')
+  })
+
   it('shows sent and already-handled notices', () => {
     expect(list({ bookings: [row('b1', 'pending')], notice: { kind: 'sent', decision: 'confirm' } })).toContain(
       'bookings.confirmationSent'
     )
-    expect(list({ bookings: [row('b1', 'pending')], notice: { kind: 'already_handled', status: 'declined' } })).toContain(
-      'bookings.alreadyHandled'
-    )
+    const handled = list({ bookings: [row('b1', 'pending')], notice: { kind: 'already_handled', status: 'declined' } })
+    expect(handled).toContain('bookings.alreadyHandled')
+    expect(handled).toContain('bookings.alreadyHandledStatus.declined')
   })
 
   it('settings: external mode with no URL shows the add-link hint and disables Save', () => {

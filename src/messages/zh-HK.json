@@ -328,8 +328,10 @@
     "bookNowNoLink": "請先在設定中加入訂座連結",
     "bookNowUrl": "此推廣的訂座連結(選填)",
     "bookNowUrlHint": "留空則使用餐廳的訂座連結。必須以 https:// 開頭",
+    "bookNowUrlAdminOnly": "只有管理員可以更改此連結。",
     "bookNowPreview": "每則訊息都會附上「立即訂座」按鈕",
     "bookNowIssue": {
+      "welcome_not_supported": "歡迎訊息不支援「立即訂座」。請選擇沒有「立即訂座」按鈕的範本。",
       "template_missing_button": "此範本沒有「立即訂座」按鈕。請選擇有此按鈕的範本,或關閉立即訂座。",
       "toggle_off_with_button": "此範本有「立即訂座」按鈕。請開啟立即訂座,或選擇其他範本。"
     }
@@ -1321,12 +1323,14 @@
     "unknownTitle": "此訂座連結無效",
     "offTitle": "暫時未能網上訂座",
     "unavailableBody": "在 WhatsApp 問問餐廳,我們會給你一個新連結。",
+    "offBody": "此餐廳暫不接受網上訂座。請在 WhatsApp 直接聯絡餐廳訂座。",
     "askOnWhatsapp": "在 WhatsApp 查詢",
     "askOnWhatsappManual": "請返回 WhatsApp 對話,輸入 BOOK 索取新連結。",
     "errors": {
       "required": "請填寫此欄。",
       "invalid": "請檢查此欄。",
       "past": "請選擇今天或之後的日期。",
+      "past_time": "請選擇比現在稍後的時間。",
       "too_small": "最少 1 位。",
       "too_large": "最多 {max} 位。人數較多請直接聯絡餐廳。",
       "too_long": "內容太長。",
@@ -1358,6 +1362,10 @@
     "confirmationSent": "已發送確認",
     "declineSent": "已發送拒絕",
     "alreadyHandled": "此要求{status}。",
+    "alreadyHandledStatus": {
+      "confirmed": "已確認",
+      "declined": "已拒絕"
+    },
     "actionFailed": "未能更新此要求,請再試一次。"
   },
   "bookingSettings": {
@@ -1396,6 +1404,7 @@
       "title": "WhatsApp 訂座訊息",
       "hint": "儲存「簡易訂座」時會提交 WhatsApp 審批。審批通過前,過去 24 小時內沒有傳訊息的客人不會收到訊息。被拒的訊息會在下次儲存時重新提交。",
       "unknown": "未能載入訊息狀態。請再儲存一次。",
+      "loading": "載入訊息狀態中...",
       "kind": {
         "received": "已收到訂座要求",
         "confirmed": "訂座已確認",

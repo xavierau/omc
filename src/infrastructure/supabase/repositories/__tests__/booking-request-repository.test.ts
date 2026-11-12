@@ -10,12 +10,14 @@ import {
   findBookingForRestaurant,
   insertBookingRequest,
   listBookingRequests,
+  recordDecisionMessage,
 } from '../booking-request-repository'
 
 const ROW = {
   id: 'b-1', restaurant_id: 'r-a', member_id: null, phone: '+852', name: 'Chan', party_size: 4,
   booking_date: '2026-11-13', booking_time: '19:30:00', notes: null, status: 'pending', decline_reason: null,
   decided_by: null, decided_at: null, source: 'chat', campaign_id: null, created_at: '2026-11-12T10:00:00Z',
+  decision_message_status: null,
 }
 
 function use(results: Parameters<typeof recordingSupabase>[0]) {
@@ -34,12 +36,33 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(found?.bookingTime).toBe('19:30')
   })
 
-  it('lists one restaurant, newest first, with a limit', async () => {
-    const rec = use([{ data: [ROW] }])
-    await listBookingRequests('r-a', 200)
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a'])
-    expect(rec.queries[0].calls).toContainEqual(['order', 'created_at', { ascending: false }])
-    expect(rec.queries[0].calls).toContainEqual(['limit', 200])
+  // F10 (review #8): every pending request, plus the newest decided ones, so
+  // a busy restaurant never loses a pending request past the limit.
+  it('lists every pending request plus the newest decided ones, one restaurant, merged newest first', async () => {
+    const pendingOld = { ...ROW, id: 'p-old', created_at: '2026-11-01T00:00:00Z' }
+    const decidedNew = { ...ROW, id: 'd-new', status: 'confirmed', decided_at: '2026-11-12T11:00:00Z', created_at: '2026-11-12T09:00:00Z' }
+    const rec = use([{ data: [pendingOld] }, { data: [decidedNew] }])
+    const list = await listBookingRequests('r-a', 200)
+    expect(list.map((b) => b.id)).toEqual(['d-new', 'p-old'])
+    const [pending, decided] = rec.queries
+    expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+    expect(pending.calls.some(([m]) => m === 'limit')).toBe(false)
+    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined'])
+    expect(decided.calls).toContainEqual(['limit', 200])
+    for (const q of rec.queries) expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
+  })
+
+  // F9 (review #7): the decision message outcome is stored, scoped by restaurant.
+  it('records whether the decision message was delivered, scoped by id and restaurant', async () => {
+    const rec = use([{ error: null }])
+    await recordDecisionMessage('b-1', 'r-a', 'not_delivered')
+    expect(rec.queries[0].calls[0]).toEqual(['update', { decision_message_status: 'not_delivered' }])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a'])
+  })
+
+  it('maps the stored decision message status', async () => {
+    use([{ data: { ...ROW, status: 'confirmed', decided_at: 'x', decision_message_status: 'not_delivered' } }])
+    expect((await findBookingForRestaurant('b-1', 'r-a'))?.decisionMessageStatus).toBe('not_delivered')
   })
 
   it('decides with a conditional update on pending, storing who and when', async () => {

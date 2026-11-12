@@ -95,6 +95,11 @@ CREATE TABLE booking_requests (
   campaign_id      UUID REFERENCES campaigns(id) ON DELETE SET NULL,
   token            TEXT UNIQUE REFERENCES booking_tokens(token) ON DELETE SET NULL,
   pii_purged_at    TIMESTAMPTZ,
+  -- Whether the confirm/decline message reached the diner (review F9), so the
+  -- dashboard's "not delivered" badge survives a reload. NULL = no decision
+  -- message yet (pending) or not recorded.
+  decision_message_status TEXT
+    CHECK (decision_message_status IS NULL OR decision_message_status IN ('delivered', 'not_delivered')),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT booking_requests_decision_consistent
@@ -117,6 +122,11 @@ CREATE INDEX booking_requests_restaurant_phone_status_idx
 CREATE INDEX booking_requests_reminder_due_idx
   ON booking_requests (booking_date, booking_time)
   WHERE status = 'confirmed' AND reminder_sent_at IS NULL;
+
+-- W3 retention purge (R19): rows not yet purged, by booking date (review G-A1).
+CREATE INDEX booking_requests_retention_idx
+  ON booking_requests (booking_date)
+  WHERE pii_purged_at IS NULL;
 
 -- Reuses update_updated_at_column() defined in migration 035.
 CREATE TRIGGER set_booking_requests_updated_at
@@ -158,3 +168,38 @@ ALTER TABLE campaigns
 ALTER TABLE campaigns
   ADD CONSTRAINT campaigns_booking_url_https_check
   CHECK (booking_url IS NULL OR (booking_url ~ '^https://[^/?#\s]+' AND char_length(booking_url) <= 2048));
+
+-- ---------------------------------------------------------------------------
+-- 6. Reminder candidates (W3 cron; spec AC-15; review F7 / S-4).
+--
+-- The start window is applied here, not in the worker: a booking is due when
+-- it is confirmed, not yet reminded, starts in (p_now, p_now + lead] and was
+-- made at least `lead` before its start (a booking made later gets no
+-- reminder). booking_date/booking_time are Hong Kong wall-clock time. Ordered
+-- by start so the batch limit never cuts off a due booking behind rows that
+-- will never be due. The booking_date range lets the planner use
+-- booking_requests_reminder_due_idx. The caller still claims each row with a
+-- conditional UPDATE on reminder_sent_at IS NULL.
+--
+-- Service role only (same lockdown as 064/079): it returns diners' phones and
+-- names across every restaurant.
+CREATE OR REPLACE FUNCTION public.booking_reminder_candidates(
+  p_now timestamptz,
+  p_lead_hours int,
+  p_limit int
+) RETURNS SETOF booking_requests AS $$
+  SELECT b.*
+  FROM booking_requests b
+  WHERE b.status = 'confirmed'
+    AND b.reminder_sent_at IS NULL
+    AND b.booking_date BETWEEN (p_now AT TIME ZONE 'Asia/Hong_Kong')::date
+                           AND ((p_now + make_interval(hours => p_lead_hours)) AT TIME ZONE 'Asia/Hong_Kong')::date
+    AND (b.booking_date + b.booking_time) AT TIME ZONE 'Asia/Hong_Kong' > p_now
+    AND (b.booking_date + b.booking_time) AT TIME ZONE 'Asia/Hong_Kong' <= p_now + make_interval(hours => p_lead_hours)
+    AND b.created_at <= (b.booking_date + b.booking_time) AT TIME ZONE 'Asia/Hong_Kong' - make_interval(hours => p_lead_hours)
+  ORDER BY b.booking_date, b.booking_time, b.id
+  LIMIT p_limit
+$$ LANGUAGE sql STABLE;
+
+REVOKE ALL ON FUNCTION public.booking_reminder_candidates(timestamptz, int, int) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_reminder_candidates(timestamptz, int, int) TO service_role;

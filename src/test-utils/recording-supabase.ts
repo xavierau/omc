@@ -21,6 +21,12 @@ export function recordingSupabase(results: Result[] | ((query: RecordedQuery) =>
     typeof results === 'function' ? results(query) : (results[queries.indexOf(query)] ?? { data: null, error: null })
 
   const client = {
+    /** An RPC records as table `rpc:<name>` with a leading ['rpc', args] call. */
+    rpc(fn: string, args: unknown) {
+      const chain = client.from(`rpc:${fn}`)
+      queries[queries.length - 1].calls.push(['rpc', args])
+      return chain
+    },
     from(table: string) {
       const query: RecordedQuery = { table, calls: [] }
       queries.push(query)

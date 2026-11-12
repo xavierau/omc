@@ -27,8 +27,8 @@ const resolved = (template = withButton): TemplateLookup => ({ status: 'resolved
 const form = (o: Partial<CampaignFormState> = {}): CampaignFormState => ({
   ...initialCampaignForm, name: 'Promo', messageType: 'wa_template', whatsappTemplateId: 'tpl-b', ...o,
 })
-const simple: BookingAvailability = { mode: 'simple', externalUrl: null }
-const externalNoUrl: BookingAvailability = { mode: 'external', externalUrl: null }
+const simple: BookingAvailability = { mode: 'simple', externalUrl: null, canEditBookingUrl: true }
+const externalNoUrl: BookingAvailability = { mode: 'external', externalUrl: null, canEditBookingUrl: true }
 
 beforeEach(() => vi.stubEnv('NEXT_PUBLIC_APP_URL', APP))
 afterEach(() => vi.unstubAllEnvs())
@@ -78,6 +78,10 @@ describe('request body', () => {
     expect(buildCampaignRequestBody(form())).toMatchObject({ bookNowEnabled: false, bookingUrl: null })
   })
 
+  it('a welcome campaign never sends Book now on (F2)', () => {
+    expect(buildCampaignRequestBody(form({ type: 'welcome', bookNowEnabled: true }))).toMatchObject({ bookNowEnabled: false })
+  })
+
   it('an inline campaign never sends Book now on', () => {
     expect(buildCampaignRequestBody(form({ messageType: 'inline', templateEn: 'Hi', bookNowEnabled: true }))).toMatchObject({
       bookNowEnabled: false,
@@ -120,7 +124,30 @@ describe('CampaignBookNowFields render', () => {
     expect(html).toContain('campaigns.bookNowIssue.toggle_off_with_button')
   })
 
+  // F2 (review S-2): no Book now on welcome campaigns.
+  it('welcome campaign on a plain template: no Book now section at all', () => {
+    expect(render(form({ type: 'welcome', whatsappTemplateId: 'tpl-p' }), resolved(plain), simple)).toBe('')
+  })
+
+  it('welcome campaign on a Book now template: no toggle, the "not on welcome" issue instead', () => {
+    const html = render(form({ type: 'welcome', bookNowEnabled: true }), resolved(), simple)
+    expect(html).not.toContain('data-testid="campaign-book-now-toggle"')
+    expect(html).toContain('data-testid="campaign-book-now-issue"')
+    expect(html).toContain('campaigns.bookNowIssue.welcome_not_supported')
+  })
+
+  // F4 (R14): staff see the campaign booking URL but cannot change it.
+  it('the URL override is read-only for a member who may not edit it, editable for an admin', () => {
+    const external: BookingAvailability = { mode: 'external', externalUrl: 'https://inline.app/d', canEditBookingUrl: false }
+    const readOnly = render(form({ bookNowEnabled: true, bookingUrl: 'https://inline.app/c' }), resolved(), external)
+    expect(readOnly).toMatch(/data-testid="campaign-book-now-url"[^>]*readOnly=""|readOnly=""[^>]*data-testid="campaign-book-now-url"/i)
+    expect(readOnly).toContain('data-testid="campaign-book-now-url-admin-only"')
+    const editable = render(form({ bookNowEnabled: true }), resolved(), { ...external, canEditBookingUrl: true })
+    expect(editable).not.toMatch(/readOnly=""/i)
+    expect(editable).not.toContain('campaign-book-now-url-admin-only')
+  })
+
   it('renders nothing while booking is off and the template has no button', () => {
-    expect(render(form({ whatsappTemplateId: 'tpl-p' }), resolved(plain), { mode: 'off', externalUrl: null })).toBe('')
+    expect(render(form({ whatsappTemplateId: 'tpl-p' }), resolved(plain), { mode: 'off', externalUrl: null, canEditBookingUrl: true })).toBe('')
   })
 })

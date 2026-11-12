@@ -3,10 +3,17 @@
  *
  * The status change is a conditional UPDATE scoped by the caller's restaurant
  * (R4, R6); the diner is messaged only when this call changed the row, so a
- * double tap sends one message. Who and when are stored on the row (R5).
+ * double tap sends one message. Who and when are stored on the row (R5), and
+ * whether the message reached the diner (F9), so the "not delivered" badge
+ * survives a reload; failing to store that never fails the decision.
  * Another tenant's id, or a missing one, is indistinguishable: not_found.
  */
-import { normalizeDeclineReason, type BookingDecision, type BookingRequest } from '@/domain/entities/booking-request'
+import {
+  normalizeDeclineReason,
+  type BookingDecision,
+  type BookingRequest,
+  type DecisionMessageStatus,
+} from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingRequestStore, BookingSettingsReader } from '@/domain/ports/booking'
 
 export interface DecideBookingDeps {
@@ -50,6 +57,16 @@ async function notify(deps: DecideBookingDeps, booking: BookingRequest): Promise
   return result.delivered
 }
 
+async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, delivered: boolean): Promise<BookingRequest> {
+  const status: DecisionMessageStatus = delivered ? 'delivered' : 'not_delivered'
+  try {
+    await deps.requests.recordDecisionMessage(booking.id, booking.restaurantId, status)
+  } catch (err) {
+    console.error('[Bookings] decision message status not stored:', { bookingId: booking.id, error: (err as Error).message })
+  }
+  return { ...booking, decisionMessageStatus: status }
+}
+
 export async function decideBookingRequest(deps: DecideBookingDeps, input: DecideBookingInput): Promise<DecideBookingResult> {
   if (!UUID.test(input.bookingId)) return { ok: false, reason: 'not_found' }
   const booking = await deps.requests.decide({
@@ -60,7 +77,10 @@ export async function decideBookingRequest(deps: DecideBookingDeps, input: Decid
     decidedAt: deps.now(),
     declineReason: input.decision === 'declined' ? normalizeDeclineReason(input.reason) : null,
   })
-  if (booking) return { ok: true, booking, delivered: await notify(deps, booking) }
+  if (booking) {
+    const delivered = await notify(deps, booking)
+    return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
+  }
 
   const current = await deps.requests.findForRestaurant(input.bookingId, input.restaurantId)
   return current ? { ok: false, reason: 'already_handled', status: current.status } : { ok: false, reason: 'not_found' }

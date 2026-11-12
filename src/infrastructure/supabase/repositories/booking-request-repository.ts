@@ -7,7 +7,8 @@
  * once change the row once (R4) and the loser gets null.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
+import type { BookingRequest, DecisionMessageStatus, NewBookingRequest } from '@/domain/entities/booking-request'
+import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
   BookingRequestStore,
@@ -16,7 +17,7 @@ import type {
 } from '@/domain/ports/booking'
 
 const BOOKING_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status'
 
 interface BookingRow {
   id: string
@@ -35,6 +36,7 @@ interface BookingRow {
   source: BookingRequest['source']
   campaign_id: string | null
   created_at: string
+  decision_message_status: DecisionMessageStatus | null
 }
 
 export function toBookingRequest(row: BookingRow): BookingRequest {
@@ -55,6 +57,7 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
     source: row.source,
     campaignId: row.campaign_id,
     createdAt: row.created_at,
+    decisionMessageStatus: row.decision_message_status ?? null,
   }
 }
 
@@ -93,16 +96,32 @@ export async function countPendingBookings(restaurantId: string, phone: string):
   return count ?? 0
 }
 
-export async function listBookingRequests(restaurantId: string, limit: number): Promise<BookingRequest[]> {
+/**
+ * F10 (review #8): every pending request (they need action; R11 caps each
+ * phone at 3) plus the newest `decidedLimit` decided ones, newest first. Both
+ * reads use booking_requests_restaurant_status_created_idx.
+ */
+export async function listBookingRequests(restaurantId: string, decidedLimit: number): Promise<BookingRequest[]> {
   const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('booking_requests')
-    .select(BOOKING_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  const [pending, decided] = await Promise.all([
+    supabase
+      .from('booking_requests')
+      .select(BOOKING_COLUMNS)
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('booking_requests')
+      .select(BOOKING_COLUMNS)
+      .eq('restaurant_id', restaurantId)
+      .in('status', ['confirmed', 'declined'])
+      .order('created_at', { ascending: false })
+      .limit(decidedLimit),
+  ])
+  const error = pending.error ?? decided.error
   if (error) throw new Error(`listBookingRequests: ${error.message}`)
-  return ((data ?? []) as BookingRow[]).map(toBookingRequest)
+  const rows = [...((pending.data ?? []) as BookingRow[]), ...((decided.data ?? []) as BookingRow[])]
+  return rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(toBookingRequest)
 }
 
 export async function findBookingForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null> {
@@ -136,21 +155,28 @@ export async function decideBookingRequest(args: DecideBookingArgs): Promise<Boo
   return data ? toBookingRequest(data as BookingRow) : null
 }
 
+/** F9 (review #7): store the decision message outcome so the badge survives a reload. */
+export async function recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void> {
+  const supabase = createServerSupabaseClient()
+  const { error } = await supabase
+    .from('booking_requests')
+    .update({ decision_message_status: status })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+  if (error) throw new Error(`recordDecisionMessage: ${error.message}`)
+}
+
 /**
- * W3 (AC-15): confirmed bookings still owed a reminder on the given HK dates,
- * across restaurants (cron only; index booking_requests_reminder_due_idx).
+ * W3 (AC-15): confirmed bookings whose reminder is due at `now`, across
+ * restaurants (cron only). F7: the start window and the booked-3h-ahead rule
+ * run in SQL (booking_reminder_candidates, migration 082), earliest start
+ * first, so the limit never drops a due booking behind never-due ones.
  */
-export async function listReminderCandidates(fromDate: string, toDate: string, limit: number): Promise<BookingRequest[]> {
+export async function listReminderCandidates(now: Date, limit: number): Promise<BookingRequest[]> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
-    .from('booking_requests')
+    .rpc('booking_reminder_candidates', { p_now: now.toISOString(), p_lead_hours: REMINDER_LEAD_HOURS, p_limit: limit })
     .select(BOOKING_COLUMNS)
-    .eq('status', 'confirmed')
-    .is('reminder_sent_at', null)
-    .gte('booking_date', fromDate)
-    .lte('booking_date', toDate)
-    .order('booking_date', { ascending: true })
-    .limit(limit)
   if (error) throw new Error(`listReminderCandidates: ${error.message}`)
   return ((data ?? []) as BookingRow[]).map(toBookingRequest)
 }
@@ -194,4 +220,5 @@ export const bookingRequestStore: BookingRequestStore = {
   listForRestaurant: listBookingRequests,
   findForRestaurant: findBookingForRestaurant,
   decide: decideBookingRequest,
+  recordDecisionMessage,
 }

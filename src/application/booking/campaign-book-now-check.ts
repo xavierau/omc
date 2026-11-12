@@ -14,6 +14,8 @@ import type { BookingConfig } from '@/domain/value-objects/booking-config'
 
 export interface CampaignBookNowInput {
   restaurantId: string
+  /** The campaign's effective type (welcome refuses Book now, F2). */
+  type: string
   enabled: boolean
   templateId: string | null
   bookingUrl: string | null
@@ -22,7 +24,6 @@ export interface CampaignBookNowInput {
 export interface CampaignBookNowDeps {
   findTemplate(id: string, restaurantId: string): Promise<WhatsAppTemplate | null>
   getConfig(restaurantId: string): Promise<BookingConfig>
-  appUrl: string
 }
 
 export async function campaignBookNowIssue(
@@ -34,8 +35,9 @@ export async function campaignBookNowIssue(
     : null
   const config = input.enabled ? await deps.getConfig(input.restaurantId) : null
   return bookNowIssue({
+    welcome: input.type === 'welcome',
     enabled: input.enabled,
-    templateHasButton: templateHasBookNowButton(template, deps.appUrl),
+    templateHasButton: templateHasBookNowButton(template),
     bookingUrl: input.bookingUrl,
     mode: config?.mode ?? 'off',
     externalUrl: config?.externalUrl ?? null,

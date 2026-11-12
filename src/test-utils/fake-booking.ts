@@ -5,7 +5,7 @@
 import { randomUUID } from 'crypto'
 import { bookingTokenState, type BookingLinkSource } from '@/domain/services/booking-token'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
-import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
+import type { BookingRequest, DecisionMessageStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type {
   BookingMessageInput,
   BookingMessageSender,
@@ -63,6 +63,7 @@ export class FakeBookingTokens implements BookingTokenStore {
 export class FakeBookingRequests implements BookingRequestStore {
   readonly rows: Array<BookingRequest & { token: string | null }> = []
   failInsert = false
+  failRecordDecisionMessage = false
 
   async insert(request: NewBookingRequest): Promise<BookingRequest> {
     await tick()
@@ -71,7 +72,7 @@ export class FakeBookingRequests implements BookingRequestStore {
     const { token, ...rest } = request
     const row = {
       ...rest, token, id: randomUUID(), status: 'pending' as const, declineReason: null, decidedBy: null,
-      decidedAt: null, createdAt: new Date(Date.now() + this.rows.length).toISOString(),
+      decidedAt: null, createdAt: new Date(Date.now() + this.rows.length).toISOString(), decisionMessageStatus: null,
     }
     this.rows.push(row)
     return row
@@ -81,11 +82,19 @@ export class FakeBookingRequests implements BookingRequestStore {
     return this.rows.filter((r) => r.restaurantId === restaurantId && r.phone === phone && r.status === 'pending').length
   }
 
-  async listForRestaurant(restaurantId: string, limit: number) {
-    return this.rows
+  /** Every pending row plus the newest `decidedLimit` decided ones, newest first (F10). */
+  async listForRestaurant(restaurantId: string, decidedLimit: number) {
+    const newestFirst = this.rows
       .filter((r) => r.restaurantId === restaurantId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, limit)
+    const decided = new Set(newestFirst.filter((r) => r.status !== 'pending').slice(0, decidedLimit))
+    return newestFirst.filter((r) => r.status === 'pending' || decided.has(r)).map((r) => ({ ...r }))
+  }
+
+  async recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus) {
+    if (this.failRecordDecisionMessage) throw new Error('update failed')
+    const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId)
+    if (row) row.decisionMessageStatus = status
   }
 
   async findForRestaurant(id: string, restaurantId: string) {

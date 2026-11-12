@@ -21,15 +21,22 @@ const AT = new Date('2026-11-20T09:00:00.000Z')
 beforeEach(() => vi.clearAllMocks())
 
 describe('booking cron queries', () => {
-  it('lists confirmed, not-yet-reminded bookings on the HK dates, bounded', async () => {
+  // F7 (review #5, S-4): the start window and the booked-3h-ahead rule are
+  // applied in SQL (booking_reminder_candidates, migration 082), ordered by
+  // booking date and time, so not-yet-due rows can never crowd due ones out
+  // of the batch limit. Semantics: booking-cron.db.test.ts.
+  it('asks the database for due reminders at this instant, 3h lead, bounded', async () => {
     const rec = use([{ data: [] }])
-    await listReminderCandidates('2026-11-20', '2026-11-21', 500)
+    await listReminderCandidates(AT, 500)
     const q = rec.queries[0]
-    expect(q.table).toBe('booking_requests')
-    expect(filtersOf(q)).toEqual(['eq:status=confirmed', 'is:reminder_sent_at=null'])
-    expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-20'])
-    expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-21'])
-    expect(q.calls).toContainEqual(['limit', 500])
+    expect(q.table).toBe('rpc:booking_reminder_candidates')
+    expect(q.calls[0]).toEqual(['rpc', { p_now: AT.toISOString(), p_lead_hours: 3, p_limit: 500 }])
+    expect(q.calls.some(([m]) => m === 'select')).toBe(true)
+  })
+
+  it('surfaces a candidate query error', async () => {
+    use([{ error: { message: 'boom' } }])
+    await expect(listReminderCandidates(AT, 500)).rejects.toThrow('listReminderCandidates: boom')
   })
 
   it('claims a reminder with a conditional UPDATE and reports whether this caller won', async () => {
