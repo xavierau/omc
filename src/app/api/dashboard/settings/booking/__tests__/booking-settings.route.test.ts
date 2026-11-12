@@ -7,7 +7,7 @@ vi.mock('@/infrastructure/supabase/repositories/booking-config-repository')
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getBookingConfig, updateBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
-import { PUT } from '../booking/route'
+import { PUT } from '../route'
 
 const RID = 'rest-1'
 
