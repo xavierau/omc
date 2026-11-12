@@ -52,7 +52,7 @@ beforeEach(() => {
   config.templateCandidates.confirmed.en = 'tpl-new'
   deps = {
     getConfig: vi.fn(async () => structuredClone(config)),
-    findTemplate: vi.fn(async (id: string) => rows.get(id) ?? null),
+    findTemplates: vi.fn(async (ids: string[]) => ids.flatMap((id) => rows.get(id) ?? [])),
     promoteCandidate: vi.fn(promoteCandidate),
     getPhoneNumberId: vi.fn().mockResolvedValue('pn-1'),
     isWindowOpen: vi.fn().mockResolvedValue(true),
@@ -149,5 +149,40 @@ describe('text fallback parity (AC-7)', () => {
   it('without a custom body it keeps the default copy', async () => {
     await send()
     expect(vi.mocked(deps.sendText).mock.calls[0][2]).toContain('Your table booking is confirmed.')
+  })
+})
+
+// BOOK-002 F1 C8: one template lookup per send, and promotion never delays it.
+describe('lookups and promotion order (C8)', () => {
+  it('reads the candidate and live rows of both languages in one call', async () => {
+    config.templateIds.confirmed.zh_hk = 'tpl-zh'
+    row('tpl-new', 'approved', NEW_BODY)
+    await send()
+    expect(deps.findTemplates).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(deps.findTemplates).mock.calls[0][0].sort()).toEqual(['tpl-new', 'tpl-old', 'tpl-zh'])
+    expect(vi.mocked(deps.findTemplates).mock.calls[0][1]).toBe(RID)
+  })
+
+  it('sends first, then promotes', async () => {
+    row('tpl-new', 'approved', NEW_BODY)
+    await send()
+    expect(vi.mocked(deps.sendTemplate).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deps.promoteCandidate).mock.invocationCallOrder[0]
+    )
+  })
+
+  it('a failed send still promotes the approved candidate, and the result is the send\'s', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    row('tpl-new', 'approved', NEW_BODY)
+    vi.mocked(deps.sendTemplate).mockResolvedValue({ ok: false, kapsoMessageId: null, raw: null, error: { title: 'meta_error' } } as never)
+    expect(await send()).toEqual({ delivered: false, reason: 'send_failed' })
+    expect(promotions).toBe(1)
+  })
+
+  it('a promotion that throws synchronously never fails the send', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    row('tpl-new', 'approved', NEW_BODY)
+    vi.mocked(deps.promoteCandidate).mockImplementation(() => { throw new Error('boom') })
+    expect(await send()).toEqual({ delivered: true, via: 'template' })
   })
 })

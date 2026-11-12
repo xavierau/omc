@@ -15,16 +15,20 @@ const INPUT = {
 // The confirmed body stored before F3 (still the shape of rows Meta approved).
 const OLD_CONFIRMED_EN = 'Hi {{name}}, your booking at {{restaurant}} for {{party_size}} on {{date}} at {{time}} is confirmed.'
 
-const template = (status: WhatsAppTemplate['status'], body = OLD_CONFIRMED_EN) =>
-  ({ id: 'tpl-1', name: 'booking_confirmed', language: 'en', status, components: [{ type: 'BODY', text: body }] }) as unknown as WhatsAppTemplate
+const template = (status: WhatsAppTemplate['status'], body = OLD_CONFIRMED_EN, id = 'tpl-1') =>
+  ({ id, name: 'booking_confirmed', language: 'en', status, components: [{ type: 'BODY', text: body }] }) as unknown as WhatsAppTemplate
 
 let deps: { [K in keyof BookingSenderDeps]: ReturnType<typeof vi.fn> }
+let rows: Map<string, WhatsAppTemplate>
+const store = (...templates: WhatsAppTemplate[]) => templates.forEach((t) => rows.set(t.id, t))
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  rows = new Map()
+  store(template('approved'))
   deps = {
     getConfig: vi.fn().mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: { en: 'tpl-1', zh_hk: null } } }),
-    findTemplate: vi.fn().mockResolvedValue(template('approved')),
+    findTemplates: vi.fn(async (ids: string[]) => ids.flatMap((id) => rows.get(id) ?? [])),
     promoteCandidate: vi.fn().mockResolvedValue(true),
     getPhoneNumberId: vi.fn().mockResolvedValue('pn-1'),
     isWindowOpen: vi.fn().mockResolvedValue(true),
@@ -39,14 +43,14 @@ const send = () => createBookingMessageSender(deps as unknown as BookingSenderDe
 describe('booking message sender ladder', () => {
   it('sends the approved template with sanitised named params, scoped to the restaurant', async () => {
     expect(await send()).toEqual({ delivered: true, via: 'template' })
-    expect(deps.findTemplate).toHaveBeenCalledWith('tpl-1', 'rest-a')
+    expect(deps.findTemplates).toHaveBeenCalledWith(['tpl-1'], 'rest-a')
     const args = deps.sendTemplate.mock.calls[0][0]
     expect(args.paramValues.name).toBe('Chan Tai Man')
     expect(deps.sendText).not.toHaveBeenCalled()
   })
 
   it.each(['pending', 'rejected', 'paused'] as const)('skips a %s template and sends free text in an open window', async (status) => {
-    deps.findTemplate.mockResolvedValue(template(status))
+    store(template(status))
     expect(await send()).toEqual({ delivered: true, via: 'text' })
     expect(deps.sendText.mock.calls[0][2]).toContain('confirmed')
   })
@@ -86,13 +90,13 @@ describe('booking message sender ladder', () => {
       templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: { en: 'tpl-en', zh_hk: 'tpl-zh' } },
     })
     deps.getLanguage.mockResolvedValue('zh_hk')
+    store(template('approved', OLD_CONFIRMED_EN, 'tpl-zh'), template('approved', OLD_CONFIRMED_EN, 'tpl-en'))
     await send()
-    expect(deps.findTemplate).toHaveBeenNthCalledWith(1, 'tpl-zh', 'rest-a')
+    expect(deps.sendTemplate.mock.calls[0][0].template.id).toBe('tpl-zh')
 
-    deps.findTemplate.mockReset()
-    deps.findTemplate.mockResolvedValueOnce(template('pending')).mockResolvedValueOnce(template('approved'))
+    store(template('pending', OLD_CONFIRMED_EN, 'tpl-zh'))
     expect(await send()).toEqual({ delivered: true, via: 'template' })
-    expect(deps.findTemplate.mock.calls.map((c) => c[0])).toEqual(['tpl-zh', 'tpl-en'])
+    expect(deps.sendTemplate.mock.calls[1][0].template.id).toBe('tpl-en')
   })
 })
 
@@ -111,7 +115,7 @@ describe('booking template params follow the stored body (F3)', () => {
       ...DEFAULT_BOOKING_CONFIG,
       templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, [kind]: { en: 'tpl-1', zh_hk: null } },
     })
-    deps.findTemplate.mockResolvedValue(template('approved', body))
+    store(template('approved', body))
     const result = await createBookingMessageSender(deps as unknown as BookingSenderDeps).send({ ...INPUT, kind })
     return { result, params: deps.sendTemplate.mock.calls[0]?.[0].paramValues }
   }

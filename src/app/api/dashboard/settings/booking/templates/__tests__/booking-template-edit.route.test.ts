@@ -10,7 +10,7 @@ vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/infrastructure/supabase/repositories/booking-config-repository', () => ({
   getBookingConfig: vi.fn(),
   saveBookingTemplateEdit: vi.fn(),
-  saveBookingTemplateIds: vi.fn(),
+  saveProvisionedBookingTemplates: vi.fn(),
 }))
 vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', () => ({
   findManyByIdsForRestaurant: vi.fn(),
@@ -188,6 +188,68 @@ describe('a valid edit (AC-2)', () => {
   })
 })
 
+// BOOK-002 F1 (PR #182 review C1, C3, C6).
+describe('edits compared on what Meta has (F1)', () => {
+  it('C1: full-width braces are stored and submitted as ASCII placeholders', async () => {
+    const fullWidth = NEW_BODY.replace('{{date}}', '｛｛date｝｝').replace('{{time}}', '｛｛time｝｝')
+    expect((await edit(fullWidth)).status).toBe(200)
+    expect(vi.mocked(createWhatsAppTemplate).mock.calls[0][0].components).toEqual([{ type: 'BODY', text: NEW_BODY }])
+    expect(stored.templateBodies.confirmed.en).toBe(NEW_BODY)
+  })
+
+  it('C1: ｛｛table｝｝ is refused like {{table}}, nothing stored or submitted', async () => {
+    const res = await edit(`Your ｛｛table｝｝ ${NEW_BODY}`)
+    expect(res.status).toBe(400)
+    expect((await res.json()).errors).toContainEqual({ code: 'unknown_placeholder', detail: '{{table}}' })
+    nothingWritten()
+  })
+
+  it('C1: the full-width form of the approved body submits nothing', async () => {
+    await edit(NEW_BODY)
+    expect((await edit(OLD_BODY.replace('{{name}}', '｛｛name｝｝'))).status).toBe(200)
+    expect(createWhatsAppTemplate).toHaveBeenCalledTimes(1)
+    expect(stored.templateCandidates.confirmed.en).toBeUndefined()
+  })
+
+  it('C3: saving the pending candidate\'s text again submits nothing and keeps the candidate', async () => {
+    await edit(NEW_BODY)
+    const res = await edit(`${NEW_BODY}  `)
+    expect(res.status).toBe(200)
+    expect(createWhatsAppTemplate).toHaveBeenCalledTimes(1)
+    expect(stored.templateCandidates.confirmed.en).toBe('tpl-new-1')
+    expect((await res.json()).slots.confirmed.en.candidate).toEqual({ status: 'pending', reason: null })
+  })
+
+  it('C3: a rejected candidate with the same text is submitted again', async () => {
+    row('tpl-cand', 'rejected', NEW_BODY, { rejectionReason: 'INVALID_FORMAT' })
+    stored.templateCandidates.confirmed.en = 'tpl-cand'
+    stored.templateBodies.confirmed.en = NEW_BODY
+    await edit(NEW_BODY)
+    expect(createWhatsAppTemplate).toHaveBeenCalledTimes(1)
+    expect(stored.templateCandidates.confirmed.en).toBe('tpl-new-1')
+  })
+
+  it('C6: saving the live approved text with no custom text stores nothing and submits nothing', async () => {
+    expect((await edit(OLD_BODY)).status).toBe(200)
+    expect(createWhatsAppTemplate).not.toHaveBeenCalled()
+    expect(saveBookingTemplateEdit).not.toHaveBeenCalled()
+    expect(stored.templateBodies.confirmed.en).toBeUndefined()
+  })
+
+  it('C6: the slot view carries the approved live body the editor opens with', async () => {
+    const slots = (await (await GET()).json()).templateEditor.slots
+    expect(slots.confirmed.en.approvedBody).toBe(OLD_BODY)
+    expect(slots.confirmed.zh_hk.approvedBody).toBeNull()
+  })
+})
+
+describe('GET booking settings reads booking_config once (C10)', () => {
+  it('the overview is built from the config the route read', async () => {
+    expect((await GET()).status).toBe(200)
+    expect(getBookingConfig).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('reset to default (AC-5)', () => {
   it('approved body already the default: the custom body is removed, the candidate cleared, nothing submitted', async () => {
     row('tpl-old', 'approved', DEFAULT_EN)
@@ -223,6 +285,7 @@ describe('GET booking settings → templateEditor (AC-1, AC-3)', () => {
       status: 'approved',
       candidate: { status: 'rejected', reason: 'INVALID_FORMAT' },
       customBody: NEW_BODY,
+      approvedBody: OLD_BODY,
       defaultBody: DEFAULT_EN,
       placeholders: ['name', 'restaurant', 'date', 'time', 'party_size'],
     })

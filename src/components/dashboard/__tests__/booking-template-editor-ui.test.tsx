@@ -12,7 +12,7 @@ vi.mock('next-intl', () => ({
 import { BookingTemplateEditorView } from '../booking-template-editor'
 import { BookingTemplateStatusList } from '../booking-template-status-list'
 import type { LanguageEditorProps } from '../booking-template-language-editor'
-import { insertPlaceholder, previewText, templateEditResult } from '@/hooks/booking-template-editor-model'
+import { editorText, insertPlaceholder, previewText, templateEditResult } from '@/hooks/booking-template-editor-model'
 import { parseBookingSettingsSummary } from '@/hooks/use-booking-availability'
 import { validateBookingTemplateBody } from '@/domain/services/booking-template-body'
 import { bookingTemplateBody } from '@/domain/services/booking-templates'
@@ -21,7 +21,7 @@ import type { BookingTemplateStatuses } from '@/domain/services/booking-template
 
 const noop = () => {}
 const slot = (o: Partial<BookingTemplateSlotView> = {}): BookingTemplateSlotView => ({
-  status: 'approved', candidate: null, customBody: null, defaultBody: 'Default {{date}} at {{time}} ok.',
+  status: 'approved', candidate: null, customBody: null, approvedBody: null, defaultBody: 'Default {{date}} at {{time}} ok.',
   placeholders: ['name', 'restaurant', 'date', 'time', 'party_size'], ...o,
 })
 const slots = (confirmed: Partial<Record<'en' | 'zh_hk', Partial<BookingTemplateSlotView>>> = {}): BookingTemplateSlotViews => ({
@@ -74,7 +74,7 @@ describe('errors and warnings (AC-4)', () => {
   })
 
   it('the ratio warning names the language rule', () => {
-    const html = view([lang({ lang: 'zh_hk', draft: bookingTemplateBody('reminder', 'zh_hk') })])
+    const html = view([lang({ lang: 'zh_hk', draft: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。' })])
     expect(html).toContain('editor.warnings.low_ratio_zh_hk(3.25)')
   })
 })
@@ -87,6 +87,17 @@ describe('outcomes (AC-2, AC-5)', () => {
 
   it.each(['error', 'forbidden', 'not_sent'] as const)('%s is announced as an alert', (kind) => {
     expect(view([lang({ draft: OK, outcome: { kind } })])).toContain('booking-template-editor-en-outcome" role="alert"')
+  })
+
+  // BOOK-002 F1 C4: Meta refused the edit at submission; saving again would not help.
+  it("a rejected edit is an alert naming Meta's reason", () => {
+    const html = view([lang({ draft: OK, outcome: { kind: 'rejected', reason: 'INVALID_FORMAT' } })])
+    expect(html).toMatch(/booking-template-editor-en-outcome" role="alert"[^>]*>bookingSettings\.templates\.editor\.outcome\.rejected\(INVALID_FORMAT\)/)
+  })
+
+  it('a rejected edit without a reason says none was given', () => {
+    const html = view([lang({ draft: OK, outcome: { kind: 'rejected', reason: null } })])
+    expect(html).toContain('editor.outcome.rejected(bookingSettings.templates.editor.candidate.noReason)')
   })
 })
 
@@ -136,8 +147,21 @@ describe('editor model', () => {
     expect(insertPlaceholder('abc', 99, 99, 'date')).toEqual({ text: 'abc{{date}}', cursor: 11 })
   })
 
+  // BOOK-002 F1 C6: what the editor opens with.
+  it('opens with the custom text, else the approved live text, else the default', () => {
+    expect(editorText(slot({ customBody: 'Custom {{date}} {{time}} ok.', approvedBody: 'Live {{date}} {{time}} ok.' }))).toBe('Custom {{date}} {{time}} ok.')
+    expect(editorText(slot({ approvedBody: 'Live {{date}} {{time}} ok.' }))).toBe('Live {{date}} {{time}} ok.')
+    expect(editorText(slot())).toBe('Default {{date}} at {{time}} ok.')
+  })
+
+  it('a reset still waiting for Meta opens with the default it submitted', () => {
+    expect(editorText(slot({ approvedBody: 'Live {{date}} {{time}} ok.', candidate: { status: 'pending', reason: null } })))
+      .toBe('Default {{date}} at {{time}} ok.')
+  })
+
   it('previews the trimmed text with sample details', () => {
     expect(previewText('en', '  Hi {{name}} on {{date}}  ')).toBe('Hi Chan Tai Man on 2026-11-20')
+    expect(previewText('en', 'Hi ｛｛name｝｝ on {{date}}')).toBe('Hi Chan Tai Man on 2026-11-20')
   })
 
   it('reads a save response into an outcome and the refreshed overview', () => {
@@ -149,6 +173,9 @@ describe('editor model', () => {
     expect(templateEditResult(200, { templates: statuses, slots: slots() }, at).outcome).toEqual({ kind: 'already_live' })
     expect(templateEditResult(200, { templates: statuses, slots: slots({ en: { candidate: { status: 'failed', reason: null } } }) }, at).outcome)
       .toEqual({ kind: 'not_sent' })
+    // F1 C4: rejected at submission → Meta's reason, not "save again".
+    expect(templateEditResult(200, { templates: statuses, slots: slots({ en: { candidate: { status: 'rejected', reason: 'INVALID_FORMAT' } } }) }, at).outcome)
+      .toEqual({ kind: 'rejected', reason: 'INVALID_FORMAT' })
     expect(templateEditResult(200, { templates: statuses, slots: pending }, { ...at, reset: true }).outcome).toEqual({ kind: 'reset' })
     expect(templateEditResult(400, { errors: [{ code: 'link' }] }, at).outcome).toEqual({ kind: 'invalid', errors: [{ code: 'link' }] })
     expect(templateEditResult(403, {}, at).outcome).toEqual({ kind: 'forbidden' })

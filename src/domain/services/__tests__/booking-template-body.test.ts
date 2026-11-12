@@ -4,7 +4,9 @@ import { describe, it, expect } from 'vitest'
 import {
   BOOKING_TEMPLATE_BODY_MAX,
   PROMOTIONAL_TERMS,
+  ZH_CHARS_PER_PLACEHOLDER,
   allowedBookingPlaceholders,
+  normalizeBookingTemplateBody,
   renderBookingTemplateBody,
   validateBookingTemplateBody,
 } from '../booking-template-body'
@@ -76,6 +78,61 @@ describe('validateBookingTemplateBody errors (block the save)', () => {
   })
 })
 
+// BOOK-002 F1 C5: a bare domain or short link is a link too (review: kushiro.hk/offers).
+describe('validateBookingTemplateBody bare domains and short links (C5)', () => {
+  it.each([
+    'kushiro.hk/offers',
+    'see kushiro.hk for details',
+    'Visit Kushiro.HK today',
+    'wa.me/85291234567',
+    'bit.ly/abc123',
+    't.co/xyz',
+    'tinyurl.com/kushiro',
+    'shop.example.com',
+    'write to info@kushiro.hk',
+    '請到kushiro.hk訂座',
+  ])('refuses %s', (text) => {
+    expect(errorCodes('received', 'en', `${EN_OK} ${text} now.`)).toContain('link')
+  })
+
+  it.each(['Dr. Chan will greet you', 'arrive by 7.30pm', 'it takes 1.5 hours', 'e.g. a window seat', 'our company team', 'No.5 table', 'see you.Thanks'])(
+    'allows %s',
+    (text) => {
+      expect(errorCodes('received', 'en', `${EN_OK} ${text} soon.`)).toEqual([])
+    }
+  )
+})
+
+// BOOK-002 F1 C1: the pipeline submits text with full-width braces ASCII-ised
+// (prepare-template-components.ts), so the validator checks that same text.
+describe('validateBookingTemplateBody on full-width placeholders (C1)', () => {
+  it('normalizes full-width braces to ASCII and trims', () => {
+    expect(normalizeBookingTemplateBody('  Hi ｛｛name｝｝ on ｛｛date｝｝ \n')).toBe('Hi {{name}} on {{date}}')
+  })
+
+  it('refuses ｛｛table｝｝ as an unknown placeholder', () => {
+    const result = validateBookingTemplateBody('received', 'en', `Your ｛｛table｝｝ ${EN_OK}`)
+    expect(result.errors).toContainEqual({ code: 'unknown_placeholder', detail: '{{table}}' })
+  })
+
+  it('counts ｛｛date｝｝ and ｛｛time｝｝ as the date and time', () => {
+    expect(errorCodes('received', 'en', EN_OK.replace('{{date}}', '｛｛date｝｝').replace('{{time}}', '｛｛time｝｝'))).toEqual([])
+  })
+
+  it('a full-width duplicate is a duplicate', () => {
+    expect(errorCodes('received', 'en', `${EN_OK} Again on ｛｛date｝｝ as planned.`)).toEqual(['duplicate_placeholder'])
+  })
+
+  it('a full-width placeholder at the start or end is at the edge', () => {
+    expect(errorCodes('received', 'en', `｛｛name｝｝ ${EN_OK}`)).toContain('placeholder_at_edge')
+    expect(errorCodes('received', 'en', `${EN_OK} See you ｛｛name｝｝`)).toContain('placeholder_at_edge')
+  })
+
+  it('a full-width {{date}} still satisfies the required check in zh_HK', () => {
+    expect(errorCodes('received', 'zh_hk', '你的訂座在｛｛date｝｝ ｛｛time｝｝開始,請準時到達餐廳,謝謝你的支持。')).toEqual([])
+  })
+})
+
 describe('validateBookingTemplateBody warnings (save allowed)', () => {
   it('warns when English has fewer than 3 fixed words per placeholder', () => {
     // 4 words / 2 placeholders = 2.0
@@ -84,19 +141,30 @@ describe('validateBookingTemplateBody warnings (save allowed)', () => {
     expect(warningCodes('en', 'Booked on {{date}} at {{time}} thanks, see you.')).toEqual([])
   })
 
-  // Prod (2026-11-12, subcode 2388293): Meta approved a zh_HK body at 3.25
-  // non-placeholder characters per placeholder and rejected one at 3.0. Our
-  // floor is 4, stricter than Meta, so 3.25 still warns (outcome recorded in
-  // the BOOK-002 handoff).
-  it('zh_HK below 4 non-placeholder characters per placeholder warns, including the prod-approved 3.25', () => {
-    const approvedAt325 = bookingTemplateBody('reminder', 'zh_hk')
-    expect(validateBookingTemplateBody('reminder', 'zh_hk', approvedAt325).warnings).toEqual([
+  // Prod (2026-11-12/13, subcode 2388293): Meta rejected, after review, the
+  // zh_HK reminder at 3.25 non-placeholder characters per placeholder and one
+  // at 3.0. BOOK-002 F1: the floor is 6, the same as the default-copy test.
+  const OLD_REMINDER_ZH_325 = '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。'
+
+  it('the zh_HK floor is 6 non-placeholder characters per placeholder', () => {
+    expect(ZH_CHARS_PER_PLACEHOLDER).toBe(6)
+  })
+
+  it('zh_HK below 6 per placeholder warns: the Meta-rejected 3.25 reminder, 3.0, 4.0 and 5.75', () => {
+    expect(validateBookingTemplateBody('reminder', 'zh_hk', OLD_REMINDER_ZH_325).warnings).toEqual([
       { code: 'low_ratio', detail: '3.25' },
     ])
-    // 12 characters / 4 placeholders = 3.0 (the ratio Meta rejected)
+    // 12 characters / 4 placeholders = 3.0
     expect(warningCodes('zh_hk', '提提你:{{restaurant}}有{{party_size}}位的:{{date}} {{time}}的訂座。')).toEqual(['low_ratio'])
-    // 16 characters / 4 placeholders = 4.0
-    expect(warningCodes('zh_hk', '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}到,謝。')).toEqual([])
+    // 16 characters / 4 placeholders = 4.0 (passed the old floor of 4)
+    expect(warningCodes('zh_hk', '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}到,謝。')).toEqual(['low_ratio'])
+    // 23 characters / 4 placeholders = 5.75
+    expect(warningCodes('zh_hk', '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}開始,請準時到達餐廳。')).toEqual(['low_ratio'])
+  })
+
+  it('zh_HK at 6 per placeholder does not warn', () => {
+    // 24 characters / 4 placeholders = 6.0
+    expect(warningCodes('zh_hk', '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}開始,請準時到達餐廳。謝')).toEqual([])
   })
 
   it('counts every non-space character outside placeholders in zh_HK, punctuation included', () => {

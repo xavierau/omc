@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { provisionBookingTemplates, type ProvisionBookingTemplatesDeps } from '../booking/provision-booking-templates'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import { buildWhatsAppTemplate } from '@/test-utils/builders'
+import { applyProvisionedTemplates } from '@/domain/services/booking-template-slot'
 import type { TemplateStatus, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 const RID = 'rest-a'
@@ -33,7 +34,7 @@ beforeEach(() => {
     findTemplates: vi.fn(async (ids: string[]) => ids.map((id) => rows.get(id)).filter(Boolean)),
     createTemplate: vi.fn(),
     resubmitTemplate: vi.fn(async (id: string) => ({ template: rows.get(id) })),
-    saveTemplateIds: vi.fn(async (_rid, ids) => { config = { ...config, templateIds: ids } }),
+    saveProvisioned: vi.fn(async (_rid, slots) => { config = applyProvisionedTemplates(config, slots) }),
     ensureWabaId: vi.fn(async () => 'waba-1'),
     suffix: vi.fn(() => `s${++suffix}`),
   }
@@ -54,9 +55,10 @@ describe('provisionBookingTemplates', () => {
     for (const kind of ['received', 'confirmed', 'declined', 'reminder']) {
       expect(calls.filter((c) => c.name.startsWith(`booking_${kind}_`))).toHaveLength(2)
     }
-    expect(deps.saveTemplateIds).toHaveBeenCalledTimes(1)
-    const ids = deps.saveTemplateIds.mock.calls[0][1]
-    expect(Object.values(ids).flatMap((byLang) => Object.values(byLang as object)).every((id) => typeof id === 'string')).toBe(true)
+    expect(deps.saveProvisioned).toHaveBeenCalledTimes(1)
+    const slots = deps.saveProvisioned.mock.calls[0][1] as Array<{ id: string | null }>
+    expect(slots).toHaveLength(8)
+    expect(slots.every((slot) => typeof slot.id === 'string')).toBe(true)
     expect(statuses.received).toEqual({ en: 'pending', zh_hk: 'pending' })
   })
 
@@ -150,7 +152,7 @@ describe('provisionBookingTemplates', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const statuses = await provision()
     expect(statuses.received).toEqual({ en: 'not_submitted', zh_hk: 'pending' })
-    expect(deps.saveTemplateIds).toHaveBeenCalledTimes(1)
+    expect(deps.saveProvisioned).toHaveBeenCalledTimes(1)
   })
 
   it('looks templates up scoped to the restaurant', async () => {
@@ -215,5 +217,57 @@ describe('provisionBookingTemplates with custom text (BOOK-002)', () => {
     const statuses = await provision()
     expect(deps.createTemplate).not.toHaveBeenCalled()
     expect(statuses.reminder.en).toBe('approved')
+  })
+})
+
+// BOOK-002 F1 C7 and C2: provisioning writes only the slots it submitted, and
+// a slot it gives a new live template loses its rejected or failed edit.
+describe('provisionBookingTemplates and stale edits (BOOK-002 F1)', () => {
+  async function liveRejectedWithCandidate(candidateStatus: TemplateStatus) {
+    await provision()
+    const liveId = config.templateIds.declined.en as string
+    rows.set(liveId, { ...(rows.get(liveId) as WhatsAppTemplate), status: 'rejected' })
+    rows.set('cand-x', buildWhatsAppTemplate({ id: 'cand-x', status: candidateStatus }))
+    config = structuredClone(config)
+    config.templateCandidates.declined.en = 'cand-x'
+    deps.createTemplate.mockClear()
+    deps.saveProvisioned.mockClear()
+    return liveId
+  }
+
+  it.each(['rejected', 'draft'] as const)('a new live template clears the slot\'s %s candidate', async (status) => {
+    const oldLive = await liveRejectedWithCandidate(status)
+    await provision()
+    expect(deps.createTemplate).toHaveBeenCalledTimes(1)
+    expect(config.templateIds.declined.en).not.toBe(oldLive)
+    expect(config.templateCandidates.declined.en).toBeUndefined()
+    expect(deps.saveProvisioned.mock.calls[0][1]).toEqual([
+      { kind: 'declined', language: 'en', id: config.templateIds.declined.en, staleCandidateId: 'cand-x' },
+    ])
+  })
+
+  it('writes only the submitted slots, so a slot promoted meanwhile keeps its new id', async () => {
+    await provision()
+    const liveId = config.templateIds.declined.en as string
+    rows.set(liveId, { ...(rows.get(liveId) as WhatsAppTemplate), status: 'rejected' })
+    deps.saveProvisioned.mockImplementationOnce(async (_rid, slots) => {
+      const promotedMeanwhile = structuredClone(config)
+      promotedMeanwhile.templateIds.confirmed.en = 'promoted-by-sender'
+      config = applyProvisionedTemplates(promotedMeanwhile, slots)
+    })
+    await provision()
+    expect(config.templateIds.confirmed.en).toBe('promoted-by-sender')
+    expect(config.templateIds.declined.en).not.toBe(liveId)
+  })
+})
+
+describe('applyProvisionedTemplates', () => {
+  it('clears a stale candidate only while it is still the stored one', () => {
+    const base = structuredClone(DEFAULT_BOOKING_CONFIG)
+    base.templateCandidates.declined.en = 'newer-edit'
+    const next = applyProvisionedTemplates(base, [{ kind: 'declined', language: 'en', id: 'live-2', staleCandidateId: 'cand-x' }])
+    expect(next.templateIds.declined.en).toBe('live-2')
+    expect(next.templateCandidates.declined.en).toBe('newer-edit')
+    expect(base.templateIds.declined.en).toBeNull()
   })
 })
