@@ -101,9 +101,13 @@ export type BookingNotice =
   | { kind: 'already_handled'; status: BookingItem['status'] }
   | { kind: 'error' }
 
-/** The notice a decision outcome produces; `already_handled`/`not_found` also refresh the list. */
-export function noticeFor(decision: 'confirm' | 'decline', outcome: BookingDecisionOutcome): BookingNotice {
-  if (outcome.kind === 'done') return { kind: 'sent', decision }
+/**
+ * The notice a decision outcome produces; `already_handled`/`not_found` also refresh the list.
+ * A saved decision whose message was not delivered has no notice: the row's
+ * "Message not delivered" badge says what happened (spec warning row).
+ */
+export function noticeFor(decision: 'confirm' | 'decline', outcome: BookingDecisionOutcome): BookingNotice | null {
+  if (outcome.kind === 'done') return outcome.delivered ? { kind: 'sent', decision } : null
   if (outcome.kind === 'already_handled') return { kind: 'already_handled', status: outcome.status }
   return { kind: 'error' }
 }

@@ -1357,7 +1357,7 @@
     "declinedBecause": "原因:{reason}",
     "confirmationSent": "已發送確認",
     "declineSent": "已發送拒絕",
-    "alreadyHandled": "此要求已{status}。",
+    "alreadyHandled": "此要求{status}。",
     "actionFailed": "未能更新此要求,請再試一次。"
   },
   "bookingSettings": {

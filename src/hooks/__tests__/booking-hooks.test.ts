@@ -25,6 +25,22 @@ describe('use-bookings helpers', () => {
     expect(fetchMock.mock.calls[1][1].body).toBe('{}')
   })
 
+  // I1 seam bug: a saved decision whose WhatsApp message was not delivered
+  // showed "Confirmation sent" next to the "Message not delivered" badge.
+  it('says sent only when the message was delivered (spec warning row)', () => {
+    expect(noticeFor('confirm', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
+    expect(noticeFor('decline', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
+  })
+
+  it('reads the zh-HK already-handled notice without a doubled 已', async () => {
+    const zh = (await import('@/messages/zh-HK.json')).default as { bookings: { alreadyHandled: string; status: Record<string, string> } }
+    for (const status of ['confirmed', 'declined']) {
+      const line = zh.bookings.alreadyHandled.replace('{status}', zh.bookings.status[status])
+      expect(line).not.toContain('已已')
+      expect(line).toContain(zh.bookings.status[status])
+    }
+  })
+
   it('turns outcomes into notices', () => {
     expect(noticeFor('confirm', { kind: 'done', booking: {} as never, delivered: true })).toEqual({ kind: 'sent', decision: 'confirm' })
     expect(noticeFor('decline', { kind: 'already_handled', status: 'confirmed' })).toEqual({ kind: 'already_handled', status: 'confirmed' })
