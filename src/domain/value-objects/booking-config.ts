@@ -8,8 +8,12 @@
  * eval gate; `templateIds`, written by template provisioning) from the
  * current config, so a save can never switch them.
  */
+import type { LanguageCode } from './language'
+
 export type BookingMode = 'off' | 'simple' | 'external'
 export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder'
+/** W3: one template row per language (zh_HK and en) for each kind. */
+export type BookingTemplateIdsByLanguage = Record<LanguageCode, string | null>
 
 export interface BookingConfig {
   mode: BookingMode
@@ -20,11 +24,13 @@ export interface BookingConfig {
   campaignLinkTtlHours: number | null
   maxPartySize: number
   aiRoutingEnabled: boolean
-  templateIds: Record<BookingTemplateKind, string | null>
+  /** Written only by template provisioning (W3), never by the settings PUT. */
+  templateIds: Record<BookingTemplateKind, BookingTemplateIdsByLanguage>
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
 export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'confirmed', 'declined', 'reminder']
+export const TEMPLATE_LANGUAGES: readonly LanguageCode[] = ['zh_hk', 'en']
 export const MAX_TTL_HOURS = 8760
 export const MAX_PARTY_SIZE_LIMIT = 100
 export const EXTERNAL_URL_MAX = 2048
@@ -36,7 +42,12 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   campaignLinkTtlHours: 168,
   maxPartySize: 20,
   aiRoutingEnabled: false,
-  templateIds: { received: null, confirmed: null, declined: null, reminder: null },
+  templateIds: {
+    received: { en: null, zh_hk: null },
+    confirmed: { en: null, zh_hk: null },
+    declined: { en: null, zh_hk: null },
+    reminder: { en: null, zh_hk: null },
+  },
 }
 
 /** `https:` with a host, no credentials, no whitespace, ≤ 2,048 chars (R14). */
@@ -59,14 +70,23 @@ function resolveTtl(raw: unknown, fallback: number): number | null {
   return isTtl(raw) ? raw : fallback
 }
 
-function resolveTemplateIds(raw: unknown): BookingConfig['templateIds'] {
-  const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const ids = { ...DEFAULT_BOOKING_CONFIG.templateIds }
-  for (const kind of TEMPLATE_KINDS) {
-    const value = source[kind]
-    if (typeof value === 'string' && value.length > 0) ids[kind] = value
+const asRecord = (raw: unknown) => (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+
+function resolveIdsByLanguage(raw: unknown): BookingTemplateIdsByLanguage {
+  const source = asRecord(raw)
+  const ids: BookingTemplateIdsByLanguage = { en: null, zh_hk: null }
+  for (const lang of TEMPLATE_LANGUAGES) {
+    const value = source[lang]
+    if (typeof value === 'string' && value.length > 0) ids[lang] = value
   }
   return ids
+}
+
+/** Anything but `{kind: {en, zh_hk}}` strings resolves to null (re-provisioned on the next save). */
+function resolveTemplateIds(raw: unknown): BookingConfig['templateIds'] {
+  const source = asRecord(raw)
+  const entries = TEMPLATE_KINDS.map((kind) => [kind, resolveIdsByLanguage(source[kind])] as const)
+  return Object.fromEntries(entries) as BookingConfig['templateIds']
 }
 
 export function resolveBookingConfig(raw: unknown): BookingConfig {

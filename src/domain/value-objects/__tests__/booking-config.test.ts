@@ -21,7 +21,9 @@ describe('resolveBookingConfig', () => {
       campaignLinkTtlHours: 48,
       maxPartySize: 8,
       aiRoutingEnabled: true,
-      templateIds: { confirmed: 'tpl-1', declined: 7 },
+      // W3: ids are per kind per language; a non-string or a W1-era flat
+      // string resolves to null (re-provisioned on the next save).
+      templateIds: { confirmed: { en: 'tpl-1', zh_hk: 7 }, declined: 'legacy-flat-id' },
     })
     expect(config).toMatchObject({
       mode: 'simple',
@@ -29,7 +31,12 @@ describe('resolveBookingConfig', () => {
       campaignLinkTtlHours: 48,
       maxPartySize: 8,
       aiRoutingEnabled: true,
-      templateIds: { received: null, confirmed: 'tpl-1', declined: null, reminder: null },
+      templateIds: {
+        received: { en: null, zh_hk: null },
+        confirmed: { en: 'tpl-1', zh_hk: null },
+        declined: { en: null, zh_hk: null },
+        reminder: { en: null, zh_hk: null },
+      },
     })
   })
 })
@@ -57,7 +64,12 @@ describe('parseBookingSettings (R14 / AC-1 / AC-2)', () => {
   const current: BookingConfig = {
     ...DEFAULT_BOOKING_CONFIG,
     aiRoutingEnabled: true,
-    templateIds: { received: 'r', confirmed: 'c', declined: 'd', reminder: 'm' },
+    templateIds: {
+      received: { en: 'r-en', zh_hk: 'r-zh' },
+      confirmed: { en: 'c-en', zh_hk: 'c-zh' },
+      declined: { en: 'd-en', zh_hk: 'd-zh' },
+      reminder: { en: 'm-en', zh_hk: 'm-zh' },
+    },
   }
 
   it('saves simple mode with lifetimes as positive ints or null', () => {

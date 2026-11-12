@@ -20,7 +20,7 @@ let deps: { [K in keyof BookingSenderDeps]: ReturnType<typeof vi.fn> }
 beforeEach(() => {
   vi.restoreAllMocks()
   deps = {
-    getConfig: vi.fn().mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: 'tpl-1' } }),
+    getConfig: vi.fn().mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: { en: 'tpl-1', zh_hk: null } } }),
     findTemplate: vi.fn().mockResolvedValue(template('approved')),
     getPhoneNumberId: vi.fn().mockResolvedValue('pn-1'),
     isWindowOpen: vi.fn().mockResolvedValue(true),
@@ -74,5 +74,20 @@ describe('booking message sender ladder', () => {
   it('reports no_sender when the restaurant has no WhatsApp number id', async () => {
     deps.getPhoneNumberId.mockResolvedValue('')
     expect(await send()).toEqual({ delivered: false, reason: 'no_sender' })
+  })
+
+  it('W3: uses the diner language template first, else the other language', async () => {
+    deps.getConfig.mockResolvedValue({
+      ...DEFAULT_BOOKING_CONFIG,
+      templateIds: { ...DEFAULT_BOOKING_CONFIG.templateIds, confirmed: { en: 'tpl-en', zh_hk: 'tpl-zh' } },
+    })
+    deps.getLanguage.mockResolvedValue('zh_hk')
+    await send()
+    expect(deps.findTemplate).toHaveBeenNthCalledWith(1, 'tpl-zh', 'rest-a')
+
+    deps.findTemplate.mockReset()
+    deps.findTemplate.mockResolvedValueOnce(template('pending')).mockResolvedValueOnce(template('approved'))
+    expect(await send()).toEqual({ delivered: true, via: 'template' })
+    expect(deps.findTemplate.mock.calls.map((c) => c[0])).toEqual(['tpl-zh', 'tpl-en'])
   })
 })
