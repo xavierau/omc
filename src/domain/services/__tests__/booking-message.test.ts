@@ -57,6 +57,31 @@ describe('booking message copy', () => {
   })
 })
 
+// BOOK-001 F3: the free-form fallback says what the owner-approved
+// templates say (2026-11-12).
+describe('booking text fallback copy (F3)', () => {
+  const d = { ...details, declineReason: 'Fully booked' }
+
+  it.each([
+    ['confirmed', 'en', 'Your table booking is confirmed. Restaurant: Kushiro. Date: 2026-11-13. Time: 19:30. Party size: 4. If your plans change, please reply to this message to let the restaurant know.'],
+    ['confirmed', 'zh_hk', '你的訂座已確認。餐廳:Kushiro。日期:2026-11-13。時間:19:30。人數:4位。如行程有變,請直接回覆此訊息通知餐廳。'],
+    ['declined', 'en', 'Sorry, the restaurant could not accept your booking request for 2026-11-13 at 19:30. Reason: Fully booked. You are welcome to choose another time and send a new request.'],
+    ['declined', 'zh_hk', '很抱歉,餐廳未能接受你在2026-11-13 19:30的訂座要求。原因:Fully booked。歡迎選擇其他時間再次提交訂座要求。'],
+    ['reminder', 'en', 'This is a reminder of your upcoming table booking at Kushiro on 2026-11-13 at 19:30. If you can no longer make it, please reply to this message to let the restaurant know.'],
+  ] as const)('%s/%s uses the approved copy', (kind, lang, text) => {
+    expect(buildBookingText(kind, lang, d)).toBe(text)
+  })
+
+  it('leaves the reason sentence out of a declined text when none is given', () => {
+    expect(buildBookingText('declined', 'en', details)).toBe(
+      'Sorry, the restaurant could not accept your booking request for 2026-11-13 at 19:30. You are welcome to choose another time and send a new request.'
+    )
+    expect(buildBookingText('declined', 'zh_hk', details)).toBe(
+      '很抱歉,餐廳未能接受你在2026-11-13 19:30的訂座要求。歡迎選擇其他時間再次提交訂座要求。'
+    )
+  })
+})
+
 describe('booking token rules (R1)', () => {
   const now = new Date('2026-11-12T10:00:00Z')
 

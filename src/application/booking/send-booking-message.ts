@@ -9,7 +9,7 @@
  * state). Logs carry the kind and a masked phone only (R8).
  */
 import { isTemplateSendable, type WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { buildBookingTemplateParams, buildBookingText } from '@/domain/services/booking-message'
+import { bookingParamsForBody, buildBookingText } from '@/domain/services/booking-message'
 import { Language, type LanguageCode } from '@/domain/value-objects/language'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { BookingMessageInput, BookingMessageSender, BookingSendResult } from '@/domain/ports/booking'
@@ -54,7 +54,10 @@ async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Pr
   const language = await deps.getLanguage(input.restaurantId, input.phone)
   const template = await approvedTemplate(deps, input, language)
   if (template) {
-    const paramValues = buildBookingTemplateParams(input.details)
+    // F3: this row's own BODY params, never a fixed set per kind.
+    const body = template.components.find((c) => c.type === 'BODY')?.text ?? ''
+    const paramValues = bookingParamsForBody(body, input.details)
+    if (!paramValues) return failed(input, 'template_params_unknown')
     const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
     return result.ok ? { delivered: true, via: 'template' } : failed(input, result.error?.title ?? 'template_send_failed')
   }
