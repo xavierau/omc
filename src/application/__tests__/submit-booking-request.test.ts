@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { submitBookingRequest, type SubmitBookingDeps } from '../booking/submit-booking-request'
 import { FakeBookingRequests, FakeBookingSender, FakeBookingSettings, FakeBookingTokens } from '@/test-utils/fake-booking'
 import { FakeRateLimiter } from '@/test-utils/fake-rate-limiter'
@@ -16,7 +16,8 @@ let requests: FakeBookingRequests
 let settings: FakeBookingSettings
 let sender: FakeBookingSender
 let limiter: FakeRateLimiter
-let members: { findMemberId: ReturnType<typeof vi.fn> }
+type FindMemberId = (restaurantId: string, phone: string) => Promise<string | null>
+let members: { findMemberId: Mock<FindMemberId> }
 let deps: SubmitBookingDeps
 
 beforeEach(() => {
@@ -30,7 +31,7 @@ beforeEach(() => {
   sender = new FakeBookingSender()
   const clock = new FakeClock(NOW)
   limiter = new FakeRateLimiter(clock)
-  members = { findMemberId: vi.fn().mockResolvedValue(null) }
+  members = { findMemberId: vi.fn<FindMemberId>().mockResolvedValue(null) }
   deps = { tokens, requests, settings, members, sender, limiter, now: () => clock.now() }
 })
 

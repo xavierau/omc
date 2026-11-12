@@ -41,7 +41,8 @@
     "rewards": "獎賞",
     "scan": "掃描 QR",
     "stampCampaigns": "儲印花卡",
-    "integrations": "整合"
+    "integrations": "整合",
+    "bookings": "訂座"
   },
   "login": {
     "title": "OhMyClient",
@@ -1287,5 +1288,98 @@
     "errorTestUrlNotSaved": "請先儲存傳出網址。",
     "errorTestNotEligible": "請先啟用傳出功能並確認 PII，才能傳送測試事件。",
     "errorIntegrationNotFound": "找不到此整合。"
+  },
+  "booking": {
+    "genericTitle": "網上訂座",
+    "subtitle": "提交訂座要求",
+    "phoneLabel": "你的 WhatsApp 號碼:",
+    "date": "日期",
+    "time": "時間",
+    "partySize": "人數",
+    "name": "姓名",
+    "notes": "備註(可選填)",
+    "submit": "提交訂座要求",
+    "submitting": "提交中...",
+    "sentTitle": "已提交訂座要求",
+    "sentBody": "餐廳會在 WhatsApp 確認你的訂座。你可以關閉此頁。",
+    "tooManyPending": "你在這間餐廳已有 3 個待確認的訂座要求,請等候回覆後再提交。",
+    "rateLimited": "嘗試次數太多,請一分鐘後再試。",
+    "submitFailed": "未能提交訂座要求,請再試一次。",
+    "expiredTitle": "此訂座連結已過期",
+    "consumedTitle": "此訂座連結已使用",
+    "unknownTitle": "此訂座連結無效",
+    "offTitle": "暫時未能網上訂座",
+    "unavailableBody": "在 WhatsApp 問問餐廳,我們會給你一個新連結。",
+    "askOnWhatsapp": "在 WhatsApp 查詢",
+    "askOnWhatsappManual": "請返回 WhatsApp 對話,輸入 BOOK 索取新連結。",
+    "errors": {
+      "required": "請填寫此欄。",
+      "invalid": "請檢查此欄。",
+      "past": "請選擇今天或之後的日期。",
+      "too_small": "最少 1 位。",
+      "too_large": "最多 {max} 位。人數較多請直接聯絡餐廳。",
+      "too_long": "內容太長。",
+      "unknown_field": "不明欄位。",
+      "invalid_body": "請檢查表格。"
+    }
+  },
+  "bookings": {
+    "heading": "訂座",
+    "description": "客人提交的訂座要求,請逐一確認或拒絕。",
+    "couldntLoad": "未能載入訂座要求。",
+    "loading": "載入訂座要求中...",
+    "emptyTitle": "暫時未有訂座要求",
+    "emptyDescription": "客人透過訂座連結提交的要求會在這裡顯示。",
+    "confirm": "確認",
+    "decline": "拒絕",
+    "sendDecline": "發送拒絕",
+    "cancel": "取消",
+    "declineReasonPlaceholder": "原因(可選填)",
+    "partyOf": "{count} 位",
+    "status": {
+      "pending": "待確認",
+      "confirmed": "已確認",
+      "declined": "已拒絕"
+    },
+    "notDelivered": "訊息未能送達,請聯絡客人",
+    "nameRemoved": "(姓名已刪除)",
+    "declinedBecause": "原因:{reason}",
+    "confirmationSent": "已發送確認",
+    "declineSent": "已發送拒絕",
+    "alreadyHandled": "此要求已{status}。",
+    "actionFailed": "未能更新此要求,請再試一次。"
+  },
+  "bookingSettings": {
+    "title": "訂座",
+    "description": "客人如何從 WhatsApp 對話及推廣活動訂座。",
+    "modeLabel": "訂座方式",
+    "mode": {
+      "off": "關閉",
+      "simple": "簡易訂座",
+      "external": "外部連結"
+    },
+    "modeHint": {
+      "off": "不回覆訂座,對話照舊運作。",
+      "simple": "客人在我們的訂座頁提交要求,你在「訂座」確認。",
+      "external": "客人前往你自己的訂座連結(inline 或其他)。"
+    },
+    "externalUrl": "你的訂座連結",
+    "addLinkHint": "加入訂座連結後才會啟用。",
+    "chatLifetime": "對話中發出的連結有效時間",
+    "campaignLifetime": "推廣活動發出的連結有效時間",
+    "hours": "小時",
+    "noExpiry": "不設期限",
+    "maxPartySize": "最多人數",
+    "save": "儲存",
+    "saving": "儲存中...",
+    "saved": "已儲存訂座設定",
+    "saveFailed": "未能儲存訂座設定。",
+    "forbidden": "只有管理員可以更改訂座設定。",
+    "errors": {
+      "required": "請加入訂座連結。",
+      "invalid_https_url": "請使用 https:// 開頭的連結",
+      "invalid_ttl": "請輸入 1 至 8760 的整數小時。",
+      "invalid_party_size": "請輸入 1 至 100 的數字。"
+    }
   }
 }

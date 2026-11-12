@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug } from 'lucide-react'
+import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug, CalendarCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
@@ -36,6 +36,11 @@ function NavLink({ href, label, icon: Icon, isActive, onClick }: {
  * INT-001 WI-9's `integrations` item) is unit-testable without rendering
  * `Sidebar` itself, which owns real `useState`/`usePathname` and can't be
  * exercised via a plain function call in this repo's jsdom-free test setup. */
+/** BOOK-001: the Bookings entry, exported so its wiring is unit-testable. */
+export function bookingsNavItem(t: (key: string) => string) {
+  return { label: t('bookings'), href: '/dashboard/bookings', icon: CalendarCheck }
+}
+
 export function secondaryNavItems(t: (key: string) => string) {
   return [
     { label: t('qrSetup'), href: '/dashboard/setup', icon: Settings },
@@ -70,6 +75,7 @@ export function Sidebar() {
     { label: tt('title'), href: '/dashboard/tags', icon: Tag },
     { label: t('liveFeed'), href: '/dashboard/feed', icon: Radio },
     { label: t('campaigns'), href: '/dashboard/campaigns', icon: Megaphone },
+    bookingsNavItem(t),
     { label: t('stampCampaigns'), href: '/dashboard/campaigns/stamps', icon: Stamp },
     { label: t('waTemplates'), href: '/dashboard/wa-templates', icon: MessageSquare },
     { label: t('coupons'), href: '/dashboard/coupons', icon: Ticket },

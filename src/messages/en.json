@@ -41,7 +41,8 @@
     "rewards": "Rewards",
     "scan": "Scan QR",
     "stampCampaigns": "Stamp Cards",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "bookings": "Bookings"
   },
   "login": {
     "title": "OhMyClient",
@@ -1287,5 +1288,98 @@
     "errorTestUrlNotSaved": "Save the outbound URL first.",
     "errorTestNotEligible": "Enable outbound and acknowledge PII before sending a test event.",
     "errorIntegrationNotFound": "This integration could not be found."
+  },
+  "booking": {
+    "genericTitle": "Table booking",
+    "subtitle": "Request a table",
+    "phoneLabel": "Your WhatsApp number:",
+    "date": "Date",
+    "time": "Time",
+    "partySize": "Number of people",
+    "name": "Name",
+    "notes": "Notes (optional)",
+    "submit": "Send booking request",
+    "submitting": "Sending...",
+    "sentTitle": "Request sent",
+    "sentBody": "The restaurant will confirm your booking on WhatsApp. You can close this page.",
+    "tooManyPending": "You already have 3 requests waiting for this restaurant. Please wait for a reply before sending another.",
+    "rateLimited": "Too many attempts. Please wait a minute and try again.",
+    "submitFailed": "We couldn't send your request. Please try again.",
+    "expiredTitle": "This booking link has expired",
+    "consumedTitle": "This booking link was already used",
+    "unknownTitle": "This booking link doesn't work",
+    "offTitle": "Online booking isn't available right now",
+    "unavailableBody": "Ask the restaurant on WhatsApp and we'll send you a new link.",
+    "askOnWhatsapp": "Ask on WhatsApp",
+    "askOnWhatsappManual": "Go back to the WhatsApp chat and send BOOK to get a new link.",
+    "errors": {
+      "required": "Please fill this in.",
+      "invalid": "Please check this value.",
+      "past": "Please choose today or a later date.",
+      "too_small": "At least 1 person.",
+      "too_large": "At most {max} people. For bigger groups, contact the restaurant.",
+      "too_long": "This is too long.",
+      "unknown_field": "Unexpected field.",
+      "invalid_body": "Please check the form."
+    }
+  },
+  "bookings": {
+    "heading": "Bookings",
+    "description": "Booking requests from your diners. Confirm or decline each one.",
+    "couldntLoad": "Couldn't load booking requests.",
+    "loading": "Loading booking requests...",
+    "emptyTitle": "No booking requests yet",
+    "emptyDescription": "Requests diners send from their booking link appear here.",
+    "confirm": "Confirm",
+    "decline": "Decline",
+    "sendDecline": "Send decline",
+    "cancel": "Cancel",
+    "declineReasonPlaceholder": "Reason (optional)",
+    "partyOf": "{count, plural, one {# person} other {# people}}",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "declined": "Declined"
+    },
+    "notDelivered": "Message not delivered, contact the diner",
+    "nameRemoved": "(name removed)",
+    "declinedBecause": "Reason: {reason}",
+    "confirmationSent": "Confirmation sent",
+    "declineSent": "Decline sent",
+    "alreadyHandled": "This request was already {status}.",
+    "actionFailed": "Couldn't update this request. Please try again."
+  },
+  "bookingSettings": {
+    "title": "Booking",
+    "description": "How diners book a table from your WhatsApp chat and campaigns.",
+    "modeLabel": "Booking mode",
+    "mode": {
+      "off": "Off",
+      "simple": "Simple booking",
+      "external": "External link"
+    },
+    "modeHint": {
+      "off": "No booking replies; chats work as today.",
+      "simple": "Diners request a table on our booking page; you confirm it under Bookings.",
+      "external": "Diners go to your own booking link (inline or other)."
+    },
+    "externalUrl": "Your booking link",
+    "addLinkHint": "Add a booking link to turn this on.",
+    "chatLifetime": "Link lifetime, sent in chat",
+    "campaignLifetime": "Link lifetime, sent in campaigns",
+    "hours": "hours",
+    "noExpiry": "No expiry",
+    "maxPartySize": "Largest party size",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Booking settings saved",
+    "saveFailed": "Couldn't save booking settings.",
+    "forbidden": "Only admins can change booking settings.",
+    "errors": {
+      "required": "Add a booking link.",
+      "invalid_https_url": "Use a link starting with https://",
+      "invalid_ttl": "Use a whole number of hours (1 to 8760).",
+      "invalid_party_size": "Use a number from 1 to 100."
+    }
   }
 }

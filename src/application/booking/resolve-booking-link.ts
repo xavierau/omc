@@ -31,7 +31,14 @@ export interface BookingPageRestaurant {
 }
 
 export type BookingLinkView =
-  | { kind: 'form'; restaurant: BookingPageRestaurant; maskedPhone: string; maxPartySize: number; today: string }
+  | {
+      kind: 'form'
+      restaurant: BookingPageRestaurant
+      maskedPhone: string
+      maxPartySize: number
+      today: string
+      retryUrl: string | null
+    }
   | { kind: 'redirect'; url: string }
   | {
       kind: 'unavailable'
@@ -45,6 +52,10 @@ export function maskDinerPhone(phone: string): string {
   return `•••• ${phone.replace(/\D/g, '').slice(-4)}`
 }
 
+function retryUrlOf(restaurant: BookingRestaurantContext | null): string | null {
+  return restaurant?.whatsappNumber ? buildContactUrl(restaurant.whatsappNumber, BOOK_KEYWORD) : null
+}
+
 function unavailable(
   reason: Exclude<BookingTokenState, 'valid'> | 'off',
   restaurant: BookingRestaurantContext | null
@@ -53,7 +64,7 @@ function unavailable(
     kind: 'unavailable',
     reason,
     restaurant: restaurant ? { name: restaurant.name, logoUrl: restaurant.logoUrl } : null,
-    retryUrl: restaurant?.whatsappNumber ? buildContactUrl(restaurant.whatsappNumber, BOOK_KEYWORD) : null,
+    retryUrl: retryUrlOf(restaurant),
   }
 }
 
@@ -80,5 +91,6 @@ export async function resolveBookingLink(deps: ResolveBookingLinkDeps, token: st
     maskedPhone: maskDinerPhone(owner.phone),
     maxPartySize: config.maxPartySize,
     today: hongKongToday(deps.now()),
+    retryUrl: retryUrlOf(restaurant),
   }
 }

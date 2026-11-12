@@ -28,6 +28,7 @@ describe('resolveBookingLink', () => {
       maskedPhone: '•••• 4567',
       maxPartySize: 12,
       today: '2026-11-12',
+      retryUrl: 'https://wa.me/85220000001?text=BOOK',
     })
   })
 
