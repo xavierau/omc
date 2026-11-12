@@ -20,7 +20,7 @@ export interface BookingRowProps {
   onDecide: (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 }
 
-const STATUS_VARIANT = { pending: 'outline', confirmed: 'default', declined: 'destructive' } as const
+const STATUS_VARIANT = { pending: 'outline', confirmed: 'default', declined: 'secondary' } as const
 
 function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boolean; onSend: (reason: string) => void; onCancel: () => void }) {
   const t = useTranslations('bookings')
@@ -77,7 +77,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
           {t(`status.${booking.status}`)}
         </Badge>
         {undelivered ? (
-          <Badge variant="destructive" data-testid={`booking-row-${booking.id}-not-delivered`}>
+          <Badge variant="outline" className="border-destructive text-foreground" data-testid={`booking-row-${booking.id}-not-delivered`}>
             {t('notDelivered')}
           </Badge>
         ) : null}
