@@ -4,7 +4,7 @@
  * locale, because the page is opened from a WhatsApp chat in either.
  * Copy is provisional until the owner approves diner copy (spec OQ7).
  */
-export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy'
+export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy-policy.html'
 
 export function CollectionStatement({ restaurantName }: { restaurantName: string }) {
   return (
