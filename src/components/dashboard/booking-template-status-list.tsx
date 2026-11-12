@@ -25,9 +25,9 @@ export function BookingTemplateStatusList({ statuses }: { statuses: BookingTempl
       <p className="text-sm font-medium">{t('templates.title')}</p>
       <p className="text-xs text-muted-foreground">{t('templates.hint')}</p>
       {statuses ? (
-        <ul className="divide-y rounded-md border text-sm">
+        <ul className="divide-y border-y text-sm">
           {TEMPLATE_KINDS.map((kind) => (
-            <li key={kind} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <li key={kind} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>{t(`templates.kind.${kind}`)}</span>
               <span className="flex gap-2">
                 {TEMPLATE_LANGUAGES.map((lang) => {

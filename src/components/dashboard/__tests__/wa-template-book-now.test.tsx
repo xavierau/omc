@@ -66,7 +66,9 @@ describe('Book now button preset', () => {
     const components = buildWaTemplateRequestBody({ ...initialWaTemplateForm, name: 'p', body: 'Hi', buttons: [bookNow()] })
       .components as unknown as TemplateComponent[]
     expect(validateTemplateComponents(components)).toBeNull()
-    const prepared = prepareTemplateComponents(components).find((c) => c.type === 'BUTTONS')
+    const prepared = prepareTemplateComponents(components).find((c) => c.type === 'BUTTONS') as
+      | { buttons?: Array<Record<string, unknown>> }
+      | undefined
     expect(prepared?.buttons?.[0]).toMatchObject({ url: `${APP}/b/{{1}}`, example: [`${APP}/b/sample-booking-link`] })
   })
 })

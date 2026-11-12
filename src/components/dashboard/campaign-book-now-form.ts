@@ -30,9 +30,12 @@ export function bookNowFormView(form: BookNowForm, lookup: TemplateLookup, avail
   const issue = known
     ? bookNowIssue({ enabled: form.bookNowEnabled, templateHasButton, bookingUrl: campaignUrl, mode, externalUrl })
     : null
+  // With no link anywhere the toggle is disabled: "Add a booking link in
+  // settings" is the one actionable message, not "turn on Book now".
+  const shownIssue = issue === 'no_booking_link' || state === 'no_link' ? null : issue
   return {
     state,
-    issue: issue === 'no_booking_link' ? null : issue,
+    issue: shownIssue,
     showUrl: mode === 'external',
     showPreview: form.bookNowEnabled && templateHasButton,
   }

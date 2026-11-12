@@ -62,7 +62,7 @@ describe('bookNowFormView', () => {
 
   it('External mode shows the URL override; with no link anywhere the toggle is disabled', () => {
     const view = bookNowFormView(form(), resolved(), externalNoUrl)
-    expect(view).toMatchObject({ state: 'no_link', showUrl: true })
+    expect(view).toMatchObject({ state: 'no_link', showUrl: true, issue: null })
   })
 
   it('no availability yet (loading) and not on → hidden', () => {
@@ -111,6 +111,7 @@ describe('CampaignBookNowFields render', () => {
     expect(html).toContain('data-testid="campaign-book-now-no-link"')
     expect(html).toContain('campaigns.bookNowNoLink')
     expect(html).toContain('data-testid="campaign-book-now-url"')
+    expect(html).not.toContain('data-testid="campaign-book-now-issue"')
   })
 
   it('shows the mismatch inline', () => {
