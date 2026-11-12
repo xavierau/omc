@@ -83,3 +83,25 @@ export function applyBookingTemplatePromotion(
   delete next.templateCandidates[slot.kind][slot.language]
   return next
 }
+
+/** What provisioning submitted for one slot (BOOK-002 F1 C7). */
+export interface ProvisionedSlot {
+  kind: BookingTemplateKind
+  language: LanguageCode
+  /** The new live template; null when its submission threw. */
+  id: string | null
+  /** The slot's rejected or failed edit, cleared now that a new live template replaces it. */
+  staleCandidateId: string | null
+}
+
+/** Writes only the submitted slots; a candidate is cleared only while it is still the stale one. */
+export function applyProvisionedTemplates(config: BookingConfig, slots: ProvisionedSlot[]): BookingConfig {
+  const next = structuredClone(config)
+  for (const slot of slots) {
+    next.templateIds[slot.kind][slot.language] = slot.id
+    if (slot.staleCandidateId && next.templateCandidates[slot.kind][slot.language] === slot.staleCandidateId) {
+      delete next.templateCandidates[slot.kind][slot.language]
+    }
+  }
+  return next
+}

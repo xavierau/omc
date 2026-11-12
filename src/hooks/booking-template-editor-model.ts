@@ -4,15 +4,17 @@
  * React here, so it is tested directly.
  */
 import type { BookingTemplateKind } from '@/domain/value-objects/booking-config'
-import { renderBookingTemplateBody, type BookingBodyCheck } from '@/domain/services/booking-template-body'
+import { normalizeBookingTemplateBody, renderBookingTemplateBody, type BookingBodyCheck } from '@/domain/services/booking-template-body'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
-import type { BookingTemplateSlotViews } from '@/application/booking/booking-template-statuses'
+import type { BookingTemplateSlotView, BookingTemplateSlotViews } from '@/application/booking/booking-template-statuses'
 import type { LanguageCode } from '@/domain/value-objects/language'
 import { parseTemplateSlots, parseTemplateStatuses } from './use-booking-availability'
 
 export type TemplateEditOutcome =
   | { kind: 'submitted' | 'already_live' | 'not_sent' | 'reset' | 'forbidden' | 'not_simple' | 'error' }
   | { kind: 'invalid'; errors: BookingBodyCheck['errors'] }
+  /** F1 C4: Meta refused the edit when it was submitted; saving the same text again would not help. */
+  | { kind: 'rejected'; reason: string | null }
 
 export interface TemplateOverview {
   templates: BookingTemplateStatuses
@@ -23,7 +25,19 @@ function savedOutcome(overview: TemplateOverview, slot: TemplateEditSlot): Templ
   if (slot.reset) return { kind: 'reset' }
   const candidate = overview.slots[slot.kind][slot.language].candidate
   if (!candidate) return { kind: 'already_live' }
+  if (candidate.status === 'rejected') return { kind: 'rejected', reason: candidate.reason }
   return { kind: candidate.status === 'pending' ? 'submitted' : 'not_sent' }
+}
+
+/**
+ * F1 C6: the text the editor opens with — the custom text, else the default
+ * while a reset waits for Meta (a candidate with no custom text), else the
+ * approved live text, else the default.
+ */
+export function editorText(slot: BookingTemplateSlotView): string {
+  if (slot.customBody) return slot.customBody
+  if (slot.candidate) return slot.defaultBody
+  return slot.approvedBody ?? slot.defaultBody
 }
 
 export interface TemplateEditSlot {
@@ -63,12 +77,12 @@ export const PREVIEW_SAMPLES: Record<LanguageCode, Record<string, string>> = {
   zh_hk: { name: '陳大文', restaurant: '串燒居', date: '2026-11-20', time: '19:30', party_size: '4', reason: '當晚已經滿座' },
 }
 
-/** The preview text: the trimmed draft with sample details filled in (plain text). */
+/** The preview text: the draft as it would be submitted, with sample details filled in (plain text). */
 export function previewText(lang: LanguageCode, draft: string): string {
-  return renderBookingTemplateBody(draft.trim(), PREVIEW_SAMPLES[lang])
+  return renderBookingTemplateBody(normalizeBookingTemplateBody(draft), PREVIEW_SAMPLES[lang])
 }
 
-const FAILED: ReadonlyArray<TemplateEditOutcome['kind']> = ['not_sent', 'forbidden', 'not_simple', 'error', 'invalid']
+const FAILED: ReadonlyArray<TemplateEditOutcome['kind']> = ['not_sent', 'rejected', 'forbidden', 'not_simple', 'error', 'invalid']
 
 export function isFailedOutcome(outcome: TemplateEditOutcome): boolean {
   return FAILED.includes(outcome.kind)

@@ -7,6 +7,8 @@
  * BOOK-002: an edited template (the slot's candidate) is used once Meta
  * approves it and promoted to the live slot by a conditional write, so
  * concurrent sends promote once; until then the old approved one is used.
+ * F1 (C8): one lookup reads the candidate and live rows of both languages, and
+ * the promotion runs after the send.
  * The free text uses the restaurant's custom wording when it has one (AC-7).
  * Never throws: the booking state is already saved when this runs, and the
  * caller reports `delivered: false` to staff instead (spec AC-14 warning
@@ -16,13 +18,14 @@ import { isTemplateSendable, type WhatsAppTemplate } from '@/domain/entities/wha
 import { bookingParamsForBody, buildBookingTemplateParams, buildBookingText } from '@/domain/services/booking-message'
 import { renderBookingTemplateBody } from '@/domain/services/booking-template-body'
 import { Language, type LanguageCode } from '@/domain/value-objects/language'
-import type { BookingConfig, BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import { TEMPLATE_LANGUAGES, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
 import type { BookingMessageInput, BookingMessageSender, BookingSendResult } from '@/domain/ports/booking'
 import type { SendResult } from '@/domain/value-objects/send-result'
 
 export interface BookingSenderDeps {
   getConfig(restaurantId: string): Promise<BookingConfig>
-  findTemplate(id: string, restaurantId: string): Promise<WhatsAppTemplate | null>
+  /** The restaurant's rows among these ids (scoped lookup). */
+  findTemplates(ids: string[], restaurantId: string): Promise<WhatsAppTemplate[]>
   /** Conditional write: true only for the caller that moved the candidate into templateIds. */
   promoteCandidate(restaurantId: string, kind: BookingTemplateKind, language: LanguageCode, candidateId: string): Promise<boolean>
   getPhoneNumberId(restaurantId: string): Promise<string>
@@ -39,40 +42,64 @@ function failed(input: BookingMessageInput, reason: string): BookingSendResult {
   return { delivered: false, reason: 'send_failed' }
 }
 
-async function sendableTemplate(deps: BookingSenderDeps, id: string | null | undefined, restaurantId: string) {
-  if (!id) return null
-  const template = await deps.findTemplate(id, restaurantId)
+type Rows = Map<string, WhatsAppTemplate>
+
+/** F1 C8: candidate and live rows of both languages, in one scoped lookup. */
+async function slotRows(deps: BookingSenderDeps, config: BookingConfig, input: BookingMessageInput): Promise<Rows> {
+  const ids = TEMPLATE_LANGUAGES.flatMap((lang) => [config.templateCandidates[input.kind][lang], config.templateIds[input.kind][lang]])
+  const wanted = [...new Set(ids.filter((id): id is string => !!id))]
+  if (wanted.length === 0) return new Map()
+  return new Map((await deps.findTemplates(wanted, input.restaurantId)).map((t) => [t.id, t]))
+}
+
+function sendable(rows: Rows, id: string | null | undefined): WhatsAppTemplate | null {
+  const template = id ? rows.get(id) : undefined
   return template && isTemplateSendable(template) ? template : null
 }
 
-// A failed promotion write never blocks the send: the next one retries it.
-async function promote(deps: BookingSenderDeps, input: BookingMessageInput, language: LanguageCode, candidateId: string) {
-  try {
-    await deps.promoteCandidate(input.restaurantId, input.kind, language, candidateId)
-  } catch (err) {
-    console.warn('[Booking] template promotion failed:', { kind: input.kind, language, error: (err as Error).name })
-  }
+interface Chosen {
+  template: WhatsAppTemplate
+  /** Set when the template is an approved candidate still to be promoted. */
+  promote: { language: LanguageCode; candidateId: string } | null
 }
 
-async function slotTemplate(deps: BookingSenderDeps, config: BookingConfig, input: BookingMessageInput, language: LanguageCode) {
-  const candidateId = config.templateCandidates[input.kind][language]
-  const candidate = await sendableTemplate(deps, candidateId, input.restaurantId)
-  if (candidate && candidateId) {
-    await promote(deps, input, language, candidateId)
-    return candidate
-  }
-  return sendableTemplate(deps, config.templateIds[input.kind][language], input.restaurantId)
+function slotTemplate(rows: Rows, config: BookingConfig, kind: BookingTemplateKind, language: LanguageCode): Chosen | null {
+  const candidateId = config.templateCandidates[kind][language]
+  const candidate = sendable(rows, candidateId)
+  if (candidate && candidateId) return { template: candidate, promote: { language, candidateId } }
+  const live = sendable(rows, config.templateIds[kind][language])
+  return live ? { template: live, promote: null } : null
 }
 
 // W3: one template per language; the diner's own language first, then the
 // other one (a diner who reads English still gets the Chinese confirmation
 // rather than nothing outside the 24-hour window).
-async function approvedTemplate(deps: BookingSenderDeps, config: BookingConfig, input: BookingMessageInput, language: LanguageCode) {
+function approvedTemplate(rows: Rows, config: BookingConfig, kind: BookingTemplateKind, language: LanguageCode): Chosen | null {
   for (const lang of [language, Language.of(language).other().code]) {
-    const template = await slotTemplate(deps, config, input, lang)
-    if (template) return template
+    const chosen = slotTemplate(rows, config, kind, lang)
+    if (chosen) return chosen
   }
   return null
+}
+
+// After the send, never before it: a failed or slow promotion write never
+// delays or fails the message; the next send retries it.
+async function promote(deps: BookingSenderDeps, input: BookingMessageInput, chosen: Chosen) {
+  if (!chosen.promote) return
+  try {
+    await deps.promoteCandidate(input.restaurantId, input.kind, chosen.promote.language, chosen.promote.candidateId)
+  } catch (err) {
+    console.warn('[Booking] template promotion failed:', { kind: input.kind, language: chosen.promote.language, error: (err as Error).name })
+  }
+}
+
+async function sendTemplate(deps: BookingSenderDeps, input: BookingMessageInput, phoneNumberId: string, template: WhatsAppTemplate) {
+  // F3: this row's own BODY params, never a fixed set per kind.
+  const body = template.components.find((c) => c.type === 'BODY')?.text ?? ''
+  const paramValues = bookingParamsForBody(body, input.details)
+  if (!paramValues) return failed(input, 'template_params_unknown')
+  const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
+  return result.ok ? ({ delivered: true, via: 'template' } as const) : failed(input, result.error?.title ?? 'template_send_failed')
 }
 
 function freeText(config: BookingConfig, input: BookingMessageInput, language: LanguageCode): string {
@@ -87,14 +114,11 @@ async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Pr
 
   const language = await deps.getLanguage(input.restaurantId, input.phone)
   const config = await deps.getConfig(input.restaurantId)
-  const template = await approvedTemplate(deps, config, input, language)
-  if (template) {
-    // F3: this row's own BODY params, never a fixed set per kind.
-    const body = template.components.find((c) => c.type === 'BODY')?.text ?? ''
-    const paramValues = bookingParamsForBody(body, input.details)
-    if (!paramValues) return failed(input, 'template_params_unknown')
-    const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
-    return result.ok ? { delivered: true, via: 'template' } : failed(input, result.error?.title ?? 'template_send_failed')
+  const chosen = approvedTemplate(await slotRows(deps, config, input), config, input.kind, language)
+  if (chosen) {
+    const result = await sendTemplate(deps, input, phoneNumberId, chosen.template)
+    await promote(deps, input, chosen)
+    return result
   }
 
   if (!(await deps.isWindowOpen(input.restaurantId, input.phone))) return { delivered: false, reason: 'outside_window' }

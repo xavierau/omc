@@ -47,10 +47,11 @@ function Outcome({ lang, outcome }: { lang: LanguageCode; outcome: TemplateEditO
   const t = useTranslations('bookingSettings.templates.editor')
   if (!outcome) return null
   const failed = isFailedOutcome(outcome)
+  const values = outcome.kind === 'rejected' ? { reason: outcome.reason ?? t('candidate.noReason') } : undefined
   return (
     <p data-testid={`booking-template-editor-${lang}-outcome`} role={failed ? 'alert' : 'status'}
       className={failed ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
-      {t(`outcome.${outcome.kind}`)}
+      {t(`outcome.${outcome.kind}`, values)}
     </p>
   )
 }

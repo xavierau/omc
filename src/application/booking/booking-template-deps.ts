@@ -12,12 +12,13 @@ import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositori
 import {
   getBookingConfig,
   saveBookingTemplateEdit,
-  saveBookingTemplateIds,
+  saveProvisionedBookingTemplates,
 } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { provisionBookingTemplates } from './provision-booking-templates'
 import { bookingTemplateOverview, bookingTemplateStatuses, type BookingTemplateOverview } from './booking-template-statuses'
 import { editBookingTemplate, type EditBookingTemplateInput, type EditBookingTemplateResult } from './edit-booking-template'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
+import type { BookingConfig } from '@/domain/value-objects/booking-config'
 
 /** 6 hex chars: a fresh, valid template-name suffix per attempt. */
 const suffix = () => randomBytes(3).toString('hex')
@@ -28,7 +29,7 @@ export function provisionBookingTemplatesFor(restaurantId: string): Promise<Book
     findTemplates: findManyByIdsForRestaurant,
     createTemplate: createWhatsAppTemplate,
     resubmitTemplate: (id, restaurantId, components) => updateWhatsAppTemplate(id, restaurantId, { components }),
-    saveTemplateIds: saveBookingTemplateIds,
+    saveProvisioned: saveProvisionedBookingTemplates,
     ensureWabaId,
     suffix,
   })
@@ -38,8 +39,9 @@ export function bookingTemplateStatusesFor(restaurantId: string): Promise<Bookin
   return bookingTemplateStatuses(restaurantId, { getConfig: getBookingConfig, findTemplates: findManyByIdsForRestaurant })
 }
 
-export function bookingTemplateOverviewFor(restaurantId: string): Promise<BookingTemplateOverview> {
-  return bookingTemplateOverview(restaurantId, { getConfig: getBookingConfig, findTemplates: findManyByIdsForRestaurant })
+/** `config` = the booking config the caller already read (one read per request). */
+export function bookingTemplateOverviewFor(restaurantId: string, config?: BookingConfig): Promise<BookingTemplateOverview> {
+  return bookingTemplateOverview(restaurantId, { getConfig: getBookingConfig, findTemplates: findManyByIdsForRestaurant }, config)
 }
 
 export function editBookingTemplateFor(input: EditBookingTemplateInput): Promise<EditBookingTemplateResult> {

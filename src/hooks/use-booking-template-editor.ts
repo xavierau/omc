@@ -11,7 +11,7 @@ import { TEMPLATE_LANGUAGES, type BookingTemplateKind } from '@/domain/value-obj
 import { validateBookingTemplateBody, type BookingBodyCheck } from '@/domain/services/booking-template-body'
 import type { BookingTemplateSlotViews } from '@/application/booking/booking-template-statuses'
 import type { LanguageCode } from '@/domain/value-objects/language'
-import { insertPlaceholder, templateEditResult, type TemplateEditOutcome, type TemplateOverview } from './booking-template-editor-model'
+import { editorText, insertPlaceholder, templateEditResult, type TemplateEditOutcome, type TemplateOverview } from './booking-template-editor-model'
 
 type PerLanguage<T> = Record<LanguageCode, T>
 
@@ -32,7 +32,7 @@ const perLanguage = <T>(build: (lang: LanguageCode) => T) =>
   Object.fromEntries(TEMPLATE_LANGUAGES.map((lang) => [lang, build(lang)])) as PerLanguage<T>
 
 export function useBookingTemplateEditor(kind: BookingTemplateKind, slots: BookingTemplateSlotViews, onSaved: (o: TemplateOverview) => void) {
-  const textOf = (all: BookingTemplateSlotViews, lang: LanguageCode) => all[kind][lang].customBody ?? all[kind][lang].defaultBody
+  const textOf = (all: BookingTemplateSlotViews, lang: LanguageCode) => editorText(all[kind][lang])
   const [drafts, setDrafts] = useState<PerLanguage<string>>(() => perLanguage((lang) => textOf(slots, lang)))
   const [outcomes, setOutcomes] = useState<PerLanguage<TemplateEditOutcome | null>>(() => perLanguage(() => null))
   const [saving, setSaving] = useState<LanguageCode | null>(null)

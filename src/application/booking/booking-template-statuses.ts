@@ -5,7 +5,9 @@
  *
  * BOOK-002: rows include each slot's candidate (an edit awaiting Meta). An
  * approved candidate is shown as the live template (lazy promotion), and the
- * slot views carry what the message editor needs.
+ * slot views carry what the message editor needs. F1: the statuses alone skip
+ * the slot views (C10), and a view carries the approved live text the editor
+ * opens with (C6).
  */
 import {
   BOOKING_TEMPLATE_LANGUAGES,
@@ -15,6 +17,7 @@ import {
   type BookingTemplateStatuses,
 } from '@/domain/services/booking-templates'
 import {
+  approvedBodyOf,
   bookingCandidateStatus,
   resolveBookingTemplateSlot,
   type BookingCandidateStatus,
@@ -32,6 +35,8 @@ export interface BookingTemplateSlotView {
   status: BookingTemplateStatus
   candidate: { status: BookingCandidateStatus; reason: string | null } | null
   customBody: string | null
+  /** The live template's text when Meta approved it; null otherwise. */
+  approvedBody: string | null
   defaultBody: string
   placeholders: string[]
 }
@@ -78,6 +83,7 @@ function slotView(config: BookingConfig, rows: Rows, kind: BookingTemplateKind, 
     status: liveStatus(config, rows, kind, lang),
     candidate: candidateStatus ? { status: candidateStatus, reason: candidateRow?.rejectionReason ?? null } : null,
     customBody: config.templateBodies[kind][lang] ?? null,
+    approvedBody: approvedBodyOf(slot, rows),
     defaultBody: bookingTemplateBody(kind, lang),
     placeholders: allowedBookingPlaceholders(kind),
   }
@@ -92,11 +98,13 @@ interface ReadDeps {
   findTemplates: FindTemplates
 }
 
-export async function bookingTemplateOverview(restaurantId: string, deps: ReadDeps): Promise<BookingTemplateOverview> {
-  const config = await deps.getConfig(restaurantId)
-  return overviewOf(config, await templateRowsById(config, restaurantId, deps.findTemplates))
+/** `config` = one the caller already read (the settings GET), else it is read here. */
+export async function bookingTemplateOverview(restaurantId: string, deps: ReadDeps, config?: BookingConfig): Promise<BookingTemplateOverview> {
+  const current = config ?? (await deps.getConfig(restaurantId))
+  return overviewOf(current, await templateRowsById(current, restaurantId, deps.findTemplates))
 }
 
 export async function bookingTemplateStatuses(restaurantId: string, deps: ReadDeps): Promise<BookingTemplateStatuses> {
-  return (await bookingTemplateOverview(restaurantId, deps)).templates
+  const config = await deps.getConfig(restaurantId)
+  return statusesOf(config, await templateRowsById(config, restaurantId, deps.findTemplates))
 }

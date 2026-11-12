@@ -1449,6 +1449,7 @@
           "submitted": "Saved. Waiting for WhatsApp approval.",
           "already_live": "Saved. This text is already approved and in use.",
           "not_sent": "Saved, but it couldn't be sent to WhatsApp. Save again to retry.",
+          "rejected": "Rejected by WhatsApp: {reason}. Change the text, then save again.",
           "reset": "Default restored.",
           "forbidden": "Only admins can change booking messages.",
           "not_simple": "Save Simple booking first, then edit its messages.",
@@ -1467,7 +1468,7 @@
         },
         "warnings": {
           "low_ratio_en": "Few words around the details ({detail} per detail). WhatsApp may reject it; aim for 3 or more.",
-          "low_ratio_zh_hk": "Few characters around the details ({detail} per detail). WhatsApp may reject it; aim for 4 or more.",
+          "low_ratio_zh_hk": "Few characters around the details ({detail} per detail). WhatsApp may reject it; aim for 6 or more.",
           "promotional_term": "“{detail}” can read as marketing. WhatsApp may reject a booking message that uses it."
         },
         "candidate": {

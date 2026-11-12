@@ -5,16 +5,21 @@
  * Errors block the save: Meta refuses these bodies outright, or they would
  * put a link or an unfillable parameter in front of diners. Warnings only
  * inform: a low fixed-text-per-placeholder ratio (Meta's 2388293 threshold is
- * unpublished; prod approved a zh_HK body at 3.25 and rejected one at 3.0) and
- * promotional wording in a UTILITY message (R21). The restaurant owns its text.
+ * unpublished; Meta rejected zh_HK bodies at 3.0 and, after review, at 3.25)
+ * and promotional wording in a UTILITY message (R21). The restaurant owns its
+ * text. F1: every check runs on the text the submit pipeline sends (full-width
+ * braces ASCII-ised, prepare-template-components.ts), and a bare domain or
+ * short link is a link.
  */
 import type { BookingTemplateKind } from '../value-objects/booking-config'
 import type { LanguageCode } from '../value-objects/language'
+import { normalizeTemplateText } from './prepare-template-components'
 
 export const BOOKING_TEMPLATE_BODY_MAX = 1024
 const BASE_PLACEHOLDERS = ['name', 'restaurant', 'date', 'time', 'party_size']
 const EN_WORDS_PER_PLACEHOLDER = 3
-const ZH_CHARS_PER_PLACEHOLDER = 4
+/** Non-placeholder characters per placeholder in zh_HK; the default-copy floor test uses it too. */
+export const ZH_CHARS_PER_PLACEHOLDER = 6
 
 export const PROMOTIONAL_TERMS = [
   'offer', 'discount', 'promo', 'sale', 'free', 'coupon', 'deal', '% off', 'voucher', 'limited', 'special', 'member',
@@ -37,7 +42,17 @@ export interface BookingBodyCheck {
 }
 
 const TOKEN = /\{\{([^{}]*)\}\}/g
-const LINK = /https?:\/\/|www\./i
+const URL_LINK = /https?:\/\/|www\./i
+// A bare hostname (kushiro.hk/offers, wa.me/…, bit.ly/…, info@kushiro.hk):
+// labels joined by dots ending in a common TLD. "Dr.", "7.30pm" and "1.5"
+// have no such ending, so they pass.
+const TLDS = [
+  'com', 'net', 'org', 'edu', 'gov', 'io', 'co', 'hk', 'me', 'ly', 'gl', 'gg', 'to', 'tv', 'cc', 'ai', 'app', 'dev',
+  'info', 'biz', 'shop', 'store', 'site', 'online', 'xyz', 'link', 'page', 'club', 'top', 'vip', 'asia', 'cn', 'tw',
+  'mo', 'sg', 'jp', 'kr', 'uk', 'au', 'ca', 'de', 'fr', 'us',
+]
+const BARE_DOMAIN = new RegExp(`(?<![a-z0-9-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:${TLDS.join('|')})(?![a-z0-9-])`, 'i')
+const hasLink = (text: string) => URL_LINK.test(text) || BARE_DOMAIN.test(text)
 
 /** The placeholders one kind of message may use ({{reason}} only when declined). */
 export function allowedBookingPlaceholders(kind: BookingTemplateKind): string[] {
@@ -67,7 +82,7 @@ function bodyErrors(kind: BookingTemplateKind, text: string): BookingBodyIssue<B
   if (text === '') return [{ code: 'empty' }]
   const errors: BookingBodyIssue<BookingBodyErrorCode>[] = []
   if ([...text].length > BOOKING_TEMPLATE_BODY_MAX) errors.push({ code: 'too_long' })
-  if (LINK.test(text)) errors.push({ code: 'link' })
+  if (hasLink(text)) errors.push({ code: 'link' })
   if (text.startsWith('{{') || text.endsWith('}}')) errors.push({ code: 'placeholder_at_edge' })
   return [...errors, ...placeholderErrors(kind, text)]
 }
@@ -103,9 +118,14 @@ function bodyWarnings(language: LanguageCode, text: string): BookingBodyIssue<Bo
   return warnings
 }
 
-/** Checks one message body for one kind and language (the text is trimmed first). */
+/** The text that is stored and submitted: trimmed, full-width braces as ASCII. */
+export function normalizeBookingTemplateBody(body: string): string {
+  return normalizeTemplateText(body).trim()
+}
+
+/** Checks one message body for one kind and language, as normalized for submission. */
 export function validateBookingTemplateBody(kind: BookingTemplateKind, language: LanguageCode, body: string): BookingBodyCheck {
-  const text = body.trim()
+  const text = normalizeBookingTemplateBody(body)
   const errors = bodyErrors(kind, text)
   if (errors.some((e) => e.code === 'empty')) return { errors, warnings: [] }
   return { errors, warnings: bodyWarnings(language, text) }

@@ -1449,6 +1449,7 @@
           "submitted": "已儲存,正等待 WhatsApp 審批。",
           "already_live": "已儲存。這段文字已獲批准並正在使用。",
           "not_sent": "已儲存,但未能提交至 WhatsApp。請再儲存一次。",
+          "rejected": "WhatsApp 拒絕了這段文字:{reason}。請修改文字後再儲存。",
           "reset": "已還原預設文字。",
           "forbidden": "只有管理員可以修改訂座訊息。",
           "not_simple": "請先儲存「簡易訂座」設定,再修改訊息。",
@@ -1467,7 +1468,7 @@
         },
         "warnings": {
           "low_ratio_en": "資料之間的字詞太少(每項資料 {detail} 個字)。WhatsApp 可能會拒絕,建議最少 3 個。",
-          "low_ratio_zh_hk": "資料之間的文字太少(每項資料 {detail} 個字)。WhatsApp 可能會拒絕,建議最少 4 個。",
+          "low_ratio_zh_hk": "資料之間的文字太少(每項資料 {detail} 個字)。WhatsApp 可能會拒絕,建議最少 6 個。",
           "promotional_term": "「{detail}」可能被視為推廣字眼,WhatsApp 可能會拒絕使用它的訂座訊息。"
         },
         "candidate": {

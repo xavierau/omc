@@ -7,7 +7,7 @@ import { bookingCronStore, bookingRequestStore } from '@/infrastructure/supabase
 import { bookingSettingsReader, promoteBookingTemplateCandidate } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
-import { findByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
+import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { isWindowOpen } from '@/infrastructure/supabase/repositories/conversation-window-repository'
 import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
@@ -31,7 +31,7 @@ const members: BookingMemberLookup = {
 export function bookingMessageSender(): BookingMessageSender {
   return createBookingMessageSender({
     getConfig: bookingSettingsReader.getConfig,
-    findTemplate: findByIdForRestaurant,
+    findTemplates: findManyByIdsForRestaurant,
     promoteCandidate: promoteBookingTemplateCandidate,
     getPhoneNumberId: getRestaurantPhoneNumberId,
     isWindowOpen: (restaurantId, phoneE164) => isWindowOpen({ restaurantId, phoneE164 }),

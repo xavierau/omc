@@ -161,6 +161,16 @@ function parseTtlField(raw: unknown, current: number | null, key: keyof BookingS
   return current
 }
 
+/**
+ * BOOK-002 F1 C2: the settings form's own fields from `settings`, onto
+ * `current` (the stored value at write time), so a save never writes back
+ * template ids, edits or candidates it read earlier.
+ */
+export function applyBookingSettings(current: BookingConfig, settings: BookingConfig): BookingConfig {
+  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize } = settings
+  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize }
+}
+
 /** Validates an admin's booking settings save against the current config. */
 export function parseBookingSettings(body: unknown, current: BookingConfig): ParseBookingSettingsResult {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, errors: { form: 'invalid_body' } }
