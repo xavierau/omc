@@ -66,10 +66,13 @@ async function readRaw(restaurantId: string): Promise<Record<string, unknown> | 
   return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
 }
 
+const withRev = (config: BookingConfig, rev: number) => ({ ...config, rev })
+
 async function writeIfUnchanged(restaurantId: string, rev: unknown, next: BookingConfig): Promise<boolean> {
+  const stamped = withRev(next, Number.isInteger(rev) ? (rev as number) + 1 : 1)
   const query = createServerSupabaseClient()
     .from('restaurants')
-    .update({ booking_config: { ...next, rev: Number.isInteger(rev) ? (rev as number) + 1 : 1 } })
+    .update({ booking_config: stamped })
     .eq('id', restaurantId)
   const guarded = rev === undefined || rev === null ? query.is('booking_config->>rev', null) : query.eq('booking_config->>rev', String(rev))
   const { data, error } = await guarded.select('id')
