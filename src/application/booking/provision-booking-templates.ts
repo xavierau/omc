@@ -8,7 +8,9 @@
  * name, since a name is unique per WABA forever (memory:
  * principle_whatsapp_flow_naming_and_waba_scope). A failed one (a stored draft
  * that never reached Meta) is resubmitted in place, so a provider outage does
- * not leave a new draft row per save (F12, review S-5). Never throws for a
+ * not leave a new draft row per save (F12, review S-5). Before any submission
+ * the WABA id is resolved and stored once, so a draft stored before the WABA
+ * was known reaches Meta on a later save (F2, re-review N-1). Never throws for a
  * single failed submission: that template reads `not_submitted`/`failed` and
  * the next save retries it. Settings are saved before this runs.
  */
@@ -45,6 +47,8 @@ export interface ProvisionBookingTemplatesDeps {
     components: TemplateComponent[]
   ): Promise<{ template: WhatsAppTemplate; error?: string }>
   saveTemplateIds(restaurantId: string, ids: TemplateIds): Promise<void>
+  /** The stored WABA id, else derived from the linked number and stored; null when unknown. */
+  ensureWabaId(restaurantId: string): Promise<string | null>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
   suffix(): string
 }
@@ -76,6 +80,16 @@ function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplat
   return deps.createTemplate({ restaurantId, name: s.name, language: metaLanguageCode(s.language), category: 'UTILITY', components })
 }
 
+// The in-place resubmit (update path) does not resolve the WABA itself, so it
+// is resolved here first. A failure leaves the WABA unknown: drafts stay failed.
+async function resolveWaba(restaurantId: string, deps: ProvisionBookingTemplatesDeps): Promise<void> {
+  try {
+    await deps.ensureWabaId(restaurantId)
+  } catch (err) {
+    console.warn('[Booking] WABA resolution failed:', { error: (err as Error).message })
+  }
+}
+
 async function submit(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
   try {
     const { template } = await send(restaurantId, s, deps)
@@ -95,6 +109,7 @@ export async function provisionBookingTemplates(
   const submissions = pendingSubmissions(config.templateIds, rows, deps)
   if (submissions.length === 0) return statusesOf(config.templateIds, rows)
 
+  await resolveWaba(restaurantId, deps)
   const ids: TemplateIds = structuredClone(config.templateIds)
   const created = await Promise.all(submissions.map((s) => submit(restaurantId, s, deps)))
   submissions.forEach((s, i) => {

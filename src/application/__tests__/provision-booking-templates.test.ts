@@ -34,6 +34,7 @@ beforeEach(() => {
     createTemplate: vi.fn(),
     resubmitTemplate: vi.fn(async (id: string) => ({ template: rows.get(id) })),
     saveTemplateIds: vi.fn(async (_rid, ids) => { config = { ...config, templateIds: ids } }),
+    ensureWabaId: vi.fn(async () => 'waba-1'),
     suffix: vi.fn(() => `s${++suffix}`),
   }
   createdAs('pending')

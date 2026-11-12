@@ -6,6 +6,7 @@
 import { randomBytes } from 'crypto'
 import { createWhatsAppTemplate } from '@/application/create-whatsapp-template'
 import { updateWhatsAppTemplate } from '@/application/update-whatsapp-template'
+import { ensureWabaId } from '@/application/ensure-waba-id'
 import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getBookingConfig, saveBookingTemplateIds } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { provisionBookingTemplates } from './provision-booking-templates'
@@ -22,6 +23,7 @@ export function provisionBookingTemplatesFor(restaurantId: string): Promise<Book
     createTemplate: createWhatsAppTemplate,
     resubmitTemplate: (id, restaurantId, components) => updateWhatsAppTemplate(id, restaurantId, { components }),
     saveTemplateIds: saveBookingTemplateIds,
+    ensureWabaId,
     suffix,
   })
 }

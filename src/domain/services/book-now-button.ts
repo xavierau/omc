@@ -34,6 +34,7 @@ export function bookNowExampleUrl(appUrl: string): string {
   return `${trimBase(appUrl)}/b/${BOOK_NOW_EXAMPLE_TOKEN}`
 }
 
+/** Reserved (re-review N-2, accepted): a dynamic URL button whose path ends in /b/{{1}} on any https host is Book now. */
 export function isBookNowButtonUrl(url: string | undefined): boolean {
   return typeof url === 'string' && BOOK_NOW_URL.test(url)
 }
