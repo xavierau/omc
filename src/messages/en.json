@@ -321,7 +321,18 @@
     "recipientCount": "{count} active members will receive this",
     "recipientCountLoading": "Counting recipients…",
     "recipientCountZero": "No active members carry these tags — this campaign would reach nobody.",
-    "recipientCountError": "Couldn't count recipients."
+    "recipientCountError": "Couldn't count recipients.",
+    "bookNowTitle": "Book now",
+    "bookNowToggle": "Add a Book now button",
+    "bookNowToggleHint": "Each customer gets their own booking link. The template must have a Book now button.",
+    "bookNowNoLink": "Add a booking link in settings",
+    "bookNowUrl": "Booking link for this campaign (optional)",
+    "bookNowUrlHint": "Uses the restaurant's booking link when empty. Must start with https://",
+    "bookNowPreview": "Each message carries a Book now button",
+    "bookNowIssue": {
+      "template_missing_button": "This template has no Book now button. Pick a template with one, or turn Book now off.",
+      "toggle_off_with_button": "This template has a Book now button. Turn on Book now, or pick another template."
+    }
   },
   "tags": {
     "title": "Tags",
@@ -1380,6 +1391,28 @@
       "invalid_https_url": "Use a link starting with https://",
       "invalid_ttl": "Use a whole number of hours (1 to 8760).",
       "invalid_party_size": "Use a number from 1 to 100."
+    },
+    "templates": {
+      "title": "WhatsApp booking messages",
+      "hint": "Submitted to WhatsApp for approval when you save Simple booking. Until approved, messages to customers who have not written in the last 24 hours are not delivered. A rejected message is resubmitted on your next save.",
+      "unknown": "Couldn't load the message status. Save again to retry.",
+      "kind": {
+        "received": "Request received",
+        "confirmed": "Booking confirmed",
+        "declined": "Booking declined",
+        "reminder": "Booking reminder"
+      },
+      "lang": {
+        "en": "English",
+        "zh_hk": "中文"
+      },
+      "status": {
+        "approved": "Approved",
+        "pending": "Pending review",
+        "rejected": "Rejected",
+        "failed": "Not sent",
+        "not_submitted": "Not submitted"
+      }
     }
   }
 }

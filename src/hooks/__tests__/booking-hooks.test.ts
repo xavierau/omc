@@ -47,7 +47,8 @@ describe('use-booking-settings helpers', () => {
   })
 
   it('maps save answers', () => {
-    expect(saveOutcome(200, { config: DEFAULT_BOOKING_CONFIG })).toEqual({ kind: 'saved', config: DEFAULT_BOOKING_CONFIG })
+    // W3: a save also carries the template statuses (null when absent).
+    expect(saveOutcome(200, { config: DEFAULT_BOOKING_CONFIG })).toEqual({ kind: 'saved', config: DEFAULT_BOOKING_CONFIG, templates: null })
     expect(saveOutcome(400, { fields: { externalUrl: 'invalid_https_url' } })).toEqual({
       kind: 'fields', errors: { externalUrl: 'invalid_https_url' },
     })

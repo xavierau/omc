@@ -54,8 +54,10 @@ export function parseCampaignBookingUrl(raw: unknown): ParsedBookingUrl {
 
 /**
  * What the campaign form shows for the toggle: hidden while booking is off
- * (unless this campaign already has it on), disabled with "Add a booking link
- * in settings" in External mode with no link anywhere, else available.
+ * (unless this campaign already has it on, or its template carries the
+ * button, so the admin can still fix a mismatch), disabled with "Add a
+ * booking link in settings" in External mode with no link anywhere, else
+ * available.
  */
 export type BookNowToggleState = 'hidden' | 'no_link' | 'available'
 
@@ -64,8 +66,9 @@ export function bookNowToggleState(input: {
   externalUrl: string | null
   campaignUrl: string | null
   enabled: boolean
+  templateHasButton: boolean
 }): BookNowToggleState {
-  if (input.mode === 'off' && !input.enabled) return 'hidden'
+  if (input.mode === 'off' && !input.enabled && !input.templateHasButton) return 'hidden'
   const lacksLink = lacksExternalLink({ ...input, bookingUrl: input.campaignUrl })
   return lacksLink ? 'no_link' : 'available'
 }
