@@ -60,11 +60,11 @@ export async function sendTextMessage(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — message not sent:', { to, text })
+    console.warn('[Kapso] No API key — message not sent:', { to: maskPhone(to), text })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
-    console.warn('[Kapso] No phoneNumberId — message not sent:', { to, text })
+    console.warn('[Kapso] No phoneNumberId — message not sent:', { to: maskPhone(to), text })
     return skipResult('kapso_no_phone_number_id')
   }
   try {
@@ -88,11 +88,11 @@ export async function sendImageMessage(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — image not sent:', { to, imageUrl })
+    console.warn('[Kapso] No API key — image not sent:', { to: maskPhone(to), imageUrl })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
-    console.warn('[Kapso] No phoneNumberId — image not sent:', { to, imageUrl })
+    console.warn('[Kapso] No phoneNumberId — image not sent:', { to: maskPhone(to), imageUrl })
     return skipResult('kapso_no_phone_number_id')
   }
   try {
@@ -117,12 +117,12 @@ export async function sendInteractiveButtons(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — buttons not sent:', { to, bodyText })
+    console.warn('[Kapso] No API key — buttons not sent:', { to: maskPhone(to), bodyText })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
     console.warn('[Kapso] No phoneNumberId — buttons not sent:', {
-      to,
+      to: maskPhone(to),
       bodyText,
     })
     return skipResult('kapso_no_phone_number_id')
@@ -155,11 +155,11 @@ export async function sendInteractiveList(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — list not sent:', { to, bodyText })
+    console.warn('[Kapso] No API key — list not sent:', { to: maskPhone(to), bodyText })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
-    console.warn('[Kapso] No phoneNumberId — list not sent:', { to, bodyText })
+    console.warn('[Kapso] No phoneNumberId — list not sent:', { to: maskPhone(to), bodyText })
     return skipResult('kapso_no_phone_number_id')
   }
   try {
@@ -237,12 +237,12 @@ export async function sendCtaUrlButton(
 ): Promise<SendResult> {
   const client = getClient()
   if (!client) {
-    console.warn('[Kapso] No API key — CTA url not sent:', { to, bodyText })
+    console.warn('[Kapso] No API key — CTA url not sent:', { to: maskPhone(to), bodyText })
     return skipResult('kapso_no_api_key')
   }
   if (!phoneNumberId) {
     console.warn('[Kapso] No phoneNumberId — CTA url not sent:', {
-      to,
+      to: maskPhone(to),
       bodyText,
     })
     return skipResult('kapso_no_phone_number_id')
