@@ -6,7 +6,7 @@
  * the payload sends null for no expiry.
  */
 import { useState } from 'react'
-import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
+import { isSafeHttpsUrl, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { parseTemplateStatuses } from './use-booking-availability'
 
@@ -40,10 +40,20 @@ export function toForm(config: BookingConfig): BookingSettingsForm {
 
 const toInt = (value: string) => (/^\d+$/.test(value.trim()) ? Number(value.trim()) : value)
 
+// Only External mode shows (and so can explain an error on) the URL field. Any
+// other mode keeps a valid stored URL and drops an invalid draft instead of
+// failing the save on an error the admin cannot see.
+function externalUrlPayload(form: BookingSettingsForm): string | null {
+  const url = form.externalUrl.trim()
+  if (url === '') return null
+  if (form.mode === 'external') return url
+  return isSafeHttpsUrl(url) ? url : null
+}
+
 export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
   return {
     mode: form.mode,
-    externalUrl: form.externalUrl.trim() === '' ? null : form.externalUrl.trim(),
+    externalUrl: externalUrlPayload(form),
     chatLinkTtlHours: form.chatLinkNoExpiry ? null : toInt(form.chatLinkTtlHours),
     campaignLinkTtlHours: form.campaignLinkNoExpiry ? null : toInt(form.campaignLinkTtlHours),
     maxPartySize: toInt(form.maxPartySize),

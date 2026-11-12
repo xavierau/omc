@@ -41,6 +41,17 @@ describe('use-booking-settings helpers', () => {
     })
   })
 
+  // I1 seam bug: an invalid URL typed in External mode stayed in the hidden
+  // field after switching to Simple/Off; the save then failed on a URL error
+  // that those modes do not render, so Simple could never be saved.
+  it('outside External mode sends only a valid stored URL, never an invalid draft', () => {
+    const base = toForm(DEFAULT_BOOKING_CONFIG)
+    expect(toPayload({ ...base, mode: 'simple', externalUrl: 'http://not-https.test' }).externalUrl).toBeNull()
+    expect(toPayload({ ...base, mode: 'off', externalUrl: 'javascript:alert(1)' }).externalUrl).toBeNull()
+    expect(toPayload({ ...base, mode: 'simple', externalUrl: ' https://inline.app/r/1 ' }).externalUrl).toBe('https://inline.app/r/1')
+    expect(toPayload({ ...base, mode: 'external', externalUrl: 'http://not-https.test' }).externalUrl).toBe('http://not-https.test')
+  })
+
   it('flags external mode without a URL', () => {
     expect(needsExternalUrl({ ...toForm(DEFAULT_BOOKING_CONFIG), mode: 'external' })).toBe(true)
     expect(needsExternalUrl({ ...toForm(DEFAULT_BOOKING_CONFIG), mode: 'external', externalUrl: 'https://x.io' })).toBe(false)
