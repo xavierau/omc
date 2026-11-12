@@ -204,3 +204,65 @@ Surface to the owner before rolling back unless service is down.
 - `BOOK-001` has no entry in `.claude/kanban.json` on develop or main, so the merge dropped nothing there and there was
   nothing to move to done.
 - The primary checkout (`main` @ `fdbe34eb`, dirty) is behind `origin/main`.
+
+## Release 2: booking template copy fix (#180), 2026-11-12 15:22–15:30Z (dev, BOOK-001-REL2)
+
+**Outcome: DEPLOYED 15:26:33Z. No migration, no template submitted, no WhatsApp message sent. Every smoke check
+PASSES.** Prod serves `main@1d398656`, release **`397bc643`**, BUILD_ID **`riN6cf7pnVy9Nari180qV`**. Go: the owner's
+"deploy when green" (2026-11-12), relayed by the main thread. Next, the owner presses Save once in booking settings,
+and that resubmits the rejected templates with the new copy.
+
+- **PR #180** (`fix/booking-template-copy` @ `1d2d5ced` → develop): squash **`5da3eba5`** at 15:22:26Z. ls-remote
+  develop = `5da3eba5`. Gate: F3 at `fbe05814`, `vitest run` and `tsc --noEmit` exit 0
+  (`artifacts/2026-11-12-book-001-f3-handoff`). `git diff fbe05814 origin/main -- src supabase scripts package*` is empty.
+- **PR #181** (develop → main, "release: booking template copy fix (#180)"): MERGEABLE/CLEAN, so no conflict
+  resolution was needed. Merge commit **`1d3986567cbb14916623611b0321aa38ca3a36e5`** at 15:22:54Z. ls-remote main ✓.
+  main contains `5da3eba5`, and main differs from develop only in workspace docs.
+- Against prod `7ccf66e0`: no change to `supabase/`, `package*`, `scripts/` or `deploy.sh`.
+
+```
+cd /Users/xavierau/Code/js/whatsapp-crm--release-book001
+gh pr merge 180 --squash --match-head-commit 1d2d5ced…              # 5da3eba5
+gh pr create --base main --head develop; gh pr merge 181 --merge    # 1d398656
+rtk proxy git fetch origin refs/heads/release:refs/heads/release-backup-034998b
+rtk proxy git checkout -B release-book001 origin/main
+rtk proxy git push origin release-book001:refs/heads/release-book001
+SOURCE_REF=release-book001 resource-lock.py heavy -- bash scripts/release.sh   # exit 0, built on the Mac
+git ls-remote origin refs/heads/release                     # 397bc643 ✓ (was 034998bb)
+rtk proxy git push origin --delete release-book001          # ls-remote empty ✓
+```
+`release.sh`: `BUILD_ID riN6cf7pnVy9Nari180qV`, secret scan clean, `034998bb...397bc643 -> release (forced update)`.
+
+| time (UTC) | event |
+|---|---|
+| 15:23:23 | box pre-flight. MemAvailable 2,309 MB, swap free 144 MB, load 0.08, disk 27,828 MB free. HEAD `034998bb`, BUILD_ID `7umNlW5VKJJkTi6w2JwzR`, pids 3850736 / 3850810 |
+| 15:25:34 | bundle built on the Mac (`RELEASE.json.built_at`) |
+| 15:25:47 | Forge deployment **82828241** started (`397bc643`) |
+| — | `lockfile unchanged (5b141452304d) — skipping npm ci`. `supabase db push`: **Remote database is up to date** (no migration). Seed idempotent |
+| — | app daemon-746791 → **pid 3863259**, worker daemon-801730 → **pid 3863333**, both RUNNING. `✓ Deploy complete` |
+| 15:26:33 | deployment `finished` |
+
+| smoke (15:26:59–15:30:02Z, read-only, unauthenticated) | result |
+|---|---|
+| provenance | HEAD `397bc643`. RELEASE.json `source_commit 1d398656…` == main tip, `build_id riN6cf7pnVy9Nari180qV` == `.next/BUILD_ID`. Only dirt: ` M supabase/.temp/cli-latest` (as before). Other 2 supervisor programs untouched |
+| served build | `/login` embeds the new BUILD_ID once and the old one 0 times. Chunk `/_next/static/chunks/3yfl9fgvivx3-.js` returns 200 |
+| `GET /b/<random 43-char>` | **200**, `<title>Booking</title>`, `data-testid="booking-unavailable"`, `Cache-Control: no-store, max-age=0`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow` |
+| `POST /api/b/<random>` `{}` | **410** `{"error":"token_unusable","state":"unknown"}`. Without a body it is 400 `invalid_json`, same before and after |
+| cron routes | `/api/cron/booking-reminders` and `/api/cron/booking-retention` return **401** without a bearer and with a bad bearer |
+| existing | `/api/health` 200, `/login` 200, `/` 307 |
+| Forge job 2216322 | the 15:30:01Z tick logged `{"candidates":0,"due":0,"sent":0,"notDelivered":0,"claimLost":0}`. `run-cron-endpoint.sh` prints the body only on 2xx (else `HTTP <code>` and exit 1), and the route's only 2xx is `NextResponse.json(…)` with default status 200, so this was **HTTP 200** |
+| logs | app `✓ Ready in 219ms` plus the existing standalone warning. Worker: all 6 queues started, clean SIGTERM drain before. 0 fatal, uncaught, unhandled, missing-module or Redis-error lines. One `[Booking] rate limiter unavailable, allowing: Error` from the smoke's first POST after boot, as in Finding 3 |
+| box after | MemAvailable 2,445 MB, swap free 144 MB, load 0.13, disk 27,827 MB free |
+| not run | authenticated UI, booking settings Save, template submission, any send (owner resubmits) |
+
+**Rollback to tonight's release** (ready, not executed; ETR ≈ 1–2 min). Release `034998b` = `main@7ccf66e0`, BUILD_ID
+`7umNlW5VKJJkTi6w2JwzR`:
+```
+cd /Users/xavierau/Code/js/whatsapp-crm       # local refs are shared by every worktree of this repo
+rtk proxy git push --force origin release-backup-034998b:refs/heads/release
+git ls-remote origin refs/heads/release       # must read 034998bb5234961d611e9b33909050a3d912bc5a
+# Forge redeploys; check RELEASE.json source_commit 7ccf66e0, both pids change, /api/health 200.
+```
+Keep the Forge jobs: the old build serves both cron routes. Templates already submitted to Meta stay in the WABA.
+After a rollback, the old sender sends the old param set. A row submitted with the new copy would then miss or carry
+extra params, so roll back before the owner's Save, or accept that the new-copy rows fail to send until a re-release.
