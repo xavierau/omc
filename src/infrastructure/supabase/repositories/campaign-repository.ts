@@ -3,6 +3,7 @@ import { Campaign } from '@/domain/entities/campaign'
 import {
   mapRowToCampaign,
   buildCampaignUpdateRow,
+  bookNowInsertColumns,
   extractConstraintName,
   type CreateCampaignParams,
   type UpdateCampaignParams,
@@ -41,6 +42,7 @@ export async function createCampaign(
       whatsapp_template_id: params.whatsappTemplateId ?? null,
       target_audience: params.targetAudience ?? 'all',
       status: params.status ?? 'draft',
+      ...bookNowInsertColumns(params),
     })
     .select('*')
     .single()

@@ -1,9 +1,10 @@
 import {
   isTemplateSendable,
   extractParameters,
-  isDynamicUrlButton,
 } from '@/domain/entities/whatsapp-template'
-import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import type { TemplateButton, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { isBookNowButton, isCouponUrlButton } from '@/domain/services/book-now-button'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
 import {
   isMediaHeader,
   readHeaderLink,
@@ -26,6 +27,9 @@ interface SendParams {
   // at the template's first QUICK_REPLY button index. Mutually exclusive with
   // `couponCode` in practice.
   claimPayload?: string
+  // BOOK-001 W3 (AC-16): the recipient's booking token, sent as the {{1}} of
+  // the Book now button (`${APP_URL}/b/{{1}}`). Coexists with `couponCode`.
+  bookingToken?: string
 }
 
 export async function sendWhatsAppTemplateMessage(
@@ -79,7 +83,10 @@ function buildHeaderParams(
 function buildButtonParams(
   params: SendParams
 ): TemplateButtonParam[] | undefined {
-  const url = buildUrlButtonParams(params.template, params.couponCode)
+  const url = buildUrlButtonParams(params.template, {
+    couponCode: params.couponCode,
+    bookingToken: params.bookingToken,
+  })
   const quickReply = buildQuickReplyButtonParams(
     params.template,
     params.claimPayload
@@ -123,29 +130,42 @@ function buildQuickReplyButtonParams(
   ]
 }
 
+// BOOK-001 W3: each dynamic URL button gets its own value on its own index —
+// the Book now button (found by its URL, never its position) the booking
+// token, every other one the coupon code. A button with no value is left out,
+// as before.
 function buildUrlButtonParams(
   template: WhatsAppTemplate,
-  couponCode?: string
+  values: { couponCode?: string; bookingToken?: string }
 ): UrlButtonParam[] | undefined {
-  if (!couponCode) return undefined
-
   const buttonsComponent = template.components.find(
     (c) => c.type === 'BUTTONS'
   )
   if (!buttonsComponent?.buttons) return undefined
 
+  const appUrl = appBaseUrl()
   const urlButtons: UrlButtonParam[] = []
 
   buttonsComponent.buttons.forEach((btn, index) => {
-    if (isDynamicUrlButton(btn)) {
-      urlButtons.push({
-        type: 'button',
-        subType: 'url',
-        index,
-        parameters: [{ type: 'text', text: couponCode }],
-      })
-    }
+    const text = urlButtonValue(btn, appUrl, values)
+    if (!text) return
+    urlButtons.push({
+      type: 'button',
+      subType: 'url',
+      index,
+      parameters: [{ type: 'text', text }],
+    })
   })
 
   return urlButtons.length > 0 ? urlButtons : undefined
+}
+
+function urlButtonValue(
+  btn: TemplateButton,
+  appUrl: string,
+  values: { couponCode?: string; bookingToken?: string }
+): string | undefined {
+  if (isBookNowButton(btn, appUrl)) return values.bookingToken
+  if (isCouponUrlButton(btn, appUrl)) return values.couponCode
+  return undefined
 }

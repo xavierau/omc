@@ -1,6 +1,7 @@
 import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
 import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 export interface CampaignFormState {
   name: string
@@ -158,6 +159,7 @@ export function couponFormMode(form: CouponModeForm, lookup: TemplateLookup): Co
     hasCouponConfig: hasDiscount,
     template: usesWaTemplate && lookup.status === 'resolved' ? lookup.template : null,
     inlineTexts: usesWaTemplate ? [] : [form.templateEn, form.templateZhHk],
+    appUrl: appBaseUrl(),
   })
   return { mode: MODE_BY_REQUIREMENT[requirement.kind] }
 }
@@ -171,6 +173,7 @@ export function couponFormQrOnly(
     type: form.type,
     hasCouponConfig: parseCouponDiscount(form) !== null,
     template: form.messageType === 'wa_template' && lookup.status === 'resolved' ? lookup.template : null,
+    appUrl: appBaseUrl(),
   })
 }
 

@@ -27,6 +27,7 @@ import {
   validateTagIds,
 } from '../parse-create-body-audience'
 import { handleError, isWelcomeUniqueViolation } from '../campaign-error-response'
+import { assertCampaignBookNow, parseBookNowFields } from '../book-now-guard'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from '../with-template-review'
 import type { UpdateCampaignParams } from '@/infrastructure/supabase/repositories/campaign-repository'
 import type { Campaign } from '@/domain/entities/campaign'
@@ -110,7 +111,9 @@ export async function PATCH(
     if (body.targetAudience === 'tag') {
       await assertTagsBelongToTenant(tagIds, restaurantId)
     }
-    const changes: UpdateCampaignParams = pickAllowed(body)
+    const bookNow = parseBookNowFields(body)
+    await assertBookNowPatch(body, bookNow, existing)
+    const changes: UpdateCampaignParams = { ...pickAllowed(body), ...bookNow }
     applyImageScopeGuard(changes, existing, restaurantId)
     applyFailureReasonRevivalGuard(changes)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)
@@ -153,6 +156,27 @@ export async function PATCH(
     }
     return handleError(error, 'Campaign PATCH error', 'Failed to update campaign')
   }
+}
+
+/**
+ * BOOK-001 W3: re-check toggle vs template when the patch touches either, or
+ * the booking URL, against the effective (patched or stored) values.
+ */
+async function assertBookNowPatch(
+  body: Record<string, unknown>,
+  bookNow: { bookNowEnabled?: boolean; bookingUrl?: string | null },
+  existing: Campaign
+): Promise<void> {
+  const touched = ['bookNowEnabled', 'bookingUrl', 'whatsappTemplateId'].some((k) => body[k] !== undefined)
+  if (!touched) return
+  const templateId =
+    body.whatsappTemplateId !== undefined ? (body.whatsappTemplateId as string | null) || null : existing.whatsappTemplateId
+  await assertCampaignBookNow({
+    restaurantId: existing.restaurantId,
+    enabled: bookNow.bookNowEnabled ?? existing.bookNowEnabled ?? false,
+    templateId,
+    bookingUrl: bookNow.bookingUrl !== undefined ? bookNow.bookingUrl : (existing.bookingUrl ?? null),
+  })
 }
 
 interface SyncTagsArgs {

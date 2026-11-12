@@ -10,6 +10,7 @@ import type { Campaign } from '@/domain/entities/campaign'
 import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { countFailedCampaignQrImages } from '@/infrastructure/supabase/repositories/whatsapp-message-campaign-queries'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
 
 const COUNT_BATCH_SIZE = 10
 
@@ -29,6 +30,7 @@ export async function findQrOnlyCampaignIds(
       type: c.type,
       hasCouponConfig: Boolean(c.couponConfig),
       template: byId.get(c.whatsappTemplateId ?? '') ?? null,
+      appUrl: appBaseUrl(),
     })
   )
   return new Set(qrOnly.map((c) => c.id))
