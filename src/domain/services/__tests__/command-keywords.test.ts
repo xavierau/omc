@@ -201,6 +201,15 @@ describe('matchCommand', () => {
     })
   })
 
+  describe('BOOK (BOOK-001 AC-5)', () => {
+    it.each(['BOOK', 'book', 'Booking', '  booking  ', '訂位', '訂枱'])('%s → BOOK', (text) => {
+      expect(matchCommand(text)).toBe('BOOK')
+    })
+    it.each(['BOOK NOW', '我想訂位', '訂位 4位', 'BOOKS'])('%s is not exact → null', (text) => {
+      expect(matchCommand(text)).toBeNull()
+    })
+  })
+
   describe('empty / nullish input', () => {
     it('empty string returns null', () => {
       expect(matchCommand('')).toBeNull()

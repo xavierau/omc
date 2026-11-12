@@ -53,3 +53,6 @@ next-env.d.ts
 
 # UI test runner secrets (per-project, never commit)
 .claude-workspace/ui-map/secrets.local.json
+
+# BOOK-001 R20: real labelled diner replies for the booking-intent eval (never commit)
+scripts/eval/data/

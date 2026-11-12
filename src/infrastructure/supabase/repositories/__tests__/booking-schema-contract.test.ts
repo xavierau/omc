@@ -15,6 +15,7 @@ const CASES = [
   { table: 'booking_requests', file: 'booking-request-repository.ts' },
   { table: 'restaurants', file: 'booking-config-repository.ts' },
   { table: 'campaigns', file: 'booking-config-repository.ts' },
+  { table: 'inbound_classifications', file: 'inbound-classification-repository.ts' },
 ]
 
 /** Columns used in WHERE/ORDER clauses too (`.eq('col'`, `.is('col'`, ...). */

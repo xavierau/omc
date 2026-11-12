@@ -17,6 +17,7 @@ import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
 import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleContact } from './contact-handler'
 import { handleContactFormSubmission } from './contact-form-handler'
+import { handleBookCommand, maybeReplyToBookingIntent } from './book-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
@@ -158,6 +159,8 @@ async function dispatchByRoute(ctx: DispatchContext) {
       return handleClaim({ phoneNumberId, phone, campaignId: resolved.argument ?? '', restaurantId, log })
     case 'receipt-image':
       return handleReceiptImage(phoneNumberId, phone, restaurantId, message.imageUrl, message.imageId)
+    case 'BOOK':
+      return dispatchBook(ctx)
     case 'YES':
     case 'NO':
       return dispatchConfirmation(ctx, resolved.route)
@@ -186,7 +189,21 @@ async function dispatchConfirmation(
   if (route === 'YES' && (await handleOptinConfirmation(optinCtx))) return
   if (route === 'NO' && (await handleOptinRejection(optinCtx))) return
 
+  // BOOK-001 (AC-4, AC-8): only genuinely unmatched text reaches the booking
+  // classifier — never a YES/NO that receipt/opt-in did not claim, and never
+  // a gated route that fell back.
+  if (route === null && (await maybeReplyToBookingIntent(ctx))) return
+
   return handleUnknown(phoneNumberId, phone, restaurantId)
+}
+
+// BOOK-001 (AC-5): mode off keeps today's path for the literal text (receipt
+// check, then the unknown reply). A booking link that cannot be built gives
+// the unknown reply directly: BOOK is a matched route, so no classifier.
+async function dispatchBook(ctx: DispatchContext) {
+  const outcome = await handleBookCommand(ctx)
+  if (outcome === 'off') return dispatchConfirmation(ctx, null)
+  if (outcome === 'unavailable') return handleUnknown(ctx.phoneNumberId, ctx.phone, ctx.restaurantId)
 }
 
 function extractRewardId(rawText: string | undefined): string {
