@@ -13,9 +13,17 @@
  * was known reaches Meta on a later save (F2, re-review N-1). Never throws for a
  * single failed submission: that template reads `not_submitted`/`failed` and
  * the next save retries it. Settings are saved before this runs.
+ *
+ * BOOK-002: a kind is submitted with the restaurant's custom body when one is
+ * set, else the default copy. A slot's approved candidate counts as its live
+ * template, and a slot whose edit is still pending at Meta is left alone (the
+ * candidate already carries the custom body). F1: only the submitted slots are
+ * written (onto the stored config, C2), and a slot that gets a new live
+ * template loses its rejected or failed edit (C7).
  */
 import {
   BOOKING_TEMPLATE_LANGUAGES,
+  bookingTemplateBody,
   bookingTemplateComponents,
   bookingTemplateStatus,
   metaLanguageCode,
@@ -26,9 +34,13 @@ import {
 import { TEMPLATE_KINDS, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
 import type { LanguageCode } from '@/domain/value-objects/language'
 import type { TemplateCategory, TemplateComponent, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import {
+  applyProvisionedTemplates,
+  bookingCandidateStatus,
+  resolveBookingTemplateSlot,
+  type ProvisionedSlot,
+} from '@/domain/services/booking-template-slot'
 import { templateRowsById, statusesOf } from './booking-template-statuses'
-
-type TemplateIds = BookingConfig['templateIds']
 
 export interface ProvisionBookingTemplatesDeps {
   getConfig(restaurantId: string): Promise<BookingConfig>
@@ -46,7 +58,8 @@ export interface ProvisionBookingTemplatesDeps {
     restaurantId: string,
     components: TemplateComponent[]
   ): Promise<{ template: WhatsAppTemplate; error?: string }>
-  saveTemplateIds(restaurantId: string, ids: TemplateIds): Promise<void>
+  /** Writes only these slots onto the stored config. */
+  saveProvisioned(restaurantId: string, slots: ProvisionedSlot[]): Promise<void>
   /** The stored WABA id, else derived from the linked number and stored; null when unknown. */
   ensureWabaId(restaurantId: string): Promise<string | null>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
@@ -57,17 +70,29 @@ interface Submission {
   kind: BookingTemplateKind
   language: LanguageCode
   name: string
+  text: string
   /** The failed draft to resubmit in place; null = create a new row. */
   draftId: string | null
+  /** The slot's rejected or failed edit, replaced by this submission. */
+  staleCandidateId: string | null
 }
 
-function pendingSubmissions(ids: TemplateIds, rows: Map<string, WhatsAppTemplate>, deps: ProvisionBookingTemplatesDeps): Submission[] {
+type Rows = Map<string, WhatsAppTemplate>
+
+function slotDue(config: BookingConfig, rows: Rows, kind: BookingTemplateKind, language: LanguageCode) {
+  const slot = resolveBookingTemplateSlot(config, kind, language, rows)
+  const candidate = bookingCandidateStatus(slot.candidateId ? rows.get(slot.candidateId) : null)
+  if (candidate === 'pending') return []
+  const status = bookingTemplateStatus(slot.currentId ? rows.get(slot.currentId) ?? null : null)
+  if (!needsSubmission(status)) return []
+  const text = config.templateBodies[kind][language] ?? bookingTemplateBody(kind, language)
+  const staleCandidateId = candidate ? slot.candidateId : null
+  return [{ language, text, draftId: status === 'failed' ? slot.currentId : null, staleCandidateId }]
+}
+
+function pendingSubmissions(config: BookingConfig, rows: Rows, deps: ProvisionBookingTemplatesDeps): Submission[] {
   return TEMPLATE_KINDS.flatMap((kind) => {
-    const due = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => {
-      const id = ids[kind][language]
-      const status = bookingTemplateStatus(id ? rows.get(id) ?? null : null)
-      return needsSubmission(status) ? [{ language, draftId: status === 'failed' ? id : null }] : []
-    })
+    const due = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => slotDue(config, rows, kind, language))
     if (due.length === 0) return []
     const name = mintBookingTemplateName(kind, deps.suffix())
     return due.map((d) => ({ kind, name, ...d }))
@@ -75,7 +100,7 @@ function pendingSubmissions(ids: TemplateIds, rows: Map<string, WhatsAppTemplate
 }
 
 function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
-  const components = bookingTemplateComponents(s.kind, s.language)
+  const components = bookingTemplateComponents(s.text)
   if (s.draftId) return deps.resubmitTemplate(s.draftId, restaurantId, components)
   return deps.createTemplate({ restaurantId, name: s.name, language: metaLanguageCode(s.language), category: 'UTILITY', components })
 }
@@ -105,18 +130,17 @@ export async function provisionBookingTemplates(
   deps: ProvisionBookingTemplatesDeps
 ): Promise<BookingTemplateStatuses> {
   const config = await deps.getConfig(restaurantId)
-  const rows = await templateRowsById(config.templateIds, restaurantId, deps.findTemplates)
-  const submissions = pendingSubmissions(config.templateIds, rows, deps)
-  if (submissions.length === 0) return statusesOf(config.templateIds, rows)
+  const rows = await templateRowsById(config, restaurantId, deps.findTemplates)
+  const submissions = pendingSubmissions(config, rows, deps)
+  if (submissions.length === 0) return statusesOf(config, rows)
 
   await resolveWaba(restaurantId, deps)
-  const ids: TemplateIds = structuredClone(config.templateIds)
   const created = await Promise.all(submissions.map((s) => submit(restaurantId, s, deps)))
-  submissions.forEach((s, i) => {
+  const slots: ProvisionedSlot[] = submissions.map((s, i) => {
     const template = created[i]
-    ids[s.kind][s.language] = template?.id ?? null
     if (template) rows.set(template.id, template)
+    return { kind: s.kind, language: s.language, id: template?.id ?? null, staleCandidateId: s.staleCandidateId }
   })
-  await deps.saveTemplateIds(restaurantId, ids)
-  return statusesOf(ids, rows)
+  await deps.saveProvisioned(restaurantId, slots)
+  return statusesOf(applyProvisionedTemplates(config, slots), rows)
 }

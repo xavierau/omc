@@ -63,7 +63,8 @@ export function bookingParamsForBody(body: string, details: BookingMessageDetail
 type Copy = (d: Record<string, string>) => string
 
 // F3: confirmed, declined and the en reminder follow the owner-approved
-// template copy (2026-11-12); free text may leave out an absent reason.
+// template copy (2026-11-12), the zh_HK reminder the copy approved on
+// 2026-11-13 (BOOK-002 F1); free text may leave out an absent reason.
 const EN: Record<BookingMessageKind, Copy> = {
   received: (d) =>
     `Hi ${d.name}, we've received your booking request at ${d.restaurant} for ${d.party_size} on ${d.date} at ${d.time}. The restaurant will confirm it shortly.`,
@@ -83,7 +84,7 @@ const ZH: Record<BookingMessageKind, Copy> = {
     `你的訂座已確認。餐廳:${d.restaurant}。日期:${d.date}。時間:${d.time}。人數:${d.party_size}位。如行程有變,請直接回覆此訊息通知餐廳。`,
   declined: (d) =>
     `很抱歉,餐廳未能接受你在${d.date} ${d.time}的訂座要求。${d.reason !== '-' ? `原因:${d.reason}。` : ''}歡迎選擇其他時間再次提交訂座要求。`,
-  reminder: (d) => `提提你:你在${d.restaurant}有${d.party_size}位的訂座:${d.date} ${d.time}。`,
+  reminder: (d) => `提提你,你在${d.restaurant}的訂座將於${d.date} ${d.time}開始。如未能出席,請直接回覆此訊息通知餐廳。`,
 }
 
 /** Free-form text for a diner whose 24-hour service window is open. */

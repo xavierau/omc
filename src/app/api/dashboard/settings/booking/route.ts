@@ -11,14 +11,23 @@
  * carries each template's status. GET (any tenant member: the campaign form
  * needs the mode) returns the mode, the external URL, those statuses, and
  * whether this member may set a campaign booking URL (admin only, F4/R14).
+ * BOOK-002: GET also returns `templateEditor` — per kind × language the live
+ * status, the pending/rejected edit with Meta's reason, the custom and default
+ * text and the allowed placeholders — and whether this member may edit it.
+ * F1: the save writes only the form's fields onto the stored config (a
+ * compare-and-swap, C2), and GET reads booking_config once (C10).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { isTenantAdmin, requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { getBookingConfig, updateBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { getBookingConfig, saveBookingSettings } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { parseBookingSettings, type BookingConfig } from '@/domain/value-objects/booking-config'
-import { bookingTemplateStatusesFor, provisionBookingTemplatesFor } from '@/application/booking/booking-template-deps'
+import {
+  bookingTemplateOverviewFor,
+  bookingTemplateStatusesFor,
+  provisionBookingTemplatesFor,
+} from '@/application/booking/booking-template-deps'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 
 function authError(error: unknown) {
@@ -29,8 +38,16 @@ export async function GET() {
   try {
     const ctx = await getTenantContext()
     const { restaurantId } = ctx
-    const [config, templates] = await Promise.all([getBookingConfig(restaurantId), bookingTemplateStatusesFor(restaurantId)])
-    return NextResponse.json({ mode: config.mode, externalUrl: config.externalUrl, templates, canEditBookingUrl: isTenantAdmin(ctx) })
+    const config = await getBookingConfig(restaurantId)
+    const { templates, slots } = await bookingTemplateOverviewFor(restaurantId, config)
+    const admin = isTenantAdmin(ctx)
+    return NextResponse.json({
+      mode: config.mode,
+      externalUrl: config.externalUrl,
+      templates,
+      canEditBookingUrl: admin,
+      templateEditor: { canEdit: admin, slots },
+    })
   } catch (error) {
     const denied = authError(error)
     if (denied) return denied
@@ -62,7 +79,7 @@ export async function PUT(request: NextRequest) {
     }
     const result = parseBookingSettings(body, await getBookingConfig(ctx.restaurantId))
     if (!result.ok) return NextResponse.json({ error: 'invalid', fields: result.errors }, { status: 400 })
-    await updateBookingConfig(ctx.restaurantId, result.config)
+    await saveBookingSettings(ctx.restaurantId, result.config)
     const templates = await templatesAfterSave(ctx.restaurantId, result.config)
     return NextResponse.json({ success: true, config: result.config, templates })
   } catch (error) {

@@ -127,3 +127,30 @@ describe('parseBookingSettings (R14 / AC-1 / AC-2)', () => {
     })
   })
 })
+
+// BOOK-002: custom message text and pending edits live in booking_config,
+// written only by the message editor and the sender, never by the settings PUT.
+describe('templateBodies and templateCandidates (BOOK-002)', () => {
+  it('resolves strings per kind × language and drops anything else', () => {
+    const config = resolveBookingConfig({
+      mode: 'simple',
+      templateBodies: { confirmed: { en: 'Custom {{date}} {{time}} ok.', zh_hk: 7 }, declined: 'flat', bogus: { en: 'x' } },
+      templateCandidates: { confirmed: { en: 'tpl-new', zh_hk: '' } },
+    })
+    expect(config.templateBodies).toEqual({ received: {}, confirmed: { en: 'Custom {{date}} {{time}} ok.' }, declined: {}, reminder: {} })
+    expect(config.templateCandidates).toEqual({ received: {}, confirmed: { en: 'tpl-new' }, declined: {}, reminder: {} })
+  })
+
+  it('a resolved default is a fresh copy (writing one never changes the default)', () => {
+    const config = resolveBookingConfig(undefined)
+    config.templateBodies.confirmed.en = 'x'
+    expect(DEFAULT_BOOKING_CONFIG.templateBodies.confirmed).toEqual({})
+  })
+
+  it.each(['templateBodies', 'templateCandidates'])('the settings PUT refuses %s and keeps the stored value', (field) => {
+    const current = resolveBookingConfig({ mode: 'simple', templateBodies: { confirmed: { en: 'Keep {{date}} {{time}} ok.' } } })
+    expect(parseBookingSettings({ mode: 'simple', [field]: {} }, current)).toEqual({ ok: false, errors: { form: `unknown_field:${field}` } })
+    const saved = parseBookingSettings({ mode: 'simple' }, current)
+    expect(saved.ok && saved.config.templateBodies).toEqual(current.templateBodies)
+  })
+})
