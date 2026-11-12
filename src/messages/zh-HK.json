@@ -1421,6 +1421,66 @@
         "rejected": "被拒",
         "failed": "未能提交",
         "not_submitted": "未提交"
+      },
+      "editor": {
+        "open": "編輯文字",
+        "view": "查看文字",
+        "title": "{kind}:訊息文字",
+        "hint": "修改後會以新訊息提交 WhatsApp 審批。新版本獲批前,會繼續發送已批准的版本。",
+        "close": "關閉",
+        "readOnly": "只有管理員可以修改訂座訊息。",
+        "insert": "插入資料",
+        "insertLabel": "插入{detail}",
+        "placeholder": {
+          "name": "顧客姓名",
+          "restaurant": "餐廳",
+          "date": "日期",
+          "time": "時間",
+          "party_size": "人數",
+          "reason": "拒絕原因"
+        },
+        "preview": "以示例資料預覽",
+        "save": "儲存",
+        "saveLabel": "儲存{language}文字",
+        "saving": "儲存中...",
+        "reset": "還原預設文字",
+        "resetLabel": "將{language}文字還原為預設",
+        "outcome": {
+          "submitted": "已儲存,正等待 WhatsApp 審批。",
+          "already_live": "已儲存。這段文字已獲批准並正在使用。",
+          "not_sent": "已儲存,但未能提交至 WhatsApp。請再儲存一次。",
+          "rejected": "WhatsApp 拒絕了這段文字:{reason}。請修改文字後再儲存。",
+          "reset": "已還原預設文字。",
+          "forbidden": "只有管理員可以修改訂座訊息。",
+          "not_simple": "請先儲存「簡易訂座」設定,再修改訊息。",
+          "error": "未能儲存訊息,請再試一次。",
+          "invalid": "請先修正以上問題,再儲存。"
+        },
+        "errors": {
+          "empty": "請輸入訊息文字。",
+          "too_long": "訊息不可超過 1,024 個字元。",
+          "link": "請刪除連結。訂座訊息不可包含連結。",
+          "unknown_placeholder": "{detail} 不是這則訊息可填入的資料,請使用資料按鈕。",
+          "missing_date": "請加入 {token},讓顧客知道日期。",
+          "missing_time": "請加入 {token},讓顧客知道時間。",
+          "placeholder_at_edge": "訊息開頭和結尾須為文字,不可以是資料,否則 WhatsApp 會拒絕。",
+          "duplicate_placeholder": "{detail} 出現多於一次,每項資料只可使用一次。"
+        },
+        "warnings": {
+          "low_ratio_en": "資料之間的字詞太少(每項資料 {detail} 個字)。WhatsApp 可能會拒絕,建議最少 3 個。",
+          "low_ratio_zh_hk": "資料之間的文字太少(每項資料 {detail} 個字)。WhatsApp 可能會拒絕,建議最少 6 個。",
+          "promotional_term": "「{detail}」可能被視為推廣字眼,WhatsApp 可能會拒絕使用它的訂座訊息。"
+        },
+        "candidate": {
+          "pending": "修改待審批",
+          "rejected": "修改被拒",
+          "failed": "修改未提交",
+          "pendingNote": "{language}:你的修改正等待 WhatsApp 審批。",
+          "rejectedNote": "{language}:WhatsApp 拒絕了你的修改。原因:{reason}。",
+          "failedNote": "{language}:你的修改未能提交至 WhatsApp。請打開編輯器再儲存一次。",
+          "noReason": "未有提供",
+          "oldInUse": "仍在使用之前已批准的版本。"
+        }
       }
     }
   }

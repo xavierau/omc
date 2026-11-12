@@ -51,9 +51,14 @@ export function prepareTemplateComponents(
   return normalizeTemplateComponents(components).map(prepareComponent)
 }
 
+/** The text form every submit path stores and sends: full-width `｛｛`/`｝｝` as ASCII braces. */
+export function normalizeTemplateText(text: string): string {
+  return text.replace(/｛｛/g, '{{').replace(/｝｝/g, '}}')
+}
+
 function normalizeComponent(c: TemplateComponent): TemplateComponent {
   if (c.text === undefined) return c
-  const text = c.text.replace(/｛｛/g, '{{').replace(/｝｝/g, '}}')
+  const text = normalizeTemplateText(c.text)
   return text === c.text ? c : { ...c, text }
 }
 

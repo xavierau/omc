@@ -17,11 +17,8 @@ import type { LanguageCode } from '@/domain/value-objects/language'
 import { validateTemplateName, extractParameters } from '@/domain/entities/whatsapp-template'
 import { buildWhatsAppTemplate } from '@/test-utils/builders'
 import { prepareTemplateComponents } from '../prepare-template-components'
+import { PROMOTIONAL_TERMS, ZH_CHARS_PER_PLACEHOLDER } from '../booking-template-body'
 
-const PROMOTIONAL_TERMS = [
-  'offer', 'discount', 'promo', 'sale', 'free', 'coupon', 'deal', '% off', 'voucher', 'limited', 'special', 'member',
-  '優惠', '折', '免費', '推廣', '限時', '特價', '會員', '禮券', '著數',
-]
 const URL_PATTERN = /https?:|www\.|\.com|\.io|\.hk|\/b\//i
 
 const ALL = TEMPLATE_KINDS.flatMap((kind) => BOOKING_TEMPLATE_LANGUAGES.map((lang) => ({ kind, lang })))
@@ -34,12 +31,17 @@ describe('booking template copy (R21)', () => {
   })
 
   it.each(ALL)('$kind/$lang has only a BODY (no header, footer or buttons)', ({ kind, lang }) => {
-    expect(bookingTemplateComponents(kind, lang).map((c) => c.type)).toEqual(['BODY'])
+    expect(bookingTemplateComponents(bookingTemplateBody(kind, lang)).map((c) => c.type)).toEqual(['BODY'])
+  })
+
+  // BOOK-002 F1 C9: one builder for every booking submission (default or custom text).
+  it('builds the BODY-only components from any text', () => {
+    expect(bookingTemplateComponents('Custom {{date}} at {{time}} ok.')).toEqual([{ type: 'BODY', text: 'Custom {{date}} at {{time}} ok.' }])
   })
 
   it.each(ALL)('$kind/$lang uses only the parameters the sender fills, never notes', ({ kind, lang }) => {
     const filled = Object.keys(buildBookingTemplateParams({ restaurantName: 'r', name: 'n', date: 'd', time: 't', partySize: 2 }))
-    const used = extractParameters(buildWhatsAppTemplate({ components: bookingTemplateComponents(kind, lang) }))
+    const used = extractParameters(buildWhatsAppTemplate({ components: bookingTemplateComponents(bookingTemplateBody(kind, lang)) }))
     expect(used.length).toBeGreaterThan(0)
     for (const p of used) expect(filled).toContain(p)
     expect(used).not.toContain('notes')
@@ -52,7 +54,7 @@ describe('booking template copy (R21)', () => {
   })
 
   it.each(ALL)('$kind/$lang gets a realistic example for every parameter (Meta review)', ({ kind, lang }) => {
-    const [body] = prepareTemplateComponents(bookingTemplateComponents(kind, lang))
+    const [body] = prepareTemplateComponents(bookingTemplateComponents(bookingTemplateBody(kind, lang)))
     const examples = (body.example as { bodyTextNamedParams: Array<{ example: string }> }).bodyTextNamedParams
     expect(examples.length).toBeGreaterThan(0)
     for (const e of examples) expect(e.example).not.toBe('example')
@@ -76,7 +78,9 @@ describe('booking template copy (R21)', () => {
 // BOOK-001 F3: Meta rejected confirmed, declined and the en reminder (both
 // rejected languages) with 2388293 Params Words Ratio Exceeds Limit. The
 // owner-approved copy (2026-11-12) replaces them; received (both, pending at
-// Meta) and the zh_HK reminder (approved) keep their stored bodies.
+// Meta) keeps its stored body. BOOK-002 F1: Meta also rejected the zh_HK
+// reminder after review (it was never approved); the owner approved its new
+// copy on 2026-11-13.
 const APPROVED_COPY = {
   confirmed: {
     en: 'Your table booking is confirmed. Restaurant: {{restaurant}}. Date: {{date}}. Time: {{time}}. Party size: {{party_size}}. If your plans change, please reply to this message to let the restaurant know.',
@@ -88,6 +92,7 @@ const APPROVED_COPY = {
   },
   reminder: {
     en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
+    zh_hk: '提提你,你在{{restaurant}}的訂座將於{{date}} {{time}}開始。如未能出席,請直接回覆此訊息通知餐廳。',
   },
 } as const
 
@@ -96,14 +101,13 @@ const UNCHANGED_COPY = {
     en: 'Hi {{name}}, we have received your booking request at {{restaurant}} for {{party_size}} on {{date}} at {{time}}. The restaurant will confirm it shortly.',
     zh_hk: '你好{{name}},我們已收到你在{{restaurant}}的訂座要求:{{date}} {{time}},{{party_size}}位。餐廳確認後會再通知你。',
   },
-  reminder: { zh_hk: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。' },
 } as const
 
 const entries = (copy: Record<string, Record<string, string>>) =>
   Object.entries(copy).flatMap(([kind, byLang]) =>
     Object.entries(byLang).map(([lang, body]) => ({ kind: kind as BookingTemplateKind, lang: lang as LanguageCode, body })))
 
-describe('booking template copy (F3, owner-approved 2026-11-12)', () => {
+describe('booking template copy (F3 2026-11-12, F1 2026-11-13, owner-approved)', () => {
   it.each(entries(APPROVED_COPY))('$kind/$lang is the approved copy', ({ kind, lang, body }) => {
     expect(bookingTemplateBody(kind, lang)).toBe(body)
   })
@@ -115,21 +119,21 @@ describe('booking template copy (F3, owner-approved 2026-11-12)', () => {
 
 // Guard against 2388293 (Params Words Ratio Exceeds Limit). Meta does not
 // publish the threshold; these floors are ours: 3 fixed words per parameter
-// in English, 6 fixed CJK characters per parameter in Chinese.
+// in English, 6 fixed CJK characters per parameter in Chinese (the editor's
+// warning floor, ZH_CHARS_PER_PLACEHOLDER; BOOK-002 F1).
 const PLACEHOLDER = /\{\{\w+\}\}/g
 const placeholderCount = (body: string) => (body.match(PLACEHOLDER) ?? []).length
 const fixedText = (body: string) => body.replace(PLACEHOLDER, ' ')
 const fixedEnglishWords = (body: string) => (fixedText(body).match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? []).length
 const fixedCjkChars = (body: string) => (fixedText(body).match(/\p{Script=Han}/gu) ?? []).length
 const EN_WORDS_PER_PARAM = 3
-const ZH_CHARS_PER_PARAM = 6
+const ZH_CHARS_PER_PARAM = ZH_CHARS_PER_PLACEHOLDER
 
 // Bodies already at Meta that sit under the floor and must stay byte-identical
-// (reminder zh_HK was approved at this ratio; received zh_HK is pending). Any
-// edit to one of them makes it a new submission, which must meet the floor.
+// (received zh_HK is pending). Any edit to one of them makes it a new
+// submission, which must meet the floor.
 const FROZEN_BELOW_FLOOR: Partial<Record<`${BookingTemplateKind}/${LanguageCode}`, string>> = {
   'received/zh_hk': UNCHANGED_COPY.received.zh_hk,
-  'reminder/zh_hk': UNCHANGED_COPY.reminder.zh_hk,
 }
 
 describe('booking template params-to-words floor (2388293 guard)', () => {
@@ -140,6 +144,10 @@ describe('booking template params-to-words floor (2388293 guard)', () => {
     const floor = (lang === 'en' ? EN_WORDS_PER_PARAM : ZH_CHARS_PER_PARAM) * params
     if (FROZEN_BELOW_FLOOR[`${kind}/${lang}`] === body) return
     expect(fixed, `${fixed} fixed for ${params} params`).toBeGreaterThanOrEqual(floor)
+  })
+
+  it('the zh floor is 6, the editor warning floor', () => {
+    expect(ZH_CHARS_PER_PARAM).toBe(6)
   })
 
   it('counts fixed text, not the placeholders', () => {

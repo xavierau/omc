@@ -3,6 +3,8 @@
 /**
  * BOOK-001 AC-1/AC-2/AC-3: booking mode, external link and link lifetimes.
  * Rendered for admins only (setup page); the API enforces it too (R14).
+ * BOOK-002: each booking message's text can be edited per language in an
+ * inline editor under the message list.
  */
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { needsExternalUrl, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
 import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability'
+import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overview'
 import { BookingTemplateStatusList } from './booking-template-status-list'
+import { BookingTemplateEditor } from './booking-template-editor'
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
 
 const MODES: BookingMode[] = ['off', 'simple', 'external']
@@ -67,7 +71,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
   // W3: statuses from GET on load, then from each save's response.
   const { loading, summary } = useBookingSettingsSummaryState()
   const saved = outcome?.kind === 'saved'
-  const templates = (saved ? outcome.templates : null) ?? summary?.templates ?? null
+  const messages = useBookingTemplateOverview(summary, outcome)
   return (
     <Card data-testid="booking-settings-section">
       <CardHeader>
@@ -95,7 +99,12 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
                 onChange={(e) => update('maxPartySize', e.target.value)} data-testid="booking-settings-max-party" />
               <FieldError code={errors.maxPartySize} testId="booking-settings-max-party-error" />
             </div>
-            <BookingTemplateStatusList statuses={templates} loading={loading && !saved} />
+            <BookingTemplateStatusList statuses={messages.templates} loading={loading && !saved}
+              editor={messages.editor} editingKind={messages.editingKind} onEdit={messages.toggle} />
+            {messages.editor && messages.editingKind ? (
+              <BookingTemplateEditor key={messages.editingKind} kind={messages.editingKind} slots={messages.editor.slots}
+                canEdit={messages.editor.canEdit} onClose={messages.close} onSaved={messages.onSaved} />
+            ) : null}
           </>
         ) : null}
         <div className="flex items-center gap-3">

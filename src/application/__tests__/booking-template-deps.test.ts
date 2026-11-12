@@ -10,7 +10,7 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 vi.mock('@/infrastructure/whatsapp/templates')
 vi.mock('@/infrastructure/kapso/template-media-upload')
 
-import { getBookingConfig, saveBookingTemplateIds } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { getBookingConfig, saveProvisionedBookingTemplates } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import {
   findManyByIdsForRestaurant,
   findTemplateByIdForRestaurant,
@@ -53,7 +53,7 @@ function seed(): BookingConfig {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getBookingConfig).mockResolvedValue(seed())
-  vi.mocked(saveBookingTemplateIds).mockResolvedValue()
+  vi.mocked(saveProvisionedBookingTemplates).mockResolvedValue()
   vi.mocked(findManyByIdsForRestaurant).mockImplementation(async (ids) => ids.map((id) => rows.get(id)).filter((t): t is WhatsAppTemplate => !!t))
   vi.mocked(findTemplateByIdForRestaurant).mockImplementation(async (id) => rows.get(id) ?? null)
   vi.mocked(updateTemplate).mockImplementation(async (id, changes) => {
@@ -86,7 +86,9 @@ describe('provisionBookingTemplatesFor: WABA unknown when the draft was stored',
     expect(createMetaTemplate).not.toHaveBeenCalled()
     expect(updateMetaBusinessAccountId).not.toHaveBeenCalled()
     expect(statuses.received.en).toBe('failed')
-    expect(vi.mocked(saveBookingTemplateIds).mock.calls[0][1].received.en).toBe(DRAFT)
+    expect(vi.mocked(saveProvisionedBookingTemplates).mock.calls[0][1]).toEqual([
+      { kind: 'received', language: 'en', id: DRAFT, staleCandidateId: null },
+    ])
   })
 
   it('a stored WABA is used as is, with no resolution call', async () => {

@@ -9,11 +9,17 @@ vi.mock('@/infrastructure/supabase/repositories/booking-config-repository')
 vi.mock('@/application/booking/booking-template-deps', () => ({
   provisionBookingTemplatesFor: vi.fn(),
   bookingTemplateStatusesFor: vi.fn(),
+  bookingTemplateOverviewFor: vi.fn(),
 }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
-import { getBookingConfig, updateBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
-import { provisionBookingTemplatesFor, bookingTemplateStatusesFor } from '@/application/booking/booking-template-deps'
+import { getBookingConfig, saveBookingSettings } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import {
+  provisionBookingTemplatesFor,
+  bookingTemplateStatusesFor,
+  bookingTemplateOverviewFor,
+} from '@/application/booking/booking-template-deps'
+import type { BookingTemplateSlotViews } from '@/application/booking/booking-template-statuses'
 import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { GET, PUT } from '../route'
@@ -21,6 +27,8 @@ import { GET, PUT } from '../route'
 const RID = 'rest-1'
 const all = (status: string) =>
   Object.fromEntries(['received', 'confirmed', 'declined', 'reminder'].map((k) => [k, { en: status, zh_hk: status }])) as BookingTemplateStatuses
+
+const SLOTS = { received: {} } as unknown as BookingTemplateSlotViews
 
 const put = (body: unknown) =>
   PUT(new NextRequest('http://localhost/api/dashboard/settings/booking', { method: 'PUT', body: JSON.stringify(body) }))
@@ -33,9 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   as('admin')
   vi.mocked(getBookingConfig).mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG })
-  vi.mocked(updateBookingConfig).mockResolvedValue()
+  vi.mocked(saveBookingSettings).mockResolvedValue()
   vi.mocked(provisionBookingTemplatesFor).mockResolvedValue(all('pending'))
   vi.mocked(bookingTemplateStatusesFor).mockResolvedValue(all('not_submitted'))
+  vi.mocked(bookingTemplateOverviewFor).mockResolvedValue({ templates: all('not_submitted'), slots: SLOTS })
 })
 
 describe('PUT booking settings → template provisioning', () => {
@@ -43,7 +52,7 @@ describe('PUT booking settings → template provisioning', () => {
     const res = await put({ mode: 'simple' })
     expect(res.status).toBe(200)
     expect(provisionBookingTemplatesFor).toHaveBeenCalledWith(RID)
-    expect(vi.mocked(updateBookingConfig).mock.invocationCallOrder[0]).toBeLessThan(
+    expect(vi.mocked(saveBookingSettings).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(provisionBookingTemplatesFor).mock.invocationCallOrder[0]
     )
     expect((await res.json()).templates).toEqual(all('pending'))
@@ -60,7 +69,7 @@ describe('PUT booking settings → template provisioning', () => {
     vi.mocked(bookingTemplateStatusesFor).mockResolvedValue(all('failed'))
     const res = await put({ mode: 'simple' })
     expect(res.status).toBe(200)
-    expect(updateBookingConfig).toHaveBeenCalledTimes(1)
+    expect(saveBookingSettings).toHaveBeenCalledTimes(1)
     expect((await res.json()).templates).toEqual(all('failed'))
   })
 
@@ -68,7 +77,7 @@ describe('PUT booking settings → template provisioning', () => {
     const res = await put({ mode: 'simple', templateIds: { received: { en: 'evil', zh_hk: 'evil' } } })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'invalid', fields: { form: 'unknown_field:templateIds' } })
-    expect(updateBookingConfig).not.toHaveBeenCalled()
+    expect(saveBookingSettings).not.toHaveBeenCalled()
     expect(provisionBookingTemplatesFor).not.toHaveBeenCalled()
   })
 
@@ -82,14 +91,18 @@ describe('PUT booking settings → template provisioning', () => {
 describe('GET booking settings', () => {
   it('returns mode, external URL and template statuses for the session restaurant (any member)', async () => {
     as('staff')
-    vi.mocked(getBookingConfig).mockResolvedValue({ ...DEFAULT_BOOKING_CONFIG, mode: 'external', externalUrl: 'https://inline.app/x' })
+    const config = { ...DEFAULT_BOOKING_CONFIG, mode: 'external' as const, externalUrl: 'https://inline.app/x' }
+    vi.mocked(getBookingConfig).mockResolvedValue(config)
     const res = await GET()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       mode: 'external', externalUrl: 'https://inline.app/x', templates: all('not_submitted'), canEditBookingUrl: false,
+      templateEditor: { canEdit: false, slots: SLOTS },
     })
+    expect(getBookingConfig).toHaveBeenCalledTimes(1)
     expect(getBookingConfig).toHaveBeenCalledWith(RID)
-    expect(bookingTemplateStatusesFor).toHaveBeenCalledWith(RID)
+    // BOOK-002 F1 C10: the overview is built from the config read above.
+    expect(bookingTemplateOverviewFor).toHaveBeenCalledWith(RID, config)
   })
 
   // F4 (R14 ruling 2026-11-12): the campaign form shows the booking URL

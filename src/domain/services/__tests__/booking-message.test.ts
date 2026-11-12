@@ -68,6 +68,8 @@ describe('booking text fallback copy (F3)', () => {
     ['declined', 'en', 'Sorry, the restaurant could not accept your booking request for 2026-11-13 at 19:30. Reason: Fully booked. You are welcome to choose another time and send a new request.'],
     ['declined', 'zh_hk', '很抱歉,餐廳未能接受你在2026-11-13 19:30的訂座要求。原因:Fully booked。歡迎選擇其他時間再次提交訂座要求。'],
     ['reminder', 'en', 'This is a reminder of your upcoming table booking at Kushiro on 2026-11-13 at 19:30. If you can no longer make it, please reply to this message to let the restaurant know.'],
+    // BOOK-002 F1: the zh_HK reminder copy the owner approved on 2026-11-13.
+    ['reminder', 'zh_hk', '提提你,你在Kushiro的訂座將於2026-11-13 19:30開始。如未能出席,請直接回覆此訊息通知餐廳。'],
   ] as const)('%s/%s uses the approved copy', (kind, lang, text) => {
     expect(buildBookingText(kind, lang, d)).toBe(text)
   })

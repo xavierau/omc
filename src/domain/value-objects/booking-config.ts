@@ -5,8 +5,9 @@
  * field to safe defaults, so a malformed or missing blob behaves as mode off
  * (spec AC-3). `parseBookingSettings` validates an admin's save (R14) and
  * keeps the fields the settings form does not own (`aiRoutingEnabled`, the
- * eval gate; `templateIds`, written by template provisioning) from the
- * current config, so a save can never switch them.
+ * eval gate; `templateIds`, written by template provisioning; BOOK-002's
+ * `templateBodies` and `templateCandidates`, written by the message editor)
+ * from the current config, so a save can never switch them.
  */
 import type { LanguageCode } from './language'
 
@@ -14,6 +15,8 @@ export type BookingMode = 'off' | 'simple' | 'external'
 export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder'
 /** W3: one template row per language (zh_HK and en) for each kind. */
 export type BookingTemplateIdsByLanguage = Record<LanguageCode, string | null>
+/** BOOK-002: a value per language, absent when unset. */
+export type BookingTemplateTextByLanguage = Partial<Record<LanguageCode, string>>
 
 export interface BookingConfig {
   mode: BookingMode
@@ -26,6 +29,10 @@ export interface BookingConfig {
   aiRoutingEnabled: boolean
   /** Written only by template provisioning (W3), never by the settings PUT. */
   templateIds: Record<BookingTemplateKind, BookingTemplateIdsByLanguage>
+  /** BOOK-002: the restaurant's own text per kind × language; absent = default copy. */
+  templateBodies: Record<BookingTemplateKind, BookingTemplateTextByLanguage>
+  /** BOOK-002: template id of a submitted edit awaiting Meta; promoted to templateIds once approved. */
+  templateCandidates: Record<BookingTemplateKind, BookingTemplateTextByLanguage>
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -48,6 +55,8 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
     declined: { en: null, zh_hk: null },
     reminder: { en: null, zh_hk: null },
   },
+  templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {} },
+  templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {} },
 }
 
 /** `https:` with a host, no credentials, no whitespace, ≤ 2,048 chars (R14). */
@@ -89,8 +98,24 @@ function resolveTemplateIds(raw: unknown): BookingConfig['templateIds'] {
   return Object.fromEntries(entries) as BookingConfig['templateIds']
 }
 
+function resolveTextByLanguage(raw: unknown): BookingTemplateTextByLanguage {
+  const source = asRecord(raw)
+  const texts: BookingTemplateTextByLanguage = {}
+  for (const lang of TEMPLATE_LANGUAGES) {
+    const value = source[lang]
+    if (typeof value === 'string' && value.length > 0) texts[lang] = value
+  }
+  return texts
+}
+
+/** BOOK-002: anything but `{kind: {en?, zh_hk?}}` strings resolves to unset. */
+function resolveTexts(raw: unknown): BookingConfig['templateBodies'] {
+  const source = asRecord(raw)
+  return Object.fromEntries(TEMPLATE_KINDS.map((kind) => [kind, resolveTextByLanguage(source[kind])])) as BookingConfig['templateBodies']
+}
+
 export function resolveBookingConfig(raw: unknown): BookingConfig {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_BOOKING_CONFIG }
+  if (!raw || typeof raw !== 'object') return structuredClone(DEFAULT_BOOKING_CONFIG)
   const r = raw as Record<string, unknown>
   const d = DEFAULT_BOOKING_CONFIG
   return {
@@ -101,6 +126,8 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     maxPartySize: isPartyMax(r.maxPartySize) ? r.maxPartySize : d.maxPartySize,
     aiRoutingEnabled: r.aiRoutingEnabled === true,
     templateIds: resolveTemplateIds(r.templateIds),
+    templateBodies: resolveTexts(r.templateBodies),
+    templateCandidates: resolveTexts(r.templateCandidates),
   }
 }
 
@@ -132,6 +159,16 @@ function parseTtlField(raw: unknown, current: number | null, key: keyof BookingS
   if (raw === null || isTtl(raw)) return raw
   errors[key] = 'invalid_ttl'
   return current
+}
+
+/**
+ * BOOK-002 F1 C2: the settings form's own fields from `settings`, onto
+ * `current` (the stored value at write time), so a save never writes back
+ * template ids, edits or candidates it read earlier.
+ */
+export function applyBookingSettings(current: BookingConfig, settings: BookingConfig): BookingConfig {
+  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize } = settings
+  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize }
 }
 
 /** Validates an admin's booking settings save against the current config. */

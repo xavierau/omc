@@ -78,6 +78,7 @@ describe('response parsing', () => {
     ).toEqual({
       availability: { mode: 'external', externalUrl: 'https://inline.app/x', canEditBookingUrl: true },
       templates: statuses,
+      editor: null,
     })
     // F4: no flag → read-only (fail closed).
     expect(parseBookingSettingsSummary({ mode: 'simple', externalUrl: null })?.availability.canEditBookingUrl).toBe(false)

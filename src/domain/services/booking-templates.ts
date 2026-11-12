@@ -8,9 +8,11 @@
  * reason), already flattened and capped there (R16). Meta refuses a body that
  * starts or ends with a parameter, and one with too few words per parameter
  * (2388293). F3: confirmed, declined and the en reminder carry the copy the
- * owner approved on 2026-11-12; received and the zh_HK reminder are the bodies
- * already at Meta. Rows keep the body they were submitted with, so the sender
- * fills each row's own params (bookingParamsForBody).
+ * owner approved on 2026-11-12; received is the body already at Meta. BOOK-002
+ * F1: Meta rejected the old zh_HK reminder after review (it was never
+ * approved), so it carries the copy the owner approved on 2026-11-13. Rows
+ * keep the body they were submitted with, so the sender fills each row's own
+ * params (bookingParamsForBody).
  */
 import type { TemplateComponent, TemplateStatus } from '../entities/whatsapp-template'
 import type { BookingTemplateKind } from '../value-objects/booking-config'
@@ -36,7 +38,7 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
   // states the booking date, never "today".
   reminder: {
     en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
-    zh_hk: '提提你:你在{{restaurant}}有{{party_size}}位的訂座:{{date}} {{time}}。',
+    zh_hk: '提提你,你在{{restaurant}}的訂座將於{{date}} {{time}}開始。如未能出席,請直接回覆此訊息通知餐廳。',
   },
 }
 
@@ -44,9 +46,9 @@ export function bookingTemplateBody(kind: BookingTemplateKind, language: Languag
   return BODIES[kind][language]
 }
 
-/** BODY only: no header, footer or buttons (R21: no links). */
-export function bookingTemplateComponents(kind: BookingTemplateKind, language: LanguageCode): TemplateComponent[] {
-  return [{ type: 'BODY', text: bookingTemplateBody(kind, language) }]
+/** BODY only: no header, footer or buttons (R21: no links). Default or custom text alike. */
+export function bookingTemplateComponents(text: string): TemplateComponent[] {
+  return [{ type: 'BODY', text }]
 }
 
 const META_LANGUAGE: Record<LanguageCode, string> = { en: 'en', zh_hk: 'zh_HK' }
