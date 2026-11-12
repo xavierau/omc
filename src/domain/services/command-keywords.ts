@@ -18,6 +18,7 @@ export type CommandRoute =
   | 'REDEEM'
   | 'MY_CARD'
   | 'CONTACT'
+  | 'BOOK'
 
 const KEYWORDS: Record<CommandRoute, readonly string[]> = {
   POINTS: ['POINTS', '積分', '查積分', '查詢積分'],
@@ -29,6 +30,8 @@ const KEYWORDS: Record<CommandRoute, readonly string[]> = {
   REDEEM: ['REDEEM', '兌換'],
   MY_CARD: ['CARD', 'QR', '我的會員碼', '會員碼', '我嘅會員碼', '我張卡', '會員卡'],
   CONTACT: ['CONTACT', '客服', '聯絡', '聯絡我們', '聯繫'],
+  // BOOK-001 (spec AC-5): only routed when the tenant's booking mode is not off.
+  BOOK: ['BOOK', 'BOOKING', '訂位', '訂枱'],
 }
 
 const ASCII_ONLY = /^[\x00-\x7F]+$/
