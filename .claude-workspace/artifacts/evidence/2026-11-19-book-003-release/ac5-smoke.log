@@ -1,0 +1,46 @@
+2026-11-19T08:22:03Z
+random publicId=9b5fb710b27f5f22481bf59d uuid=360456f9-b39e-4bec-bc8f-0cad2ecb73fc
+== POST https://app.ohmyclient.io/api/poppy/9b5fb710b27f5f22481bf59d/bookings
+HTTP/2 404 
+content-type: application/json
+cache-control: no-store, max-age=0
+referrer-policy: no-referrer
+body: {"error":"not_found","error_description":"No booking API at this address, or no such booking."}
+== GET https://app.ohmyclient.io/api/poppy/9b5fb710b27f5f22481bf59d/openapi.json
+HTTP/2 404 
+content-type: application/json
+cache-control: no-store, max-age=0
+referrer-policy: no-referrer
+body: {"error":"not_found","error_description":"No booking API at this address, or no such booking."}
+== GET https://app.ohmyclient.io/api/poppy/9b5fb710b27f5f22481bf59d/bookings/360456f9-b39e-4bec-bc8f-0cad2ecb73fc
+HTTP/2 404 
+content-type: application/json
+cache-control: no-store, max-age=0
+referrer-policy: no-referrer
+body: {"error":"not_found","error_description":"No booking API at this address, or no such booking."}
+== PUT https://app.ohmyclient.io/api/dashboard/settings/booking/agent
+HTTP/2 401 
+content-type: application/json
+body: {"error":"Unauthorized"}
+== POST https://app.ohmyclient.io/api/dashboard/settings/booking/agent/rotate
+HTTP/2 401 
+content-type: application/json
+body: {"error":"Unauthorized"}
+== GET https://app.ohmyclient.io/api/dashboard/settings/booking/poppy-json
+HTTP/2 401 
+content-type: application/json
+body: {"error":"Unauthorized"}
+== GET https://app.ohmyclient.io/api/health
+HTTP/2 200 
+content-type: application/json
+body: {"status":"ok","timestamp":"2026-11-19T08:22:07.225Z"}
+== GET https://app.ohmyclient.io/login
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+cache-control: s-maxage=31536000
+body: <!DOCTYPE html><html lang="zh-HK" class="inter_786c1081-module__J60SBq__variable noto_sans_hk_5e297ec2-module__KC897a__variable h-full antialiased"><head><meta charSet="utf-8"/><meta name="viewport" c
+== GET https://app.ohmyclient.io/api/cron/booking-reminders
+HTTP/2 401 
+content-type: application/json
+body: {"error":"Unauthorized"}
+== /login BUILD_ID: new=1 old=0

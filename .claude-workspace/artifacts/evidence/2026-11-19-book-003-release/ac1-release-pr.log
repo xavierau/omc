@@ -1,0 +1,4 @@
+PR #192 sync merged (merge commit) → develop 7d4decf653fd56a4460130b766920d498fe2f9f5 (parents 230a61be f8a0a071)
+PR #193 release develop→main CLEAN, CodeRabbit pass, merged --merge --match-head-commit 7d4decf6 → main 45a10231a3efc686ea40d5a36e0c47a6bd6b8d31 at 2026-11-19T07:42:50Z (parents 091b36ba 7d4decf6)
+ls-remote main = 45a10231a3efc686ea40d5a36e0c47a6bd6b8d31
+merged tree vs develop 230a61be: src supabase scripts package.json package-lock.json deploy.sh all equal; main vs develop 7d4decf6: 0 files differ

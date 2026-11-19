@@ -1,0 +1,6 @@
+.env.production.local: NEXT_PUBLIC_APP_URL present len=25 host=app.ohmyclient.io
+.env.production.local: NEXT_PUBLIC_PRIVACY_URL ABSENT
+.env.production.local: APP_URL present len=25 host=app.ohmyclient.io
+.env.local: NEXT_PUBLIC_APP_URL present len=65 host=<a trycloudflare.com dev tunnel, redacted>
+.env.local: NEXT_PUBLIC_PRIVACY_URL ABSENT
+.env.local: APP_URL present len=65 host=<a trycloudflare.com dev tunnel, redacted>
