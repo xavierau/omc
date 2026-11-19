@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--bookings-views
+
+
+ Test Files  7 passed (7)
+      Tests  112 passed (112)
+   Start at  22:00:25
+   Duration  2.39s (transform 2.96s, setup 0ms, import 5.59s, tests 578ms, environment 1ms)
+

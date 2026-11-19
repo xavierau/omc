@@ -1,0 +1,299 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--bookings-views
+
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts (23 tests | 1 failed) 31ms
+     × r4: cancelled bookings are left out of guests and pending, and counted under their own chip 4ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts (13 tests | 3 failed) 26ms
+     × lists a date range scoped in the query, date then time ascending, reading cap + 1 to flag truncation 5ms
+     × r4: the range list allow-lists cancelled (never unverified) and reads the AGENT-003 columns and replaced slots 1ms
+     × r4: the all-pending list reads the AGENT-003 columns and the replaced slot, scoped by restaurant 2ms
+ ❯ src/hooks/__tests__/booking-hooks.test.ts (25 tests | 3 failed) 37ms
+     × delivered null: no undelivered badge and no notice 3ms
+     × delivered false: the row gets the undelivered badge 1ms
+     × delivered true: the sent notice, no badge 0ms
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx (12 tests | 9 failed) 54ms
+     × shows who cancelled: the diner through the AI agent, or a confirmed change 14ms
+     × shows a change request old → new and keeps its Confirm / Decline 6ms
+     × a cancelled booking is greyed and struck through, with no actions 1ms
+     × shows who cancelled: the diner through the AI agent, or a confirmed change 2ms
+     × shows a change request old → new and keeps its Confirm / Decline 2ms
+     × a cancelled booking is greyed and struck through, with no actions 1ms
+     × month grid: a cancelled chip is struck through and its guests are left out 8ms
+     × filters: Cancelled has its own chip with its count 4ms
+     × every key these views use exists in en and zh-HK 13ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > runDecision + decisionOutcomeHandler (F4 + F8) > delivered null: no undelivered badge and no notice
+TypeError: decisionOutcomeHandler is not a function
+ ❯ run src/hooks/__tests__/booking-hooks.test.ts:265:20
+    263|         setBusyId: () => {},
+    264|         decide: async () => ({ kind: 'done', booking, delivered }),
+    265|         onOutcome: decisionOutcomeHandler('b1', 'decline', { setNotice…
+       |                    ^
+    266|         refetch: async () => {},
+    267|       },
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:274:49
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > runDecision + decisionOutcomeHandler (F4 + F8) > delivered false: the row gets the undelivered badge
+TypeError: decisionOutcomeHandler is not a function
+ ❯ run src/hooks/__tests__/booking-hooks.test.ts:265:20
+    263|         setBusyId: () => {},
+    264|         decide: async () => ({ kind: 'done', booking, delivered }),
+    265|         onOutcome: decisionOutcomeHandler('b1', 'decline', { setNotice…
+       |                    ^
+    266|         refetch: async () => {},
+    267|       },
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:280:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > runDecision + decisionOutcomeHandler (F4 + F8) > delivered true: the sent notice, no badge
+TypeError: decisionOutcomeHandler is not a function
+ ❯ run src/hooks/__tests__/booking-hooks.test.ts:265:20
+    263|         setBusyId: () => {},
+    264|         decide: async () => ({ kind: 'done', booking, delivered }),
+    265|         onOutcome: decisionOutcomeHandler('b1', 'decline', { setNotice…
+       |                    ^
+    266|         refetch: async () => {},
+    267|       },
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:285:49
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the desktop table > shows who cancelled: the diner through the AI agent, or a confirmed change
+AssertionError: expected '<div data-slot="table-container" clas…' to contain 'data-testid="booking-row-b-c-cancelle…'
+
+Expected: "data-testid="booking-row-b-c-cancelled-by-diner""
+Received: "<div data-slot="table-container" class="relative w-full overflow-x-auto"><table data-slot="table" class="w-full caption-bottom text-sm min-w-[56rem] [&amp;_td]:px-3"><thead data-slot="table-header" class="[&amp;_tr]:border-b bg-muted/50"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted hover:bg-transparent"><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.time</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.guest</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.phone</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.party</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.status</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.source</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.notes</th><th data-slot="table-head" class="h-10 text-left align-middle font-medium whitespace-nowrap text-foreground [&amp;:has([role=checkbox])]:pr-0 px-3"><span class="sr-only">bookings.views.columns.actions</span></th></tr></thead><tbody data-slot="table-body" class="[&amp;_tr:last-child]:border-0"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-muted/30 hover:bg-muted/30"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 py-2" colSpan="8"><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">Thu, Nov 26</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:12} · bookings.views.needReply:{&quot;count&quot;:1}</span></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b-c"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">18:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-c-status">bookings.status.cancelled</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle size-3.5 shrink-0" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path></svg>bookings.views.source.chat</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b-old"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">19:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-old-status">bookings.status.cancelled</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0" data-testid="booking-row-b-old-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"></span></td></tr><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-pending-soft hover:bg-pending-soft" data-testid="booking-row-b-new"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">20:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-accent/40 bg-pending-soft text-pending-foreground" data-testid="booking-row-b-new-status">bookings.status.pending</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0" data-testid="booking-row-b-new-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"><div class="flex gap-2"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b-new-confirm">bookings.confirm</button><button data-slot="button" data-variant="outline" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b-new-decline">bookings.decline</button></div></span></td></tr></tbody></table></div>"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:56:18
+     54|
+     55|   it('shows who cancelled: the diner through the AI agent, or a confir…
+     56|     expect(html).toContain('data-testid="booking-row-b-c-cancelled-by-…
+       |                  ^
+     57|     expect(html).toContain('data-testid="booking-row-b-old-cancelled-b…
+     58|     expect(html).toContain('bookings.status.cancelled')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the desktop table > shows a change request old → new and keeps its Confirm / Decline
+AssertionError: expected '<div data-slot="table-container" clas…' to contain 'data-testid="booking-row-b-new-change…'
+
+Expected: "data-testid="booking-row-b-new-change-from""
+Received: "<div data-slot="table-container" class="relative w-full overflow-x-auto"><table data-slot="table" class="w-full caption-bottom text-sm min-w-[56rem] [&amp;_td]:px-3"><thead data-slot="table-header" class="[&amp;_tr]:border-b bg-muted/50"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted hover:bg-transparent"><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.time</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.guest</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.phone</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.party</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.status</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.source</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.notes</th><th data-slot="table-head" class="h-10 text-left align-middle font-medium whitespace-nowrap text-foreground [&amp;:has([role=checkbox])]:pr-0 px-3"><span class="sr-only">bookings.views.columns.actions</span></th></tr></thead><tbody data-slot="table-body" class="[&amp;_tr:last-child]:border-0"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-muted/30 hover:bg-muted/30"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 py-2" colSpan="8"><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">Thu, Nov 26</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:12} · bookings.views.needReply:{&quot;count&quot;:1}</span></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b-c"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">18:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-c-status">bookings.status.cancelled</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle size-3.5 shrink-0" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path></svg>bookings.views.source.chat</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b-old"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">19:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-old-status">bookings.status.cancelled</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0" data-testid="booking-row-b-old-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"></span></td></tr><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-pending-soft hover:bg-pending-soft" data-testid="booking-row-b-new"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">20:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 font-medium whitespace-normal">Test Diner</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">4</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-accent/40 bg-pending-soft text-pending-foreground" data-testid="booking-row-b-new-status">bookings.status.pending</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0" data-testid="booking-row-b-new-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">—</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex justify-end"><div class="flex gap-2"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b-new-confirm">bookings.confirm</button><button data-slot="button" data-variant="outline" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b-new-decline">bookings.decline</button></div></span></td></tr></tbody></table></div>"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:62:18
+     60|
+     61|   it('shows a change request old → new and keeps its Confirm / Decline…
+     62|     expect(html).toContain('data-testid="booking-row-b-new-change-from…
+       |                  ^
+     63|     expect(html).toContain('2026-11-25 19:30')
+     64|     expect(html).toContain('data-testid="booking-row-b-new-confirm"')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the desktop table > a cancelled booking is greyed and struck through, with no actions
+AssertionError: expected 'class="p-2 align-middle whitespace-no…' to contain 'line-through'
+
+Expected: "line-through"
+Received: "class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:68:42
+     66|
+     67|   it('a cancelled booking is greyed and struck through, with no action…
+     68|     expect(classBefore(html, '>18:00<')).toContain('line-through')
+       |                                          ^
+     69|     expect(classBefore(html, '>18:00<')).toContain('text-muted-foregro…
+     70|     expect(classBefore(html, '>20:00<')).not.toContain('line-through')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the phone cards > shows who cancelled: the diner through the AI agent, or a confirmed change
+AssertionError: expected '<div class="space-y-5"><section class…' to contain 'data-testid="booking-row-b-c-cancelle…'
+
+Expected: "data-testid="booking-row-b-c-cancelled-by-diner""
+Received: "<div class="space-y-5"><section class="space-y-2"><h3><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">Thu, Nov 26</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:12} · bookings.views.needReply:{&quot;count&quot;:1}</span></span></h3><ul class="space-y-3"><li data-testid="booking-row-b-c" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">18:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-c-status">bookings.status.cancelled</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle size-3.5 shrink-0" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path></svg>bookings.views.source.chat</span></span></p><div class="pt-1 empty:hidden"></div></li><li data-testid="booking-row-b-old" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">19:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-old-status">bookings.status.cancelled</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span data-testid="booking-row-b-old-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></span></p><div class="pt-1 empty:hidden"></div></li><li data-testid="booking-row-b-new" class="flex flex-col gap-2 rounded-xl border p-4 border-accent/40 bg-pending-soft"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">20:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-accent/40 bg-pending-soft text-pending-foreground" data-testid="booking-row-b-new-status">bookings.status.pending</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span data-testid="booking-row-b-new-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></span></p><div class="pt-1 empty:hidden"><div class="flex gap-2 w-full [&amp;&gt;*]:flex-1"><button data-slot="button" data-variant="default" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3" data-testid="booking-row-b-new-confirm">bookings.confirm</button><button data-slot="button" data-variant="outline" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3" data-testid="booking-row-b-new-decline">bookings.decline</button></div></div></li></ul></section></div>"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:56:18
+     54|
+     55|   it('shows who cancelled: the diner through the AI agent, or a confir…
+     56|     expect(html).toContain('data-testid="booking-row-b-c-cancelled-by-…
+       |                  ^
+     57|     expect(html).toContain('data-testid="booking-row-b-old-cancelled-b…
+     58|     expect(html).toContain('bookings.status.cancelled')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the phone cards > shows a change request old → new and keeps its Confirm / Decline
+AssertionError: expected '<div class="space-y-5"><section class…' to contain 'data-testid="booking-row-b-new-change…'
+
+Expected: "data-testid="booking-row-b-new-change-from""
+Received: "<div class="space-y-5"><section class="space-y-2"><h3><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">Thu, Nov 26</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:12} · bookings.views.needReply:{&quot;count&quot;:1}</span></span></h3><ul class="space-y-3"><li data-testid="booking-row-b-c" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">18:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-c-status">bookings.status.cancelled</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle size-3.5 shrink-0" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path></svg>bookings.views.source.chat</span></span></p><div class="pt-1 empty:hidden"></div></li><li data-testid="booking-row-b-old" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">19:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-border bg-muted text-muted-foreground" data-testid="booking-row-b-old-status">bookings.status.cancelled</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span data-testid="booking-row-b-old-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></span></p><div class="pt-1 empty:hidden"></div></li><li data-testid="booking-row-b-new" class="flex flex-col gap-2 rounded-xl border p-4 border-accent/40 bg-pending-soft"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">20:00</span>Test Diner</p><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-accent/40 bg-pending-soft text-pending-foreground" data-testid="booking-row-b-new-status">bookings.status.pending</span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:4}</span><a href="tel:+85290000001" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85290000001</a><span data-testid="booking-row-b-new-via-agent"><span class="inline-flex items-center gap-1.5 text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot size-3.5 shrink-0" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>bookings.views.source.agent</span></span></p><div class="pt-1 empty:hidden"><div class="flex gap-2 w-full [&amp;&gt;*]:flex-1"><button data-slot="button" data-variant="default" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3" data-testid="booking-row-b-new-confirm">bookings.confirm</button><button data-slot="button" data-variant="outline" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3" data-testid="booking-row-b-new-decline">bookings.decline</button></div></div></li></ul></section></div>"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:62:18
+     60|
+     61|   it('shows a change request old → new and keeps its Confirm / Decline…
+     62|     expect(html).toContain('data-testid="booking-row-b-new-change-from…
+       |                  ^
+     63|     expect(html).toContain('2026-11-25 19:30')
+     64|     expect(html).toContain('data-testid="booking-row-b-new-confirm"')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 rows in the phone cards > a cancelled booking is greyed and struck through, with no actions
+AssertionError: expected 'class="mr-2 tabular-nums' to contain 'line-through'
+
+Expected: "line-through"
+Received: "class="mr-2 tabular-nums"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:68:42
+     66|
+     67|   it('a cancelled booking is greyed and struck through, with no action…
+     68|     expect(classBefore(html, '>18:00<')).toContain('line-through')
+       |                                          ^
+     69|     expect(classBefore(html, '>18:00<')).toContain('text-muted-foregro…
+     70|     expect(classBefore(html, '>20:00<')).not.toContain('line-through')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 cancelled bookings in the calendar > month grid: a cancelled chip is struck through and its guests are left out
+AssertionError: expected 'class="tabular-nums' to contain 'line-through'
+
+Expected: "line-through"
+Received: "class="tabular-nums"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:80:42
+     78|       <CalendarMonthGrid bookings={[byDiner, { ...base, id: 'ok', stat…
+     79|     )
+     80|     expect(classBefore(html, '>18:00<')).toContain('line-through')
+       |                                          ^
+     81|     expect(html).toContain('bookings.views.guests:{"count":3}')
+     82|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 cancelled bookings in the calendar > filters: Cancelled has its own chip with its count
+AssertionError: expected '<div class="flex flex-wrap items-cent…' to contain 'data-testid="bookings-filter-cancelle…'
+
+Expected: "data-testid="bookings-filter-cancelled""
+Received: "<div class="flex flex-wrap items-center gap-2"><div role="group" aria-label="bookings.views.statusLabel" class="flex flex-wrap gap-1.5"><button type="button" aria-pressed="true" data-testid="bookings-filter-all" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring border-foreground bg-foreground text-background">bookings.views.filter.all</button><button type="button" aria-pressed="false" data-testid="bookings-filter-pending" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring border-border bg-card text-foreground hover:bg-muted">bookings.views.filter.pending<span class="tabular-nums text-muted-foreground">1</span></button><button type="button" aria-pressed="false" data-testid="bookings-filter-confirmed" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring border-border bg-card text-foreground hover:bg-muted">bookings.views.filter.confirmed<span class="tabular-nums text-muted-foreground">0</span></button><button type="button" aria-pressed="false" data-testid="bookings-filter-declined" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring border-border bg-card text-foreground hover:bg-muted">bookings.views.filter.declined<span class="tabular-nums text-muted-foreground">0</span></button></div><div class="relative w-full sm:w-56"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg><input type="search" data-slot="input" class="w-full min-w-0 rounded-lg border border-input px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-8 bg-card pl-8" placeholder="bookings.views.searchPlaceholder" aria-label="bookings.views.searchPlaceholder" data-testid="bookings-search" value=""/></div></div>"
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:89:18
+     87|       <BookingsFilters status="all" counts={counts} query="" showSearc…
+     88|     )
+     89|     expect(html).toContain('data-testid="bookings-filter-cancelled"')
+       |                  ^
+     90|     expect(html).toContain('bookings.views.filter.cancelled')
+     91|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-agent003.test.tsx > AGENT-003 cancelled bookings in the calendar > every key these views use exists in en and zh-HK
+AssertionError: expected [ 'bookings.partyOf' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "bookings.partyOf",
++ ]
+
+ ❯ src/components/dashboard/__tests__/bookings-views-agent003.test.tsx:99:21
+     97|     const lookup = (m: unknown, p: string) => p.split('.').reduce<unkn…
+     98|     const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !…
+     99|     expect(missing).toEqual([])
+       |                     ^
+    100|   })
+    101| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/16]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-helpers.test.ts > booking groups > r4: cancelled bookings are left out of guests and pending, and counted under their own chip
+AssertionError: expected 11 to be 6 // Object.is equality
+
+- Expected
++ Received
+
+- 6
++ 11
+
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts:86:25
+     84|   it('r4: cancelled bookings are left out of guests and pending, and c…
+     85|     const day = [...bookingsOn(list, '2026-11-21'), b('gone', '2026-11…
+     86|     expect(covers(day)).toBe(6)
+       |                         ^
+     87|     expect(daySummary(day)).toEqual({ count: 4, guests: 6, pending: 1 …
+     88|     expect(statusCounts(day)).toEqual({ all: 4, pending: 1, confirmed:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/16]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > lists a date range scoped in the query, date then time ascending, reading cap + 1 to flag truncation
+AssertionError: expected [ 'eq:restaurant_id=r-a', …(1) ] to deeply equal [ 'eq:restaurant_id=r-a', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=r-a",
+-   "in:status=pending,confirmed,declined,cancelled",
++   "in:status=pending,confirmed,declined",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:63:26
+     61|     const result = await listBookingRequestsInRange('r-a', { from: '20…
+     62|     const q = rec.queries[0]
+     63|     expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=p…
+       |                          ^
+     64|     expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-01…
+     65|     expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-30…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/16]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > r4: the range list allow-lists cancelled (never unverified) and reads the AGENT-003 columns and replaced slots
+AssertionError: expected [ 'eq:restaurant_id=r-a', …(1) ] to deeply equal [ 'eq:restaurant_id=r-a', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=r-a",
+-   "in:status=pending,confirmed,declined,cancelled",
++   "in:status=pending,confirmed,declined",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:85:26
+     83|     const result = await listBookingRequestsInRange('r-a', { from: '20…
+     84|     const [q, slots] = rec.queries
+     85|     expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=p…
+       |                          ^
+     86|     expect(filtersOf(q).join()).not.toContain('unverified')
+     87|     expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toConta…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/16]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > r4: the all-pending list reads the AGENT-003 columns and the replaced slot, scoped by restaurant
+AssertionError: expected 'id, restaurant_id, member_id, phone, …' to contain 'replaces_booking_id, cancelled_by'
+
+Expected: "replaces_booking_id, cancelled_by"
+Received: "id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:99:64
+     97|     const [q, slots] = rec.queries
+     98|     expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'eq:status=p…
+     99|     expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toConta…
+       |                                                                ^
+    100|     expect(filtersOf(slots)).toEqual(['eq:restaurant_id=r-a', 'in:id=b…
+    101|     expect(result.bookings[0].replaces).toEqual({ bookingDate: '2026-1…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/16]⎯
+
+
+ Test Files  4 failed (4)
+      Tests  16 failed | 57 passed (73)
+   Start at  21:58:21
+   Duration  920ms (transform 546ms, setup 0ms, import 960ms, tests 148ms, environment 0ms)
+

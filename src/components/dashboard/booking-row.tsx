@@ -9,22 +9,101 @@
  * AGENT-003: a change request shows the slot it would replace (old → new);
  * a cancelled booking says whether the diner cancelled it through the AI
  * agent or a confirmed change replaced it.
+ * BOOK-004: the day-list row (calendar day panel, phone day list): time and
+ * party on the left; the badges and actions are shared with the table views.
+ * A cancelled booking is greyed and struck through, like a declined chip.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { Bot } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
+
+export type DecideFn = (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 
 export interface BookingRowProps {
   booking: BookingItem
   busy: boolean
   undelivered: boolean
-  onDecide: (id: string, decision: 'confirm' | 'decline', reason?: string) => void
+  onDecide: DecideFn
 }
 
-const STATUS_VARIANT = { unverified: 'outline', pending: 'outline', confirmed: 'default', declined: 'secondary', cancelled: 'secondary' } as const
+/** BOOK-004: pending = the accent amber family, confirmed = primary, declined and cancelled = muted. */
+export const STATUS_TONE: Record<BookingItem['status'], string> = {
+  unverified: 'border-border text-muted-foreground',
+  pending: 'border-accent/40 bg-pending-soft text-pending-foreground',
+  confirmed: 'border-primary/25 bg-primary/10 text-primary',
+  declined: 'border-border bg-muted text-muted-foreground',
+  cancelled: 'border-border bg-muted text-muted-foreground',
+}
+
+/** A cancelled booking's time and guest are greyed and struck through (owner 2026-11-19). */
+export function cancelledText(booking: BookingItem): string | false {
+  return booking.status === 'cancelled' && 'text-muted-foreground line-through'
+}
+
+export function BookingStatusBadge({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  return (
+    <Badge variant="outline" className={STATUS_TONE[booking.status]} data-testid={`booking-row-${booking.id}-status`}>
+      {t(`status.${booking.status}`)}
+    </Badge>
+  )
+}
+
+export function AgentBadge({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (booking.source !== 'agent') return null
+  return (
+    <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-via-agent`}>
+      <Bot aria-hidden />
+      {t('viaAgent')}
+    </Badge>
+  )
+}
+
+export function NotDeliveredBadge({ booking, undelivered, short = false }: { booking: BookingItem; undelivered: boolean; short?: boolean }) {
+  const t = useTranslations('bookings')
+  if (!undelivered && booking.decisionMessageStatus !== 'not_delivered') return null
+  return (
+    <Badge
+      variant="outline"
+      title={short ? t('notDelivered') : undefined}
+      className={cn('border-destructive text-destructive', !short && 'h-auto text-left whitespace-normal')}
+      data-testid={`booking-row-${booking.id}-not-delivered`}
+    >
+      {short ? t('notDeliveredShort') : t('notDelivered')}
+    </Badge>
+  )
+}
+
+/** AGENT-003 R24/R23: who cancelled it, the diner through the AI agent or a confirmed change. */
+export function CancelledByBadge({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.cancelledBy) return null
+  const byDiner = booking.cancelledBy === 'diner_ai'
+  return (
+    <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-cancelled-by-${byDiner ? 'diner' : 'change'}`}>
+      {t(byDiner ? 'cancelledByDiner' : 'replacedByChange')}
+    </Badge>
+  )
+}
+
+/** AGENT-003 R23: a change request shows the slot it would replace (old → new). */
+export function ChangeFromLine({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.replacesBookingId) return null
+  const slot = (b: { bookingDate: string; bookingTime: string; partySize: number }) =>
+    `${b.bookingDate} ${b.bookingTime} · ${t('partyOf', { count: b.partySize })}`
+  return (
+    <p className="text-sm text-foreground" data-testid={`booking-row-${booking.id}-change-from`}>
+      {booking.replaces ? t('changeFrom', { from: slot(booking.replaces), to: slot(booking) }) : t('changeRequest')}
+    </p>
+  )
+}
 
 function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boolean; onSend: (reason: string) => void; onCancel: () => void }) {
   const t = useTranslations('bookings')
@@ -38,7 +117,7 @@ function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boole
         aria-label={t('declineReasonPlaceholder')}
         onChange={(e) => setReason(e.target.value)}
         data-testid={`booking-row-${id}-decline-reason`}
-        className="h-9"
+        className="h-9 min-w-40"
       />
       <Button size="sm" variant="destructive" disabled={busy} onClick={() => onSend(reason)} data-testid={`booking-row-${id}-decline-send`}>
         {t('sendDecline')}
@@ -50,68 +129,72 @@ function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boole
   )
 }
 
-function RowActions({ booking, busy, onDecide }: Omit<BookingRowProps, 'undelivered'>) {
+/** Confirm / Decline for a pending booking; `stretch` = full-width buttons (phone cards). */
+export function RowActions({ booking, busy, onDecide, stretch = false }: Omit<BookingRowProps, 'undelivered'> & { stretch?: boolean }) {
   const t = useTranslations('bookings')
   const [declining, setDeclining] = useState(false)
+  if (booking.status !== 'pending') return null
   if (declining) {
     return <DeclineReason id={booking.id} busy={busy} onCancel={() => setDeclining(false)} onSend={(r) => onDecide(booking.id, 'decline', r)} />
   }
+  const size = stretch ? 'lg' : 'sm'
   return (
-    <div className="flex gap-2">
-      <Button size="sm" disabled={busy} onClick={() => onDecide(booking.id, 'confirm')} data-testid={`booking-row-${booking.id}-confirm`}>
+    <div className={cn('flex gap-2', stretch && 'w-full [&>*]:flex-1')}>
+      <Button size={size} disabled={busy} onClick={() => onDecide(booking.id, 'confirm')} data-testid={`booking-row-${booking.id}-confirm`}>
         {t('confirm')}
       </Button>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => setDeclining(true)} data-testid={`booking-row-${booking.id}-decline`}>
+      <Button size={size} variant="outline" disabled={busy} onClick={() => setDeclining(true)} data-testid={`booking-row-${booking.id}-decline`}>
         {t('decline')}
       </Button>
     </div>
   )
 }
 
-export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowProps) {
+export function BookingNotes({ booking }: { booking: BookingItem }) {
   const t = useTranslations('bookings')
   return (
-    <li data-testid={`booking-row-${booking.id}`} className="flex flex-col gap-2 py-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold tabular-nums text-foreground">
-          {booking.bookingDate} {booking.bookingTime}
-        </span>
-        <span className="text-sm text-muted-foreground">{t('partyOf', { count: booking.partySize })}</span>
-        <Badge variant={STATUS_VARIANT[booking.status]} data-testid={`booking-row-${booking.id}-status`}>
-          {t(`status.${booking.status}`)}
-        </Badge>
-        {booking.source === 'agent' ? (
-          <Badge variant="secondary" data-testid={`booking-row-${booking.id}-via-agent`}>{t('viaAgent')}</Badge>
-        ) : null}
-        {booking.cancelledBy ? (
-          <Badge variant="outline" data-testid={`booking-row-${booking.id}-cancelled-by-${booking.cancelledBy === 'diner_ai' ? 'diner' : 'change'}`}>
-            {t(booking.cancelledBy === 'diner_ai' ? 'cancelledByDiner' : 'replacedByChange')}
-          </Badge>
-        ) : null}
-        {undelivered || booking.decisionMessageStatus === 'not_delivered' ? (
-          <Badge variant="outline" className="border-destructive text-foreground" data-testid={`booking-row-${booking.id}-not-delivered`}>
-            {t('notDelivered')}
-          </Badge>
-        ) : null}
-      </div>
-      {booking.replacesBookingId ? (
-        <p className="text-sm text-foreground" data-testid={`booking-row-${booking.id}-change-from`}>
-          {booking.replaces
-            ? t('changeFrom', {
-                from: `${booking.replaces.bookingDate} ${booking.replaces.bookingTime} · ${t('partyOf', { count: booking.replaces.partySize })}`,
-                to: `${booking.bookingDate} ${booking.bookingTime} · ${t('partyOf', { count: booking.partySize })}`,
-              })
-            : t('changeRequest')}
-        </p>
-      ) : null}
-      <p className="text-sm text-foreground">
-        {booking.name ?? t('nameRemoved')} · <a href={`tel:${booking.phone}`} className="tabular-nums underline-offset-2 hover:underline">{booking.phone}</a>
-      </p>
+    <>
       {booking.notes ? <p className="text-sm whitespace-pre-wrap text-muted-foreground">{booking.notes}</p> : null}
       {booking.status === 'declined' && booking.declineReason ? (
         <p className="text-xs text-muted-foreground">{t('declinedBecause', { reason: booking.declineReason })}</p>
       ) : null}
-      {booking.status === 'pending' ? <RowActions booking={booking} busy={busy} onDecide={onDecide} /> : null}
+    </>
+  )
+}
+
+export function PhoneLink({ phone }: { phone: string }) {
+  return (
+    <a href={`tel:${phone}`} className="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">
+      {phone}
+    </a>
+  )
+}
+
+export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowProps) {
+  const t = useTranslations('bookings')
+  return (
+    <li data-testid={`booking-row-${booking.id}`} className={cn('flex gap-4 px-4 py-4 sm:px-5', booking.status === 'pending' && 'bg-pending-soft')}>
+      <div className="w-12 shrink-0">
+        <p className={cn('font-semibold tabular-nums text-foreground', cancelledText(booking))}>{booking.bookingTime}</p>
+        <p className="text-xs text-muted-foreground">{t('pax', { count: booking.partySize })}</p>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn('font-semibold break-words text-foreground', cancelledText(booking))}>{booking.name ?? t('nameRemoved')}</span>
+          <BookingStatusBadge booking={booking} />
+          <AgentBadge booking={booking} />
+          <CancelledByBadge booking={booking} />
+        </div>
+        <ChangeFromLine booking={booking} />
+        <p className="text-sm text-muted-foreground">
+          <PhoneLink phone={booking.phone} />
+        </p>
+        <BookingNotes booking={booking} />
+        <NotDeliveredBadge booking={booking} undelivered={undelivered} />
+        <div className="pt-1 empty:hidden max-md:[&>div]:w-full max-md:[&>div>button]:flex-1">
+          <RowActions booking={booking} busy={busy} onDecide={onDecide} />
+        </div>
+      </div>
     </li>
   )
 }

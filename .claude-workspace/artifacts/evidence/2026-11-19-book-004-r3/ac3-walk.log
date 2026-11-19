@@ -1,0 +1,24 @@
+BOOK-004 r3 local walk, 2026-11-19, http://localhost:3030 (WT slot 3), local Supabase CLI stack, locale zh-HK (env default).
+Scratch tenant b0040000-0000-4000-8000-000000000043 "Cafe Poppy r3", staff user book004-r3-staff@example.test, 7 bookings
+(19 Nov: pending Chan 12:30, confirmed Wong 19:00, declined Lee 20:30; 21 Nov pending Au; 2 Nov pending Lam; 2 Dec pending Ho; 12 Dec confirmed Cheung).
+
+F3, 390x844x2 (plain viewport): /dashboard/bookings?view=calendar -> pill "4 個待回覆 查看" -> ?view=table, range 待回覆, chip 待確認 4 pressed
+-> 日曆 -> day panel 11月19日星期四 "3 個訂座 · 6 位客人 · 1 個待回覆" with Chan (待確認), Wong (已確認), Lee (已拒絕).
+Screenshot: ac3-f3-phone-calendar-after-show-390.jpeg
+
+F5, 1440x900: same session (status still pending). Chips 待確認 3 / 已確認 1 / 已拒絕 1: November only, the 2 Dec spill-over
+pending booking not counted (grid range holds 4 pending). 已拒絕 + day 21 Nov -> panel "0 個訂座 · 0 位客人 / 沒有符合篩選條件的訂座。"
+(data-testid bookings-no-match present, bookings-day-empty absent). Screenshot: ac3-f5-desktop-month-counts-nomatch-1440.jpeg
+
+F2, 1440x900: 全部, day 19 Nov. A window.fetch wrapper delayed the confirm POST by 2.5 s and any GET from=2026-11-01 by 4 s.
+Script: click Confirm on Chan, 300 ms later click 下個月, wait 9 s. Timeline:
+  1ms start POST /api/dashboard/bookings/b0043000-0000-4000-8000-000000000001/confirm
+  1ms clicked Confirm
+  304ms clicked Next month
+  311ms start GET /api/dashboard/bookings?from=2026-11-29&to=2027-01-02
+  432ms end 200 /api/dashboard/bookings?from=2026-11-29&to=2027-01-02
+  3650ms end 200 /api/dashboard/bookings/b0043000-0000-4000-8000-000000000001/confirm
+  3651ms start GET /api/dashboard/bookings?from=2026-11-29&to=2027-01-02   <- the decision's refetch reloads the CURRENT range
+  3734ms end 200 /api/dashboard/bookings?from=2026-11-29&to=2027-01-02
+End state: heading 2026年12月, booking-list-loading absent, calendar present, 12 Dec cell present, pill "3 個要求待回覆".
+DB after: booking ...0001 status confirmed. Screenshot: ac3-f2-confirm-then-next-month-1440.jpeg

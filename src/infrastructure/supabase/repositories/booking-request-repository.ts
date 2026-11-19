@@ -9,6 +9,7 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type {
   BookingCancelledBy,
+  BookingDateRange,
   BookingRequest,
   DecisionMessageStatus,
   DinerBooking,
@@ -34,6 +35,22 @@ const BOOKING_COLUMNS =
  */
 const STAFF_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by'
+
+/** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
+const POSTGREST_MAX_ROWS = 1000
+
+/**
+ * BOOK-004 R4 (review F1): a capped list reads one row past the cap to know it
+ * was cut, so the cap must leave room for that row under `max_rows`; otherwise
+ * PostgREST returns exactly `max_rows` and `truncated` is never true.
+ */
+function readCap(cap: number): number {
+  return Math.min(cap, POSTGREST_MAX_ROWS - 1)
+}
+
+function cappedList(rows: BookingRow[], cap: number): { bookings: BookingRequest[]; truncated: boolean } {
+  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+}
 
 interface BookingRow {
   id: string
@@ -163,6 +180,78 @@ async function withReplacedSlots(restaurantId: string, bookings: BookingRequest[
     ])
   )
   return bookings.map((b) => (b.replacesBookingId ? { ...b, replaces: slots.get(b.replacesBookingId) ?? null } : b))
+}
+
+type CappedList = { bookings: BookingRequest[]; truncated: boolean }
+
+/** BOOK-004 r4: the AGENT-003 replaced slots (old → new) on a capped list too. */
+async function withReplacedSlotsIn(restaurantId: string, list: CappedList): Promise<CappedList> {
+  return { ...list, bookings: await withReplacedSlots(restaurantId, list.bookings) }
+}
+
+/**
+ * BOOK-004: one restaurant's staff-visible bookings dated within `range`
+ * (inclusive), by date then time. R1 tenant scope and R2 the unverified
+ * exclusion are filters of the query itself (an allow-list, so a status added
+ * later stays hidden until the views handle it; r4: cancelled is shown, like
+ * declined, owner 2026-11-19); R4 reads one row past `cap` to know whether the
+ * list was cut (under `max_rows`: `readCap`). AGENT-003 columns + replaced slots.
+ */
+export async function listBookingRequestsInRange(
+  restaurantId: string,
+  range: BookingDateRange,
+  cap: number
+): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const keep = readCap(cap)
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .select(STAFF_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['pending', 'confirmed', 'declined', 'cancelled'])
+    .gte('booking_date', range.from)
+    .lte('booking_date', range.to)
+    .order('booking_date', { ascending: true })
+    .order('booking_time', { ascending: true })
+    .limit(keep + 1)
+  if (error) throw new Error(`listBookingRequestsInRange: ${error.message}`)
+  return withReplacedSlotsIn(restaurantId, cappedList((data ?? []) as BookingRow[], keep))
+}
+
+/**
+ * BOOK-004 r2: every pending request of one restaurant, any date (past-dated
+ * included), by date then time: the list behind the "need a reply" count, so
+ * it holds the same rows as `countRestaurantPendingBookings`. Tenant and
+ * status are filters of the query (R1, R2); reads one past `cap` (R4, `readCap`).
+ */
+export async function listPendingBookingRequests(
+  restaurantId: string,
+  cap: number
+): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const keep = readCap(cap)
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .select(STAFF_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'pending')
+    .order('booking_date', { ascending: true })
+    .order('booking_time', { ascending: true })
+    .limit(keep + 1)
+  if (error) throw new Error(`listPendingBookingRequests: ${error.message}`)
+  return withReplacedSlotsIn(restaurantId, cappedList((data ?? []) as BookingRow[], keep))
+}
+
+/** BOOK-004: every pending request of one restaurant, any date (the "need a reply" count). */
+export async function countRestaurantPendingBookings(restaurantId: string): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('booking_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'pending')
+  if (error) throw new Error(`countRestaurantPendingBookings: ${error.message}`)
+  return count ?? 0
 }
 
 export async function findBookingForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null> {

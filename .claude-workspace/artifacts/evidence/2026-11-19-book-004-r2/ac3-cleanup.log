@@ -1,0 +1,8 @@
+DELETE 8
+DELETE 1
+DELETE 1
+auth delete 200
+restaurant|0
+bookings|0
+user|0
+other tenant rows|3

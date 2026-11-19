@@ -1,0 +1,164 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--bookings-views
+
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts (16 tests | 1 failed) 39ms
+     × needs-reply Show: Table, the all-pending range (soonest first, any date) and the Pending filter 6ms
+ ❯ src/hooks/__tests__/booking-hooks.test.ts (16 tests | 1 failed) 58ms
+     × asks for every pending booking with status=pending (needs-reply Show) 5ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts (23 tests | 7 failed) 47ms
+     × lists every pending booking of the tenant, past-dated included, soonest first; length equals pendingCount 5ms
+     × R4: caps the pending list and says truncated 6ms
+     × 400 on ?status=confirmed (another status) and no query runs 2ms
+     × 400 on ?status=unverified (unverified) and no query runs 1ms
+     × 400 on ?status= (empty) and no query runs 0ms
+     × 400 on ?status=pending&from=2026-11-01&to=2026-11-30 (combined with a range) and no query runs 0ms
+     × the needs-reply pill's Show fetches a list whose length equals the pill count, with the past-dated booking 0ms
+ ❯ src/components/dashboard/__tests__/booking-dashboard.test.tsx (30 tests | 1 failed) 135ms
+     × table needs-reply range: past-dated pending rows first (soonest first), its own footer and empty state 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > fetchBookings (BOOK-004) > asks for every pending booking with status=pending (needs-reply Show)
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "/api/dashboard/bookings?status=pending",
++   "/api/dashboard/bookings?from=undefined&to=undefined",
+  ]
+
+
+Number of calls: 1
+
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:128:23
+    126|     vi.stubGlobal('fetch', fetchMock)
+    127|     await fetchBookings({ status: 'pending' })
+    128|     expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?st…
+       |                       ^
+    129|   })
+    130|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-dashboard.test.tsx > Bookings dashboard > table needs-reply range: past-dated pending rows first (soonest first), its own footer and empty state
+AssertionError: expected 8227 to be less than 2942
+ ❯ src/components/dashboard/__tests__/booking-dashboard.test.tsx:145:47
+    143|     const list = [row('soon', 'pending', { bookingDate: '2026-11-24' }…
+    144|     const markup = table(list, false, { range: 'pending' })
+    145|     expect(markup.indexOf('booking-row-old')).toBeLessThan(markup.inde…
+       |                                               ^
+    146|     expect(markup).toContain('bookings.views.showingPending:{&quot;cou…
+    147|     expect(markup).toContain('bookings.views.showUpcoming')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-helpers.test.ts > bookings view state > needs-reply Show: Table, the all-pending range (soonest first, any date) and the Pending filter
+AssertionError: expected undefined to deeply equal { view: 'table', …(2) }
+
+- Expected:
+{
+  "status": "pending",
+  "tableRange": "pending",
+  "view": "table",
+}
+
++ Received:
+undefined
+
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts:112:26
+    110|
+    111|   it('needs-reply Show: Table, the all-pending range (soonest first, a…
+    112|     expect(SHOW_PENDING).toEqual({ view: 'table', tableRange: 'pending…
+       |                          ^
+    113|     expect(fetchRange('table', '2026-11-21', 'pending', '2026-11-19'))…
+    114|     expect(tableOrder('pending')).toBe('asc')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > lists every pending booking of the tenant, past-dated included, soonest first; length equals pendingCount
+AssertionError: expected [ 'b5', 'b4', 'b3', 'b2', 'b1' ] to deeply equal [ 'b2', 'b3', 'b1' ]
+
+- Expected
++ Received
+
+  [
+-   "b2",
++   "b5",
++   "b4",
+    "b3",
++   "b2",
+    "b1",
+  ]
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts:168:60
+    166|     add(B, '2025-03-01', '11:00')
+    167|     const body = await (await get('?status=pending')).json()
+    168|     expect(body.bookings.map((b: { id: string }) => b.id)).toEqual([pa…
+       |                                                            ^
+    169|     expect(body.bookings).toHaveLength(body.pendingCount)
+    170|     expect(body.truncated).toBe(false)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > R4: caps the pending list and says truncated
+AssertionError: expected [ { id: 'b1001', …(16) }, …(1000) ] to have a length of 1000 but got 1001
+
+- Expected
++ Received
+
+- 1000
++ 1001
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts:177:27
+    175|     for (let i = 0; i < BOOKINGS_RANGE_CAP + 1; i++) add(A, '2026-11-2…
+    176|     const body = await (await get('?status=pending')).json()
+    177|     expect(body.bookings).toHaveLength(BOOKINGS_RANGE_CAP)
+       |                           ^
+    178|     expect(body.truncated).toBe(true)
+    179|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > 400 on ?status=confirmed (another status) and no query runs
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > 400 on ?status=unverified (unverified) and no query runs
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > 400 on ?status= (empty) and no query runs
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > 400 on ?status=pending&from=2026-11-01&to=2026-11-30 (combined with a range) and no query runs
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts:188:24
+    186|   ])('400 on %s (%s) and no query runs', async (qs) => {
+    187|     const res = await get(qs)
+    188|     expect(res.status).toBe(400)
+       |                        ^
+    189|     expect(await res.json()).toEqual({ error: 'invalid_status' })
+    190|     expect(table.queries).toHaveLength(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts > GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2) > the needs-reply pill's Show fetches a list whose length equals the pill count, with the past-dated booking
+TypeError: Cannot read properties of undefined (reading 'view')
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-range.test.ts:199:45
+    197|     vi.stubGlobal('fetch', (url: string) => get(url.replace('/api/dash…
+    198|     try {
+    199|       const query = fetchRange(SHOW_PENDING.view, '2026-11-19', SHOW_P…
+       |                                             ^
+    200|       const payload = await fetchBookings(query)
+    201|       expect(payload.pendingCount).toBe(2)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
+
+
+ Test Files  4 failed | 1 passed (5)
+      Tests  10 failed | 84 passed (94)
+   Start at  17:53:51
+   Duration  1.01s (transform 905ms, setup 0ms, import 1.61s, tests 321ms, environment 0ms)
+
