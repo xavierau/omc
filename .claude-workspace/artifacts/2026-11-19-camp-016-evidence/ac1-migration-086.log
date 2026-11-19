@@ -1,9 +1,9 @@
-== 2026-11-19T13:00:03Z AC-1: scratch DB = migrations 001..084 (build.sh 084, 0 errors), then 085
+== 2026-11-19T13:23:58Z AC-1: scratch DB = migrations 001..085 incl. peer 085_agent_booking_changes (build.sh 085, 0 errors), then 086
 -- pre-085 fixtures: an existing tenant (seeded by the 078 trigger) + an existing winback campaign
 INSERT 0 1
 INSERT 0 1
 -- tenant_campaign_settings rows: 1; restaurants: 1; campaigns: 1
--- apply 085
+-- apply 086
 ALTER TABLE
 ALTER TABLE
 CREATE FUNCTION
@@ -22,11 +22,11 @@ REVOKE
 REVOKE
 GRANT
 exit 0
--- apply 085 again (idempotent)
-psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/085_campaign_audience_quality.sql:66: NOTICE:  column "skip_contact_quality" of relation "tenant_campaign_settings" already exists, skipping
-psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/085_campaign_audience_quality.sql:66: NOTICE:  column "lapsed_after_days" of relation "tenant_campaign_settings" already exists, skipping
-psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/085_campaign_audience_quality.sql:72: NOTICE:  column "audience_skip_quality" of relation "campaigns" already exists, skipping
-psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/085_campaign_audience_quality.sql:72: NOTICE:  column "audience_lapsed_days" of relation "campaigns" already exists, skipping
+-- apply 086 again (idempotent)
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:66: NOTICE:  column "skip_contact_quality" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:66: NOTICE:  column "lapsed_after_days" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:72: NOTICE:  column "audience_skip_quality" of relation "campaigns" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:72: NOTICE:  column "audience_lapsed_days" of relation "campaigns" already exists, skipping
 exit 0
 -- existing tenant row (restaurant_id|skip_contact_quality|lapsed_after_days):
 11111111-0000-0000-0000-0000000c0016|red|30

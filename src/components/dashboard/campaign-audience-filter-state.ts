@@ -18,13 +18,28 @@ export function lapsedLocked(type: string): boolean {
   return type === 'winback'
 }
 
-export function filtersFromDefaults(d: Pick<CampaignAudienceSettings, 'skipContactQuality' | 'lapsedAfterDays'>, type: string): AudienceFilterState {
+/**
+ * The Settings defaults a new campaign starts from. The lapsed toggle is not
+ * part of it: it follows the type (locked on for win-back) and the user, so a
+ * late-arriving pre-fill never flips it.
+ */
+export function prefillFromDefaults(
+  d: Pick<CampaignAudienceSettings, 'skipContactQuality' | 'lapsedAfterDays'>
+): Omit<AudienceFilterState, 'lapsedEnabled'> {
   return {
-    lapsedEnabled: lapsedLocked(type),
     lapsedDays: String(d.lapsedAfterDays),
     skipEnabled: d.skipContactQuality !== 'off',
     skipLevel: d.skipContactQuality === 'red_yellow' ? 'red_yellow' : 'red',
   }
+}
+
+/**
+ * The lapsed toggle after a type change: on for win-back (locked), off for the
+ * other types, unless the user has set the filters themselves.
+ */
+export function lapsedForType(type: string, current: boolean, touched: boolean): boolean {
+  if (lapsedLocked(type)) return true
+  return touched ? current : false
 }
 
 export function filtersFromCampaign(c: Campaign): AudienceFilterState {

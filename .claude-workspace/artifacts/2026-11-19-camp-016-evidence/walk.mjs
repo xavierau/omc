@@ -100,6 +100,7 @@ async function desktop(browser) {
   await sheet.locator('input[name="targetAudience"][value="tag"]').check()
   await sheet.getByRole('button', { name: 'VIP' }).click()
   await sheet.getByRole('button', { name: 'Lunch regulars' }).click()
+  log('after type=promo: lapsed toggle =', await page.getByTestId('campaign-audience-lapsed-toggle').getAttribute('aria-checked'))
   await page.getByTestId('campaign-audience-lapsed-toggle').click()
   await expectText(page.getByTestId('campaign-audience-quality-key'), /Skipped|略過/, 'colour key')
   await page.waitForTimeout(800)

@@ -2,14 +2,14 @@
 T=/Users/xavierau/Code/js/whatsapp-crm--camp-016
 export PGPASSWORD=postgres
 P() { /opt/homebrew/bin/psql -h 127.0.0.1 -p 15940 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 "$@"; }
-echo "== $(date -u +%FT%TZ) AC-1: scratch DB = migrations 001..084 (build.sh 084, 0 errors), then 085"
+echo "== $(date -u +%FT%TZ) AC-1: scratch DB = migrations 001..085 incl. peer 085_agent_booking_changes (build.sh 085, 0 errors), then 086"
 echo "-- pre-085 fixtures: an existing tenant (seeded by the 078 trigger) + an existing winback campaign"
 P -tAc "INSERT INTO restaurants (id,name,slug,whatsapp_number) VALUES ('11111111-0000-0000-0000-0000000c0016','Pre085','pre085-c16','85290009901'); INSERT INTO campaigns (id,restaurant_id,type,template,target_audience) VALUES ('11111111-1111-0000-0000-0000000c0016','11111111-0000-0000-0000-0000000c0016','winback','hi','all');"
 echo "-- tenant_campaign_settings rows: $(P -tAc 'select count(*) from tenant_campaign_settings'); restaurants: $(P -tAc 'select count(*) from restaurants'); campaigns: $(P -tAc 'select count(*) from campaigns')"
-echo "-- apply 085"
-P -f $T/supabase/migrations/085_campaign_audience_quality.sql 2>&1; echo "exit $?"
-echo "-- apply 085 again (idempotent)"
-P -q -f $T/supabase/migrations/085_campaign_audience_quality.sql 2>&1; echo "exit $?"
+echo "-- apply 086"
+P -f $T/supabase/migrations/086_campaign_audience_quality.sql 2>&1; echo "exit $?"
+echo "-- apply 086 again (idempotent)"
+P -q -f $T/supabase/migrations/086_campaign_audience_quality.sql 2>&1; echo "exit $?"
 echo "-- existing tenant row (restaurant_id|skip_contact_quality|lapsed_after_days):"
 P -tAc "select restaurant_id, skip_contact_quality, lapsed_after_days from tenant_campaign_settings where restaurant_id='11111111-0000-0000-0000-0000000c0016'"
 echo "-- distinct (skip, lapsed) across ALL existing rows:"

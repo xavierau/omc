@@ -3,7 +3,8 @@ import {
   audienceCountBody,
   audienceFilterFields,
   filtersFromCampaign,
-  filtersFromDefaults,
+  prefillFromDefaults,
+  lapsedForType,
 } from '@/components/dashboard/campaign-audience-filter-state'
 import { buildCampaignRequestBody, initialCampaignForm, validateCampaignForm } from '@/components/dashboard/campaign-form-types'
 import type { Campaign } from '@/domain/entities/campaign'
@@ -11,13 +12,19 @@ import type { Campaign } from '@/domain/entities/campaign'
 const TAG = '7a000001-0000-4000-8000-000000000001'
 
 describe('campaign form audience filters (CAMP-016)', () => {
-  it('starts from the Settings defaults; a win-back starts with the lapsed filter on', () => {
-    expect(filtersFromDefaults({ skipContactQuality: 'red_yellow', lapsedAfterDays: 45 }, 'winback')).toEqual({
-      lapsedEnabled: true, lapsedDays: '45', skipEnabled: true, skipLevel: 'red_yellow',
+  it('pre-fills days and quality from the Settings defaults, never the lapsed toggle', () => {
+    expect(prefillFromDefaults({ skipContactQuality: 'red_yellow', lapsedAfterDays: 45 })).toEqual({
+      lapsedDays: '45', skipEnabled: true, skipLevel: 'red_yellow',
     })
-    expect(filtersFromDefaults({ skipContactQuality: 'off', lapsedAfterDays: 30 }, 'promo')).toMatchObject({
-      lapsedEnabled: false, skipEnabled: false,
-    })
+    expect(prefillFromDefaults({ skipContactQuality: 'off', lapsedAfterDays: 30 })).not.toHaveProperty('lapsedEnabled')
+    expect(prefillFromDefaults({ skipContactQuality: 'off', lapsedAfterDays: 30 }).skipEnabled).toBe(false)
+  })
+
+  it('a type change turns the lapsed filter on for win-back and off otherwise, unless the user set it', () => {
+    expect(lapsedForType('winback', false, true)).toBe(true)
+    expect(lapsedForType('promo', true, false)).toBe(false)
+    expect(lapsedForType('promo', true, true)).toBe(true)
+    expect(lapsedForType('promo', false, true)).toBe(false)
   })
 
   it('an edit starts from the campaign snapshot', () => {

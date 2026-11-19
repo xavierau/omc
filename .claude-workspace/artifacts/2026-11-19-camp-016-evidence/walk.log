@@ -75,3 +75,113 @@
 [2026-11-19T13:18:41.277Z] [staff] staff skip toggle disabled = true ; save button count = 0 ; thresholds chevron (details) count = 0
 [2026-11-19T13:18:41.338Z] [staff] staff PUT /api/dashboard/settings/campaigns → 403
 row after staff PUT: red|30
+[2026-11-19T13:25:09.558Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:25:10.912Z] [en-merged] sidebar Settings → http://localhost:3040/dashboard/setup/profile
+[2026-11-19T13:25:10.935Z] [en-merged] sub-nav shows 6 groups
+[2026-11-19T13:25:11.405Z] [en-merged] checkpoint settings-profile@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-profile-1440.png
+[2026-11-19T13:25:12.537Z] [en-merged] checkpoint settings-messages@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-messages-1440.png
+[2026-11-19T13:25:13.219Z] [en-merged] checkpoint settings-bookings@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-bookings-1440.png
+[2026-11-19T13:25:13.875Z] [en-merged] checkpoint settings-welcome@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-welcome-1440.png
+[2026-11-19T13:25:14.514Z] [en-merged] checkpoint settings-receipts@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-receipts-1440.png
+[2026-11-19T13:25:15.490Z] [en-merged] ok legend green: "Green 90 90% or more of messages delivered."
+[2026-11-19T13:25:15.492Z] [en-merged] ok legend yellow: "Yellow 10 60–89% delivered. Some messages fail."
+[2026-11-19T13:25:15.493Z] [en-merged] ok legend red: "Red 6 Under 60% delivered, or Meta says the number can't receive WhatsApp."
+[2026-11-19T13:25:15.494Z] [en-merged] ok legend nodata: "No data 14 No messages sent yet, e.g. new members. Always included."
+[2026-11-19T13:25:15.495Z] [en-merged] ok impact at Red only: "Today this skips 6 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:25:15.496Z] [en-merged] skip toggle aria-checked = true
+[2026-11-19T13:25:15.497Z] [en-merged] ok thresholds summary: "Rating thresholds Admins only Green ≥ 90% delivered · Yellow ≥ 60% · Red below 60% · last 90 days"
+[2026-11-19T13:25:16.010Z] [en-merged] checkpoint settings-campaigns@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-1440.png
+[2026-11-19T13:25:16.036Z] [en-merged] ok impact at Red and Yellow: "Today this skips 16 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:25:16.050Z] [en-merged] lapsed 0 → error shown; save disabled = true
+[2026-11-19T13:25:16.530Z] [en-merged] checkpoint settings-campaigns-lapsed-error@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-lapsed-error-1440.png
+[2026-11-19T13:25:16.696Z] [en-merged] saved; DB row = red_yellow|45
+[2026-11-19T13:25:17.165Z] [en-merged] checkpoint settings-campaigns-saved@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-saved-1440.png
+[2026-11-19T13:25:17.350Z] [en-merged] restored; DB row = red|30
+[2026-11-19T13:25:17.888Z] [en-merged] form defaults: quality toggle = true lapsed toggle = true lapsed days = 30
+[2026-11-19T13:25:18.405Z] [en-merged] ok colour key: "Green 90%+ delivered Receives Yellow 60–89% delivered Receives Red under 60%, or can't receive WhatsApp Skipped No data new, nothing sent yet Receives"
+[2026-11-19T13:25:19.210Z] [en-merged] ok will receive: "57"
+[2026-11-19T13:25:19.785Z] [en-merged] checkpoint campaign-form-tags-lapsed@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-tags-lapsed-1440.png
+[2026-11-19T13:25:20.335Z] [en-merged] checkpoint campaign-form-summary@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-1440.png
+[2026-11-19T13:25:21.838Z] [en-merged] checkpoint campaign-form-zero@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-zero-1440.png
+[2026-11-19T13:25:23.813Z] [en-merged] created campaign row 2c1a8b78-06c1-4528-acf2-33d86d880552|tag|red|null; form showed will_receive=57; resolver on the stored snapshot returns 57 → parity OK
+[2026-11-19T13:25:24.320Z] [en-merged] members badge title: "100% delivered (10 msgs, 90 days)\n90% or more of messages delivered."
+[2026-11-19T13:25:25.018Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:25:26.143Z] [en-merged] phone /dashboard/setup stays on the index: http://localhost:3040/dashboard/setup
+[2026-11-19T13:25:26.612Z] [en-merged] checkpoint settings-index@390: blocking=0 warning=0 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-index-390.png
+[2026-11-19T13:25:27.585Z] [en-merged] checkpoint settings-campaigns@390: blocking=0 warning=1 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-390.png
+[2026-11-19T13:25:27.690Z] [en-merged] ‹ Settings → back to index
+[2026-11-19T13:25:29.972Z] [en-merged] checkpoint campaign-form-summary@390: blocking=0 warning=6 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-390.png
+[2026-11-19T13:27:09.489Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:27:10.115Z] [en-merged] sidebar Settings → http://localhost:3040/dashboard/setup/profile
+[2026-11-19T13:27:10.131Z] [en-merged] sub-nav shows 6 groups
+[2026-11-19T13:27:10.597Z] [en-merged] checkpoint settings-profile@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-profile-1440.png
+[2026-11-19T13:27:11.269Z] [en-merged] checkpoint settings-messages@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-messages-1440.png
+[2026-11-19T13:27:11.967Z] [en-merged] checkpoint settings-bookings@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-bookings-1440.png
+[2026-11-19T13:27:12.601Z] [en-merged] checkpoint settings-welcome@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-welcome-1440.png
+[2026-11-19T13:27:13.241Z] [en-merged] checkpoint settings-receipts@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-receipts-1440.png
+[2026-11-19T13:27:13.633Z] [en-merged] ok legend green: "Green 90 90% or more of messages delivered."
+[2026-11-19T13:27:13.634Z] [en-merged] ok legend yellow: "Yellow 10 60–89% delivered. Some messages fail."
+[2026-11-19T13:27:13.636Z] [en-merged] ok legend red: "Red 6 Under 60% delivered, or Meta says the number can't receive WhatsApp."
+[2026-11-19T13:27:13.637Z] [en-merged] ok legend nodata: "No data 14 No messages sent yet, e.g. new members. Always included."
+[2026-11-19T13:27:13.638Z] [en-merged] ok impact at Red only: "Today this skips 6 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:27:13.640Z] [en-merged] skip toggle aria-checked = true
+[2026-11-19T13:27:13.641Z] [en-merged] ok thresholds summary: "Rating thresholds Admins only Green ≥ 90% delivered · Yellow ≥ 60% · Red below 60% · last 90 days"
+[2026-11-19T13:27:14.143Z] [en-merged] checkpoint settings-campaigns@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-1440.png
+[2026-11-19T13:27:14.170Z] [en-merged] ok impact at Red and Yellow: "Today this skips 16 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:27:14.183Z] [en-merged] lapsed 0 → error shown; save disabled = true
+[2026-11-19T13:27:14.652Z] [en-merged] checkpoint settings-campaigns-lapsed-error@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-lapsed-error-1440.png
+[2026-11-19T13:27:14.814Z] [en-merged] saved; DB row = red_yellow|45
+[2026-11-19T13:27:15.303Z] [en-merged] checkpoint settings-campaigns-saved@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-saved-1440.png
+[2026-11-19T13:27:15.488Z] [en-merged] restored; DB row = red|30
+[2026-11-19T13:27:15.823Z] [en-merged] form defaults: quality toggle = true lapsed toggle = true lapsed days = 30
+[2026-11-19T13:27:16.253Z] [en-merged] after type=promo: lapsed toggle = false
+[2026-11-19T13:27:16.335Z] [en-merged] ok colour key: "Green 90%+ delivered Receives Yellow 60–89% delivered Receives Red under 60%, or can't receive WhatsApp Skipped No data new, nothing sent yet Receives"
+[2026-11-19T13:27:17.139Z] [en-merged] ok will receive: "27"
+[2026-11-19T13:27:17.703Z] [en-merged] checkpoint campaign-form-tags-lapsed@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-tags-lapsed-1440.png
+[2026-11-19T13:27:18.303Z] [en-merged] checkpoint campaign-form-summary@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-1440.png
+[2026-11-19T13:27:19.849Z] [en-merged] checkpoint campaign-form-zero@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-zero-1440.png
+[2026-11-19T13:27:21.870Z] [en-merged] created campaign row f380065d-9e38-4480-b2f4-9e639a802f33|tag|red|30; form showed will_receive=27; resolver on the stored snapshot returns 27 → parity OK
+[2026-11-19T13:27:22.102Z] [en-merged] members badge title: "100% delivered (10 msgs, 90 days)\n90% or more of messages delivered."
+[2026-11-19T13:27:22.741Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:27:23.807Z] [en-merged] phone /dashboard/setup stays on the index: http://localhost:3040/dashboard/setup
+[2026-11-19T13:27:24.296Z] [en-merged] checkpoint settings-index@390: blocking=0 warning=0 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-index-390.png
+[2026-11-19T13:27:25.235Z] [en-merged] checkpoint settings-campaigns@390: blocking=0 warning=1 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-390.png
+[2026-11-19T13:27:25.336Z] [en-merged] ‹ Settings → back to index
+[2026-11-19T13:27:27.527Z] [en-merged] checkpoint campaign-form-summary@390: blocking=0 warning=6 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-390.png
+[2026-11-19T13:27:28.699Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:27:29.200Z] [en-merged] sidebar Settings → http://localhost:3040/dashboard/setup/profile
+[2026-11-19T13:27:29.217Z] [en-merged] sub-nav shows 6 groups
+[2026-11-19T13:27:29.686Z] [en-merged] checkpoint settings-profile@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-profile-1440.png
+[2026-11-19T13:27:30.828Z] [en-merged] checkpoint settings-messages@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-messages-1440.png
+[2026-11-19T13:27:31.508Z] [en-merged] checkpoint settings-bookings@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-bookings-1440.png
+[2026-11-19T13:27:32.127Z] [en-merged] checkpoint settings-welcome@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-welcome-1440.png
+[2026-11-19T13:27:32.764Z] [en-merged] checkpoint settings-receipts@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-receipts-1440.png
+[2026-11-19T13:27:33.113Z] [en-merged] ok legend green: "Green 90 90% or more of messages delivered."
+[2026-11-19T13:27:33.115Z] [en-merged] ok legend yellow: "Yellow 10 60–89% delivered. Some messages fail."
+[2026-11-19T13:27:33.116Z] [en-merged] ok legend red: "Red 6 Under 60% delivered, or Meta says the number can't receive WhatsApp."
+[2026-11-19T13:27:33.117Z] [en-merged] ok legend nodata: "No data 14 No messages sent yet, e.g. new members. Always included."
+[2026-11-19T13:27:33.118Z] [en-merged] ok impact at Red only: "Today this skips 6 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:27:33.119Z] [en-merged] skip toggle aria-checked = true
+[2026-11-19T13:27:33.120Z] [en-merged] ok thresholds summary: "Rating thresholds Admins only Green ≥ 90% delivered · Yellow ≥ 60% · Red below 60% · last 90 days"
+[2026-11-19T13:27:33.634Z] [en-merged] checkpoint settings-campaigns@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-1440.png
+[2026-11-19T13:27:33.661Z] [en-merged] ok impact at Red and Yellow: "Today this skips 16 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:27:33.674Z] [en-merged] lapsed 0 → error shown; save disabled = true
+[2026-11-19T13:27:34.149Z] [en-merged] checkpoint settings-campaigns-lapsed-error@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-lapsed-error-1440.png
+[2026-11-19T13:27:34.308Z] [en-merged] saved; DB row = red_yellow|45
+[2026-11-19T13:27:34.789Z] [en-merged] checkpoint settings-campaigns-saved@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-saved-1440.png
+[2026-11-19T13:27:34.965Z] [en-merged] restored; DB row = red|30
+[2026-11-19T13:27:35.286Z] [en-merged] form defaults: quality toggle = true lapsed toggle = true lapsed days = 30
+[2026-11-19T13:27:35.693Z] [en-merged] after type=promo: lapsed toggle = false
+[2026-11-19T13:27:35.744Z] [en-merged] ok colour key: "Green 90%+ delivered Receives Yellow 60–89% delivered Receives Red under 60%, or can't receive WhatsApp Skipped No data new, nothing sent yet Receives"
+[2026-11-19T13:27:36.549Z] [en-merged] ok will receive: "27"
+[2026-11-19T13:27:37.142Z] [en-merged] checkpoint campaign-form-tags-lapsed@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-tags-lapsed-1440.png
+[2026-11-19T13:27:37.700Z] [en-merged] checkpoint campaign-form-summary@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-1440.png
+[2026-11-19T13:27:39.240Z] [en-merged] checkpoint campaign-form-zero@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-zero-1440.png
+[2026-11-19T13:27:40.645Z] [en-merged] created campaign row 1a0fa13f-1c03-4f01-960e-d77b6cf3a675|tag|red|30; form showed will_receive=27; resolver on the stored snapshot returns 27 → parity OK
+[2026-11-19T13:27:40.915Z] [en-merged] members badge title: "100% delivered (10 msgs, 90 days)\n90% or more of messages delivered."
+[2026-11-19T13:27:41.580Z] [en-merged] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:27:42.640Z] [en-merged] phone /dashboard/setup stays on the index: http://localhost:3040/dashboard/setup
+[2026-11-19T13:27:43.131Z] [en-merged] checkpoint settings-index@390: blocking=0 warning=0 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-index-390.png
+[2026-11-19T13:27:44.048Z] [en-merged] checkpoint settings-campaigns@390: blocking=0 warning=1 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-settings-campaigns-390.png
+[2026-11-19T13:27:44.145Z] [en-merged] ‹ Settings → back to index
+[2026-11-19T13:27:46.311Z] [en-merged] checkpoint campaign-form-summary@390: blocking=0 warning=6 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-merged/en-campaign-form-summary-390.png

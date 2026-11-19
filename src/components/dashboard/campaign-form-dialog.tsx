@@ -13,7 +13,7 @@ import {
 } from './campaign-form-types'
 import type { Campaign } from '@/domain/entities/campaign'
 import { useCampaignAudienceSettings } from '@/hooks/use-campaign-audience-settings'
-import { filtersFromCampaign, filtersFromDefaults, lapsedLocked } from './campaign-audience-filter-state'
+import { filtersFromCampaign, lapsedForType, prefillFromDefaults } from './campaign-audience-filter-state'
 
 interface CampaignFormDialogProps {
   open: boolean
@@ -100,8 +100,10 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
   // "phase-1 accepts the storage cost"); a later GC sweep reclaims them.
   const draftNonce = useMemo(() => safeRandomNonce(), [])
   // CAMP-016: a new campaign starts from Settings → Campaigns; an edit keeps its snapshot.
+  // The pre-fill can land after the user has started: it never overwrites a filter they touched.
+  const [filtersTouched, setFiltersTouched] = useState(false)
   const { settings: audienceDefaults } = useCampaignAudienceSettings(open, (defaults) => {
-    if (!campaign) setForm((p) => ({ ...p, ...filtersFromDefaults(defaults, p.type) }))
+    if (!campaign && !filtersTouched) setForm((p) => ({ ...p, ...prefillFromDefaults(defaults) }))
   })
 
   useEffect(() => {
@@ -121,9 +123,9 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
     }
   }, [campaign])
 
-  const handleClose = () => { setForm(initialCampaignForm); onOpenChange(false) }
+  const handleClose = () => { setForm(initialCampaignForm); setFiltersTouched(false); onOpenChange(false) }
   const handleChange = (key: keyof CampaignFormState, value: string) =>
-    setForm((p) => ({ ...p, [key]: value, ...(key === 'type' && lapsedLocked(value) ? { lapsedEnabled: true } : {}) }))
+    setForm((p) => ({ ...p, [key]: value, ...(key === 'type' ? { lapsedEnabled: lapsedForType(value, p.lapsedEnabled, filtersTouched) } : {}) }))
   const handleTemplateChange = (n: { en: string; zhHk: string }) =>
     setForm((p) => ({ ...p, templateEn: n.en, templateZhHk: n.zhHk }))
 
@@ -161,7 +163,7 @@ export function CampaignFormDialog({ open, onOpenChange, onSuccess, campaign }: 
             onTagIdsChange={(ids) => setForm((p) => ({ ...p, tagIds: ids }))}
             onTemplateChange={handleTemplateChange}
             onBookNowToggle={(enabled) => setForm((p) => ({ ...p, bookNowEnabled: enabled }))}
-            onAudienceFiltersChange={(patch) => setForm((p) => ({ ...p, ...patch }))}
+            onAudienceFiltersChange={(patch) => { setFiltersTouched(true); setForm((p) => ({ ...p, ...patch })) }}
             audienceDefaults={audienceDefaults}
           />
           {error && <p className="text-sm text-destructive mt-2">{error}</p>}
