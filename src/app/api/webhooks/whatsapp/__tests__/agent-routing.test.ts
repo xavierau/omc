@@ -1,5 +1,5 @@
 // AGENT-001 W1: the webhook side of the reply agent through routeMessage (AC-R1).
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest'
 
 vi.mock('../service-window', () => ({ bumpServiceWindow: vi.fn() }))
 vi.mock('@/application/restore-member-reachability', () => ({ restoreMemberReachability: vi.fn() }))
@@ -57,7 +57,7 @@ let agentConfig: AgentConfig
 let store: FakeAgentStore
 let enqueued: Array<{ job: AgentReplyJob; delayMs: number }>
 let enqueue: AdmitAgentDeps['enqueue']
-let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+let fetchSpy: MockInstance<typeof fetch>
 
 const msg = (partial: Partial<KapsoMessage> = {}): KapsoMessage =>
   ({ messageId: 'wamid.in.1', from: PHONE, type: 'text', text: TEXT, timestamp: '1700000000', ...partial }) as KapsoMessage
