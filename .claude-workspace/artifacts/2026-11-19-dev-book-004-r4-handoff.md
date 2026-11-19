@@ -9,13 +9,13 @@ supersedes: artifacts/2026-11-19-dev-book-004-r3-handoff
 superseded_by: null
 item: BOOK-004
 state: done
-brief: inline (brief-v1 BOOK-004 r4, 2026-11-19: merge origin/develop (AGENT-003 #195, #198), carry AGENT-003 rows and cancelled bookings into the views)
+brief: inline
 base: 4fa9a30a
-head: 7c1c38c2 (merge) + this docs commit
+head: 7c1c38c2
 branch: feature/bookings-calendar-table
-pushed: see the dev return (AC-5)
-stage: poc (WT_STAGE=poc, slot 3)
-gate: {result: pass, at: 2026-11-19, note: "tsc --noEmit clean + full vitest 652 files / 7451 tests passed (13 files skipped) under the heavy lock; eslint on the 56 TS/TSX files the merge changed, exit 0; Impeccable source detector on the bookings UI: []"}
+pushed: true
+stage: poc
+gate: {result: pass, at: 2026-11-19, note: "tsc --noEmit clean + full vitest 652 files / 7451 tests passed (13 files skipped) under the heavy lock; eslint on the 56 TS/TSX files the merge changed, exit 0; Impeccable source detector on the bookings UI, no findings"}
 next: {owner: verifier, action: "re-review the merge resolution 4fa9a30a..7c1c38c2 (repository, use-bookings, booking-row, views), then merge PR #196 into develop and release"}
 blockers: []
 refs: [artifacts/2026-11-19-book-004-bookings-views-impl, artifacts/2026-11-19-book-004-bookings-views-ux, artifacts/2026-11-19-dev-book-004-r3-handoff]
@@ -25,7 +25,7 @@ ac:
   AC-2: {result: pass, evidence: "ac2-red.log: 16 failing before the fix (repository range/pending, groups, runDecision+handler, view renders); ac2-green.log: 7 files / 112 tests passed incl. develop's booking-change-ui.test.tsx and the F8 showsUndelivered test"}
   AC-3: {result: pass, evidence: "ac3-gate.log exit 0 (652 files / 7451 tests); ac3-lint-changed-files.log exit 0"}
   AC-4: {result: pass, evidence: "ac4-walk.log + ac4-calendar-day-panel-1440-zh.jpeg, ac4-table-1440-zh.jpeg, ac4-table-cards-390-zh.jpeg, ac4-calendar-day-list-390-zh.jpeg; fake tenant removed by exact id (ac4-cleanup.log: 0 left, auth user deleted 200)"}
-  AC-5: {result: see dev return, evidence: "push with timeout 120 rtk proxy git push; ls-remote sha compared to HEAD"}
+  AC-5: {result: pass, evidence: "timeout 120 rtk proxy git push 4fa9a30a..e58fc4a2; ls-remote sha == HEAD e58fc4a2; gh pr view 196 MERGEABLE / CLEAN at e58fc4a2. This file's own fix commit is pushed after it"}
 decisions:
   - "Cancelled has its own status chip (bookings-filter-cancelled), like Declined; All shows no number"
   - "AGENT-003 row parts extracted as exported CancelledByBadge / ChangeFromLine / cancelledText in booking-row.tsx and used by the day row, desktop table and phone cards; BookingRow itself is the day-list row only"
@@ -50,7 +50,10 @@ review_focus:
   - "src/infrastructure/supabase/repositories/booking-request-repository.ts: STAFF_COLUMNS + withReplacedSlotsIn on both new lists"
   - "src/hooks/use-bookings.ts: act -> runDecision with decisionOutcomeHandler (showsUndelivered)"
   - "src/components/dashboard/booking-row.tsx conflict resolution (develop's flat row replaced by the BOOK-004 split + extracted AGENT-003 parts)"
-scope_drift: []
+scope_drift:
+  - "Outside files_allowed only through the develop merge, content unchanged from develop: .env.example, supabase/migrations/085_agent_booking_changes.sql"
+  - "CLAUDE.md: next dev re-added its nextjs-agent-rules block; restored, not committed (as r2/r3)"
+  - ".claude/reflection-queue: untracked before this run, not touched"
 next_step: "Re-review the merge resolution, then merge PR #196 into develop."
 ---
 Notes:
