@@ -124,8 +124,8 @@ needs the supply-chain-guard scan before merge; none expected.
   junk; they never reach staff and are deleted within ~1 h. Accepted, owner Xavier.
 - **Per-phone lockout.** Anyone who knows a diner's number can hold its 3 unverified slots at a
   restaurant, so that diner's agent gets 429 there; the diner can still book by chat (BOOK) or
-  the form. The per-IP cap makes it cost one IP per 3 slots. Default accepted for the POC (owner
-  Xavier, decision pending in the BOOK-003 report).
+  the form. The per-IP cap makes it cost one IP per 3 slots. Accepted for the POC by Xavier,
+  2026-11-19.
 - **Staff cannot see agent bookings that the diner never confirmed.** By design (2B). Accepted.
 - **Agent identity unverified.** We cannot block a misbehaving agent by client_id, only by IP
   and caps. Verify Session JWTs in a later slice if abuse shows up. Owner Xavier.
