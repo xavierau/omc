@@ -1,7 +1,7 @@
 /**
  * AGENT-001 R6: per-phone hourly and per-tenant daily caps on model calls.
- * Counted from the stored model rows whose outcome cost a model call, so the
- * webhook and the worker read the same numbers.
+ * Counted from the stored model rows that made a model call (`model` set,
+ * whatever the outcome), so the webhook and the worker read the same numbers.
  */
 import type { AgentConfig } from '@/domain/value-objects/agent-config'
 import type { AgentConversationKey, AgentMessageStore } from '@/domain/ports/agent-reply'
@@ -31,6 +31,14 @@ export async function isOverReplyLimit(
  */
 export async function recordRateLimited(messages: AgentMessageStore, key: AgentConversationKey, now: Date): Promise<boolean> {
   const alreadyLimited = await messages.hasRateLimitedSince(key, isoAgo(now, HOUR_MS))
-  await messages.recordModelRow({ ...key, outcome: 'rate_limited', text: null, model: null, latencyMs: null, toolCalls: [] })
+  await messages.recordModelRow({
+    ...key,
+    outcome: 'rate_limited',
+    text: null,
+    model: null,
+    latencyMs: null,
+    toolCalls: [],
+    replyToMessageId: null,
+  })
   return !alreadyLimited
 }

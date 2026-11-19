@@ -22,6 +22,12 @@ export interface AgentReplyJob {
   phone: string
   /** The agent_messages user row this job answers (latest-wins key). */
   messageRowId: string
+  /**
+   * The mode the webhook admitted the message under. `auto` means the
+   * fallback menu was suppressed, so the worker owes the diner one response
+   * whatever it reads later (config changed or unreadable).
+   */
+  admittedMode: 'shadow' | 'auto'
 }
 
 export interface AdmitAgentDeps {
@@ -56,8 +62,13 @@ export function admitSendsFallback(decision: AdmitDecision): boolean {
 async function autoGate(deps: AdmitAgentDeps, msg: InboundAgentText, config: AgentConfig): Promise<AdmitDecision | null> {
   const key = { restaurantId: msg.restaurantId, phone: msg.phone }
   const now = deps.now()
-  if (await deps.silences.isSilenced(key, now.toISOString())) return { kind: 'fallback', reason: 'silenced' }
-  if (!(await isOverReplyLimit(deps.messages, key, config, now))) return null
+  // Independent reads, issued together (webhook latency); recordRateLimited depends on both.
+  const [silenced, overLimit] = await Promise.all([
+    deps.silences.isSilenced(key, now.toISOString()),
+    isOverReplyLimit(deps.messages, key, config, now),
+  ])
+  if (silenced) return { kind: 'fallback', reason: 'silenced' }
+  if (!overLimit) return null
   const first = await recordRateLimited(deps.messages, key, now)
   return first ? { kind: 'fallback', reason: 'rate_limited' } : { kind: 'quiet' }
 }
@@ -72,7 +83,10 @@ async function storeAndEnqueue(deps: AdmitAgentDeps, msg: InboundAgentText, conf
   })
   if (inserted.kind === 'duplicate') return { kind: 'duplicate' }
   try {
-    await deps.enqueue({ restaurantId: msg.restaurantId, phone: msg.phone, messageRowId: inserted.id }, config.debounceMs)
+    await deps.enqueue(
+      { restaurantId: msg.restaurantId, phone: msg.phone, messageRowId: inserted.id, admittedMode: mode },
+      config.debounceMs
+    )
   } catch (err) {
     deps.log('warn', 'agent.enqueue_failed', { messageId: msg.wamid, errorClass: (err as Error)?.name ?? 'unknown' })
     return { kind: 'fallback', reason: 'enqueue_failed' }

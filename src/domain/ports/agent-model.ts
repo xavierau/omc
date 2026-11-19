@@ -11,7 +11,8 @@
  * The adapter never sees a phone, member id or restaurant id.
  */
 
-export type AgentModelFailure = 'timeout' | 'http' | 'safety' | 'parse' | 'empty' | 'tool_cap'
+/** `truncated`: the answer hit maxOutputTokens (cut off mid-sentence), never sent. */
+export type AgentModelFailure = 'timeout' | 'http' | 'safety' | 'parse' | 'empty' | 'tool_cap' | 'truncated'
 
 export interface AgentTurn {
   role: 'user' | 'model'

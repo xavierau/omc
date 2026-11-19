@@ -44,7 +44,7 @@ export interface AgentToolContext {
   handoffSilenceHours: number
   now: () => Date
   data: AgentToolData
-  silences: AgentSilenceStore
+  silences: Pick<AgentSilenceStore, 'silenceUntil'>
 }
 
 const NOT_AVAILABLE: AgentToolOutput = { error: 'tool_not_available' }

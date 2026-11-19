@@ -70,8 +70,15 @@ describe('request contract', () => {
       systemInstruction: { parts: [{ text: 'SYSTEM' }] },
       contents: [{ role: 'user', parts: [{ text: 'How many points do I have?' }] }],
       tools: [{ functionDeclarations: [{ name: 'get_member_summary', description: 'd', parameters: { type: 'object', properties: {} } }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
+      generationConfig: { temperature: 0.3, maxOutputTokens: 400, thinkingConfig: { thinkingLevel: 'low' } },
     })
+  })
+
+  it('AC-F5 every request carries the lowest thinking level the default model supports (low)', async () => {
+    const { fetchImpl, requests } = fetchSequence([callReply('get_member_summary'), textReply('ok')])
+    await createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY }).respond(request())
+    expect(requests).toHaveLength(2)
+    for (const r of requests) expect((r.body.generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingLevel: 'low' })
   })
 
   it('omits tools when none are enabled and encodes the model id', async () => {
@@ -120,7 +127,41 @@ describe('tool loop', () => {
     expect(requests).toHaveLength(3)
   })
 
-  it('AC-R3 maxToolCalls 0 → any tool call is a tool_cap failure and runs nothing', async () => {
+  it('AC-F6 after the cap is used up the next request has no tools, and a text answer there succeeds', async () => {
+    const { fetchImpl, requests } = fetchSequence([callReply('get_member_summary', 'c1'), callReply('get_member_summary', 'c2'), textReply('You have 120 points.')])
+    const executeTool = vi.fn<AgentToolExecutor>(async () => ({ member: true, pointsBalance: 120 }))
+    const result = await createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY }).respond(request({ executeTool, maxToolCalls: 2 }))
+    expect(result).toMatchObject({ ok: true, text: 'You have 120 points.', toolCalls: ['get_member_summary', 'get_member_summary'] })
+    expect(requests.map((r) => r.body.tools === undefined)).toEqual([false, false, true])
+  })
+
+  it('AC-F6 calls past the cap in one round are answered with an error, not run; the next request has no tools', async () => {
+    const twoCalls = {
+      body: {
+        candidates: [{ content: { role: 'model', parts: [{ functionCall: { id: 'a', name: 'get_member_summary', args: {} } }, { functionCall: { id: 'b', name: 'list_rewards', args: {} } }] }, finishReason: 'STOP' }],
+      },
+    }
+    const { fetchImpl, requests } = fetchSequence([twoCalls, textReply('ok')])
+    const executeTool = vi.fn<AgentToolExecutor>(async () => ({ ok: 1 }))
+    const result = await createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY }).respond(request({ executeTool, maxToolCalls: 1 }))
+    expect(result.ok).toBe(true)
+    expect(executeTool).toHaveBeenCalledTimes(1)
+    const last = (requests[1].body.contents as Array<{ parts: Array<{ functionResponse: { name: string; response: unknown } }> }>)[2]
+    expect(last.parts.map((p) => [p.functionResponse.name, p.functionResponse.response])).toEqual([
+      ['get_member_summary', { ok: 1 }],
+      ['list_rewards', { error: 'tool_limit_reached' }],
+    ])
+    expect(requests[1].body.tools).toBeUndefined()
+  })
+
+  it('AC-F6 maxToolCalls 0 → the request declares no tools; a text answer succeeds', async () => {
+    const { fetchImpl, requests } = fetchSequence([textReply('You have 120 points.')])
+    const result = await createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY }).respond(request({ maxToolCalls: 0 }))
+    expect(result).toMatchObject({ ok: true, text: 'You have 120 points.' })
+    expect(requests[0].body.tools).toBeUndefined()
+  })
+
+  it('AC-F6 a function call with no tools declared is tool_cap and runs nothing', async () => {
     const { fetchImpl } = fetchSequence([callReply('get_member_summary')])
     const executeTool = vi.fn<AgentToolExecutor>()
     const result = await createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY }).respond(request({ executeTool, maxToolCalls: 0 }))
@@ -159,7 +200,9 @@ describe('AC-R4 failure classes', () => {
     ['no candidates', [{ body: {} }], 'parse'],
     ['malformed function call', [{ body: { candidates: [{ content: { parts: [] }, finishReason: 'MALFORMED_FUNCTION_CALL' }] } }], 'parse'],
     ['empty text', [{ body: { candidates: [{ content: { parts: [{ text: '  ' }] }, finishReason: 'STOP' }] } }], 'empty'],
-    ['only thoughts', [{ body: { candidates: [{ content: { parts: [{ text: 'thinking', thought: true }] }, finishReason: 'MAX_TOKENS' }] } }], 'empty'],
+    ['only thoughts', [{ body: { candidates: [{ content: { parts: [{ text: 'thinking', thought: true }] }, finishReason: 'STOP' }] } }], 'empty'],
+    ['AC-F5 thoughts ate the budget (MAX_TOKENS, no text)', [{ body: { candidates: [{ content: { parts: [{ text: 'thinking', thought: true }] }, finishReason: 'MAX_TOKENS' }] } }], 'truncated'],
+    ['AC-F5 a cut-off sentence (MAX_TOKENS with text)', [{ body: { candidates: [{ content: { parts: [{ text: '你目前有 120 分，足夠換' }] }, finishReason: 'MAX_TOKENS' }] } }], 'truncated'],
   ]
 
   it.each(cases)('AC-R4 %s → %s', async (_label, replies, reason) => {

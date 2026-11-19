@@ -18,10 +18,11 @@ import {
   purgeExpiredSilences,
   purgeOlderThan,
   recordModelRow,
+  setModelOutcome,
   silenceUntil,
 } from '../agent-message-repository'
 import { getAgentMemberSummary, getAgentContactAction, listAgentRewards } from '../agent-tool-repository'
-import { changeAgentConfig, getAgentConfig, listAgentTenantConfigs } from '../agent-config-repository'
+import { getAgentConfig, listAgentTenantConfigs, readAgentConfig } from '../agent-config-repository'
 import { listActiveRewards } from '../reward-repository'
 import { getContactConfig, getRestaurantRedirect } from '../restaurant-repository'
 import { DEFAULT_AGENT_CONFIG } from '@/domain/value-objects/agent-config'
@@ -125,13 +126,39 @@ describe('agent_messages writes and counters', () => {
     await expect(insertUserMessage({ ...KEY, wamid: 'w1', text: 'hi' })).rejects.toThrow('insertUserMessage: 22001')
   })
 
-  it('recordModelRow writes the outcome row with tool names only', async () => {
-    const rec = use([{}])
-    await recordModelRow({ ...KEY, outcome: 'sent', text: 'ok', model: 'gemini-3.8-flash', latencyMs: 812, toolCalls: ['list_rewards'] })
+  it('recordModelRow writes the outcome row with tool names only and the user row it answers', async () => {
+    const rec = use([{ data: { id: 'm-1' } }])
+    const row = { ...KEY, outcome: 'sent' as const, text: 'ok', model: 'gemini-3.8-flash', latencyMs: 812, toolCalls: ['list_rewards'], replyToMessageId: 'row-1' }
+    expect(await recordModelRow(row)).toEqual({ kind: 'inserted', id: 'm-1' })
     expect(rec.queries[0].calls[0]).toEqual([
       'insert',
-      { restaurant_id: 'rest-a', phone: '+85291234567', role: 'model', text: 'ok', outcome: 'sent', model: 'gemini-3.8-flash', latency_ms: 812, tool_calls: ['list_rewards'] },
+      {
+        restaurant_id: 'rest-a',
+        phone: '+85291234567',
+        role: 'model',
+        text: 'ok',
+        outcome: 'sent',
+        model: 'gemini-3.8-flash',
+        latency_ms: 812,
+        tool_calls: ['list_rewards'],
+        reply_to_message_id: 'row-1',
+      },
     ])
+  })
+
+  it('AC-F7 recordModelRow maps the one-answer-per-user-row 23505 to taken; other errors throw', async () => {
+    const row = { ...KEY, outcome: 'sent' as const, text: 'ok', model: 'm', latencyMs: 1, toolCalls: [], replyToMessageId: 'row-1' }
+    use([{ error: { message: 'dup', code: '23505' } as never }])
+    expect(await recordModelRow(row)).toEqual({ kind: 'taken' })
+    use([{ error: { message: 'boom', code: '08006' } as never }])
+    await expect(recordModelRow(row)).rejects.toThrow('recordModelRow: 08006')
+  })
+
+  it('AC-F7 setModelOutcome rewrites only the outcome of that row, scoped to the conversation', async () => {
+    const rec = use([{}])
+    await setModelOutcome(KEY, 'm-1', 'fallback')
+    expect(rec.queries[0].calls[0]).toEqual(['update', { outcome: 'fallback' }])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=m-1', 'eq:restaurant_id=rest-a', 'eq:phone=+85291234567'])
   })
 
   it('latestUserMessageId reads the newest user row of the conversation', async () => {
@@ -140,16 +167,32 @@ describe('agent_messages writes and counters', () => {
     expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=rest-a', 'eq:phone=+85291234567', 'eq:role=user'])
   })
 
-  it('countModelCalls counts model-call outcomes per phone, or per tenant when phone is null', async () => {
-    const rec = use([{ count: 3 }, { count: 40 }])
+  it('AC-F8 countModelCalls counts rows that made a model call (model not null, any outcome), per phone or per tenant', async () => {
+    const calls: unknown[][][] = []
+    const results = [{ count: 3 }, { count: 40 }]
+    const chain = (log: unknown[][], result: unknown): Record<string, unknown> => {
+      const c: Record<string, unknown> = {}
+      for (const m of ['select', 'eq', 'not', 'gte']) c[m] = (...args: unknown[]) => (log.push([m, ...args]), c)
+      c.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ error: null, ...(result as object) }).then(resolve)
+      return c
+    }
+    vi.mocked(createServerSupabaseClient).mockImplementation(
+      () => ({ from: () => chain((calls[calls.length] = []), results[calls.length - 1]) }) as never
+    )
     expect(await countModelCalls('rest-a', '+85291234567', '2026-11-19T09:00:00.000Z')).toBe(3)
     expect(await countModelCalls('rest-a', null, '2026-11-18T10:00:00.000Z')).toBe(40)
-    expect(filtersOf(rec.queries[0])).toEqual([
-      'eq:restaurant_id=rest-a',
-      'eq:phone=+85291234567',
-      'in:outcome=shadow_draft,sent,fallback,error',
+    expect(calls[0].filter(([m]) => m !== 'select')).toEqual([
+      ['eq', 'restaurant_id', 'rest-a'],
+      ['eq', 'phone', '+85291234567'],
+      ['not', 'model', 'is', null],
+      ['gte', 'created_at', '2026-11-19T09:00:00.000Z'],
     ])
-    expect(filtersOf(rec.queries[1])).toEqual(['eq:restaurant_id=rest-a', 'in:outcome=shadow_draft,sent,fallback,error'])
+    expect(calls[1].filter(([m]) => m !== 'select')).toEqual([
+      ['eq', 'restaurant_id', 'rest-a'],
+      ['not', 'model', 'is', null],
+      ['gte', 'created_at', '2026-11-18T10:00:00.000Z'],
+    ])
+    expect(calls.flat().some(([m]) => m === 'in')).toBe(false)
   })
 
   it('hasRateLimitedSince is scoped to the conversation', async () => {
@@ -189,12 +232,12 @@ describe('agent config repository', () => {
     expect(list.map((t) => [t.restaurantId, t.config.historyTtlHours])).toEqual([['a', 24], ['b', 72]])
   })
 
-  it('changeAgentConfig is a CAS on agent_config.rev', async () => {
-    const rec = use([{ data: { agent_config: { mode: 'off', rev: 2 } } }, { data: [{ id: 'rest-a' }] }])
-    const next = await changeAgentConfig('rest-a', (c) => ({ ...c, mode: 'shadow' }))
-    expect(next?.mode).toBe('shadow')
-    const update = rec.queries[1]
-    expect(update.calls[0]).toEqual(['update', { agent_config: expect.objectContaining({ mode: 'shadow', rev: 3 }) }])
-    expect(filtersOf(update)).toEqual(['eq:id=rest-a', 'eq:agent_config->>rev=2'])
+  it('AC-F3 readAgentConfig reports a query error as a failed read (the webhook getter still degrades to off)', async () => {
+    use([{ error: { message: 'boom' } }])
+    expect(await readAgentConfig('rest-a')).toEqual({ ok: false })
+    use([{ data: { agent_config: { mode: 'auto' } } }])
+    expect(await readAgentConfig('rest-a')).toMatchObject({ ok: true, config: { mode: 'auto' } })
+    use([{ data: null }])
+    expect(await readAgentConfig('rest-a')).toMatchObject({ ok: true, config: { mode: 'off' } })
   })
 })

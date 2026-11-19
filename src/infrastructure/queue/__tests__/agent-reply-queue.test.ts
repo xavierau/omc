@@ -1,15 +1,18 @@
 // AGENT-001 W1: the agent-reply queue (debounce delay, one attempt, hourly purge scheduler).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const add = vi.fn()
-const upsertJobScheduler = vi.fn()
+const { add, upsertJobScheduler, Worker } = vi.hoisted(() => ({
+  add: vi.fn(),
+  upsertJobScheduler: vi.fn(),
+  Worker: vi.fn(function Worker() {
+    return { on: vi.fn() }
+  }),
+}))
 vi.mock('bullmq', () => ({
   Queue: vi.fn(function Queue() {
     return { add, upsertJobScheduler }
   }),
-  Worker: vi.fn(function Worker() {
-    return { on: vi.fn() }
-  }),
+  Worker,
 }))
 
 import {
@@ -19,9 +22,11 @@ import {
   dispatchAgentJob,
   enqueueAgentReply,
   ensureAgentRetentionScheduler,
+  ensureWorkerStarted,
 } from '../agent-reply-queue'
+import type { AgentReplyJob } from '@/application/agent/admit-inbound-for-agent'
 
-const JOB = { restaurantId: 'rest-a', phone: '+85291234567', messageRowId: 'row-1' }
+const JOB: AgentReplyJob = { restaurantId: 'rest-a', phone: '+85291234567', messageRowId: 'row-1', admittedMode: 'auto' }
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -40,6 +45,13 @@ describe('agent-reply queue', () => {
       expect.objectContaining({ name: 'purge', data: { kind: 'purge' } })
     )
     expect(AGENT_PURGE_INTERVAL_MS).toBe(3_600_000)
+  })
+
+  it('AC-F7 worker lockDuration ≥ 60000 ms (a ≤ 20 s model run is never re-run as stalled), concurrency stays 3', () => {
+    ensureWorkerStarted({ reply: vi.fn(), purge: vi.fn() })
+    const options = (Worker.mock.calls[0] as unknown[])[2] as { lockDuration: number; concurrency: number }
+    expect(options.lockDuration).toBeGreaterThanOrEqual(60_000)
+    expect(options.concurrency).toBe(3)
   })
 
   it('dispatches purge and reply jobs to their handlers', async () => {

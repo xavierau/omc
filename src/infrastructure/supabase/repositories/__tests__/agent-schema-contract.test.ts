@@ -8,7 +8,7 @@ import fs from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { columnsForTable } from './schema-contract/parse-schema'
 import { repositoryColumnsByTable } from './schema-contract/parse-repository-columns'
-import { AGENT_OUTCOMES } from '@/domain/ports/agent-reply'
+import { AGENT_OUTCOMES, REPLY_CLAIM_OUTCOMES } from '@/domain/ports/agent-reply'
 
 const REPOS_DIR = path.join(process.cwd(), 'src/infrastructure/supabase/repositories')
 const MIGRATION = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/083_agent_reply.sql'), 'utf8')
@@ -29,7 +29,7 @@ function filterColumnsByTable(file: string): Map<string, string[]> {
   const out = new Map<string, string[]>()
   sites.forEach((site, i) => {
     const chunk = source.slice(site.index, i + 1 < sites.length ? sites[i + 1].index : source.length)
-    const cols = [...chunk.matchAll(/\.(?:eq|is|gt|gte|lt|in|order)\(\s*'([a-z_]+)'/g)].map((m) => m[1])
+    const cols = [...chunk.matchAll(/\.(?:eq|is|not|gt|gte|lt|in|order)\(\s*'([a-z_]+)'/g)].map((m) => m[1])
     out.set(site[1], [...(out.get(site[1]) ?? []), ...cols])
   })
   return out
@@ -66,10 +66,18 @@ describe('AC-MIG agent schema contract: repositories match migration 083', () =>
 
   it('AC-MIG 083 creates the agent tables with exactly the planned columns', () => {
     expect([...columnsForTable('agent_messages')].sort()).toEqual(
-      ['created_at', 'id', 'latency_ms', 'model', 'outcome', 'phone', 'restaurant_id', 'role', 'text', 'tool_calls', 'wamid'].sort()
+      ['created_at', 'id', 'latency_ms', 'model', 'outcome', 'phone', 'reply_to_message_id', 'restaurant_id', 'role', 'text', 'tool_calls', 'wamid'].sort()
     )
     expect([...columnsForTable('agent_silences')].sort()).toEqual(['created_at', 'phone', 'restaurant_id', 'silenced_until'])
     expect(columnsForTable('restaurants').has('agent_config')).toBe(true)
+  })
+
+  it('AC-F7-MIG one answer per user row: partial UNIQUE on reply_to_message_id over exactly the claim outcomes', () => {
+    const index = /CREATE UNIQUE INDEX agent_messages_one_reply_key\s+ON agent_messages \(reply_to_message_id\)\s+WHERE reply_to_message_id IS NOT NULL AND outcome IN \(([^)]*)\);/.exec(MIGRATION)
+    expect(index).not.toBeNull()
+    expect(index?.[1].split(',').map((s) => s.trim().replace(/'/g, '')).sort()).toEqual([...REPLY_CLAIM_OUTCOMES].sort())
+    expect(MIGRATION).toMatch(/reply_to_message_id UUID REFERENCES agent_messages\(id\) ON DELETE SET NULL/)
+    expect(MIGRATION).toContain("role = 'user' AND text IS NOT NULL AND outcome IS NULL AND reply_to_message_id IS NULL")
   })
 
   it('AC-MIG RLS is enabled on both tables and 083 adds no policy and no grant', () => {

@@ -5,7 +5,7 @@
  * The fallback-menu sender is injected by the caller: it lives in the webhook
  * adapter (handleUnknown), which the application layer does not import.
  */
-import { getAgentConfig, listAgentTenantConfigs } from '@/infrastructure/supabase/repositories/agent-config-repository'
+import { getAgentConfig, listAgentTenantConfigs, readAgentConfig } from '@/infrastructure/supabase/repositories/agent-config-repository'
 import { agentMessageStore, agentSilenceStore } from '@/infrastructure/supabase/repositories/agent-message-repository'
 import { agentToolData } from '@/infrastructure/supabase/repositories/agent-tool-repository'
 import { isWindowOpen } from '@/infrastructure/supabase/repositories/conversation-window-repository'
@@ -41,7 +41,7 @@ export function agentWorkerDeps(
   log: AgentLogFn = agentConsoleLog
 ): AgentWorkerDeps {
   return {
-    getConfig: getAgentConfig,
+    getConfig: readAgentConfig,
     messages: agentMessageStore,
     silences: agentSilenceStore,
     toolData: agentToolData,

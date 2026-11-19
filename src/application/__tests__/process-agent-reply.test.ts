@@ -1,7 +1,7 @@
 // AGENT-001 W1: the reply agent's worker (R4, R5, R6, R8, R9, R10, R11).
 import { describe, it, expect } from 'vitest'
 import { processAgentReply } from '@/application/agent/process-agent-reply'
-import { admitInboundForAgent } from '@/application/agent/admit-inbound-for-agent'
+import { admitInboundForAgent, type AgentReplyJob } from '@/application/agent/admit-inbound-for-agent'
 import { DEFAULT_DISCLOSURE_TEXT, resolveAgentConfig } from '@/domain/value-objects/agent-config'
 import { AGENT_OUTCOMES } from '@/domain/ports/agent-reply'
 import type { AgentModelFailure } from '@/domain/ports/agent-model'
@@ -13,10 +13,10 @@ const KEY = { restaurantId: R, phone: PHONE }
 
 /** Admit an inbound like the webhook does, then run the worker job it enqueued. */
 async function inbound(h: WorkerHarness, text: string, wamid: string) {
-  const jobs: Array<{ restaurantId: string; phone: string; messageRowId: string }> = []
+  const jobs: AgentReplyJob[] = []
   await admitInboundForAgent(
     {
-      getConfig: h.deps.getConfig,
+      getConfig: async () => h.currentConfig(),
       messages: h.store,
       silences: h.store,
       enqueue: async (job) => void jobs.push(job),
@@ -33,7 +33,13 @@ async function runOne(h: WorkerHarness, text = '你哋幾點開門?', wamid = 'w
   return processAgentReply(h.deps, job)
 }
 
-const FAILURES: AgentModelFailure[] = ['timeout', 'http', 'safety', 'parse', 'empty', 'tool_cap']
+const FAILURES: AgentModelFailure[] = ['timeout', 'http', 'safety', 'parse', 'empty', 'tool_cap', 'truncated']
+const MODEL = 'gemini-3.8-flash'
+
+/** A job for the newest stored user row, as the webhook would have enqueued it. */
+async function latestJob(h: WorkerHarness, admittedMode: AgentReplyJob['admittedMode'] = 'auto'): Promise<AgentReplyJob> {
+  return { restaurantId: R, phone: PHONE, messageRowId: (await h.store.latestUserMessageId(KEY)) as string, admittedMode }
+}
 
 describe('AC-R4 failure handling per class', () => {
   it.each(FAILURES)('AC-R4 auto + %s → fallback menu exactly once, outcome fallback, nothing else sent', async (reason) => {
@@ -81,10 +87,10 @@ describe('AC-R6 rate limits and debounce', () => {
 
     // Race past the webhook gate: the jobs reach the worker anyway.
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'q11', wamid: 'wamid.11' })
-    const job11 = { restaurantId: R, phone: PHONE, messageRowId: (await h.store.latestUserMessageId(KEY)) as string }
+    const job11 = await latestJob(h)
     expect(await processAgentReply(h.deps, job11)).toBe('rate_limited')
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'q12', wamid: 'wamid.12' })
-    const job12 = { restaurantId: R, phone: PHONE, messageRowId: (await h.store.latestUserMessageId(KEY)) as string }
+    const job12 = await latestJob(h)
     expect(await processAgentReply(h.deps, job12)).toBe('rate_limited')
 
     expect(h.model.requests).toHaveLength(10)
@@ -114,17 +120,17 @@ describe('AC-R6 rate limits and debounce', () => {
 
   it('AC-R6 tenant daily cap: other diners used it up → no model call for this phone', async () => {
     const h = workerHarness({ config: { mode: 'auto', maxRepliesPerTenantPerDay: 3 } })
-    for (let i = 0; i < 3; i++) h.store.seed({ restaurant_id: R, phone: `+8529000000${i}`, role: 'model', outcome: 'sent', text: 'x' })
-    h.store.seed({ restaurant_id: 'rest-b', phone: PHONE, role: 'model', outcome: 'sent', text: 'other tenant' })
+    for (let i = 0; i < 3; i++) h.store.seed({ restaurant_id: R, phone: `+8529000000${i}`, role: 'model', outcome: 'sent', text: 'x', model: MODEL })
+    h.store.seed({ restaurant_id: 'rest-b', phone: PHONE, role: 'model', outcome: 'sent', text: 'other tenant', model: MODEL })
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'hi', wamid: 'w' })
-    const job = { restaurantId: R, phone: PHONE, messageRowId: (await h.store.latestUserMessageId(KEY)) as string }
+    const job = await latestJob(h)
     expect(await processAgentReply(h.deps, job)).toBe('rate_limited')
     expect(h.model.requests).toHaveLength(0)
   })
 
   it('AC-R6 rate-limited in shadow mode sends nothing', async () => {
     const h = workerHarness({ config: { mode: 'shadow', maxRepliesPerPhonePerHour: 1 } })
-    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'shadow_draft', text: 'x' })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'shadow_draft', text: 'x', model: MODEL })
     expect(await runOne(h)).toBe('rate_limited')
     expect(h.fallbacks).toEqual([])
     expect(h.sends).toEqual([])
@@ -132,7 +138,7 @@ describe('AC-R6 rate limits and debounce', () => {
 
   it('AC-R6 calls older than the window do not count', async () => {
     const h = workerHarness({ config: { mode: 'auto', maxRepliesPerPhonePerHour: 1 } })
-    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x', created_at: '2026-11-19T08:59:00.000Z' })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x', model: MODEL, created_at: '2026-11-19T08:59:00.000Z' })
     expect(await runOne(h)).toBe('sent')
   })
 })
@@ -209,26 +215,19 @@ describe('AC-R9 stored model row per outcome', () => {
     expect(h.model.requests).toHaveLength(0)
   })
 
-  it('AC-R9 skipped when the tenant switched to off after the job was queued', async () => {
-    const h = workerHarness()
+  it('AC-R9 skipped when the tenant switched to off after a shadow job was queued (nothing sent)', async () => {
+    const h = workerHarness({ config: { mode: 'shadow' } })
     const [job] = await inbound(h, 'hi', 'w1')
     h.setConfig({ mode: 'off' })
     expect(await processAgentReply(h.deps, job)).toBe('skipped')
     expect(h.model.requests).toHaveLength(0)
-  })
-
-  it('AC-R9 error when the send fails', async () => {
-    const h = workerHarness()
-    h.sendResult.value = { ok: false, kapsoMessageId: null, raw: null, error: { title: 'x' } }
-    await runOne(h)
-    expectRow(h, { outcome: 'error', text: 'Hello!' })
     expect(h.fallbacks).toEqual([])
   })
 
   it('AC-R9 rate_limited row has no text, model or tools', async () => {
     // shadow: the webhook does not gate, so the job reaches the worker's limit check
     const h = workerHarness({ config: { mode: 'shadow', maxRepliesPerPhonePerHour: 1 } })
-    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x' })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x', model: MODEL })
     await runOne(h)
     const limited = h.store.modelRows().filter((r) => r.outcome === 'rate_limited')
     expect(limited).toEqual([expect.objectContaining({ text: null, model: null, latency_ms: null, tool_calls: [] })])
@@ -237,7 +236,7 @@ describe('AC-R9 stored model row per outcome', () => {
 
 describe('AC-R5 history fed to the model', () => {
   function seedConversation(h: WorkerHarness) {
-    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'too old', wamid: 'o', created_at: '2026-11-19T08:30:00.000Z' })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'too old', wamid: 'o', created_at: '2026-11-18T09:30:00.000Z' })
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'u1', wamid: 'a', created_at: '2026-11-19T09:10:00.000Z' })
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'm1', created_at: '2026-11-19T09:11:00.000Z' })
     h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'rate_limited', created_at: '2026-11-19T09:12:00.000Z' })
@@ -247,7 +246,7 @@ describe('AC-R5 history fed to the model', () => {
   }
 
   it('AC-R5 rows inside the TTL only, chronological, replies the diner got (or would have) only, own conversation only', async () => {
-    const h = workerHarness({ config: { mode: 'auto', maxHistoryMessages: 10, historyTtlHours: 1 } })
+    const h = workerHarness({ config: { mode: 'auto', maxHistoryMessages: 10, historyTtlHours: 24 } })
     seedConversation(h)
     await runOne(h, 'u3', 'd')
     expect(h.model.requests[0].history).toEqual([
@@ -258,7 +257,7 @@ describe('AC-R5 history fed to the model', () => {
   })
 
   it('AC-R5 at most maxHistoryMessages rows; a window opening on a reply starts at the next diner turn', async () => {
-    const h = workerHarness({ config: { mode: 'auto', maxHistoryMessages: 3, historyTtlHours: 1 } })
+    const h = workerHarness({ config: { mode: 'auto', maxHistoryMessages: 3, historyTtlHours: 24 } })
     seedConversation(h)
     await runOne(h, 'u3', 'd')
     // newest 3 = m1, u2, u3; the leading model turn is dropped
@@ -316,5 +315,264 @@ describe('worker request shape', () => {
     expect(req.tools.map((t) => t.name)).toEqual(['list_rewards'])
     expect(req.systemInstruction).toContain('Open 11-22')
     expect(resolveAgentConfig({}).mode).toBe('off')
+  })
+})
+
+describe('AC-F1 overlapping jobs of one conversation', () => {
+  it('AC-F1 two overlapping jobs for one conversation → exactly one send (the older job is superseded after its model call)', async () => {
+    const h = workerHarness()
+    const [jobA] = await inbound(h, '想問下', 'wamid.a')
+    let jobBResult: unknown
+    h.model.results = [
+      async () => {
+        // While A's model call is in flight, the diner writes again and B runs to completion.
+        h.clock.advance(1_000)
+        const [jobB] = await inbound(h, '星期日開唔開?', 'wamid.b')
+        jobBResult = await processAgentReply(h.deps, jobB)
+        return okModel('A reply')
+      },
+      okModel('B reply'),
+    ]
+    expect(await processAgentReply(h.deps, jobA)).toBe('skipped')
+    expect(jobBResult).toBe('sent')
+    expect(h.sends.map((s) => s.text)).toEqual([`B reply\n\n${DEFAULT_DISCLOSURE_TEXT}`])
+    expect(h.fallbacks).toEqual([])
+    const rows = h.store.modelRows()
+    expect(rows.map((r) => r.outcome).sort()).toEqual(['sent', 'skipped'])
+    // A's call still counts toward the limits.
+    expect(rows.find((r) => r.outcome === 'skipped')).toMatchObject({ model: MODEL, text: null })
+    expect(h.logs.find((l) => l.event === 'agent.reply' && l.data.outcome === 'skipped')?.data.reason).toBe('superseded')
+  })
+
+  it("AC-F1 a handoff silence set during job A's model call stops job B's send", async () => {
+    const h = workerHarness()
+    const [jobA] = await inbound(h, '我想搵職員', 'wamid.a')
+    let releaseB!: () => void
+    const bWaiting = new Promise<void>((resolve) => (releaseB = resolve))
+    let bCalling!: () => void
+    const bInCall = new Promise<void>((resolve) => (bCalling = resolve))
+    let jobB: Promise<unknown> = Promise.resolve()
+    h.model.results = [
+      async (req) => {
+        h.clock.advance(1_000)
+        const [b] = await inbound(h, '喂?', 'wamid.b')
+        jobB = processAgentReply(h.deps, b)
+        await bInCall // B passed its start checks and is inside its model call
+        await req.executeTool('handoff_to_staff', {})
+        releaseB()
+        return okModel('Staff will follow up.', ['handoff_to_staff'])
+      },
+      async () => {
+        bCalling()
+        await bWaiting
+        return okModel('B reply')
+      },
+    ]
+    await processAgentReply(h.deps, jobA)
+    expect(await jobB).toBe('skipped')
+    expect(h.sends).toEqual([])
+    expect(h.logs.filter((l) => l.event === 'agent.reply').map((l) => l.data.reason).sort()).toEqual(['silenced', 'superseded'])
+    expect(h.store.modelRows().map((r) => [r.outcome, r.model])).toEqual([['skipped', MODEL], ['skipped', MODEL]])
+  })
+
+  it("AC-F1 a run's own handoff does not stop its own reply", async () => {
+    const model = new FakeAgentModel([
+      async (req) => {
+        await req.executeTool('handoff_to_staff', {})
+        return okModel('Staff will follow up.', ['handoff_to_staff'])
+      },
+    ])
+    const h = workerHarness({ model })
+    expect(await runOne(h)).toBe('sent')
+    expect(h.sends).toHaveLength(1)
+    expect(await h.store.isSilenced(KEY, h.clock.now().toISOString())).toBe(true)
+  })
+
+  it('AC-F1 a shadow draft is not recorded when the job was superseded during the model call', async () => {
+    const h = workerHarness({ config: { mode: 'shadow' } })
+    const [jobA] = await inbound(h, 'a', 'wamid.a')
+    h.model.results = [
+      async () => {
+        h.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'b', wamid: 'wamid.b' })
+        return okModel('draft A')
+      },
+    ]
+    expect(await processAgentReply(h.deps, jobA)).toBe('skipped')
+    expect(h.store.modelRows().map((r) => [r.outcome, r.text])).toEqual([['skipped', null]])
+  })
+})
+
+describe('AC-F3 config read failure and mode changes after admission', () => {
+  it('AC-F3 auto-admitted job + config read error → fallback once, never read as mode off', async () => {
+    const h = workerHarness()
+    const [job] = await inbound(h, 'hi', 'w1')
+    h.configReadable.value = false
+    expect(await processAgentReply(h.deps, job)).toBe('fallback')
+    expect(h.fallbacks).toHaveLength(1)
+    expect(h.model.requests).toHaveLength(0)
+    expect(h.store.modelRows()).toEqual([expect.objectContaining({ outcome: 'fallback', model: null, reply_to_message_id: job.messageRowId })])
+    expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('config_unavailable')
+  })
+
+  it('AC-F3 shadow-admitted job + config read error → error row, nothing sent', async () => {
+    const h = workerHarness({ config: { mode: 'shadow' } })
+    const [job] = await inbound(h, 'hi', 'w1')
+    h.configReadable.value = false
+    expect(await processAgentReply(h.deps, job)).toBe('error')
+    expect(h.fallbacks).toEqual([])
+    expect(h.sends).toEqual([])
+  })
+
+  it('AC-F3 auto-admitted job + config now off → fallback once, outcome skipped mode_off, no model call', async () => {
+    const h = workerHarness()
+    const [job] = await inbound(h, 'hi', 'w1')
+    h.setConfig({ mode: 'off' })
+    expect(await processAgentReply(h.deps, job)).toBe('skipped')
+    expect(h.fallbacks).toHaveLength(1)
+    expect(h.model.requests).toHaveLength(0)
+    expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('mode_off')
+  })
+
+  it('AC-F3 the webhook stamps the admitted mode on the job', async () => {
+    const auto = workerHarness()
+    expect((await inbound(auto, 'hi', 'w1'))[0].admittedMode).toBe('auto')
+    const shadow = workerHarness({ config: { mode: 'shadow' } })
+    expect((await inbound(shadow, 'hi', 'w1'))[0].admittedMode).toBe('shadow')
+  })
+
+  it('AC-F3 auto-admitted, now shadow → draft only, plus the suppressed fallback menu once; shadow-admitted, now auto → draft only', async () => {
+    const down = workerHarness()
+    const [jobDown] = await inbound(down, 'hi', 'w1')
+    down.setConfig({ mode: 'shadow' })
+    expect(await processAgentReply(down.deps, jobDown)).toBe('shadow_draft')
+    expect(down.sends).toEqual([])
+    expect(down.fallbacks).toHaveLength(1)
+
+    const up = workerHarness({ config: { mode: 'shadow' } })
+    const [jobUp] = await inbound(up, 'hi', 'w1')
+    up.setConfig({ mode: 'auto' })
+    expect(await processAgentReply(up.deps, jobUp)).toBe('shadow_draft')
+    expect(up.sends).toEqual([])
+    expect(up.fallbacks).toEqual([])
+  })
+})
+
+describe('AC-F4 send failure in auto', () => {
+  it('AC-F4 auto send_failed → the fallback menu is tried once; outcome fallback, reason send_failed', async () => {
+    const h = workerHarness()
+    h.sendResult.value = { ok: false, kapsoMessageId: null, raw: null, error: { title: 'x' } }
+    expect(await runOne(h)).toBe('fallback')
+    expect(h.sends).toHaveLength(1)
+    expect(h.fallbacks).toHaveLength(1)
+    expect(h.store.modelRows()).toEqual([expect.objectContaining({ outcome: 'fallback', text: 'Hello!' })])
+    expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('send_failed')
+  })
+
+  it('AC-F4 send throws and the fallback also fails → outcome error, reason send_failed, one attempt each', async () => {
+    const h = workerHarness()
+    h.deps.sendText = async () => {
+      throw new Error('kapso down')
+    }
+    h.deps.sendFallback = async (phoneNumberId, phone, restaurantId) => (h.fallbacks.push({ phoneNumberId, phone, restaurantId }), false)
+    expect(await runOne(h)).toBe('error')
+    expect(h.fallbacks).toHaveLength(1)
+    expect(h.store.modelRows().map((r) => r.outcome)).toEqual(['error'])
+  })
+
+  it('AC-F4 no_phone_number → error, no fallback attempt', async () => {
+    const h = workerHarness()
+    h.deps.getPhoneNumberId = async () => null
+    let fallbackCalls = 0
+    h.deps.sendFallback = async () => (fallbackCalls++, true)
+    expect(await runOne(h)).toBe('error')
+    expect(fallbackCalls).toBe(0)
+    expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('no_phone_number')
+  })
+})
+
+describe('AC-F5 truncated answers are never sent', () => {
+  it('AC-F5 failure truncated → auto fallback, nothing partial sent', async () => {
+    const h = workerHarness({ model: new FakeAgentModel([failedModel('truncated')]) })
+    expect(await runOne(h)).toBe('fallback')
+    expect(h.sends).toEqual([])
+    expect(h.fallbacks).toHaveLength(1)
+    expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('truncated')
+  })
+})
+
+describe('AC-F6 tools follow maxToolCalls', () => {
+  it('AC-F6 maxToolCalls 0 → the model request declares no tools, so a points question gets a text answer', async () => {
+    const h = workerHarness({ config: { mode: 'auto', maxToolCalls: 0 }, model: new FakeAgentModel([okModel('Please ask staff about your points.')]) })
+    expect(await runOne(h, '我有幾多分?')).toBe('sent')
+    expect(h.model.requests[0].tools).toEqual([])
+  })
+})
+
+describe('AC-F7 a re-run of the same job sends nothing', () => {
+  it('AC-F7 the same job processed twice → one send, the second run records nothing new', async () => {
+    const h = workerHarness()
+    const [job] = await inbound(h, 'hi', 'w1')
+    expect(await processAgentReply(h.deps, job)).toBe('sent')
+    const rowsAfterFirst = h.store.rows.length
+    expect(await processAgentReply(h.deps, job)).toBe('duplicate')
+    expect(h.sends).toHaveLength(1)
+    expect(h.fallbacks).toEqual([])
+    expect(h.store.rows).toHaveLength(rowsAfterFirst)
+  })
+
+  it('AC-F7 two concurrent runs of the same job (stall) → one send', async () => {
+    const h = workerHarness()
+    const [job] = await inbound(h, 'hi', 'w1')
+    const results = await Promise.all([processAgentReply(h.deps, job), processAgentReply(h.deps, job)])
+    expect(results.sort()).toEqual(['duplicate', 'sent'])
+    expect(h.sends).toHaveLength(1)
+    expect(h.store.modelRows()).toHaveLength(1)
+  })
+
+  it('AC-F7 the answer row is stored before the send (claim first), tied to the user row', async () => {
+    const h = workerHarness()
+    const [job] = await inbound(h, 'hi', 'w1')
+    let rowsAtSend: unknown[] = []
+    h.deps.sendText = async () => ((rowsAtSend = h.store.modelRows().map((r) => r.outcome)), h.sendResult.value)
+    await processAgentReply(h.deps, job)
+    expect(rowsAtSend).toEqual(['sent'])
+    expect(h.store.modelRows()[0].reply_to_message_id).toBe(job.messageRowId)
+  })
+
+  it('AC-F7 a re-run of a fallback job does not send the menu twice', async () => {
+    const h = workerHarness({ model: new FakeAgentModel([failedModel('timeout')]) })
+    const [job] = await inbound(h, 'hi', 'w1')
+    expect(await processAgentReply(h.deps, job)).toBe('fallback')
+    expect(await processAgentReply(h.deps, job)).toBe('duplicate')
+    expect(h.fallbacks).toHaveLength(1)
+  })
+})
+
+describe('AC-F8 limits count every row that made a model call', () => {
+  it('AC-F8 a window_closed skipped row with a model counts toward per-phone and per-tenant limits', async () => {
+    const perPhone = workerHarness({ config: { mode: 'auto', maxRepliesPerPhonePerHour: 1 } })
+    perPhone.windowOpen.value = false
+    expect(await runOne(perPhone, 'q1', 'w1')).toBe('skipped')
+    expect(await perPhone.store.countModelCalls(R, PHONE, '2026-11-19T09:00:00.000Z')).toBe(1)
+    perPhone.clock.advance(60_000)
+    perPhone.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'q2', wamid: 'w2' })
+    expect(await processAgentReply(perPhone.deps, await latestJob(perPhone))).toBe('rate_limited')
+    expect(perPhone.model.requests).toHaveLength(1)
+
+    const perTenant = workerHarness({ config: { mode: 'auto', maxRepliesPerTenantPerDay: 1 } })
+    perTenant.store.seed({ restaurant_id: R, phone: '+85290000000', role: 'model', outcome: 'skipped', model: MODEL, text: 'x' })
+    // The webhook gate already stops it (no job) …
+    expect(await inbound(perTenant, 'hi', 'w1')).toEqual([])
+    // … and so does the worker, for a job that raced past the gate.
+    perTenant.store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'hi again', wamid: 'w2' })
+    expect(await processAgentReply(perTenant.deps, await latestJob(perTenant))).toBe('rate_limited')
+    expect(perTenant.model.requests).toHaveLength(0)
+  })
+
+  it('AC-F8 rows without a model call (rate_limited, mode_off, silenced) do not count', async () => {
+    const h = workerHarness({ config: { mode: 'auto', maxRepliesPerPhonePerHour: 1 } })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'rate_limited' })
+    h.store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'skipped' })
+    expect(await runOne(h)).toBe('sent')
   })
 })

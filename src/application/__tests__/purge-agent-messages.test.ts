@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { purgeAgentMessages } from '@/application/agent/purge-agent-messages'
 import { resolveAgentConfig } from '@/domain/value-objects/agent-config'
+import { DAY_MS, isoAgo, isOverReplyLimit } from '@/application/agent/agent-limits'
 import { FakeAgentStore, FakeClock } from './agent-fakes'
 
 const NOW = '2026-11-19T10:00:00.000Z'
@@ -63,5 +64,26 @@ describe('AC-R5 retention purge', () => {
     })
     expect(result).toEqual({ deleted: 1, failedTenants: 1 })
     expect(JSON.stringify(logs)).not.toContain('secret')
+  })
+
+  it('AC-F2 historyTtlHours 1 → clamped to 24; the daily cap still counts 24 h of rows after a purge', async () => {
+    const { clock, store, log, at } = setup()
+    const config = resolveAgentConfig({ mode: 'auto', historyTtlHours: 1, maxRepliesPerTenantPerDay: 3 })
+    expect(config.historyTtlHours).toBe(24)
+    // Three model calls 2 h, 12 h and 23 h ago: inside the cap's 24 h window, outside a 1 h TTL.
+    for (const iso of ['2026-11-19T08:00:00.000Z', '2026-11-18T22:00:00.000Z', '2026-11-18T11:00:00.000Z']) {
+      store.seed({ restaurant_id: 'rest-a', phone: 'p', role: 'model', outcome: 'sent', text: 'x', model: 'gemini-3.8-flash', ...at(iso) })
+    }
+    store.seed({ restaurant_id: 'rest-a', phone: 'p', role: 'user', text: 'older than a day', ...at('2026-11-18T09:00:00.000Z') })
+    await purgeAgentMessages({
+      listTenantConfigs: async () => [{ restaurantId: 'rest-a', config }],
+      messages: store,
+      silences: store,
+      now: clock.now,
+      log,
+    })
+    expect(store.rows.map((r) => r.text)).toEqual(['x', 'x', 'x'])
+    expect(await store.countModelCalls('rest-a', null, isoAgo(clock.now(), DAY_MS))).toBe(3)
+    expect(await isOverReplyLimit(store, { restaurantId: 'rest-a', phone: 'q' }, config, clock.now())).toBe(true)
   })
 })

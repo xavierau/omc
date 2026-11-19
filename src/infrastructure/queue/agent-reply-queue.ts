@@ -19,6 +19,12 @@ export const AGENT_REPLY_QUEUE = 'agent-reply'
 export const AGENT_PURGE_SCHEDULER_ID = 'agent-reply-retention'
 export const AGENT_PURGE_INTERVAL_MS = 60 * 60_000
 const CONCURRENCY = 3
+/**
+ * A reply job runs ≤ 20 s of model calls plus sends; the default 30 s lock
+ * could expire under load and BullMQ would re-run the job as stalled. The
+ * worker's reply_to_message_id claim (migration 083) keeps a re-run silent.
+ */
+export const AGENT_LOCK_DURATION_MS = 60_000
 
 type PurgeJobData = { kind: 'purge' }
 type AgentQueueJobData = AgentReplyJob | PurgeJobData
@@ -74,6 +80,7 @@ export function ensureWorkerStarted(handlers: AgentReplyWorkerHandlers): void {
   worker = new Worker<AgentQueueJobData>(AGENT_REPLY_QUEUE, (job) => dispatchAgentJob(handlers, job), {
     connection: getRedisConnection(),
     concurrency: CONCURRENCY,
+    lockDuration: AGENT_LOCK_DURATION_MS,
   })
   // Job ids and names only: job data holds the diner's phone (R8).
   worker.on('failed', (job, err) => {

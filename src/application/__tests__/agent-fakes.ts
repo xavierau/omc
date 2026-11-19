@@ -4,7 +4,7 @@
 import { resolveAgentConfig, type AgentConfig } from '@/domain/value-objects/agent-config'
 import {
   HISTORY_MODEL_OUTCOMES,
-  MODEL_CALL_OUTCOMES,
+  REPLY_CLAIM_OUTCOMES,
   type AgentConversationKey,
   type AgentHistoryMessage,
   type AgentMessageStore,
@@ -14,6 +14,7 @@ import {
   type AgentToolData,
   type AgentUserMessageInput,
   type InsertUserMessageResult,
+  type RecordModelRowResult,
 } from '@/domain/ports/agent-reply'
 import type { AgentModelPort, AgentModelRequest, AgentModelResult } from '@/domain/ports/agent-model'
 import type { AgentWorkerDeps } from '@/application/agent/process-agent-reply'
@@ -31,6 +32,7 @@ export interface FakeAgentRow {
   model: string | null
   latency_ms: number | null
   tool_calls: string[]
+  reply_to_message_id: string | null
   created_at: string
 }
 
@@ -65,6 +67,7 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
       model: null,
       latency_ms: null,
       tool_calls: [],
+      reply_to_message_id: null,
       created_at: this.clock.now().toISOString(),
       ...partial,
     }
@@ -78,8 +81,17 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
     return { kind: 'inserted', id: row.id }
   }
 
-  async recordModelRow(input: AgentModelRowInput): Promise<void> {
-    this.seed({
+  /** Mirrors migration 083's partial UNIQUE: one sent/shadow_draft/fallback row per reply_to_message_id. */
+  async recordModelRow(input: AgentModelRowInput): Promise<RecordModelRowResult> {
+    const claims = (outcome: AgentOutcome | null) => REPLY_CLAIM_OUTCOMES.includes(outcome as AgentOutcome)
+    if (
+      input.replyToMessageId !== null &&
+      claims(input.outcome) &&
+      this.rows.some((r) => r.reply_to_message_id === input.replyToMessageId && claims(r.outcome))
+    ) {
+      return { kind: 'taken' }
+    }
+    const row = this.seed({
       restaurant_id: input.restaurantId,
       phone: input.phone,
       role: 'model',
@@ -88,7 +100,14 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
       model: input.model,
       latency_ms: input.latencyMs,
       tool_calls: input.toolCalls,
+      reply_to_message_id: input.replyToMessageId,
     })
+    return { kind: 'inserted', id: row.id }
+  }
+
+  async setModelOutcome(key: AgentConversationKey, id: string, outcome: AgentOutcome) {
+    const row = this.rows.find((r) => r.id === id && same(r, key))
+    if (row) row.outcome = outcome
   }
 
   async latestUserMessageId(key: AgentConversationKey) {
@@ -110,7 +129,8 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
       (r) =>
         r.restaurant_id === restaurantId &&
         (phone === null || r.phone === phone) &&
-        MODEL_CALL_OUTCOMES.includes(r.outcome as AgentOutcome) &&
+        r.role === 'model' &&
+        r.model !== null &&
         r.created_at >= sinceIso
     ).length
   }
@@ -200,6 +220,10 @@ export interface WorkerHarness {
   fallbacks: Array<{ phoneNumberId: string; phone: string; restaurantId: string }>
   logs: Array<{ level: string; event: string; data: Record<string, unknown> }>
   setConfig(raw: Record<string, unknown>): void
+  /** What the webhook's (never failing) config read sees. */
+  currentConfig(): AgentConfig
+  /** false → the worker's config read fails. */
+  configReadable: { value: boolean }
   windowOpen: { value: boolean }
   sendResult: { value: SendResult }
 }
@@ -213,10 +237,11 @@ export function workerHarness(options: { config?: Record<string, unknown>; model
   const fallbacks: WorkerHarness['fallbacks'] = []
   const logs: WorkerHarness['logs'] = []
   const windowOpen = { value: true }
+  const configReadable = { value: true }
   const sendResult = { value: { ok: true, kapsoMessageId: 'wamid.out', raw: null } as SendResult }
   const log: AgentLogFn = (level, event, data) => logs.push({ level, event, data })
   const deps: AgentWorkerDeps = {
-    getConfig: async () => config,
+    getConfig: async () => (configReadable.value ? { ok: true, config } : { ok: false }),
     messages: store,
     silences: store,
     toolData: fakeToolData(),
@@ -238,7 +263,9 @@ export function workerHarness(options: { config?: Record<string, unknown>; model
     fallbacks,
     logs,
     windowOpen,
+    configReadable,
     sendResult,
+    currentConfig: () => config,
     setConfig: (raw) => {
       config = resolveAgentConfig(raw)
     },

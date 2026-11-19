@@ -32,6 +32,11 @@ ALTER TABLE restaurants
 -- agent run: its outcome, the reply text (null when there was none), the
 -- model id, latency and the tool names called (names only, never args: R9).
 -- `phone` is E.164 with leading '+', as booking_tokens.phone.
+-- `reply_to_message_id` is the user row a model row answers; at most one
+-- answer (sent / shadow_draft / fallback) per user row, so a re-run of the
+-- same BullMQ job (stall) sends nothing (unique index below). SET NULL, not
+-- CASCADE, on purge: an answer seconds younger than its user row stays until
+-- its own created_at passes the TTL, so the 24 h tenant cap never undercounts.
 CREATE TABLE agent_messages (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -43,12 +48,19 @@ CREATE TABLE agent_messages (
   model         TEXT,
   latency_ms    INT CHECK (latency_ms IS NULL OR latency_ms >= 0),
   tool_calls    TEXT[] NOT NULL DEFAULT '{}',
+  reply_to_message_id UUID REFERENCES agent_messages(id) ON DELETE SET NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT agent_messages_role_shape CHECK (
-    (role = 'user' AND text IS NOT NULL AND outcome IS NULL)
+    (role = 'user' AND text IS NOT NULL AND outcome IS NULL AND reply_to_message_id IS NULL)
     OR (role = 'model' AND outcome IS NOT NULL AND wamid IS NULL)
   )
 );
+
+-- One answer per inbound user row: the worker inserts this row BEFORE it
+-- sends, so a second run of the same job gets 23505 and sends nothing.
+CREATE UNIQUE INDEX agent_messages_one_reply_key
+  ON agent_messages (reply_to_message_id)
+  WHERE reply_to_message_id IS NOT NULL AND outcome IN ('sent', 'shadow_draft', 'fallback');
 
 -- A webhook retry of the same inbound is a 23505 -> no second job.
 CREATE UNIQUE INDEX agent_messages_restaurant_wamid_key

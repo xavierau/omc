@@ -1,5 +1,5 @@
 // AGENT-001 W2 AC-W2-API: the settings CAS on agent_config.rev (query shape;
-// the jsonb ->> rev guard is the same one W1's changeAgentConfig uses).
+// the jsonb ->> rev guard on agent_config).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { recordingSupabase, filtersOf } from '@/test-utils/recording-supabase'
 

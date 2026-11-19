@@ -4,20 +4,22 @@
  * Service-role only (RLS on, no client policies: R7). Every query is scoped
  * by restaurant_id, and by phone where it reads one conversation (R2). The
  * partial UNIQUE (restaurant_id, wamid) turns a webhook retry into 23505,
- * reported as `duplicate`. Errors are thrown with the Postgres message only
+ * reported as `duplicate`; the partial UNIQUE on `reply_to_message_id` turns
+ * a second answer to the same user row into 23505, reported as `taken`. Errors are thrown with the Postgres message only
  * at the caller's boundary; nothing here logs a row (R8).
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
   HISTORY_MODEL_OUTCOMES,
-  MODEL_CALL_OUTCOMES,
   type AgentConversationKey,
   type AgentHistoryMessage,
   type AgentMessageStore,
   type AgentModelRowInput,
+  type AgentOutcome,
   type AgentSilenceStore,
   type AgentUserMessageInput,
   type InsertUserMessageResult,
+  type RecordModelRowResult,
 } from '@/domain/ports/agent-reply'
 
 // Table names stay literal in `.from('…')`: the schema-contract test parses them.
@@ -39,18 +41,37 @@ export async function insertUserMessage(input: AgentUserMessageInput): Promise<I
   return { kind: 'inserted', id: (data as { id: string }).id }
 }
 
-export async function recordModelRow(input: AgentModelRowInput): Promise<void> {
-  const { error } = await createServerSupabaseClient().from('agent_messages').insert({
-    restaurant_id: input.restaurantId,
-    phone: input.phone,
-    role: 'model',
-    text: input.text,
-    outcome: input.outcome,
-    model: input.model,
-    latency_ms: input.latencyMs,
-    tool_calls: input.toolCalls,
-  })
-  if (error) throw fail('recordModelRow', error)
+export async function recordModelRow(input: AgentModelRowInput): Promise<RecordModelRowResult> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('agent_messages')
+    .insert({
+      restaurant_id: input.restaurantId,
+      phone: input.phone,
+      role: 'model',
+      text: input.text,
+      outcome: input.outcome,
+      model: input.model,
+      latency_ms: input.latencyMs,
+      tool_calls: input.toolCalls,
+      reply_to_message_id: input.replyToMessageId,
+    })
+    .select('id')
+    .single()
+  if (error) {
+    if ((error as { code?: string }).code === UNIQUE_VIOLATION) return { kind: 'taken' }
+    throw fail('recordModelRow', error)
+  }
+  return { kind: 'inserted', id: (data as { id: string }).id }
+}
+
+export async function setModelOutcome(key: AgentConversationKey, id: string, outcome: AgentOutcome): Promise<void> {
+  const { error } = await createServerSupabaseClient()
+    .from('agent_messages')
+    .update({ outcome })
+    .eq('id', id)
+    .eq('restaurant_id', key.restaurantId)
+    .eq('phone', key.phone)
+  if (error) throw fail('setModelOutcome', error)
 }
 
 export async function latestUserMessageId(key: AgentConversationKey): Promise<string | null> {
@@ -91,7 +112,8 @@ export async function countModelCalls(restaurantId: string, phone: string | null
     .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurantId)
   if (phone !== null) query = query.eq('phone', phone)
-  const { count, error } = await query.in('outcome', [...MODEL_CALL_OUTCOMES]).gte('created_at', sinceIso)
+  // Any outcome: a run that called the model and then skipped (window closed, superseded) still cost a call.
+  const { count, error } = await query.not('model', 'is', null).gte('created_at', sinceIso)
   if (error) throw fail('countModelCalls', error)
   return count ?? 0
 }
@@ -121,6 +143,7 @@ export async function purgeOlderThan(restaurantId: string, beforeIso: string): P
 export const agentMessageStore: AgentMessageStore = {
   insertUserMessage,
   recordModelRow,
+  setModelOutcome,
   latestUserMessageId,
   history,
   countModelCalls,

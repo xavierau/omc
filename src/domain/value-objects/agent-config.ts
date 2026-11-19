@@ -59,7 +59,8 @@ export const AGENT_NUMBER_RANGES = {
   maxOutputTokens: { min: 64, max: 2048, integer: true },
   maxReplyChars: { min: 200, max: 1500, integer: true },
   maxHistoryMessages: { min: 1, max: 30, integer: true },
-  historyTtlHours: { min: 1, max: 168, integer: true },
+  // ≥ 24 h: the retention purge must never delete rows the 24 h tenant cap still counts (R5 vs R6).
+  historyTtlHours: { min: 24, max: 168, integer: true },
   debounceMs: { min: 0, max: 15000, integer: true },
   maxToolCalls: { min: 0, max: 5, integer: true },
   handoffSilenceHours: { min: 1, max: 72, integer: true },

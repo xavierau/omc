@@ -34,6 +34,7 @@ vi.mock('@/application/agent/agent-deps', () => ({ admitAgentDeps: vi.fn(), agen
 vi.mock('@/infrastructure/gemini/agent-client', () => ({ createGeminiAgentClient: vi.fn() }))
 
 import { routeMessage } from '../handlers'
+import { admitInboundForAgent } from '@/application/agent/admit-inbound-for-agent'
 import { handleUnknown, handleHelp } from '../unknown-help-handlers'
 import { handlePoints } from '../join-and-image-handlers'
 import { inboundBookingDeps } from '@/application/booking/inbound-booking-deps'
@@ -99,7 +100,7 @@ describe('AC-R1 webhook stores + enqueues, never calls the model', () => {
   it('AC-R1 shadow: one agent_messages insert + one enqueue, the fallback menu is still sent', async () => {
     await routeMessage(msg(), R)
     expect(userRows()).toEqual([expect.objectContaining({ restaurant_id: R, phone: PHONE, role: 'user', text: TEXT, wamid: 'wamid.in.1' })])
-    expect(enqueued).toEqual([{ job: { restaurantId: R, phone: PHONE, messageRowId: userRows()[0].id }, delayMs: 3000 }])
+    expect(enqueued).toEqual([{ job: { restaurantId: R, phone: PHONE, messageRowId: userRows()[0].id, admittedMode: 'shadow' }, delayMs: 3000 }])
     expect(handleUnknown).toHaveBeenCalledTimes(1)
     expect(handleUnknown).toHaveBeenCalledWith('pn-a', PHONE, R)
     expect(createGeminiAgentClient).not.toHaveBeenCalled()
@@ -112,6 +113,7 @@ describe('AC-R1 webhook stores + enqueues, never calls the model', () => {
     expect(userRows()).toHaveLength(1)
     expect(enqueued).toHaveLength(1)
     expect(enqueued[0].delayMs).toBe(1500)
+    expect(enqueued[0].job.admittedMode).toBe('auto')
     expect(handleUnknown).not.toHaveBeenCalled()
     expect(createGeminiAgentClient).not.toHaveBeenCalled()
     expect(geminiFetches()).toEqual([])
@@ -143,7 +145,7 @@ describe('AC-R1 webhook stores + enqueues, never calls the model', () => {
 
   it('AC-R1 auto + over the phone limit: fallback once, then quiet; no job', async () => {
     agentConfig = resolveAgentConfig({ mode: 'auto', maxRepliesPerPhonePerHour: 1 })
-    store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x' })
+    store.seed({ restaurant_id: R, phone: PHONE, role: 'model', outcome: 'sent', text: 'x', model: 'gemini-3.8-flash' })
     await routeMessage(msg({ messageId: 'w1' }), R)
     await routeMessage(msg({ messageId: 'w2' }), R)
     expect(enqueued).toEqual([])
@@ -188,5 +190,25 @@ describe('AC-R1 webhook stores + enqueues, never calls the model', () => {
     expect(handleHelp).toHaveBeenCalled()
     expect(store.rows).toEqual([])
     expect(enqueued).toEqual([])
+  })
+})
+
+describe('AC-F10 the auto gate reads silence and limits concurrently', () => {
+  it('AC-F10 admit gate issues isSilenced and the limit check concurrently (both started before either resolves)', async () => {
+    const clock = new FakeClock()
+    const gateStore = new FakeAgentStore(clock)
+    const started: string[] = []
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    gateStore.isSilenced = async () => (started.push('isSilenced'), await gate, false)
+    gateStore.countModelCalls = async (_r, phone) => (started.push(phone === null ? 'countTenant' : 'countPhone'), await gate, 0)
+    const admitted = admitInboundForAgent(
+      { getConfig: async () => resolveAgentConfig({ mode: 'auto' }), messages: gateStore, silences: gateStore, enqueue: async () => {}, now: clock.now, log: () => {} },
+      { restaurantId: R, phone: PHONE, wamid: 'w1', text: TEXT }
+    )
+    await vi.waitFor(() => expect(started.length).toBe(3))
+    expect(started.sort()).toEqual(['countPhone', 'countTenant', 'isSilenced'])
+    release()
+    expect(await admitted).toEqual({ kind: 'queued', mode: 'auto' })
   })
 })

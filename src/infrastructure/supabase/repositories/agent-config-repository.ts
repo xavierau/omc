@@ -3,8 +3,10 @@
  *
  * Its own getter, never part of `RESTAURANT_COLUMNS`, so the webhook hot path
  * is not coupled to migration 083 (memory:
- * principle_shared_select_migration_coupling). Readers never throw: any error
- * resolves to the defaults, i.e. mode off (today's behaviour).
+ * principle_shared_select_migration_coupling). `getAgentConfig` (webhook)
+ * never throws: any error resolves to the defaults, i.e. mode off (today's
+ * behaviour). `readAgentConfig` (worker) reports a failed read as such: the
+ * job may have suppressed the diner's fallback menu and still owes a reply.
  *
  * Writes are a compare-and-swap on `agent_config.rev`, as
  * booking-config-repository.ts: read the raw value, apply the change, write
@@ -12,19 +14,26 @@
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { resolveAgentConfig, type AgentConfig } from '@/domain/value-objects/agent-config'
+import type { AgentConfigRead } from '@/domain/ports/agent-reply'
 
-export async function getAgentConfig(restaurantId: string): Promise<AgentConfig> {
+/** A missing restaurant row reads as the defaults (mode off); only a query error is `ok: false`. */
+export async function readAgentConfig(restaurantId: string): Promise<AgentConfigRead> {
   try {
     const { data, error } = await createServerSupabaseClient()
       .from('restaurants')
       .select('agent_config')
       .eq('id', restaurantId)
       .maybeSingle()
-    if (error || !data) return resolveAgentConfig(undefined)
-    return resolveAgentConfig((data as { agent_config?: unknown }).agent_config)
+    if (error) return { ok: false }
+    return { ok: true, config: resolveAgentConfig((data as { agent_config?: unknown } | null)?.agent_config) }
   } catch {
-    return resolveAgentConfig(undefined)
+    return { ok: false }
   }
+}
+
+export async function getAgentConfig(restaurantId: string): Promise<AgentConfig> {
+  const read = await readAgentConfig(restaurantId)
+  return read.ok ? read.config : resolveAgentConfig(undefined)
 }
 
 /** Every tenant's resolved config, for the retention purge (R5). Throws on a read error. */
@@ -36,9 +45,6 @@ export async function listAgentTenantConfigs(): Promise<Array<{ restaurantId: st
     config: resolveAgentConfig(row.agent_config),
   }))
 }
-
-const CAS_ATTEMPTS = 5
-type ConfigChange = (current: AgentConfig) => AgentConfig | null
 
 async function readRaw(restaurantId: string): Promise<Record<string, unknown> | null> {
   const { data, error } = await createServerSupabaseClient()
@@ -75,8 +81,8 @@ export type SaveAgentSettingsResult = { kind: 'saved'; config: AgentConfig; rev:
 /**
  * W2 settings PUT: writes only while the stored rev is still the one the admin
  * loaded (`expectedRev`); otherwise `stale` with the stored rev, nothing written.
- * Unlike `changeAgentConfig` it never retries: a retry would apply a form that
- * was filled in against an older config.
+ * It never retries: a retry would apply a form that was filled in against an
+ * older config. This is the only write path.
  */
 export async function saveAgentSettingsAtRev(
   restaurantId: string,
@@ -89,15 +95,4 @@ export async function saveAgentSettingsAtRev(
   const next = change(resolveAgentConfig(raw ?? undefined))
   if (await writeIfUnchanged(restaurantId, raw?.rev, next)) return { kind: 'saved', config: next, rev: rev + 1 }
   return { kind: 'stale', rev: revOf(await readRaw(restaurantId)) }
-}
-
-/** CAS write; `change` returns null for "nothing to write". W2's settings PUT uses this. */
-export async function changeAgentConfig(restaurantId: string, change: ConfigChange): Promise<AgentConfig | null> {
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
-    const raw = await readRaw(restaurantId)
-    const next = change(resolveAgentConfig(raw ?? undefined))
-    if (!next) return null
-    if (await writeIfUnchanged(restaurantId, raw?.rev, next)) return next
-  }
-  throw new Error('Failed to update agent config: changed concurrently')
 }

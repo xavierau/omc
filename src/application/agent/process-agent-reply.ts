@@ -2,21 +2,33 @@
  * AGENT-001: the worker side of the reply agent, one job per inbound text.
  *
  * Order: latest-wins debounce (a newer diner message supersedes this job) →
- * mode → handoff silence → reply limits (R6) → history within TTL (R5) →
- * model run with the tool loop (8 s per call, 20 s budget) → bounded reply
- * (R10) → shadow: store the draft, send nothing; auto: send it with the
- * disclosure (R11) inside the open service window. Any model failure in auto
- * sends today's fallback menu exactly once; shadow only records `error` (R4).
- * Every run ends in one stored model row (R9), except a superseded job.
- * Logs carry ids, outcome, latency, token counts and tool names, never the
- * text, the phone or the key (R8).
+ * config (a failed read is an error, not mode off) → mode → handoff silence →
+ * reply limits (R6) → history within TTL (R5) → model run with the tool loop
+ * (8 s per call, 20 s budget) → re-check latest-wins and silence (jobs of one
+ * conversation overlap: concurrency 3) → bounded reply (R10) → shadow: store
+ * the draft, send nothing; auto: send it with the disclosure (R11) inside the
+ * open service window.
+ *
+ * R4, exactly one response: a job the webhook admitted under `auto` had the
+ * fallback menu suppressed, so any failure (model, send, config read, mode
+ * switched off since) sends today's fallback menu once; shadow only records.
+ * The job never sends more than it was admitted for nor more than the tenant
+ * now allows (`effectiveMode`). The answer row is inserted BEFORE the send
+ * (`reply_to_message_id` is unique per user row), so a stalled job re-run by
+ * BullMQ sends nothing ('duplicate').
+ *
+ * Every run ends in one stored model row (R9), except a job superseded before
+ * its model call and a duplicate run. Logs carry ids, outcome, latency, token
+ * counts and tool names, never the text, the phone or the key (R8).
  */
-import { effectiveAgentModel, type AgentConfig } from '@/domain/value-objects/agent-config'
+import { effectiveAgentModel, type AgentConfig, type AgentMode } from '@/domain/value-objects/agent-config'
 import { boundReply, toAgentTurns, withDisclosure } from '@/domain/services/agent-reply-text'
 import type { AgentModelFailure, AgentModelPort, AgentModelResult } from '@/domain/ports/agent-model'
 import type {
+  AgentConfigRead,
   AgentConversationKey,
   AgentMessageStore,
+  AgentModelRowInput,
   AgentOutcome,
   AgentSilenceStore,
   AgentToolData,
@@ -31,7 +43,7 @@ export const PER_CALL_TIMEOUT_MS = 8_000
 export const JOB_BUDGET_MS = 20_000
 
 export interface AgentWorkerDeps {
-  getConfig(restaurantId: string): Promise<AgentConfig>
+  getConfig(restaurantId: string): Promise<AgentConfigRead>
   messages: AgentMessageStore
   silences: AgentSilenceStore
   toolData: AgentToolData
@@ -46,7 +58,8 @@ export interface AgentWorkerDeps {
   log: AgentLogFn
 }
 
-export type AgentRunResult = AgentOutcome | 'superseded'
+/** `duplicate`: another run of the same job already answered this message (BullMQ stall re-run). */
+export type AgentRunResult = AgentOutcome | 'superseded' | 'duplicate'
 
 interface RunRecord {
   outcome: AgentOutcome
@@ -54,20 +67,41 @@ interface RunRecord {
   model: string | null
   latencyMs: number | null
   toolCalls: string[]
-  reason?: AgentModelFailure | 'window_closed' | 'send_failed' | 'no_phone_number' | 'silenced' | 'mode_off'
+  reason?:
+    | AgentModelFailure
+    | 'window_closed'
+    | 'send_failed'
+    | 'no_phone_number'
+    | 'silenced'
+    | 'superseded'
+    | 'mode_off'
+    | 'mode_changed'
+    | 'config_unavailable'
   usage?: { promptTokens: number; outputTokens: number }
+}
+
+/** The lower of the admitted and the current mode: a job never sends more than either allows. */
+export function effectiveMode(admitted: AgentReplyJob['admittedMode'], current: AgentMode): AgentMode {
+  if (current === 'off') return 'off'
+  return admitted === 'auto' && current === 'auto' ? 'auto' : 'shadow'
 }
 
 class Run {
   fallbackSent = false
-  /** Set once the config is read; an auto run that throws before sending anything falls back (R4). */
-  mode: AgentConfig['mode'] = 'off'
   replySent = false
+  /** Set when this run's own handoff_to_staff silenced the diner: that silence must not stop its own reply. */
+  silencedByThisRun = false
+  private claimed: { id: string; outcome: AgentOutcome } | null = null
   constructor(
     readonly deps: AgentWorkerDeps,
     readonly job: AgentReplyJob,
     readonly key: AgentConversationKey
   ) {}
+
+  /** The webhook suppressed the fallback menu (admitted under auto): this run owes the diner one response. */
+  get owesResponse(): boolean {
+    return this.job.admittedMode === 'auto'
+  }
 
   async fallback(): Promise<boolean> {
     if (this.fallbackSent) return true
@@ -77,15 +111,31 @@ class Run {
     return this.deps.sendFallback(phoneNumberId, this.key.phone, this.key.restaurantId)
   }
 
-  async finish(record: RunRecord): Promise<AgentOutcome> {
-    await this.deps.messages.recordModelRow({
+  private row(record: RunRecord): AgentModelRowInput {
+    return {
       ...this.key,
       outcome: record.outcome,
       text: record.text,
       model: record.model,
       latencyMs: record.latencyMs,
       toolCalls: record.toolCalls,
-    })
+      replyToMessageId: this.job.messageRowId,
+    }
+  }
+
+  /** Stores the answer row BEFORE its side effect; false when another run of this job already answered. */
+  async claim(record: RunRecord): Promise<boolean> {
+    const stored = await this.deps.messages.recordModelRow(this.row(record))
+    if (stored.kind === 'taken') return false
+    this.claimed = { id: stored.id, outcome: record.outcome }
+    return true
+  }
+
+  async finish(record: RunRecord): Promise<AgentOutcome> {
+    if (!this.claimed) await this.deps.messages.recordModelRow(this.row(record))
+    else if (this.claimed.outcome !== record.outcome) {
+      await this.deps.messages.setModelOutcome(this.key, this.claimed.id, record.outcome)
+    }
     this.deps.log('info', 'agent.reply', {
       messageId: this.job.messageRowId,
       restaurantId: this.key.restaurantId,
@@ -100,14 +150,16 @@ class Run {
   }
 }
 
-const skipped = (reason: RunRecord['reason']): RunRecord => ({
-  outcome: 'skipped',
+const noModelCall = (outcome: AgentOutcome, reason: RunRecord['reason']): RunRecord => ({
+  outcome,
   text: null,
   model: null,
   latencyMs: null,
   toolCalls: [],
   reason,
 })
+
+const skipped = (reason: RunRecord['reason']): RunRecord => noModelCall('skipped', reason)
 
 async function callModel(run: Run, config: AgentConfig, model: string): Promise<{ result: AgentModelResult; latencyMs: number }> {
   const { deps, key } = run
@@ -119,14 +171,20 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
     handoffSilenceHours: config.handoffSilenceHours,
     now: deps.now,
     data: deps.toolData,
-    silences: deps.silences,
+    silences: {
+      silenceUntil: async (silenceKey, untilIso) => {
+        await deps.silences.silenceUntil(silenceKey, untilIso)
+        run.silencedByThisRun = true
+      },
+    },
   })
   const started = Date.now()
   const result = await deps.model.respond({
     model,
     systemInstruction: buildSystemInstruction(config),
     history: toAgentTurns(rows),
-    tools: declarationsFor(config.enabledTools),
+    // No tool calls allowed → declare none, so the model answers in text (a points question included).
+    tools: config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools),
     executeTool,
     temperature: config.temperature,
     maxOutputTokens: config.maxOutputTokens,
@@ -137,6 +195,22 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
   return { result, latencyMs: Date.now() - started }
 }
 
+/**
+ * The model call takes seconds and jobs of one conversation overlap, so the
+ * start-of-job checks are repeated before anything is sent or drafted: a
+ * newer diner message (its own job answers both) or a handoff silence set by
+ * another job meanwhile stops this one.
+ */
+async function interruptedAfterCall(run: Run): Promise<'superseded' | 'silenced' | null> {
+  const { deps, job, key } = run
+  const [latest, silenced] = await Promise.all([
+    deps.messages.latestUserMessageId(key),
+    run.silencedByThisRun ? Promise.resolve(false) : deps.silences.isSilenced(key, deps.now().toISOString()),
+  ])
+  if (latest !== job.messageRowId) return 'superseded'
+  return silenced ? 'silenced' : null
+}
+
 /** The model's answer bounded for sending, or the failure that replaces it (R10: empty → failure). */
 function boundResult(result: AgentModelResult, config: AgentConfig): { reply: string } | { reason: AgentModelFailure } {
   if (!result.ok) return { reason: result.reason }
@@ -144,29 +218,63 @@ function boundResult(result: AgentModelResult, config: AgentConfig): { reply: st
   return reply ? { reply } : { reason: 'empty' }
 }
 
-async function deliver(run: Run, config: AgentConfig, base: Omit<RunRecord, 'outcome' | 'text'>, reply: string): Promise<RunRecord> {
+/** Claims a `fallback` row, then sends the menu once; `error` when the menu did not go out. Null: duplicate run. */
+async function fallBack(run: Run, record: RunRecord): Promise<RunRecord | null> {
+  if (!(await run.claim(record))) return null
+  return (await run.fallback()) ? record : { ...record, outcome: 'error' }
+}
+
+async function deliver(
+  run: Run,
+  config: AgentConfig,
+  base: Omit<RunRecord, 'outcome' | 'text'>,
+  reply: string
+): Promise<RunRecord | null> {
   const { deps, key } = run
   if (!(await deps.isWindowOpen(key))) return { ...base, outcome: 'skipped', text: reply, reason: 'window_closed' }
   const phoneNumberId = await deps.getPhoneNumberId(key.restaurantId)
+  // No fallback: the menu needs the same phone number id.
   if (!phoneNumberId) return { ...base, outcome: 'error', text: reply, reason: 'no_phone_number' }
-  const sent = await deps.sendText(phoneNumberId, key.phone, withDisclosure(reply, config.disclosureText))
-  run.replySent = sent.ok
-  return sent.ok ? { ...base, outcome: 'sent', text: reply } : { ...base, outcome: 'error', text: reply, reason: 'send_failed' }
+  const sent: RunRecord = { ...base, outcome: 'sent', text: reply }
+  if (!(await run.claim(sent))) return null
+  const result = await deps.sendText(phoneNumberId, key.phone, withDisclosure(reply, config.disclosureText)).catch(() => null)
+  if (result?.ok) {
+    run.replySent = true
+    return sent
+  }
+  // R4: the reply did not go out, so the diner gets the menu instead (it may fail too; recorded as error).
+  const fellBack = await run.fallback()
+  return { ...sent, outcome: fellBack ? 'fallback' : 'error', reason: 'send_failed' }
 }
 
-async function answer(run: Run, config: AgentConfig): Promise<RunRecord> {
+async function answer(run: Run, config: AgentConfig, mode: 'shadow' | 'auto'): Promise<RunRecord | null> {
   const model = effectiveAgentModel(config, run.deps.envModel)
   const { result, latencyMs } = await callModel(run, config, model)
   const base = { model, latencyMs, toolCalls: result.toolCalls, usage: result.usage }
+  // The call counts toward the limits whatever happens next (`model` is set on every row below).
+  const interrupted = await interruptedAfterCall(run)
+  if (interrupted) return { ...base, outcome: 'skipped', text: null, reason: interrupted }
   const bounded = boundResult(result, config)
 
   if ('reason' in bounded) {
-    if (config.mode === 'shadow') return { ...base, outcome: 'error', text: null, reason: bounded.reason }
-    const fellBack = await run.fallback()
-    return { ...base, outcome: fellBack ? 'fallback' : 'error', text: null, reason: bounded.reason }
+    if (!run.owesResponse) return { ...base, outcome: 'error', text: null, reason: bounded.reason }
+    return fallBack(run, { ...base, outcome: 'fallback', text: null, reason: bounded.reason })
   }
-  if (config.mode === 'shadow') return { ...base, outcome: 'shadow_draft', text: bounded.reply }
+  if (mode === 'shadow') {
+    const draft: RunRecord = { ...base, outcome: 'shadow_draft', text: bounded.reply }
+    if (!(await run.claim(draft))) return null
+    if (!run.owesResponse) return draft
+    // Admitted under auto, switched to shadow since: the suppressed menu goes out now.
+    await run.fallback()
+    return { ...draft, reason: 'mode_changed' }
+  }
   return deliver(run, config, base, bounded.reply)
+}
+
+async function settle(run: Run, record: RunRecord | null): Promise<AgentRunResult> {
+  if (record) return run.finish(record)
+  run.deps.log('info', 'agent.duplicate', { messageId: run.job.messageRowId, restaurantId: run.key.restaurantId })
+  return 'duplicate'
 }
 
 async function process(run: Run): Promise<AgentRunResult> {
@@ -177,21 +285,29 @@ async function process(run: Run): Promise<AgentRunResult> {
     return 'superseded'
   }
 
-  const config = await deps.getConfig(key.restaurantId)
-  run.mode = config.mode
-  if (config.mode === 'off') return run.finish(skipped('mode_off'))
+  const read = await deps.getConfig(key.restaurantId)
+  if (!read.ok) {
+    if (!run.owesResponse) return run.finish(noModelCall('error', 'config_unavailable'))
+    return settle(run, await fallBack(run, noModelCall('fallback', 'config_unavailable')))
+  }
+  const config = read.config
+  const mode = effectiveMode(job.admittedMode, config.mode)
+  if (mode === 'off') {
+    if (run.owesResponse) await run.fallback()
+    return run.finish(skipped('mode_off'))
+  }
   const now = deps.now()
   if (await deps.silences.isSilenced(key, now.toISOString())) return run.finish(skipped('silenced'))
 
   if (await isOverReplyLimit(deps.messages, key, config, now)) {
     // recordRateLimited stores the row; finish() would store a second one.
     const first = await recordRateLimited(deps.messages, key, now)
-    if (config.mode === 'auto' && first) await run.fallback()
+    if (run.owesResponse && first) await run.fallback()
     deps.log('info', 'agent.reply', { messageId: job.messageRowId, restaurantId: key.restaurantId, outcome: 'rate_limited' })
     return 'rate_limited'
   }
 
-  return run.finish(await answer(run, config))
+  return settle(run, await answer(run, config, mode))
 }
 
 export async function processAgentReply(deps: AgentWorkerDeps, job: AgentReplyJob): Promise<AgentRunResult> {
@@ -204,7 +320,7 @@ export async function processAgentReply(deps: AgentWorkerDeps, job: AgentReplyJo
       restaurantId: job.restaurantId,
       errorClass: (err as Error)?.name ?? 'unknown',
     })
-    if (run.mode === 'auto' && !run.replySent) await run.fallback().catch(() => false)
+    if (run.owesResponse && !run.replySent) await run.fallback().catch(() => false)
     return 'error'
   }
 }

@@ -52,6 +52,15 @@ describe('AGENT-001 W2 agent dashboard UI', () => {
     expect(html).not.toMatch(/<details[^>]*\sopen/)
   })
 
+  it('AC-F2 the keep-conversations knob shows the resolver range 24 to 168 (min input 24)', () => {
+    const html = renderToStaticMarkup(<AgentSettingsSection initial={{ config: DEFAULT_AGENT_CONFIG, rev: 0 }} />)
+    const knob = html.slice(html.indexOf('id="agent-settings-historyTtlHours"'))
+    const input = knob.slice(0, knob.indexOf('>'))
+    expect(input).toContain('min="24"')
+    expect(input).toContain('max="168"')
+    expect(knob).toContain('agentSettings.range:{&quot;min&quot;:24,&quot;max&quot;:168}')
+  })
+
   it('AC-UI settings section: a load failure shows the error state, no form', () => {
     const html = renderToStaticMarkup(<AgentSettingsSection initial={null} />)
     expect(html).toContain('data-testid="agent-settings-load-error"')

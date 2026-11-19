@@ -1,0 +1,47 @@
+passed | AC-F1 overlapping jobs of one conversation AC-F1 two overlapping jobs for one conversation → exactly one send (the older job is superseded after its model call)
+passed | AC-F1 overlapping jobs of one conversation AC-F1 a handoff silence set during job A's model call stops job B's send
+passed | AC-F1 overlapping jobs of one conversation AC-F1 a run's own handoff does not stop its own reply
+passed | AC-F1 overlapping jobs of one conversation AC-F1 a shadow draft is not recorded when the job was superseded during the model call
+passed | AC-F3 config read failure and mode changes after admission AC-F3 auto-admitted job + config read error → fallback once, never read as mode off
+passed | AC-F3 config read failure and mode changes after admission AC-F3 shadow-admitted job + config read error → error row, nothing sent
+passed | AC-F3 config read failure and mode changes after admission AC-F3 auto-admitted job + config now off → fallback once, outcome skipped mode_off, no model call
+passed | AC-F3 config read failure and mode changes after admission AC-F3 the webhook stamps the admitted mode on the job
+passed | AC-F3 config read failure and mode changes after admission AC-F3 auto-admitted, now shadow → draft only, plus the suppressed fallback menu once; shadow-admitted, now auto → draft only
+passed | AC-F4 send failure in auto AC-F4 auto send_failed → the fallback menu is tried once; outcome fallback, reason send_failed
+passed | AC-F4 send failure in auto AC-F4 send throws and the fallback also fails → outcome error, reason send_failed, one attempt each
+passed | AC-F4 send failure in auto AC-F4 no_phone_number → error, no fallback attempt
+passed | AC-F5 truncated answers are never sent AC-F5 failure truncated → auto fallback, nothing partial sent
+passed | AC-F6 tools follow maxToolCalls AC-F6 maxToolCalls 0 → the model request declares no tools, so a points question gets a text answer
+passed | AC-F7 a re-run of the same job sends nothing AC-F7 the same job processed twice → one send, the second run records nothing new
+passed | AC-F7 a re-run of the same job sends nothing AC-F7 two concurrent runs of the same job (stall) → one send
+passed | AC-F7 a re-run of the same job sends nothing AC-F7 the answer row is stored before the send (claim first), tied to the user row
+passed | AC-F7 a re-run of the same job sends nothing AC-F7 a re-run of a fallback job does not send the menu twice
+passed | AC-F8 limits count every row that made a model call AC-F8 a window_closed skipped row with a model counts toward per-phone and per-tenant limits
+passed | AC-F8 limits count every row that made a model call AC-F8 rows without a model call (rate_limited, mode_off, silenced) do not count
+passed | AC-R5 retention purge AC-F2 historyTtlHours 1 → clamped to 24; the daily cap still counts 24 h of rows after a purge
+passed | AGENT-001 W2 agent dashboard UI AC-F2 the keep-conversations knob shows the resolver range 24 to 168 (min input 24)
+passed | request contract AC-F5 every request carries the lowest thinking level the default model supports (low)
+passed | tool loop AC-F6 after the cap is used up the next request has no tools, and a text answer there succeeds
+passed | tool loop AC-F6 calls past the cap in one round are answered with an error, not run; the next request has no tools
+passed | tool loop AC-F6 maxToolCalls 0 → the request declares no tools; a text answer succeeds
+passed | tool loop AC-F6 a function call with no tools declared is tool_cap and runs nothing
+passed | AC-R4 failure classes AC-R4 AC-F5 thoughts ate the budget (MAX_TOKENS, no text) → [object Object]
+passed | AC-R4 failure classes AC-R4 AC-F5 a cut-off sentence (MAX_TOKENS with text) → [object Object]
+passed | agent-reply queue AC-F7 worker lockDuration ≥ 60000 ms (a ≤ 20 s model run is never re-run as stalled), concurrency stays 3
+passed | agent_messages writes and counters AC-F7 recordModelRow maps the one-answer-per-user-row 23505 to taken; other errors throw
+passed | agent_messages writes and counters AC-F7 setModelOutcome rewrites only the outcome of that row, scoped to the conversation
+passed | agent_messages writes and counters AC-F8 countModelCalls counts rows that made a model call (model not null, any outcome), per phone or per tenant
+passed | agent config repository AC-F3 readAgentConfig reports a query error as a failed read (the webhook getter still degrades to off)
+passed | AC-MIG agent schema contract: repositories match migration 083 AC-F7-MIG one answer per user row: partial UNIQUE on reply_to_message_id over exactly the claim outcomes
+passed | AC-F10 the auto gate reads silence and limits concurrently AC-F10 admit gate issues isSilenced and the limit check concurrently (both started before either resolves)
+AC-F1 passed 4 failed 0
+AC-F10 passed 1 failed 0
+AC-F2 passed 2 failed 0
+AC-F3 passed 6 failed 0
+AC-F4 passed 3 failed 0
+AC-F5 passed 4 failed 0
+AC-F6 passed 5 failed 0
+AC-F7 passed 7 failed 0
+AC-F7-MIG passed 1 failed 0
+AC-F8 passed 3 failed 0
+total 36 failed 0

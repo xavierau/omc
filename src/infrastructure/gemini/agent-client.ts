@@ -9,6 +9,18 @@
  * the model turn is appended VERBATIM (the signature must round-trip) and
  * answered with a user turn of `functionResponse {id, name, response}` parts.
  *
+ * Tools are declared only while tool calls are left (`maxToolCalls`): once
+ * the cap is used up (or it is 0) the next request carries no tools, so the
+ * model must answer in text; calls past the cap in one round are answered
+ * with an error and not run. Omitting tools after a function-call round trip
+ * was probed live on gemini-3.1-flash-lite (2026-11-19, 200 + text).
+ *
+ * `thinkingConfig.thinkingLevel: 'low'` keeps thoughts from eating
+ * `maxOutputTokens` (ai.google.dev/gemini-api/docs/generate-content/thinking:
+ * `low` is the lowest level gemini-3.8-flash supports, `minimal` is an error
+ * there; 3.5 Flash and 3.1 Flash-Lite support it too). A cut-off answer
+ * (finishReason MAX_TOKENS, no function call) is `truncated`, never sent.
+ *
  * Every failure maps to an AgentModelFailure and is never thrown. Nothing is
  * logged here: the worker logs the outcome with ids only (R8).
  */
@@ -25,6 +37,8 @@ export const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta
 
 const SAFETY_FINISH = new Set(['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII', 'IMAGE_SAFETY'])
 const TOOL_NAME_PATTERN = /^[a-z_][a-z0-9_]{0,63}$/
+/** Answer to a call past `maxToolCalls` in one round: it is not run. */
+const TOOL_LIMIT_REACHED = { error: 'tool_limit_reached' }
 
 type GeminiPart = {
   text?: string
@@ -52,11 +66,13 @@ export function generateContentUrl(model: string): string {
   return `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`
 }
 
-function requestBody(req: AgentModelRequest, contents: GeminiContent[]) {
+export const THINKING_LEVEL = 'low'
+
+function requestBody(req: AgentModelRequest, contents: GeminiContent[], withTools: boolean) {
   return {
     systemInstruction: { parts: [{ text: req.systemInstruction }] },
     contents,
-    ...(req.tools.length > 0
+    ...(withTools
       ? {
           tools: [
             {
@@ -69,7 +85,11 @@ function requestBody(req: AgentModelRequest, contents: GeminiContent[]) {
           ],
         }
       : {}),
-    generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxOutputTokens },
+    generationConfig: {
+      temperature: req.temperature,
+      maxOutputTokens: req.maxOutputTokens,
+      thinkingConfig: { thinkingLevel: THINKING_LEVEL },
+    },
   }
 }
 
@@ -125,6 +145,7 @@ export function readStep(body: GeminiResponse): Step {
     }
   }
   if (candidate.finishReason === 'MALFORMED_FUNCTION_CALL') return { kind: 'fail', reason: 'parse' }
+  if (candidate.finishReason === 'MAX_TOKENS') return { kind: 'fail', reason: 'truncated' }
   const text = parts
     .filter((p) => typeof p.text === 'string' && p.thought !== true)
     .map((p) => p.text)
@@ -137,14 +158,20 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
   const getApiKey = options.getApiKey ?? (() => process.env.GEMINI_API_KEY)
   const now = options.now ?? Date.now
 
-  async function callOnce(req: AgentModelRequest, contents: GeminiContent[], apiKey: string, timeoutMs: number): Promise<CallResult> {
+  async function callOnce(
+    req: AgentModelRequest,
+    contents: GeminiContent[],
+    apiKey: string,
+    timeoutMs: number,
+    withTools: boolean
+  ): Promise<CallResult> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const res = await fetchImpl(generateContentUrl(req.model), {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(requestBody(req, contents)),
+        body: JSON.stringify(requestBody(req, contents, withTools)),
         signal: controller.signal,
       })
       if (!res.ok) return { ok: false, reason: 'http' }
@@ -174,7 +201,8 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
       for (;;) {
         const remaining = deadline - now()
         if (remaining <= 0) return fail('timeout')
-        const call = await callOnce(req, contents, apiKey, Math.min(req.perCallTimeoutMs, remaining))
+        const withTools = req.tools.length > 0 && toolCalls.length < req.maxToolCalls
+        const call = await callOnce(req, contents, apiKey, Math.min(req.perCallTimeoutMs, remaining), withTools)
         if (!call.ok) return fail(call.reason)
         addUsage(usage, call.body)
 
@@ -182,15 +210,17 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
         if (step.kind === 'fail') return fail(step.reason)
         if (step.kind === 'text') return { ok: true, text: step.text, toolCalls, usage }
 
-        if (toolCalls.length + step.calls.length > req.maxToolCalls) {
+        // A function call although no tools were declared: the model ignores the cap.
+        if (!withTools) {
           toolCalls.push(...step.calls.map((c) => c.name))
           return fail('tool_cap')
         }
         contents.push(step.content)
         const responses: GeminiPart[] = []
         for (const c of step.calls) {
+          const allowed = toolCalls.length < req.maxToolCalls
           toolCalls.push(c.name)
-          const response = await runTool(req.executeTool, c.name, c.args)
+          const response = allowed ? await runTool(req.executeTool, c.name, c.args) : TOOL_LIMIT_REACHED
           responses.push({ functionResponse: { ...(c.id ? { id: c.id } : {}), name: c.rawName, response } })
         }
         contents.push({ role: 'user', parts: responses })
