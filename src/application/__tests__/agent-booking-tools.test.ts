@@ -340,12 +340,12 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     expect(h.store.modelRows().map((r) => r.outcome)).toEqual(['sent'])
   })
 
-  it('AC-MODE booking mode off → the model is offered no booking tool and no clock line', async () => {
+  it('AC-MODE booking mode off → the model is offered no booking tool; the instruction is preamble + clock + knowledge', async () => {
     const model = new FakeAgentModel([okModel('Hi')])
     const h = workerHarness({ model })
     await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))
     expect(model.requests[0].tools.map((t) => t.name)).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff'])
-    expect(model.requests[0].systemInstruction).toBe(buildSystemInstruction(h.currentConfig()))
+    expect(model.requests[0].systemInstruction).toBe(buildSystemInstruction(h.currentConfig(), h.clock.now()))
   })
 
   it('AC-MODE an unreadable booking config → no booking tool, the reply still goes out', async () => {
@@ -356,6 +356,51 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     }
     expect(await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))).toBe('sent')
     expect(model.requests[0].tools.map((t) => t.name)).not.toContain('propose_booking')
+  })
+})
+
+describe('AC-CLOCK every reply carries the Hong Kong date and time, whatever the booking mode', () => {
+  const CLOCK = 'CURRENT DATE AND TIME IN HONG KONG: 2026-11-19 (Thursday) 18:00'
+
+  it.each([
+    ['off', null],
+    ['simple', { mode: 'simple', maxPartySize: 8 }],
+    ['external', { mode: 'external', externalUrl: 'https://book.example.test/omc' }],
+  ] as const)('AC-CLOCK booking mode %s → the clock line is in the system instruction', async (_mode, bookingConfig) => {
+    const model = new FakeAgentModel([okModel('Hi')])
+    const h = workerHarness({ model })
+    if (bookingConfig) h.booking.settings.setConfig(R, bookingConfig)
+    await processAgentReply(h.deps, await inbound(h, '今晚開唔開？', 'wamid.1'))
+    expect(model.requests[0].systemInstruction).toContain(CLOCK)
+  })
+
+  it('AC-CLOCK no tools at all (maxToolCalls 0) → the clock line still comes', async () => {
+    const model = new FakeAgentModel([okModel('Hi')])
+    const h = workerHarness({ config: { mode: 'auto', maxToolCalls: 0 }, model })
+    await processAgentReply(h.deps, await inbound(h, 'are you open now?', 'wamid.1'))
+    expect(model.requests[0].tools).toEqual([])
+    expect(model.requests[0].systemInstruction).toContain(CLOCK)
+  })
+
+  it('AC-CLOCK an unreadable booking config → no booking tool, the clock line still comes', async () => {
+    const model = new FakeAgentModel([okModel('Hi')])
+    const h = workerHarness({ model })
+    h.deps.booking.getConfig = async () => {
+      throw new Error('db down')
+    }
+    await processAgentReply(h.deps, await inbound(h, 'are you open now?', 'wamid.1'))
+    expect(model.requests[0].tools.map((t) => t.name)).not.toContain('propose_booking')
+    expect(model.requests[0].systemInstruction).toContain(CLOCK)
+  })
+
+  it('AC-CLOCK computed per job from deps.now(): a later job sees the later time', async () => {
+    const model = new FakeAgentModel([okModel('Hi'), okModel('Hi again')])
+    const h = workerHarness({ model })
+    await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))
+    h.clock.advance(5 * 3_600_000 + 30 * 60_000)
+    await processAgentReply(h.deps, await inbound(h, 'still open?', 'wamid.2'))
+    expect(model.requests[0].systemInstruction).toContain(CLOCK)
+    expect(model.requests[1].systemInstruction).toContain('CURRENT DATE AND TIME IN HONG KONG: 2026-11-19 (Thursday) 23:30')
   })
 })
 

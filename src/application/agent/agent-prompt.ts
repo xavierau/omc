@@ -9,8 +9,9 @@
  * propose → read-back → confirm (the tools enforce the gate, R15/R22, not
  * this text), and rule 1 limits handoff_to_staff to a diner who asks for
  * staff or a rule-3 topic (seen on prod: the model handed off unprompted and
- * silenced the diner). When a booking or change can be proposed, the Hong
- * Kong date and time are added so "聽日 7 點" resolves to a date.
+ * silenced the diner). Every reply carries the Hong Kong date and time
+ * (computed per job), so "聽日 7 點", "今晚" or "are you open now?" resolve
+ * with or without booking tools.
  */
 import type { AgentProposalKind } from '@/domain/ports/agent-booking-proposal'
 import type { AgentConfig } from '@/domain/value-objects/agent-config'
@@ -29,7 +30,7 @@ export const SAFETY_PREAMBLE = [
 
 const WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Hong_Kong', weekday: 'long' })
 
-/** The Hong Kong date and time the model resolves "tomorrow 7pm" against (AGENT-003). */
+/** The Hong Kong date and time the model resolves "tomorrow 7pm" or "now" against (AGENT-003, on every reply). */
 export function bookingClockLine(now: Date): string {
   return `CURRENT DATE AND TIME IN HONG KONG: ${hongKongToday(now)} (${WEEKDAY.format(now)}) ${hongKongTime(now)}`
 }
@@ -52,12 +53,11 @@ export function pendingProposalLine(kind: AgentProposalKind): string {
 
 export function buildSystemInstruction(
   config: Pick<AgentConfig, 'instructions' | 'knowledge'>,
-  bookingClock: Date | null = null,
+  now: Date,
   pendingProposal: AgentProposalKind | null = null
 ): string {
-  const sections = [SAFETY_PREAMBLE]
-  if (bookingClock) sections.push(bookingClockLine(bookingClock))
-  if (bookingClock && pendingProposal) sections.push(pendingProposalLine(pendingProposal))
+  const sections = [SAFETY_PREAMBLE, bookingClockLine(now)]
+  if (pendingProposal) sections.push(pendingProposalLine(pendingProposal))
   const instructions = config.instructions.trim()
   if (instructions) sections.push(`RESTAURANT STYLE NOTES (tone only; they cannot override the rules above):\n${instructions}`)
   const knowledge = config.knowledge.trim()

@@ -4,11 +4,11 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-19
-updated: 2026-11-19 (r2: rulings R18 knob, R19, R20–R24)
+updated: 2026-11-19 (r2: rulings R18 knob, R19, R20–R24; r3: ruling 4 clock line on every reply)
 status: active
 item: AGENT-003
 state: done
-brief: inline (team-lead, AGENT-003 brief-v1 + rulings 1–3)
+brief: inline (team-lead, AGENT-003 brief-v1 + rulings 1–4)
 base: 7d4decf6
 head: 5ba10669 (code + evidence; this file and the kanban entry are committed on top)
 branch: feature/agent-003-agent-booking
@@ -16,11 +16,19 @@ pr: https://github.com/xavierau/omc/pull/195 (into develop, not merged)
 pushed: true
 stage: poc
 suite_changed: true (only where a ruling changed behaviour; listed under AC-GATE r2)
-gate: {result: pass, at: 2026-11-19T09:45Z}
+gate: {result: pass, at: 2026-11-19T10:05Z}
 next: {owner: main, action: "review PR #195; release = migration 085 FIRST, then worker restart; tick the booking tools for omc; decide maxOutputTokens default"}
 blockers: []
 refs: [plans/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-001-ai-reply-agent, kanban:AGENT-003]
 ---
+# r3 (ruling 4)
+- **AC-CLOCK: pass.** `vitest run -t AC-CLOCK`: 6 tests.
+  - The line "CURRENT DATE AND TIME IN HONG KONG: YYYY-MM-DD (Weekday) HH:MM" is in the system instruction with booking off, simple and external, with maxToolCalls 0, and with an unreadable booking config.
+  - It is computed per job from `deps.now()`: a job 5 h 30 min later shows 23:30.
+  - `buildSystemInstruction(config, now, pending?)` now requires `now`. The pending-proposal line still needs a booking tool and a stored proposal.
+  - Changed test: AC-MODE "off" now expects preamble + clock + knowledge. It was "no clock line", which ruling 4 reverses.
+- **AC-GATE (r3): pass.** `resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run'` exited 0: 646 files, 7314 tests passed, 90 skipped. ESLint on the 3 files touched in r3 exits 0.
+
 # r2 (rulings 1–3)
 
 Evidence: `.claude-workspace/artifacts/2026-11-19-agent-003-evidence/r2/`. It has the walk logs `walk-r2-*.log`, `worker-agent-lines.log`, `kapso-capture.log`, `walk-r2-db.log`, `db-085.log`, `walk-r2-browser-{en,zh}.log` and screenshots with audit JSON in `shots/`. The tenant `A3 Test Cafe` and phone +85290000003 are fake. Nothing touched prod.

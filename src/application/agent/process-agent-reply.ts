@@ -271,7 +271,7 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
   const result = await deps.model.respond({
     model,
     fallbackModel: effectiveFallbackModel(config, deps.envFallbackModel),
-    systemInstruction: buildSystemInstruction(config, offersProposal ? now : null, pending),
+    systemInstruction: buildSystemInstruction(config, now, pending),
     history: toAgentTurns(rows),
     // No tool calls allowed → declare none, so the model answers in text (a points question included).
     tools,
