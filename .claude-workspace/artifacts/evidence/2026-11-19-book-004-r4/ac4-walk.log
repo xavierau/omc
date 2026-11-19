@@ -1,0 +1,25 @@
+BOOK-004 r4 local walk, 2026-11-19, http://localhost:3030 (WT slot 3), merge commit 7c1c38c2, local Supabase CLI stack (migration 085 present), locale zh-HK (env default).
+Fake tenant b0040000-0000-4000-8000-000000000044 "Cafe Poppy r4", staff user book004-r4-staff@example.test, 6 bookings (fake names, +8529000004x phones):
+  ...0002 25 Nov 19:30 confirmed Chan Test (the slot a change would replace)
+  ...0006 26 Nov 12:30 confirmed Au Test, party 2
+  ...0003 26 Nov 18:00 cancelled, cancelled_by diner_ai, Lee Test, party 3
+  ...0004 26 Nov 19:00 cancelled, cancelled_by change, Wong Test, party 2
+  ...0001 26 Nov 20:00 pending change request, replaces ...0002, Chan Test, party 4
+  ...0005 26 Nov 21:00 confirmed change, replaces ...0004, Wong Test, party 2
+Signed in via /login; reached Bookings from the sidebar link 訂座.
+
+1440x900 Calendar (November): chips 全部 / 待確認 1 / 已確認 3 / 已拒絕 0 / 已取消 2 (bookings-filter-cancelled); pill "1 個要求待回覆".
+  26 Nov cell: "8 位客人" (cancelled 3 + 2 left out); chips 18:00 Lee and 19:00 Wong text-decoration line-through, 12:30 Au none; "還有 2 個".
+  Day panel: "5 個訂座 · 8 位客人 · 1 個待回覆".
+    ...0003 time line-through, testids [status, cancelled-by-diner], text 已取消 顧客經 AI 助理取消
+    ...0004 time line-through, testids [status, cancelled-by-change], text 已取消 已改期取代
+    ...0001 no strike, testids [status, via-agent, change-from, confirm, decline], 更改要求：2026-11-25 19:30 · 4 位 → 2026-11-26 20:00 · 4 位
+    ...0005 no strike, testids [status, via-agent, change-from]
+  scrollWidth 1440. Screenshot ac4-calendar-day-panel-1440-zh.jpeg
+1440x900 Table (列表, upcoming): rows ...0003/...0004 time and guest cells line-through, cancelled-by badges in the status cell; change-from line in the notes cell for ...0001/...0005; Confirm/Decline only on ...0001.
+  scrollWidth 1440. Screenshot ac4-table-1440-zh.jpeg
+390x844x2 (plain viewport) Table cards: ...0003/...0004 headline line-through + cancelled-by badge on its own line; ...0001 change-from + full-width Confirm/Decline. scrollWidth 390. Screenshot ac4-table-cards-390-zh.jpeg
+390x844x2 Calendar (week strip) 26 Nov day list: same summary; ...0003/...0004 line-through + cancelled-by; ...0001 change-from + actions. scrollWidth 390. Screenshot ac4-calendar-day-list-390-zh.jpeg
+390 decision path (r3 F4 runDecision + AGENT-003 F8 showsUndelivered): Decline -> Send decline on change request ...0001:
+  POST .../decline 200 {delivered: null, booking.status: declined}; row now 已拒絕, no booking-row-...-not-delivered, no buttons.
+Not walked: en locale (env-fixed zh-HK; no new en copy besides filter.cancelled "Cancelled" and the restored partyOf, both covered by the key test).

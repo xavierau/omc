@@ -1471,6 +1471,24 @@
             "kanban:AGENT-001",
             "threats/2026-11-19-agent-001-ai-reply-agent#OR4"
           ]
+        },
+        {
+          "id": "LINT-001",
+          "title": "Repo-wide ESLint cleanup so `npm run lint` can gate (151 errors, 22 warnings in files BOOK-004 did not touch)",
+          "description": "Found by BOOK-004's gate (owner decision 2026-11-19: accepted for that PR, fixed separately). `npm run lint` on feature/bookings-calendar-table reports 173 problems (151 errors, 22 warnings). Every one is in a file the branch does not touch: the log lists 131 files, 78 of them with errors (the brief counted 92 untouched files). None are in booking code. Fix them (or tune rules deliberately, with a reason) until `npm run lint` exits 0, so lint can join the gate and CI-001. Evidence: .claude-workspace/artifacts/evidence/2026-11-19-book-004/ac3-gate.log.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "devops",
+            "chore"
+          ],
+          "related": [
+            "kanban:BOOK-004",
+            "kanban:CI-001"
+          ],
+          "workspace_artifacts": [
+            "artifacts/evidence/2026-11-19-book-004/ac3-gate.log"
+          ]
         }
       ]
     },
@@ -1586,6 +1604,37 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "BOOK-004",
+          "title": "Bookings page: Calendar view (default) + Table view",
+          "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/bookings-calendar-table",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-003",
+            "kanban:AGENT-003",
+            "kanban:BOOK-005"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-19-book-004-bookings-views-ux.md",
+            "artifacts/2026-11-19-book-004-bookings-views-impl.md",
+            "artifacts/2026-11-19-dev-book-004-handoff.md",
+            "artifacts/2026-11-19-dev-book-004-r2-handoff.md",
+            "artifacts/2026-11-19-dev-book-004-r3-handoff.md",
+            "artifacts/2026-11-19-dev-book-004-r4-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-19",
+          "notes": "Built and walked on the local Supabase stack (scratch tenant, en + zh-HK, 1440 + 390); PR into develop. Not deployed. r2 (2026-11-19): the needs-reply pill's Show opens Table → Needs a reply: every pending booking, any date (past-dated included), soonest first, via GET ?status=pending; list length = pendingCount. Follow-ups LINT-001, BOOK-005. r4 (2026-11-19): merged develop (AGENT-003 #195, #198); the new views carry cancelled bookings, the change-from line and the cancelled-by badge; BOOK-005 done here."
+        },
+        {
           "id": "AGENT-003",
           "title": "AI agent takes, changes and cancels table bookings in WhatsApp + overload fallback + escalate to staff on failure",
           "description": "propose_booking (BOOK-001 validation, Redis proposal 30 min) → read-back → create_booking_request (no args, only from an earlier job, single use) creates a pending booking_requests row with source agent ('via AI agent' in 訂座) and sends the received message; get_booking_link for external mode; tools offered per booking mode. Gemini client retries once on 429/5xx/timeout, then AgentConfig.fallbackModel / AGENT_FALLBACK_MODEL / gemini-3.5-flash-lite once, inside the 20 s budget. Rulings: perCallTimeoutMs knob (R18 order main → fallback → main retry); failureAction 'handoff' default (R19, 'Needs staff' flag); list_my_bookings / propose+confirm_booking_change / propose+confirm_booking_cancel (R20–R24): change = linked pending request staff confirm in 訂座 (atomic RPC swap), cancel direct with diner marker.",
@@ -1604,11 +1653,13 @@
           ],
           "branch": "feature/agent-003-agent-booking",
           "pr": "195",
-          "notes": "Dev r2 done 2026-11-19 (artifacts/2026-11-19-agent-003-handoff); PR #195 into develop, not merged. Deploy: run migration 085 FIRST, then restart the worker; omc must tick the booking tools (stored enabledTools list).",
+          "notes": "Dev r2 done 2026-11-19 (artifacts/2026-11-19-agent-003-handoff); PR #195 into develop, not merged. Deploy: run migration 085 FIRST, then restart the worker; omc must tick the booking tools (stored enabledTools list). Released 2026-11-19 13:18Z: PR #197 → main f7ab94d6 → release fdc9cbe, BUILD_ID caIeIeX7IH0Qzhqp5AyPG; migration 085 applied before the restart (Forge deployment 83458453). omc agent_config rev 8 → 9: 7 booking tools ticked, fallbackModel gemini-3.1-flash-lite, maxOutputTokens 1024 (deploys/2026-11-19-agent-003-release-runbook). Pending: Xavier's live booking test on omc's number.",
           "workspace_artifacts": [
             "plans/2026-11-19-agent-003-agent-booking",
             "threats/2026-11-19-agent-003-agent-booking",
-            "artifacts/2026-11-19-agent-003-handoff"
+            "artifacts/2026-11-19-agent-003-handoff",
+            "deploys/2026-11-19-agent-003-release-runbook",
+            "artifacts/2026-11-19-rel-agent003-handoff"
           ]
         },
         {
@@ -1748,6 +1799,31 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "BOOK-005",
+          "title": "Show cancelled bookings in the Calendar and Table views (grey, struck through, like Declined)",
+          "description": "Owner decision 2026-11-19 (decision 4). Migration 085 (agent booking changes, on another branch) adds the `cancelled` status. BOOK-004's range query uses a status allow-list in(pending, confirmed, declined), so cancelled bookings are hidden from the views today. Once that branch lands: add `cancelled` to the range query's status list (listBookingRequestsInRange); render it in both views like Declined (grey, struck through): calendar chips, day panel, table rows and phone cards; give it a status badge and a filter chip if the UX spec agrees; exclude it from covers as Declined is; keep it out of pendingCount and the needs-reply list. Tenant scope and the unverified exclusion stay in the query (R1/R2).",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "backend"
+          ],
+          "related": [
+            "kanban:BOOK-004",
+            "kanban:BOOK-003"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-19-book-004-bookings-views-impl.md",
+            "artifacts/2026-11-19-dev-book-004-r4-handoff.md"
+          ],
+          "status": "done",
+          "updated": "2026-11-19",
+          "branch": "feature/bookings-calendar-table",
+          "pr": "196",
+          "notes": "Done in BOOK-004 r4 (PR #196, merge of develop 7af9494b AGENT-003): the range list allow-lists cancelled (unverified still excluded); cancelled is grey + struck through in calendar chips, day panel, table and phone cards, has its own status chip, is left out of guests and of the needs-reply count/list; the AGENT-003 cancelled-by badge and change-from line render in every view."
+        },
         {
           "id": "AGENT-001",
           "title": "AI reply agent (POC): Gemini answers unmatched inbound free text, per-tenant mode off|shadow|auto, every knob in AgentConfig",

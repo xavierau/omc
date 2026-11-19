@@ -130,6 +130,42 @@ export function isOpenChangeRequest(b: { replacesBookingId?: string | null; stat
   return !!b.replacesBookingId && b.status === 'pending'
 }
 
+/**
+ * BOOK-004 (R4): the most rows one date-range list returns; more sets `truncated`.
+ * The list reads cap + 1 rows, which must fit PostgREST's `max_rows` (1000), or
+ * the extra row is never returned and a cut list looks complete (review F1).
+ */
+export const BOOKINGS_RANGE_CAP = 999
+/** BOOK-004 (R3): the widest date range one list may ask for, in days. */
+export const BOOKINGS_RANGE_MAX_DAYS = 400
+
+/** Inclusive on `booking_date`, both YYYY-MM-DD. */
+export interface BookingDateRange {
+  from: string
+  to: string
+}
+
+export type BookingRangeParse = { ok: true; range: BookingDateRange | null } | { ok: false }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Days since the epoch for a real calendar date, or null (R3: format and date both checked). */
+function epochDay(value: string): number | null {
+  if (!ISO_DATE.test(value)) return null
+  const [y, m, d] = value.split('-').map(Number)
+  const ms = Date.UTC(y, m - 1, d)
+  return new Date(ms).toISOString().slice(0, 10) === value ? ms / 86_400_000 : null
+}
+
+/** BOOK-004: neither param = no range; both valid, ordered and ≤ 400 days apart = a range; anything else is rejected. */
+export function parseBookingRange(from: string | null, to: string | null): BookingRangeParse {
+  if (from === null && to === null) return { ok: true, range: null }
+  const start = from === null ? null : epochDay(from)
+  const end = to === null ? null : epochDay(to)
+  if (start === null || end === null || start > end || end - start > BOOKINGS_RANGE_MAX_DAYS) return { ok: false }
+  return { ok: true, range: { from: from as string, to: to as string } }
+}
+
 /** A decline reason as stored: trimmed, newline-free, capped; empty = none. */
 export function normalizeDeclineReason(raw: unknown): string | null {
   if (typeof raw !== 'string') return null

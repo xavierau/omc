@@ -1,0 +1,42 @@
+Thu Nov 19 13:17:50 UTC 2026
+From github.com:xavierau/omc
+ * branch              release    -> FETCH_HEAD
+ + da99e4d4...fdc9cbe8 release    -> origin/release  (forced update)
+→ Syncing checkout with origin/release
+  already at fdc9cbe
+→ Checking free disk space
+  27316MB free (minimum 1500MB)
+→ Verifying prebuilt bundle
+→ Installing runtime env for the standalone server
+  site .env → .next/standalone/.env
+  BUILD_ID caIeIeX7IH0Qzhqp5AyPG
+  from rel-agent003 @ f7ab94d — Merge pull request #197 from xavierau/develop
+  built 2026-11-19T13:16:36Z by <redacted> on node v22.21.1
+→ Installing dependencies
+  lockfile unchanged (5b141452304d) — node_modules is current, skipping npm ci
+→ Verifying supabase CLI
+  supabase 2.98.2
+→ Applying pending migrations
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 085_agent_booking_changes.sql
+
+ [Y/n] 
+Applying migration 085_agent_booking_changes.sql...
+Finished supabase db push.
+A new version of Supabase CLI is available: v3.2.0 (currently installed v2.98.2)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+→ Seeding platform admin (idempotent)
+Admin <redacted> already exists (user_id=<redacted>)
+→ Restarting daemons
+  restarting app → daemon-746791
+daemon-746791:daemon-746791_00: stopped
+daemon-746791:daemon-746791_00: started
+  app is RUNNING
+  restarting worker → daemon-801730
+daemon-801730:daemon-801730_00: stopped
+daemon-801730:daemon-801730_00: started
+  worker is RUNNING
+✓ Deploy complete
+[32m=> Deployment complete[0m

@@ -12,12 +12,14 @@ vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 vi.mock('@/application/booking/booking-deps', () => ({ decideBookingDeps: () => store.deps }))
 vi.mock('@/infrastructure/supabase/repositories/booking-request-repository', () => ({
   listBookingRequests: (restaurantId: string, limit: number) => store.requests.listForRestaurant(restaurantId, limit),
+  countRestaurantPendingBookings: async (restaurantId: string) =>
+    store.requests.rows.filter((r) => r.restaurantId === restaurantId && r.status === 'pending').length,
   findBookingForRestaurant: (id: string, restaurantId: string) => store.requests.findForRestaurant(id, restaurantId),
 }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { GET as list } from '../route'
+import { GET as listRoute } from '../route'
 import { GET as getOne } from '../[id]/route'
 import { POST as confirm } from '../[id]/confirm/route'
 import { POST as decline } from '../[id]/decline/route'
@@ -48,6 +50,7 @@ beforeEach(async () => {
   vi.mocked(getTenantContext).mockResolvedValue({ userId: 'user-a', restaurantId: A, role: 'staff', tenantStatus: 'active' })
 })
 
+const list = () => listRoute(new Request('http://localhost/api/dashboard/bookings'))
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) })
 const req = (body: unknown = {}) =>
   new NextRequest('http://localhost/api/dashboard/bookings/x', { method: 'POST', body: JSON.stringify(body) })

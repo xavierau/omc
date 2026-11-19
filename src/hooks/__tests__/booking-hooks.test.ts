@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bookingDecisionOutcome, decideBooking, noticeFor, showsUndelivered } from '@/hooks/use-bookings'
+import {
+  bookingDecisionOutcome,
+  bookingsSettler,
+  decideBooking,
+  fetchBookings,
+  decisionOutcomeHandler,
+  noticeFor,
+  runDecision,
+  showsUndelivered,
+  type BookingDecisionOutcome,
+  type BookingsPayload,
+} from '@/hooks/use-bookings'
 import { needsExternalUrl, saveOutcome, toForm, toPayload } from '@/hooks/use-booking-settings'
 import { DEFAULT_BOOKING_CONFIG, parseBookingSettings } from '@/domain/value-objects/booking-config'
 
@@ -127,5 +138,152 @@ describe('use-booking-settings helpers', () => {
       kind: 'fields', errors: { externalUrl: 'invalid_https_url' },
     })
     expect(saveOutcome(403, {})).toEqual({ kind: 'forbidden' })
+  })
+})
+
+describe('fetchBookings (BOOK-004)', () => {
+  it('asks for the date range and reads pendingCount and truncated', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bookings: [], pendingCount: 4, truncated: true }) })
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await fetchBookings({ from: '2026-11-01', to: '2026-12-05' })).toEqual({ bookings: [], pendingCount: 4, truncated: true })
+    expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?from=2026-11-01&to=2026-12-05')
+  })
+
+  it('asks for every pending booking with status=pending (needs-reply Show)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bookings: [], pendingCount: 0, truncated: false }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchBookings({ status: 'pending' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?status=pending')
+  })
+
+  it('throws on a failed answer so the page shows the error state', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+    await expect(fetchBookings({ from: '2026-11-01', to: '2026-11-30' })).rejects.toThrow()
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const payload = (id: string): BookingsPayload => ({ bookings: [{ id } as never], pendingCount: 1, truncated: false })
+const flush = () => new Promise((r) => setTimeout(r, 0))
+
+// F2 (review 2026-11-19): a decision's refetch was settled with isActive=()=>true for the key of the
+// click render; when the month changed meanwhile, the old month's answer landed last, replaced the
+// new month's data, and the page showed Loading forever.
+describe('useBookings settle (F2): only the current query may land', () => {
+  it('a decision in flight + range change ends with the new range data, not the old range', async () => {
+    const november = 'from=2026-11-01&to=2026-12-05'
+    let current = november
+    const loaded: Array<{ key: string; payload: BookingsPayload }> = []
+    const settle = bookingsSettler(() => current, { loaded: (key, p) => loaded.push({ key, payload: p }), failed: () => {} })
+    const oldRange = deferred<BookingsPayload>()
+    const refetch = settle(november, oldRange.promise)
+    current = 'from=2026-11-29&to=2027-01-02'
+    await settle(current, Promise.resolve(payload('december')))
+    oldRange.resolve(payload('november'))
+    await refetch
+    expect(loaded.at(-1)).toEqual({ key: current, payload: payload('december') })
+    expect(loaded.map((l) => l.key)).not.toContain(november)
+  })
+
+  it("an old query's failure never shows the error state for the current one", async () => {
+    let current = 'a'
+    const failed = vi.fn()
+    const settle = bookingsSettler(() => current, { loaded: () => {}, failed })
+    const old = deferred<BookingsPayload>()
+    const done = settle('a', old.promise)
+    current = 'b'
+    old.reject(new Error('boom'))
+    await done
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it('the current query lands; an effect that was cleaned up does not', async () => {
+    const loaded = vi.fn()
+    const settle = bookingsSettler(() => 'a', { loaded, failed: () => {} })
+    await settle('a', Promise.resolve(payload('x')), () => false)
+    expect(loaded).not.toHaveBeenCalled()
+    await settle('a', Promise.resolve(payload('x')))
+    expect(loaded).toHaveBeenCalledWith('a', payload('x'))
+  })
+})
+
+// F4 (review 2026-11-19, pre-existing): busyId was cleared before the refetch, so the decided row's
+// buttons re-enabled while it still showed Pending.
+describe('runDecision (F4): the row stays busy until the list has reloaded', () => {
+  const done: BookingDecisionOutcome = { kind: 'done', booking: {} as never, delivered: true }
+
+  it('clears busy only after the refetch finishes', async () => {
+    const busy: Array<string | null> = []
+    const reload = deferred<void>()
+    const onOutcome = vi.fn()
+    const run = runDecision(
+      { setBusyId: (id) => busy.push(id), decide: async () => done, onOutcome, refetch: () => reload.promise },
+      { id: 'b1', decision: 'confirm' }
+    )
+    await flush()
+    expect(onOutcome).toHaveBeenCalledWith(done)
+    expect(busy).toEqual(['b1'])
+    reload.resolve()
+    await run
+    expect(busy).toEqual(['b1', null])
+  })
+
+  it('clears busy even when the refetch throws', async () => {
+    const busy: Array<string | null> = []
+    const refetch = async () => {
+      throw new Error('x')
+    }
+    const run = runDecision(
+      { setBusyId: (id) => busy.push(id), decide: async () => done, onOutcome: () => {}, refetch },
+      { id: 'b1', decision: 'decline', reason: 'Full' }
+    )
+    await expect(run).rejects.toThrow('x')
+    expect(busy).toEqual(['b1', null])
+  })
+})
+
+// BOOK-004 r4: runDecision (r3 F4) feeds the AGENT-003 F8 rule: a decline that sends no message by
+// design (delivered: null) adds no "not delivered" badge; a failed message (false) still does.
+describe('runDecision + decisionOutcomeHandler (F4 + F8)', () => {
+  const booking = {} as never
+  const run = async (delivered: boolean | null) => {
+    const setNotice = vi.fn()
+    const addUndelivered = vi.fn()
+    await runDecision(
+      {
+        setBusyId: () => {},
+        decide: async () => ({ kind: 'done', booking, delivered }),
+        onOutcome: decisionOutcomeHandler('b1', 'decline', { setNotice, addUndelivered }),
+        refetch: async () => {},
+      },
+      { id: 'b1', decision: 'decline' }
+    )
+    return { setNotice, addUndelivered }
+  }
+
+  it('delivered null: no undelivered badge and no notice', async () => {
+    const { setNotice, addUndelivered } = await run(null)
+    expect(addUndelivered).not.toHaveBeenCalled()
+    expect(setNotice).toHaveBeenCalledWith(null)
+  })
+
+  it('delivered false: the row gets the undelivered badge', async () => {
+    const { addUndelivered } = await run(false)
+    expect(addUndelivered).toHaveBeenCalledWith('b1')
+  })
+
+  it('delivered true: the sent notice, no badge', async () => {
+    const { setNotice, addUndelivered } = await run(true)
+    expect(addUndelivered).not.toHaveBeenCalled()
+    expect(setNotice).toHaveBeenCalledWith({ kind: 'sent', decision: 'decline' })
   })
 })

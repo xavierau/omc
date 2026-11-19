@@ -53,6 +53,8 @@
   --color-brand-accent: var(--brand-accent);
   --color-brand-success: var(--brand-success);
   --color-brand-danger: var(--brand-danger);
+  --color-pending-soft: var(--pending-soft);
+  --color-pending-foreground: var(--pending-foreground);
 }
 
 :root {
@@ -94,6 +96,9 @@
   --brand-accent: oklch(0.63 0.17 70);
   --brand-success: oklch(0.50 0.08 175);
   --brand-danger: oklch(0.63 0.24 25);
+  /* BOOK-004: pending bookings — the --accent amber family, tinted for rows and darkened for text contrast. */
+  --pending-soft: oklch(0.985 0.025 85);
+  --pending-foreground: oklch(0.48 0.12 65);
 }
 
 @keyframes fade-in-up {
