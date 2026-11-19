@@ -1,0 +1,37 @@
+---
+id: artifacts/2026-11-19-book-003-merge-develop-r4
+type: artifact
+author: dev (BOOK-003 r4)
+created: 2026-11-19
+status: active
+supersedes: null
+superseded_by: null
+related: [artifacts/2026-11-19-book-003-review-fixes-r3, threats/2026-11-19-agent-booking-poppy, kanban:BOOK-003]
+---
+# BOOK-003 r4: develop (AGENT-001) merged into PR #186
+
+Base c09018f (r3, local only). origin/develop at 1e2e881. Branch `feature/book-003-agent-booking`, remote was 0d95fd0 (an ancestor of c09018f), so the push is a fast-forward.
+
+## Commits
+- `c9ca90c` merge origin/develop (merge commit, no rebase).
+- `262148e` threat model copied from the main checkout (lines 127–128: per-phone lockout "Accepted for the POC by Xavier, 2026-11-19").
+- (this artifact + evidence) docs commit on top.
+
+## Conflicts
+- `src/app/api/webhooks/whatsapp/handlers.ts`: import block only. Both `maybeHandleBookingConfirmCode` and `maybeQueueAgentReply` imports kept. Dispatch order unchanged: `maybeHandleBookingConfirmCode` (dispatchRoute, line 102) runs before `resolveRoute` (line 104), so before `maybeQueueAgentReply` (dispatchConfirmation, `route === null`, line 207).
+- `.claude-workspace/ui-map/testid-registry.md`: both sides' rows kept (BOOK-003 booking-agent / via-agent, AGENT-001 agent-settings / agent-log).
+- Auto-merged `.claude/kanban.json`, `src/messages/en.json`, `src/messages/zh-HK.json`, `.claude-workspace/INDEX.md`: parse as JSON; the only lines removed versus either parent are comma-only rewrites of the same line (`updated_at` takes 2026-11-19). BOOK-003 and AGENT-001 each appear once in kanban.
+
+## AC-4 proof
+No existing test asserted the agent entry point is untouched (booking-confirm-code.test.ts leaves agent-handler real; agent-routing.test.ts has no confirm code). Test files are outside `files_allowed`, so the proof lives in the evidence folder with its own vitest config:
+- `evidence/2026-11-19-book-003-r4/ac4-confirm-code-vs-agent.test.ts` (3 tests): live code from the booking phone → promoted, one message, `maybeQueueAgentReply` not called; same code from another phone → agent path; free text → agent path.
+- Run: `npx vitest run --config .claude-workspace/artifacts/evidence/2026-11-19-book-003-r4/vitest.ac4.config.ts` → 3 passed (`ac4-proof.log`).
+- Red check: with line 102 disabled, test 1 fails (`ac4-red-check.log`); file restored from HEAD.
+- Not in CI: vitest's include is `src/**` and `scripts/**`. Promoting it into `src/app/api/webhooks/whatsapp/__tests__/` is a one-file move once that path is allowed.
+
+## Gates (evidence folder)
+- `touched-files.log`: webhook `__tests__/` (all), process-agent-reply, agent-tools, booking `__tests__` → 34 files, 594 tests, exit 0.
+- `eslint-handlers.log`: exit 0.
+- `full-vitest.log` (heavy lock): 642 passed / 11 skipped files, 7202 tests passed, exit 0.
+- `tsc.log` (heavy lock): exit 0.
+- Push and PR state: see `push-and-pr.log`.
