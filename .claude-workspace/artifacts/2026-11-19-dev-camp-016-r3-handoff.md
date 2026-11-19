@@ -9,14 +9,14 @@ supersedes: artifacts/2026-11-19-dev-camp-016-r2-handoff
 superseded_by: null
 item: CAMP-016
 state: done
-brief: inline brief-v1 (main, r3: 9 /code-review findings on PR #200)
+brief: inline
 base: 45d07224976c5c1b86c7296d1eb68981e6d54514
-head: see `git log -1` on the branch (this file is committed in the last commit)
+head: 16d4c9d8
 branch: feature/camp-016-audience-quality
 pushed: false
 stage: poc
 suite_changed: false
-gate: {result: pass, at: 2026-11-19T16:00Z}
+gate: {result: pass, at: "2026-11-19T16:00:00Z"}
 next: {owner: main, action: "push feature/camp-016-audience-quality (agent pushes are denied for this public repo), then owner review of PR #200 and the go for releasing migration 086"}
 blockers: []
 refs: [artifacts/2026-11-19-camp-016-plan, artifacts/2026-11-19-settings-campaign-quality-ux, artifacts/2026-11-19-dev-camp-016-handoff, artifacts/2026-11-19-camp-016-r3-evidence]
