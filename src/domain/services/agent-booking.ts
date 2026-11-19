@@ -8,6 +8,7 @@
  * snake_case; `party_size` maps to the form's `partySize`.
  */
 import type { AgentBooking, BookingStatus } from '@/domain/entities/booking-request'
+import { buildContactUrl } from '@/domain/services/contact-redirect'
 import {
   parseBookingSubmission,
   type BookingFieldErrors,
@@ -107,3 +108,12 @@ export function agentBookingStatusView(booking: AgentBooking, now: Date): AgentB
 
 /** Status tokens are 256-bit base64url (43 chars); anything else is unknown without a lookup. */
 export const STATUS_TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/
+
+/**
+ * The diner confirms an agent booking on WhatsApp, so a restaurant without a
+ * usable WhatsApp number cannot take one: the agent API answers 404 and the
+ * dashboard refuses poppy.json (review G2).
+ */
+export function hasConfirmableWhatsAppNumber(whatsappNumber: string | null | undefined): whatsappNumber is string {
+  return !!whatsappNumber && buildContactUrl(whatsappNumber) !== null
+}

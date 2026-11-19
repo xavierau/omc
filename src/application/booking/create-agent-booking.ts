@@ -10,14 +10,21 @@
  *  5. live-unverified caps per phone and per restaurant (R39), and BOOK-001's
  *     R11 cap: live unverified + pending for the phone at the restaurant
  *     (review F1; promotion re-checks it atomically, verify-agent-booking);
- *  6. ONE insert, status unverified, with a fresh confirm code and the hash of
+ *  6. at most 5 creates per client IP per restaurant per 30 minutes (R39, review
+ *     G1), so one IP cannot fill the restaurant-wide safety cap. Counted only
+ *     for a request about to insert: replays, invalid bodies and capped
+ *     requests do not use it up. The IP lives in the limiter key only, never
+ *     in Postgres;
+ *  7. ONE insert, status unverified, with a fresh confirm code and the hash of
  *     a fresh status token (R31, R36, R42). Nothing is sent on WhatsApp and no
  *     member or consent row is touched: the diner has not proved the phone.
  *
  * Logs carry the error class and the booking id only (R37).
  */
 import {
+  AGENT_CREATES_PER_IP_WINDOW_SEC,
   AGENT_VERIFY_TTL_MS,
+  MAX_AGENT_CREATES_PER_IP_PER_RESTAURANT,
   MAX_PENDING_PER_PHONE,
   MAX_UNVERIFIED_PER_PHONE,
   MAX_UNVERIFIED_PER_RESTAURANT,
@@ -27,6 +34,7 @@ import {
   IDEMPOTENCY_WINDOW_MS,
   agentBookingStatus,
   agentBookingStatusView,
+  hasConfirmableWhatsAppNumber,
   isSameAgentSubmission,
   isValidIdempotencyKey,
   parseAgentBookingBody,
@@ -93,10 +101,13 @@ export type CreateAgentBookingResult =
   | { ok: false; reason: 'idempotency_conflict'; description: string }
   | { ok: false; reason: 'failed' }
 
+/** The per-IP-per-restaurant window is fixed, so the wait is at most one full window. */
+export const IP_RESTAURANT_RETRY_AFTER_SEC = AGENT_CREATES_PER_IP_WINDOW_SEC
+
 /** Fails open on a limiter outage, as BOOK-001: the caps and the WhatsApp proof still bound abuse. */
-async function withinRateLimit(limiter: RateLimiterPort, clientIp: string): Promise<boolean> {
+async function withinWindow(limiter: RateLimiterPort, key: string, limit: number, windowSec: number): Promise<boolean> {
   try {
-    const { allowed } = await limiter.incrWindow(`book003:agent:${clientIp}`, AGENT_SUBMIT_LIMIT_PER_MINUTE, 60)
+    const { allowed } = await limiter.incrWindow(key, limit, windowSec)
     return allowed
   } catch (err) {
     console.warn('[AgentBooking] rate limiter unavailable, allowing:', (err as Error).name)
@@ -160,6 +171,11 @@ async function overCap(ctx: Context, phone: string): Promise<boolean> {
   return (await store.countLiveUnverified(ctx.restaurantId, ctx.now)) >= MAX_UNVERIFIED_PER_RESTAURANT
 }
 
+function withinIpRestaurantWindow(ctx: Context, clientIp: string): Promise<boolean> {
+  const key = `book003:agent-restaurant:${ctx.restaurantId}:${clientIp}`
+  return withinWindow(ctx.deps.limiter, key, MAX_AGENT_CREATES_PER_IP_PER_RESTAURANT, AGENT_CREATES_PER_IP_WINDOW_SEC)
+}
+
 async function insert(ctx: Context, s: AgentBookingSubmission, key: string | null): Promise<CreateAgentBookingResult> {
   const { deps } = ctx
   const verifyExpiresAt = new Date(ctx.now.getTime() + AGENT_VERIFY_TTL_MS).toISOString()
@@ -183,11 +199,12 @@ async function insert(ctx: Context, s: AgentBookingSubmission, key: string | nul
 async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTenant): Promise<Context | null> {
   const restaurant = await deps.settings.getRestaurant(tenant.restaurantId)
   // Without a WhatsApp number the diner cannot confirm, so the restaurant cannot take agent bookings.
-  if (!restaurant?.whatsappNumber || !buildContactUrl(restaurant.whatsappNumber)) return null
+  const whatsappNumber = restaurant?.whatsappNumber
+  if (!restaurant || !hasConfirmableWhatsAppNumber(whatsappNumber)) return null
   return {
     deps,
     restaurantId: tenant.restaurantId,
-    restaurant: { ...restaurant, whatsappNumber: restaurant.whatsappNumber },
+    restaurant: { ...restaurant, whatsappNumber },
     statement: buildCollectionStatement(restaurant.name, deps.privacyUrl),
     now: deps.now(),
   }
@@ -208,7 +225,7 @@ export async function createAgentBooking(
   deps: CreateAgentBookingDeps,
   input: CreateAgentBookingInput
 ): Promise<CreateAgentBookingResult> {
-  if (!(await withinRateLimit(deps.limiter, input.clientIp))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
+  if (!(await withinWindow(deps.limiter, `book003:agent:${input.clientIp}`, AGENT_SUBMIT_LIMIT_PER_MINUTE, 60))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
   const tenant = await resolveAgentBookingTenant(deps.directory, input.publicId)
   const ctx = tenant ? await contextFor(deps, tenant) : null
   if (!tenant || !ctx) return { ok: false, reason: 'not_found' }
@@ -222,6 +239,9 @@ export async function createAgentBooking(
       if (replayed) return replayed
     }
     if (await overCap(ctx, s.phone)) return { ok: false, reason: 'rate_limited', retryAfterSec: CAP_RETRY_AFTER_SEC }
+    if (!(await withinIpRestaurantWindow(ctx, input.clientIp))) {
+      return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RESTAURANT_RETRY_AFTER_SEC }
+    }
     return await insert(ctx, s, input.idempotencyKey)
   } catch (err) {
     console.error('[AgentBooking] create failed:', { error: (err as Error).name })

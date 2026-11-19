@@ -199,6 +199,43 @@ describe('BOOK-003 confirm code in routeMessage (AC-4)', () => {
     expect(sender.sent).toHaveLength(1)
   })
 
+  it('G3: the received message fails after promotion → still handled (no fallback), the other promoted row still acknowledged, error name only', async () => {
+    await seed({ code: 'K7PX3M' })
+    await seed({ code: 'Q2W3E4' })
+    const logs: unknown[] = []
+    for (const level of ['log', 'info', 'warn', 'error'] as const) {
+      vi.spyOn(console, level).mockImplementation((...args) => void logs.push(args))
+    }
+    const send = sender.send.bind(sender)
+    let calls = 0
+    sender.send = async (input) => {
+      if (calls++ === 0) throw new Error(`kapso down for ${PHONE} Chan Tai Man`)
+      return send(input)
+    }
+    await routeMessage(msg({ text: 'K7PX3M Q2W3E4' }), R)
+    expect(store.rows.filter((r) => r.status === 'pending')).toHaveLength(2)
+    expect(sender.sent).toHaveLength(1)
+    expect(texts).toHaveLength(1)
+    expect(handleReceiptConfirmation).not.toHaveBeenCalled()
+    expect(handleUnknown).not.toHaveBeenCalled()
+    const text = JSON.stringify(logs)
+    expect(text).toContain('Error')
+    for (const secret of [PHONE, 'Chan Tai Man', 'K7PX3M', 'Q2W3E4']) expect(text).not.toContain(secret)
+  })
+
+  it('G3: the restaurant lookup failing after promotion → still handled, no fallback routing', async () => {
+    await seed()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    settings.getRestaurant = async () => {
+      throw new Error('db down')
+    }
+    await routeMessage(msg({}), R)
+    expect(store.rows[0].status).toBe('pending')
+    expect(handleUnknown).not.toHaveBeenCalled()
+    expect(handleReceiptConfirmation).not.toHaveBeenCalled()
+  })
+
   it('F1: pending at another restaurant does not block the code here', async () => {
     for (let i = 0; i < 3; i++) store.seedPending('rest-b', PHONE, 'chat')
     await seed()

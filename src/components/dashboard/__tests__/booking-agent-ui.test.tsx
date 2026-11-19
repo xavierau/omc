@@ -68,6 +68,18 @@ describe('BOOK-003 dashboard UI', () => {
     }
   })
 
+  it('G2: a download refused for no WhatsApp number shows its own message, not the generic failure', () => {
+    const agentBooking = { enabled: true, publicId: 'P'.repeat(32), websiteHost: 'www.saved.hk' }
+    vi.mocked(useAgentBookingSettings).mockImplementationOnce(() => ({
+      stored: agentBooking, form: { enabled: true, websiteHost: 'www.saved.hk' }, update: () => {}, save: async () => {},
+      rotate: async () => {}, download: async () => {}, busy: false, outcome: { kind: 'no_whatsapp_number' },
+    }))
+    const html = section({ mode: 'simple' })
+    expect(html).toContain('data-testid="booking-agent-error"')
+    expect(html).toContain('bookingSettings.agent.noWhatsappNumber')
+    expect(html).not.toContain('bookingSettings.agent.downloadFailed')
+  })
+
   it('F4: the block shows the state it is handed, not the page-load config', () => {
     const agentBooking = { enabled: true, publicId: 'P'.repeat(32), websiteHost: 'www.saved.hk' }
     vi.mocked(useAgentBookingSettings).mockImplementationOnce(() => ({

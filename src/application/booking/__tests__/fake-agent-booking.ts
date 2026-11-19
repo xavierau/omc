@@ -68,6 +68,16 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     })
   }
 
+  /** Test setup, not a port call: a live unverified agent booking already in the table. */
+  seedUnverified(restaurantId: string, phone: string, verifyExpiresAt: string) {
+    this.rows.push({
+      id: randomUUID(), restaurantId, memberId: null, phone, name: 'Seeded', partySize: 2, bookingDate: '2026-11-20',
+      bookingTime: '19:00', notes: null, status: 'unverified', declineReason: null, decidedBy: null, decidedAt: null,
+      source: 'agent', campaignId: null, createdAt: this.createdAt().toISOString(), decisionMessageStatus: null,
+      confirmCode: null, verifyExpiresAt, verifiedAt: null, verifiedWamid: null, statusTokenHash: null, idempotencyKey: null,
+    })
+  }
+
   async findByIdempotencyKey(restaurantId: string, key: string) {
     this.calls.push('findByIdempotencyKey')
     const row = this.rows.find((r) => r.restaurantId === restaurantId && r.idempotencyKey === key)

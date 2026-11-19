@@ -14,6 +14,7 @@ import {
   type BookingConfig,
 } from '@/domain/value-objects/booking-config'
 import { buildAgentBookingOpenApi, buildCollectionStatement, buildPoppyJson } from '@/domain/services/poppy-documents'
+import { hasConfirmableWhatsAppNumber } from '@/domain/services/agent-booking'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
 import type { AgentBookingSecrets } from './agent-booking-secrets'
 
@@ -88,12 +89,14 @@ export function agentApiBaseUrl(appUrl: string | null, publicId: string): string
 
 export type PoppyJsonResult =
   | { ok: true; document: ReturnType<typeof buildPoppyJson> }
-  | { ok: false; reason: 'not_enabled' }
+  | { ok: false; reason: 'not_enabled' | 'no_whatsapp_number' }
 
 /**
  * The file the restaurant hosts at https://{websiteHost}/.well-known/poppy.json.
- * not_enabled whenever the agent API would answer 404 (resolveAgentBookingTenant),
- * including a booking mode other than Simple (review F7).
+ * Refused whenever the agent API would answer 404: not_enabled per
+ * resolveAgentBookingTenant, including a booking mode other than Simple
+ * (review F7); no_whatsapp_number when the diner could not confirm
+ * (createAgentBooking's contextFor, review G2).
  */
 export async function generatePoppyJson(deps: AgentBookingSettingsDeps, restaurantId: string): Promise<PoppyJsonResult> {
   const { mode, agentBooking } = await deps.getConfig(restaurantId)
@@ -102,10 +105,11 @@ export async function generatePoppyJson(deps: AgentBookingSettingsDeps, restaura
   }
   const openApiUrl = `${agentApiBaseUrl(deps.appUrl, agentBooking.publicId)}/openapi.json`
   const restaurant = await deps.settings.getRestaurant(restaurantId)
+  if (!restaurant || !hasConfirmableWhatsAppNumber(restaurant.whatsappNumber)) return { ok: false, reason: 'no_whatsapp_number' }
   return {
     ok: true,
     document: buildPoppyJson({
-      restaurantName: restaurant?.name ?? '',
+      restaurantName: restaurant.name,
       websiteHost: agentBooking.websiteHost,
       openApiUrl,
     }),

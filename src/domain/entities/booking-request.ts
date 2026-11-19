@@ -29,8 +29,11 @@ export const AGENT_VERIFY_TTL_MS = 30 * 60_000
 export const UNVERIFIED_RETENTION_MS = 60 * 60_000
 /** BOOK-003 (R39): live unverified bookings one phone may hold at one restaurant. */
 export const MAX_UNVERIFIED_PER_PHONE = 3
-/** BOOK-003 (R39): live unverified bookings one restaurant may hold. */
-export const MAX_UNVERIFIED_PER_RESTAURANT = 30
+/** BOOK-003 (R39): live unverified bookings one restaurant may hold; a safety net, the per-IP caps bind first (review G1). */
+export const MAX_UNVERIFIED_PER_RESTAURANT = 500
+/** BOOK-003 (R39): creates one client IP may make at one restaurant per window (review G1). */
+export const MAX_AGENT_CREATES_PER_IP_PER_RESTAURANT = 5
+export const AGENT_CREATES_PER_IP_WINDOW_SEC = 30 * 60
 
 export interface BookingRequest {
   id: string

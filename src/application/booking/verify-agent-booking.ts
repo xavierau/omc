@@ -9,6 +9,9 @@
  * that changed gets the "received" message and the collection statement.
  * `handled: false` means "not ours": the caller runs today's routing
  * unchanged, and nothing about why is revealed to the sender.
+ * Once a row is promoted the text was ours (review G3): a failed
+ * acknowledgement is logged by error name and never sends the diner to the
+ * fallback menu or skips the other promoted rows.
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText } from '@/domain/services/poppy-documents'
@@ -50,6 +53,12 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
     restaurantId: message.restaurantId, phone: message.phone, codes, wamid: message.wamid, at: deps.now(),
     maxPending: MAX_PENDING_PER_PHONE,
   })
-  for (const booking of promoted) await acknowledge(deps, booking)
+  for (const booking of promoted) {
+    try {
+      await acknowledge(deps, booking)
+    } catch (err) {
+      console.error('[AgentBooking] acknowledge failed:', { error: (err as Error).name, bookingId: booking.id })
+    }
+  }
   return { handled: promoted.length > 0 }
 }

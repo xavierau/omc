@@ -1498,6 +1498,7 @@
       "download": "下載 poppy.json",
       "downloadHint": "請把此檔案上載到你的網站 https://{host}/.well-known/poppy.json,AI 助理會從這裡找到你的訂座服務。",
       "downloadFailed": "未能下載 poppy.json。",
+      "noWhatsappNumber": "請先為餐廳加入 WhatsApp 號碼。客人要在 WhatsApp 確認 AI 助理訂座,沒有號碼便不能使用 poppy.json。",
       "rotate": "更換 AI 助理訂座地址",
       "rotateHint": "舊地址會即時失效。更換後請重新下載及上載 poppy.json。",
       "rotating": "更換中...",

@@ -106,7 +106,7 @@ needs the supply-chain-guard scan before merge; none expected.
 | R36 | `POST` returns a status token (`randomBytes(32)` base64url; only its SHA-256 is stored). `GET .../bookings/{id}` requires it in the header `X-Booking-Status-Token` (never in the URL; `Authorization` stays free for PAP access tokens) and returns only `status`, `date`, `time`, `party_size`, `expires_at` (while unverified). Wrong/missing token → 404, same as unknown id. | Route tests: no token / wrong token / other booking's token → 404; response body has no phone or name keys. | Build |
 | R37 | No phone, name, notes, confirm code, status token or `Poppy-Session` value in logs; errors log the error class and booking id only. | Test with captured logger on create, verify and error paths. | Build |
 | R38 | All agent API responses send `Cache-Control: no-store` and `Referrer-Policy: no-referrer`; JSON only. | Route test asserts headers on 2xx and 4xx. | Build |
-| R39 | Rate limits: POST per client IP 10/min (existing limiter, `extractTrustedClientIp`); at most 3 live unverified bookings per phone per restaurant and 30 live unverified per restaurant → 429 with `Retry-After`. | Tests for each cap. | Build |
+| R39 | Rate limits: POST per client IP 10/min (existing limiter, `extractTrustedClientIp`); at most 3 live unverified bookings per phone per restaurant; at most 5 creates per client IP per restaurant per 30 min (limiter window, IP never stored); a restaurant-wide safety cap of 500 live unverified → 429 with `Retry-After`. (Revised 2026-11-19 after /review of PR #186: a shared cap of 30 let one IP lock a restaurant out.) | Tests for each cap, including: one IP hitting its 5 does not block a second IP at the same restaurant. | Build |
 | R40 | The `Poppy-Session` header is accepted and ignored; no behaviour depends on it or on any agent-supplied identity. | Test: same request with/without/garbage `Poppy-Session` → identical result. | Build |
 | R41 | Unverified bookings expire 30 min after creation; unverified rows older than 1 hour are deleted by the existing */5 booking-reminders job (revised 2026-11-19 after review of PR #186: booking-retention runs daily, so it cannot meet 1 h). Staff list, reminders and decision routes exclude `unverified`. | Purge test on fixtures; list/reminder/confirm tests with an unverified row → excluded / 404. | Build |
 | R42 | The agent API writes only one `booking_requests` row (status `unverified`) and nothing else: no member, consent, message, coupon. | Test: create → no other repository writes, no sender call. | Build |
@@ -120,8 +120,12 @@ needs the supply-chain-guard scan before merge; none expected.
   (POC learn-question).
 - **Restaurant can't host a file at `/.well-known/`** (Wix/Instagram-only sites). Then no agent
   booking for that restaurant in this slice. Owner: Xavier (product).
-- **Garbage that stays invisible.** Up to 30 unverified rows per restaurant at a time can be
+- **Garbage that stays invisible.** Up to 500 unverified rows per restaurant at a time can be
   junk; they never reach staff and are deleted within ~1 h. Accepted, owner Xavier.
+- **Per-phone lockout.** Anyone who knows a diner's number can hold its 3 unverified slots at a
+  restaurant, so that diner's agent gets 429 there; the diner can still book by chat (BOOK) or
+  the form. The per-IP cap makes it cost one IP per 3 slots. Default accepted for the POC (owner
+  Xavier, decision pending in the BOOK-003 report).
 - **Staff cannot see agent bookings that the diner never confirmed.** By design (2B). Accepted.
 - **Agent identity unverified.** We cannot block a misbehaving agent by client_id, only by IP
   and caps. Verify Session JWTs in a later slice if abuse shows up. Owner Xavier.

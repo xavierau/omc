@@ -132,6 +132,23 @@ describe('agent booking settings routes (R43)', () => {
     }
   })
 
+  it('G2: without a usable WhatsApp number the download is 409 no_whatsapp_number (the agent API would 404 every POST)', async () => {
+    as('admin')
+    await put({ enabled: true, websiteHost: 'www.cafe-a.hk' })
+    const deps = vi.mocked(agentBookingSettingsDeps)()
+    for (const whatsappNumber of [null, '', 'not-a-number']) {
+      vi.mocked(agentBookingSettingsDeps).mockReturnValue({
+        ...deps,
+        settings: { getRestaurant: async () => ({ name: 'Cafe A', logoUrl: null, whatsappNumber }) },
+      })
+      const res = await DOWNLOAD()
+      expect(res.status, String(whatsappNumber)).toBe(409)
+      expect(await res.json()).toEqual({ error: 'no_whatsapp_number' })
+    }
+    vi.mocked(agentBookingSettingsDeps).mockReturnValue({ ...deps, settings: { getRestaurant: async () => null } })
+    expect(await (await DOWNLOAD()).json()).toEqual({ error: 'no_whatsapp_number' })
+  })
+
   it('F6: without a usable NEXT_PUBLIC_APP_URL the download is 500 server_error, logged by error name only', async () => {
     as('admin')
     await put({ enabled: true, websiteHost: 'www.cafe-a.hk' })

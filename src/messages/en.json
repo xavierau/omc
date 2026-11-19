@@ -1498,6 +1498,7 @@
       "download": "Download poppy.json",
       "downloadHint": "Upload this file to your website at https://{host}/.well-known/poppy.json. Agents find your booking page there.",
       "downloadFailed": "Couldn't download poppy.json.",
+      "noWhatsappNumber": "Add your WhatsApp number to the restaurant first. Diners confirm agent bookings on WhatsApp, so poppy.json can't be used without it.",
       "rotate": "Change agent booking address",
       "rotateHint": "The old address stops working at once. Download and upload poppy.json again afterwards.",
       "rotating": "Changing...",

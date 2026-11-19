@@ -100,6 +100,7 @@ no artifact files were lost._
 - [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)
 - [2026-11-19-book-003-dev-handoff](artifacts/2026-11-19-book-003-dev-handoff.md) — BOOK-003 dev handoff (dev)
 - [2026-11-19-book-003-review-fixes](artifacts/2026-11-19-book-003-review-fixes.md) — BOOK-003 r2: PR #186 review fixes F1–F10, promote RPC in 084, unverified purge on the 5-min cron (dev)
+- [2026-11-19-book-003-review-fixes-r3](artifacts/2026-11-19-book-003-review-fixes-r3.md) — BOOK-003 r3: /review G1–G3, per-IP-per-restaurant cap (5/30 min) + 500 safety cap, poppy.json refused without WhatsApp, acknowledge failure stays handled (dev)
 
 **CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**
 - [2026-09-10-camp-012-guardrail-defaults-backend](artifacts/2026-09-10-camp-012-guardrail-defaults-backend.md) — WI-1 #161: mig 078 seed trigger (senior-backend-dev)

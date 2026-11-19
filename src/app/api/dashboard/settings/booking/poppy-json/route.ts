@@ -2,7 +2,8 @@
  * BOOK-003 (R43): GET /api/dashboard/settings/booking/poppy-json, the
  * restaurant's poppy.json as a download. The restaurant hosts it at
  * https://{websiteHost}/.well-known/poppy.json (owner decision 1B); we never
- * serve it on our host. Tenant admin only; 409 until agent booking is on.
+ * serve it on our host. Tenant admin only; 409 until agent booking is on, and
+ * 409 no_whatsapp_number while the restaurant has no usable WhatsApp number.
  */
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'

@@ -135,7 +135,7 @@ export interface AgentBookingForm {
 export type AgentBookingOutcome =
   | { kind: 'saved' | 'rotated'; agentBooking: AgentBookingConfig }
   | { kind: 'fields'; errors: Record<string, string> }
-  | { kind: 'forbidden' | 'error' | 'rotate_error' | 'download_error' }
+  | { kind: 'forbidden' | 'error' | 'rotate_error' | 'download_error' | 'no_whatsapp_number' }
 
 export function agentBookingOutcome(status: number, body: unknown, success: 'saved' | 'rotated'): AgentBookingOutcome {
   const b = (body && typeof body === 'object' ? body : {}) as { agentBooking?: AgentBookingConfig; fields?: Record<string, string> }
@@ -154,15 +154,21 @@ async function sendAgentRequest(path: string, init: RequestInit, success: 'saved
   }
 }
 
+export type PoppyDownloadResult = 'downloaded' | 'no_whatsapp_number' | 'failed'
+
 /**
- * Saves the file through a temporary link; false when the server refused it.
+ * Saves the file through a temporary link; otherwise why the server refused it
+ * (review G2: no usable WhatsApp number has its own reason).
  * Review F8: the link is in the page while clicked (Firefox ignores a detached
  * one) and the blob URL is revoked on a later tick, after the download began.
  */
-export async function downloadPoppyJson(): Promise<boolean> {
+export async function downloadPoppyJson(): Promise<PoppyDownloadResult> {
   try {
     const res = await fetch('/api/dashboard/settings/booking/poppy-json')
-    if (!res.ok) return false
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+      return body?.error === 'no_whatsapp_number' ? 'no_whatsapp_number' : 'failed'
+    }
     const url = URL.createObjectURL(await res.blob())
     const link = document.createElement('a')
     link.href = url
@@ -171,9 +177,9 @@ export async function downloadPoppyJson(): Promise<boolean> {
     link.click()
     link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 0)
-    return true
+    return 'downloaded'
   } catch {
-    return false
+    return 'failed'
   }
 }
 
@@ -209,7 +215,9 @@ export function useAgentBookingSettings(initial: AgentBookingConfig) {
     )
   const rotate = () => run(() => sendAgentRequest('/api/dashboard/settings/booking/agent/rotate', { method: 'POST' }, 'rotated'))
   async function download() {
-    if (!(await downloadPoppyJson())) setOutcome({ kind: 'download_error' })
+    const result = await downloadPoppyJson()
+    if (result === 'no_whatsapp_number') setOutcome({ kind: 'no_whatsapp_number' })
+    else if (result === 'failed') setOutcome({ kind: 'download_error' })
   }
 
   return { stored, form, update, save, rotate, download, busy, outcome }

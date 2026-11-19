@@ -41,7 +41,7 @@ describe('downloadPoppyJson (F8)', () => {
   it('appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick', async () => {
     vi.useFakeTimers()
     const { link, log } = stubPage()
-    expect(await downloadPoppyJson()).toBe(true)
+    expect(await downloadPoppyJson()).toBe('downloaded')
     expect(link).toMatchObject({ href: 'blob:poppy', download: 'poppy.json' })
     expect(log).toEqual(['append', 'click:true', 'remove'])
     vi.runAllTimers()
@@ -51,7 +51,14 @@ describe('downloadPoppyJson (F8)', () => {
   it('a refused download creates no link', async () => {
     const { log } = stubPage()
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 409 })))
-    expect(await downloadPoppyJson()).toBe(false)
+    expect(await downloadPoppyJson()).toBe('failed')
+    expect(log).toEqual([])
+  })
+
+  it('G2: a restaurant without a WhatsApp number gets its own reason and no link', async () => {
+    const { log } = stubPage()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":"no_whatsapp_number"}', { status: 409 })))
+    expect(await downloadPoppyJson()).toBe('no_whatsapp_number')
     expect(log).toEqual([])
   })
 })

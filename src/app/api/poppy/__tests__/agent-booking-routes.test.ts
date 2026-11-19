@@ -230,15 +230,57 @@ describe('POST /api/poppy/{publicId}/bookings', () => {
     expect(store.rows.filter((r) => r.status === 'unverified')).toEqual([])
   })
 
-  it('R39: the 31st live unverified booking at one restaurant → 429', async () => {
+  it('G1 (R39 rev): the 6th create from one IP at one restaurant within 30 min → 429; a second IP there still books', async () => {
     holder.create!.secrets = scriptedSecrets()
-    for (let i = 0; i < 30; i++) {
-      const phone = `+8529${String(1000000 + i)}`
-      expect((await post({ ...BODY, phone }, { ip: `192.0.2.${i}` })).status).toBe(202)
-    }
-    const res = await post({ ...BODY, phone: '+85298888888' }, { ip: '192.0.2.200' })
+    const ip = '192.0.2.1'
+    const phone = (i: number) => `+8529${String(1000000 + i)}`
+    for (let i = 0; i < 5; i++) expect((await post({ ...BODY, phone: phone(i) }, { ip })).status).toBe(202)
+    const res = await post({ ...BODY, phone: phone(5) }, { ip })
     expect(res.status).toBe(429)
-    expect(res.headers.get('Retry-After')).not.toBeNull()
+    expect(Number(res.headers.get('Retry-After'))).toBe(1800)
+    expect((await res.json()).error).toBe('rate_limited')
+    expect(store.rows).toHaveLength(5)
+    // The capped IP does not lock the restaurant: another IP books at once.
+    expect((await post({ ...BODY, phone: phone(6) }, { ip: '192.0.2.2' })).status).toBe(202)
+    // The cap is per restaurant: the same IP still books at another one.
+    expect((await post({ ...BODY, phone: phone(7) }, { ip, pid: PID_B })).status).toBe(202)
+  })
+
+  it('G1 (R39 rev): the per-IP window frees after 30 minutes; replays and invalid bodies do not use it up', async () => {
+    holder.create!.secrets = scriptedSecrets()
+    const ip = '192.0.2.3'
+    const phone = (i: number) => `+8529${String(2000000 + i)}`
+    const headers = { 'Idempotency-Key': 'g1-replay-key' }
+    expect((await post({ ...BODY, phone: phone(0) }, { ip, headers })).status).toBe(202)
+    expect((await post({ ...BODY, phone: phone(0) }, { ip, headers })).status).toBe(202)
+    expect((await post({ ...BODY, party_size: 0 }, { ip })).status).toBe(400)
+    for (let i = 1; i < 5; i++) expect((await post({ ...BODY, phone: phone(i) }, { ip })).status).toBe(202)
+    expect((await post({ ...BODY, phone: phone(5) }, { ip })).status).toBe(429)
+    clock.advanceMs(30 * 60_000 + 1)
+    expect((await post({ ...BODY, phone: phone(6) }, { ip })).status).toBe(202)
+  })
+
+  it('G1 (R39 rev): the per-IP-per-restaurant limiter fails open; the client IP is never written to the row', async () => {
+    const limiter = holder.create!.limiter
+    const original = limiter.incrWindow.bind(limiter)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    limiter.incrWindow = async (key, limit, windowSec) => {
+      if (key.includes(A)) throw new Error('redis down')
+      return original(key, limit, windowSec)
+    }
+    expect((await post(BODY, { ip: '192.0.2.77' })).status).toBe(202)
+    expect(JSON.stringify(store.rows)).not.toContain('192.0.2.77')
+  })
+
+  it('G1 (R39 rev): 30 live unverified no longer close a restaurant; the safety cap is 500', async () => {
+    holder.create!.secrets = scriptedSecrets()
+    for (let i = 0; i < 30; i++) store.seedUnverified(A, `+8529${String(3000000 + i)}`, '2026-11-19T02:20:00.000Z')
+    expect((await post(BODY, { ip: '192.0.2.10' })).status).toBe(202)
+    for (let i = 31; i < 500; i++) store.seedUnverified(A, `+8529${String(3000000 + i)}`, '2026-11-19T02:20:00.000Z')
+    expect(store.rows.filter((r) => r.status === 'unverified')).toHaveLength(500)
+    const res = await post({ ...BODY, phone: '+85298888888' }, { ip: '192.0.2.11' })
+    expect(res.status).toBe(429)
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0)
   })
 
   it('R31: a code clash with a live unverified booking of the restaurant draws a new code', async () => {

@@ -20,6 +20,7 @@ const ERROR_KEYS: Record<string, string> = {
   forbidden: 'saveFailed',
   rotate_error: 'rotateFailed',
   download_error: 'downloadFailed',
+  no_whatsapp_number: 'noWhatsappNumber',
 }
 
 function Feedback({ outcome }: { outcome: AgentBookingOutcome | null }) {
