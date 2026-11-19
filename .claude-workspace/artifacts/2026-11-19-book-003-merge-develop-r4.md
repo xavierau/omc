@@ -38,3 +38,8 @@ No existing test asserted the agent entry point is untouched (booking-confirm-co
 - `full-vitest.log` (heavy lock): 642 passed / 11 skipped files, 7202 tests passed, exit 0.
 - `tsc.log` (heavy lock): exit 0.
 - Push and PR state: `push-and-pr.log` records the pushes up to 3a5dfae. The final head is this artifact's own commit; its ls-remote SHA, `gh pr view 186` mergeable state and CI conclusions are in the dev handoff block (a commit can't record its own SHA).
+
+## AC-5 (push and PR)
+- The repo has no `.github/workflows`, so CodeRabbit (a StatusContext) is the only check on PR #186.
+- At b2f88e3: ls-remote == HEAD; `gh pr view 186` → MERGEABLE, CLEAN, headRefOid b2f88e3, CodeRabbit SUCCESS (`push-and-pr.log`).
+- This section is committed on top of b2f88e3. The handoff block records that commit's ls-remote SHA and PR state.

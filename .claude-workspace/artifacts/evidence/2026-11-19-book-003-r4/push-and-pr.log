@@ -5,3 +5,9 @@ gh pr view 186 at 7ae078c: CONFLICTING (develop had moved to 4a9b564 after the f
 develop moved to d841ed9 during that push
 3b06b12 -> 3a5dfae fast-forward; ls-remote 3a5dfae8ecb07919d7a264ef1eb0fa24ad89729d == HEAD
 gh pr view 186 at 3a5dfae: MERGEABLE CLEAN 3a5dfae8ecb07919d7a264ef1eb0fa24ad89729d
+
+# AC-5 at b2f88e3 (2026-11-19T07:13:59Z)
+ls .github/workflows: No such file or directory (CodeRabbit is the only check)
+ls-remote origin feature/book-003-agent-booking: b2f88e353335ec5e58bd09b554aee4484438ce8a == git rev-parse HEAD
+gh pr view 186 --json mergeable,mergeStateStatus,headRefOid,statusCheckRollup:
+{"headRefOid":"b2f88e353335ec5e58bd09b554aee4484438ce8a","mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"StatusContext","context":"CodeRabbit","startedAt":"2026-11-19T07:12:35Z","state":"SUCCESS","targetUrl":""}]}
