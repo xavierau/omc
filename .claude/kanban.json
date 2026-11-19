@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-05",
+  "updated_at": "2026-11-19",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1570,6 +1570,32 @@
     "review": {
       "label": "Review",
       "tasks": [
+        {
+          "id": "BOOK-003",
+          "title": "Booking through personal agents (PAP 1.0 / poppy.json)",
+          "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 083. R45 privacy-policy copy is an owner go-live item.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-003-agent-booking",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-002"
+          ],
+          "workspace_artifacts": [
+            "threats/2026-11-19-agent-booking-poppy.md",
+            "plans/2026-11-19-agent-booking-poppy.md",
+            "artifacts/2026-11-19-book-003-agent-booking-impl.md",
+            "artifacts/2026-11-19-book-003-dev-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-19"
+        },
         {
           "id": "TPL-011",
           "title": "WhatsApp marketing template VIDEO header support",

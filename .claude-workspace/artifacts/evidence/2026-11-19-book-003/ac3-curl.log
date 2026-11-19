@@ -1,0 +1,94 @@
+### AC-3 transcript 2026-11-19T02:55:17Z — local next dev :3093 on local Supabase (migrations 001..083), tenant Cafe Poppy
+
+$ curl -i -X POST $B/bookings -H "Content-Type: application/json" -H "Poppy-Session: eyJ.test.sig" -H "Poppy-Version: 1.0" -d {...}
+HTTP/1.1 202 Accepted
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-store, max-age=0
+content-type: application/json
+referrer-policy: no-referrer
+x-robots-tag: noindex, nofollow
+Date: Thu, 19 Nov 2026 02:55:18 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"booking_id":"87947e5e-3a6d-4e99-b7d2-0128f32e37c2","status":"awaiting_confirmation","confirm_url":"https://wa.me/85230001111?text=%E7%A2%BA%E8%AA%8DCafe%20Poppy%E8%A8%82%E5%BA%A7%20Confirm%20my%20booking%20at%20Cafe%20Poppy%3A%20XJ8BWQ","confirm_code":"XJ8BWQ","expires_at":"2026-11-19T03:25:18.305+00:00","status_token":"LIjILjYjVK4ky5e6LJ9hD33uhLRMC97OcwatJKdTIdU","collection_statement":{"en":"The details you submit (date, time, party size, name, phone number and notes) go only to Cafe Poppy, to handle this booking.","zh-HK":"你提交的資料(日期、時間、人數、姓名、電話號碼及備註)只會交給Cafe Poppy,用作處理今次訂座。","privacy_url":"https://ohmyclient.io/privacy-policy.html"}}
+
+### DB row (local Supabase)
+                  id                  |   status   | source | member_id | confirm_code |     verify_expires_at      | verified_at | hash_len | hash_matches_token 
+--------------------------------------+------------+--------+-----------+--------------+----------------------------+-------------+----------+--------------------
+ 87947e5e-3a6d-4e99-b7d2-0128f32e37c2 | unverified | agent  |           | XJ8BWQ       | 2026-11-19 03:25:18.305+00 |             |       64 | t
+(1 row)
+
+### staff list query (pending + decided) sees it?
+0
+
+$ curl -i $B/bookings/$ID -H "X-Booking-Status-Token: <status_token>"
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-store, max-age=0
+content-type: application/json
+referrer-policy: no-referrer
+x-robots-tag: noindex, nofollow
+Date: Thu, 19 Nov 2026 02:55:20 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"booking_id":"87947e5e-3a6d-4e99-b7d2-0128f32e37c2","status":"awaiting_confirmation","date":"2026-11-21","time":"19:30","party_size":4,"expires_at":"2026-11-19T03:25:18.305+00:00"}
+
+$ curl -i $B/bookings/$ID   (no token)
+HTTP/1.1 404 Not Found
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-store, max-age=0
+content-type: application/json
+referrer-policy: no-referrer
+x-robots-tag: noindex, nofollow
+Date: Thu, 19 Nov 2026 02:55:20 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"not_found","error_description":"No booking API at this address, or no such booking."}
+
+$ curl -i $B/bookings/$ID -H "X-Booking-Status-Token: <43 x>"  (wrong token)
+HTTP/1.1 404 Not Found
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-store, max-age=0
+content-type: application/json
+referrer-policy: no-referrer
+x-robots-tag: noindex, nofollow
+Date: Thu, 19 Nov 2026 02:55:20 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"not_found","error_description":"No booking API at this address, or no such booking."}
+
+$ curl -i -X POST $B/bookings with restaurant_id in body
+HTTP/1.1 400 Bad Request
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-store, max-age=0
+content-type: application/json
+referrer-policy: no-referrer
+x-robots-tag: noindex, nofollow
+Date: Thu, 19 Nov 2026 02:55:20 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"invalid_request","error_description":"A field is missing or invalid.","fields":{"restaurant_id":"unknown_field"}}
+
+### dev server log lines during this run mentioning a WhatsApp send (expect none)
+(none)
+
+### dev server request log for the run
+ POST /api/poppy/fWafD09I0UpF3ybP1AEa4YRE7FFVubau/bookings 202 in 1106ms (next.js: 1000ms, application-code: 105ms)
+ GET /api/poppy/fWafD09I0UpF3ybP1AEa4YRE7FFVubau/bookings/87947e5e-3a6d-4e99-b7d2-0128f32e37c2 200 in 1056ms (next.js: 1027ms, application-code: 29ms)
+ GET /api/poppy/fWafD09I0UpF3ybP1AEa4YRE7FFVubau/bookings/87947e5e-3a6d-4e99-b7d2-0128f32e37c2 404 in 7ms (next.js: 4ms, application-code: 3ms)
+ GET /api/poppy/fWafD09I0UpF3ybP1AEa4YRE7FFVubau/bookings/87947e5e-3a6d-4e99-b7d2-0128f32e37c2 404 in 23ms (next.js: 1.6ms, application-code: 22ms)
+ POST /api/poppy/fWafD09I0UpF3ybP1AEa4YRE7FFVubau/bookings 400 in 22ms (next.js: 4ms, application-code: 18ms)
+
+### AC-5 on the local stack: after promotion (SQL mirroring promoteAgentBooking) and staff Confirm in the dashboard
+$ curl $B/bookings/$ID -H "X-Booking-Status-Token: <status_token>"
+{"booking_id":"87947e5e-3a6d-4e99-b7d2-0128f32e37c2","status":"confirmed","date":"2026-11-21","time":"19:30","party_size":4}

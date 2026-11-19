@@ -12,6 +12,13 @@ import { isWindowOpen } from '@/infrastructure/supabase/repositories/conversatio
 import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
+import { changeBookingConfig, getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import {
+  agentBookingDirectory,
+  agentBookingStore,
+  unverifiedBookingPurgeStore,
+} from '@/infrastructure/supabase/repositories/agent-booking-repository'
+import { agentBookingSecrets } from './agent-booking-secrets'
 import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
@@ -19,8 +26,16 @@ import type { DecideBookingDeps } from './decide-booking-request'
 import type { ResolveBookingLinkDeps } from './resolve-booking-link'
 import type { SendBookingRemindersDeps } from './send-booking-reminders'
 import type { PurgeBookingPiiDeps } from './purge-booking-pii'
+import type { CreateAgentBookingDeps } from './create-agent-booking'
+import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
+import type { VerifyAgentBookingDeps } from './verify-agent-booking'
+import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 
 const now = () => new Date()
+
+/** BOOK-003 (R44): the privacy link in the collection statement, as BOOK-001 R18's page. */
+export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy-policy.html'
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? ''
 
 const members: BookingMemberLookup = {
   async findMemberId(restaurantId, phone) {
@@ -68,5 +83,58 @@ export function bookingReminderDeps(): SendBookingRemindersDeps {
 
 /** W3 (R19): the retention cron. */
 export function bookingRetentionDeps(): PurgeBookingPiiDeps {
-  return { store: bookingCronStore, now }
+  return { store: bookingCronStore, unverified: unverifiedBookingPurgeStore, now }
+}
+
+/** BOOK-003: the public agent API (create). */
+export function createAgentBookingDeps(): CreateAgentBookingDeps {
+  return {
+    directory: agentBookingDirectory,
+    store: agentBookingStore,
+    settings: bookingSettingsReader,
+    limiter: getInboundRateLimiter(),
+    secrets: agentBookingSecrets,
+    privacyUrl: PRIVACY_URL,
+    now,
+  }
+}
+
+/** BOOK-003: the public agent API (status read). */
+export function getAgentBookingStatusDeps(): GetAgentBookingStatusDeps {
+  return { directory: agentBookingDirectory, store: agentBookingStore, now }
+}
+
+/** BOOK-003: the OpenAPI description an agent reads. */
+export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agentBookingDirectory } {
+  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL }
+}
+
+/** BOOK-003: the webhook's confirm-code check. */
+export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
+  return {
+    store: agentBookingStore,
+    settings: bookingSettingsReader,
+    sender: bookingMessageSender(),
+    async sendText(restaurantId, phone, text) {
+      try {
+        const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
+        if (phoneNumberId) await sendTextMessage(phoneNumberId, phone, text)
+      } catch (err) {
+        console.warn('[AgentBooking] collection statement not sent:', (err as Error).name)
+      }
+    },
+    privacyUrl: PRIVACY_URL,
+    now,
+  }
+}
+
+/** BOOK-003: admin settings for agent booking. */
+export function agentBookingSettingsDeps(): AgentBookingSettingsDeps {
+  return {
+    getConfig: getBookingConfig,
+    changeConfig: changeBookingConfig,
+    settings: bookingSettingsReader,
+    secrets: agentBookingSecrets,
+    appUrl: appUrl(),
+  }
 }

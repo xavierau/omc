@@ -15,6 +15,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-11-19-agent-booking-poppy](plans/2026-11-19-agent-booking-poppy.md) — BOOK-003 plan: agent booking via poppy.json + WhatsApp code (main)
 - [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
 - [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
@@ -32,6 +33,7 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-build-plan](plans/2026-06-09-stamp-collection-build-plan.md) — Stamp Collection MVP, reviewed and build-ready (solution-architect)
 
 ### Threats
+- [2026-11-19-agent-booking-poppy](threats/2026-11-19-agent-booking-poppy.md) — BOOK-003: CONDITIONAL, R31–R46 (main)
 - [2026-09-10-int-001-member-creation-api](threats/2026-09-10-int-001-member-creation-api.md) — INT-001: CONDITIONAL, 4 Critical, 8 High (security-architect)
 - [2026-06-09-stamp-collection-plan-review](threats/2026-06-09-stamp-collection-plan-review.md) — Threat model review of the Stamp Collection plan, post-LOCKED decisions (security-architect)
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
@@ -93,6 +95,10 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**BOOK-003 — booking through personal agents (2026-11-19)**
+- [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 083, agent API, WhatsApp code, settings; AC evidence (dev)
+- [2026-11-19-book-003-dev-handoff](artifacts/2026-11-19-book-003-dev-handoff.md) — BOOK-003 dev handoff (dev)
 
 **CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**
 - [2026-09-10-camp-012-guardrail-defaults-backend](artifacts/2026-09-10-camp-012-guardrail-defaults-backend.md) — WI-1 #161: mig 078 seed trigger (senior-backend-dev)

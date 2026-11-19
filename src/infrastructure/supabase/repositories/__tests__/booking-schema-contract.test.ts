@@ -16,6 +16,8 @@ const CASES = [
   { table: 'restaurants', file: 'booking-config-repository.ts' },
   { table: 'campaigns', file: 'booking-config-repository.ts' },
   { table: 'inbound_classifications', file: 'inbound-classification-repository.ts' },
+  // BOOK-003 (083): agent bookings.
+  { table: 'booking_requests', file: 'agent-booking-repository.ts' },
 ]
 
 /** Columns used in WHERE/ORDER clauses too (`.eq('col'`, `.is('col'`, ...). */
@@ -39,6 +41,14 @@ describe('BOOK-001 schema contract: booking repositories match migration 082', (
     const requests = columnsForTable('booking_requests')
     for (const c of filterColumns('booking-token-repository.ts')) expect(tokens.has(c), c).toBe(true)
     for (const c of filterColumns('booking-request-repository.ts')) expect(requests.has(c), c).toBe(true)
+    for (const c of filterColumns('agent-booking-repository.ts')) expect(requests.has(c), c).toBe(true)
+  })
+
+  it('083 adds the agent booking columns (R31, R35, R36, R46)', () => {
+    const requests = columnsForTable('booking_requests')
+    for (const c of ['confirm_code', 'verify_expires_at', 'verified_at', 'verified_wamid', 'status_token_hash', 'idempotency_key']) {
+      expect(requests.has(c), c).toBe(true)
+    }
   })
 
   it('082 adds the campaign and restaurant columns W2/W3 rely on', () => {

@@ -5,6 +5,7 @@
  * Rendered for admins only (setup page); the API enforces it too (R14).
  * BOOK-002: each booking message's text can be edited per language in an
  * inline editor under the message list.
+ * BOOK-003: under Simple booking, "Allow AI agents" with its own save.
  */
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +16,7 @@ import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability
 import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overview'
 import { BookingTemplateStatusList } from './booking-template-status-list'
 import { BookingTemplateEditor } from './booking-template-editor'
+import { BookingAgentSettings } from './booking-agent-settings'
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
 
 const MODES: BookingMode[] = ['off', 'simple', 'external']
@@ -107,6 +109,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
             ) : null}
           </>
         ) : null}
+        {form.mode === 'simple' ? <BookingAgentSettings initial={initialConfig.agentBooking} /> : null}
         <div className="flex items-center gap-3">
           <Button onClick={save} disabled={saving || missingUrl} data-testid="booking-settings-save">{saving ? t('saving') : t('save')}</Button>
           {outcome?.kind === 'saved' ? <p data-testid="booking-settings-saved" role="status" className="text-xs text-muted-foreground">{t('saved')}</p> : null}

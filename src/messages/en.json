@@ -1354,7 +1354,8 @@
     "status": {
       "pending": "Pending",
       "confirmed": "Confirmed",
-      "declined": "Declined"
+      "declined": "Declined",
+      "unverified": "Awaiting diner"
     },
     "notDelivered": "Message not delivered, contact the diner",
     "nameRemoved": "(name removed)",
@@ -1366,7 +1367,8 @@
       "confirmed": "confirmed",
       "declined": "declined"
     },
-    "actionFailed": "Couldn't update this request. Please try again."
+    "actionFailed": "Couldn't update this request. Please try again.",
+    "viaAgent": "via AI agent"
   },
   "bookingSettings": {
     "title": "Booking",
@@ -1481,6 +1483,30 @@
           "noReason": "none given",
           "oldInUse": "The previous approved version is still in use."
         }
+      }
+    },
+    "agent": {
+      "title": "Bookings from AI agents",
+      "hint": "Let diners' AI assistants request a table for them. The diner confirms on WhatsApp from the same number before the request appears under Bookings.",
+      "toggle": "Allow AI agents",
+      "websiteHost": "Your website address",
+      "websiteHostHint": "The host where you will put poppy.json, for example www.yourrestaurant.hk",
+      "save": "Save AI agent settings",
+      "saving": "Saving...",
+      "saved": "AI agent settings saved",
+      "saveFailed": "Couldn't save AI agent settings.",
+      "download": "Download poppy.json",
+      "downloadHint": "Upload this file to your website at https://{host}/.well-known/poppy.json. Agents find your booking page there.",
+      "downloadFailed": "Couldn't download poppy.json.",
+      "rotate": "Change agent booking address",
+      "rotateHint": "The old address stops working at once. Download and upload poppy.json again afterwards.",
+      "rotating": "Changing...",
+      "rotated": "New agent booking address created. Upload the new poppy.json.",
+      "rotateFailed": "Couldn't change the agent booking address.",
+      "errors": {
+        "required": "Add your website address.",
+        "invalid_host": "Use a website address like www.yourrestaurant.hk (no path).",
+        "not_simple": "Save Simple booking first."
       }
     }
   }

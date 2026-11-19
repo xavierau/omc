@@ -1354,7 +1354,8 @@
     "status": {
       "pending": "待確認",
       "confirmed": "已確認",
-      "declined": "已拒絕"
+      "declined": "已拒絕",
+      "unverified": "等待客人確認"
     },
     "notDelivered": "訊息未能送達,請聯絡客人",
     "nameRemoved": "(姓名已刪除)",
@@ -1366,7 +1367,8 @@
       "confirmed": "已確認",
       "declined": "已拒絕"
     },
-    "actionFailed": "未能更新此要求,請再試一次。"
+    "actionFailed": "未能更新此要求,請再試一次。",
+    "viaAgent": "經 AI 助理"
   },
   "bookingSettings": {
     "title": "訂座",
@@ -1481,6 +1483,30 @@
           "noReason": "未有提供",
           "oldInUse": "仍在使用之前已批准的版本。"
         }
+      }
+    },
+    "agent": {
+      "title": "AI 助理訂座",
+      "hint": "讓客人的 AI 助理代為提交訂座要求。客人須用同一個號碼在 WhatsApp 確認,要求才會在「訂座」顯示。",
+      "toggle": "接受 AI 助理訂座",
+      "websiteHost": "你的網站地址",
+      "websiteHostHint": "你會放置 poppy.json 的網址,例如 www.yourrestaurant.hk",
+      "save": "儲存 AI 助理設定",
+      "saving": "儲存中...",
+      "saved": "已儲存 AI 助理設定",
+      "saveFailed": "未能儲存 AI 助理設定。",
+      "download": "下載 poppy.json",
+      "downloadHint": "請把此檔案上載到你的網站 https://{host}/.well-known/poppy.json,AI 助理會從這裡找到你的訂座服務。",
+      "downloadFailed": "未能下載 poppy.json。",
+      "rotate": "更換 AI 助理訂座地址",
+      "rotateHint": "舊地址會即時失效。更換後請重新下載及上載 poppy.json。",
+      "rotating": "更換中...",
+      "rotated": "已建立新的 AI 助理訂座地址,請上載新的 poppy.json。",
+      "rotateFailed": "未能更換 AI 助理訂座地址。",
+      "errors": {
+        "required": "請加入你的網站地址。",
+        "invalid_host": "請使用 www.yourrestaurant.hk 這類網站地址(不要加路徑)。",
+        "not_simple": "請先儲存「簡易訂座」。"
       }
     }
   }

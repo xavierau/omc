@@ -6,7 +6,14 @@
  * the payload sends null for no expiry.
  */
 import { useState } from 'react'
-import { isPartyMax, isSafeHttpsUrl, isTtl, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
+import {
+  isPartyMax,
+  isSafeHttpsUrl,
+  isTtl,
+  type AgentBookingConfig,
+  type BookingConfig,
+  type BookingMode,
+} from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { parseTemplateStatuses } from './use-booking-availability'
 
@@ -114,4 +121,90 @@ export function useBookingSettings(initial: BookingConfig) {
   }
 
   return { form, update, save, saving, outcome }
+}
+
+/**
+ * BOOK-003 (R43): the admin's "Allow AI agents" block. Its own save, so the
+ * booking form's Save never touches it and vice versa.
+ */
+export interface AgentBookingForm {
+  enabled: boolean
+  websiteHost: string
+}
+
+export type AgentBookingOutcome =
+  | { kind: 'saved' | 'rotated'; agentBooking: AgentBookingConfig }
+  | { kind: 'fields'; errors: Record<string, string> }
+  | { kind: 'forbidden' | 'error' | 'rotate_error' | 'download_error' }
+
+export function agentBookingOutcome(status: number, body: unknown, success: 'saved' | 'rotated'): AgentBookingOutcome {
+  const b = (body && typeof body === 'object' ? body : {}) as { agentBooking?: AgentBookingConfig; fields?: Record<string, string> }
+  if (status === 200 && b.agentBooking) return { kind: success, agentBooking: b.agentBooking }
+  if (status === 400 && b.fields) return { kind: 'fields', errors: b.fields }
+  if (status === 403) return { kind: 'forbidden' }
+  return { kind: success === 'saved' ? 'error' : 'rotate_error' }
+}
+
+async function sendAgentRequest(path: string, init: RequestInit, success: 'saved' | 'rotated'): Promise<AgentBookingOutcome> {
+  try {
+    const res = await fetch(path, init)
+    return agentBookingOutcome(res.status, await res.json().catch(() => null), success)
+  } catch {
+    return { kind: success === 'saved' ? 'error' : 'rotate_error' }
+  }
+}
+
+/** Saves the file through a temporary link; false when the server refused it. */
+async function downloadPoppyJson(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/dashboard/settings/booking/poppy-json')
+    if (!res.ok) return false
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'poppy.json'
+    link.click()
+    URL.revokeObjectURL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function useAgentBookingSettings(initial: AgentBookingConfig) {
+  const [stored, setStored] = useState<AgentBookingConfig>(initial)
+  const [form, setForm] = useState<AgentBookingForm>({ enabled: initial.enabled, websiteHost: initial.websiteHost ?? '' })
+  const [outcome, setOutcome] = useState<AgentBookingOutcome | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  function update<K extends keyof AgentBookingForm>(key: K, value: AgentBookingForm[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    setOutcome(null)
+  }
+
+  async function run(request: () => Promise<AgentBookingOutcome>) {
+    setBusy(true)
+    const result = await request()
+    if (result.kind === 'saved' || result.kind === 'rotated') {
+      setStored(result.agentBooking)
+      setForm({ enabled: result.agentBooking.enabled, websiteHost: result.agentBooking.websiteHost ?? '' })
+    }
+    setOutcome(result)
+    setBusy(false)
+  }
+
+  const save = () =>
+    run(() =>
+      sendAgentRequest('/api/dashboard/settings/booking/agent', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: form.enabled, websiteHost: form.websiteHost.trim() === '' ? null : form.websiteHost.trim() }),
+      }, 'saved')
+    )
+  const rotate = () => run(() => sendAgentRequest('/api/dashboard/settings/booking/agent/rotate', { method: 'POST' }, 'rotated'))
+  async function download() {
+    if (!(await downloadPoppyJson())) setOutcome({ kind: 'download_error' })
+  }
+
+  return { stored, form, update, save, rotate, download, busy, outcome }
 }

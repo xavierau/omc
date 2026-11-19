@@ -131,6 +131,8 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
     .select(BOOKING_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
+    // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff.
+    .neq('status', 'unverified')
     .maybeSingle()
   if (error) throw new Error(`findBookingForRestaurant: ${error.message}`)
   return data ? toBookingRequest(data as BookingRow) : null
