@@ -1,0 +1,3 @@
+before: other-tenant bookings 3
+auth delete 200
+after: restaurant 0, bookings 0, user 0, other-tenant bookings 3
