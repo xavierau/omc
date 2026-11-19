@@ -9,9 +9,9 @@ supersedes: artifacts/2026-11-19-dev-camp-016-handoff
 superseded_by: null
 item: CAMP-016
 state: blocked
-brief: inline brief-v1 (main dispatch 2026-11-19, r2: develop merge + legacy recipient line)
+brief: inline
 base: e1475fb06d8e4cb687de2507ce8e4c13fb225f1b
-head: see the handoff block (the commit that adds this file)
+head: fe61ceb40a883cd4cc07b6be433ab48076e02e74
 branch: feature/camp-016-audience-quality
 pushed: false
 stage: poc
@@ -41,13 +41,11 @@ unverified:
   - "390 and zh-HK walk of the r2 change not run (brief asked 1440 en) — main"
 review_focus:
   - "src/components/dashboard/campaign-target-audience-fields.tsx: showRecipientCount={form.type === 'welcome'} mirrors campaign-form-fields.tsx's `form.type !== 'welcome'` summary condition; if one changes, the other must"
-scope_drift: []
+scope_drift:
+  - "src/app/api/dashboard/bookings/**, src/app/dashboard/bookings/page.tsx, src/app/globals.css, src/domain/entities/booking-request.ts, src/infrastructure/supabase/repositories/** differ from base only through the develop merge (BOOK-004 #196 files, byte-identical to origin/develop); no hand edit outside files_allowed"
 in_flight: []
 next_step: "Push feature/camp-016-audience-quality (rtk proxy git push origin feature/camp-016-audience-quality), verify ls-remote == HEAD, then gh pr view 200 --json mergeable and gh run list --branch feature/camp-016-audience-quality."
----
-
-## Notes
-
-- Rig: the repo's local Supabase stack (086 applied by `supabase start` from this tree), `legacy-grants.sql` (local only), `seed.sh` synthetic tenant, `next dev -p 3040`, Playwright `evidence/walk-r2.mjs`. Stack released after the walk.
-- `next dev` rewrote the tracked repo `CLAUDE.md` (Next 16 "Generated CLAUDE.md for AI agents"); reverted with `git checkout -- CLAUDE.md`, not committed.
-- FYI seen, not touched: the welcome campaign sheet shows the "Welcome image" heading and its hint twice (en-campaign-form-welcome-r2-1440.png).
+notes:
+  - "Rig: local Supabase stack (086 applied by supabase start from this tree), legacy-grants.sql (local only), seed.sh synthetic tenant, next dev -p 3040, Playwright evidence/walk-r2.mjs; stack released after the walk"
+  - "next dev rewrote the tracked repo CLAUDE.md (Next 16 agent rules); reverted with git checkout, not committed"
+  - "FYI seen, not touched: the welcome campaign sheet shows the Welcome image heading and hint twice (en-campaign-form-welcome-r2-1440.png)"
