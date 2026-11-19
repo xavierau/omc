@@ -1,0 +1,13 @@
+2026-11-19T02:35:11.427Z api-checks logged in
+2026-11-19T02:35:11.556Z api-checks admin A list 200 contains full phone: false contains tenant B key: false
+2026-11-19T02:35:11.671Z api-checks admin A + tenant B's thread key: 404 {"error":"not_found"}
+2026-11-19T02:35:11.786Z api-checks admin A own thread 200 contains full phone: false
+2026-11-19T02:35:11.858Z api-checks PUT with stale rev 0: 409 {"error":"stale","rev":1}
+2026-11-19T02:35:16.686Z staff-checks logged in
+2026-11-19T02:35:16.822Z staff-checks staff GET /api/dashboard/agent/conversations 403 {"error":"Forbidden"}
+2026-11-19T02:35:16.964Z staff-checks staff GET /api/dashboard/agent/conversations/cccccccc-0000-4000-8000-00000000000b 403 {"error":"Forbidden"}
+2026-11-19T02:35:17.037Z staff-checks staff PUT settings 403 {"error":"Forbidden"}
+2026-11-19T02:35:17.106Z staff-checks staff GET settings 200 canEdit=false
+2026-11-19T02:35:17.385Z staff-checks console.error Failed to load resource: the server responded with a status of 403 (Forbidden)
+2026-11-19T02:35:17.452Z staff-checks console.error Failed to load resource: the server responded with a status of 403 (Forbidden)
+2026-11-19T02:35:17.984Z staff-checks audit log-forbidden-staff-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280

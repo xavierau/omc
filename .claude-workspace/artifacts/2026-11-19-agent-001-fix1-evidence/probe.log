@@ -1,0 +1,3 @@
+call1 200 [["functionCall","thoughtSignature"]] STOP undefined
+call2-no-tools 200 STOP ["text"] undefined
+call1 503 undefined undefined This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.

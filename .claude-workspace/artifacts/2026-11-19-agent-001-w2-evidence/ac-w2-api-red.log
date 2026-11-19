@@ -1,0 +1,15 @@
+     10| import { getAgentSettings, saveAgentSettingsAtRev } from '@/infrastruc…
+     11| import { DEFAULT_AGENT_CONFIG, DEFAULT_DISCLOSURE_TEXT, type AgentConf…
+     12| import { GET, PUT } from '../route'
+       | ^
+     13|
+     14| const RID = 'rest-1'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  10:19:52
+   Duration  451ms (transform 73ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

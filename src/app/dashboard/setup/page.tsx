@@ -7,12 +7,14 @@ import { TenantLogoSection } from '@/components/dashboard/tenant-logo-section'
 import { ContactRedirectSection } from '@/components/dashboard/contact-redirect-section'
 import { FallbackReplySection } from '@/components/dashboard/fallback-reply-section'
 import { BookingSettingsSection } from '@/components/dashboard/booking-settings-section'
+import { AgentSettingsSection } from '@/components/dashboard/agent-settings-section'
 import { Separator } from '@/components/ui/separator'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { resolveReplyConfig } from '@/domain/services/reply-config'
 import { resolveContactConfig } from '@/domain/services/contact-config'
 import { getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { getAgentSettings } from '@/infrastructure/supabase/repositories/agent-config-repository'
 
 export default async function SetupPage() {
   const t = await getTranslations('qr')
@@ -61,10 +63,13 @@ export default async function SetupPage() {
 
       <Separator />
 
-      {/* BOOK-001: booking settings are admin-only (R14); the API enforces it too. */}
+      {/* BOOK-001 / AGENT-001: booking and AI agent settings are admin-only (R14, R7); the APIs enforce it too. */}
       {role === 'admin' ? (
         <>
           <BookingSettingsSection initialConfig={await getBookingConfig(restaurantId)} />
+          <Separator />
+          {/* AGENT-001: a read error renders the section's error state, never a form primed with defaults. */}
+          <AgentSettingsSection initial={await getAgentSettings(restaurantId).catch(() => null)} />
           <Separator />
         </>
       ) : null}

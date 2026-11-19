@@ -1,0 +1,8 @@
+psql:stubs.sql:1: NOTICE:  schema "storage" already exists, skipping
+psql:supabase/migrations/001_create_tables.sql:2: NOTICE:  extension "uuid-ossp" already exists, skipping
+psql:supabase/migrations/024_require_webhook_secret.sql:2: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:supabase/migrations/025_commission_dual_revenue.sql:12: NOTICE:  constraint "referrers_commission_per_redemption_hkd_check" of relation "referrers" does not exist, skipping
+psql:supabase/migrations/047_consent_records_v2.sql:45: NOTICE:  trigger "trg_consent_records_default_expires_at" for relation "consent_records" does not exist, skipping
+psql:supabase/migrations/050_stamp_collection.sql:14: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:supabase/migrations/078_tenant_campaign_settings_seed_on_create.sql:64: NOTICE:  trigger "trg_restaurant_seed_campaign_settings" for relation "restaurants" does not exist, skipping
+applied 82 of 82 migrations (001..082)
