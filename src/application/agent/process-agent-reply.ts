@@ -210,8 +210,14 @@ class Run {
     const text = await this.handoffText()
     if (this.claimed) {
       if (this.claimed.outcome !== 'handoff') await this.setOutcome('handoff')
-    } else if (!(await this.claim({ ...noModelCall('handoff', undefined), text }))) {
-      return // another run of this job already answered
+    } else {
+      // Re-review N1: a claim that THROWS (the row insert failed) is not another run's answer: send the menu (no row, as on the menu path).
+      const claimed = await this.claim({ ...noModelCall('handoff', undefined), text }).catch(() => null)
+      if (claimed === null) {
+        await this.fallback()
+        return
+      }
+      if (!claimed) return // another run of this job already answered
     }
     if (await this.sendHandoff(text)) return
     await this.setOutcome((await this.fallback()) ? 'fallback' : 'error')

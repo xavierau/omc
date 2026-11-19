@@ -318,8 +318,18 @@ export async function listUpcomingDinerBookings(restaurantId: string, phone: str
 }
 
 /**
+ * AGENT-003 R24 (re-review N2): the booking while upcoming, or its open change
+ * request whatever its date, so a past same-day change request is not left
+ * pending (and confirmable) after its original is cancelled.
+ */
+export function dinerCancelFilter(id: string, from: HongKongMoment): string {
+  return `and(id.eq.${id},or(${upcomingFilter(from)})),and(replaces_booking_id.eq.${id},status.eq.pending)`
+}
+
+/**
  * AGENT-003 R24: one UPDATE, so the booking and its open change requests are
- * cancelled together. Scoped by restaurant, phone, upcoming and open status.
+ * cancelled together. Scoped by restaurant, phone and open status; upcoming
+ * applies to the booking itself (N2).
  */
 export async function cancelDinerBooking(args: CancelDinerBookingArgs): Promise<string[]> {
   const at = args.at.toISOString()
@@ -329,8 +339,7 @@ export async function cancelDinerBooking(args: CancelDinerBookingArgs): Promise<
     .eq('restaurant_id', args.restaurantId)
     .eq('phone', args.phone)
     .in('status', ['pending', 'confirmed'])
-    // One logic tree (both ORs must hold): the booking or its open change request, AND upcoming.
-    .or(`and(or(id.eq.${args.id},and(replaces_booking_id.eq.${args.id},status.eq.pending)),or(${upcomingFilter(args.from)}))`)
+    .or(dinerCancelFilter(args.id, args.from))
     .select('id')
   if (error) throw new Error(`cancelDinerBooking: ${error.message}`)
   return ((data ?? []) as Array<{ id: string }>).map((r) => r.id)

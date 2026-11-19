@@ -46,6 +46,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-19-agent-003-rereview](reviews/2026-11-19-agent-003-rereview.md) — PR #195 fix round r4 re-review: APPROVED — F1–F10 closed, 1 Important (N1 job-error claim throw → no response), 2 Minor (verifier)
 - [2026-09-10-camp-012-013-delta-analyzer](reviews/2026-09-10-camp-012-013-delta-analyzer.md) — PR #164 fix delta: APPROVED, 3 Minor (analyzer)
 - [2026-09-10-camp-012-013-gstack-review](reviews/2026-09-10-camp-012-013-gstack-review.md) — PR #164 gstack /review: ISSUES_FOUND — 0 Critical, 5 Informational, quality 7.5/10 (claude)
 - [2026-09-10-camp-012-013-grok](reviews/2026-09-10-camp-012-013-grok.md) — #161/#162: CONDITIONAL — 1 Important, 1 Minor (grok-cli-reviewer)

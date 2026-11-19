@@ -152,7 +152,7 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     const hit = this.rows.filter(
       (r) =>
         r.restaurantId === args.restaurantId && r.phone === args.phone && ['pending', 'confirmed'].includes(r.status) &&
-        isUpcoming(r, args.from) && (r.id === args.id || (r.replacesBookingId === args.id && r.status === 'pending'))
+        ((r.id === args.id && isUpcoming(r, args.from)) || (r.replacesBookingId === args.id && r.status === 'pending'))
     )
     for (const r of hit) Object.assign(r, { status: 'cancelled', cancelledBy: 'diner_ai', cancelledAt: args.at.toISOString() })
     return hit.map((r) => r.id)

@@ -53,12 +53,13 @@ const insert = (id: string, opts: { status?: string; replaces?: string; phone?: 
 const statusOf = (id: string) => psql(`SELECT status || '|' || coalesce(cancelled_by, '-') FROM booking_requests WHERE id = '${id}'`)
 const confirmChange = (id: string, restaurant = A) =>
   psql(`SELECT id FROM confirm_booking_change('${id}', '${restaurant}', '${STAFF}', now())`)
-// booking-request-repository.ts cancelDinerBooking (one UPDATE, PostgREST or= filter; F10: upcoming = later date or today from now).
+// booking-request-repository.ts cancelDinerBooking (one UPDATE, PostgREST or= filter; F10: upcoming = later date or today from now;
+// N2: upcoming applies to the booking itself, not to its open change request).
 const dinerCancel = (id: string, phone = PHONE) =>
   psql(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'diner_ai', cancelled_at = now()
          WHERE restaurant_id = '${A}' AND phone = '${phone}' AND status IN ('pending', 'confirmed')
-           AND (booking_date > current_date OR (booking_date = current_date AND booking_time >= localtime(0)))
-           AND (id = '${id}' OR (replaces_booking_id = '${id}' AND status = 'pending'))
+           AND ((id = '${id}' AND (booking_date > current_date OR (booking_date = current_date AND booking_time >= localtime(0))))
+             OR (replaces_booking_id = '${id}' AND status = 'pending'))
          RETURNING id`)
 
 const cleanup = () => psql(`DELETE FROM restaurants WHERE id IN ('${A}', '${B}')`)
@@ -198,5 +199,11 @@ dRest('AC-F10 upcoming = a later date, or today from the Hong Kong time now (rea
     expect((await cancelDinerBooking({ restaurantId: A, phone: PHONE, id: id(3), from: FROM, at: new Date() })).sort()).toEqual([id(3), id(5)].sort())
     expect(await cancelDinerBooking({ restaurantId: A, phone: OTHER, id: id(4), from: FROM, at: new Date() })).toEqual([])
     expect(statusOf(id(4))).toBe('confirmed|-')
+  })
+
+  it('AC-N2 cancel: a pending change request for today 12:00 goes with its upcoming original at 21:00', async () => {
+    row(7, D, '12:00', { status: 'pending', replaces: id(4) })
+    expect((await cancelDinerBooking({ restaurantId: A, phone: PHONE, id: id(4), from: FROM, at: new Date() })).sort()).toEqual([id(4), id(7)].sort())
+    expect(statusOf(id(7))).toBe('cancelled|diner_ai')
   })
 })
