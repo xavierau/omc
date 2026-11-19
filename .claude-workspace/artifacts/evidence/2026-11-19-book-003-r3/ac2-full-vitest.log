@@ -1,0 +1,12 @@
+resource-lock: waiting for 'heavy' (held by PID 72944 CWD /Users/xavierau/Code/js/whatsapp-crm--release-agent001 CMD bash -c bash scripts/release.sh > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/b7ce2348-be88-463f-a29e-8e4b78a7d232/scratchpad/rel/release2.log 2>&1; echo $? > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/b7ce2348-be88-463f-a29e-8e4b78a7d232/scratchpad/rel/release2.exit)
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  628 passed | 11 skipped (639)
+      Tests  6979 passed | 79 skipped | 2 todo (7060)
+   Start at  11:50:59
+   Duration  27.45s (transform 21.02s, setup 0ms, import 72.95s, tests 21.07s, environment 47ms)
+
+vitest exit 0

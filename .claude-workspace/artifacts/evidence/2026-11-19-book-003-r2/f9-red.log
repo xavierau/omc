@@ -1,0 +1,64 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts (29 tests | 3 failed) 68ms
+     × www.x.hk:0443 → www.x.hk 4ms
+     × https://www.x.hk:00443/ → www.x.hk 1ms
+     × cafe.hk:08443 → cafe.hk:8443 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > website host = organization.domain (spec 3.1) > www.x.hk:0443 → www.x.hk
+AssertionError: expected 'www.x.hk:' to be 'www.x.hk' // Object.is equality
+
+Expected: "www.x.hk"
+Received: "www.x.hk:"
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:92:66
+     90|     ['https://www.x.hk:00443/', 'www.x.hk'],
+     91|     ['cafe.hk:08443', 'cafe.hk:8443'],
+     92|   ])('%s → %s', (raw, host) => expect(normalizeWebsiteHost(raw)).toBe(…
+       |                                                                  ^
+     93|
+     94|   it.each(['http://cafe.hk', 'cafe.hk/path', 'cafe.hk?x=1', 'localhost…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > website host = organization.domain (spec 3.1) > https://www.x.hk:00443/ → www.x.hk
+AssertionError: expected 'www.x.hk:0' to be 'www.x.hk' // Object.is equality
+
+Expected: "www.x.hk"
+Received: "www.x.hk:0"
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:92:66
+     90|     ['https://www.x.hk:00443/', 'www.x.hk'],
+     91|     ['cafe.hk:08443', 'cafe.hk:8443'],
+     92|   ])('%s → %s', (raw, host) => expect(normalizeWebsiteHost(raw)).toBe(…
+       |                                                                  ^
+     93|
+     94|   it.each(['http://cafe.hk', 'cafe.hk/path', 'cafe.hk?x=1', 'localhost…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > website host = organization.domain (spec 3.1) > cafe.hk:08443 → cafe.hk:8443
+AssertionError: expected 'cafe.hk:08443' to be 'cafe.hk:8443' // Object.is equality
+
+Expected: "cafe.hk:8443"
+Received: "cafe.hk:08443"
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:92:66
+     90|     ['https://www.x.hk:00443/', 'www.x.hk'],
+     91|     ['cafe.hk:08443', 'cafe.hk:8443'],
+     92|   ])('%s → %s', (raw, host) => expect(normalizeWebsiteHost(raw)).toBe(…
+       |                                                                  ^
+     93|
+     94|   it.each(['http://cafe.hk', 'cafe.hk/path', 'cafe.hk?x=1', 'localhost…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 26 passed (29)
+   Start at  11:23:36
+   Duration  429ms (transform 71ms, setup 0ms, import 95ms, tests 68ms, environment 0ms)
+

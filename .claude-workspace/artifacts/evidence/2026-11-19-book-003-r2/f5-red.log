@@ -1,0 +1,26 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts (24 tests | 1 failed) 67ms
+     × F5: a restaurant name full of code-like words never pushes the real code out of the candidates 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > confirm code (R31) > F5: a restaurant name full of code-like words never pushes the real code out of the candidates
+AssertionError: expected [ '2NDFLR', 'B2CAFE', '3RDFLR' ] to include 'K7PX3M'
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:54:78
+     52|     // more (3RDFLR) is needed to overflow MAX_CODE_CANDIDATES.
+     53|     for (const name of ['K11 MUSEA 2NDFLR B2CAFE', 'K11 MUSEA 2NDFLR B…
+     54|       expect(extractConfirmCodeCandidates(buildConfirmText(name, 'K7PX…
+       |                                                                              ^
+     55|     }
+     56|     expect(extractConfirmCodeCandidates('A2BCDE A3BCDE A4BCDE A5BCDE')…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 23 passed (24)
+   Start at  11:21:40
+   Duration  381ms (transform 63ms, setup 0ms, import 83ms, tests 67ms, environment 0ms)
+

@@ -1,0 +1,135 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/application/booking/__tests__/agent-app-url.test.ts (10 tests | 10 failed) 7ms
+     × keeps an https origin, without a trailing slash 3ms
+     × rejects undefined 1ms
+     × rejects  0ms
+     × rejects     0ms
+     × rejects app.ohmyclient.io 0ms
+     × rejects http://app.ohmyclient.io 0ms
+     × rejects ftp://x.hk 0ms
+     × rejects https:// 0ms
+     × rejects https://u:p@app.ohmyclient.io 1ms
+     × allows http://localhost only outside production 0ms
+ ❯ src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts (9 tests | 2 failed) 28ms
+     × F7: download answers 409 not_enabled once booking mode is not Simple, even with agent booking on 5ms
+     × F6: without a usable NEXT_PUBLIC_APP_URL the download is 500 server_error, logged by error name only 3ms
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts (41 tests | 1 failed) 144ms
+     × F6: without a usable NEXT_PUBLIC_APP_URL → 500 server_error, logged by error name only 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > keeps an https origin, without a trailing slash
+TypeError: resolveAgentAppUrl is not a function
+ ❯ src/application/booking/__tests__/agent-app-url.test.ts:9:12
+      7| describe('resolveAgentAppUrl (F6)', () => {
+      8|   it('keeps an https origin, without a trailing slash', () => {
+      9|     expect(resolveAgentAppUrl('https://app.ohmyclient.io', 'production…
+       |            ^
+     10|     expect(resolveAgentAppUrl('https://app.ohmyclient.io/', 'productio…
+     11|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects undefined
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects 
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects    
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects app.ohmyclient.io
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects http://app.ohmyclient.io
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects ftp://x.hk
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects https://
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > rejects https://u:p@app.ohmyclient.io
+TypeError: resolveAgentAppUrl is not a function
+ ❯ src/application/booking/__tests__/agent-app-url.test.ts:15:21
+     13|   it.each([undefined, '', '   ', 'app.ohmyclient.io', 'http://app.ohmy…
+     14|     'rejects %s',
+     15|     (raw) => expect(resolveAgentAppUrl(raw, 'production')).toBeNull()
+       |                     ^
+     16|   )
+     17|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/application/booking/__tests__/agent-app-url.test.ts > resolveAgentAppUrl (F6) > allows http://localhost only outside production
+TypeError: resolveAgentAppUrl is not a function
+ ❯ src/application/booking/__tests__/agent-app-url.test.ts:19:12
+     17|
+     18|   it('allows http://localhost only outside production', () => {
+     19|     expect(resolveAgentAppUrl('http://localhost:3093', 'development'))…
+       |            ^
+     20|     expect(resolveAgentAppUrl('http://127.0.0.1:3000', 'test')).toBe('…
+     21|     expect(resolveAgentAppUrl('http://localhost:3093', 'production')).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > GET /api/poppy/{publicId}/openapi.json > F6: without a usable NEXT_PUBLIC_APP_URL → 500 server_error, logged by error name only
+AssertionError: expected [ [ …(2) ] ] to deeply equal [ [ Any<String>, 'AgentAppUrlError' ] ]
+
+- Expected
++ Received
+
+  [
+    [
+      "[AgentBooking] openapi failed:",
+-     "AgentAppUrlError",
++     "TypeError",
+    ],
+  ]
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:401:31
+    399|     expect(res.status).toBe(500)
+    400|     expect((await res.json()).error).toBe('server_error')
+    401|     expect(errors.mock.calls).toEqual([[expect.any(String), 'AgentAppU…
+       |                               ^
+    402|     expectAgentHeaders(res)
+    403|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts > agent booking settings routes (R43) > F7: download answers 409 not_enabled once booking mode is not Simple, even with agent booking on
+AssertionError: external: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts:130:32
+    128|       config = { ...config, mode }
+    129|       const res = await DOWNLOAD()
+    130|       expect(res.status, mode).toBe(409)
+       |                                ^
+    131|       expect(await res.json()).toEqual({ error: 'not_enabled' })
+    132|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts > agent booking settings routes (R43) > F6: without a usable NEXT_PUBLIC_APP_URL the download is 500 server_error, logged by error name only
+AssertionError: expected { Object (error) } to deeply equal { error: 'server_error' }
+
+- Expected
++ Received
+
+  {
+-   "error": "server_error",
++   "error": "Failed to generate poppy.json",
+  }
+
+ ❯ src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts:142:30
+    140|     const res = await DOWNLOAD()
+    141|     expect(res.status).toBe(500)
+    142|     expect(await res.json()).toEqual({ error: 'server_error' })
+       |                              ^
+    143|     expect(errors.mock.calls).toEqual([[expect.any(String), 'AgentAppU…
+    144|     errors.mockRestore()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  13 failed | 47 passed (60)
+   Start at  11:22:27
+   Duration  745ms (transform 419ms, setup 0ms, import 792ms, tests 179ms, environment 0ms)
+

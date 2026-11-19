@@ -1,0 +1,77 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts (2 tests | 2 failed) 6ms
+     × appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick 4ms
+     × a refused download creates no link 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick
+TypeError: downloadPoppyJson is not a function
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:44:18
+     42|     vi.useFakeTimers()
+     43|     const { link, log } = stubPage()
+     44|     expect(await downloadPoppyJson()).toBe(true)
+       |                  ^
+     45|     expect(link).toMatchObject({ href: 'blob:poppy', download: 'poppy.…
+     46|     expect(log).toEqual(['append', 'click:true', 'remove'])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > a refused download creates no link
+TypeError: downloadPoppyJson is not a function
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:54:18
+     52|     const { log } = stubPage()
+     53|     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { stat…
+     54|     expect(await downloadPoppyJson()).toBe(false)
+       |                  ^
+     55|     expect(log).toEqual([])
+     56|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  11:23:09
+   Duration  358ms (transform 55ms, setup 0ms, import 75ms, tests 6ms, environment 0ms)
+
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts (2 tests | 1 failed) 25ms
+     × appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick
+AssertionError: expected [ 'click:false', 'revoke' ] to deeply equal [ 'append', 'click:true', 'remove' ]
+
+- Expected
++ Received
+
+  [
+-   "append",
+-   "click:true",
+-   "remove",
++   "click:false",
++   "revoke",
+  ]
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:46:17
+     44|     expect(await downloadPoppyJson()).toBe(true)
+     45|     expect(link).toMatchObject({ href: 'blob:poppy', download: 'poppy.…
+     46|     expect(log).toEqual(['append', 'click:true', 'remove'])
+       |                 ^
+     47|     vi.runAllTimers()
+     48|     expect(log).toEqual(['append', 'click:true', 'remove', 'revoke'])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  11:23:15
+   Duration  393ms (transform 63ms, setup 0ms, import 85ms, tests 25ms, environment 0ms)
+

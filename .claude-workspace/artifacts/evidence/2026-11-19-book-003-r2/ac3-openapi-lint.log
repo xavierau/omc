@@ -1,0 +1,15 @@
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.80.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+validating /Users/xavierau/Code/js/whatsapp-crm--book-003/.claude-workspace/artifacts/evidence/2026-11-19-book-003-r2/openapi.json...
+/Users/xavierau/Code/js/whatsapp-crm--book-003/.claude-workspace/artifacts/evidence/2026-11-19-book-003-r2/openapi.json: validated in 34ms
+
+Woohoo! Your API description is valid. 🎉
+
+redocly exit 0

@@ -1,0 +1,26 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/components/dashboard/__tests__/booking-agent-ui.test.tsx (6 tests | 1 failed) 35ms
+     × F4: the section holds the agent state even while the block is hidden (External, Off) 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-agent-ui.test.tsx > BOOK-003 dashboard UI > F4: the section holds the agent state even while the block is hidden (External, Off)
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/components/dashboard/__tests__/booking-agent-ui.test.tsx:67:39
+     65|       const html = section({ mode, externalUrl: 'https://x.example' })
+     66|       expect(html).not.toContain('booking-agent-settings')
+     67|       expect(useAgentBookingSettings).toHaveBeenCalledTimes(1)
+       |                                       ^
+     68|     }
+     69|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  11:19:41
+   Duration  955ms (transform 250ms, setup 0ms, import 636ms, tests 35ms, environment 0ms)
+

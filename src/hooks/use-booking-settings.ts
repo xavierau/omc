@@ -6,7 +6,14 @@
  * the payload sends null for no expiry.
  */
 import { useState } from 'react'
-import { isPartyMax, isSafeHttpsUrl, isTtl, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
+import {
+  isPartyMax,
+  isSafeHttpsUrl,
+  isTtl,
+  type AgentBookingConfig,
+  type BookingConfig,
+  type BookingMode,
+} from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { parseTemplateStatuses } from './use-booking-availability'
 
@@ -115,3 +122,105 @@ export function useBookingSettings(initial: BookingConfig) {
 
   return { form, update, save, saving, outcome }
 }
+
+/**
+ * BOOK-003 (R43): the admin's "Allow AI agents" block. Its own save, so the
+ * booking form's Save never touches it and vice versa.
+ */
+export interface AgentBookingForm {
+  enabled: boolean
+  websiteHost: string
+}
+
+export type AgentBookingOutcome =
+  | { kind: 'saved' | 'rotated'; agentBooking: AgentBookingConfig }
+  | { kind: 'fields'; errors: Record<string, string> }
+  | { kind: 'forbidden' | 'error' | 'rotate_error' | 'download_error' | 'no_whatsapp_number' }
+
+export function agentBookingOutcome(status: number, body: unknown, success: 'saved' | 'rotated'): AgentBookingOutcome {
+  const b = (body && typeof body === 'object' ? body : {}) as { agentBooking?: AgentBookingConfig; fields?: Record<string, string> }
+  if (status === 200 && b.agentBooking) return { kind: success, agentBooking: b.agentBooking }
+  if (status === 400 && b.fields) return { kind: 'fields', errors: b.fields }
+  if (status === 403) return { kind: 'forbidden' }
+  return { kind: success === 'saved' ? 'error' : 'rotate_error' }
+}
+
+async function sendAgentRequest(path: string, init: RequestInit, success: 'saved' | 'rotated'): Promise<AgentBookingOutcome> {
+  try {
+    const res = await fetch(path, init)
+    return agentBookingOutcome(res.status, await res.json().catch(() => null), success)
+  } catch {
+    return { kind: success === 'saved' ? 'error' : 'rotate_error' }
+  }
+}
+
+export type PoppyDownloadResult = 'downloaded' | 'no_whatsapp_number' | 'failed'
+
+/**
+ * Saves the file through a temporary link; otherwise why the server refused it
+ * (review G2: no usable WhatsApp number has its own reason).
+ * Review F8: the link is in the page while clicked (Firefox ignores a detached
+ * one) and the blob URL is revoked on a later tick, after the download began.
+ */
+export async function downloadPoppyJson(): Promise<PoppyDownloadResult> {
+  try {
+    const res = await fetch('/api/dashboard/settings/booking/poppy-json')
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+      return body?.error === 'no_whatsapp_number' ? 'no_whatsapp_number' : 'failed'
+    }
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'poppy.json'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+    return 'downloaded'
+  } catch {
+    return 'failed'
+  }
+}
+
+export function useAgentBookingSettings(initial: AgentBookingConfig) {
+  const [stored, setStored] = useState<AgentBookingConfig>(initial)
+  const [form, setForm] = useState<AgentBookingForm>({ enabled: initial.enabled, websiteHost: initial.websiteHost ?? '' })
+  const [outcome, setOutcome] = useState<AgentBookingOutcome | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  function update<K extends keyof AgentBookingForm>(key: K, value: AgentBookingForm[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    setOutcome(null)
+  }
+
+  async function run(request: () => Promise<AgentBookingOutcome>) {
+    setBusy(true)
+    const result = await request()
+    if (result.kind === 'saved' || result.kind === 'rotated') {
+      setStored(result.agentBooking)
+      setForm({ enabled: result.agentBooking.enabled, websiteHost: result.agentBooking.websiteHost ?? '' })
+    }
+    setOutcome(result)
+    setBusy(false)
+  }
+
+  const save = () =>
+    run(() =>
+      sendAgentRequest('/api/dashboard/settings/booking/agent', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: form.enabled, websiteHost: form.websiteHost.trim() === '' ? null : form.websiteHost.trim() }),
+      }, 'saved')
+    )
+  const rotate = () => run(() => sendAgentRequest('/api/dashboard/settings/booking/agent/rotate', { method: 'POST' }, 'rotated'))
+  async function download() {
+    const result = await downloadPoppyJson()
+    if (result === 'no_whatsapp_number') setOutcome({ kind: 'no_whatsapp_number' })
+    else if (result === 'failed') setOutcome({ kind: 'download_error' })
+  }
+
+  return { stored, form, update, save, rotate, download, busy, outcome }
+}
+
+export type AgentBookingSettingsState = ReturnType<typeof useAgentBookingSettings>

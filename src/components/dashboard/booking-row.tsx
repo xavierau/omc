@@ -5,6 +5,7 @@
  * rendered as plain text only (R3). Pending rows offer Confirm and Decline
  * (with an optional reason); a decision whose message did not go out shows
  * the "contact the diner" badge, from this session or as stored (F9).
+ * BOOK-003: a booking an AI agent made shows the "via AI agent" badge.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -20,7 +21,7 @@ export interface BookingRowProps {
   onDecide: (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 }
 
-const STATUS_VARIANT = { pending: 'outline', confirmed: 'default', declined: 'secondary' } as const
+const STATUS_VARIANT = { unverified: 'outline', pending: 'outline', confirmed: 'default', declined: 'secondary' } as const
 
 function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boolean; onSend: (reason: string) => void; onCancel: () => void }) {
   const t = useTranslations('bookings')
@@ -76,6 +77,9 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
         <Badge variant={STATUS_VARIANT[booking.status]} data-testid={`booking-row-${booking.id}-status`}>
           {t(`status.${booking.status}`)}
         </Badge>
+        {booking.source === 'agent' ? (
+          <Badge variant="secondary" data-testid={`booking-row-${booking.id}-via-agent`}>{t('viaAgent')}</Badge>
+        ) : null}
         {undelivered || booking.decisionMessageStatus === 'not_delivered' ? (
           <Badge variant="outline" className="border-destructive text-foreground" data-testid={`booking-row-${booking.id}-not-delivered`}>
             {t('notDelivered')}
