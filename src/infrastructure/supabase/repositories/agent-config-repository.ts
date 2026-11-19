@@ -61,6 +61,36 @@ async function writeIfUnchanged(restaurantId: string, rev: unknown, next: AgentC
   return Array.isArray(data) && data.length > 0
 }
 
+/** The stored revision; a config written before revisions existed is rev 0. */
+const revOf = (raw: Record<string, unknown> | null): number => (Number.isInteger(raw?.rev) ? (raw?.rev as number) : 0)
+
+/** W2 settings GET: the resolved config and its rev. Throws on a read error (a form primed with defaults could save them back). */
+export async function getAgentSettings(restaurantId: string): Promise<{ config: AgentConfig; rev: number }> {
+  const raw = await readRaw(restaurantId)
+  return { config: resolveAgentConfig(raw ?? undefined), rev: revOf(raw) }
+}
+
+export type SaveAgentSettingsResult = { kind: 'saved'; config: AgentConfig; rev: number } | { kind: 'stale'; rev: number }
+
+/**
+ * W2 settings PUT: writes only while the stored rev is still the one the admin
+ * loaded (`expectedRev`); otherwise `stale` with the stored rev, nothing written.
+ * Unlike `changeAgentConfig` it never retries: a retry would apply a form that
+ * was filled in against an older config.
+ */
+export async function saveAgentSettingsAtRev(
+  restaurantId: string,
+  expectedRev: number,
+  change: (current: AgentConfig) => AgentConfig
+): Promise<SaveAgentSettingsResult> {
+  const raw = await readRaw(restaurantId)
+  const rev = revOf(raw)
+  if (rev !== expectedRev) return { kind: 'stale', rev }
+  const next = change(resolveAgentConfig(raw ?? undefined))
+  if (await writeIfUnchanged(restaurantId, raw?.rev, next)) return { kind: 'saved', config: next, rev: rev + 1 }
+  return { kind: 'stale', rev: revOf(await readRaw(restaurantId)) }
+}
+
 /** CAS write; `change` returns null for "nothing to write". W2's settings PUT uses this. */
 export async function changeAgentConfig(restaurantId: string, change: ConfigChange): Promise<AgentConfig | null> {
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {

@@ -16,6 +16,7 @@ const MIGRATION = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/
 const CASES = [
   { table: 'agent_messages', file: 'agent-message-repository.ts' },
   { table: 'agent_silences', file: 'agent-message-repository.ts' },
+  { table: 'agent_messages', file: 'agent-conversation-repository.ts' },
   { table: 'restaurants', file: 'agent-config-repository.ts' },
   { table: 'members', file: 'agent-tool-repository.ts' },
   { table: 'member_stamp_cards', file: 'agent-tool-repository.ts' },
@@ -55,7 +56,7 @@ describe('AC-MIG agent schema contract: repositories match migration 083', () =>
   })
 
   it('AC-MIG filter columns exist on the tables they filter', () => {
-    for (const file of ['agent-message-repository.ts', 'agent-tool-repository.ts', 'agent-config-repository.ts']) {
+    for (const file of ['agent-message-repository.ts', 'agent-tool-repository.ts', 'agent-config-repository.ts', 'agent-conversation-repository.ts']) {
       for (const [table, cols] of filterColumnsByTable(file)) {
         const schema = columnsForTable(table)
         for (const c of cols) expect(schema.has(c), `${file}: ${table}.${c}`).toBe(true)

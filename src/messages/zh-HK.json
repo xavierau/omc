@@ -42,7 +42,8 @@
     "scan": "掃描 QR",
     "stampCampaigns": "儲印花卡",
     "integrations": "整合",
-    "bookings": "訂座"
+    "bookings": "訂座",
+    "agent": "AI 助手"
   },
   "login": {
     "title": "OhMyClient",
@@ -1482,6 +1483,108 @@
           "oldInUse": "仍在使用之前已批准的版本。"
         }
       }
+    }
+  },
+  "agentSettings": {
+    "title": "AI 自動回覆",
+    "description": "讓 AI 根據你的餐廳資料及顧客自己的積分，回答顧客在 WhatsApp 傳來的文字問題。",
+    "modeLabel": "模式",
+    "mode": {
+      "off": "關閉",
+      "shadow": "試行",
+      "auto": "自動"
+    },
+    "modeHint": {
+      "off": "AI 不會啟動，顧客收到預設選單。",
+      "shadow": "AI 只草擬回覆，你可在「AI 助手」紀錄查看；顧客仍收到預設選單。",
+      "auto": "AI 直接回覆顧客，訊息結尾附上自動回覆標示。"
+    },
+    "knowledgeLabel": "餐廳資料",
+    "knowledgeHint": "營業時間、招牌菜、積分規則等。AI 只會根據這些資料及顧客自己的積分作答。",
+    "instructionsLabel": "指示",
+    "instructionsHint": "只限語氣及風格，例如「友善、簡短、用顧客的語言回覆」。",
+    "charCount": "{count} / {max}",
+    "advanced": "進階設定",
+    "disclosureLabel": "自動回覆標示",
+    "disclosureHint": "附加在每個自動回覆的結尾。可以改寫，但不能刪除(留空會恢復預設)。",
+    "modelLabel": "模型",
+    "modelPlaceholder": "預設模型",
+    "toolsLabel": "AI 可使用的工具",
+    "tool": {
+      "get_member_summary": "會員摘要",
+      "list_rewards": "獎賞列表",
+      "handoff_to_staff": "轉交職員"
+    },
+    "toolHint": {
+      "get_member_summary": "顧客自己的積分及印花卡。",
+      "list_rewards": "你現有的獎賞及所需積分。",
+      "handoff_to_staff": "傳送你的聯絡連結，並暫停 AI 回覆這位顧客。"
+    },
+    "knob": {
+      "temperature": "隨機度",
+      "maxOutputTokens": "最多輸出 token",
+      "maxReplyChars": "回覆長度上限(字元)",
+      "maxHistoryMessages": "傳給模型的對話則數",
+      "historyTtlHours": "對話保留時間(小時)",
+      "debounceMs": "等待更多訊息(毫秒)",
+      "maxToolCalls": "每次回覆最多工具調用",
+      "handoffSilenceHours": "轉交職員後暫停(小時)",
+      "maxRepliesPerPhonePerHour": "每位顧客每小時最多回覆",
+      "maxRepliesPerTenantPerDay": "每日最多回覆(全店)"
+    },
+    "range": "{min} 至 {max}",
+    "field": {
+      "mode": "模式",
+      "knowledge": "餐廳資料",
+      "instructions": "指示",
+      "disclosureText": "自動回覆標示",
+      "model": "模型",
+      "enabledTools": "工具",
+      "temperature": "隨機度",
+      "maxOutputTokens": "最多輸出 token",
+      "maxReplyChars": "回覆長度上限(字元)",
+      "maxHistoryMessages": "傳給模型的對話則數",
+      "historyTtlHours": "對話保留時間(小時)",
+      "debounceMs": "等待更多訊息(毫秒)",
+      "maxToolCalls": "每次回覆最多工具調用",
+      "handoffSilenceHours": "轉交職員後暫停(小時)",
+      "maxRepliesPerPhonePerHour": "每位顧客每小時最多回覆",
+      "maxRepliesPerTenantPerDay": "每日最多回覆(全店)"
+    },
+    "save": "儲存",
+    "saving": "儲存中…",
+    "saved": "已儲存。",
+    "adjusted": "已調整至容許範圍:{fields}。",
+    "stale": "這些設定已在其他地方更改。請重新載入查看最新設定後再儲存。",
+    "reload": "重新載入",
+    "saveFailed": "未能儲存，請再試一次。",
+    "forbidden": "只有管理員可以更改這些設定。",
+    "loadFailed": "未能載入 AI 自動回覆設定。請重新載入頁面再試。"
+  },
+  "agentLog": {
+    "heading": "AI 助手",
+    "description": "過去 7 日每位顧客的對話，以及 AI 的草擬或已發送回覆。",
+    "loading": "載入中…",
+    "couldntLoad": "未能載入對話。",
+    "adminOnly": "只有管理員可以查看 AI 助手的對話。",
+    "emptyTitle": "暫時未有對話",
+    "emptyHint": "在「設定」把 AI 自動回覆設為試行或自動；顧客傳來的文字訊息會在這裡顯示。",
+    "threadMeta": "{time} · {count} 則訊息",
+    "pickThread": "選擇一個對話查看。",
+    "threadGone": "這個對話已不再存在。",
+    "diner": "顧客",
+    "agent": "AI",
+    "noText": "沒有回覆內容",
+    "latency": "{ms} 毫秒",
+    "tools": "工具:{names}",
+    "noTools": "沒有使用工具",
+    "outcome": {
+      "shadow_draft": "草擬",
+      "sent": "已發送",
+      "fallback": "預設選單",
+      "error": "錯誤",
+      "rate_limited": "超出上限",
+      "skipped": "已略過"
     }
   }
 }

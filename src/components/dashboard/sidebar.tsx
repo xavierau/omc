@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug, CalendarCheck } from 'lucide-react'
+import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug, CalendarCheck, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
 
@@ -39,6 +39,11 @@ function NavLink({ href, label, icon: Icon, isActive, onClick }: {
 /** BOOK-001: the Bookings entry, exported so its wiring is unit-testable. */
 export function bookingsNavItem(t: (key: string) => string) {
   return { label: t('bookings'), href: '/dashboard/bookings', icon: CalendarCheck }
+}
+
+/** AGENT-001: the AI agent conversation log entry, exported so its wiring is unit-testable. */
+export function agentNavItem(t: (key: string) => string) {
+  return { label: t('agent'), href: '/dashboard/agent', icon: Bot }
 }
 
 export function secondaryNavItems(t: (key: string) => string) {
@@ -76,6 +81,7 @@ export function Sidebar() {
     { label: t('liveFeed'), href: '/dashboard/feed', icon: Radio },
     { label: t('campaigns'), href: '/dashboard/campaigns', icon: Megaphone },
     bookingsNavItem(t),
+    agentNavItem(t),
     { label: t('stampCampaigns'), href: '/dashboard/campaigns/stamps', icon: Stamp },
     { label: t('waTemplates'), href: '/dashboard/wa-templates', icon: MessageSquare },
     { label: t('coupons'), href: '/dashboard/coupons', icon: Ticket },
