@@ -1,0 +1,5 @@
+     × AC-F1 a handoff silence set during job A's model call stops job B's send 8ms
+     × AC-F1 job B silenced by job A's handoff → B sends the fallback once, A (superseded) sends nothing 3ms
+     × AC-F1 an auto-admitted job silenced at job start sends the fallback once; shadow-admitted sends nothing 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 3 passed | 52 skipped (58)

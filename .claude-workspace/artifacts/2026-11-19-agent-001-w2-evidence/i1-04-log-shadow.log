@@ -1,0 +1,4 @@
+2026-11-19T02:34:44.434Z log logged in
+2026-11-19T02:34:45.262Z log reached http://localhost:3020/dashboard/agent by clicking the nav entry
+2026-11-19T02:34:46.084Z log threads 1 ["•••• 0001\nDraft\n19 Nov, 10:34 · 2 messages"]
+2026-11-19T02:34:47.409Z log detail "•••• 0001\nDiner\n19 Nov, 10:34\n\n你好，請問你哋幾點開門？\n\nAgent\nDraft\n19 Nov, 10:34\n\n你好！我哋每日嘅營業時間係朝早 11 點至夜晚 10 點。\n\ngemini-3.1-flash-lite · 1578 ms · no tools"

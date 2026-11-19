@@ -1,0 +1,151 @@
+BEGIN
+INSERT 0 2
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+--- A1 backfill: existing rows get {"mode":"off"}
+   slug    |  agent_config   
+-----------+-----------------
+ pre-083-a | {"mode": "off"}
+ pre-083-b | {"mode": "off"}
+(2 rows)
+
+--- A2 RLS on, zero policies
+    relname     | relrowsecurity 
+----------------+----------------
+ agent_messages | t
+ agent_silences | t
+(2 rows)
+
+ policies 
+----------
+        0
+(1 row)
+
+--- A3 mode CHECK rejects an unknown mode
+SAVEPOINT
+DO
+psql:w1-assert.sql:13: NOTICE:  A3 ok: check_violation
+RELEASE
+   slug    |               agent_config                
+-----------+-------------------------------------------
+ pre-083-a | {"mode": "shadow", "historyTtlHours": 24}
+(1 row)
+
+UPDATE 1
+--- A4 user row + duplicate wamid -> 23505; model rows with null wamid are many
+ role |  wamid  | outcome | tool_calls 
+------+---------+---------+------------
+ user | wamid.1 |         | {}
+(1 row)
+
+INSERT 0 1
+psql:w1-assert.sql:17: NOTICE:  A4 ok: unique_violation (23505)
+DO
+            restaurant_id             
+--------------------------------------
+ 00000000-0000-0000-0000-0000000000b2
+(1 row)
+
+INSERT 0 1
+   outcome    |      tool_calls      
+--------------+----------------------
+ sent         | {get_member_summary}
+ rate_limited | {}
+(2 rows)
+
+INSERT 0 2
+--- A5 role-shape CHECKs
+psql:w1-assert.sql:23: NOTICE:  A5a ok: user row with outcome rejected
+DO
+DO
+psql:w1-assert.sql:24: NOTICE:  A5b ok: model row without outcome rejected
+psql:w1-assert.sql:25: NOTICE:  A5c ok: unknown outcome rejected
+DO
+DO
+--- A6 clients see nothing (RLS, no policies)
+psql:w1-assert.sql:26: NOTICE:  A5d ok: user row without text rejected
+SET
+ authenticated_sees 
+--------------------
+                  0
+(1 row)
+
+RESET
+SET
+ anon_sees 
+-----------
+         0
+(1 row)
+
+ anon_sees_silences 
+--------------------
+                  0
+(1 row)
+
+RESET
+SET
+ service_role_sees 
+-------------------
+                 4
+(1 row)
+
+RESET
+--- A7 history query (repo: or role.eq.user,outcome.in.(sent,shadow_draft), created_at >= since, desc, limit) newest-first
+INSERT 0 2
+ role  | text  | outcome 
+-------+-------+---------
+ user  | later | 
+ model | reply | sent
+ user  | hi    | 
+(3 rows)
+
+--- A8 purge: tenant rows older than TTL deleted, younger kept
+  text   
+---------
+ too old
+(1 row)
+
+DELETE 1
+ a_rows_left 
+-------------
+           4
+(1 row)
+
+--- A9 silences upsert on (restaurant_id, phone)
+INSERT 0 1
+INSERT 0 1
+ silence_rows | updated_in_place 
+--------------+------------------
+            1 | t
+(1 row)
+
+--- A10 cascade: deleting a restaurant removes its agent rows
+DELETE 1
+ b_rows 
+--------
+      0
+(1 row)
+
+--- A11 indexes
+               indexname               
+---------------------------------------
+ agent_messages_conversation_idx
+ agent_messages_one_reply_key
+ agent_messages_pkey
+ agent_messages_restaurant_created_idx
+ agent_messages_restaurant_wamid_key
+ agent_silences_pkey
+ agent_silences_until_idx
+(7 rows)
+
+ROLLBACK

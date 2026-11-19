@@ -1,0 +1,47 @@
+{
+ "log-detail-1280": {
+  "blocking": 0,
+  "warning": 2,
+  "info": 0
+ },
+ "log-detail-390": {
+  "blocking": 0,
+  "warning": 0,
+  "info": 1
+ },
+ "log-forbidden-staff-1280": {
+  "blocking": 0,
+  "warning": 1,
+  "info": 0
+ },
+ "log-list-1280": {
+  "blocking": 0,
+  "warning": 2,
+  "info": 0
+ },
+ "log-list-390": {
+  "blocking": 0,
+  "warning": 0,
+  "info": 1
+ },
+ "setup-1280": {
+  "blocking": 0,
+  "warning": 1,
+  "info": 0
+ },
+ "setup-390": {
+  "blocking": 0,
+  "warning": 12,
+  "info": 1
+ },
+ "setup-advanced-1280": {
+  "blocking": 0,
+  "warning": 1,
+  "info": 0
+ },
+ "setup-advanced-390": {
+  "blocking": 0,
+  "warning": 12,
+  "info": 1
+ }
+}

@@ -1,0 +1,11 @@
+2026-11-19T02:36:47.670Z set-model logged in
+2026-11-19T02:37:18.735Z set-model saved 
+2026-11-19T02:37:18.737Z set-model model field now gemini-0-nope
+2026-11-19T02:37:32.323Z wamid.W2.FAIL.1 200 {"status":"ok"}
+2026-11-19T02:37:35.924Z POST messages {"to": "+85290000001", "type": "interactive"} {"type": "button", "body": {"text": "抱歉，我不明白您的訊息。請輸入 POINTS / 積分 查詢餘額，或 HELP / 幫助 查看選項。"}, "action": {"buttons": [{"type": "reply", "reply": {"id": "POINTS", "title": "查詢積分"}}, {"type": "reply", "repl
+capture lines:        1
+2026-11-19 02:37:35.929377+00|model|fallback|gemini-0-nope|467|{}|
+2026-11-19 02:37:32.308306+00|user||||{}|星期日有冇開？
+gemini-0-nope|auto|3
+{"ts":"2026-11-19T02:36:22.696Z","level":"info","event":"agent.reply","messageId":"873861a2-bad4-4ee3-b311-8a39c6f213cc","restaurantId":"aaaaaaaa-0000-4000-8000-000000000001","outcome":"sent","latencyMs":2205,"promptTokens":1326,"outputTokens":54,"toolCalls":["get_member_summary","list_rewards"]}
+{"ts":"2026-11-19T02:37:35.942Z","level":"info","event":"agent.reply","messageId":"b1a801d0-6211-45e0-8d7f-627e67e2bee5","restaurantId":"aaaaaaaa-0000-4000-8000-000000000001","outcome":"fallback","reason":"http","latencyMs":467,"promptTokens":0,"outputTokens":0,"toolCalls":[]}

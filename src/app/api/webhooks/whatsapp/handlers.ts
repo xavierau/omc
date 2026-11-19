@@ -18,6 +18,7 @@ import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleContact } from './contact-handler'
 import { handleContactFormSubmission } from './contact-form-handler'
 import { handleBookCommand, maybeReplyToBookingIntent } from './book-handler'
+import { maybeQueueAgentReply } from './agent-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
@@ -193,6 +194,11 @@ async function dispatchConfirmation(
   // classifier — never a YES/NO that receipt/opt-in did not claim, and never
   // a gated route that fell back.
   if (route === null && (await maybeReplyToBookingIntent(ctx))) return
+
+  // AGENT-001 (R1): text the booking router declined goes to the reply agent
+  // (stored + queued, no model call here). Auto mode answers from the worker,
+  // so the fallback menu is skipped; off and shadow keep it.
+  if (route === null && (await maybeQueueAgentReply(ctx))) return
 
   return handleUnknown(phoneNumberId, phone, restaurantId)
 }
