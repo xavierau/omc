@@ -15,30 +15,45 @@ import {
  * trust: every value is re-validated here (R4).
  *
  *  - welcome: no filters (sent on join, one member at a time).
- *  - skip omitted → the tenant default; lapsed omitted or null → the tenant's
- *    lapsed days for a win-back (a win-back always has a lapsed filter), no
- *    filter otherwise.
+ *  - skip omitted → the saved value on an edit, else the tenant default.
+ *  - lapsed omitted → the saved value on an edit; null (or nothing saved) →
+ *    the tenant's lapsed days for a win-back (a win-back always has a lapsed
+ *    filter), no filter otherwise.
  */
 export interface AudienceSnapshot {
   audienceSkipQuality: SkipContactQuality
   audienceLapsedDays: number | null
 }
 
+/** The snapshot an edited campaign was saved with; fills fields the PATCH omits. */
+export type SavedAudienceSnapshot = Partial<AudienceSnapshot>
+
 export function parseAudienceSnapshot(
   body: Record<string, unknown>,
   type: unknown,
-  defaults: CampaignAudienceDefaults
+  defaults: CampaignAudienceDefaults,
+  saved: SavedAudienceSnapshot = {}
 ): AudienceSnapshot {
   if (type === 'welcome') return { audienceSkipQuality: 'off', audienceLapsedDays: null }
+  const skip = body.audienceSkipQuality === undefined ? saved.audienceSkipQuality : body.audienceSkipQuality
+  const lapsed = body.audienceLapsedDays === undefined ? saved.audienceLapsedDays : body.audienceLapsedDays
   return {
-    audienceSkipQuality: parseSkip(body.audienceSkipQuality, defaults),
-    audienceLapsedDays: parseLapsed(body.audienceLapsedDays, type, defaults),
+    audienceSkipQuality: parseSkip(skip, defaults),
+    audienceLapsedDays: parseLapsed(lapsed, type, defaults),
   }
 }
 
-/** True when a PATCH body touches the audience filters. */
+/**
+ * True when a PATCH must re-snapshot the filters: it sends one of them, or it
+ * turns the campaign into a win-back (which always carries lapsed days, so
+ * the pre-086 legacy win-back read never applies to an edited campaign).
+ */
 export function touchesAudienceFilters(body: Record<string, unknown>): boolean {
-  return body.audienceSkipQuality !== undefined || body.audienceLapsedDays !== undefined
+  return (
+    body.audienceSkipQuality !== undefined ||
+    body.audienceLapsedDays !== undefined ||
+    body.type === 'winback'
+  )
 }
 
 function parseSkip(value: unknown, defaults: CampaignAudienceDefaults): SkipContactQuality {
