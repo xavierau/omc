@@ -18,8 +18,11 @@
 -- 3. campaign_audience_rated is the single filter definition:
 --      active members of the audience (all | selected | tag)
 --      → is_lapsed: last_visit_at older than p_lapsed_days, or never visited
---        (p_never_visited_lapsed; false only for pre-086 win-back campaigns,
---        whose old `.lt('last_visit_at', cutoff)` read excluded NULLs)
+--        and joined longer ago than that (COALESCE(last_visit_at, joined_at)
+--        < cutoff: a member who joined 2 days ago is not sent a 30-day
+--        win-back). p_never_visited_lapsed is false only for pre-086 win-back
+--        campaigns, whose old `.lt('last_visit_at', cutoff)` read excluded
+--        never-visited members altogether.
 --      → rating: reproduces classifyContactQuality in
 --        src/domain/value-objects/contact-quality.ts. Window and thresholds
 --        arrive as parameters from that file (one source for the numbers);
@@ -40,11 +43,13 @@
 -- whatsapp_messages by w.restaurant_id (another tenant's rows never change a
 -- rating). EXISTS for tags/selection dedupes a member carrying two tags.
 --
--- Paging: p_limit/p_offset with ORDER BY id, walked by readAllPages
--- (resolve-campaign-members-chunks.ts) exactly like 079 — a set-returning RPC
--- is subject to PostgREST max-rows. Member ids never travel back through a
--- URL filter: the selected-members preview passes p_member_ids in the RPC's
--- POST body.
+-- Paging: keyset — p_limit rows with id > p_after_id, ORDER BY id, walked by
+-- readAllPagesAfterId (resolve-campaign-members-chunks.ts); a set-returning
+-- RPC is subject to PostgREST max-rows. Not OFFSET: a rating is computed per
+-- page, so a member who turns red (or visits) between two page fetches would
+-- shift every later row up one position and the row on the page boundary
+-- would never be sent. Member ids never travel back through a URL filter:
+-- the selected-members preview passes p_member_ids in the RPC's POST body.
 --
 -- Lockdown: the 064 REVOKE PUBLIC/anon/authenticated + GRANT service_role
 -- pattern on all three; they return member PII (phones).
@@ -128,8 +133,9 @@ CREATE OR REPLACE FUNCTION public.campaign_audience_rated(
   rated AS (
     SELECT a.*,
            (p_lapsed_days IS NULL
-             OR (a.last_visit_at IS NULL AND p_never_visited_lapsed)
-             OR a.last_visit_at < now() - make_interval(days => p_lapsed_days)) AS is_lapsed,
+             OR a.last_visit_at < now() - make_interval(days => p_lapsed_days)
+             OR (a.last_visit_at IS NULL AND p_never_visited_lapsed
+                 AND a.joined_at < now() - make_interval(days => p_lapsed_days))) AS is_lapsed,
            CASE
              WHEN a.unreachable_at IS NOT NULL THEN 'red'
              WHEN q.delivered + q.failed = 0 THEN 'unknown'
@@ -159,6 +165,10 @@ CREATE OR REPLACE FUNCTION public.campaign_audience_rated(
   FROM rated r;
 $$ LANGUAGE sql STABLE;
 
+-- The first cut of this (unreleased) migration paged by p_offset int; drop
+-- that signature so a database that ran it keeps no stale OFFSET overload.
+DROP FUNCTION IF EXISTS public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, int);
+
 CREATE OR REPLACE FUNCTION public.campaign_audience_members(
   p_restaurant_id uuid,
   p_audience text,
@@ -172,7 +182,7 @@ CREATE OR REPLACE FUNCTION public.campaign_audience_members(
   p_green float8,
   p_yellow float8,
   p_limit int DEFAULT NULL,
-  p_offset int DEFAULT 0
+  p_after_id uuid DEFAULT NULL
 ) RETURNS TABLE (
   id uuid,
   restaurant_id uuid,
@@ -194,8 +204,9 @@ CREATE OR REPLACE FUNCTION public.campaign_audience_members(
     p_lapsed_days, p_never_visited_lapsed, p_skip, p_window_days, p_green, p_yellow
   ) r
   WHERE r.included
+    AND (p_after_id IS NULL OR r.id > p_after_id)
   ORDER BY r.id
-  LIMIT p_limit OFFSET p_offset;
+  LIMIT p_limit;
 $$ LANGUAGE sql STABLE;
 
 CREATE OR REPLACE FUNCTION public.campaign_audience_counts(
@@ -237,10 +248,10 @@ REVOKE EXECUTE ON FUNCTION public.campaign_audience_rated(uuid, text, uuid[], uu
 REVOKE EXECUTE ON FUNCTION public.campaign_audience_rated(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8) FROM authenticated;
 GRANT  EXECUTE ON FUNCTION public.campaign_audience_rated(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8) TO service_role;
 
-REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, int) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, int) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, int) FROM authenticated;
-GRANT  EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, int) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, uuid) FROM authenticated;
+GRANT  EXECUTE ON FUNCTION public.campaign_audience_members(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8, int, uuid) TO service_role;
 
 REVOKE EXECUTE ON FUNCTION public.campaign_audience_counts(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.campaign_audience_counts(uuid, text, uuid[], uuid[], uuid, int, boolean, text, int, float8, float8) FROM anon;

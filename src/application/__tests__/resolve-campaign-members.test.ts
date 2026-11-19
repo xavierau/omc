@@ -61,22 +61,32 @@ const memberRow = {
 }
 
 const memberRows = (ids: string[]) => ids.map((id) => ({ ...memberRow, id }))
-const range = (n: number) => Array.from({ length: n }, (_, i) => `m-${i}`)
+// Zero-padded so string order is id order, as uuid order is in Postgres.
+const range = (n: number) => Array.from({ length: n }, (_, i) => `m-${String(i).padStart(5, '0')}`)
 
 interface RpcArgs extends Record<string, unknown> {
   p_limit: number
-  p_offset: number
+  p_after_id: string | null
 }
 
-/** Slices like PostgREST: the walk ends on an empty page; maxRows simulates a lower server cap. */
-function pagingRpc(rows: Record<string, unknown>[], maxRows = Infinity) {
+type Row = Record<string, unknown> & { id: string }
+
+/**
+ * Keyset pages like migration 086: rows with id > p_after_id, ORDER BY id,
+ * LIMIT p_limit; maxRows simulates a lower PostgREST cap. `rows` may be a
+ * function, re-evaluated per call, to model the set changing mid-walk.
+ */
+function pagingRpc(rows: Row[] | (() => Row[]), maxRows = Infinity) {
   const calls: Array<{ name: string; args: RpcArgs }> = []
   mockRpc.mockImplementation((name: string, args: RpcArgs) => {
     calls.push({ name, args })
+    const current = (typeof rows === 'function' ? rows() : rows).filter(
+      (r) => args.p_after_id === null || r.id > args.p_after_id
+    )
     const size = Math.min(args.p_limit, maxRows)
-    return Promise.resolve({ data: rows.slice(args.p_offset, args.p_offset + size), error: null })
+    return Promise.resolve({ data: current.slice(0, size), error: null })
   })
-  return { calls, offsets: () => calls.map((c) => c.args.p_offset) }
+  return { calls, afterIds: () => calls.map((c) => c.args.p_after_id) }
 }
 
 /** Call k receives pages[k]; models a row shifting across a page boundary mid-walk. */
@@ -96,7 +106,7 @@ function setupCampaignTags(tagRows: { tag_id: string }[]) {
 }
 
 const filterArgs = (args: RpcArgs) =>
-  Object.fromEntries(Object.entries(args).filter(([k]) => k !== 'p_limit' && k !== 'p_offset'))
+  Object.fromEntries(Object.entries(args).filter(([k]) => k !== 'p_limit' && k !== 'p_after_id'))
 
 describe('resolveTargetMembers (CAMP-016 single resolver)', () => {
   beforeEach(() => {
@@ -196,27 +206,45 @@ describe('resolveTargetMembers (CAMP-016 single resolver)', () => {
   it('pages 2,500 rows and ends on the empty page', async () => {
     const rpc = pagingRpc(memberRows(range(2500)))
     const result = await resolveTargetMembers(buildCampaign(), 'r-1')
-    expect(rpc.offsets()).toEqual([0, 1000, 2000, 2500])
+    expect(rpc.afterIds()).toEqual([null, 'm-00999', 'm-01999', 'm-02499'])
     expect(result).toHaveLength(2500)
   })
 
   it('resolves every row when the project max-rows is BELOW the page size', async () => {
     const rpc = pagingRpc(memberRows(range(1200)), 500)
     const result = await resolveTargetMembers(buildCampaign(), 'r-1')
-    expect(rpc.offsets()).toEqual([0, 500, 1000, 1200])
+    expect(rpc.afterIds()).toEqual([null, 'm-00499', 'm-00999', 'm-01199'])
     expect(new Set(result.map((m) => m.id)).size).toBe(1200)
+  })
+
+  // r3 F3: an OFFSET walk loses the boundary row when a page-1 member drops
+  // out (turns red, visits) between page fetches; the keyset walk does not.
+  it('a page-1 member dropping out between pages loses nobody else', async () => {
+    let live = memberRows(range(1500))
+    const rpc = pagingRpc(() => live)
+    mockRpc.mockImplementationOnce((name: string, args: RpcArgs) => {
+      rpc.calls.push({ name, args })
+      const page = live.slice(0, args.p_limit)
+      live = live.filter((r) => r.id !== 'm-00000') // flips after page 1 is read
+      return Promise.resolve({ data: page, error: null })
+    })
+    const result = await resolveTargetMembers(buildCampaign(), 'r-1')
+    const ids = new Set(result.map((m) => m.id))
+    expect(live.filter((r) => !ids.has(r.id))).toEqual([])
+    expect(ids.size).toBe(1500)
   })
 
   it('every page carries the same filters', async () => {
     const rpc = pagingRpc(memberRows(range(1500)))
     await resolveTargetMembers(buildCampaign({ audienceSkipQuality: 'red', audienceLapsedDays: 30 }), 'r-1')
+    expect(rpc.calls).toHaveLength(3)
     const [first, ...rest] = rpc.calls.map((c) => filterArgs(c.args))
     for (const page of rest) expect(page).toEqual(first)
   })
 
   it('yields a member once when two consecutive pages overlap', async () => {
     const page1 = memberRows(range(1000))
-    scriptedPagesRpc([page1, memberRows(['m-999', 'm-1000'])])
+    scriptedPagesRpc([page1, memberRows(['m-00999', 'm-01000'])])
     const result = await resolveTargetMembers(buildCampaign(), 'r-1')
     expect(result).toHaveLength(1001)
   })

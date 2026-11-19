@@ -2,7 +2,7 @@ import { Campaign } from '@/domain/entities/campaign'
 import { Member } from '@/domain/entities/member'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
 import { fetchAudienceMembersPage } from '@/infrastructure/supabase/repositories/campaign-audience-repository'
-import { dedupeById, readAllPages } from './resolve-campaign-members-chunks'
+import { dedupeById, readAllPagesAfterId } from './resolve-campaign-members-chunks'
 import { audienceQueryForCampaign } from './campaign-audience-query'
 
 // Exported so the migration-079 contract test can tie the RPCs' RETURNS
@@ -20,8 +20,9 @@ export const MEMBER_COLUMNS =
 // tag/selected audience silently dropped win-back's last-visit filter.
 //
 // Recipients never leave the database as an id list (#162): selection and tag
-// membership are joined in SQL, and the walk is p_limit/p_offset paged
-// because a set-returning RPC is truncated at PostgREST max-rows too.
+// membership are joined in SQL, and the walk is keyset paged (p_limit +
+// p_after_id) because a set-returning RPC is truncated at PostgREST max-rows
+// too, and an OFFSET walk drops a row when a member's rating changes mid-walk.
 export async function resolveTargetMembers(
   campaign: Campaign,
   restaurantId: string
@@ -33,9 +34,9 @@ export async function resolveTargetMembers(
   const tagIds = campaign.targetAudience === 'tag' ? await getCampaignTagIds(campaign.id) : []
   const query = audienceQueryForCampaign(campaign, restaurantId, tagIds)
   if (!query) return []
-  const rows = await readAllPages<Record<string, unknown>>(
+  const rows = await readAllPagesAfterId<Record<string, unknown> & { id: string }>(
     'resolveTargetMembers',
-    (from, to) => fetchAudienceMembersPage(query, from, to)
+    (afterId, limit) => fetchAudienceMembersPage(query, afterId, limit)
   )
   return dedupeById(rows.map(mapRowToMember))
 }

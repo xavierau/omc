@@ -26,12 +26,12 @@ export function audienceRpcArgs(q: AudienceQuery): Record<string, unknown> {
   }
 }
 
-/** One page of recipients, for readAllPages (p_limit/p_offset, ORDER BY id in SQL). */
-export function fetchAudienceMembersPage(q: AudienceQuery, from: number, to: number) {
+/** One keyset page of recipients for readAllPagesAfterId (id > afterId, ORDER BY id in SQL). */
+export function fetchAudienceMembersPage(q: AudienceQuery, afterId: string | null, limit: number) {
   return createServerSupabaseClient().rpc('campaign_audience_members', {
     ...audienceRpcArgs(q),
-    p_limit: to - from + 1,
-    p_offset: from,
+    p_limit: limit,
+    p_after_id: afterId,
   })
 }
 

@@ -52,6 +52,33 @@ export async function readAllPages<T>(
 }
 
 /**
+ * Walk a keyset-paged read: each page holds rows with id > the last id
+ * received, ordered by id, until an EMPTY page arrives (CAMP-016 r3).
+ *
+ * Use it where membership of the set can change while the walk runs and the
+ * server computes it per page — migration 086 rates contact quality per call,
+ * so a member turning red between two fetches would shift an OFFSET walk and
+ * drop the row on the page boundary. Resuming after an id cannot skip a row
+ * that is still in the set, and it is safe when `max-rows` is below
+ * `pageSize` (the cursor is the last row received, not a position).
+ */
+export async function readAllPagesAfterId<T extends { id: string }>(
+  label: string,
+  fetchPage: (afterId: string | null, limit: number) => PromiseLike<PageResult<T>>,
+  pageSize: number = READ_PAGE_SIZE
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let afterId: string | null = null; ; ) {
+    const { data, error } = await fetchPage(afterId, pageSize)
+    if (error) throw new Error(`${label}: ${error.message}`)
+    const page = data ?? []
+    if (page.length === 0) return rows
+    rows.push(...page)
+    afterId = page[page.length - 1].id
+  }
+}
+
+/**
  * Keep the FIRST occurrence of each `id` across the WHOLE walk.
  *
  * Server-side dedupe (`DISTINCT ON (m.id)` in migration 079) can only see

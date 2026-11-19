@@ -102,7 +102,7 @@ async function sendArgs(body: Body) {
   const calls = recordRpc()
   await resolveTargetMembers(createdCampaign(body), RID)
   const call = calls.find((c) => c.name === 'campaign_audience_members')!
-  return without(call.args, 'p_limit', 'p_offset')
+  return without(call.args, 'p_limit', 'p_after_id')
 }
 
 beforeEach(() => {
