@@ -1,0 +1,16 @@
+2026-11-19T08:21:54Z
+HTTP 201 bytes=4833 -> /home/forge/backups/2026-11-19-book-003/after-catalog.json
+HTTP 201 bytes=1342 -> /home/forge/backups/2026-11-19-book-003/after-extra.json
+booking_requests_status_check => CHECK ((status = ANY (ARRAY['unverified'::text, 'pending'::text, 'confirmed'::text, 'declined'::text])))
+booking_requests_source_check => CHECK ((source = ANY (ARRAY['chat'::text, 'campaign'::text, 'agent'::text])))
+booking_requests_decision_consistent => CHECK (((status = ANY (ARRAY['unverified'::text, 'pending'::text])) = (decided_at IS NULL)))
+booking_requests_unverified_has_code => CHECK (((status <> 'unverified'::text) OR ((confirm_code IS NOT NULL) AND (verify_expires_at IS NOT NULL))))
+other new checks: {'booking_requests_confirm_code_check': "CHECK (((confirm_code IS NULL) OR (confirm_code ~ '^[2-9A-HJ-NP-Z]{6}$'::text)))", 'booking_requests_idempotency_key_check': 'CHECK (((idempotency_key IS NULL) OR ((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 255))))', 'booking_requests_status_token_hash_check': "CHECK (((status_token_hash IS NULL) OR (status_token_hash ~ '^[0-9a-f]{64}$'::text)))", 'booking_requests_unverified_has_code': "CHECK (((status <> 'unverified'::text) OR ((confirm_code IS NOT NULL) AND (verify_expires_at IS NOT NULL))))"}
+ledger_tail ['081', '082', '083', '084'] 084 [{'version': '084', 'name': 'agent_booking'}]
+new columns ['confirm_code:text', 'verify_expires_at:timestamp with time zone', 'verified_at:timestamp with time zone', 'verified_wamid:text', 'status_token_hash:text', 'idempotency_key:text']
+indexes ['booking_requests_pkey', 'booking_requests_reminder_due_idx', 'booking_requests_restaurant_confirm_code_idx', 'booking_requests_restaurant_created_idx', 'booking_requests_restaurant_idempotency_key_idx', 'booking_requests_restaurant_phone_status_idx', 'booking_requests_restaurant_status_created_idx', 'booking_requests_retention_idx', 'booking_requests_token_key', 'booking_requests_unverified_created_idx']
+restaurants_agent_booking_public_id_idx True CREATE UNIQUE INDEX restaurants_agent_booking_public_id_idx ON public.restaurants USING btree ((((booking_config -> 'agentBooking'::text) ->> 'publicId'::text))) WHERE (((booking_config -> 'agentBooking'::text) ->> 'publicId'::text) IS NOT NULL)
+promote_agent_booking True ['p_restaurant_id uuid, p_phone text, p_codes text[], p_wamid text, p_at timestamp with time zone, p_max_pending integer'] exec anon/auth/service: False False True
+counts {'restaurants': 7, 'booking_requests': 0, 'members': 4227} agentBooking key 0 enabled 0
+9241174c99a924da9f77592be4a6b633129e56e4e54bf1ea215d8f2ad5178fab  /home/forge/backups/2026-11-19-book-003/after-catalog.json
+35406a62847818eadfea3dc1975b09a7c3824bc5f191ba3abbd6a42912f759f3  /home/forge/backups/2026-11-19-book-003/after-extra.json

@@ -1,0 +1,26 @@
+2026-11-19T08:25:31Z
+== job 2216322
+2026-11-19T08:25:01Z booking-reminders: requesting https://app.ohmyclient.io/api/cron/booking-reminders
+2026-11-19T08:25:01Z booking-reminders: {"candidates":0,"due":0,"sent":0,"notDelivered":0,"claimLost":0,"unverifiedDeleted":0}
+== daemons
+daemon-746791:daemon-746791_00   RUNNING   pid 3129625, uptime 0:05:27
+daemon-801730:daemon-801730_00   RUNNING   pid 3129734, uptime 0:05:24
+    PID     ELAPSED CMD
+3129673       05:27 next-server (v16.3.4)
+== app log since restart
+✓ Ready in 708ms
+✓ Running next.config.ts took 674ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[AgentBooking] rate limiter unavailable, allowing: Error
+app fatal-ish: 0
+== worker log since restart
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+worker fatal-ish: 0
+== box
+/dev/root          58447 30969     27462  54% /
+MemAvailable:    2317740 kB
+SwapFree:         164924 kB
+ 08:25:32 up 55 days,  3:07,  1 user,  load average: 0.55, 0.39, 0.25

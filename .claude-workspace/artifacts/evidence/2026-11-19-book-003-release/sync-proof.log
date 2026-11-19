@@ -1,0 +1,14 @@
+tip f8a0a0713f888015d2a3de5db78623d862cad1ea
+origin/develop 230a61beeee987b7b2865bef88c85651a8fef5e4 origin/main 091b36ba6f3ca34df80d68d5bc3ca81aeac67461
+files vs origin/develop:
+.claude-workspace/active/deploys.md
+.claude-workspace/artifacts/2026-11-12-book-001-rel-handoff.md
+.claude-workspace/artifacts/2026-11-12-book-001-rel2-handoff.md
+.claude-workspace/artifacts/2026-11-13-book-002-rel-handoff.md
+.claude-workspace/deploys/2026-11-12-book-001-release-runbook.md
+.claude-workspace/poc-log.md
+non-workspace count: 0
+origin/main is ancestor of tip: yes
+main poc-log lines missing from tip: 0 (python set check; an earlier grep -vxFf count of 2 was an empty-line pattern artifact)
+main-only files differing from tip:        0
+pushed: ls-remote refs\/heads\/chore\/sync-main-into-develop-book003 = f8a0a0713f888015d2a3de5db78623d862cad1ea = local
