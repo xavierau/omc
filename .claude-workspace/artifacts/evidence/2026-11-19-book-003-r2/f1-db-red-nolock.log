@@ -1,0 +1,33 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts (13 tests | 1 failed | 12 skipped) 780ms
+     × F1: two concurrent promotions for one phone with room for one → exactly one wins (advisory lock) 556ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > F1: two concurrent promotions for one phone with room for one → exactly one wins (advisory lock)
+AssertionError: expected [ …(2) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:185:51
+    183|         psqlAsync(promote(P1, 'L2M3N5', `wamid.r${round}b`)),
+    184|       ])
+    185|       expect(results.filter((r) => r.length > 0)).toHaveLength(1)
+       |                                                   ^
+    186|       expect(psql(`SELECT count(*) FROM booking_requests WHERE restaur…
+    187|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  11:17:56
+   Duration  1.03s (transform 27ms, setup 0ms, import 38ms, tests 780ms, environment 0ms)
+

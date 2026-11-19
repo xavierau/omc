@@ -25,7 +25,7 @@ export const DECIDED_BOOKINGS_LIST_LIMIT = 200
 
 /** BOOK-003 (R41): an agent booking must be confirmed on WhatsApp within this time. */
 export const AGENT_VERIFY_TTL_MS = 30 * 60_000
-/** BOOK-003 (R41): unverified rows older than this are deleted by the retention job. */
+/** BOOK-003 (R41): unverified rows older than this are deleted by the 5-minute booking-reminders cron (review F3). */
 export const UNVERIFIED_RETENTION_MS = 60 * 60_000
 /** BOOK-003 (R39): live unverified bookings one phone may hold at one restaurant. */
 export const MAX_UNVERIFIED_PER_PHONE = 3

@@ -19,6 +19,7 @@ import {
   unverifiedBookingPurgeStore,
 } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { agentBookingSecrets } from './agent-booking-secrets'
+import { resolveAgentAppUrl } from './agent-booking-settings'
 import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
@@ -26,6 +27,7 @@ import type { DecideBookingDeps } from './decide-booking-request'
 import type { ResolveBookingLinkDeps } from './resolve-booking-link'
 import type { SendBookingRemindersDeps } from './send-booking-reminders'
 import type { PurgeBookingPiiDeps } from './purge-booking-pii'
+import type { PurgeUnverifiedBookingsDeps } from './purge-unverified-bookings'
 import type { CreateAgentBookingDeps } from './create-agent-booking'
 import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
 import type { VerifyAgentBookingDeps } from './verify-agent-booking'
@@ -35,7 +37,8 @@ const now = () => new Date()
 
 /** BOOK-003 (R44): the privacy link in the collection statement, as BOOK-001 R18's page. */
 export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy-policy.html'
-const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? ''
+/** Review F6: null unless https (http://localhost outside production); the agent routes then answer 500. */
+const appUrl = () => resolveAgentAppUrl(process.env.NEXT_PUBLIC_APP_URL, process.env.NODE_ENV)
 
 const members: BookingMemberLookup = {
   async findMemberId(restaurantId, phone) {
@@ -83,7 +86,12 @@ export function bookingReminderDeps(): SendBookingRemindersDeps {
 
 /** W3 (R19): the retention cron. */
 export function bookingRetentionDeps(): PurgeBookingPiiDeps {
-  return { store: bookingCronStore, unverified: unverifiedBookingPurgeStore, now }
+  return { store: bookingCronStore, now }
+}
+
+/** BOOK-003 (R41, review F3): the unverified purge step of the 5-minute reminders cron. */
+export function unverifiedBookingPurgeDeps(): PurgeUnverifiedBookingsDeps {
+  return { store: unverifiedBookingPurgeStore, now }
 }
 
 /** BOOK-003: the public agent API (create). */

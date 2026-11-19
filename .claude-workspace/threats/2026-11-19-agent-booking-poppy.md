@@ -73,7 +73,7 @@ PDPO (Cap. 486):
 - DPP1 collection purpose: the diner sees a collection statement in the WhatsApp reply when
   they confirm (who receives it, purpose, privacy link), and the agent gets the same text in
   the POST response and the OpenAPI description (R44). Data collected is the BOOK-001 set only.
-- DPP2 retention: unverified rows are deleted 30 minutes after expiry by the retention job
+- DPP2 retention: unverified rows are deleted 30 minutes after expiry by the */5 reminders job
   (R41); verified rows follow BOOK-001 R19 (name/notes cleared 180 days after the booking date).
 - DPP3 use: booking handling only; no member enrolment, no marketing consent (R42, BOOK-001 R21).
 - DPP4 security: R31–R39.
@@ -108,7 +108,7 @@ needs the supply-chain-guard scan before merge; none expected.
 | R38 | All agent API responses send `Cache-Control: no-store` and `Referrer-Policy: no-referrer`; JSON only. | Route test asserts headers on 2xx and 4xx. | Build |
 | R39 | Rate limits: POST per client IP 10/min (existing limiter, `extractTrustedClientIp`); at most 3 live unverified bookings per phone per restaurant and 30 live unverified per restaurant → 429 with `Retry-After`. | Tests for each cap. | Build |
 | R40 | The `Poppy-Session` header is accepted and ignored; no behaviour depends on it or on any agent-supplied identity. | Test: same request with/without/garbage `Poppy-Session` → identical result. | Build |
-| R41 | Unverified bookings expire 30 min after creation; the existing booking-retention job deletes unverified rows older than 1 hour. Staff list, reminders and decision routes exclude `unverified`. | Purge test on fixtures; list/reminder/confirm tests with an unverified row → excluded / 404. | Build |
+| R41 | Unverified bookings expire 30 min after creation; unverified rows older than 1 hour are deleted by the existing */5 booking-reminders job (revised 2026-11-19 after review of PR #186: booking-retention runs daily, so it cannot meet 1 h). Staff list, reminders and decision routes exclude `unverified`. | Purge test on fixtures; list/reminder/confirm tests with an unverified row → excluded / 404. | Build |
 | R42 | The agent API writes only one `booking_requests` row (status `unverified`) and nothing else: no member, consent, message, coupon. | Test: create → no other repository writes, no sender call. | Build |
 | R43 | Agent booking is off by default per restaurant; enabling it, rotating the agent booking id (old id → 404 at once) and downloading poppy.json require tenant admin; it works only when booking mode is `simple`. | Settings route tests (non-admin → 403); API with disabled/rotated id or mode ≠ simple → 404. | Build |
 | R44 | Collection statement (zh-HK and en, same text as BOOK-001 R18) is in the POST response, the OpenAPI description, and the WhatsApp "received" reply after verification. | Response and reply-builder tests assert the statement and privacy link. | Build |

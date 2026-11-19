@@ -6,12 +6,14 @@
  * Toggle + website host, its own Save; once on, download poppy.json (the
  * restaurant hosts it at /.well-known/poppy.json) and rotate the agent
  * booking id.
+ * Review F4: the state comes from the parent section (which calls
+ * useAgentBookingSettings), so leaving Simple and coming back keeps the saved
+ * agent state instead of reseeding it from the page-load config.
  */
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useAgentBookingSettings, type AgentBookingOutcome } from '@/hooks/use-booking-settings'
-import type { AgentBookingConfig } from '@/domain/value-objects/booking-config'
+import type { AgentBookingOutcome, AgentBookingSettingsState } from '@/hooks/use-booking-settings'
 
 const ERROR_KEYS: Record<string, string> = {
   error: 'saveFailed',
@@ -50,9 +52,9 @@ function FileActions({ host, busy, onDownload, onRotate }: { host: string; busy:
   )
 }
 
-export function BookingAgentSettings({ initial }: { initial: AgentBookingConfig }) {
+export function BookingAgentSettings({ agent }: { agent: AgentBookingSettingsState }) {
   const t = useTranslations('bookingSettings.agent')
-  const { stored, form, update, save, rotate, download, busy, outcome } = useAgentBookingSettings(initial)
+  const { stored, form, update, save, rotate, download, busy, outcome } = agent
   const errors = outcome?.kind === 'fields' ? outcome.errors : {}
   const live = stored.enabled && stored.websiteHost
   return (

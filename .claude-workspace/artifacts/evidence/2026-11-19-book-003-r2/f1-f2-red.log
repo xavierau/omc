@@ -1,0 +1,128 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts (18 tests | 5 failed) 25ms
+     × F1 (BOOK-001 R11): three pending at this restaurant → the code promotes nothing, nothing sent, normal routing 5ms
+     × F1: two codes in one text with room for one more pending → one promotion, one message 2ms
+     × F2: agent booking turned off → the code promotes nothing, nothing sent, normal routing 2ms
+     × F2: booking mode external → the code promotes nothing, nothing sent, normal routing 1ms
+     × F2: booking mode off → the code promotes nothing, nothing sent, normal routing 1ms
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts (40 tests | 2 failed) 80ms
+     × F1 (BOOK-001 R11): pending + live unverified for the phone at this restaurant >= 3 → 429, no insert 6ms
+     × F1 (BOOK-001 R11): three pending at this restaurant → 429 even with no unverified booking 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > POST /api/poppy/{publicId}/bookings > F1 (BOOK-001 R11): pending + live unverified for the phone at this restaurant >= 3 → 429, no insert
+AssertionError: expected 202 to be 429 // Object.is equality
+
+- Expected
++ Received
+
+- 429
++ 202
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:218:24
+    216|     const inserts = store.calls.filter((c) => c === 'insert').length
+    217|     const res = await post(BODY, { ip: '198.51.100.2' })
+    218|     expect(res.status).toBe(429)
+       |                        ^
+    219|     expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0)
+    220|     expect(store.calls.filter((c) => c === 'insert').length).toBe(inse…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > POST /api/poppy/{publicId}/bookings > F1 (BOOK-001 R11): three pending at this restaurant → 429 even with no unverified booking
+AssertionError: expected 202 to be 429 // Object.is equality
+
+- Expected
++ Received
+
+- 429
++ 202
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:229:39
+    227|   it('F1 (BOOK-001 R11): three pending at this restaurant → 429 even w…
+    228|     for (let i = 0; i < 3; i++) store.seedPending(A, PHONE, 'chat')
+    229|     expect((await post(BODY)).status).toBe(429)
+       |                                       ^
+    230|     expect(store.rows.filter((r) => r.status === 'unverified')).toEqua…
+    231|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > F1 (BOOK-001 R11): three pending at this restaurant → the code promotes nothing, nothing sent, normal routing
+AssertionError: expected undefined to match object { status: 'unverified', …(1) }
+
+- Expected:
+{
+  "status": "unverified",
+  "verifiedAt": null,
+}
+
++ Received:
+undefined
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts:185:22
+    183|     await routeMessage(msg({}), R)
+    184|     const agentRow = store.rows.find((r) => r.confirmCode === 'K7PX3M')
+    185|     expect(agentRow).toMatchObject({ status: 'unverified', verifiedAt:…
+       |                      ^
+    186|     expect(store.rows.filter((r) => r.status === 'pending')).toHaveLen…
+    187|     expect(sender.sent).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > F1: two codes in one text with room for one more pending → one promotion, one message
+AssertionError: expected [ { …(23) }, { …(23) }, …(2) ] to have a length of 3 but got 4
+
+- Expected
++ Received
+
+- 3
++ 4
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts:198:62
+    196|     await seed({ code: 'Q2W3E4' })
+    197|     await routeMessage(msg({ text: 'K7PX3M Q2W3E4' }), R)
+    198|     expect(store.rows.filter((r) => r.status === 'pending')).toHaveLen…
+       |                                                              ^
+    199|     expect(sender.sent).toHaveLength(1)
+    200|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > F2: agent booking turned off → the code promotes nothing, nothing sent, normal routing
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > F2: booking mode external → the code promotes nothing, nothing sent, normal routing
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > F2: booking mode off → the code promotes nothing, nothing sent, normal routing
+AssertionError: expected { …(23) } to match object { status: 'unverified', …(2) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "confirmCode": "K7PX3M",
+-   "status": "unverified",
+-   "verifiedAt": null,
++   "confirmCode": null,
++   "status": "pending",
++   "verifiedAt": "2026-11-19T02:10:00.000Z",
+  }
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts:218:27
+    216|     await seed()
+    217|     await routeMessage(msg({}), R)
+    218|     expect(store.rows[0]).toMatchObject({ status: 'unverified', confir…
+       |                           ^
+    219|     expect(store.calls).not.toContain('promote')
+    220|     expect(sender.sent).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 51 passed (58)
+   Start at  11:15:02
+   Duration  466ms (transform 281ms, setup 0ms, import 423ms, tests 106ms, environment 0ms)
+

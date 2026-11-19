@@ -121,6 +121,29 @@ describe('agent booking settings routes (R43)', () => {
     })
   })
 
+  it('F7: download answers 409 not_enabled once booking mode is not Simple, even with agent booking on', async () => {
+    as('admin')
+    await put({ enabled: true, websiteHost: 'www.cafe-a.hk' })
+    for (const mode of ['external', 'off'] as const) {
+      config = { ...config, mode }
+      const res = await DOWNLOAD()
+      expect(res.status, mode).toBe(409)
+      expect(await res.json()).toEqual({ error: 'not_enabled' })
+    }
+  })
+
+  it('F6: without a usable NEXT_PUBLIC_APP_URL the download is 500 server_error, logged by error name only', async () => {
+    as('admin')
+    await put({ enabled: true, websiteHost: 'www.cafe-a.hk' })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(agentBookingSettingsDeps).mockReturnValue({ ...vi.mocked(agentBookingSettingsDeps)(), appUrl: null })
+    const res = await DOWNLOAD()
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'server_error' })
+    expect(errors.mock.calls).toEqual([[expect.any(String), 'AgentAppUrlError']])
+    errors.mockRestore()
+  })
+
   it('the main booking settings save never touches agentBooking', async () => {
     const { applyBookingSettings } = await import('@/domain/value-objects/booking-config')
     as('admin')

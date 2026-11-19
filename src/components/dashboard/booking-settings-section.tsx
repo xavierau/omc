@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { needsExternalUrl, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
+import { needsExternalUrl, useAgentBookingSettings, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
 import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability'
 import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overview'
 import { BookingTemplateStatusList } from './booking-template-status-list'
@@ -68,6 +68,9 @@ function ModePicker({ form, update }: { form: BookingSettingsForm; update: Updat
 export function BookingSettingsSection({ initialConfig }: { initialConfig: BookingConfig }) {
   const t = useTranslations('bookingSettings')
   const { form, update, save, saving, outcome } = useBookingSettings(initialConfig)
+  // BOOK-003 review F4: held here, above the mode switch, so the agent block's
+  // saved state survives Simple → External → Simple without a save.
+  const agent = useAgentBookingSettings(initialConfig.agentBooking)
   const errors = outcome?.kind === 'fields' ? outcome.errors : {}
   const missingUrl = needsExternalUrl(form)
   // W3: statuses from GET on load, then from each save's response.
@@ -109,7 +112,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
             ) : null}
           </>
         ) : null}
-        {form.mode === 'simple' ? <BookingAgentSettings initial={initialConfig.agentBooking} /> : null}
+        {form.mode === 'simple' ? <BookingAgentSettings agent={agent} /> : null}
         <div className="flex items-center gap-3">
           <Button onClick={save} disabled={saving || missingUrl} data-testid="booking-settings-save">{saving ? t('saving') : t('save')}</Button>
           {outcome?.kind === 'saved' ? <p data-testid="booking-settings-saved" role="status" className="text-xs text-muted-foreground">{t('saved')}</p> : null}

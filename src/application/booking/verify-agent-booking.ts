@@ -12,12 +12,12 @@
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText } from '@/domain/services/poppy-documents'
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import type { AgentBookingStore, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
 
 export interface VerifyAgentBookingDeps {
   store: Pick<AgentBookingStore, 'promote'>
-  settings: Pick<BookingSettingsReader, 'getRestaurant'>
+  settings: Pick<BookingSettingsReader, 'getConfig' | 'getRestaurant'>
   sender: BookingMessageSender
   /** Free text inside the window the diner's own message just opened; never throws. */
   sendText(restaurantId: string, phone: string, text: string): Promise<void>
@@ -44,8 +44,11 @@ async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest
 export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<{ handled: boolean }> {
   const codes = extractConfirmCodeCandidates(message.text)
   if (codes.length === 0) return { handled: false }
+  const { mode, agentBooking } = await deps.settings.getConfig(message.restaurantId)
+  if (!agentBooking.enabled || mode !== 'simple') return { handled: false }
   const promoted = await deps.store.promote({
     restaurantId: message.restaurantId, phone: message.phone, codes, wamid: message.wamid, at: deps.now(),
+    maxPending: MAX_PENDING_PER_PHONE,
   })
   for (const booking of promoted) await acknowledge(deps, booking)
   return { handled: promoted.length > 0 }

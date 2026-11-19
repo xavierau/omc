@@ -118,6 +118,8 @@ export interface PromoteAgentBookingArgs {
   codes: string[]
   wamid: string
   at: Date
+  /** BOOK-001 R11 (review F1): promote only while the phone holds fewer pending requests here than this. */
+  maxPending: number
 }
 
 /** BOOK-003: agent bookings (`booking_requests` rows with source 'agent'). */
@@ -126,6 +128,8 @@ export interface AgentBookingStore {
   insert(booking: NewAgentBooking): Promise<InsertAgentBookingResult>
   /** Unverified bookings still inside their 30 minutes; `phone` narrows to one diner (R39). */
   countLiveUnverified(restaurantId: string, now: Date, phone?: string): Promise<number>
+  /** BOOK-001 R11 (review F1): pending requests of any source for this phone at this restaurant. */
+  countPending(restaurantId: string, phone: string): Promise<number>
   findByIdempotencyKey(restaurantId: string, key: string): Promise<AgentBooking | null>
   /** Any status, scoped by restaurant; for the agent's status read only. */
   find(id: string, restaurantId: string): Promise<AgentBooking | null>
@@ -133,8 +137,10 @@ export interface AgentBookingStore {
   replaceStatusToken(id: string, restaurantId: string, statusTokenHash: string): Promise<void>
   /**
    * R31/R32: one conditional UPDATE unverified -> pending where the code
-   * matches, the phone is the sender's and it has not expired. Returns the
-   * rows it changed (none on a replay or any mismatch).
+   * matches, the phone is the sender's and it has not expired, and (review
+   * F1) only while the phone has fewer than `maxPending` pending requests at
+   * the restaurant, decided in the same transaction. Returns the rows it
+   * changed (none on a replay, any mismatch or a full cap).
    */
   promote(args: PromoteAgentBookingArgs): Promise<BookingRequest[]>
 }

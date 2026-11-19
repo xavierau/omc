@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-import { generatePoppyJson } from '@/application/booking/agent-booking-settings'
+import { AgentAppUrlError, generatePoppyJson } from '@/application/booking/agent-booking-settings'
 import { agentBookingSettingsDeps } from '@/application/booking/booking-deps'
 
 export async function GET() {
@@ -28,6 +28,8 @@ export async function GET() {
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.statusCode })
     console.error('[AgentBookingSettings] poppy.json failed:', (error as Error).name)
+    // F6: no usable NEXT_PUBLIC_APP_URL, so no absolute OpenAPI URL to put in the file.
+    if (error instanceof AgentAppUrlError) return NextResponse.json({ error: 'server_error' }, { status: 500 })
     return NextResponse.json({ error: 'Failed to generate poppy.json' }, { status: 500 })
   }
 }

@@ -97,7 +97,9 @@ export function normalizeWebsiteHost(raw: unknown): string | null {
   if (port === undefined) return value
   const n = Number(port)
   if (n < 1 || n > 65535) return null
-  return n === 443 ? value.slice(0, -':443'.length) : value
+  // Review F9: rebuilt from the parsed parts, so ':0443' is 443 and ':08443' is 8443.
+  const host = value.slice(0, value.length - port.length - 1)
+  return n === 443 ? host : `${host}:${n}`
 }
 
 function resolveAgentBooking(raw: unknown): AgentBookingConfig {

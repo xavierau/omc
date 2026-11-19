@@ -9,7 +9,7 @@ import {
   isConfirmCode,
 } from '../booking-confirm-code'
 import { agentBookingStatus } from '../agent-booking'
-import { buildCollectionStatement, buildConfirmText, collectionStatementText } from '../poppy-documents'
+import { buildAgentBookingOpenApi, buildCollectionStatement, buildConfirmText, collectionStatementText } from '../poppy-documents'
 import {
   DEFAULT_BOOKING_CONFIG,
   normalizeWebsiteHost,
@@ -46,6 +46,15 @@ describe('confirm code (R31)', () => {
     expect(extractConfirmCodeCandidates('AB10CD K7PX3MX')).toEqual([])
     expect(extractConfirmCodeCandidates('A2BCDE A3BCDE A4BCDE A5BCDE')).toHaveLength(3)
   })
+
+  it('F5: a restaurant name full of code-like words never pushes the real code out of the candidates', () => {
+    // The brief's name has 2 code-shaped tokens (2NDFLR, B2CAFE): with the code that is exactly 3, so one
+    // more (3RDFLR) is needed to overflow MAX_CODE_CANDIDATES.
+    for (const name of ['K11 MUSEA 2NDFLR B2CAFE', 'K11 MUSEA 2NDFLR B2CAFE 3RDFLR']) {
+      expect(extractConfirmCodeCandidates(buildConfirmText(name, 'K7PX3M'))).toContain('K7PX3M')
+    }
+    expect(extractConfirmCodeCandidates('A2BCDE A3BCDE A4BCDE A5BCDE')).toHaveLength(3)
+  })
 })
 
 describe('agent booking config (R43)', () => {
@@ -76,9 +85,13 @@ describe('website host = organization.domain (spec 3.1)', () => {
     ['https://cafe.hk/', 'cafe.hk'],
     ['cafe.hk:8443', 'cafe.hk:8443'],
     ['cafe.hk:443', 'cafe.hk'],
+    // F9: the port is rebuilt from its number, so leading zeros never leave a stray ':' or digit.
+    ['www.x.hk:0443', 'www.x.hk'],
+    ['https://www.x.hk:00443/', 'www.x.hk'],
+    ['cafe.hk:08443', 'cafe.hk:8443'],
   ])('%s → %s', (raw, host) => expect(normalizeWebsiteHost(raw)).toBe(host))
 
-  it.each(['http://cafe.hk', 'cafe.hk/path', 'cafe.hk?x=1', 'localhost', 'user@cafe.hk', 'cafe .hk', '-cafe.hk', 'cafe.hk:0', ''])(
+  it.each(['http://cafe.hk', 'cafe.hk/path', 'cafe.hk?x=1', 'localhost', 'user@cafe.hk', 'cafe .hk', '-cafe.hk', 'cafe.hk:0', 'cafe.hk:00000', 'cafe.hk:65536', ''])(
     'rejects %s',
     (raw) => expect(normalizeWebsiteHost(raw)).toBeNull()
   )
@@ -102,5 +115,30 @@ describe('collection statement (R44)', () => {
     expect(text).toContain(s.en)
     expect(text).toContain(s['zh-HK'])
     expect(text).toContain('https://ohmyclient.io/privacy-policy.html')
+  })
+})
+
+describe('OpenAPI description (review F10)', () => {
+  const doc = buildAgentBookingOpenApi({
+    restaurantName: 'Cafe A',
+    apiBaseUrl: 'https://app.ohmyclient.io/api/poppy/PID',
+    maxPartySize: 20,
+    statement: buildCollectionStatement('Cafe A', 'https://p.example/privacy'),
+  })
+  const create = doc.paths['/bookings'].post.responses as Record<string, { content?: Record<string, { schema: unknown }> }>
+  const get = doc.paths['/bookings/{booking_id}'].get.responses as Record<string, { content?: Record<string, { schema: unknown }> }>
+
+  it('documents the Idempotency-Key replay: 200 with the status view, a fresh status_token and the statement', () => {
+    expect(create['200'].content?.['application/json'].schema).toEqual({ $ref: '#/components/schemas/ReplayedBooking' })
+    const replayed = doc.components.schemas.ReplayedBooking
+    expect(replayed.allOf[0]).toEqual({ $ref: '#/components/schemas/BookingStatus' })
+    expect(JSON.stringify(replayed)).toContain('"status_token"')
+    expect(JSON.stringify(replayed)).toContain('#/components/schemas/CollectionStatement')
+  })
+
+  it('documents 500 server_error on both operations', () => {
+    for (const responses of [create, get]) {
+      expect(responses['500'].content?.['application/json'].schema).toEqual({ $ref: '#/components/schemas/Error' })
+    }
   })
 })

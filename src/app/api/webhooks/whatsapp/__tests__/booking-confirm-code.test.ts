@@ -47,8 +47,10 @@ const PHONE = '+85291234567'
 const OTHER = '+85298765432'
 const NOW = new Date('2026-11-19T02:10:00.000Z')
 const CONFIRM_TEXT = '確認Cafe A訂座 Confirm my booking at Cafe A: K7PX3M'
+const AGENT_ON = { enabled: true, publicId: 'P'.repeat(32), websiteHost: 'www.cafe-a.hk' }
 
 let store: FakeAgentBookingStore
+let settings: FakeBookingSettings
 let sender: FakeBookingSender
 let texts: Array<{ restaurantId: string; phone: string; text: string }>
 let now: Date
@@ -57,11 +59,11 @@ function msg(partial: Partial<KapsoMessage>): KapsoMessage {
   return { messageId: 'wamid.1', from: PHONE, type: 'text', timestamp: '1700000000', text: CONFIRM_TEXT, ...partial } as KapsoMessage
 }
 
-async function seed(patch: { verifyExpiresAt?: string; restaurantId?: string } = {}) {
+async function seed(patch: { verifyExpiresAt?: string; restaurantId?: string; code?: string } = {}) {
   store.createdAt = () => new Date('2026-11-19T02:00:00.000Z')
   await store.insert({
     restaurantId: patch.restaurantId ?? R, phone: PHONE, name: 'Chan Tai Man', partySize: 4, bookingDate: '2026-11-20',
-    bookingTime: '19:30', notes: null, confirmCode: 'K7PX3M', verifyExpiresAt: patch.verifyExpiresAt ?? '2026-11-19T02:30:00.000Z',
+    bookingTime: '19:30', notes: null, confirmCode: patch.code ?? 'K7PX3M', verifyExpiresAt: patch.verifyExpiresAt ?? '2026-11-19T02:30:00.000Z',
     statusTokenHash: 'a'.repeat(64), idempotencyKey: null,
   })
   return store.rows[store.rows.length - 1]
@@ -73,8 +75,9 @@ beforeEach(() => {
   sender = new FakeBookingSender()
   texts = []
   now = NOW
-  const settings = new FakeBookingSettings()
+  settings = new FakeBookingSettings()
   settings.restaurants.set(R, { name: 'Cafe A', logoUrl: null, whatsappNumber: '+85230001111' })
+  settings.setConfig(R, { mode: 'simple', agentBooking: AGENT_ON })
   vi.mocked(verifyAgentBookingDeps).mockImplementation(() => ({
     store,
     settings,
@@ -171,6 +174,51 @@ describe('BOOK-003 confirm code in routeMessage (AC-4)', () => {
     }
     await seed()
     await routeMessage(msg({}), R)
+    expect(handleUnknown).toHaveBeenCalledTimes(1)
+  })
+
+  it('F1 (BOOK-001 R11): three pending at this restaurant → the code promotes nothing, nothing sent, normal routing', async () => {
+    for (let i = 0; i < 3; i++) store.seedPending(R, PHONE, 'chat')
+    await seed()
+    await routeMessage(msg({}), R)
+    const agentRow = store.rows.find((r) => r.confirmCode === 'K7PX3M')
+    expect(agentRow).toMatchObject({ status: 'unverified', verifiedAt: null })
+    expect(store.rows.filter((r) => r.status === 'pending')).toHaveLength(3)
+    expect(sender.sent).toEqual([])
+    expect(texts).toEqual([])
+    expect(handleUnknown).toHaveBeenCalledTimes(1)
+  })
+
+  it('F1: two codes in one text with room for one more pending → one promotion, one message', async () => {
+    store.seedPending(R, PHONE, 'chat')
+    store.seedPending(R, PHONE, 'agent')
+    await seed({ code: 'K7PX3M' })
+    await seed({ code: 'Q2W3E4' })
+    await routeMessage(msg({ text: 'K7PX3M Q2W3E4' }), R)
+    expect(store.rows.filter((r) => r.status === 'pending')).toHaveLength(3)
+    expect(sender.sent).toHaveLength(1)
+  })
+
+  it('F1: pending at another restaurant does not block the code here', async () => {
+    for (let i = 0; i < 3; i++) store.seedPending('rest-b', PHONE, 'chat')
+    await seed()
+    await routeMessage(msg({}), R)
+    expect(store.rows.find((r) => r.verifiedWamid === 'wamid.1')).toBeDefined()
+    expect(sender.sent).toHaveLength(1)
+  })
+
+  it.each([
+    ['agent booking turned off', { mode: 'simple' as const, agentBooking: { ...AGENT_ON, enabled: false } }],
+    ['booking mode external', { mode: 'external' as const, externalUrl: 'https://book.example', agentBooking: AGENT_ON }],
+    ['booking mode off', { mode: 'off' as const, agentBooking: AGENT_ON }],
+  ])('F2: %s → the code promotes nothing, nothing sent, normal routing', async (_label, config) => {
+    settings.setConfig(R, config)
+    await seed()
+    await routeMessage(msg({}), R)
+    expect(store.rows[0]).toMatchObject({ status: 'unverified', confirmCode: 'K7PX3M', verifiedAt: null })
+    expect(store.calls).not.toContain('promote')
+    expect(sender.sent).toEqual([])
+    expect(texts).toEqual([])
     expect(handleUnknown).toHaveBeenCalledTimes(1)
   })
 

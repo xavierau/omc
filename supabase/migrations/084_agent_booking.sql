@@ -3,8 +3,9 @@
 -- An agent books through a signed-out public API; the booking stays
 -- 'unverified' (invisible to staff, never messaged) until a WhatsApp text
 -- carrying its confirm code arrives FROM the booking phone. Promotion is one
--- conditional UPDATE unverified -> pending. Unverified rows expire 30 minutes
--- after creation and the booking-retention job deletes them after one hour.
+-- RPC (section 4): a conditional UPDATE unverified -> pending, held to
+-- BOOK-001's per-phone pending cap. Unverified rows expire 30 minutes after
+-- creation and the */5 booking-reminders job deletes them after one hour.
 -- Plan: .claude-workspace/plans/2026-11-19-agent-booking-poppy.md;
 -- threats: threats/2026-11-19-agent-booking-poppy.md (R31-R46).
 
@@ -75,3 +76,58 @@ CREATE INDEX booking_requests_unverified_created_idx
 CREATE UNIQUE INDEX restaurants_agent_booking_public_id_idx
   ON restaurants ((booking_config -> 'agentBooking' ->> 'publicId'))
   WHERE booking_config -> 'agentBooking' ->> 'publicId' IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- 4. Promotion (R31, R32, BOOK-001 R11; review F1 on PR #186).
+--
+-- Moves the sender's unverified bookings whose code is in p_codes and whose
+-- window is open to 'pending', but never past p_max_pending pending requests
+-- for that phone at that restaurant. A transaction-scoped advisory lock on
+-- (restaurant, phone) serialises concurrent promotions for one diner, so two
+-- deliveries at once cannot both see room for one more. The status re-check
+-- in the UPDATE keeps a replayed webhook a no-op. Returns the rows changed.
+--
+-- Service role only (same lockdown as booking_reminder_candidates, 082): it
+-- writes any restaurant's bookings.
+CREATE OR REPLACE FUNCTION public.promote_agent_booking(
+  p_restaurant_id uuid,
+  p_phone text,
+  p_codes text[],
+  p_wamid text,
+  p_at timestamptz,
+  p_max_pending int
+) RETURNS SETOF booking_requests AS $$
+DECLARE
+  v_room int;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('book003:promote:' || p_restaurant_id::text || ':' || p_phone, 0));
+
+  SELECT p_max_pending - count(*) INTO v_room
+  FROM booking_requests
+  WHERE restaurant_id = p_restaurant_id AND phone = p_phone AND status = 'pending';
+
+  IF v_room <= 0 THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  UPDATE booking_requests b
+  SET status = 'pending', verified_at = p_at, verified_wamid = p_wamid, confirm_code = NULL
+  WHERE b.id IN (
+      SELECT c.id
+      FROM booking_requests c
+      WHERE c.restaurant_id = p_restaurant_id
+        AND c.phone = p_phone
+        AND c.status = 'unverified'
+        AND c.confirm_code = ANY (p_codes)
+        AND c.verify_expires_at > p_at
+      ORDER BY c.created_at, c.id
+      LIMIT v_room
+    )
+    AND b.status = 'unverified'
+  RETURNING b.*;
+END;
+$$ LANGUAGE plpgsql;
+
+REVOKE ALL ON FUNCTION public.promote_agent_booking(uuid, text, text[], text, timestamptz, int) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.promote_agent_booking(uuid, text, text[], text, timestamptz, int) TO service_role;

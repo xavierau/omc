@@ -154,8 +154,12 @@ async function sendAgentRequest(path: string, init: RequestInit, success: 'saved
   }
 }
 
-/** Saves the file through a temporary link; false when the server refused it. */
-async function downloadPoppyJson(): Promise<boolean> {
+/**
+ * Saves the file through a temporary link; false when the server refused it.
+ * Review F8: the link is in the page while clicked (Firefox ignores a detached
+ * one) and the blob URL is revoked on a later tick, after the download began.
+ */
+export async function downloadPoppyJson(): Promise<boolean> {
   try {
     const res = await fetch('/api/dashboard/settings/booking/poppy-json')
     if (!res.ok) return false
@@ -163,8 +167,10 @@ async function downloadPoppyJson(): Promise<boolean> {
     const link = document.createElement('a')
     link.href = url
     link.download = 'poppy.json'
+    document.body.appendChild(link)
     link.click()
-    URL.revokeObjectURL(url)
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
     return true
   } catch {
     return false
@@ -208,3 +214,5 @@ export function useAgentBookingSettings(initial: AgentBookingConfig) {
 
   return { stored, form, update, save, rotate, download, busy, outcome }
 }
+
+export type AgentBookingSettingsState = ReturnType<typeof useAgentBookingSettings>

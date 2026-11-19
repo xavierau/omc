@@ -12,7 +12,7 @@
  *
  * Pure: no I/O, so the downloaded file and the served one are the same bytes.
  */
-import { MAX_UNVERIFIED_PER_PHONE } from '@/domain/entities/booking-request'
+import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
 import { NAME_MAX, NOTES_MAX } from './booking-submission'
 import { sanitizeTemplateParam } from './booking-message'
 
@@ -98,7 +98,7 @@ function description(input: AgentOpenApiInput): string {
     '3. The restaurant then accepts or declines it, and tells the diner on WhatsApp.',
     '   Poll GET /bookings/{booking_id} with the `X-Booking-Status-Token` header to follow it.',
     '',
-    `At most ${MAX_UNVERIFIED_PER_PHONE} unconfirmed requests per phone number at a time. Send an Idempotency-Key header to retry safely.`,
+    `At most ${MAX_PENDING_PER_PHONE} open requests per phone number at a time (unconfirmed, or confirmed by the diner and waiting for the restaurant). Send an Idempotency-Key header to retry safely.`,
     '',
     `Collection statement: ${s.en} Privacy policy: ${s.privacy_url}`,
     `收集個人資料聲明: ${s['zh-HK']} 私隱政策: ${s.privacy_url}`,
@@ -151,12 +151,18 @@ function createBookingOperation(input: AgentOpenApiInput) {
         description: 'Awaiting the diner\'s confirmation on WhatsApp.',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatedBooking' } } },
       },
+      '200': {
+        description:
+          'Idempotency-Key replay of a booking that is no longer awaiting confirmation (expired, pending, confirmed or declined): its current status and a new status token. A replay while still awaiting confirmation answers 202 as above.',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ReplayedBooking' } } },
+      },
       '400': errorResponse('invalid_request: a field is missing or invalid, or an unknown field was sent.'),
       '404': errorResponse('not_found: this restaurant does not take bookings through agents.'),
       '409': errorResponse('idempotency_conflict: the Idempotency-Key was used with another body.'),
       '429': errorResponse('rate_limited: wait for Retry-After seconds.', {
         'Retry-After': { schema: { type: 'integer' }, description: 'Seconds to wait.' },
       }),
+      '500': errorResponse('server_error: try again later.'),
     },
   }
 }
@@ -173,6 +179,7 @@ function getBookingOperation() {
     responses: {
       '200': { description: 'Current status.', content: { 'application/json': { schema: { $ref: '#/components/schemas/BookingStatus' } } } },
       '404': errorResponse('not_found: unknown booking or wrong token.'),
+      '500': errorResponse('server_error: try again later.'),
     },
   }
 }
@@ -212,6 +219,19 @@ function schemas() {
         party_size: { type: 'integer' },
         expires_at: { type: 'string', format: 'date-time', description: 'Only while awaiting confirmation.' },
       },
+    },
+    ReplayedBooking: {
+      allOf: [
+        { $ref: '#/components/schemas/BookingStatus' },
+        {
+          type: 'object',
+          required: ['status_token', 'collection_statement'],
+          properties: {
+            status_token: { type: 'string', description: 'A new token; the earlier one no longer works. Keep it secret.' },
+            collection_statement: { $ref: '#/components/schemas/CollectionStatement' },
+          },
+        },
+      ],
     },
   }
 }

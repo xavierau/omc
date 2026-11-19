@@ -75,23 +75,31 @@ describe('agent-booking-repository', () => {
     expect(filtersOf(rec.queries[1])).not.toContain('eq:phone=+85291234567')
   })
 
-  it('R31/R32: promotion is one conditional UPDATE on restaurant, sender phone, unverified, code and expiry', async () => {
+  it('R31/R32/F1: promotion is one RPC with restaurant, sender phone, codes, time and the pending cap', async () => {
     const at = new Date('2026-11-19T02:10:00.000Z')
     const rec = use([{ data: [{ ...ROW, status: 'pending', confirm_code: null }] }])
-    const promoted = await promoteAgentBooking({ restaurantId: 'r-a', phone: '+85291234567', codes: ['K7PX3M'], wamid: 'wamid.1', at })
+    const promoted = await promoteAgentBooking({
+      restaurantId: 'r-a', phone: '+85291234567', codes: ['K7PX3M'], wamid: 'wamid.1', at, maxPending: 3,
+    })
+    expect(rec.queries).toHaveLength(1)
+    expect(rec.queries[0].table).toBe('rpc:promote_agent_booking')
     expect(rec.queries[0].calls[0]).toEqual([
-      'update', { status: 'pending', verified_at: at.toISOString(), verified_wamid: 'wamid.1', confirm_code: null },
-    ])
-    expect(filtersOf(rec.queries[0])).toEqual([
-      'eq:restaurant_id=r-a', 'eq:phone=+85291234567', 'eq:status=unverified', 'in:confirm_code=K7PX3M',
-      `gt:verify_expires_at=${at.toISOString()}`,
+      'rpc',
+      { p_restaurant_id: 'r-a', p_phone: '+85291234567', p_codes: ['K7PX3M'], p_wamid: 'wamid.1', p_at: at.toISOString(), p_max_pending: 3 },
     ])
     expect(promoted.map((b) => b.status)).toEqual(['pending'])
   })
 
+  it('F1: a promotion error throws with the code only', async () => {
+    use([{ error: { code: 'P0001', message: 'boom +85291234567' } as { message: string } }])
+    await expect(
+      promoteAgentBooking({ restaurantId: 'r', phone: '+85291234567', codes: ['K7PX3M'], wamid: 'w', at: new Date(), maxPending: 3 })
+    ).rejects.toThrow(/^promoteAgentBooking: P0001$/)
+  })
+
   it('promotion with no codes sends no query', async () => {
     const rec = use([])
-    expect(await promoteAgentBooking({ restaurantId: 'r', phone: '+1', codes: [], wamid: 'w', at: new Date() })).toEqual([])
+    expect(await promoteAgentBooking({ restaurantId: 'r', phone: '+1', codes: [], wamid: 'w', at: new Date(), maxPending: 3 })).toEqual([])
     expect(rec.queries).toEqual([])
   })
 

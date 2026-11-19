@@ -7,7 +7,9 @@
  *  3. the body, strictly (R34), and the Idempotency-Key shape;
  *  4. an Idempotency-Key replay returns the same booking with a fresh status
  *     token; another body under the same key is a conflict (R46);
- *  5. live-unverified caps per phone and per restaurant (R39);
+ *  5. live-unverified caps per phone and per restaurant (R39), and BOOK-001's
+ *     R11 cap: live unverified + pending for the phone at the restaurant
+ *     (review F1; promotion re-checks it atomically, verify-agent-booking);
  *  6. ONE insert, status unverified, with a fresh confirm code and the hash of
  *     a fresh status token (R31, R36, R42). Nothing is sent on WhatsApp and no
  *     member or consent row is touched: the diner has not proved the phone.
@@ -16,6 +18,7 @@
  */
 import {
   AGENT_VERIFY_TTL_MS,
+  MAX_PENDING_PER_PHONE,
   MAX_UNVERIFIED_PER_PHONE,
   MAX_UNVERIFIED_PER_RESTAURANT,
   type AgentBooking,
@@ -151,7 +154,9 @@ async function replayIfKnown(ctx: Context, key: string, s: AgentBookingSubmissio
 
 async function overCap(ctx: Context, phone: string): Promise<boolean> {
   const { store } = ctx.deps
-  if ((await store.countLiveUnverified(ctx.restaurantId, ctx.now, phone)) >= MAX_UNVERIFIED_PER_PHONE) return true
+  const unverified = await store.countLiveUnverified(ctx.restaurantId, ctx.now, phone)
+  if (unverified >= MAX_UNVERIFIED_PER_PHONE) return true
+  if (unverified + (await store.countPending(ctx.restaurantId, phone)) >= MAX_PENDING_PER_PHONE) return true
   return (await store.countLiveUnverified(ctx.restaurantId, ctx.now)) >= MAX_UNVERIFIED_PER_RESTAURANT
 }
 

@@ -102,7 +102,7 @@ describe('POST /api/poppy/{publicId}/bookings', () => {
     expect(store.rows[0].statusTokenHash).not.toContain(body.status_token)
     // R42: the create deps carry no message sender, member lookup or consent store at all.
     expect(Object.keys(holder.create!).sort()).toEqual(['directory', 'limiter', 'now', 'privacyUrl', 'secrets', 'settings', 'store'])
-    expect(store.calls.filter((c) => !['countLiveUnverified', 'insert'].includes(c))).toEqual([])
+    expect(store.calls.filter((c) => !['countLiveUnverified', 'countPending', 'insert'].includes(c))).toEqual([])
     expectAgentHeaders(res)
   })
 
@@ -206,6 +206,28 @@ describe('POST /api/poppy/{publicId}/bookings', () => {
     for (let i = 0; i < 3; i++) await post(BODY, { ip: `198.51.100.${i}` })
     clock.advanceMs(31 * 60_000)
     expect((await post(BODY, { ip: '198.51.100.20' })).status).toBe(202)
+  })
+
+  it('F1 (BOOK-001 R11): pending + live unverified for the phone at this restaurant >= 3 → 429, no insert', async () => {
+    holder.create!.secrets = scriptedSecrets()
+    store.seedPending(A, PHONE, 'chat')
+    store.seedPending(A, PHONE, 'agent')
+    expect((await post(BODY, { ip: '198.51.100.1' })).status).toBe(202)
+    const inserts = store.calls.filter((c) => c === 'insert').length
+    const res = await post(BODY, { ip: '198.51.100.2' })
+    expect(res.status).toBe(429)
+    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0)
+    expect(store.calls.filter((c) => c === 'insert').length).toBe(inserts)
+    // Pending at another restaurant or for another phone does not count.
+    store.seedPending(B, '+85290000000', 'chat')
+    expect((await post({ ...BODY, phone: '+85290000000' }, { ip: '198.51.100.3' })).status).toBe(202)
+    expect((await post(BODY, { pid: PID_B, ip: '198.51.100.4' })).status).toBe(202)
+  })
+
+  it('F1 (BOOK-001 R11): three pending at this restaurant → 429 even with no unverified booking', async () => {
+    for (let i = 0; i < 3; i++) store.seedPending(A, PHONE, 'chat')
+    expect((await post(BODY)).status).toBe(429)
+    expect(store.rows.filter((r) => r.status === 'unverified')).toEqual([])
   })
 
   it('R39: the 31st live unverified booking at one restaurant → 429', async () => {
@@ -367,6 +389,16 @@ describe('GET /api/poppy/{publicId}/openapi.json', () => {
     expect(doc.info.description).toContain('只會交給Cafe A')
     expect(doc.info.description).toContain(PRIVACY)
     expect(doc.paths['/bookings'].post.requestBody.content['application/json'].schema.properties.party_size.maximum).toBe(20)
+    expectAgentHeaders(res)
+  })
+
+  it('F6: without a usable NEXT_PUBLIC_APP_URL → 500 server_error, logged by error name only', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    holder.openapi = { directory, settings, appUrl: null, privacyUrl: PRIVACY }
+    const res = await GET_OPENAPI(new Request('https://x'), { params: Promise.resolve({ publicId: PID_A }) })
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toBe('server_error')
+    expect(errors.mock.calls).toEqual([[expect.any(String), 'AgentAppUrlError']])
     expectAgentHeaders(res)
   })
 

@@ -55,8 +55,9 @@ beforeEach(() => {
   store = new FakeAgentBookingStore()
   store.createdAt = () => clock.now()
   directory = new FakeAgentDirectory()
-  directory.add(R, PID)
   settings = new FakeBookingSettings()
+  // The webhook reads the same booking_config the agent API resolved (review F2).
+  settings.configs.set(R, directory.add(R, PID))
   settings.restaurants.set(R, { name: 'Cafe A', logoUrl: null, whatsappNumber: '+85230001111' })
   sender = new FakeBookingSender()
   createDeps = {

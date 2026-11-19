@@ -55,12 +55,15 @@ function insertAgent(opts: { id: string; code: string; restaurant?: string; phon
        ${opts.created ?? 'now()'})`
 }
 
-// agent-booking-repository.ts promoteAgentBooking.
-const promote = (phone: string, code: string, wamid: string, restaurant = A) =>
-  `UPDATE booking_requests SET status = 'pending', verified_at = now(), verified_wamid = '${wamid}', confirm_code = NULL
-     WHERE restaurant_id = '${restaurant}' AND phone = '${phone}' AND status = 'unverified'
-       AND confirm_code IN ('${code}') AND verify_expires_at > now()
-     RETURNING id`
+// agent-booking-repository.ts promoteAgentBooking: the RPC with MAX_PENDING_PER_PHONE (3).
+const promote = (phone: string, code: string, wamid: string, restaurant = A, codes: string[] = [code]) =>
+  `SELECT id FROM promote_agent_booking('${restaurant}', '${phone}', ARRAY[${codes.map((c) => `'${c}'`).join(',')}]::text[],
+     '${wamid}', now(), 3) ORDER BY id`
+
+// A BOOK-001 chat booking already waiting for the restaurant.
+const insertPending = (id: string, phone: string, restaurant = A) =>
+  `INSERT INTO booking_requests (id, restaurant_id, phone, name, party_size, booking_date, booking_time, status, source, token)
+     VALUES ('${id}', '${restaurant}', '${phone}', 'Chan', 2, current_date + 1, '19:00', 'pending', 'chat', NULL)`
 
 // booking-request-repository.ts listBookingRequests (both reads) and decideBookingRequest.
 const staffList = (restaurant = A) =>
@@ -143,6 +146,52 @@ d('migration 084 agent booking schema (real Postgres)', () => {
     const deleted = psql(`DELETE FROM booking_requests WHERE status = 'unverified' AND created_at < now() - interval '1 hour' RETURNING id`)
     expect(deleted.split('\n').sort()).toEqual(['a3000000-0000-4000-8000-0000000000d5', 'a3000000-0000-4000-8000-0000000000da'])
     expect(psql(`SELECT status FROM booking_requests WHERE id = 'a3000000-0000-4000-8000-0000000000d1'`)).toBe('confirmed')
+  })
+
+  it('F1 (BOOK-001 R11): a phone with three pending here cannot promote; another restaurant\'s pending do not count', () => {
+    const P3 = '+85290000003'
+    for (const n of [1, 2, 3]) psql(insertPending(`a3000000-0000-4000-8000-0000000001a${n}`, P3))
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000001b1', code: 'H2J3K4', phone: P3 }))
+    expect(psql(promote(P3, 'H2J3K4', 'wamid.f1'))).toBe('')
+    expect(psql(`SELECT status, confirm_code FROM booking_requests WHERE id = 'a3000000-0000-4000-8000-0000000001b1'`)).toBe('unverified|H2J3K4')
+    // Same phone at restaurant B: A's three pending leave B's cap untouched.
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000001b2', code: 'H2J3K5', phone: P3, restaurant: B }))
+    expect(psql(promote(P3, 'H2J3K5', 'wamid.f1b', B))).toBe('a3000000-0000-4000-8000-0000000001b2')
+  })
+
+  it('F1: room for one more pending → a text with two codes promotes only the oldest', () => {
+    const P2 = '+85290000002'
+    for (const n of [1, 2]) psql(insertPending(`a3000000-0000-4000-8000-0000000002a${n}`, P2))
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000002b1', code: 'J2K3L4', phone: P2, created: "now() - interval '2 minutes'" }))
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000002b2', code: 'J2K3L5', phone: P2 }))
+    expect(psql(promote(P2, '', 'wamid.f1c', A, ['J2K3L4', 'J2K3L5']))).toBe('a3000000-0000-4000-8000-0000000002b1')
+    expect(psql(`SELECT count(*) FROM booking_requests WHERE restaurant_id = '${A}' AND phone = '${P2}' AND status = 'pending'`)).toBe('3')
+  })
+
+  it('F1: two concurrent promotions for one phone with room for one → exactly one wins (advisory lock)', async () => {
+    const P1 = '+85290000001'
+    for (const n of [1, 2]) psql(insertPending(`a3000000-0000-4000-8000-0000000003a${n}`, P1))
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000003b1', code: 'L2M3N4', phone: P1 }))
+    psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000003b2', code: 'L2M3N5', phone: P1 }))
+    for (let round = 0; round < 5; round++) {
+      // Reset to two pending + two unverified, then race the two codes.
+      psql(`UPDATE booking_requests SET status = 'unverified', verified_at = NULL, verified_wamid = NULL,
+              confirm_code = CASE id WHEN 'a3000000-0000-4000-8000-0000000003b1' THEN 'L2M3N4' ELSE 'L2M3N5' END
+            WHERE id IN ('a3000000-0000-4000-8000-0000000003b1', 'a3000000-0000-4000-8000-0000000003b2')`)
+      const results = await Promise.all([
+        psqlAsync(promote(P1, 'L2M3N4', `wamid.r${round}a`)),
+        psqlAsync(promote(P1, 'L2M3N5', `wamid.r${round}b`)),
+      ])
+      expect(results.filter((r) => r.length > 0)).toHaveLength(1)
+      expect(psql(`SELECT count(*) FROM booking_requests WHERE restaurant_id = '${A}' AND phone = '${P1}' AND status = 'pending'`)).toBe('3')
+    }
+  })
+
+  it('F1: promote_agent_booking is service-role only', () => {
+    const grants = psql(`SELECT grantee FROM information_schema.routine_privileges
+                         WHERE routine_name = 'promote_agent_booking' ORDER BY grantee`)
+    expect(grants.split('\n')).toContain('service_role')
+    for (const role of ['anon', 'authenticated', 'PUBLIC']) expect(grants.split('\n')).not.toContain(role)
   })
 
   it('R33/R43: the agent booking id is unique across restaurants and found by its JSON path', () => {

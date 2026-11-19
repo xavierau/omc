@@ -1,0 +1,5 @@
+   Test Files  628 passed | 11 skipped (639)
+        Tests  6971 passed | 79 skipped | 2 todo (7052)
+     Duration  28.78s (transform 21.89s, setup 0ms, import 74.58s, tests 21.78s, environment 50ms)
+tsc --noEmit (heavy lock): exit 0
+eslint on 31 changed .ts/.tsx files: exit 0, 0 problems

@@ -3,10 +3,13 @@
  * migration 084) and the agent booking id directory.
  *
  * Every query is scoped by restaurant_id inside the query (memory:
- * principle_authorize_by_scoped_query). Promotion is ONE conditional UPDATE
- * on status 'unverified', the sender's phone, the code and an unexpired
- * window, so a replayed webhook or a code from another number changes
- * nothing (R31, R32). The confirm code is cleared as the row is promoted.
+ * principle_authorize_by_scoped_query). Promotion is ONE RPC
+ * (promote_agent_booking, migration 084): a conditional UPDATE on status
+ * 'unverified', the sender's phone, the code and an unexpired window, so a
+ * replayed webhook or a code from another number changes nothing (R31, R32),
+ * and limited in the same transaction to the room under the phone's pending
+ * cap (BOOK-001 R11, review F1). The confirm code is cleared as the row is
+ * promoted.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { resolveBookingConfig } from '@/domain/value-objects/booking-config'
@@ -18,7 +21,7 @@ import type {
   PromoteAgentBookingArgs,
   UnverifiedBookingPurgeStore,
 } from '@/domain/ports/booking'
-import { toBookingRequest } from './booking-request-repository'
+import { countPendingBookings, toBookingRequest } from './booking-request-repository'
 
 const AGENT_BOOKING_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, confirm_code, verify_expires_at, verified_at, verified_wamid, status_token_hash, idempotency_key'
@@ -130,15 +133,15 @@ export async function replaceAgentStatusToken(id: string, restaurantId: string, 
 
 export async function promoteAgentBooking(args: PromoteAgentBookingArgs) {
   if (args.codes.length === 0) return []
-  const at = args.at.toISOString()
   const { data, error } = await createServerSupabaseClient()
-    .from('booking_requests')
-    .update({ status: 'pending', verified_at: at, verified_wamid: args.wamid, confirm_code: null })
-    .eq('restaurant_id', args.restaurantId)
-    .eq('phone', args.phone)
-    .eq('status', 'unverified')
-    .in('confirm_code', args.codes)
-    .gt('verify_expires_at', at)
+    .rpc('promote_agent_booking', {
+      p_restaurant_id: args.restaurantId,
+      p_phone: args.phone,
+      p_codes: args.codes,
+      p_wamid: args.wamid,
+      p_at: args.at.toISOString(),
+      p_max_pending: args.maxPending,
+    })
     .select(AGENT_BOOKING_COLUMNS)
   if (error) throw new Error(`promoteAgentBooking: ${error.code}`)
   return ((data ?? []) as AgentBookingRow[]).map(toBookingRequest)
@@ -172,6 +175,7 @@ export async function findRestaurantByAgentPublicId(publicId: string) {
 export const agentBookingStore: AgentBookingStore = {
   insert: insertAgentBooking,
   countLiveUnverified,
+  countPending: countPendingBookings,
   findByIdempotencyKey: findAgentBookingByIdempotencyKey,
   find: findAgentBooking,
   replaceStatusToken: replaceAgentStatusToken,

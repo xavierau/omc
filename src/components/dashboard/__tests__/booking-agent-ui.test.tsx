@@ -11,13 +11,18 @@ vi.mock('@/hooks/use-booking-availability', () => ({
   useBookingSettingsSummaryState: () => ({ loading: false, summary: null }),
   parseTemplateStatuses: () => null,
 }))
+// F4: a spy over the real hook, so a test can see who owns the agent block's state.
+vi.mock('@/hooks/use-booking-settings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/use-booking-settings')>()
+  return { ...actual, useAgentBookingSettings: vi.fn(actual.useAgentBookingSettings) }
+})
 vi.mock('@/hooks/use-booking-template-overview', () => ({
   useBookingTemplateOverview: () => ({ templates: null, editor: null, editingKind: null, toggle: () => {}, close: () => {}, onSaved: () => {} }),
 }))
 
 import { BookingList } from '../booking-list'
 import { BookingSettingsSection } from '../booking-settings-section'
-import { agentBookingOutcome } from '@/hooks/use-booking-settings'
+import { agentBookingOutcome, useAgentBookingSettings } from '@/hooks/use-booking-settings'
 import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
 import type { BookingItem } from '@/hooks/use-bookings'
 
@@ -48,6 +53,30 @@ describe('BOOK-003 dashboard UI', () => {
     expect(on).toContain('data-testid="booking-agent-rotate"')
     expect(on).toContain('{&quot;host&quot;:&quot;www.cafe.hk&quot;}')
     expect(on).toMatch(/data-testid="booking-agent-toggle"[^>]*checked=""|checked=""[^>]*data-testid="booking-agent-toggle"/)
+  })
+
+  // No DOM in this repo's vitest (node env, no jsdom/testing-library), so the
+  // Simple → External → Simple click-through cannot run here. What makes the
+  // state survive it is that the section, which never unmounts on a mode
+  // change, owns the agent block's state; these pin that.
+  it('F4: the section holds the agent state even while the block is hidden (External, Off)', () => {
+    for (const mode of ['external', 'off'] as const) {
+      vi.mocked(useAgentBookingSettings).mockClear()
+      const html = section({ mode, externalUrl: 'https://x.example' })
+      expect(html).not.toContain('booking-agent-settings')
+      expect(useAgentBookingSettings).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('F4: the block shows the state it is handed, not the page-load config', () => {
+    const agentBooking = { enabled: true, publicId: 'P'.repeat(32), websiteHost: 'www.saved.hk' }
+    vi.mocked(useAgentBookingSettings).mockImplementationOnce(() => ({
+      stored: agentBooking, form: { enabled: true, websiteHost: 'www.saved.hk' }, update: () => {}, save: async () => {},
+      rotate: async () => {}, download: async () => {}, busy: false, outcome: null,
+    }))
+    const html = section({ mode: 'simple' })
+    expect(html).toContain('data-testid="booking-agent-download"')
+    expect(html).toContain('www.saved.hk')
   })
 
   it('a booking made by an AI agent shows the badge; chat and campaign rows do not', () => {

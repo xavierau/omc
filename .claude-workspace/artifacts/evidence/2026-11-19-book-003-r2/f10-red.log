@@ -1,0 +1,39 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts (31 tests | 2 failed) 66ms
+     × documents the Idempotency-Key replay: 200 with the status view, a fresh status_token and the statement 2ms
+     × documents 500 server_error on both operations 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > OpenAPI description (review F10) > documents the Idempotency-Key replay: 200 with the status view, a fresh status_token and the statement
+TypeError: Cannot read properties of undefined (reading 'content')
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:132:26
+    130|
+    131|   it('documents the Idempotency-Key replay: 200 with the status view, …
+    132|     expect(create['200'].content?.['application/json'].schema).toEqual…
+       |                          ^
+    133|     const replayed = (doc.components.schemas as Record<string, { requi…
+    134|     expect(replayed.allOf?.[0]).toEqual({ $ref: '#/components/schemas/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/domain/services/__tests__/agent-booking-domain.test.ts > OpenAPI description (review F10) > documents 500 server_error on both operations
+TypeError: Cannot read properties of undefined (reading 'content')
+ ❯ src/domain/services/__tests__/agent-booking-domain.test.ts:141:31
+    139|   it('documents 500 server_error on both operations', () => {
+    140|     for (const responses of [create, get]) {
+    141|       expect(responses['500'].content?.['application/json'].schema).to…
+       |                               ^
+    142|     }
+    143|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 29 passed (31)
+   Start at  11:23:57
+   Duration  398ms (transform 62ms, setup 0ms, import 87ms, tests 66ms, environment 0ms)
+

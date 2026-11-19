@@ -31,9 +31,14 @@ export function generateConfirmCode(randomIndex: (n: number) => number): string 
   }
 }
 
-/** The distinct code-shaped tokens in an inbound text, upper-cased, first few only. */
+/**
+ * The distinct code-shaped tokens in an inbound text, upper-cased, LAST few
+ * only: the prefilled text ends with the code after the restaurant name
+ * (buildConfirmText), so a name full of code-like words ("2NDFLR B2CAFE")
+ * can never push the real code out (review F5).
+ */
 export function extractConfirmCodeCandidates(text: string): string[] {
   const tokens = text.toUpperCase().match(/[A-Z0-9]+/g) ?? []
   const codes = tokens.filter(isConfirmCode)
-  return [...new Set(codes)].slice(0, MAX_CODE_CANDIDATES)
+  return [...new Set(codes)].slice(-MAX_CODE_CANDIDATES)
 }

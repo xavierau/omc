@@ -1,7 +1,9 @@
 // BOOK-003: in-memory agent booking ports with the SQL's semantics: the
 // partial unique indexes (code among unverified rows, idempotency key) and
-// promotion as one conditional UPDATE (status unverified, sender phone, code,
-// unexpired). Real Postgres proves the same in agent-booking.db.test.ts.
+// promotion as one conditional step (status unverified, sender phone, code,
+// unexpired, and room under the phone's pending cap, review F1). Real Postgres
+// proves the same in agent-booking.db.test.ts. `rows` stands for the whole
+// booking_requests table, so it may hold BOOK-001 chat/campaign rows too.
 import { randomUUID } from 'crypto'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { AgentBooking, BookingRequest, NewAgentBooking } from '@/domain/entities/booking-request'
@@ -51,6 +53,21 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     ).length
   }
 
+  async countPending(restaurantId: string, phone: string) {
+    this.calls.push('countPending')
+    return this.rows.filter((r) => r.restaurantId === restaurantId && r.phone === phone && r.status === 'pending').length
+  }
+
+  /** Test setup, not a port call: a pending booking (any source) already in the table. */
+  seedPending(restaurantId: string, phone: string, source: AgentBooking['source']) {
+    this.rows.push({
+      id: randomUUID(), restaurantId, memberId: null, phone, name: 'Seeded', partySize: 2, bookingDate: '2026-11-20',
+      bookingTime: '19:00', notes: null, status: 'pending', declineReason: null, decidedBy: null, decidedAt: null, source,
+      campaignId: null, createdAt: this.createdAt().toISOString(), decisionMessageStatus: null, confirmCode: null,
+      verifyExpiresAt: null, verifiedAt: null, verifiedWamid: null, statusTokenHash: null, idempotencyKey: null,
+    })
+  }
+
   async findByIdempotencyKey(restaurantId: string, key: string) {
     this.calls.push('findByIdempotencyKey')
     const row = this.rows.find((r) => r.restaurantId === restaurantId && r.idempotencyKey === key)
@@ -73,11 +90,17 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     this.calls.push('promote')
     await tick()
     const at = args.at.toISOString()
-    const hits = this.rows.filter(
-      (r) =>
-        r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
-        r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
-    )
+    const pending = this.rows.filter(
+      (r) => r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'pending'
+    ).length
+    const room = Math.max(0, args.maxPending - pending)
+    const hits = this.rows
+      .filter(
+        (r) =>
+          r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
+          r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
+      )
+      .slice(0, room)
     for (const r of hits) Object.assign(r, { status: 'pending', verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
     return hits.map((r) => ({ ...r }))
   }
