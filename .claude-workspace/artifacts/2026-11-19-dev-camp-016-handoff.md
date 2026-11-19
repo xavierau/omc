@@ -9,6 +9,7 @@ item: CAMP-016
 state: done
 brief: inline brief-v1 (main dispatch 2026-11-19)
 base: 49a3f582
+head: 91ba990afa01640ea4f24ff98938727c422c5043
 branch: feature/camp-016-audience-quality
 pushed: true
 stage: poc
@@ -27,3 +28,30 @@ ac:
   AC-6: {result: pass, evidence: "evidence/shots/en-campaign-form-tags-lapsed-1440.png, en-campaign-form-summary-1440.png, en-campaign-form-zero-1440.png, zh-HK equivalents, shots-merged/; badge tooltip text in walk.log"}
   AC-7: {result: pass, evidence: "evidence/ac7-tsc.log exit 0 under the heavy lock; eslint on touched files: 1 error + 1 warning, both present at base 49a3f582 (evidence/ac7-lint.log)"}
   AC-8: {result: pass, evidence: "branch pushed (ls-remote SHA == HEAD); PR into develop; kanban CAMP-016 in review; testid-registry rows appended + 17 /dashboard/setup rows re-pointed to /bookings; poc-log line"}
+decisions:
+  - "Migration renumbered 085 -> 086: AGENT-003 (#195) landed 085_agent_booking_changes on develop first; no table overlap; merged origin/develop 7af9494b into the branch"
+  - "Pre-086 campaigns: a snapshot of off/NULL means no filter, except a win-back to all members, which keeps schedule.inactiveDays (default 30) and excludes never-visited members"
+  - "Win-back always has a lapsed filter (server fills the tenant default); the form toggle is on and locked for win-back, off for other types until the user sets it (brief only said win-back defaults on)"
+  - "Form skip level = the Settings level (design has only toggle + 'Default from Settings · Change'); an edit keeps the campaign's own snapshot"
+  - "Desktop /dashboard/setup redirects client-side to profile (matchMedia); phone keeps the index"
+  - "Non-admin Campaigns group is read-only (controls disabled, Save hidden); Bookings group hidden and 404 by URL"
+failed:
+  - "Post-merge walk stored lapsed NULL where earlier runs stored 30 for the same clicks: the late Settings pre-fill flipped the lapsed toggle after the type change. Fixed in 91ba990a (lapsedForType + filtersTouched guard); two runs after the fix both stored tag|red|30"
+invariants:
+  - "Count, Settings distribution and send all go through campaign_audience_rated; never PostgREST .in() on member ids"
+  - "Send reads the campaign snapshot, never live tenant settings"
+  - "Quality classification = classifyContactQuality with thresholds/window passed as params; no data is never excluded; unreachable = red"
+  - "Resolver EXECUTE revoked from anon/authenticated; p_restaurant_id on every join"
+  - "Consent/cooldown gates (execute-campaign-batch-gate.ts) unchanged"
+unverified:
+  - "Settings quality error/empty states, settings save error and form count error were not walked (render paths only)"
+  - "Send performance on very large audiences: campaign_audience_members re-rates the audience per 1,000-row page"
+  - "zh-HK and staff walks ran before the merge and the toggle fix; only the en walk re-ran after"
+review_focus:
+  - "supabase/migrations/086_campaign_audience_quality.sql: float8 rate boundaries vs JS, tenant scoping of the selected/campaign_members path, grants"
+  - "src/application/campaign-audience-query.ts: legacy win-back rule"
+  - "src/components/dashboard/campaign-form-dialog.tsx: pre-fill vs filtersTouched and lapsedForType"
+scope_drift:
+  - ".env.example appears in base..HEAD only through the origin/develop merge (AGENT-003 #195); this branch did not edit it"
+  - "079 functions active_members_by_tags / active_members_by_campaign_selection left in place though no longer called"
+next_step: "Owner reviews PR #200 into develop and gives the go for releasing migration 086."
