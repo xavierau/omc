@@ -73,12 +73,12 @@ describe('AC-R12 booking tools take no identity: the job key decides', () => {
     expect(world.requests.rows[0]).toMatchObject({ restaurantId: R, phone: PHONE })
   })
 
-  it('AC-R12 no declaration has an identity parameter; propose_booking takes only the booking fields', () => {
+  it('AC-R12 no declaration has an identity parameter (R21 allows only bookingRef); propose_booking takes only the booking fields', () => {
     expect(Object.keys(AGENT_TOOL_DECLARATIONS.propose_booking.parameters?.properties ?? {}).sort()).toEqual(
       ['date', 'name', 'notes', 'partySize', 'time']
     )
     for (const d of Object.values(AGENT_TOOL_DECLARATIONS)) {
-      for (const param of Object.keys(d.parameters?.properties ?? {})) {
+      for (const param of Object.keys(d.parameters?.properties ?? {}).filter((p) => p !== 'bookingRef')) {
         expect(param).not.toMatch(/phone|restaurant|member|booking|id$/i)
       }
     }
@@ -251,7 +251,10 @@ describe('AC-MODE booking tools follow the booking mode', () => {
   })
 
   it('AC-MODE simple → propose + create; external → get_booking_link only', () => {
-    expect(names('simple')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'propose_booking', 'create_booking_request'])
+    expect(names('simple')).toEqual([
+      'get_member_summary', 'list_rewards', 'handoff_to_staff', 'propose_booking', 'create_booking_request',
+      'list_my_bookings', 'propose_booking_change', 'confirm_booking_change', 'propose_booking_cancel', 'confirm_booking_cancel',
+    ])
     expect(names('external')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_booking_link'])
   })
 

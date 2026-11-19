@@ -7,6 +7,13 @@
  * whether the message reached the diner (F9), so the "not delivered" badge
  * survives a reload; failing to store that never fails the decision.
  * Another tenant's id, or a missing one, is indistinguishable: not_found.
+ *
+ * AGENT-003 R23: a change request (made by the diner through the AI agent)
+ * is decided here too. Confirm goes through one transaction that also
+ * cancels the booking it replaces, and the diner gets "confirmed" for the
+ * new slot. Decline leaves the original booking as it was and sends nothing,
+ * so the diner never reads "declined" about a booking that still stands.
+ * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
  */
 import {
   normalizeDeclineReason,
@@ -67,8 +74,24 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
   return { ...booking, decisionMessageStatus: status }
 }
 
+async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
+  // R23: a declined change request is not news about the diner's booking; nothing is sent.
+  if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: false }
+  const delivered = await notify(deps, booking)
+  return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
+}
+
 export async function decideBookingRequest(deps: DecideBookingDeps, input: DecideBookingInput): Promise<DecideBookingResult> {
   if (!UUID.test(input.bookingId)) return { ok: false, reason: 'not_found' }
+  if (input.decision === 'confirmed') {
+    const change = await deps.requests.confirmChange({
+      id: input.bookingId,
+      restaurantId: input.restaurantId,
+      decidedBy: input.userId,
+      decidedAt: deps.now(),
+    })
+    if (change) return decided(deps, change)
+  }
   const booking = await deps.requests.decide({
     id: input.bookingId,
     restaurantId: input.restaurantId,
@@ -77,10 +100,7 @@ export async function decideBookingRequest(deps: DecideBookingDeps, input: Decid
     decidedAt: deps.now(),
     declineReason: input.decision === 'declined' ? normalizeDeclineReason(input.reason) : null,
   })
-  if (booking) {
-    const delivered = await notify(deps, booking)
-    return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
-  }
+  if (booking) return decided(deps, booking)
 
   const current = await deps.requests.findForRestaurant(input.bookingId, input.restaurantId)
   return current ? { ok: false, reason: 'already_handled', status: current.status } : { ok: false, reason: 'not_found' }

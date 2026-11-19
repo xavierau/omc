@@ -4,7 +4,7 @@
  * Order: latest-wins debounce (a newer diner message supersedes this job) →
  * config (a failed read is an error, not mode off) → mode → handoff silence →
  * reply limits (R6) → history within TTL (R5) → model run with the tool loop
- * (8 s per call, 20 s budget) → re-check latest-wins and silence (jobs of one
+ * (`perCallTimeoutMs` per call, 20 s budget) → re-check latest-wins and silence (jobs of one
  * conversation overlap: concurrency 3) → bounded reply (R10) → shadow: store
  * the draft, send nothing; auto: send it with the disclosure (R11) inside the
  * open service window.
@@ -23,6 +23,14 @@
  * its model call and a duplicate run. Logs carry ids, outcome, latency, token
  * counts and tool names, never the text, the phone or the key (R8).
  *
+ * AGENT-003 R19: an agent failure (every model failure class, an unreadable
+ * config, a job error) answers an auto-admitted message with the tenant's
+ * `failureAction`: the handoff reply (default; outcome `handoff`, which flags
+ * the thread "needs staff"; no silence row) or today's fallback menu. A
+ * handoff that cannot be sent falls back to the menu, so the diner still gets
+ * exactly one response. Non-failures (mode switched off, silenced, rate
+ * limited, a reply whose send failed) keep the menu.
+ *
  * AGENT-003: the tool context gets the tenant's booking settings (read only
  * when a booking tool is enabled; a failed read offers none) and the job's
  * inbound row time for the R15 gate. Shadow and auto run the booking tools
@@ -30,13 +38,14 @@
  * the model that actually answered and the log line its last HTTP status.
  */
 import {
+  DEFAULT_AGENT_CONFIG,
   effectiveAgentModel,
   effectiveFallbackModel,
   type AgentConfig,
   type AgentMode,
 } from '@/domain/value-objects/agent-config'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
-import { boundReply, toAgentTurns, withDisclosure } from '@/domain/services/agent-reply-text'
+import { boundReply, handoffReplyText, toAgentTurns, withDisclosure } from '@/domain/services/agent-reply-text'
 import type { AgentModelFailure, AgentModelPort, AgentModelResult } from '@/domain/ports/agent-model'
 import type {
   AgentConfigRead,
@@ -54,7 +63,6 @@ import { isAgentBookingTool, type AgentBookingToolContext } from './agent-bookin
 import { HOUR_MS, isOverReplyLimit, isoAgo, recordRateLimited } from './agent-limits'
 import type { AgentLogFn, AgentReplyJob } from './admit-inbound-for-agent'
 
-export const PER_CALL_TIMEOUT_MS = 8_000
 export const JOB_BUDGET_MS = 20_000
 
 /** AGENT-003: what the booking tools need besides the job key and inbound row time. */
@@ -113,7 +121,11 @@ export function effectiveMode(admitted: AgentReplyJob['admittedMode'], current: 
 
 class Run {
   fallbackSent = false
+  /** R19: the handoff reply went out; it is this run's one response. */
+  handoffSent = false
   replySent = false
+  /** The tenant's config once read; null before (or when the read failed). */
+  config: AgentConfig | null = null
   /** Set when this run's own handoff_to_staff silenced the diner: that silence must not stop its own reply. */
   silencedByThisRun = false
   private claimed: { id: string; outcome: AgentOutcome } | null = null
@@ -129,11 +141,39 @@ class Run {
   }
 
   async fallback(): Promise<boolean> {
-    if (this.fallbackSent) return true
+    if (this.fallbackSent || this.handoffSent) return true
     const phoneNumberId = await this.deps.getPhoneNumberId(this.key.restaurantId)
     if (!phoneNumberId) return false
     this.fallbackSent = true
     return this.deps.sendFallback(phoneNumberId, this.key.phone, this.key.restaurantId)
+  }
+
+  /** R19: the configured response to an agent failure (default handoff when the config is unreadable). */
+  get failureAction(): AgentConfig['failureAction'] {
+    return (this.config ?? DEFAULT_AGENT_CONFIG).failureAction
+  }
+
+  /** R19: the handoff reply's text, with the tenant's contact action when it can be read. */
+  async handoffText(): Promise<string> {
+    const contact = await this.deps.toolData.getContactAction(this.key.restaurantId).catch(() => null)
+    return handoffReplyText(contact)
+  }
+
+  /** R19: sends the handoff reply once; false when it did not go out (the caller sends the menu). */
+  async sendHandoff(text: string): Promise<boolean> {
+    if (this.fallbackSent || this.handoffSent) return this.handoffSent
+    const phoneNumberId = await this.deps.getPhoneNumberId(this.key.restaurantId)
+    if (!phoneNumberId) return false
+    const disclosure = (this.config ?? DEFAULT_AGENT_CONFIG).disclosureText
+    const result = await this.deps.sendText(phoneNumberId, this.key.phone, withDisclosure(text, disclosure)).catch(() => null)
+    this.handoffSent = result?.ok === true
+    return this.handoffSent
+  }
+
+  /** R19 for a failure with no row of its own (a job error): handoff, else the menu. */
+  async respondToFailure(): Promise<void> {
+    if (this.failureAction === 'handoff' && (await this.sendHandoff(await this.handoffText()))) return
+    await this.fallback()
   }
 
   private row(record: RunRecord): AgentModelRowInput {
@@ -223,7 +263,8 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
     booking,
   })
   const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode)
-  const offersProposal = tools.length > 0 && offeredTools(config.enabledTools, bookingMode).includes('propose_booking')
+  const offered = offeredTools(config.enabledTools, bookingMode)
+  const offersProposal = tools.length > 0 && (offered.includes('propose_booking') || offered.includes('propose_booking_change'))
   const started = Date.now()
   const result = await deps.model.respond({
     model,
@@ -236,7 +277,7 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
     temperature: config.temperature,
     maxOutputTokens: config.maxOutputTokens,
     maxToolCalls: config.maxToolCalls,
-    perCallTimeoutMs: PER_CALL_TIMEOUT_MS,
+    perCallTimeoutMs: config.perCallTimeoutMs,
     budgetMs: JOB_BUDGET_MS,
   })
   return { result, latencyMs: Date.now() - started }
@@ -265,10 +306,18 @@ function boundResult(result: AgentModelResult, config: AgentConfig): { reply: st
   return reply ? { reply } : { reason: 'empty' }
 }
 
-/** Claims a `fallback` row, then sends the menu once; `error` when the menu did not go out. Null: duplicate run. */
+/**
+ * R4 + R19: an agent failure on an auto-admitted message. Claims the answer
+ * row first (`handoff` with its text, or `fallback`), then sends the handoff
+ * reply or the menu once; a handoff that did not go out becomes the menu, and
+ * `error` when nothing went out. Null: duplicate run.
+ */
 async function fallBack(run: Run, record: RunRecord): Promise<RunRecord | null> {
-  if (!(await run.claim(record))) return null
-  return (await run.fallback()) ? record : { ...record, outcome: 'error' }
+  const handoff = run.failureAction === 'handoff' ? await run.handoffText() : null
+  const claimed: RunRecord = handoff ? { ...record, outcome: 'handoff', text: handoff } : { ...record, outcome: 'fallback' }
+  if (!(await run.claim(claimed))) return null
+  if (handoff && (await run.sendHandoff(handoff))) return claimed
+  return (await run.fallback()) ? { ...claimed, outcome: 'fallback' } : { ...claimed, outcome: 'error' }
 }
 
 async function deliver(
@@ -349,6 +398,7 @@ async function process(run: Run): Promise<AgentRunResult> {
     return settle(run, await fallBack(run, noModelCall('fallback', 'config_unavailable')))
   }
   const config = read.config
+  run.config = config
   const mode = effectiveMode(job.admittedMode, config.mode)
   if (mode === 'off') {
     if (run.owesResponse) await run.fallback()
@@ -381,7 +431,7 @@ export async function processAgentReply(deps: AgentWorkerDeps, job: AgentReplyJo
       restaurantId: job.restaurantId,
       errorClass: (err as Error)?.name ?? 'unknown',
     })
-    if (run.owesResponse && !run.replySent) await run.fallback().catch(() => false)
+    if (run.owesResponse && !run.replySent) await run.respondToFailure().catch(() => undefined)
     return 'error'
   }
 }

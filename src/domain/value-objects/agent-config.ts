@@ -18,9 +18,18 @@ export type AgentMode = 'off' | 'shadow' | 'auto'
 export const AGENT_MODES: readonly AgentMode[] = ['off', 'shadow', 'auto']
 
 /**
- * The tools the agent may call. AGENT-001's three are read-only (R3);
- * AGENT-003's booking tools write only a BOOK-001 pending request, behind the
- * two-step gate (R15), and are offered only per the tenant's booking mode.
+ * AGENT-003 R19: what an auto-mode diner gets when the agent fails: a
+ * handoff reply (apology + staff will follow up + the contact action, thread
+ * flagged "needs staff"; the default) or today's fallback menu.
+ */
+export type AgentFailureAction = 'handoff' | 'menu'
+export const AGENT_FAILURE_ACTIONS: readonly AgentFailureAction[] = ['handoff', 'menu']
+
+/**
+ * The tools the agent may call. AGENT-001's three are read-only (R3).
+ * AGENT-003's booking tools write only behind the two-step gate (R15, R22):
+ * a BOOK-001 pending request, a change request staff decide, or the diner's
+ * own cancel; they are offered only per the tenant's booking mode.
  */
 export const AGENT_TOOL_NAMES = [
   'get_member_summary',
@@ -29,6 +38,11 @@ export const AGENT_TOOL_NAMES = [
   'propose_booking',
   'create_booking_request',
   'get_booking_link',
+  'list_my_bookings',
+  'propose_booking_change',
+  'confirm_booking_change',
+  'propose_booking_cancel',
+  'confirm_booking_cancel',
 ] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
@@ -57,12 +71,16 @@ export interface AgentConfig {
   historyTtlHours: number
   debounceMs: number
   maxToolCalls: number
+  /** R18: hard timeout of each model call (the job budget stays 20 s). */
+  perCallTimeoutMs: number
   enabledTools: AgentToolName[]
   handoffSilenceHours: number
   maxRepliesPerPhonePerHour: number
   maxRepliesPerTenantPerDay: number
   /** R11: appended to every auto reply; can be reworded, never removed. */
   disclosureText: string
+  /** R19: the auto-mode response to an agent failure. */
+  failureAction: AgentFailureAction
 }
 
 interface NumberRange {
@@ -81,6 +99,8 @@ export const AGENT_NUMBER_RANGES = {
   historyTtlHours: { min: 24, max: 168, integer: true },
   debounceMs: { min: 0, max: 15000, integer: true },
   maxToolCalls: { min: 0, max: 5, integer: true },
+  // AGENT-003 R18: ≤ 15 s so the fallback model keeps ≥ 5 s of the 20 s job budget.
+  perCallTimeoutMs: { min: 3000, max: 15000, integer: true },
   handoffSilenceHours: { min: 1, max: 72, integer: true },
   maxRepliesPerPhonePerHour: { min: 1, max: 60, integer: true },
   maxRepliesPerTenantPerDay: { min: 1, max: 5000, integer: true },
@@ -101,11 +121,13 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   historyTtlHours: 72,
   debounceMs: 3000,
   maxToolCalls: 3,
+  perCallTimeoutMs: 8000,
   enabledTools: [...AGENT_TOOL_NAMES],
   handoffSilenceHours: 12,
   maxRepliesPerPhonePerHour: 10,
   maxRepliesPerTenantPerDay: 500,
   disclosureText: DEFAULT_DISCLOSURE_TEXT,
+  failureAction: 'handoff',
 }
 
 function clampNumber(raw: unknown, knob: NumericKnob): number {
@@ -154,6 +176,9 @@ export function resolveAgentConfig(raw: unknown): AgentConfig {
     ...numbers,
     enabledTools: resolveEnabledTools(r.enabledTools),
     disclosureText: resolveDisclosure(r.disclosureText),
+    failureAction: AGENT_FAILURE_ACTIONS.includes(r.failureAction as AgentFailureAction)
+      ? (r.failureAction as AgentFailureAction)
+      : DEFAULT_AGENT_CONFIG.failureAction,
   }
 }
 

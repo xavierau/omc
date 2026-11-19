@@ -22,11 +22,14 @@
  * (finishReason MAX_TOKENS, no function call) is `truncated`, never sent.
  *
  * AGENT-003 R18, overload resilience: a call that fails with HTTP 429/5xx or
- * times out is retried once on the same model after a short jitter; if that
- * fails the same way, the run switches to `fallbackModel` for one try (and
- * stays on it for the rest of the tool loop). One retry and one fallback per
- * run, never past `budgetMs`. The result names the model that answered last
- * and the last HTTP status (a number only).
+ * times out moves on to `fallbackModel` for one try (and the run stays on it
+ * for the rest of the tool loop); if that fails the same way, the main model
+ * is retried once after a short jitter, only if budget remains. While the
+ * fallback is still unused, the main model's call is cut to leave it
+ * `FALLBACK_RESERVE_MS` of the budget, so with the per-call cap (≤ 15 s) and
+ * the 20 s budget the fallback always gets a call. One fallback and one
+ * retry per run. The result names the model that answered last and the last
+ * HTTP status (a number only).
  *
  * Every failure maps to an AgentModelFailure and is never thrown. Nothing is
  * logged here: the worker logs the outcome with ids only (R8).
@@ -68,13 +71,20 @@ export interface GeminiAgentClientOptions {
   /** R18: the pause before the retry (tests pass a no-op). */
   sleep?: (ms: number) => Promise<void>
   random?: () => number
+  /** Arms a call's timeout; returns its cancel (tests drive it on a fake clock). */
+  schedule?: (fn: () => void, ms: number) => () => void
 }
 
 type CallResult =
   | { ok: true; body: GeminiResponse; status: number }
   | { ok: false; reason: AgentModelFailure; status?: number }
 
-/** R18: 200–600 ms before the one retry. */
+/** R18: budget kept for the fallback model's one call while it is unused. */
+export const FALLBACK_RESERVE_MS = 5_000
+/** R18: a call shorter than this is not worth making to keep a reserve. */
+const MIN_CALL_MS = 1_000
+
+/** R18: 200–600 ms before the one retry of the main model. */
 export const RETRY_JITTER_MIN_MS = 200
 export const RETRY_JITTER_SPAN_MS = 400
 
@@ -86,6 +96,10 @@ export function isRetryable(call: CallResult): boolean {
 }
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+const realSchedule = (fn: () => void, ms: number) => {
+  const timer = setTimeout(fn, ms)
+  return () => clearTimeout(timer)
+}
 
 export function generateContentUrl(model: string): string {
   return `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`
@@ -184,6 +198,7 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? realSleep
   const random = options.random ?? Math.random
+  const schedule = options.schedule ?? realSchedule
 
   async function callOnce(
     req: AgentModelRequest,
@@ -194,7 +209,7 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     withTools: boolean
   ): Promise<CallResult> {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const cancelTimer = schedule(() => controller.abort(), timeoutMs)
     try {
       const res = await fetchImpl(generateContentUrl(model), {
         method: 'POST',
@@ -209,19 +224,29 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     } catch {
       return { ok: false, reason: controller.signal.aborted ? 'timeout' : 'http' }
     } finally {
-      clearTimeout(timer)
+      cancelTimer()
     }
   }
 
-  /** R18 state of one run: one retry, then one switch to the fallback model (sticky). */
+  /** R18 state of one run: one switch to the fallback model (sticky), then one retry of the main model. */
   interface Attempts {
     model: string
-    retried: boolean
     fellBack: boolean
+    retried: boolean
     httpStatus?: number
   }
 
-  /** One generateContent step with R18's retry and fallback, bounded by the run's deadline. */
+  const canFallBack = (req: AgentModelRequest, attempts: Attempts): boolean =>
+    !attempts.fellBack && !!req.fallbackModel && req.fallbackModel !== attempts.model
+
+  /** The call's timeout: the per-call cap, cut to keep the fallback's reserve while it is unused. */
+  function callTimeout(req: AgentModelRequest, attempts: Attempts, remaining: number): number {
+    const reserved = remaining - FALLBACK_RESERVE_MS
+    if (canFallBack(req, attempts) && reserved >= MIN_CALL_MS) return Math.min(req.perCallTimeoutMs, reserved)
+    return Math.min(req.perCallTimeoutMs, remaining)
+  }
+
+  /** One generateContent step with R18's fallback and retry, bounded by the run's deadline. */
   async function callResilient(
     req: AgentModelRequest,
     attempts: Attempts,
@@ -233,19 +258,19 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     for (;;) {
       const remaining = deadline - now()
       if (remaining <= 0) return { ok: false, reason: 'timeout' }
-      const call = await callOnce(req, attempts.model, contents, apiKey, Math.min(req.perCallTimeoutMs, remaining), withTools)
+      const call = await callOnce(req, attempts.model, contents, apiKey, callTimeout(req, attempts, remaining), withTools)
       attempts.httpStatus = call.status
       if (!isRetryable(call)) return call
-      if (!attempts.retried) {
-        attempts.retried = true
-        const pause = Math.min(RETRY_JITTER_MIN_MS + Math.floor(random() * RETRY_JITTER_SPAN_MS), Math.max(0, deadline - now()))
-        await sleep(pause)
+      if (canFallBack(req, attempts)) {
+        attempts.fellBack = true
+        attempts.model = req.fallbackModel as string
         continue
       }
-      const fallback = req.fallbackModel
-      if (attempts.fellBack || !fallback || fallback === attempts.model) return call
-      attempts.fellBack = true
-      attempts.model = fallback
+      if (attempts.retried) return call
+      attempts.retried = true
+      attempts.model = req.model
+      const pause = Math.min(RETRY_JITTER_MIN_MS + Math.floor(random() * RETRY_JITTER_SPAN_MS), Math.max(0, deadline - now()))
+      await sleep(pause)
     }
   }
 
@@ -253,7 +278,7 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     async respond(req: AgentModelRequest): Promise<AgentModelResult> {
       const toolCalls: string[] = []
       const usage: AgentModelUsage = { promptTokens: 0, outputTokens: 0 }
-      const attempts: Attempts = { model: req.model, retried: false, fellBack: false }
+      const attempts: Attempts = { model: req.model, fellBack: false, retried: false }
       const meta = () => ({
         model: attempts.model,
         ...(attempts.httpStatus !== undefined ? { httpStatus: attempts.httpStatus } : {}),

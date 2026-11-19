@@ -30,8 +30,9 @@ describe('AC-R2 tools are bound to the job context', () => {
     expect([...store.silences.keys()]).toEqual(['rest-a|+85291234567'])
   })
 
-  it('AC-R2 declarations take no parameters at all (every tool but AGENT-003 propose_booking, see AC-R12)', () => {
-    for (const d of Object.values(AGENT_TOOL_DECLARATIONS).filter((d) => d.name !== 'propose_booking')) {
+  it('AC-R2 declarations take no parameters at all (every tool but AGENT-003 propose_booking / propose_booking_change / propose_booking_cancel, see AC-R12, AC-R21)', () => {
+    const withArgs = ['propose_booking', 'propose_booking_change', 'propose_booking_cancel']
+    for (const d of Object.values(AGENT_TOOL_DECLARATIONS).filter((d) => !withArgs.includes(d.name))) {
       expect(Object.keys(d).sort()).toEqual(['description', 'name'])
     }
   })

@@ -7,17 +7,32 @@
  * once change the row once (R4) and the loser gets null.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import type { BookingRequest, DecisionMessageStatus, NewBookingRequest } from '@/domain/entities/booking-request'
+import type {
+  BookingCancelledBy,
+  BookingRequest,
+  DecisionMessageStatus,
+  DinerBooking,
+  NewBookingRequest,
+} from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
   BookingRequestStore,
   BookingRetentionStore,
+  CancelDinerBookingArgs,
   DecideBookingArgs,
+  DinerBookingStore,
 } from '@/domain/ports/booking'
 
 const BOOKING_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status'
+/**
+ * AGENT-003 (migration 085): the change/cancel columns, read only by the
+ * dashboard list and the staff decision, so the BOOK-001 paths (booking page,
+ * webhook) do not depend on 085's columns.
+ */
+const STAFF_COLUMNS =
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by'
 
 interface BookingRow {
   id: string
@@ -37,6 +52,8 @@ interface BookingRow {
   campaign_id: string | null
   created_at: string
   decision_message_status: DecisionMessageStatus | null
+  replaces_booking_id?: string | null
+  cancelled_by?: BookingCancelledBy | null
 }
 
 export function toBookingRequest(row: BookingRow): BookingRequest {
@@ -58,6 +75,8 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
     campaignId: row.campaign_id,
     createdAt: row.created_at,
     decisionMessageStatus: row.decision_message_status ?? null,
+    ...(row.replaces_booking_id !== undefined ? { replacesBookingId: row.replaces_booking_id } : {}),
+    ...(row.cancelled_by !== undefined ? { cancelledBy: row.cancelled_by } : {}),
   }
 }
 
@@ -77,6 +96,7 @@ export async function insertBookingRequest(request: NewBookingRequest): Promise<
       source: request.source,
       campaign_id: request.campaignId,
       token: request.token,
+      ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
     })
     .select(BOOKING_COLUMNS)
     .single()
@@ -106,22 +126,42 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
   const [pending, decided] = await Promise.all([
     supabase
       .from('booking_requests')
-      .select(BOOKING_COLUMNS)
+      .select(STAFF_COLUMNS)
       .eq('restaurant_id', restaurantId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false }),
     supabase
       .from('booking_requests')
-      .select(BOOKING_COLUMNS)
+      .select(STAFF_COLUMNS)
       .eq('restaurant_id', restaurantId)
-      .in('status', ['confirmed', 'declined'])
+      .in('status', ['confirmed', 'declined', 'cancelled'])
       .order('created_at', { ascending: false })
       .limit(decidedLimit),
   ])
   const error = pending.error ?? decided.error
   if (error) throw new Error(`listBookingRequests: ${error.message}`)
   const rows = [...((pending.data ?? []) as BookingRow[]), ...((decided.data ?? []) as BookingRow[])]
-  return rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(toBookingRequest)
+  const bookings = rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(toBookingRequest)
+  return withReplacedSlots(restaurantId, bookings)
+}
+
+/** AGENT-003 R23: the slot each change request would replace (old → new in 訂座), one scoped read. */
+async function withReplacedSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
+  const ids = [...new Set(bookings.map((b) => b.replacesBookingId).filter((id): id is string => !!id))]
+  if (ids.length === 0) return bookings
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select('id, booking_date, booking_time, party_size')
+    .eq('restaurant_id', restaurantId)
+    .in('id', ids)
+  if (error) throw new Error(`listBookingRequests replaced: ${error.message}`)
+  const slots = new Map(
+    ((data ?? []) as Array<{ id: string; booking_date: string; booking_time: string; party_size: number }>).map((r) => [
+      r.id,
+      { bookingDate: r.booking_date, bookingTime: r.booking_time.slice(0, 5), partySize: r.party_size },
+    ])
+  )
+  return bookings.map((b) => (b.replacesBookingId ? { ...b, replaces: slots.get(b.replacesBookingId) ?? null } : b))
 }
 
 export async function findBookingForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null> {
@@ -151,10 +191,27 @@ export async function decideBookingRequest(args: DecideBookingArgs): Promise<Boo
     .eq('id', args.id)
     .eq('restaurant_id', args.restaurantId)
     .eq('status', 'pending')
-    .select(BOOKING_COLUMNS)
+    .select(STAFF_COLUMNS)
     .maybeSingle()
   if (error) throw new Error(`decideBookingRequest: ${error.message}`)
   return data ? toBookingRequest(data as BookingRow) : null
+}
+
+/** AGENT-003 R23: confirm a change request and cancel what it replaces, atomically (migration 085). */
+export async function confirmBookingChange(
+  args: Omit<DecideBookingArgs, 'decision' | 'declineReason'>
+): Promise<BookingRequest | null> {
+  const { data, error } = await createServerSupabaseClient()
+    .rpc('confirm_booking_change', {
+      p_id: args.id,
+      p_restaurant_id: args.restaurantId,
+      p_decided_by: args.decidedBy,
+      p_decided_at: args.decidedAt.toISOString(),
+    })
+    .select(STAFF_COLUMNS)
+  if (error) throw new Error(`confirmBookingChange: ${error.message}`)
+  const row = ((data ?? []) as BookingRow[])[0]
+  return row ? toBookingRequest(row) : null
 }
 
 /** F9 (review #7): store the decision message outcome so the badge survives a reload. */
@@ -210,6 +267,70 @@ export async function purgeBookingPii(beforeDate: string, at: Date): Promise<num
   return (data ?? []).length
 }
 
+const DINER_COLUMNS = 'id, booking_date, booking_time, party_size, status, name, notes, member_id, replaces_booking_id'
+
+/** AGENT-003 R20: scoped by restaurant AND phone in the WHERE; upcoming only. */
+export async function listUpcomingDinerBookings(restaurantId: string, phone: string, today: string): Promise<DinerBooking[]> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select(DINER_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', phone)
+    .in('status', ['pending', 'confirmed'])
+    .gte('booking_date', today)
+    .order('booking_date', { ascending: true })
+    .order('booking_time', { ascending: true })
+    .limit(20)
+  if (error) throw new Error(`listUpcomingDinerBookings: ${error.message}`)
+  return (
+    (data ?? []) as Array<{
+      id: string
+      booking_date: string
+      booking_time: string
+      party_size: number
+      status: 'pending' | 'confirmed'
+      name: string | null
+      notes: string | null
+      member_id: string | null
+      replaces_booking_id: string | null
+    }>
+  ).map((r) => ({
+    id: r.id,
+    bookingDate: r.booking_date,
+    bookingTime: r.booking_time.slice(0, 5),
+    partySize: r.party_size,
+    status: r.status,
+    name: r.name,
+    notes: r.notes,
+    memberId: r.member_id,
+    replacesBookingId: r.replaces_booking_id,
+  }))
+}
+
+/**
+ * AGENT-003 R24: one UPDATE, so the booking and its open change requests are
+ * cancelled together. Scoped by restaurant, phone, upcoming and open status.
+ */
+export async function cancelDinerBooking(args: CancelDinerBookingArgs): Promise<string[]> {
+  const at = args.at.toISOString()
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .update({ status: 'cancelled', cancelled_by: 'diner_ai', cancelled_at: at })
+    .eq('restaurant_id', args.restaurantId)
+    .eq('phone', args.phone)
+    .in('status', ['pending', 'confirmed'])
+    .gte('booking_date', args.today)
+    .or(`id.eq.${args.id},and(replaces_booking_id.eq.${args.id},status.eq.pending)`)
+    .select('id')
+  if (error) throw new Error(`cancelDinerBooking: ${error.message}`)
+  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id)
+}
+
+export const dinerBookingStore: DinerBookingStore = {
+  listUpcoming: listUpcomingDinerBookings,
+  cancelByDiner: cancelDinerBooking,
+}
+
 export const bookingCronStore: BookingReminderStore & BookingRetentionStore = {
   listReminderCandidates,
   claimReminder: claimBookingReminder,
@@ -222,5 +343,6 @@ export const bookingRequestStore: BookingRequestStore = {
   listForRestaurant: listBookingRequests,
   findForRestaurant: findBookingForRestaurant,
   decide: decideBookingRequest,
+  confirmChange: confirmBookingChange,
   recordDecisionMessage,
 }

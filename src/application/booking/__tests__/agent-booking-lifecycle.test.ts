@@ -33,6 +33,7 @@ function staffStore(rows: BookingRequest[]): BookingRequestStore {
       rows.filter((r) => r.restaurantId === restaurantId && ['pending', 'confirmed', 'declined'].includes(r.status)),
     findForRestaurant: async (id, restaurantId) =>
       rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status !== 'unverified') ?? null,
+    confirmChange: async () => null,
     decide: async (args: DecideBookingArgs) => {
       const row = rows.find((r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'pending')
       if (!row) return null

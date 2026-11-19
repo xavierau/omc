@@ -19,6 +19,7 @@ import {
   type SaveAgentSettingsOutcome,
 } from '@/hooks/use-agent-settings'
 import {
+  AGENT_FAILURE_ACTIONS,
   AGENT_MODES,
   AGENT_NUMBER_RANGES,
   AGENT_TOOL_NAMES,
@@ -108,6 +109,16 @@ function AdvancedKnobs(props: ReturnType<typeof useAgentSettings>) {
             onChange={(e) => update('fallbackModel', e.target.value)} data-testid="agent-settings-fallback-model" />
           <p className="text-xs text-muted-foreground">{t('fallbackModelHint')}</p>
         </div>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium">{t('failureActionLabel')}</legend>
+          {AGENT_FAILURE_ACTIONS.map((action) => (
+            <label key={action} className="flex items-start gap-2 text-sm">
+              <input type="radio" name="agent-failure-action" value={action} checked={form.failureAction === action}
+                onChange={() => update('failureAction', action)} className="mt-1" data-testid={`agent-settings-failure-action-${action}`} />
+              <span><span className="font-medium">{t(`failureAction.${action}`)}</span> <span className="text-muted-foreground">{t(`failureActionHint.${action}`)}</span></span>
+            </label>
+          ))}
+        </fieldset>
         <fieldset className="space-y-2">
           <legend className="mb-1 text-sm font-medium">{t('toolsLabel')}</legend>
           {AGENT_TOOL_NAMES.map((name) => (

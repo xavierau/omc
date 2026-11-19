@@ -23,5 +23,8 @@ Tasks (one `dev`, one branch, threat R12–R18):
 5. Wiring: dashboard Advanced → fallback model field + the 3 tool checkboxes (en + zh-HK i18n, test ids); conversation log shows booking tool calls by name.
 6. Evidence: local stack walk (mocked Kapso, real Gemini on a lite model): chat "我想訂枱，聽日7點4位，陳生" → proposal read-back → "好" → pending row visible in 訂座 with the agent marker.
 
+7. (Ruling 2026-11-19, folded in) Change + cancel by chat — threat R20–R24: tools `list_my_bookings`, `propose_booking_change`, `confirm_booking_change`, `propose_booking_cancel`, `confirm_booking_cancel` (simple mode only, behind enabledTools); change request linked to the original, staff confirm/decline in 訂座 (old → new shown), confirm swaps atomically; cancel is direct with a diner-AI marker and an in-window text. Migration 085 if the schema needs a link column / cancelled status. Failure action R19: default handoff reply + "needs staff" flag, no silence. Per-call timeout knob (R18).
+8. Evidence additions: change 25/11 19:30 → 26/11 20:00 walked to a change request in 訂座 and confirmed (original cancelled); cancel walked to cancelled with the marker.
+
 Wiring list: agent-config VO + resolver, agent-tools, agent-prompt, agent-client, process-agent-reply (tool context gets booking deps + mode), settings route/UI/i18n, testid registry, `.env.example` (`AGENT_FALLBACK_MODEL`).
 Out of scope: confirmed bookings, availability/capacity, editing or cancelling bookings by chat, booking in BOOK-003 unverified flow.

@@ -10,7 +10,10 @@
  */
 import type { BookingLinkSource } from '@/domain/services/booking-token'
 
-export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined'
+/** AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change. */
+export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled'
+/** AGENT-003 R24/R23: who cancelled a booking. */
+export type BookingCancelledBy = 'diner_ai' | 'change'
 /** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. */
 export type BookingSource = BookingLinkSource | 'agent'
 export type BookingDecision = 'confirmed' | 'declined'
@@ -54,6 +57,14 @@ export interface BookingRequest {
   campaignId: string | null
   createdAt: string
   decisionMessageStatus: DecisionMessageStatus | null
+  /**
+   * AGENT-003 R23: set on a change request, the booking it would replace.
+   * Read by the dashboard list and the staff decision only (undefined elsewhere).
+   */
+  replacesBookingId?: string | null
+  /** AGENT-003: the replaced booking's slot, for the 訂座 "old → new" line. */
+  replaces?: { bookingDate: string; bookingTime: string; partySize: number } | null
+  cancelledBy?: BookingCancelledBy | null
 }
 
 /** BOOK-003: an agent booking with its phone-proof and status-token columns. */
@@ -93,6 +104,21 @@ export interface NewBookingRequest {
   source: BookingSource
   campaignId: string | null
   token: string | null
+  /** AGENT-003 R23: a change request names the booking it would replace. */
+  replacesBookingId?: string | null
+}
+
+/** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, today or later). */
+export interface DinerBooking {
+  id: string
+  bookingDate: string
+  bookingTime: string
+  partySize: number
+  status: 'pending' | 'confirmed'
+  name: string | null
+  notes: string | null
+  memberId: string | null
+  replacesBookingId: string | null
 }
 
 /** A decline reason as stored: trimmed, newline-free, capped; empty = none. */

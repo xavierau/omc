@@ -13,6 +13,7 @@ import {
   AGENT_NUMBER_RANGES,
   AGENT_TOOL_NAMES,
   type AgentConfig,
+  type AgentFailureAction,
   type AgentMode,
   type AgentToolName,
 } from '@/domain/value-objects/agent-config'
@@ -28,6 +29,8 @@ export interface AgentSettingsForm {
   model: string
   /** AGENT-003 R18: '' = env / default fallback. */
   fallbackModel: string
+  /** AGENT-003 R19. */
+  failureAction: AgentFailureAction
   enabledTools: AgentToolName[]
   numbers: Record<AgentNumberKnob, string>
 }
@@ -46,6 +49,7 @@ export function toAgentForm(config: AgentConfig): AgentSettingsForm {
     disclosureText: config.disclosureText,
     model: config.model ?? '',
     fallbackModel: config.fallbackModel ?? '',
+    failureAction: config.failureAction,
     enabledTools: [...config.enabledTools],
     numbers: Object.fromEntries(AGENT_NUMBER_KNOBS.map((k) => [k, String(config[k])])) as Record<AgentNumberKnob, string>,
   }
@@ -68,6 +72,7 @@ export function toAgentPayload(form: AgentSettingsForm, rev: number): { rev: num
       disclosureText: form.disclosureText,
       model: form.model.trim() === '' ? null : form.model.trim(),
       fallbackModel: form.fallbackModel.trim() === '' ? null : form.fallbackModel.trim(),
+      failureAction: form.failureAction,
       enabledTools: AGENT_TOOL_NAMES.filter((name) => form.enabledTools.includes(name)),
       ...Object.fromEntries(AGENT_NUMBER_KNOBS.map((k) => [k, toNumber(form.numbers[k])])),
     },

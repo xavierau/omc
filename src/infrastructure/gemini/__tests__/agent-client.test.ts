@@ -1,6 +1,6 @@
 // AGENT-001 W1: the Gemini generateContent adapter and its tool loop (AC-R3, AC-R4, R8).
 import { describe, it, expect, vi } from 'vitest'
-import { createGeminiAgentClient, generateContentUrl } from '../agent-client'
+import { createGeminiAgentClient, FALLBACK_RESERVE_MS, generateContentUrl } from '../agent-client'
 import type { AgentModelRequest, AgentToolExecutor } from '@/domain/ports/agent-model'
 
 const KEY = 'AIza-test-key'
@@ -241,17 +241,36 @@ describe('AC-R4 failure classes', () => {
   })
 })
 
-describe('AC-R18 overload: retry once, then the fallback model once, inside the budget', () => {
+describe('AC-R18 overload: the fallback model first, then one retry of the main model, inside the budget', () => {
   const overloaded = { status: 503, body: { error: { code: 503, message: 'The model is overloaded.' } } }
+  const FALLBACK = 'gemini-3.5-flash-lite'
 
-  /** A fake clock the sleep advances; each request takes `callMs`. */
-  function timed(replies: Reply[], callMs = 1000) {
+  /**
+   * A fake clock the sleep advances. Each request records its timeout. A reply
+   * 'hang' never answers: the call takes its whole timeout and is aborted;
+   * other replies take `callMs`.
+   */
+  function timed(replies: Array<Reply | 'hang'>, callMs = 1000) {
     let t = 0
-    const seq = fetchSequence(replies)
+    const requests: Array<{ model: string; timeoutMs: number }> = []
     const sleeps: number[] = []
+    const queue = [...replies]
+    let armed: { fn: () => void; ms: number } | null = null
     const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      const reply = queue.length > 1 ? queue.shift()! : queue[0]
+      const model = String(url).split('/models/')[1].split(':')[0]
+      const timer = armed as { fn: () => void; ms: number }
+      requests.push({ model, timeoutMs: timer.ms })
+      if (reply === 'hang') {
+        return new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+          t += timer.ms
+          queueMicrotask(timer.fn)
+        })
+      }
       t += callMs
-      return seq.fetchImpl(url, init)
+      const r = reply as Exclude<Reply, 'abort' | 'network'>
+      return new Response(r.raw ?? JSON.stringify(r.body), { status: r.status ?? 200 })
     }) as typeof fetch
     const client = createGeminiAgentClient({
       fetchImpl,
@@ -259,68 +278,88 @@ describe('AC-R18 overload: retry once, then the fallback model once, inside the 
       now: () => t,
       sleep: async (ms) => void (sleeps.push(ms), (t += ms)),
       random: () => 0.5,
+      schedule: (fn, ms) => {
+        armed = { fn, ms }
+        return () => {
+          armed = null
+        }
+      },
     })
-    return { client, requests: seq.requests, sleeps }
+    return { client, requests, sleeps, elapsed: () => t }
   }
 
-  const modelOf = (url: string) => url.split('/models/')[1].split(':')[0]
+  it('AC-R18 503 → the fallback model answers at once (no pause); the result names it', async () => {
+    const { client, requests, sleeps } = timed([overloaded, textReply('Hi from lite')])
+    const result = await client.respond(request({ fallbackModel: FALLBACK }))
+    expect(result).toMatchObject({ ok: true, text: 'Hi from lite', model: FALLBACK, httpStatus: 200 })
+    expect(requests.map((r) => r.model)).toEqual(['gemini-3.8-flash', FALLBACK])
+    expect(sleeps).toEqual([])
+  })
 
-  it('AC-R18 503 then 200 → ok on the same model after one jittered pause', async () => {
-    const { client, requests, sleeps } = timed([overloaded, textReply('Hi')])
-    const result = await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite' }))
-    expect(result).toMatchObject({ ok: true, text: 'Hi', model: 'gemini-3.8-flash', httpStatus: 200 })
-    expect(requests.map((r) => modelOf(r.url))).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash'])
+  it('AC-R18 503 → fallback 503 → the main model is retried once after a jittered pause', async () => {
+    const { client, requests, sleeps } = timed([overloaded, overloaded, textReply('Hi again')])
+    const result = await client.respond(request({ fallbackModel: FALLBACK }))
+    expect(result).toMatchObject({ ok: true, text: 'Hi again', model: 'gemini-3.8-flash' })
+    expect(requests.map((r) => r.model)).toEqual(['gemini-3.8-flash', FALLBACK, 'gemini-3.8-flash'])
     expect(sleeps).toEqual([400])
   })
 
-  it('AC-R18 503, 503 → the fallback model answers; the result names it', async () => {
-    const { client, requests } = timed([overloaded, overloaded, textReply('Hi from lite')])
-    const result = await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite' }))
-    expect(result).toMatchObject({ ok: true, text: 'Hi from lite', model: 'gemini-3.5-flash-lite', httpStatus: 200 })
-    expect(requests.map((r) => modelOf(r.url))).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'])
-  })
-
   it('AC-R18 the fallback stays in use for the rest of the tool loop', async () => {
-    const { client, requests } = timed([overloaded, overloaded, callReply('get_member_summary'), textReply('120 points')])
-    const result = await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite' }))
-    expect(result).toMatchObject({ ok: true, model: 'gemini-3.5-flash-lite' })
-    expect(requests.map((r) => modelOf(r.url)).slice(2)).toEqual(['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite'])
+    const { client, requests } = timed([overloaded, callReply('get_member_summary'), textReply('120 points')])
+    const result = await client.respond(request({ fallbackModel: FALLBACK }))
+    expect(result).toMatchObject({ ok: true, model: FALLBACK })
+    expect(requests.map((r) => r.model)).toEqual(['gemini-3.8-flash', FALLBACK, FALLBACK])
   })
 
-  it('AC-R18 429 and timeouts are retried too; three failures in a row → the last failure', async () => {
-    const r429 = await timed([{ status: 429, body: {} }, textReply('ok')]).client.respond(request())
-    expect(r429).toMatchObject({ ok: true })
+  it('AC-R18 429 and a timed-out call move on too; three failures in a row → the last failure', async () => {
+    const r429 = await timed([{ status: 429, body: {} }, textReply('ok')]).client.respond(request({ fallbackModel: FALLBACK }))
+    expect(r429).toMatchObject({ ok: true, model: FALLBACK })
     const { client, requests } = timed([overloaded])
-    const result = await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite' }))
-    expect(result).toMatchObject({ ok: false, reason: 'http', httpStatus: 503, model: 'gemini-3.5-flash-lite' })
+    const result = await client.respond(request({ fallbackModel: FALLBACK }))
+    expect(result).toMatchObject({ ok: false, reason: 'http', httpStatus: 503, model: 'gemini-3.8-flash' })
     expect(requests).toHaveLength(3)
-  })
-
-  it('AC-R18 a timed-out call is retried', async () => {
-    const { fetchImpl, requests } = fetchSequence(['abort', textReply('late but ok')])
-    const client = createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY, sleep: async () => {} })
-    const result = await client.respond(request({ perCallTimeoutMs: 20 }))
-    expect(result).toMatchObject({ ok: true, text: 'late but ok' })
-    expect(requests).toHaveLength(2)
   })
 
   it('AC-R18 non-overload failures (400) are not retried', async () => {
     const { client, requests } = timed([{ status: 400, body: {} }])
-    expect(await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite' }))).toMatchObject({ ok: false, reason: 'http', httpStatus: 400 })
+    expect(await client.respond(request({ fallbackModel: FALLBACK }))).toMatchObject({ ok: false, reason: 'http', httpStatus: 400 })
     expect(requests).toHaveLength(1)
   })
 
-  it('AC-R18 no fallback configured (or the same model) → retry once only', async () => {
+  it('AC-R18 no fallback configured (or the same model) → one retry of the main model only', async () => {
     for (const fallbackModel of [null, 'gemini-3.8-flash']) {
       const { client, requests } = timed([overloaded])
       expect(await client.respond(request({ fallbackModel }))).toMatchObject({ ok: false, reason: 'http' })
-      expect(requests).toHaveLength(2)
+      expect(requests.map((r) => r.model)).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash'])
     }
+  })
+
+  it('AC-R18 budget arithmetic: a hung main call at the 15 s cap still leaves the fallback its 5 s call inside 20 s', async () => {
+    const { client, requests, elapsed } = timed(['hang', textReply('lite answered')])
+    const result = await client.respond(request({ fallbackModel: FALLBACK, perCallTimeoutMs: 15_000, budgetMs: 20_000 }))
+    expect(result).toMatchObject({ ok: true, text: 'lite answered', model: FALLBACK })
+    expect(requests[0]).toEqual({ model: 'gemini-3.8-flash', timeoutMs: 15_000 })
+    expect(requests[1].model).toBe(FALLBACK)
+    expect(elapsed()).toBeLessThanOrEqual(20_000)
+  })
+
+  it('AC-R18 budget arithmetic: at the 8 s default a hung main call is cut at 8 s, the fallback gets 8 s, the retry what is left', async () => {
+    const { client, requests, elapsed } = timed(['hang', 'hang', 'hang'])
+    const result = await client.respond(request({ fallbackModel: FALLBACK, perCallTimeoutMs: 8_000, budgetMs: 20_000 }))
+    expect(result).toMatchObject({ ok: false, reason: 'timeout' })
+    expect(requests.map((r) => r.timeoutMs)).toEqual([8_000, 8_000, 3_600])
+    expect(elapsed()).toBe(20_000)
+  })
+
+  it('AC-R18 the main call is cut to keep the fallback reserve when the cap would eat it', async () => {
+    const { client, requests } = timed(['hang', textReply('ok')])
+    await client.respond(request({ fallbackModel: FALLBACK, perCallTimeoutMs: 15_000, budgetMs: 18_000 }))
+    expect(requests[0].timeoutMs).toBe(18_000 - FALLBACK_RESERVE_MS)
   })
 
   it('AC-R18 budget exhausted → timeout, no attempt past the budget', async () => {
     const { client, requests } = timed([overloaded], 10_000)
-    const result = await client.respond(request({ fallbackModel: 'gemini-3.5-flash-lite', budgetMs: 20_000 }))
+    const result = await client.respond(request({ fallbackModel: FALLBACK, budgetMs: 20_000 }))
     expect(result).toMatchObject({ ok: false, reason: 'timeout' })
     expect(requests).toHaveLength(2)
   })

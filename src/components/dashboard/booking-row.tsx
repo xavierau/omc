@@ -6,6 +6,9 @@
  * (with an optional reason); a decision whose message did not go out shows
  * the "contact the diner" badge, from this session or as stored (F9).
  * BOOK-003: a booking an AI agent made shows the "via AI agent" badge.
+ * AGENT-003: a change request shows the slot it would replace (old → new);
+ * a cancelled booking says whether the diner cancelled it through the AI
+ * agent or a confirmed change replaced it.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -21,7 +24,7 @@ export interface BookingRowProps {
   onDecide: (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 }
 
-const STATUS_VARIANT = { unverified: 'outline', pending: 'outline', confirmed: 'default', declined: 'secondary' } as const
+const STATUS_VARIANT = { unverified: 'outline', pending: 'outline', confirmed: 'default', declined: 'secondary', cancelled: 'secondary' } as const
 
 function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boolean; onSend: (reason: string) => void; onCancel: () => void }) {
   const t = useTranslations('bookings')
@@ -80,12 +83,27 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
         {booking.source === 'agent' ? (
           <Badge variant="secondary" data-testid={`booking-row-${booking.id}-via-agent`}>{t('viaAgent')}</Badge>
         ) : null}
+        {booking.cancelledBy ? (
+          <Badge variant="outline" data-testid={`booking-row-${booking.id}-cancelled-by-${booking.cancelledBy === 'diner_ai' ? 'diner' : 'change'}`}>
+            {t(booking.cancelledBy === 'diner_ai' ? 'cancelledByDiner' : 'replacedByChange')}
+          </Badge>
+        ) : null}
         {undelivered || booking.decisionMessageStatus === 'not_delivered' ? (
           <Badge variant="outline" className="border-destructive text-foreground" data-testid={`booking-row-${booking.id}-not-delivered`}>
             {t('notDelivered')}
           </Badge>
         ) : null}
       </div>
+      {booking.replacesBookingId ? (
+        <p className="text-sm text-foreground" data-testid={`booking-row-${booking.id}-change-from`}>
+          {booking.replaces
+            ? t('changeFrom', {
+                from: `${booking.replaces.bookingDate} ${booking.replaces.bookingTime} · ${t('partyOf', { count: booking.replaces.partySize })}`,
+                to: `${booking.bookingDate} ${booking.bookingTime} · ${t('partyOf', { count: booking.partySize })}`,
+              })
+            : t('changeRequest')}
+        </p>
+      ) : null}
       <p className="text-sm text-foreground">
         {booking.name ?? t('nameRemoved')} · <a href={`tel:${booking.phone}`} className="tabular-nums underline-offset-2 hover:underline">{booking.phone}</a>
       </p>

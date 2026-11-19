@@ -20,6 +20,7 @@ import type { AgentModelPort, AgentModelRequest, AgentModelResult } from '@/doma
 import type { AgentBookingWorkerDeps, AgentWorkerDeps } from '@/application/agent/process-agent-reply'
 import type {
   AgentBookingProposal,
+  AgentProposalKind,
   AgentProposalStore,
   TakeProposalResult,
 } from '@/domain/ports/agent-booking-proposal'
@@ -186,9 +187,10 @@ export class FakeProposalStore implements AgentProposalStore {
   async save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number) {
     this.entries.set(this.k(key), { proposal, expiresAt: this.clock.ms + ttlMs })
   }
-  async takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string): Promise<TakeProposalResult> {
+  async takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string, kind: AgentProposalKind): Promise<TakeProposalResult> {
     const entry = this.entries.get(this.k(key))
     if (!entry || entry.expiresAt <= this.clock.ms) return { kind: 'none' }
+    if (entry.proposal.kind !== kind) return { kind: 'other_kind' }
     if (Date.parse(entry.proposal.inboundCreatedAt) >= Date.parse(inboundCreatedAt)) return { kind: 'not_earlier' }
     this.entries.delete(this.k(key))
     return { kind: 'taken', proposal: entry.proposal }
@@ -203,6 +205,8 @@ export interface FakeBookingWorld {
   proposals: FakeProposalStore
   unverified: { value: number }
   memberIds: Map<string, string>
+  /** R24 texts the tools sent. */
+  texts: Array<{ restaurantId: string; phone: string; text: string }>
 }
 
 /** BOOK-001 fakes behind the agent's booking tools (booking mode off until a test sets it). */
@@ -213,7 +217,9 @@ export function fakeBookingWorld(clock: FakeClock): FakeBookingWorld {
   const proposals = new FakeProposalStore(clock)
   const unverified = { value: 0 }
   const memberIds = new Map<string, string>()
+  const texts: FakeBookingWorld['texts'] = []
   return {
+    texts,
     settings,
     requests,
     sender,
@@ -228,6 +234,8 @@ export function fakeBookingWorld(clock: FakeClock): FakeBookingWorld {
       members: { findMemberId: async (restaurantId, phone) => memberIds.get(`${restaurantId}|${phone}`) ?? null },
       settings,
       sender,
+      diner: requests,
+      notifyText: async (restaurantId, phone, text) => (texts.push({ restaurantId, phone, text }), true),
     },
   }
 }
@@ -299,7 +307,8 @@ export function workerHarness(options: { config?: Record<string, unknown>; model
   const clock = new FakeClock()
   const store = new FakeAgentStore(clock)
   const model = options.model ?? new FakeAgentModel([okModel('Hello!')])
-  let config: AgentConfig = resolveAgentConfig({ mode: 'auto', ...options.config })
+  // AGENT-001's R4 tests pin today's menu; AGENT-003 R19 tests pass failureAction 'handoff' (the product default).
+  let config: AgentConfig = resolveAgentConfig({ mode: 'auto', failureAction: 'menu', ...options.config })
   const sends: WorkerHarness['sends'] = []
   const fallbacks: WorkerHarness['fallbacks'] = []
   const logs: WorkerHarness['logs'] = []

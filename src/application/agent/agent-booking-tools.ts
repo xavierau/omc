@@ -1,47 +1,52 @@
 /**
- * AGENT-003: the reply agent's booking tools (threat R12–R17).
+ * AGENT-003: the reply agent's booking tools (threat R12–R17, R20–R24).
  *
+ * New booking:
  * - `propose_booking(date, time, partySize, name, notes?)` validates the
  *   details with BOOK-001's own `parseBookingSubmission` (R13) and stores ONE
  *   proposal for the job's `{restaurantId, phone}` (R15). It books nothing.
  * - `create_booking_request()` takes no arguments: it books exactly the stored
- *   proposal, only when a job EARLIER than this one made it (the diner wrote
- *   again after the read-back), unexpired and unused (consumed atomically).
- *   The row is a BOOK-001 **pending** request (R16) with source 'agent' (R17,
- *   "via AI agent" in 訂座), held to the per-phone open cap (R14), and the
- *   diner gets BOOK-001's "received" message, best effort.
+ *   proposal through the two-step gate (agent-booking-gate.ts). The row is a
+ *   BOOK-001 **pending** request (R16) with source 'agent' (R17, "via AI
+ *   agent" in 訂座), held to the per-phone open cap (R14), and the diner gets
+ *   BOOK-001's "received" message, best effort.
  * - `get_booking_link()` returns the external booking URL.
+ * Change and cancel (R20–R24): agent-booking-change-tools.ts.
  *
- * Which of them a tenant is offered follows its booking mode: simple →
- * propose + create, external → the link, off → none (threat Auth & Authz).
- * Identity is the job key only: no argument names a phone, restaurant,
- * member or booking (R12). Proposal values are never logged (R8).
+ * Which tools a tenant is offered follows its booking mode: simple → every
+ * booking tool but the link, external → the link, off → none (threat Auth &
+ * Authz). Identity is the job key only: no argument names a phone,
+ * restaurant or member; the one id the model passes is the change/cancel
+ * `bookingRef`, resolved inside the diner's own bookings (R21). Proposal
+ * values are never logged (R8).
  */
-import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
 import { parseBookingSubmission } from '@/domain/services/booking-submission'
-import { AGENT_PROPOSAL_TTL_MS, type AgentProposalStore } from '@/domain/ports/agent-booking-proposal'
-import type { AgentConversationKey } from '@/domain/ports/agent-reply'
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentToolName } from '@/domain/value-objects/agent-config'
-import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
-import type {
-  BookingMemberLookup,
-  BookingMessageSender,
-  BookingRequestStore,
-  BookingSettingsReader,
-} from '@/domain/ports/booking'
+import type { BookingMode } from '@/domain/value-objects/booking-config'
 import { bookingRulesAt, notifyReceived } from '@/application/booking/submit-booking-request'
+import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
+import {
+  CHANGE_TOOL_DECLARATIONS,
+  CHANGE_TOOL_NAMES,
+  runChangeTool,
+  type AgentChangeToolName,
+} from './agent-booking-change-tools'
 
-export type AgentBookingToolName = Extract<AgentToolName, 'propose_booking' | 'create_booking_request' | 'get_booking_link'>
+export type { AgentBookingToolContext } from './agent-booking-gate'
+
+type NewBookingToolName = Extract<AgentToolName, 'propose_booking' | 'create_booking_request' | 'get_booking_link'>
+export type AgentBookingToolName = NewBookingToolName | AgentChangeToolName
 export const AGENT_BOOKING_TOOL_NAMES: readonly AgentBookingToolName[] = [
   'propose_booking',
   'create_booking_request',
   'get_booking_link',
+  ...CHANGE_TOOL_NAMES,
 ]
 
 const TOOLS_BY_MODE: Record<BookingMode, readonly AgentBookingToolName[]> = {
   off: [],
-  simple: ['propose_booking', 'create_booking_request'],
+  simple: ['propose_booking', 'create_booking_request', ...CHANGE_TOOL_NAMES],
   external: ['get_booking_link'],
 }
 
@@ -61,7 +66,7 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
   propose_booking: {
     name: 'propose_booking',
     description:
-      'Check the details of a table booking for the diner you are talking to, once you know the date, time, party size and the name for the booking. It books and reserves nothing (never say a table is held): read the returned details back to the diner and ask them to confirm. On field errors, ask the diner to correct those details.',
+      'Check the details of a NEW table booking for the diner you are talking to, once you know the date, time, party size and the name for the booking. It books and reserves nothing (never say a table is held): read the returned details back to the diner and ask them to confirm. On field errors, ask the diner to correct those details.',
     parameters: {
       type: 'object',
       properties: {
@@ -83,53 +88,18 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
     name: 'get_booking_link',
     description: "Get the restaurant's online booking link to share with a diner who wants to book a table. Takes no arguments.",
   },
+  ...CHANGE_TOOL_DECLARATIONS,
 }
 
-export interface AgentBookingToolContext {
-  /** The tenant's booking settings, read when the job started. */
-  config: Pick<BookingConfig, 'mode' | 'maxPartySize' | 'externalUrl'>
-  /** `created_at` of this job's inbound agent_messages row (R15); null when it is gone. */
-  inboundCreatedAt(): Promise<string | null>
-  proposals: AgentProposalStore
-  requests: Pick<BookingRequestStore, 'insert' | 'countPending'>
-  /** BOOK-003 unverified bookings still live for this phone (they count toward the cap, R14). */
-  countLiveUnverified(restaurantId: string, now: Date, phone: string): Promise<number>
-  members: BookingMemberLookup
-  settings: Pick<BookingSettingsReader, 'getRestaurant'>
-  sender: BookingMessageSender
-}
-
-interface Call {
-  key: AgentConversationKey
-  now: () => Date
-  booking: AgentBookingToolContext
-}
-
-/** R14: pending requests plus live BOOK-003 unverified ones, as the BOOK-003 create path counts them. */
-async function atOpenCap({ key, now, booking }: Call): Promise<boolean> {
-  const [pending, unverified] = await Promise.all([
-    booking.requests.countPending(key.restaurantId, key.phone),
-    booking.countLiveUnverified(key.restaurantId, now(), key.phone),
-  ])
-  return pending + unverified >= MAX_PENDING_PER_PHONE
-}
-
-const TOO_MANY_PENDING: AgentToolOutput = {
-  error: 'too_many_pending',
-  note: 'The diner already has the most open booking requests allowed. Tell them staff will reply to those first.',
-}
-
-async function proposeBooking(call: Call, args: Record<string, unknown>): Promise<AgentToolOutput> {
-  const { key, now, booking } = call
+async function proposeBooking(call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
+  const { now, booking } = call
   const body = Object.fromEntries(PROPOSAL_FIELDS.filter((f) => args[f] !== undefined).map((f) => [f, args[f]]))
   const parsed = parseBookingSubmission(body, bookingRulesAt(now(), booking.config.maxPartySize))
   if (!parsed.ok) {
     return { error: 'invalid', fields: parsed.errors, maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' }
   }
   if (await atOpenCap(call)) return TOO_MANY_PENDING
-  const inboundCreatedAt = await booking.inboundCreatedAt()
-  if (!inboundCreatedAt) return { error: 'lookup_failed' }
-  await booking.proposals.save(key, { booking: parsed.submission, inboundCreatedAt, proposedAt: now().toISOString() }, AGENT_PROPOSAL_TTL_MS)
+  if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission }))) return { error: 'lookup_failed' }
   return {
     proposed: true,
     booking: parsed.submission,
@@ -137,20 +107,12 @@ async function proposeBooking(call: Call, args: Record<string, unknown>): Promis
   }
 }
 
-async function createBookingRequest(call: Call): Promise<AgentToolOutput> {
+async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput> {
   const { key, now, booking } = call
-  const inboundCreatedAt = await booking.inboundCreatedAt()
-  if (!inboundCreatedAt) return { error: 'lookup_failed' }
-  const taken = await booking.proposals.takeIfEarlier(key, inboundCreatedAt)
-  if (taken.kind === 'not_earlier') {
-    return { error: 'awaiting_diner_confirmation', note: 'Read the proposed booking back to the diner and wait for their reply before creating it.' }
-  }
-  const at = now()
-  if (taken.kind === 'none' || at.getTime() - Date.parse(taken.proposal.proposedAt) > AGENT_PROPOSAL_TTL_MS) {
-    return { error: 'no_proposal', note: 'There is no booking waiting for confirmation. Collect the details and call propose_booking first.' }
-  }
+  const taken = await takeProposal(call, 'create')
+  if (!taken.ok) return taken.output
   // Re-checked now: the proposed time may have passed while the diner answered.
-  const parsed = parseBookingSubmission({ ...taken.proposal.booking }, bookingRulesAt(at, booking.config.maxPartySize))
+  const parsed = parseBookingSubmission({ ...taken.proposal.booking }, bookingRulesAt(now(), booking.config.maxPartySize))
   if (!parsed.ok) return { error: 'invalid', fields: parsed.errors, note: 'Ask the diner for new details and propose again.' }
   if (await atOpenCap(call)) return TOO_MANY_PENDING
 
@@ -178,12 +140,12 @@ async function createBookingRequest(call: Call): Promise<AgentToolOutput> {
   }
 }
 
-function bookingLink({ booking }: Call): AgentToolOutput {
+function bookingLink({ booking }: BookingCall): AgentToolOutput {
   const url = booking.config.mode === 'external' ? booking.config.externalUrl : null
   return url ? { url, note: 'Share this link so the diner can book.' } : { error: 'no_booking_link' }
 }
 
-export async function runBookingTool(name: AgentBookingToolName, call: Call, args: Record<string, unknown>): Promise<AgentToolOutput> {
+export async function runBookingTool(name: AgentBookingToolName, call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
   switch (name) {
     case 'propose_booking':
       return proposeBooking(call, args)
@@ -191,5 +153,7 @@ export async function runBookingTool(name: AgentBookingToolName, call: Call, arg
       return createBookingRequest(call)
     case 'get_booking_link':
       return bookingLink(call)
+    default:
+      return runChangeTool(name, call, args)
   }
 }

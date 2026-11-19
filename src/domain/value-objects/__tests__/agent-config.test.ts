@@ -30,6 +30,7 @@ describe('AC-VO AgentConfig resolver', () => {
       historyTtlHours: 72,
       debounceMs: 3000,
       maxToolCalls: 3,
+      perCallTimeoutMs: 8000,
       enabledTools: [
         'get_member_summary',
         'list_rewards',
@@ -37,11 +38,17 @@ describe('AC-VO AgentConfig resolver', () => {
         'propose_booking',
         'create_booking_request',
         'get_booking_link',
+        'list_my_bookings',
+        'propose_booking_change',
+        'confirm_booking_change',
+        'propose_booking_cancel',
+        'confirm_booking_cancel',
       ],
       handoffSilenceHours: 12,
       maxRepliesPerPhonePerHour: 10,
       maxRepliesPerTenantPerDay: 500,
       disclosureText: DEFAULT_DISCLOSURE_TEXT,
+      failureAction: 'handoff',
     })
   })
 
