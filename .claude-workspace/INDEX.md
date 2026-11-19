@@ -100,6 +100,14 @@ no artifact files were lost._
 
 ### Artifacts
 
+**BOOK-004 — bookings Calendar + Table views (2026-11-19)**
+- [2026-11-19-book-004-bookings-views-ux](artifacts/2026-11-19-book-004-bookings-views-ux.md) — BOOK-004 UX spec + POC plan; Pencil mocks in designs/ (main)
+- [2026-11-19-book-004-bookings-views-impl](artifacts/2026-11-19-book-004-bookings-views-impl.md) — BOOK-004 impl: ranged bookings API, calendar + table views, en/zh walk (dev)
+- ~~[2026-11-19-dev-book-004-handoff](artifacts/2026-11-19-dev-book-004-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r2-handoff
+- ~~[2026-11-19-dev-book-004-r2-handoff](artifacts/2026-11-19-dev-book-004-r2-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r3-handoff
+- ~~[2026-11-19-dev-book-004-r3-handoff](artifacts/2026-11-19-dev-book-004-r3-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r4-handoff
+- [2026-11-19-dev-book-004-r4-handoff](artifacts/2026-11-19-dev-book-004-r4-handoff.md) — BOOK-004 r4: develop merge, AGENT-003 rows + cancelled in the views (dev)
+
 **CAMP-016 — audience quality + lapsed filters, Settings regroup (2026-11-19)**
 - [2026-11-19-camp-016-plan](artifacts/2026-11-19-camp-016-plan.md) — CAMP-016 POC plan: tenant defaults, one resolver, settings regroup (main)
 - [2026-11-19-settings-campaign-quality-ux](artifacts/2026-11-19-settings-campaign-quality-ux.md) — CAMP-016 UX spec: Settings groups, Campaigns group, form Audience (main)

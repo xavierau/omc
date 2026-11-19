@@ -1,0 +1,19 @@
+before: other-tenant bookings
+ count 
+-------
+     0
+(1 row)
+
+DELETE 2
+DELETE 4
+DELETE 1
+DELETE 1
+after: restaurant, bookings, user_tenants, other-tenant bookings
+ count | count | count | count 
+-------+-------+-------+-------
+     0 |     0 |     0 |     0
+(1 row)
+
+psql exit 0
+auth delete 200
+auth users left: 0

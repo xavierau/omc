@@ -2,12 +2,13 @@
 
 /**
  * BOOK-001: the dashboard Bookings list and the confirm/decline calls.
+ * BOOK-004: the list is fetched for a date range (calendar month / table range).
  * `decideBooking` maps each API answer to what the row shows (spec UI
  * Feedback States): done (+ not-delivered warning), already handled, gone.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTenant } from '@/hooks/use-tenant'
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import type { BookingDateRange, BookingRequest } from '@/domain/entities/booking-request'
 
 export type BookingItem = BookingRequest
 
@@ -49,54 +50,108 @@ export async function decideBooking(
   }
 }
 
-export async function fetchBookings(): Promise<BookingItem[]> {
-  const res = await fetch('/api/dashboard/bookings')
+export interface BookingsPayload {
+  bookings: BookingItem[]
+  /** Every pending request of the restaurant, any date (BOOK-004). */
+  pendingCount: number
+  /** The range held more rows than the API returns (BOOK-004 R4). */
+  truncated: boolean
+}
+
+/** BOOK-004: a date range (inclusive), or r2: every pending booking of any date. */
+export type BookingsQuery = BookingDateRange | { status: 'pending' }
+
+const searchOf = (query: BookingsQuery) =>
+  new URLSearchParams('status' in query ? { status: query.status } : { from: query.from, to: query.to }).toString()
+
+/** BOOK-004: the bookings the query selects, by date and time. */
+export async function fetchBookings(query: BookingsQuery): Promise<BookingsPayload> {
+  return fetchBookingsBySearch(searchOf(query))
+}
+
+async function fetchBookingsBySearch(search: string): Promise<BookingsPayload> {
+  const res = await fetch(`/api/dashboard/bookings?${search}`)
   if (!res.ok) throw new Error('Failed to fetch bookings')
-  return ((await res.json()) as { bookings: BookingItem[] }).bookings
+  const body = (await res.json()) as Partial<BookingsPayload> & { bookings: BookingItem[] }
+  return { bookings: body.bookings, pendingCount: body.pendingCount ?? 0, truncated: body.truncated === true }
 }
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Unknown error')
 
-export function useBookings() {
-  const { restaurantId } = useTenant()
-  const [data, setData] = useState<BookingItem[] | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export interface BookingsLanding {
+  loaded: (key: string, payload: BookingsPayload) => void
+  failed: (key: string, message: string) => void
+}
 
-  const refetch = useCallback(async () => {
-    if (!restaurantId) return
-    setIsLoading(true)
-    try {
-      setData(await fetchBookings())
-      setError(null)
-    } catch (err) {
-      setError(errorText(err))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [restaurantId])
-
-  useEffect(() => {
-    if (!restaurantId) return
-    let active = true
-    fetchBookings().then(
-      (bookings) => {
-        if (!active) return
-        setData(bookings)
-        setIsLoading(false)
+/**
+ * A fetch for `forKey` lands only while `forKey` is still the current query
+ * (and its effect is still active). Review F2: a decision's refetch can outlive
+ * a month change; the old month's answer arriving last must never replace the
+ * new month's data, or the page shows Loading forever.
+ */
+export function bookingsSettler(currentKey: () => string | null, land: BookingsLanding) {
+  return (forKey: string, outcome: Promise<BookingsPayload>, isActive: () => boolean = () => true) => {
+    const current = () => isActive() && currentKey() === forKey
+    return outcome.then(
+      (payload) => {
+        if (current()) land.loaded(forKey, payload)
       },
       (err) => {
-        if (!active) return
-        setError(errorText(err))
-        setIsLoading(false)
+        if (current()) land.failed(forKey, errorText(err))
       }
     )
+  }
+}
+
+/**
+ * `query` null = wait (nothing fetched yet). `data` is only ever the answer
+ * for the current query: after a change it is null until that query loads,
+ * so a view never shows another range's bookings.
+ */
+export function useBookings(query: BookingsQuery | null) {
+  const { restaurantId } = useTenant()
+  const [loaded, setLoaded] = useState<{ key: string; payload: BookingsPayload } | null>(null)
+  const [failed, setFailed] = useState<{ key: string; message: string } | null>(null)
+  const key = query ? searchOf(query) : null
+  const keyRef = useRef(key)
+
+  const settle = useCallback((forKey: string, outcome: Promise<BookingsPayload>, isActive?: () => boolean) => {
+    const land: BookingsLanding = {
+      loaded: (k, payload) => {
+        setLoaded({ key: k, payload })
+        setFailed(null)
+      },
+      failed: (k, message) => setFailed({ key: k, message }),
+    }
+    return bookingsSettler(() => keyRef.current, land)(forKey, outcome, isActive)
+  }, [])
+
+  // Declared before the fetch effect so it runs first: a fetch always starts with keyRef current.
+  useEffect(() => {
+    keyRef.current = key
+  }, [key])
+
+  useEffect(() => {
+    if (!restaurantId || !key) return
+    let active = true
+    void settle(key, fetchBookingsBySearch(key), () => active)
     return () => {
       active = false
     }
-  }, [restaurantId])
+  }, [restaurantId, key, settle])
 
-  return { data, isLoading, error, refetch }
+  // Reloads the query current when it runs, not the one of the render that made it (F2).
+  const refetch = useCallback(async () => {
+    const current = keyRef.current
+    if (!restaurantId || !current) return
+    await settle(current, fetchBookingsBySearch(current))
+  }, [restaurantId, settle])
+
+  const data = loaded?.key === key ? loaded.payload : null
+  const error = failed?.key === key ? failed.message : null
+  // The tenant-wide pending count does not depend on the query: keep the last one while a query loads.
+  const pendingCount = loaded?.payload.pendingCount ?? 0
+  return { data, pendingCount, isLoading: data === null && error === null, error, refetch }
 }
 
 export type BookingNotice =
@@ -121,18 +176,52 @@ export function showsUndelivered(outcome: BookingDecisionOutcome): boolean {
   return outcome.kind === 'done' && outcome.delivered === false
 }
 
+export interface DecisionSteps {
+  setBusyId: (id: string | null) => void
+  decide: typeof decideBooking
+  onOutcome: (outcome: BookingDecisionOutcome) => void
+  refetch: () => Promise<void>
+}
+
+export interface DecisionRequest {
+  id: string
+  decision: 'confirm' | 'decline'
+  reason?: string
+}
+
+/** Review F4: the row stays busy until the list has reloaded, so its buttons never re-enable on a row still shown as Pending. */
+export async function runDecision(steps: DecisionSteps, { id, decision, reason }: DecisionRequest): Promise<void> {
+  steps.setBusyId(id)
+  try {
+    steps.onOutcome(await steps.decide(id, decision, reason))
+    await steps.refetch()
+  } finally {
+    steps.setBusyId(null)
+  }
+}
+
+export interface DecisionSinks {
+  setNotice: (notice: BookingNotice | null) => void
+  addUndelivered: (id: string) => void
+}
+
+/** What a decision outcome does to the page: its notice, and the row's "not delivered" badge only per F8. */
+export function decisionOutcomeHandler(id: string, decision: 'confirm' | 'decline', sinks: DecisionSinks) {
+  return (outcome: BookingDecisionOutcome) => {
+    sinks.setNotice(noticeFor(decision, outcome))
+    if (showsUndelivered(outcome)) sinks.addUndelivered(id)
+  }
+}
+
 export function useBookingActions(refetch: () => Promise<void>) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [notice, setNotice] = useState<BookingNotice | null>(null)
   const [undelivered, setUndelivered] = useState<ReadonlySet<string>>(new Set())
 
   async function act(id: string, decision: 'confirm' | 'decline', reason?: string) {
-    setBusyId(id)
-    const outcome = await decideBooking(id, decision, reason)
-    setNotice(noticeFor(decision, outcome))
-    if (showsUndelivered(outcome)) setUndelivered((prev) => new Set(prev).add(id))
-    setBusyId(null)
-    await refetch()
+    const addUndelivered = (rowId: string) => setUndelivered((prev) => new Set(prev).add(rowId))
+    const onOutcome = decisionOutcomeHandler(id, decision, { setNotice, addUndelivered })
+    await runDecision({ setBusyId, decide: decideBooking, onOutcome, refetch }, { id, decision, reason })
   }
 
   return { busyId, notice, undelivered, act }
