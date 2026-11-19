@@ -7,7 +7,12 @@
  * once change the row once (R4) and the loser gets null.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import type { BookingRequest, DecisionMessageStatus, NewBookingRequest } from '@/domain/entities/booking-request'
+import type {
+  BookingDateRange,
+  BookingRequest,
+  DecisionMessageStatus,
+  NewBookingRequest,
+} from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
@@ -122,6 +127,46 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
   if (error) throw new Error(`listBookingRequests: ${error.message}`)
   const rows = [...((pending.data ?? []) as BookingRow[]), ...((decided.data ?? []) as BookingRow[])]
   return rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(toBookingRequest)
+}
+
+/**
+ * BOOK-004: one restaurant's staff-visible bookings dated within `range`
+ * (inclusive), by date then time. R1 tenant scope and R2 the unverified
+ * exclusion are filters of the query itself (an allow-list, so a status added
+ * later stays hidden until the views handle it); R4 reads one row past `cap`
+ * to know whether the list was cut.
+ */
+export async function listBookingRequestsInRange(
+  restaurantId: string,
+  range: BookingDateRange,
+  cap: number
+): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .select(BOOKING_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['pending', 'confirmed', 'declined'])
+    .gte('booking_date', range.from)
+    .lte('booking_date', range.to)
+    .order('booking_date', { ascending: true })
+    .order('booking_time', { ascending: true })
+    .limit(cap + 1)
+  if (error) throw new Error(`listBookingRequestsInRange: ${error.message}`)
+  const rows = (data ?? []) as BookingRow[]
+  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+}
+
+/** BOOK-004: every pending request of one restaurant, any date (the "need a reply" count). */
+export async function countRestaurantPendingBookings(restaurantId: string): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('booking_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'pending')
+  if (error) throw new Error(`countRestaurantPendingBookings: ${error.message}`)
+  return count ?? 0
 }
 
 export async function findBookingForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null> {

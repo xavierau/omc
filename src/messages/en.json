@@ -1369,7 +1369,67 @@
       "declined": "declined"
     },
     "actionFailed": "Couldn't update this request. Please try again.",
-    "viaAgent": "via AI agent"
+    "viaAgent": "via AI agent",
+    "pax": "{count} pax",
+    "notDeliveredShort": "Not delivered",
+    "views": {
+      "calendar": "Calendar",
+      "table": "Table",
+      "viewLabel": "View",
+      "needsReply": "{count, plural, one {# request needs a reply} other {# requests need a reply}}",
+      "needsReplyShort": "{count} to reply",
+      "show": "Show",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "prevWeek": "Previous week",
+      "nextWeek": "Next week",
+      "today": "Today",
+      "rangeLabel": "Bookings to show",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "soonestFirst": "Booking time · soonest first",
+      "newestFirst": "Booking time · newest first",
+      "statusLabel": "Status",
+      "filter": {
+        "all": "All",
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "declined": "Declined"
+      },
+      "searchPlaceholder": "Name or phone",
+      "guests": "{count, plural, one {# guest} other {# guests}}",
+      "bookingCount": "{count, plural, one {# booking} other {# bookings}}",
+      "needReply": "{count, plural, one {# needs a reply} other {# need a reply}}",
+      "more": "+{count} more",
+      "todayLabel": "Today · {date}",
+      "emptyMonthTitle": "No bookings this month",
+      "emptyMonthDescription": "Requests diners send from their booking link appear on their booking date.",
+      "emptyDay": "No bookings on this day.",
+      "emptyUpcomingTitle": "No upcoming bookings",
+      "emptyPastTitle": "No bookings in the last 90 days",
+      "emptyRangeDescription": "Requests diners send from their booking link appear here.",
+      "noMatch": "No bookings match this filter.",
+      "showingUpcoming": "{count, plural, one {Showing # upcoming booking} other {Showing # upcoming bookings}}",
+      "showingPast": "{count, plural, one {Showing # booking from the last 90 days} other {Showing # bookings from the last 90 days}}",
+      "showPast": "Show past bookings",
+      "showUpcoming": "Show upcoming bookings",
+      "truncated": "Showing the first {count} bookings in this range.",
+      "columns": {
+        "time": "Time",
+        "guest": "Guest",
+        "phone": "Phone",
+        "party": "Party",
+        "status": "Status",
+        "source": "Source",
+        "notes": "Notes",
+        "actions": "Actions"
+      },
+      "source": {
+        "chat": "WhatsApp chat",
+        "campaign": "Campaign",
+        "agent": "AI agent"
+      }
+    }
   },
   "bookingSettings": {
     "title": "Booking",

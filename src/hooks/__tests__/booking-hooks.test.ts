@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bookingDecisionOutcome, decideBooking, noticeFor } from '@/hooks/use-bookings'
+import { bookingDecisionOutcome, decideBooking, fetchBookings, noticeFor } from '@/hooks/use-bookings'
 import { needsExternalUrl, saveOutcome, toForm, toPayload } from '@/hooks/use-booking-settings'
 import { DEFAULT_BOOKING_CONFIG, parseBookingSettings } from '@/domain/value-objects/booking-config'
 
@@ -110,5 +110,19 @@ describe('use-booking-settings helpers', () => {
       kind: 'fields', errors: { externalUrl: 'invalid_https_url' },
     })
     expect(saveOutcome(403, {})).toEqual({ kind: 'forbidden' })
+  })
+})
+
+describe('fetchBookings (BOOK-004)', () => {
+  it('asks for the date range and reads pendingCount and truncated', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bookings: [], pendingCount: 4, truncated: true }) })
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await fetchBookings({ from: '2026-11-01', to: '2026-12-05' })).toEqual({ bookings: [], pendingCount: 4, truncated: true })
+    expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?from=2026-11-01&to=2026-12-05')
+  })
+
+  it('throws on a failed answer so the page shows the error state', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+    await expect(fetchBookings({ from: '2026-11-01', to: '2026-11-30' })).rejects.toThrow()
   })
 })

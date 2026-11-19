@@ -6,10 +6,12 @@ vi.mock('@/infrastructure/supabase/client', () => ({ createServerSupabaseClient:
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
   countPendingBookings,
+  countRestaurantPendingBookings,
   decideBookingRequest,
   findBookingForRestaurant,
   insertBookingRequest,
   listBookingRequests,
+  listBookingRequestsInRange,
   recordDecisionMessage,
 } from '../booking-request-repository'
 
@@ -50,6 +52,29 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined'])
     expect(decided.calls).toContainEqual(['limit', 200])
     for (const q of rec.queries) expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
+  })
+
+  // BOOK-004 R1-R4: one query, tenant + staff-visible + date window in SQL, one row past the cap.
+  it('lists a date range scoped in the query, date then time ascending, reading cap + 1 to flag truncation', async () => {
+    const rec = use([{ data: [ROW, { ...ROW, id: 'b-2' }, { ...ROW, id: 'b-3' }] }])
+    const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 2)
+    const q = rec.queries[0]
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined'])
+    expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-01'])
+    expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-30'])
+    expect(q.calls.filter(([m]) => m === 'order')).toEqual([
+      ['order', 'booking_date', { ascending: true }],
+      ['order', 'booking_time', { ascending: true }],
+    ])
+    expect(q.calls).toContainEqual(['limit', 3])
+    expect(result.bookings.map((b) => b.id)).toEqual(['b-1', 'b-2'])
+    expect(result.truncated).toBe(true)
+  })
+
+  it('counts every pending request of a restaurant', async () => {
+    const rec = use([{ count: 4 }])
+    expect(await countRestaurantPendingBookings('r-a')).toBe(4)
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
   })
 
   // F9 (review #7): the decision message outcome is stored, scoped by restaurant.
