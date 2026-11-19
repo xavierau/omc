@@ -1716,6 +1716,30 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
+        },
+        {
+          "id": "CAMP-016",
+          "title": "Campaign audience quality + lapsed filters as tenant settings; Settings regrouped into per-group pages",
+          "description": "Tenant defaults (skip low-quality contacts: off|red|red_yellow, default red; lapsed after N days, default 30) in Settings → Campaigns; each campaign snapshots its filters at create (migration 086). One server-side resolver (campaign_audience_rated → _members/_counts, REVOKE-locked, paged) feeds both the form's recipient summary and the send (count/send parity); the lapsed filter now composes with tags. /dashboard/setup split into /dashboard/setup/<group> (sub-nav on desktop, index on phone). Members badge tooltip shows the colour meaning. POC.",
+          "priority": "high",
+          "labels": [
+            "campaigns",
+            "settings",
+            "POC"
+          ],
+          "related": [
+            "artifact:2026-11-19-camp-016-plan",
+            "artifact:2026-11-19-settings-campaign-quality-ux",
+            "artifact:2026-11-19-dev-camp-016-handoff",
+            "kanban:MEM-001",
+            "kanban:CAMP-013"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-19-camp-016-plan",
+            "artifacts/2026-11-19-settings-campaign-quality-ux",
+            "artifacts/2026-11-19-camp-016-impl",
+            "artifacts/2026-11-19-dev-camp-016-handoff"
+          ]
         }
       ]
     },

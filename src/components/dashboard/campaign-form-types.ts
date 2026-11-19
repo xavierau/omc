@@ -1,8 +1,9 @@
 import { couponRequirement, type CouponRequirement } from '@/domain/services/coupon-requirement'
 import { isQrOnlyCouponCampaign } from '@/domain/services/campaign-qr-only'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
+import { audienceFilterFields, type AudienceFilterState } from './campaign-audience-filter-state'
 
-export interface CampaignFormState {
+export interface CampaignFormState extends AudienceFilterState {
   name: string
   type: string
   templateEn: string
@@ -50,6 +51,11 @@ export const initialCampaignForm: CampaignFormState = {
   tagIds: [],
   bookNowEnabled: false,
   bookingUrl: '',
+  // CAMP-016: replaced by the tenant's Settings → Campaigns defaults when the form opens.
+  lapsedEnabled: true,
+  lapsedDays: '30',
+  skipEnabled: true,
+  skipLevel: 'red',
 }
 
 export interface CampaignRequestBody {
@@ -68,6 +74,9 @@ export interface CampaignRequestBody {
   tagIds?: string[]
   bookNowEnabled: boolean
   bookingUrl: string | null
+  /** CAMP-016: the audience filter snapshot (absent for welcome). */
+  audienceSkipQuality?: 'off' | 'red' | 'red_yellow'
+  audienceLapsedDays?: number | null
 }
 
 /**
@@ -220,6 +229,8 @@ export function buildCampaignRequestBody(form: CampaignFormState): CampaignReque
   }
   if (form.targetAudience === 'selected') body.memberIds = form.memberIds
   if (form.targetAudience === 'tag') body.tagIds = form.tagIds
+  // CAMP-016: the same filter fields the recipient count is computed with.
+  if (!isWelcome) Object.assign(body, audienceFilterFields(form))
   return body
 }
 
@@ -234,6 +245,7 @@ export type CampaignValidationKey =
   | 'templateAtLeastOneRequired'
   | 'selectTag'
   | 'welcomeDiscountRequired'
+  | 'lapsedDaysInvalid'
 
 export function validateCampaignForm(form: CampaignFormState): CampaignValidationKey | null {
   if (!form.name.trim()) return 'nameRequired'
@@ -241,6 +253,7 @@ export function validateCampaignForm(form: CampaignFormState): CampaignValidatio
   // The welcome send path always mints a coupon (process-welcome-send-job), so a
   // welcome campaign without a discount would fail every send.
   if (form.type === 'welcome' && parseCouponDiscount(form) === null) return 'welcomeDiscountRequired'
+  if (form.type !== 'welcome' && audienceFilterFields(form).audienceLapsedDays === undefined) return 'lapsedDaysInvalid'
   if (form.messageType === 'wa_template') {
     return form.whatsappTemplateId ? null : 'templateRequired'
   }

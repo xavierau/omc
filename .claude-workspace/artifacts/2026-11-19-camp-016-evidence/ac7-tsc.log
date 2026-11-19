@@ -1,0 +1,2 @@
+resource-lock: waiting for 'heavy' (held by PID 41180 CWD /Users/xavierau/Code/js/personal-agent--m1/web CMD node --disable-warning=ExperimentalWarning e2e/m1-walk.ts /private/tmp/claude-501/-Users-xavierau-Code-js-personal-agent/5c10d71c-d385-41f5-8814-d881b1291498/scratchpad/m1-walk-state /Users/xavierau/Code/js/personal-agent--m1/.claude-workspace/artifacts/evidence/2026-11-19-m1)
+tsc exit 0

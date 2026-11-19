@@ -13,6 +13,8 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { setCampaignTags } from '@/application/set-campaign-tags'
 import { parseCreateBody } from './parse-create-body'
+import { parseAudienceSnapshot } from './parse-audience-filters'
+import { getAudienceDefaults } from '@/infrastructure/supabase/repositories/campaign-audience-defaults-repository'
 import { assertCampaignBookNow, parseBookNowFields, requireAdminForBookingUrlChange } from './book-now-guard'
 import { handleError } from './campaign-error-response'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from './with-template-review'
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
     if (parsed.targetAudience === 'tag') {
       await assertTagsBelongToTenant(parsed.tagIds, restaurantId)
     }
+    // CAMP-016: snapshot the audience filters now; the send never reads live settings.
+    const audienceFilters = parseAudienceSnapshot(body, parsed.type, await getAudienceDefaults(restaurantId))
     const defaultLang = await getRestaurantDefaultLanguage(restaurantId)
     const legacyTemplate = resolveLegacyTemplate(parsed, defaultLang)
 
@@ -86,6 +90,7 @@ export async function POST(request: NextRequest) {
       targetAudience: parsed.targetAudience,
       bookNowEnabled,
       bookingUrl,
+      ...audienceFilters,
     })
 
     if (parsed.targetAudience === 'selected') {

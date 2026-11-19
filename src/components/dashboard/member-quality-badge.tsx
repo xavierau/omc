@@ -8,6 +8,7 @@ import {
   type ContactQuality,
 } from '@/domain/value-objects/contact-quality'
 import { buildQualityTooltip } from './member-detail-helpers'
+import { qualityMeaningValues } from './quality-meaning'
 
 // Tones mirror RatingBadge in src/app/admin/(dashboard)/quality/page.tsx.
 const TONE_CLASS: Record<ContactQuality['rating'], string> = {
@@ -32,9 +33,11 @@ interface MemberQualityBadgeProps {
 
 export function MemberQualityBadge({ memberId, quality, testId }: MemberQualityBadgeProps) {
   const t = useTranslations('members')
+  const tq = useTranslations('contactQuality')
   const q = quality ?? UNKNOWN_CONTACT_QUALITY
   const tip = buildQualityTooltip(q, CONTACT_QUALITY_WINDOW_DAYS)
-  const title = t(tip.key, tip.values)
+  // CAMP-016 D4: the same colour meaning Settings and the campaign form show.
+  const title = `${t(tip.key, tip.values)}\n${tq(`meaning.${q.rating}`, { ...qualityMeaningValues() })}`
 
   return (
     <Badge

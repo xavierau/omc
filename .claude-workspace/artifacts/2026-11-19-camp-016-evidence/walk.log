@@ -1,0 +1,77 @@
+[2026-11-19T13:16:49.235Z] [en] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:16:51.259Z] [en] sidebar Settings → http://localhost:3040/dashboard/setup/profile
+[2026-11-19T13:16:51.273Z] [en] sub-nav shows 6 groups
+[2026-11-19T13:16:51.743Z] [en] checkpoint settings-profile@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-profile-1440.png
+[2026-11-19T13:16:52.398Z] [en] checkpoint settings-messages@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-messages-1440.png
+[2026-11-19T13:16:53.101Z] [en] checkpoint settings-bookings@1440: blocking=1 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-bookings-1440.png
+[2026-11-19T13:16:53.757Z] [en] checkpoint settings-welcome@1440: blocking=1 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-welcome-1440.png
+[2026-11-19T13:16:54.401Z] [en] checkpoint settings-receipts@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-receipts-1440.png
+[2026-11-19T13:16:55.350Z] [en] ok legend green: "Green 90 90% or more of messages delivered."
+[2026-11-19T13:16:55.352Z] [en] ok legend yellow: "Yellow 10 60–89% delivered. Some messages fail."
+[2026-11-19T13:16:55.353Z] [en] ok legend red: "Red 6 Under 60% delivered, or Meta says the number can't receive WhatsApp."
+[2026-11-19T13:16:55.353Z] [en] ok legend nodata: "No data 14 No messages sent yet, e.g. new members. Always included."
+[2026-11-19T13:16:55.354Z] [en] ok impact at Red only: "Today this skips 6 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:16:55.356Z] [en] skip toggle aria-checked = true
+[2026-11-19T13:16:55.357Z] [en] ok thresholds summary: "Rating thresholds Admins only Green ≥ 90% delivered · Yellow ≥ 60% · Red below 60% · last 90 days"
+[2026-11-19T13:16:55.861Z] [en] checkpoint settings-campaigns@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-campaigns-1440.png
+[2026-11-19T13:16:55.880Z] [en] ok impact at Red and Yellow: "Today this skips 16 members. Members with no data are always included, so new members still get their first message."
+[2026-11-19T13:16:55.892Z] [en] lapsed 0 → error shown; save disabled = true
+[2026-11-19T13:16:56.361Z] [en] checkpoint settings-campaigns-lapsed-error@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-campaigns-lapsed-error-1440.png
+[2026-11-19T13:16:56.525Z] [en] saved; DB row = red_yellow|45
+[2026-11-19T13:16:56.993Z] [en] checkpoint settings-campaigns-saved@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-campaigns-saved-1440.png
+[2026-11-19T13:16:57.180Z] [en] restored; DB row = red|30
+[2026-11-19T13:16:57.924Z] [en] form defaults: quality toggle = true lapsed toggle = true lapsed days = 30
+[2026-11-19T13:16:58.582Z] [en] ok colour key: "Green 90%+ delivered Receives Yellow 60–89% delivered Receives Red under 60%, or can't receive WhatsApp Skipped No data new, nothing sent yet Receives"
+[2026-11-19T13:16:59.413Z] [en] ok will receive: "27"
+[2026-11-19T13:17:00.000Z] [en] checkpoint campaign-form-tags-lapsed@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-campaign-form-tags-lapsed-1440.png
+[2026-11-19T13:17:00.522Z] [en] checkpoint campaign-form-summary@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-campaign-form-summary-1440.png
+[2026-11-19T13:17:02.029Z] [en] checkpoint campaign-form-zero@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-campaign-form-zero-1440.png
+[2026-11-19T13:17:03.375Z] [en] created campaign row a24eb968-1c7a-4d78-9d22-cdef70d7668d|tag|red|30; form showed will_receive=27; resolver on the stored snapshot returns 27 → parity OK
+[2026-11-19T13:17:04.079Z] [en] members badge title: "100% delivered (10 msgs, 90 days)\n90% or more of messages delivered."
+[2026-11-19T13:17:04.807Z] [en] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:17:05.938Z] [en] phone /dashboard/setup stays on the index: http://localhost:3040/dashboard/setup
+[2026-11-19T13:17:06.412Z] [en] checkpoint settings-index@390: blocking=0 warning=0 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-index-390.png
+[2026-11-19T13:17:07.328Z] [en] checkpoint settings-campaigns@390: blocking=0 warning=1 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-settings-campaigns-390.png
+[2026-11-19T13:17:07.430Z] [en] ‹ Settings → back to index
+[2026-11-19T13:17:09.516Z] [en] checkpoint campaign-form-summary@390: blocking=0 warning=6 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/en-campaign-form-summary-390.png
+[2026-11-19T13:18:02.401Z] [zh-HK] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:18:03.503Z] [zh-HK] sidebar Settings → http://localhost:3040/dashboard/setup/profile
+[2026-11-19T13:18:03.519Z] [zh-HK] sub-nav shows 6 groups
+[2026-11-19T13:18:03.987Z] [zh-HK] checkpoint settings-profile@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-profile-1440.png
+[2026-11-19T13:18:05.132Z] [zh-HK] checkpoint settings-messages@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-messages-1440.png
+[2026-11-19T13:18:05.824Z] [zh-HK] checkpoint settings-bookings@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-bookings-1440.png
+[2026-11-19T13:18:06.460Z] [zh-HK] checkpoint settings-welcome@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-welcome-1440.png
+[2026-11-19T13:18:07.105Z] [zh-HK] checkpoint settings-receipts@1440: blocking=0 warning=4 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-receipts-1440.png
+[2026-11-19T13:18:07.561Z] [zh-HK] ok legend green: "綠色 90 90% 或以上的訊息成功送達。"
+[2026-11-19T13:18:07.562Z] [zh-HK] ok legend yellow: "黃色 10 60–89% 送達，部分訊息失敗。"
+[2026-11-19T13:18:07.563Z] [zh-HK] ok legend red: "紅色 6 送達率低於 60%，或 Meta 表示此號碼無法接收 WhatsApp。"
+[2026-11-19T13:18:07.564Z] [zh-HK] ok legend nodata: "暫無數據 14 尚未發送任何訊息，例如新會員。一律會收到訊息。"
+[2026-11-19T13:18:07.565Z] [zh-HK] ok impact at Red only: "目前會略過 6 位會員。暫無數據的會員一律會收到訊息，新會員仍會收到第一則訊息。"
+[2026-11-19T13:18:07.567Z] [zh-HK] skip toggle aria-checked = true
+[2026-11-19T13:18:07.568Z] [zh-HK] ok thresholds summary: "評級門檻 只限管理員 綠色 ≥ 90% 送達 · 黃色 ≥ 60% · 紅色低於 60% · 過去 90 日"
+[2026-11-19T13:18:08.075Z] [zh-HK] checkpoint settings-campaigns@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-campaigns-1440.png
+[2026-11-19T13:18:08.102Z] [zh-HK] ok impact at Red and Yellow: "目前會略過 16 位會員。暫無數據的會員一律會收到訊息，新會員仍會收到第一則訊息。"
+[2026-11-19T13:18:08.116Z] [zh-HK] lapsed 0 → error shown; save disabled = true
+[2026-11-19T13:18:08.606Z] [zh-HK] checkpoint settings-campaigns-lapsed-error@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-campaigns-lapsed-error-1440.png
+[2026-11-19T13:18:08.777Z] [zh-HK] saved; DB row = red_yellow|45
+[2026-11-19T13:18:09.254Z] [zh-HK] checkpoint settings-campaigns-saved@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-campaigns-saved-1440.png
+[2026-11-19T13:18:09.442Z] [zh-HK] restored; DB row = red|30
+[2026-11-19T13:18:09.769Z] [zh-HK] form defaults: quality toggle = true lapsed toggle = true lapsed days = 30
+[2026-11-19T13:18:10.334Z] [zh-HK] ok colour key: "綠色 90% 或以上送達 會收到 黃色 60–89% 送達 會收到 紅色 低於 60%，或無法接收 WhatsApp 略過 暫無數據 新會員，尚未發送 會收到"
+[2026-11-19T13:18:11.143Z] [zh-HK] ok will receive: "27"
+[2026-11-19T13:18:11.741Z] [zh-HK] checkpoint campaign-form-tags-lapsed@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-campaign-form-tags-lapsed-1440.png
+[2026-11-19T13:18:12.315Z] [zh-HK] checkpoint campaign-form-summary@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-campaign-form-summary-1440.png
+[2026-11-19T13:18:13.791Z] [zh-HK] checkpoint campaign-form-zero@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-campaign-form-zero-1440.png
+[2026-11-19T13:18:15.711Z] [zh-HK] created campaign row 6ab1e6aa-c418-44d9-a30e-58d6e51619fa|tag|red|30; form showed will_receive=27; resolver on the stored snapshot returns 27 → parity OK
+[2026-11-19T13:18:16.043Z] [zh-HK] members badge title: "100% 已送達（10 則訊息，90 日）\n90% 或以上的訊息成功送達。"
+[2026-11-19T13:18:16.707Z] [zh-HK] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T13:18:17.819Z] [zh-HK] phone /dashboard/setup stays on the index: http://localhost:3040/dashboard/setup
+[2026-11-19T13:18:18.282Z] [zh-HK] checkpoint settings-index@390: blocking=0 warning=0 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-index-390.png
+[2026-11-19T13:18:19.225Z] [zh-HK] checkpoint settings-campaigns@390: blocking=0 warning=1 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-settings-campaigns-390.png
+[2026-11-19T13:18:19.334Z] [zh-HK] ‹ Settings → back to index
+[2026-11-19T13:18:21.383Z] [zh-HK] checkpoint campaign-form-summary@390: blocking=0 warning=6 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots/zh-HK-campaign-form-summary-390.png
+[2026-11-19T13:18:40.375Z] [staff] staff sub-nav bookings visible = false
+[2026-11-19T13:18:40.701Z] [staff] staff GET /dashboard/setup/bookings → 404
+[2026-11-19T13:18:41.277Z] [staff] staff skip toggle disabled = true ; save button count = 0 ; thresholds chevron (details) count = 0
+[2026-11-19T13:18:41.338Z] [staff] staff PUT /api/dashboard/settings/campaigns → 403
+row after staff PUT: red|30

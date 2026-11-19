@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
+// CAMP-016: campaign create/edit snapshot the tenant's audience defaults.
+vi.mock('@/infrastructure/supabase/repositories/campaign-audience-defaults-repository', () => ({
+  getAudienceDefaults: vi.fn(async () => ({ skipContactQuality: 'red', lapsedAfterDays: 30 })),
+}))
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
   // Keep the real error class so `instanceof` checks in route.ts match
   // when tests simulate repository failures.
