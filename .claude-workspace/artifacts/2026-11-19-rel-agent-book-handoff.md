@@ -33,6 +33,7 @@ wt_finish_output: |
 decisions:
   - "Committed on the existing local branch docs/agent-001-release-runbook (base 1e2e8817 = origin/develop tip) — brief allowed either"
   - "agent_config written as exactly {\"mode\":\"shadow\",\"rev\":1} with a CAS on the old value {\"mode\":\"off\"} — matches the app's own writeIfUnchanged (rev missing → 1), so the dashboard form saves against rev 1 [agent-config-repository.ts]"
+  - "Main's ruling (merge mode, don't replace) arrived after the 06:42:49Z write. No second write: that write applied only if the config was exactly {\"mode\":\"off\"}, so no knowledge or instructions key existed to lose, and its result equals the merge form's output on that input. Mode was shadow, not off, at ruling time (the ruling's escalate condition), and re-running would only bump rev to 2. Read-only recheck 06:52:25Z: omc keys [mode, rev] = shadow/1, the other 6 [mode] = off (box omc-agent-config-recheck.json) [runbook § omc → shadow]"
   - "Kanban AGENT-001 moved review → done (top of done), completed 2026-11-19, OR1 note rewritten as confirmed, release + omc facts appended"
 failed:
   - tried: "UPDATE SQL inlined in a nested ssh '…' heredoc"
