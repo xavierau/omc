@@ -102,3 +102,26 @@ Decision (decide_yourself): an additive API param rather than filtering the no-p
 Tests (red first, `evidence/2026-11-19-book-004-r2/ac1-red.log`: 10 failing): the API pending list includes past-dated rows, excludes confirmed/declined/unverified/other tenant, and its length equals `pendingCount`; cap + truncated; 4 × 400 `invalid_status`; the Show chain (`SHOW_PENDING` → `fetchRange` → `fetchBookings` → real route) yields `pendingCount` rows including a past-dated one; helpers; hook URL; the table's pending range orders a past-dated row first, with its own footer and empty state.
 
 Walk (local Supabase stack, scratch tenant, en): sidebar → Bookings, pill "5 requests need a reply" → Show → `?view=table`, range "Needs a reply", chip Pending 5, 5 rows (Oct 2 and Nov 15 past-dated first), unverified row absent, footer "Showing 5 bookings that need a reply". At 1440 and 390: no horizontal overflow, select not clipped, 5 unique row ids. The full `layout-audit.js` was not re-pasted: the chrome-devtools MCP cannot read it by path, and r2 adds no new layout. Targeted geometry probes and screenshots stand in.
+
+## r4 (2026-11-19): merge of develop (AGENT-003 #195, #198) and cancelled bookings
+
+Merge commit 7c1c38c2 (`git merge origin/develop`, no rebase). Six conflicts: repository, booking-row, use-bookings, its test, kanban, poc-log. Migration 085 (AGENT-003) comes in with the merge; nothing beyond it.
+
+| file | change |
+|---|---|
+| `src/infrastructure/supabase/repositories/booking-request-repository.ts` | `listBookingRequestsInRange` and `listPendingBookingRequests` select `STAFF_COLUMNS` and run `withReplacedSlots` (via `withReplacedSlotsIn` on the capped list); the range allow-list adds `cancelled`. readCap/cappedList (r3 F1) untouched; tenant scope and the unverified exclusion still in the query |
+| `src/hooks/use-bookings.ts` | develop's `showsUndelivered` kept; r3 `runDecision` kept; `decisionOutcomeHandler(id, decision, sinks)` is the onOutcome `act` passes to `runDecision`, so `delivered: null` adds no badge |
+| `src/components/dashboard/booking-row.tsx` | BOOK-004 structure kept; `STATUS_TONE.cancelled` (muted, as declined); exported `cancelledText`, `CancelledByBadge`, `ChangeFromLine` (AGENT-003 markup and test ids, unchanged); the day-list row uses them |
+| `bookings-table-desktop.tsx`, `bookings-table-cards.tsx` | time + guest struck through for cancelled; cancelled-by badge in the status cell (desktop) / its own line (cards); change-from line in the notes cell (desktop) / under the meta line (cards) |
+| `calendar-month-grid.tsx` | cancelled chip and dot tones (struck through, as declined) |
+| `booking-groups.ts` | `STATUS_FILTERS` adds `cancelled`; `statusCounts` counts it; `covers` leaves it out |
+| `src/messages/en.json`, `zh-HK.json` | `bookings.views.filter.cancelled`; `bookings.partyOf` restored (r3 F7 removed it as an orphan; AGENT-003's change-from line uses it) |
+
+Decisions (decide_yourself):
+- Cancelled gets its own status chip, like Declined; `All` shows no number, as before.
+- The AGENT-003 bits are extracted into exported components in `booking-row.tsx` and reused by every view, not a reused `BookingRow` (the table and cards have their own layouts).
+- Strike-through: the brief asks for grey + strike on cancelled in chips, day panel, table and cards. Declined is struck only on calendar chips (r1 design); declined rows were left as they are.
+
+Tests (red first, `evidence/2026-11-19-book-004-r4/ac2-red.log`: 16 failing): repository range list allow-lists cancelled, never unverified, selects the AGENT-003 columns and reads replaced slots scoped by restaurant; pending list likewise; no slot read without change requests; groups leave cancelled out of guests and pending and count it under its chip; `runDecision` + `decisionOutcomeHandler` with `delivered` null / false / true; render tests (`bookings-views-agent003.test.tsx`) of the day row, desktop table and cards (cancelled-by testids, change-from, strike, no actions on cancelled), month grid chip strike + guests, the Cancelled filter chip, and every key used existing in en and zh-HK. The r3 range-list test now expects `cancelled` in the allow-list, and three r3 count expectations carry `cancelled: 0` (deliberate: owner decision, not weakened).
+
+Walk: `evidence/2026-11-19-book-004-r4/ac4-walk.log` + 4 screenshots (zh-HK, 1440 and 390).

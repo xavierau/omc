@@ -105,7 +105,8 @@ no artifact files were lost._
 - [2026-11-19-book-004-bookings-views-impl](artifacts/2026-11-19-book-004-bookings-views-impl.md) — BOOK-004 impl: ranged bookings API, calendar + table views, en/zh walk (dev)
 - ~~[2026-11-19-dev-book-004-handoff](artifacts/2026-11-19-dev-book-004-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r2-handoff
 - ~~[2026-11-19-dev-book-004-r2-handoff](artifacts/2026-11-19-dev-book-004-r2-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r3-handoff
-- [2026-11-19-dev-book-004-r3-handoff](artifacts/2026-11-19-dev-book-004-r3-handoff.md) — BOOK-004 r3: PR #196 review fixes F1-F7 (dev)
+- ~~[2026-11-19-dev-book-004-r3-handoff](artifacts/2026-11-19-dev-book-004-r3-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r4-handoff
+- [2026-11-19-dev-book-004-r4-handoff](artifacts/2026-11-19-dev-book-004-r4-handoff.md) — BOOK-004 r4: develop merge, AGENT-003 rows + cancelled in the views (dev)
 
 **BOOK-003 — booking through personal agents (2026-11-19)**
 - [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)
