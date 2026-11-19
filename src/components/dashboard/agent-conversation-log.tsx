@@ -3,7 +3,8 @@
 /**
  * AGENT-001 W2: the agent conversation log (sidebar → AI agent). Left: one
  * row per diner thread (masked phone, last activity, message count, latest
- * outcome). Right: the open thread, diner messages next to the agent's
+ * outcome; AGENT-003 R19: a "needs staff" badge when the agent failed and
+ * handed the diner to staff). Right: the open thread, diner messages next to the agent's
  * draft or sent reply with its outcome, model, latency and tool names.
  * Diner and model text is rendered as plain text (React escapes it).
  */
@@ -20,6 +21,7 @@ const OUTCOME_VARIANT: Record<AgentOutcome, 'default' | 'secondary' | 'destructi
   sent: 'default',
   shadow_draft: 'secondary',
   fallback: 'outline',
+  handoff: 'destructive',
   skipped: 'outline',
   rate_limited: 'outline',
   error: 'destructive',
@@ -60,7 +62,12 @@ export function AgentThreadList(props: {
             )}>
             <span className="flex items-center justify-between gap-2">
               <span className="font-mono text-sm">{thread.maskedPhone}</span>
-              {thread.latestOutcome ? <OutcomeBadge outcome={thread.latestOutcome} /> : null}
+              <span className="flex items-center gap-1">
+                {thread.needsStaff ? (
+                  <Badge variant="destructive" data-testid={`agent-log-thread-row-${thread.key}-needs-staff`}>{t('needsStaff')}</Badge>
+                ) : null}
+                {thread.latestOutcome ? <OutcomeBadge outcome={thread.latestOutcome} /> : null}
+              </span>
             </span>
             <span className="mt-1 block text-xs text-muted-foreground">
               {t('threadMeta', { time: formatLogTime(thread.lastActivityAt), count: thread.messageCount })}

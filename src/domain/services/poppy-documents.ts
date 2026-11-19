@@ -184,7 +184,8 @@ function getBookingOperation() {
   }
 }
 
-const STATUS_ENUM = ['awaiting_confirmation', 'expired', 'pending', 'confirmed', 'declined']
+// AGENT-003: the diner can cancel by chat with the restaurant's own AI agent.
+const STATUS_ENUM = ['awaiting_confirmation', 'expired', 'pending', 'confirmed', 'declined', 'cancelled']
 
 function schemas() {
   const statement = {

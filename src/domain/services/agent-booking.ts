@@ -75,7 +75,7 @@ export function isValidIdempotencyKey(value: string): boolean {
   return IDEMPOTENCY_KEY.test(value)
 }
 
-export type AgentBookingStatus = 'awaiting_confirmation' | 'expired' | 'pending' | 'confirmed' | 'declined'
+export type AgentBookingStatus = 'awaiting_confirmation' | 'expired' | 'pending' | 'confirmed' | 'declined' | 'cancelled'
 
 /** What the agent sees: unverified splits into awaiting and expired by the clock. */
 export function agentBookingStatus(status: BookingStatus, verifyExpiresAt: string | null, now: Date): AgentBookingStatus {

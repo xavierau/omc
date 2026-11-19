@@ -1,0 +1,7 @@
+  id  | booking_date | booking_time |  status   | source | replaces | cancelled_by | decided | cancelled_at 
+------+--------------+--------------+-----------+--------+----------+--------------+---------+--------------
+ 0027 | 2026-11-27   | 12:30:00     | cancelled | chat   |          | diner_ai     | f       | t
+ 0025 | 2026-11-25   | 19:30:00     | cancelled | chat   |          | change       | f       | t
+ 6a2f | 2026-11-26   | 20:00:00     | confirmed | agent  | 0025     |              | t       | f
+(3 rows)
+

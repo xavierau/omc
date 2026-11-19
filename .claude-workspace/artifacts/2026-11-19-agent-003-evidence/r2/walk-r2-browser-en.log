@@ -1,0 +1,23 @@
+2026-11-19T09:36:56.430Z setup en perCallTimeoutMs 8000 min 3000 max 15000 handoff checked true menu checked false
+2026-11-19T09:36:56.435Z setup en new tools checked {"list_my_bookings":true,"propose_booking_change":true,"confirm_booking_change":true,"propose_booking_cancel":true,"confirm_booking_cancel":true}
+2026-11-19T09:36:56.987Z setup en audit r2-setup-advanced-en-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:36:57.409Z setup en perCallTimeoutMs 8000 min 3000 max 15000 handoff checked true menu checked false
+2026-11-19T09:36:57.423Z setup en new tools checked {"list_my_bookings":true,"propose_booking_change":true,"confirm_booking_change":true,"propose_booking_cancel":true,"confirm_booking_cancel":true}
+2026-11-19T09:36:57.960Z setup en audit r2-setup-advanced-en-390 {"blocking":0,"warning":12,"info":1} scrollW 390 vw 390
+2026-11-19T09:37:00.732Z log en needs-staff badge "Needs staff"
+2026-11-19T09:37:01.210Z log en audit r2-agent-log-en-1280 {"blocking":0,"warning":2,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:03.609Z confirm-change en before change row "2026-11-26 20:00\n4 people\nPending\nvia AI agent\n\nChange request: 2026-11-25 19:30 · 4 people → 2026-11-26 20:00 · 4 people\n\n陳生 · +85290000003\n\nConfirm\nDecline"
+2026-11-19T09:37:04.110Z confirm-change en audit r2-bookings-before-confirm-en-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:05.913Z confirm-change en notice "Confirmation sent"
+2026-11-19T09:37:06.272Z confirm-change en after row 6a2f "2026-11-26 20:00\n4 people\nConfirmed\nvia AI agent\n\nChange request: 2026-11-25 19:30 · 4 people → 2026-11-26 20:00 · 4 people\n\n陳生 · +85290000003"
+2026-11-19T09:37:06.273Z confirm-change en after row 0025 "2026-11-25 19:30\n4 people\nCancelled\nReplaced by a change\n\n陳生 · +85290000003"
+2026-11-19T09:37:06.274Z confirm-change en after row 0027 "2026-11-27 12:30\n2 people\nCancelled\nCancelled by diner (AI agent)\n\n陳生 · +85290000003"
+2026-11-19T09:37:06.741Z confirm-change en audit r2-bookings-after-confirm-en-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:09.144Z bookings en row 6a2f "2026-11-26 20:00\n4 people\nConfirmed\nvia AI agent\n\nChange request: 2026-11-25 19:30 · 4 people → 2026-11-26 20:00 · 4 people\n\n陳生 · +85290000003"
+2026-11-19T09:37:09.147Z bookings en row 0025 "2026-11-25 19:30\n4 people\nCancelled\nReplaced by a change\n\n陳生 · +85290000003"
+2026-11-19T09:37:09.148Z bookings en row 0027 "2026-11-27 12:30\n2 people\nCancelled\nCancelled by diner (AI agent)\n\n陳生 · +85290000003"
+2026-11-19T09:37:09.632Z bookings en audit r2-bookings-en-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:09.988Z bookings en row 6a2f "2026-11-26 20:00\n4 people\nConfirmed\nvia AI agent\n\nChange request: 2026-11-25 19:30 · 4 people → 2026-11-26 20:00 · 4 people\n\n陳生 · +85290000003"
+2026-11-19T09:37:09.989Z bookings en row 0025 "2026-11-25 19:30\n4 people\nCancelled\nReplaced by a change\n\n陳生 · +85290000003"
+2026-11-19T09:37:09.991Z bookings en row 0027 "2026-11-27 12:30\n2 people\nCancelled\nCancelled by diner (AI agent)\n\n陳生 · +85290000003"
+2026-11-19T09:37:10.436Z bookings en audit r2-bookings-en-390 {"blocking":0,"warning":0,"info":1} scrollW 390 vw 390

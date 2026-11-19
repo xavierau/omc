@@ -1,0 +1,9 @@
+635e1aad898a8bdd31b56a3734d2b44223e40e8075169fe00934f24028555ae3  /home/forge/backups/2026-11-19-book-003/baseline-catalog.json
+bac91a18eb4d2e458d3e50f48b7646cf67a04fa550bc023749945819753bee1f  /home/forge/backups/2026-11-19-book-003/booking_requests.json
+f9e37b6ef0a2f4bf397e311bc559e0de0da005197494fca66598107cb08918c1  /home/forge/backups/2026-11-19-book-003/managed-backups.json
+f0d8132947972a41dc60b1e6759e9e116c7e9db89a95608cc40159a562ee0935  /home/forge/backups/2026-11-19-book-003/restaurants.json
+700 /home/forge/backups/2026-11-19-book-003
+600 /home/forge/backups/2026-11-19-book-003/baseline-catalog.json
+600 /home/forge/backups/2026-11-19-book-003/booking_requests.json
+600 /home/forge/backups/2026-11-19-book-003/managed-backups.json
+600 /home/forge/backups/2026-11-19-book-003/restaurants.json

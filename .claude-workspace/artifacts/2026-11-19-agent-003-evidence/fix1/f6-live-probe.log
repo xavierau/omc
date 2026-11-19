@@ -1,0 +1,31 @@
+# AGENT-003 F6 live probe, 2026-11-19 (dev key, fake data: one list_rewards tool, a fake rewards list). Statuses only; no key, no text.
+# primary gemini-3.8-flash (10:12:57Z run; earlier runs got 503/429 on the primary):
+{"step":"A","model":"gemini-3.8-flash","status":200,"functionCalls":1,"withSignature":1,"partKeys":[["functionCall","thoughtSignature"]]}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":77}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"dummy","status":200,"finishReason":"STOP","textChars":81}
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":73}
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"dummy","status":200,"finishReason":"STOP","textChars":73}
+{"step":"A-control","model":"gemini-3.8-flash","variant":"verbatim","status":429,"error":"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To
+{"step":"A-control","model":"gemini-3.8-flash","variant":"stripped","status":400,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded model
+{"step":"A-control","model":"gemini-3.8-flash","variant":"dummy","status":429,"error":"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To mo
+# other primaries (10:0xZ):
+== A=gemini-3.5-flash
+{"step":"A","model":"gemini-3.5-flash","status":503,"functionCalls":0,"withSignature":0,"partKeys":[]}
+== A=gemini-3.5-flash-lite
+{"step":"A","model":"gemini-3.5-flash-lite","status":200,"functionCalls":1,"withSignature":1,"partKeys":[["functionCall","thoughtSignature"]]}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":81}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":72}
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"A-control","model":"gemini-3.5-flash-lite","variant":"verbatim","status":200}
+{"step":"A-control","model":"gemini-3.5-flash-lite","variant":"stripped","status":400,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded 
+== A=gemini-3.1-flash-lite
+{"step":"A","model":"gemini-3.1-flash-lite","status":200,"functionCalls":1,"withSignature":1,"partKeys":[["functionCall","thoughtSignature"]]}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":77}
+{"step":"B","model":"gemini-3.5-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"verbatim","status":200,"finishReason":"STOP","textChars":73}
+{"step":"B","model":"gemini-3.1-flash-lite","variant":"stripped","status":400,"finishReason":null,"textChars":0,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signa
+{"step":"A-control","model":"gemini-3.1-flash-lite","variant":"verbatim","status":200}
+{"step":"A-control","model":"gemini-3.1-flash-lite","variant":"stripped","status":400,"error":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded 

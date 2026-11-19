@@ -448,14 +448,16 @@ describe('AC-F1 overlapping jobs of one conversation', () => {
 })
 
 describe('AC-F3 config read failure and mode changes after admission', () => {
-  it('AC-F3 auto-admitted job + config read error → fallback once, never read as mode off', async () => {
+  // AGENT-003 R19: an unreadable config cannot name a failureAction, so the default (handoff) answers.
+  it('AC-F3 auto-admitted job + config read error → one failure response (R19 default handoff), never read as mode off', async () => {
     const h = workerHarness()
     const [job] = await inbound(h, 'hi', 'w1')
     h.configReadable.value = false
-    expect(await processAgentReply(h.deps, job)).toBe('fallback')
-    expect(h.fallbacks).toHaveLength(1)
+    expect(await processAgentReply(h.deps, job)).toBe('handoff')
+    expect(h.fallbacks).toHaveLength(0)
+    expect(h.sends).toHaveLength(1)
     expect(h.model.requests).toHaveLength(0)
-    expect(h.store.modelRows()).toEqual([expect.objectContaining({ outcome: 'fallback', model: null, reply_to_message_id: job.messageRowId })])
+    expect(h.store.modelRows()).toEqual([expect.objectContaining({ outcome: 'handoff', model: null, reply_to_message_id: job.messageRowId })])
     expect(h.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('config_unavailable')
   })
 

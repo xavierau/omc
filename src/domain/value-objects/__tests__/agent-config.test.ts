@@ -16,24 +16,37 @@ describe('AC-VO AgentConfig resolver', () => {
     }
   )
 
+  it('AC-VO AGENT-003 ruling 5: maxOutputTokens defaults to 1024 inside its clamp; a stored value is kept; maxReplyChars stays 600', () => {
+    expect(DEFAULT_AGENT_CONFIG.maxOutputTokens).toBe(1024)
+    expect(AGENT_NUMBER_RANGES.maxOutputTokens.max).toBeGreaterThanOrEqual(1024)
+    expect(AGENT_NUMBER_RANGES.maxOutputTokens.min).toBe(64)
+    expect(resolveAgentConfig({ mode: 'auto', maxOutputTokens: 400 }).maxOutputTokens).toBe(400)
+    expect(resolveAgentConfig({ mode: 'auto' }).maxOutputTokens).toBe(1024)
+    expect(DEFAULT_AGENT_CONFIG.maxReplyChars).toBe(600)
+  })
+
   it('AC-VO the migration default {"mode":"off"} resolves to every documented default', () => {
     expect(resolveAgentConfig({ mode: 'off' })).toEqual({
       mode: 'off',
       model: null,
+      fallbackModel: null,
       knowledge: '',
       instructions: '',
       temperature: 0.3,
-      maxOutputTokens: 400,
+      maxOutputTokens: 1024,
       maxReplyChars: 600,
       maxHistoryMessages: 10,
       historyTtlHours: 72,
       debounceMs: 3000,
       maxToolCalls: 3,
+      perCallTimeoutMs: 8000,
+      // Review F4: booking tools are opt-in; the default is AGENT-001's three.
       enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff'],
       handoffSilenceHours: 12,
       maxRepliesPerPhonePerHour: 10,
       maxRepliesPerTenantPerDay: 500,
       disclosureText: DEFAULT_DISCLOSURE_TEXT,
+      failureAction: 'handoff',
     })
   })
 
@@ -107,5 +120,19 @@ describe('AC-VO AgentConfig resolver', () => {
     Object.defineProperty(hostile, 'knowledge', { get: () => 'x', enumerable: true })
     expect(() => resolveAgentConfig(hostile)).not.toThrow()
     expect(() => resolveAgentConfig({ enabledTools: { length: 3 } })).not.toThrow()
+  })
+
+  it('AC-F4 the default (and a blob without enabledTools) enables only the 3 AGENT-001 tools: no booking tool unless ticked', () => {
+    const agent001 = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+    expect(DEFAULT_AGENT_CONFIG.enabledTools).toEqual(agent001)
+    for (const raw of [{}, { mode: 'auto' }, { mode: 'auto', enabledTools: null }, null, 'junk']) {
+      const tools = resolveAgentConfig(raw).enabledTools
+      expect(tools).toEqual(agent001)
+      expect(tools.some((t) => /booking/.test(t))).toBe(false)
+    }
+    // Ticked in Advanced → kept.
+    expect(resolveAgentConfig({ enabledTools: ['list_rewards', 'propose_booking', 'create_booking_request'] }).enabledTools).toEqual(
+      ['list_rewards', 'propose_booking', 'create_booking_request']
+    )
   })
 })

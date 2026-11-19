@@ -5,6 +5,7 @@
  */
 import type {
   AgentBooking,
+  DinerBooking,
   BookingDecision,
   BookingRequest,
   DecisionMessageStatus,
@@ -48,8 +49,14 @@ export interface BookingRequestStore {
   listForRestaurant(restaurantId: string, decidedLimit: number): Promise<BookingRequest[]>
   /** Staff lookup: never returns an unverified agent booking (R41). */
   findForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null>
-  /** Conditional pending -> decision, scoped by restaurant; null if no row changed (R4, R6). */
+  /** Conditional pending -> decision, scoped by restaurant; null if no row changed (R4, R6). The row carries `replacesBookingId`. */
   decide(args: DecideBookingArgs): Promise<BookingRequest | null>
+  /**
+   * AGENT-003 R23: confirm a pending CHANGE request and cancel the booking it
+   * replaces, in one transaction (RPC confirm_booking_change). Null, nothing
+   * changed, when the id is not a pending change request of this restaurant.
+   */
+  confirmChange(args: Omit<DecideBookingArgs, 'decision' | 'declineReason'>): Promise<BookingRequest | null>
   /** Stores whether the decision message was delivered, scoped by restaurant (F9). */
   recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
 }
@@ -87,6 +94,38 @@ export interface BookingMessageSender {
 export interface BookingMemberLookup {
   /** Existing member id for this phone at this restaurant; never creates one (R21). */
   findMemberId(restaurantId: string, phone: string): Promise<string | null>
+}
+
+/**
+ * AGENT-003 R20/R24 (review F10): the Hong Kong date and HH:MM now. A booking
+ * is upcoming when it is on a later date, or today at this time or later.
+ */
+export interface HongKongMoment {
+  date: string
+  time: string
+}
+
+export interface CancelDinerBookingArgs {
+  restaurantId: string
+  phone: string
+  id: string
+  /** Hong Kong now: only upcoming bookings can be cancelled. */
+  from: HongKongMoment
+  at: Date
+}
+
+/**
+ * AGENT-003 R20/R21/R24: a diner's own bookings, every query scoped by the
+ * job's restaurant AND phone in its WHERE (authorize by scoped query).
+ */
+export interface DinerBookingStore {
+  /** Upcoming (pending + confirmed, at or after `from`) bookings of this phone at this restaurant, soonest first. */
+  listUpcoming(restaurantId: string, phone: string, from: HongKongMoment): Promise<DinerBooking[]>
+  /**
+   * One conditional UPDATE: the booking (if upcoming, pending or confirmed)
+   * and its open change requests -> cancelled by 'diner_ai'. Returns the ids changed.
+   */
+  cancelByDiner(args: CancelDinerBookingArgs): Promise<string[]>
 }
 
 /** W3 (AC-15): confirmed bookings awaiting their one reminder, across restaurants (cron only). */

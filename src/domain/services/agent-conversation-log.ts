@@ -33,6 +33,8 @@ export interface AgentThreadSummary {
   lastActivityAt: string
   messageCount: number
   latestOutcome: AgentOutcome | null
+  /** AGENT-003 R19: the agent failed in this thread and handed the diner to staff. */
+  needsStaff: boolean
 }
 
 /** `rows` newest first (as the repository returns them); threads come out newest activity first. */
@@ -47,10 +49,12 @@ export function summarizeAgentThreads(rows: AgentLogRow[]): AgentThreadSummary[]
         lastActivityAt: row.createdAt,
         messageCount: 1,
         latestOutcome: row.role === 'model' ? row.outcome : null,
+        needsStaff: row.outcome === 'handoff',
       })
       continue
     }
     thread.messageCount += 1
+    if (row.outcome === 'handoff') thread.needsStaff = true
     if (thread.latestOutcome === null && row.role === 'model') thread.latestOutcome = row.outcome
   }
   return [...threads.values()]
