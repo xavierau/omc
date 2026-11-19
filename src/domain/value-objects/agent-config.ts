@@ -115,7 +115,8 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   knowledge: '',
   instructions: '',
   temperature: 0.3,
-  maxOutputTokens: 400,
+  // AGENT-003 ruling 5: thoughts and text share this budget; 400 truncated booking read-backs. maxReplyChars still bounds what is sent (R10).
+  maxOutputTokens: 1024,
   maxReplyChars: 600,
   maxHistoryMessages: 10,
   historyTtlHours: 72,

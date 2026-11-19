@@ -16,6 +16,15 @@ describe('AC-VO AgentConfig resolver', () => {
     }
   )
 
+  it('AC-VO AGENT-003 ruling 5: maxOutputTokens defaults to 1024 inside its clamp; a stored value is kept; maxReplyChars stays 600', () => {
+    expect(DEFAULT_AGENT_CONFIG.maxOutputTokens).toBe(1024)
+    expect(AGENT_NUMBER_RANGES.maxOutputTokens.max).toBeGreaterThanOrEqual(1024)
+    expect(AGENT_NUMBER_RANGES.maxOutputTokens.min).toBe(64)
+    expect(resolveAgentConfig({ mode: 'auto', maxOutputTokens: 400 }).maxOutputTokens).toBe(400)
+    expect(resolveAgentConfig({ mode: 'auto' }).maxOutputTokens).toBe(1024)
+    expect(DEFAULT_AGENT_CONFIG.maxReplyChars).toBe(600)
+  })
+
   it('AC-VO the migration default {"mode":"off"} resolves to every documented default', () => {
     expect(resolveAgentConfig({ mode: 'off' })).toEqual({
       mode: 'off',
@@ -24,7 +33,7 @@ describe('AC-VO AgentConfig resolver', () => {
       knowledge: '',
       instructions: '',
       temperature: 0.3,
-      maxOutputTokens: 400,
+      maxOutputTokens: 1024,
       maxReplyChars: 600,
       maxHistoryMessages: 10,
       historyTtlHours: 72,

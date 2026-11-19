@@ -4,11 +4,11 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-19
-updated: 2026-11-19 (r2: rulings R18 knob, R19, R20–R24; r3: ruling 4 clock line on every reply)
+updated: 2026-11-19 (r2: rulings R18 knob, R19, R20–R24; r3: ruling 4 clock line on every reply; r4: ruling 5 maxOutputTokens default 1024)
 status: active
 item: AGENT-003
 state: done
-brief: inline (team-lead, AGENT-003 brief-v1 + rulings 1–4)
+brief: inline (team-lead, AGENT-003 brief-v1 + rulings 1–5)
 base: 7d4decf6
 head: 5ba10669 (code + evidence; this file and the kanban entry are committed on top)
 branch: feature/agent-003-agent-booking
@@ -16,11 +16,18 @@ pr: https://github.com/xavierau/omc/pull/195 (into develop, not merged)
 pushed: true
 stage: poc
 suite_changed: true (only where a ruling changed behaviour; listed under AC-GATE r2)
-gate: {result: pass, at: 2026-11-19T10:05Z}
-next: {owner: main, action: "review PR #195; release = migration 085 FIRST, then worker restart; tick the booking tools for omc; decide maxOutputTokens default"}
+gate: {result: pass, at: 2026-11-19T10:15Z}
+next: {owner: main, action: "review PR #195; release = migration 085 FIRST, then worker restart; tick the booking tools for omc; set omc's stored maxOutputTokens by hand"}
 blockers: []
 refs: [plans/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-001-ai-reply-agent, kanban:AGENT-003]
 ---
+# r4 (ruling 5)
+- **Default `maxOutputTokens`: 400 → 1024** (`DEFAULT_AGENT_CONFIG`). The clamp stays 64–2048, so its maximum is at least 1024. `maxReplyChars` (600) still bounds what is sent (R10).
+  - A tenant with a stored value keeps it. omc's stored config is set by hand at release.
+  - Tests: the AC-VO default test now expects 1024. The new AC-VO "ruling 5" test checks the default, the range, that a stored 400 is kept, and that maxReplyChars stays 600.
+- **AC-GATE (r4): pass.** `resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run'` exited 0: 646 files, 7315 tests passed, 90 skipped. ESLint on both touched files exits 0.
+- **Local Supabase stack:** left running for the BOOK-004 peer, per main.
+
 # r3 (ruling 4)
 - **AC-CLOCK: pass.** `vitest run -t AC-CLOCK`: 6 tests.
   - The line "CURRENT DATE AND TIME IN HONG KONG: YYYY-MM-DD (Weekday) HH:MM" is in the system instruction with booking off, simple and external, with maxToolCalls 0, and with an unreadable booking config.
@@ -89,7 +96,7 @@ Evidence: `.claude-workspace/artifacts/2026-11-19-agent-003-evidence/r2/`. It ha
 - **The 訂座 change line** reads the original's slot with one extra scoped `.in('id')` query per list load.
 
 ## unverified (r2)
-- **Default `maxOutputTokens` 400.** It counts thoughts and text together. On booking turns it truncated 2 of 13 walk turns, and each became a handoff apology. The walk tenant ran at 1024 afterwards with no truncation. I didn't change the AGENT-001 default; that is main's call.
+- **Default `maxOutputTokens` 400** truncated 2 of 13 booking walk turns. Resolved in r4: the default is now 1024 (ruling 5).
 - **The local Supabase stack is still running** under my `supabase-whatsapp-crm` lock. A peer worktree (`whatsapp-crm--bookings-views`, next dev :3030; tenant "Cafe Poppy (BOOK-004 local)" seeded 09:34Z) is using it, so I didn't stop it.
   - To stop it: `touch /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/b7ce2348-be88-463f-a29e-8e4b78a7d232/scratchpad/a3/stop.sentinel`. That runs `supabase stop`, which keeps the data, and releases the lock.
 - **The walk tenant's AGENT-001 per-phone hourly cap** (R6) rate-limited the 11th message in about 6 minutes. That is expected; the cap was raised to 60 for the walk.
