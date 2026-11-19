@@ -6,8 +6,9 @@
  * (spec AC-3). `parseBookingSettings` validates an admin's save (R14) and
  * keeps the fields the settings form does not own (`aiRoutingEnabled`, the
  * eval gate; `templateIds`, written by template provisioning; BOOK-002's
- * `templateBodies` and `templateCandidates`, written by the message editor)
- * from the current config, so a save can never switch them.
+ * `templateBodies` and `templateCandidates`, written by the message editor;
+ * BOOK-003's `agentBooking`, written by its own admin routes) from the current
+ * config, so a save can never switch them.
  */
 import type { LanguageCode } from './language'
 
@@ -17,6 +18,18 @@ export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'remin
 export type BookingTemplateIdsByLanguage = Record<LanguageCode, string | null>
 /** BOOK-002: a value per language, absent when unset. */
 export type BookingTemplateTextByLanguage = Partial<Record<LanguageCode, string>>
+
+/**
+ * BOOK-003: booking through personal agents (PAP 1.0). Off by default (R43).
+ * `publicId` (>= 128 random bits, base64url) selects the restaurant in the
+ * public agent API and is rotatable; `websiteHost` is the host that serves
+ * the restaurant's poppy.json (its `organization.domain`, spec 3.1).
+ */
+export interface AgentBookingConfig {
+  enabled: boolean
+  publicId: string | null
+  websiteHost: string | null
+}
 
 export interface BookingConfig {
   mode: BookingMode
@@ -33,6 +46,7 @@ export interface BookingConfig {
   templateBodies: Record<BookingTemplateKind, BookingTemplateTextByLanguage>
   /** BOOK-002: template id of a submitted edit awaiting Meta; promoted to templateIds once approved. */
   templateCandidates: Record<BookingTemplateKind, BookingTemplateTextByLanguage>
+  agentBooking: AgentBookingConfig
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -57,6 +71,41 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   },
   templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {} },
   templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {} },
+  agentBooking: { enabled: false, publicId: null, websiteHost: null },
+}
+
+/** BOOK-003: 128-384 bits as base64url. */
+export const AGENT_PUBLIC_ID_SHAPE = /^[A-Za-z0-9_-]{22,64}$/
+export const isAgentPublicId = (v: unknown): v is string => typeof v === 'string' && AGENT_PUBLIC_ID_SHAPE.test(v)
+
+const HOST_LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+const WEBSITE_HOST = new RegExp(`^${HOST_LABEL}(?:\\.${HOST_LABEL})+(?::([0-9]{1,5}))?$`)
+
+/**
+ * BOOK-003: the host that serves poppy.json, as `organization.domain` needs
+ * it (spec 3.1: the host, with its port when that isn't 443; compared
+ * ignoring case). Accepts `www.x.hk` or `https://www.x.hk/`; anything with a
+ * path, query, credentials or another scheme is null.
+ */
+export function normalizeWebsiteHost(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim().toLowerCase().replace(/^https:\/\//, '').replace(/\/$/, '')
+  if (value.length === 0 || value.length > 253) return null
+  const match = WEBSITE_HOST.exec(value)
+  if (!match) return null
+  const port = match[1]
+  if (port === undefined) return value
+  const n = Number(port)
+  if (n < 1 || n > 65535) return null
+  // Review F9: rebuilt from the parsed parts, so ':0443' is 443 and ':08443' is 8443.
+  const host = value.slice(0, value.length - port.length - 1)
+  return n === 443 ? host : `${host}:${n}`
+}
+
+function resolveAgentBooking(raw: unknown): AgentBookingConfig {
+  const r = asRecord(raw)
+  const publicId = isAgentPublicId(r.publicId) ? r.publicId : null
+  return { enabled: r.enabled === true && publicId !== null, publicId, websiteHost: normalizeWebsiteHost(r.websiteHost) }
 }
 
 /** `https:` with a host, no credentials, no whitespace, ≤ 2,048 chars (R14). */
@@ -128,6 +177,7 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     templateIds: resolveTemplateIds(r.templateIds),
     templateBodies: resolveTexts(r.templateBodies),
     templateCandidates: resolveTexts(r.templateCandidates),
+    agentBooking: resolveAgentBooking(r.agentBooking),
   }
 }
 
@@ -192,4 +242,57 @@ export function parseBookingSettings(body: unknown, current: BookingConfig): Par
     ok: true,
     config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number },
   }
+}
+
+export type AgentBookingSettingsErrors = Partial<Record<'enabled' | 'websiteHost' | 'mode' | 'form', string>>
+
+export type ParseAgentBookingSettingsResult =
+  | { ok: true; agentBooking: AgentBookingConfig }
+  | { ok: false; errors: AgentBookingSettingsErrors }
+
+const AGENT_SETTINGS_FIELDS = ['enabled', 'websiteHost']
+
+function parseHostField(raw: unknown, current: string | null, errors: AgentBookingSettingsErrors): string | null {
+  if (raw === undefined) return current
+  if (raw === null || raw === '') return null
+  const host = normalizeWebsiteHost(raw)
+  if (!host) errors.websiteHost = 'invalid_host'
+  return host
+}
+
+/**
+ * BOOK-003 (R43): an admin's agent booking save. Enabling needs Simple
+ * booking and the website host (poppy.json is useless without its domain).
+ * The first enable mints the public id with `newPublicId`; turning it off
+ * keeps the id, so turning it back on restores the same poppy.json.
+ */
+export function parseAgentBookingSettings(
+  body: unknown,
+  current: BookingConfig,
+  newPublicId: () => string
+): ParseAgentBookingSettingsResult {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, errors: { form: 'invalid_body' } }
+  const b = body as Record<string, unknown>
+  const unknownKey = Object.keys(b).find((k) => !AGENT_SETTINGS_FIELDS.includes(k))
+  if (unknownKey) return { ok: false, errors: { form: `unknown_field:${unknownKey}` } }
+  if (typeof b.enabled !== 'boolean') return { ok: false, errors: { enabled: 'invalid' } }
+
+  const errors: AgentBookingSettingsErrors = {}
+  const websiteHost = parseHostField(b.websiteHost, current.agentBooking.websiteHost, errors)
+  if (b.enabled && current.mode !== 'simple') errors.mode = 'not_simple'
+  if (b.enabled && !websiteHost && !errors.websiteHost) errors.websiteHost = 'required'
+  if (Object.keys(errors).length > 0) return { ok: false, errors }
+
+  const publicId = current.agentBooking.publicId ?? (b.enabled ? newPublicId() : null)
+  return { ok: true, agentBooking: { enabled: b.enabled, publicId, websiteHost } }
+}
+
+/** BOOK-003: only the agent booking block, onto the stored config. */
+export function applyAgentBookingSettings(current: BookingConfig, agentBooking: AgentBookingConfig): BookingConfig {
+  return { ...current, agentBooking }
+}
+
+/** BOOK-003 (R43): a new public id; the old one stops resolving at once. */
+export function rotateAgentPublicId(current: BookingConfig, newPublicId: string): BookingConfig {
+  return { ...current, agentBooking: { ...current.agentBooking, publicId: newPublicId } }
 }

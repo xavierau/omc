@@ -1,0 +1,73 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts (44 tests | 3 failed) 78ms
+     × G1 (R39 rev): the 6th create from one IP at one restaurant within 30 min → 429; a second IP there still books 7ms
+     × G1 (R39 rev): the per-IP window frees after 30 minutes; replays and invalid bodies do not use it up 4ms
+     × G1 (R39 rev): 30 live unverified no longer close a restaurant; the safety cap is 500 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > POST /api/poppy/{publicId}/bookings > G1 (R39 rev): the 6th create from one IP at one restaurant within 30 min → 429; a second IP there still books
+AssertionError: expected 202 to be 429 // Object.is equality
+
+- Expected
++ Received
+
+- 429
++ 202
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:239:24
+    237|     for (let i = 0; i < 5; i++) expect((await post({ ...BODY, phone: p…
+    238|     const res = await post({ ...BODY, phone: phone(5) }, { ip })
+    239|     expect(res.status).toBe(429)
+       |                        ^
+    240|     expect(Number(res.headers.get('Retry-After'))).toBe(1800)
+    241|     expect((await res.json()).error).toBe('rate_limited')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > POST /api/poppy/{publicId}/bookings > G1 (R39 rev): the per-IP window frees after 30 minutes; replays and invalid bodies do not use it up
+AssertionError: expected 202 to be 429 // Object.is equality
+
+- Expected
++ Received
+
+- 429
++ 202
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:258:71
+    256|     expect((await post({ ...BODY, party_size: 0 }, { ip })).status).to…
+    257|     for (let i = 1; i < 5; i++) expect((await post({ ...BODY, phone: p…
+    258|     expect((await post({ ...BODY, phone: phone(5) }, { ip })).status).…
+       |                                                                       ^
+    259|     clock.advanceMs(30 * 60_000 + 1)
+    260|     expect((await post({ ...BODY, phone: phone(6) }, { ip })).status).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-routes.test.ts > POST /api/poppy/{publicId}/bookings > G1 (R39 rev): 30 live unverified no longer close a restaurant; the safety cap is 500
+AssertionError: expected 429 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 429
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-routes.test.ts:278:61
+    276|     holder.create!.secrets = scriptedSecrets()
+    277|     for (let i = 0; i < 30; i++) store.seedUnverified(A, `+8529${Strin…
+    278|     expect((await post(BODY, { ip: '192.0.2.10' })).status).toBe(202)
+       |                                                             ^
+    279|     for (let i = 31; i < 500; i++) store.seedUnverified(A, `+8529${Str…
+    280|     expect(store.rows.filter((r) => r.status === 'unverified')).toHave…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 41 passed (44)
+   Start at  11:45:06
+   Duration  453ms (transform 159ms, setup 0ms, import 247ms, tests 78ms, environment 0ms)
+

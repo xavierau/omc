@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-05",
+  "updated_at": "2026-11-19",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1586,6 +1586,32 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "BOOK-003",
+          "title": "Booking through personal agents (PAP 1.0 / poppy.json)",
+          "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 084. R45 privacy-policy copy is an owner go-live item.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-003-agent-booking",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-002"
+          ],
+          "workspace_artifacts": [
+            "threats/2026-11-19-agent-booking-poppy.md",
+            "plans/2026-11-19-agent-booking-poppy.md",
+            "artifacts/2026-11-19-book-003-agent-booking-impl.md",
+            "artifacts/2026-11-19-book-003-dev-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-19"
+        },
+        {
           "id": "TPL-011",
           "title": "WhatsApp marketing template VIDEO header support",
           "description": "Dashboard template form offers only Text/Image headers; Meta supports VIDEO headers (format VIDEO, example.header_handle ['4:...'], same resumable-upload shape as IMAGE; video/mp4 or video/3gpp, max 16MB, H.264+AAC). Send path already handles VIDEO (CAMP-007). Gaps: upload route is image-only/5MB for every bucket (video must be admitted for wa-template-media only, at 16MB); upload-path maps video/3gpp to .3gpp; Kapso adapter MIME_BY_EXT lacks mp4/3gp and error strings say 'header image'; resolve/enforce-header-media wording is image-only; form state has headerType none|text|image + headerImageUrl (rename to headerMediaUrl, add 'video', VIDEO round-trip, clear URL on type switch); HeaderSection needs a Video option + VideoUploader (sibling of ImageUploader, accept video/mp4,video/3gpp, <video> preview, 16MB pre-check, non-JSON-tolerant response read); i18n waTemplates.videoHeaderHint in en + zh-HK. Kapso video ingest via meta_resumable_asset is UNVERIFIED (probe A-6 + prod verify I-2). Deploy precondition: nginx client_max_body_size >= 16MB on the Forge box.",
@@ -1687,7 +1713,12 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
-        },
+        }
+      ]
+    },
+    "done": {
+      "label": "Done",
+      "tasks": [
         {
           "id": "AGENT-001",
           "title": "AI reply agent (POC): Gemini answers unmatched inbound free text, per-tenant mode off|shadow|auto, every knob in AgentConfig",
@@ -1706,13 +1737,19 @@
             "kanban:AGENT-002"
           ],
           "branch": "feature/agent-001-ai-reply",
-          "notes": "OR1 (Gemini billing tier) must be confirmed before shadow is set on a real tenant. W1 backend done 2026-11-19 (artifacts/2026-11-19-agent-001-w1-handoff). W2 settings UI/API + /dashboard/agent log + local-stack walk done 2026-11-19 (artifacts/2026-11-19-agent-001-w2-handoff); PR #185 into develop. Follow-up: AGENT-002 (staff echo detection)."
-        }
-      ]
-    },
-    "done": {
-      "label": "Done",
-      "tasks": [
+          "notes": "OR1 confirmed by Xavier 2026-11-19 (prod Gemini key is a separate paid key). W1 backend done 2026-11-19 (artifacts/2026-11-19-agent-001-w1-handoff). W2 settings UI/API + /dashboard/agent log + local-stack walk done 2026-11-19 (artifacts/2026-11-19-agent-001-w2-handoff); PR #185 into develop. Follow-up: AGENT-002 (staff echo detection). Released 2026-11-19: main@091b36ba, release 55995fa2, BUILD_ID iOPJoRj0NXfsHDLCC1TO3, migration 083 applied; every restaurant shipped mode off. omc (OhMyClient, 2e578557) switched to shadow 2026-11-19T06:42:49Z (deploys/2026-11-19-agent-001-book-release-runbook); next: grade the shadow drafts before any auto switch.",
+          "pr": "185 (feature) + 188 (release-bundle fix) + 187/189 (develop→main)",
+          "completed": "2026-11-19",
+          "workspace_artifacts": [
+            "plans/2026-11-19-agent-001-ai-reply-agent",
+            "threats/2026-11-19-agent-001-ai-reply-agent",
+            "artifacts/2026-11-19-agent-001-w1-handoff",
+            "artifacts/2026-11-19-agent-001-w2-handoff",
+            "artifacts/2026-11-19-agent-001-fix1-handoff",
+            "deploys/2026-11-19-agent-001-book-release-runbook",
+            "artifacts/2026-11-19-rel-agent-book-handoff"
+          ]
+        },
         {
           "id": "CAMP-009",
           "title": "Create dialog auto-sends campaigns (#136) + marketing-only campaigns mint null coupons and push a doomed QR (#134)",

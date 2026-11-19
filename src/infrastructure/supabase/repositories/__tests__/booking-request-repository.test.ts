@@ -32,7 +32,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
   it('scopes get by id AND restaurant inside the query', async () => {
     const rec = use([{ data: ROW }])
     const found = await findBookingForRestaurant('b-1', 'r-a')
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'neq:status=unverified'])
     expect(found?.bookingTime).toBe('19:30')
   })
 

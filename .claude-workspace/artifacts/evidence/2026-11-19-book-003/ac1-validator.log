@@ -1,0 +1,29 @@
+- discovery.https  poppy.json is served over HTTPS at the well-known path                  spec 3
+  Offline (--file): no network requests.
+- discovery.redirects-https  Every redirect of the well-known URL is to an HTTPS URL       spec 3
+- discovery.redirects-well-known  Redirects of the well-known URL end at /.well-known/poppy.json, with no query spec 3
+  Offline (--file): needs the network.
+✓ discovery.json  poppy.json is a JSON object                                              spec 2
+✓ discovery.schema  poppy.json fields have the forms section 3.1 describes                 spec 2
+- discovery.supported-versions  Each document supported_versions links to is on the same host, without redirects, for that version spec 3.4
+  Offline (--file): needs the network.
+- discovery.versions-same-company  Every version's document has the same organization.domain and auth.issuer spec 3.4
+✓ discovery.protocol-version  poppy.json, or a document it links in supported_versions, is for the version this validator checks spec 3.4
+  protocol_version 1.0.
+- discovery.domain-matches-host  organization.domain is the host that serves poppy.json, after redirects spec 3.1
+  Offline (--file): the host that serves the document isn't known.
+✓ discovery.interface-present  poppy.json lists at least one of agent, apis, or web        spec 3.1
+- discovery.extension-names  Extension names are ones the protocol defines, or start with a domain spec 3.3
+  poppy.json lists no extensions.
+✓ discovery.sign-in-disabled  A Company that turns off sign-in lists no way to sign in     spec 3.2
+  Sign-in isn't turned off.
+✓ discovery.web-disabled  A Company that asks Personal Agents not to browse lists no browser-session endpoint, and lists another interface spec 6
+  Browsing isn't turned off.
+✓ discovery.web-unscoped  A Company whose website is unscoped lists a browser-session endpoint spec 6
+  The website applies the Company's scopes.
+
+Summary
+  1. Foundation             7 passed, 0 failed, 0 warnings, 7 skipped
+
+Results written to /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/cfd39d94-e482-411d-a80c-620c5b3d3f78/scratchpad/pap/repo/kit/company/.poppy/last-results.json.
+validator exit 0

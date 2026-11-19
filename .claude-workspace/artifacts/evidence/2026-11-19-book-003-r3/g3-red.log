@@ -1,0 +1,60 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts (20 tests | 2 failed) 23ms
+     × G3: the received message fails after promotion → still handled (no fallback), the other promoted row still acknowledged, error name only 5ms
+     × G3: the restaurant lookup failing after promotion → still handled, no fallback routing 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > G3: the received message fails after promotion → still handled (no fallback), the other promoted row still acknowledged, error name only
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts:217:25
+    215|     await routeMessage(msg({ text: 'K7PX3M Q2W3E4' }), R)
+    216|     expect(store.rows.filter((r) => r.status === 'pending')).toHaveLen…
+    217|     expect(sender.sent).toHaveLength(1)
+       |                         ^
+    218|     expect(texts).toHaveLength(1)
+    219|     expect(handleReceiptConfirmation).not.toHaveBeenCalled()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts > BOOK-003 confirm code in routeMessage (AC-4) > G3: the restaurant lookup failing after promotion → still handled, no fallback routing
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "pn-a",
+      "+85291234567",
+      "rest-a",
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts:235:31
+    233|     await routeMessage(msg({}), R)
+    234|     expect(store.rows[0].status).toBe('pending')
+    235|     expect(handleUnknown).not.toHaveBeenCalled()
+       |                               ^
+    236|     expect(handleReceiptConfirmation).not.toHaveBeenCalled()
+    237|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+   Start at  11:47:23
+   Duration  394ms (transform 111ms, setup 0ms, import 144ms, tests 23ms, environment 0ms)
+

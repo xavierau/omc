@@ -1,0 +1,40 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ .claude-workspace/artifacts/evidence/2026-11-19-book-003-r4/ac4-confirm-code-vs-agent.test.ts (3 tests | 1 failed) 14ms
+     × a live confirm code from the booking phone → confirm-code path, maybeQueueAgentReply not called 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .claude-workspace/artifacts/evidence/2026-11-19-book-003-r4/ac4-confirm-code-vs-agent.test.ts > BOOK-003 r4 AC-4: confirm code never reaches the AI reply agent (R31) > a live confirm code from the booking phone → confirm-code path, maybeQueueAgentReply not called
+AssertionError: expected { …(23) } to match object { status: 'pending', …(2) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "confirmCode": null,
+-   "status": "pending",
+-   "verifiedWamid": "wamid.1",
++   "confirmCode": "K7PX3M",
++   "status": "unverified",
++   "verifiedWamid": null,
+  }
+
+ ❯ .claude-workspace/artifacts/evidence/2026-11-19-book-003-r4/ac4-confirm-code-vs-agent.test.ts:86:27
+     84|   it('a live confirm code from the booking phone → confirm-code path, …
+     85|     await routeMessage(msg({}), R)
+     86|     expect(store.rows[0]).toMatchObject({ status: 'pending', verifiedW…
+       |                           ^
+     87|     expect(sender.sent).toHaveLength(1)
+     88|     expect(maybeQueueAgentReply).not.toHaveBeenCalled()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  14:52:36
+   Duration  327ms (transform 123ms, setup 0ms, import 161ms, tests 14ms, environment 0ms)
+

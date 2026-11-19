@@ -1,0 +1,162 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts (13 tests | 8 failed) 2964ms
+     × R31: the code from another phone, another restaurant or past expiry promotes nothing 106ms
+     × R32: two concurrent deliveries of the same message promote once; a replay promotes nothing 57ms
+     × AC-5: once promoted it is listed, decidable once, and the reminder RPC sees it only when confirmed 100ms
+     × R41: the purge deletes unverified rows older than an hour and nothing else 231ms
+     × F1 (BOOK-001 R11): a phone with three pending here cannot promote; another restaurant's pending do not count 264ms
+     × F1: room for one more pending → a text with two codes promotes only the oldest 369ms
+     × F1: two concurrent promotions for one phone with room for one → exactly one wins (advisory lock) 357ms
+     × F1: promote_agent_booking is service-role only 63ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > R31: the code from another phone, another restaurant or past expiry promotes nothing
+Error: Command failed: psql -h 127.0.0.1 -p 5432 -U xavierau -d scratch_book003 -v ON_ERROR_STOP=1 -qtAc SELECT id FROM promote_agent_booking('a3000000-0000-4000-8000-00000000000a', '+85298765432', ARRAY['K7PX3M']::text[],
+     'wamid.x', now(), 3) ORDER BY id
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:31:31
+     29| const args = (sql: string) => ['-h', PG.host, '-p', PG.port, '-U', PG.…
+     30| const env = () => ({ ...process.env, PGPASSWORD: PG.password })
+     31| const psql = (sql: string) => execFileSync('psql', args(sql), { env: e…
+       |                               ^
+     32| const psqlAsync = async (sql: string) => (await execFileAsync('psql', …
+     33| function fails(sql: string): boolean {
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:112:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > R32: two concurrent deliveries of the same message promote once; a replay promotes nothing
+Error: Command failed: psql -h 127.0.0.1 -p 5432 -U xavierau -d scratch_book003 -v ON_ERROR_STOP=1 -qtAc SELECT id FROM promote_agent_booking('a3000000-0000-4000-8000-00000000000a', '+85291234567', ARRAY['K7PX3M']::text[],
+     'wamid.1', now(), 3) ORDER BY id
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > AC-5: once promoted it is listed, decidable once, and the reminder RPC sees it only when confirmed
+AssertionError: expected '' to contain 'a3000000-0000-4000-8000-0000000000d1'
+
+- Expected
++ Received
+
+- a3000000-0000-4000-8000-0000000000d1
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:128:31
+    126|   it('AC-5: once promoted it is listed, decidable once, and the remind…
+    127|     const id = 'a3000000-0000-4000-8000-0000000000d1'
+    128|     expect(psql(staffList())).toContain(id)
+       |                               ^
+    129|     expect(psql(decide(id))).toBe(id)
+    130|     expect(psql(decide(id))).toBe('')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > R41: the purge deletes unverified rows older than an hour and nothing else
+AssertionError: expected [ …(2) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+-   "a3000000-0000-4000-8000-0000000000d5",
++   "a3000000-0000-4000-8000-0000000000d1",
+    "a3000000-0000-4000-8000-0000000000da",
+  ]
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:147:40
+    145|     psql(insertAgent({ id: 'a3000000-0000-4000-8000-0000000000da', cod…
+    146|     const deleted = psql(`DELETE FROM booking_requests WHERE status = …
+    147|     expect(deleted.split('\n').sort()).toEqual(['a3000000-0000-4000-80…
+       |                                        ^
+    148|     expect(psql(`SELECT status FROM booking_requests WHERE id = 'a3000…
+    149|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > F1 (BOOK-001 R11): a phone with three pending here cannot promote; another restaurant's pending do not count
+Error: Command failed: psql -h 127.0.0.1 -p 5432 -U xavierau -d scratch_book003 -v ON_ERROR_STOP=1 -qtAc SELECT id FROM promote_agent_booking('a3000000-0000-4000-8000-00000000000a', '+85290000003', ARRAY['H2J3K4']::text[],
+     'wamid.f1', now(), 3) ORDER BY id
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:31:31
+     29| const args = (sql: string) => ['-h', PG.host, '-p', PG.port, '-U', PG.…
+     30| const env = () => ({ ...process.env, PGPASSWORD: PG.password })
+     31| const psql = (sql: string) => execFileSync('psql', args(sql), { env: e…
+       |                               ^
+     32| const psqlAsync = async (sql: string) => (await execFileAsync('psql', …
+     33| function fails(sql: string): boolean {
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:155:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > F1: room for one more pending → a text with two codes promotes only the oldest
+Error: Command failed: psql -h 127.0.0.1 -p 5432 -U xavierau -d scratch_book003 -v ON_ERROR_STOP=1 -qtAc SELECT id FROM promote_agent_booking('a3000000-0000-4000-8000-00000000000a', '+85290000002', ARRAY['J2K3L4','J2K3L5']::text[],
+     'wamid.f1c', now(), 3) ORDER BY id
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:31:31
+     29| const args = (sql: string) => ['-h', PG.host, '-p', PG.port, '-U', PG.…
+     30| const env = () => ({ ...process.env, PGPASSWORD: PG.password })
+     31| const psql = (sql: string) => execFileSync('psql', args(sql), { env: e…
+       |                               ^
+     32| const psqlAsync = async (sql: string) => (await execFileAsync('psql', …
+     33| function fails(sql: string): boolean {
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:167:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > F1: two concurrent promotions for one phone with room for one → exactly one wins (advisory lock)
+Error: Command failed: psql -h 127.0.0.1 -p 5432 -U xavierau -d scratch_book003 -v ON_ERROR_STOP=1 -qtAc SELECT id FROM promote_agent_booking('a3000000-0000-4000-8000-00000000000a', '+85290000001', ARRAY['L2M3N4']::text[],
+     'wamid.r0a', now(), 3) ORDER BY id
+ERROR:  function promote_agent_booking(unknown, unknown, text[], unknown, timestamp with time zone, integer) does not exist
+LINE 1: SELECT id FROM promote_agent_booking('a3000000-0000-4000-800...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking.db.test.ts > migration 084 agent booking schema (real Postgres) > F1: promote_agent_booking is service-role only
+AssertionError: expected [ '' ] to include 'service_role'
+ ❯ src/infrastructure/supabase/__tests__/agent-booking.db.test.ts:193:32
+    191|     const grants = psql(`SELECT grantee FROM information_schema.routin…
+    192|                          WHERE routine_name = 'promote_agent_booking' …
+    193|     expect(grants.split('\n')).toContain('service_role')
+       |                                ^
+    194|     for (const role of ['anon', 'authenticated', 'PUBLIC']) expect(gra…
+    195|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 5 passed (13)
+   Start at  11:17:15
+   Duration  3.16s (transform 45ms, setup 0ms, import 59ms, tests 2.96s, environment 0ms)
+

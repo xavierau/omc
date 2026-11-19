@@ -1,0 +1,38 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/application/__tests__/purge-booking-pii.test.ts (0 test)
+ ❯ src/app/api/cron/booking-reminders/__tests__/route.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/__tests__/purge-booking-pii.test.ts [ src/application/__tests__/purge-booking-pii.test.ts ]
+Error: Cannot find module '../booking/purge-unverified-bookings' imported from /Users/xavierau/Code/js/whatsapp-crm--book-003/src/application/__tests__/purge-booking-pii.test.ts
+ ❯ src/application/__tests__/purge-booking-pii.test.ts:6:1
+      4| import { describe, it, expect } from 'vitest'
+      5| import { purgeBookingPii } from '../booking/purge-booking-pii'
+      6| import { purgeUnverifiedBookings } from '../booking/purge-unverified-b…
+       | ^
+      7| import { FakeBookingCronStore, cronBooking } from '@/test-utils/fake-b…
+      8| import { FakeAgentBookingStore } from '../booking/__tests__/fake-agent…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/api/cron/booking-reminders/__tests__/route.test.ts [ src/app/api/cron/booking-reminders/__tests__/route.test.ts ]
+Error: Cannot find package '@/application/booking/purge-unverified-bookings' imported from /Users/xavierau/Code/js/whatsapp-crm--book-003/src/app/api/cron/booking-reminders/__tests__/route.test.ts
+ ❯ src/app/api/cron/booking-reminders/__tests__/route.test.ts:17:1
+     15|
+     16| import { sendBookingReminders } from '@/application/booking/send-booki…
+     17| import { purgeUnverifiedBookings } from '@/application/booking/purge-u…
+       | ^
+     18| import { GET, POST } from '../route'
+     19|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  5 passed (5)
+   Start at  11:18:32
+   Duration  270ms (transform 156ms, setup 0ms, import 129ms, tests 10ms, environment 0ms)
+

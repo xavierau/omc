@@ -83,7 +83,14 @@ Scope: unmatched inbound free text (after keyword routes and the BOOK-001 intent
 - **OR3 Pilot consent + DSAR (owner: Xavier).** Shadow mode stores diner text for grading: run it only for a named pilot tenant who agrees; delete-by-phone on request is manual SQL in POC.
 - **OR4 Staff collision (owner: Xavier).** Staff replying from the Business App are invisible to the app (no echo handling, per codebase scan 2026-11-19). In auto mode the agent may answer alongside staff. POC mitigation: the `handoff_to_staff` tool + `handoffSilenceHours` silences the agent for that phone; echo detection is follow-up AGENT-002.
 
-## Verdict: CONDITIONAL
+### Rulings (Xavier, 2026-11-19)
+- OR1: Xavier answered "paid billing: yes". W1 then found the DEV key (`.env.local`) is FREE tier (429 `generate_content_free_tier_requests`, 20/day/model, artifacts/2026-11-19-agent-001-w1-handoff). Dev key is fine for fake-data tests only. The PROD key (on the box) is unverified — must be confirmed paid before shadow on omc. Verdict below reverts to CONDITIONAL.
+- OR3: pilot tenant = "omc" (assumed OhMyClient's own tenant; not found in repo records, prod DB not readable locally — confirm the tenant id when enabling shadow).
+- OR4: echo detection deferred to AGENT-002.
+
+- OR1 follow-up (Xavier, 2026-11-19): "we have production credentials" — prod uses a separate, paid Gemini key; the free-tier key is dev only. Accepted on the owner's word; not independently checked.
+- Model default stays gemini-3.8-flash (Xavier, 2026-11-19); fall back to 3.5-flash via AGENT_MODEL if 503s persist on the paid key.
+
+## Verdict: APPROVED
 ## Required Changes (if BLOCKED/CONDITIONAL)
-- Plan maps R1–R11 to work items (done in plans/2026-11-19-agent-001-ai-reply-agent).
-- OR1 answered (billing confirmed) before mode `shadow` is set on any real tenant.
+- none

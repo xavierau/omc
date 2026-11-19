@@ -15,6 +15,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-11-19-agent-booking-poppy](plans/2026-11-19-agent-booking-poppy.md) — BOOK-003 plan: agent booking via poppy.json + WhatsApp code (main)
 - [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
 - [2026-09-09-tpl-011-video-template-header](plans/2026-09-09-tpl-011-video-template-header.md) — TPL-011: VIDEO template header — per-bucket upload policy (16MB video on wa-template-media only), Kapso adapter mime map, media-neutral wording, form Video option + VideoUploader, i18n; Kapso video ingest unverified (probe + prod verify); nginx body limit deploy precondition (solution-architect)
@@ -32,11 +33,14 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-build-plan](plans/2026-06-09-stamp-collection-build-plan.md) — Stamp Collection MVP, reviewed and build-ready (solution-architect)
 
 ### Threats
+- [2026-11-19-agent-booking-poppy](threats/2026-11-19-agent-booking-poppy.md) — BOOK-003: CONDITIONAL, R31–R46 (main)
+- [2026-11-19-agent-001-ai-reply-agent](threats/2026-11-19-agent-001-ai-reply-agent.md) — AGENT-001 AI reply agent: APPROVED after OR1 confirmed (prod Gemini key paid) (main)
 - [2026-09-10-int-001-member-creation-api](threats/2026-09-10-int-001-member-creation-api.md) — INT-001: CONDITIONAL, 4 Critical, 8 High (security-architect)
 - [2026-06-09-stamp-collection-plan-review](threats/2026-06-09-stamp-collection-plan-review.md) — Threat model review of the Stamp Collection plan, post-LOCKED decisions (security-architect)
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-19-agent-001-book-release-runbook](deploys/2026-11-19-agent-001-book-release-runbook.md) — AGENT-001 to prod: #187/#189 → main 091b36b → release 55995fa, mig 083, BUILD_ID iOPJoRj0NXfsHDLCC1TO3, live Gemini probe 200; omc → shadow 06:42:49Z, other 6 off (dev)
 - [2026-10-07-mem-001-004-release-runbook](deploys/2026-10-07-mem-001-004-release-runbook.md) — MEM-001/004 prod release, mig 080+081 (devops-engineer)
 - [2026-09-10-camp-012-013-release-runbook](deploys/2026-09-10-camp-012-013-release-runbook.md) — CAMP-012/013 (#164→#168) to prod: main 4aa7752 → release 7884616, mig 078+079, gate 1 growth/5 starter, pids 1740620/1740730, health 200 (devops-engineer)
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
@@ -93,6 +97,15 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**BOOK-003 — booking through personal agents (2026-11-19)**
+- [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)
+- [2026-11-19-book-003-dev-handoff](artifacts/2026-11-19-book-003-dev-handoff.md) — BOOK-003 dev handoff (dev)
+- [2026-11-19-book-003-review-fixes](artifacts/2026-11-19-book-003-review-fixes.md) — BOOK-003 r2: PR #186 review fixes F1–F10, promote RPC in 084, unverified purge on the 5-min cron (dev)
+- [2026-11-19-book-003-review-fixes-r3](artifacts/2026-11-19-book-003-review-fixes-r3.md) — BOOK-003 r3: /review G1–G3, per-IP-per-restaurant cap (5/30 min) + 500 safety cap, poppy.json refused without WhatsApp, acknowledge failure stays handled (dev)
+- [2026-11-19-book-003-merge-develop-r4](artifacts/2026-11-19-book-003-merge-develop-r4.md) — BOOK-003 r4: develop (AGENT-001) merged into PR #186, confirm code still before the AI reply agent (R31), gates green (dev)
+**AGENT-001 — release finish (2026-11-19)**
+- [2026-11-19-rel-agent-book-handoff](artifacts/2026-11-19-rel-agent-book-handoff.md) — r2 handoff: temp branch deleted, omc shadow, docs PR, worktree cleanup (dev)
 
 **CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**
 - [2026-09-10-camp-012-guardrail-defaults-backend](artifacts/2026-09-10-camp-012-guardrail-defaults-backend.md) — WI-1 #161: mig 078 seed trigger (senior-backend-dev)

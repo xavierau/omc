@@ -18,6 +18,7 @@ import { handleHelp, handleUnknown } from './unknown-help-handlers'
 import { handleContact } from './contact-handler'
 import { handleContactFormSubmission } from './contact-form-handler'
 import { handleBookCommand, maybeReplyToBookingIntent } from './book-handler'
+import { maybeHandleBookingConfirmCode } from './booking-confirm-code-handler'
 import { maybeQueueAgentReply } from './agent-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
@@ -94,6 +95,11 @@ async function dispatchRoute(message: KapsoMessage, restaurantId: string, log: L
   if (message.flowResponse) {
     return handleContactFormSubmission({ message, restaurantId, phoneNumberId, phone, log })
   }
+
+  // BOOK-003 (R31): an agent booking's confirm code from the booking phone
+  // wins over every text route (receipt YES/NO included). Anything that does
+  // not promote a booking falls through to today's routing unchanged.
+  if (await maybeHandleBookingConfirmCode(message, restaurantId, phone, log)) return
 
   const resolved = resolveRoute(text, message.type)
   log('info', 'handler.route', { route: resolved.route, phone: maskPhone(phone) })

@@ -1,0 +1,112 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-003
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts (3 tests | 3 failed) 23ms
+     × appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick 20ms
+     × a refused download creates no link 1ms
+     × G2: a restaurant without a WhatsApp number gets its own reason and no link 1ms
+ ❯ src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts (10 tests | 1 failed) 23ms
+     × G2: without a usable WhatsApp number the download is 409 no_whatsapp_number (the agent API would 404 every POST) 4ms
+ ❯ src/components/dashboard/__tests__/booking-agent-ui.test.tsx (7 tests | 1 failed) 46ms
+     × G2: a download refused for no WhatsApp number shows its own message, not the generic failure 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > appends the link to the body, clicks it while attached, removes it, then revokes the URL on a later tick
+AssertionError: expected true to be 'downloaded' // Object.is equality
+
+- Expected:
+"downloaded"
+
++ Received:
+true
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:44:39
+     42|     vi.useFakeTimers()
+     43|     const { link, log } = stubPage()
+     44|     expect(await downloadPoppyJson()).toBe('downloaded')
+       |                                       ^
+     45|     expect(link).toMatchObject({ href: 'blob:poppy', download: 'poppy.…
+     46|     expect(log).toEqual(['append', 'click:true', 'remove'])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > a refused download creates no link
+AssertionError: expected false to be 'failed' // Object.is equality
+
+- Expected:
+"failed"
+
++ Received:
+false
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:54:39
+     52|     const { log } = stubPage()
+     53|     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { stat…
+     54|     expect(await downloadPoppyJson()).toBe('failed')
+       |                                       ^
+     55|     expect(log).toEqual([])
+     56|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/hooks/__tests__/download-poppy-json.test.ts > downloadPoppyJson (F8) > G2: a restaurant without a WhatsApp number gets its own reason and no link
+AssertionError: expected false to be 'no_whatsapp_number' // Object.is equality
+
+- Expected:
+"no_whatsapp_number"
+
++ Received:
+false
+
+ ❯ src/hooks/__tests__/download-poppy-json.test.ts:61:39
+     59|     const { log } = stubPage()
+     60|     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":"n…
+     61|     expect(await downloadPoppyJson()).toBe('no_whatsapp_number')
+       |                                       ^
+     62|     expect(log).toEqual([])
+     63|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-agent-ui.test.tsx > BOOK-003 dashboard UI > G2: a download refused for no WhatsApp number shows its own message, not the generic failure
+AssertionError: expected '<div data-slot="card" data-size="defa…' to contain 'bookingSettings.agent.noWhatsappNumber'
+
+Expected: "bookingSettings.agent.noWhatsappNumber"
+Received: "<div data-slot="card" data-size="default" class="group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl" data-testid="booking-settings-section"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3"><div data-slot="card-title" class="font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm">bookingSettings.title</div><p class="text-sm text-muted-foreground">bookingSettings.description</p></div><div data-slot="card-content" class="px-4 group-data-[size=sm]/card:px-3 space-y-5"><fieldset class="space-y-2"><legend class="mb-1 text-sm font-medium">bookingSettings.modeLabel</legend><label class="flex items-start gap-2 text-sm"><input type="radio" class="mt-1" data-testid="booking-settings-mode-off" name="booking-mode" value="off"/><span><span class="font-medium">bookingSettings.mode.off</span> <span class="text-muted-foreground">bookingSettings.modeHint.off</span></span></label><label class="flex items-start gap-2 text-sm"><input type="radio" class="mt-1" data-testid="booking-settings-mode-simple" name="booking-mode" checked="" value="simple"/><span><span class="font-medium">bookingSettings.mode.simple</span> <span class="text-muted-foreground">bookingSettings.modeHint.simple</span></span></label><label class="flex items-start gap-2 text-sm"><input type="radio" class="mt-1" data-testid="booking-settings-mode-external" name="booking-mode" value="external"/><span><span class="font-medium">bookingSettings.mode.external</span> <span class="text-muted-foreground">bookingSettings.modeHint.external</span></span></label></fieldset><div class="space-y-1.5"><label for="booking-settings-chatLinkTtlHours" class="text-sm font-medium">bookingSettings.chatLifetime</label><div class="flex items-center gap-3"><input type="number" data-slot="input" class="h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 w-28" id="booking-settings-chatLinkTtlHours" min="1" data-testid="booking-settings-chat-ttl" value="24"/><span class="text-sm text-muted-foreground">bookingSettings.hours</span><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-testid="booking-settings-chat-no-expiry"/>bookingSettings.noExpiry</label></div></div><div class="space-y-1.5"><label for="booking-settings-campaignLinkTtlHours" class="text-sm font-medium">bookingSettings.campaignLifetime</label><div class="flex items-center gap-3"><input type="number" data-slot="input" class="h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 w-28" id="booking-settings-campaignLinkTtlHours" min="1" data-testid="booking-settings-campaign-ttl" value="168"/><span class="text-sm text-muted-foreground">bookingSettings.hours</span><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-testid="booking-settings-campaign-no-expiry"/>bookingSettings.noExpiry</label></div></div><div class="space-y-1.5"><label for="booking-settings-max" class="text-sm font-medium">bookingSettings.maxPartySize</label><input type="number" data-slot="input" class="h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 w-28" id="booking-settings-max" min="1" max="100" data-testid="booking-settings-max-party" value="20"/></div><div class="space-y-2" data-testid="booking-template-statuses"><p class="text-sm font-medium">bookingSettings.templates.title</p><p class="text-xs text-muted-foreground">bookingSettings.templates.hint</p><p data-testid="booking-template-status-unknown" class="text-xs text-muted-foreground">bookingSettings.templates.unknown</p></div><section data-testid="booking-agent-settings" class="space-y-3 border-t border-border pt-5"><div><h3 class="text-sm font-semibold">bookingSettings.agent.title</h3><p class="text-sm text-muted-foreground">bookingSettings.agent.hint</p></div><label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" data-testid="booking-agent-toggle" checked=""/>bookingSettings.agent.toggle</label><div class="space-y-1.5"><label for="booking-agent-host" class="text-sm font-medium">bookingSettings.agent.websiteHost</label><input data-slot="input" class="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40" id="booking-agent-host" inputMode="url" placeholder="www.yourrestaurant.hk" data-testid="booking-agent-host" value="www.saved.hk"/><p class="text-xs text-muted-foreground">bookingSettings.agent.websiteHostHint</p></div><div class="flex items-center gap-3"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-agent-save">bookingSettings.agent.save</button><p data-testid="booking-agent-error" role="alert" class="text-xs text-destructive">bookingSettings.agent.undefined</p></div><div class="space-y-3 rounded-md border border-border p-3"><p class="text-sm text-muted-foreground">bookingSettings.agent.downloadHint:{&quot;host&quot;:&quot;www.saved.hk&quot;}</p><div class="flex flex-wrap gap-2"><button data-slot="button" data-variant="outline" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-agent-download">bookingSettings.agent.download</button><button data-slot="button" data-variant="ghost" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-agent-rotate">bookingSettings.agent.rotate</button></div><p class="text-xs text-muted-foreground">bookingSettings.agent.rotateHint</p></div></section><div class="flex items-center gap-3"><button data-slot="button" data-variant="default" data-size="default" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2" data-testid="booking-settings-save">bookingSettings.save</button></div></div></div>"
+
+ ❯ src/components/dashboard/__tests__/booking-agent-ui.test.tsx:79:18
+     77|     const html = section({ mode: 'simple' })
+     78|     expect(html).toContain('data-testid="booking-agent-error"')
+     79|     expect(html).toContain('bookingSettings.agent.noWhatsappNumber')
+       |                  ^
+     80|     expect(html).not.toContain('bookingSettings.agent.downloadFailed')
+     81|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts > agent booking settings routes (R43) > G2: without a usable WhatsApp number the download is 409 no_whatsapp_number (the agent API would 404 every POST)
+AssertionError: null: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/app/api/dashboard/settings/booking/__tests__/agent-booking-settings.route.test.ts:145:50
+    143|       })
+    144|       const res = await DOWNLOAD()
+    145|       expect(res.status, String(whatsappNumber)).toBe(409)
+       |                                                  ^
+    146|       expect(await res.json()).toEqual({ error: 'no_whatsapp_number' })
+    147|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  5 failed | 15 passed (20)
+   Start at  11:46:19
+   Duration  677ms (transform 383ms, setup 0ms, import 858ms, tests 92ms, environment 0ms)
+
