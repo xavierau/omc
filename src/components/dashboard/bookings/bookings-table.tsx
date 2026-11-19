@@ -1,9 +1,10 @@
 'use client'
 
 /**
- * BOOK-004: the Table view: Upcoming (today onward, soonest first) or Past
- * (90 days, newest first), grouped by day; a desktop table or phone cards,
- * never both. Footer: how many are shown, and the Upcoming/Past switch.
+ * BOOK-004: the Table view: Upcoming (today onward, soonest first), Past
+ * (90 days, newest first) or Needs a reply (every pending booking, any date,
+ * soonest first), grouped by day; a desktop table or phone cards, never both.
+ * Footer: how many are shown, and the Upcoming/Past switch.
  */
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,9 @@ export interface BookingsTableProps extends BookingActionProps {
   onRange: (range: TableRange) => void
 }
 
+const EMPTY_TITLE = { upcoming: 'emptyUpcomingTitle', past: 'emptyPastTitle', pending: 'emptyPendingTitle' } as const
+const SHOWING = { upcoming: 'showingUpcoming', past: 'showingPast', pending: 'showingPending' } as const
+
 function TableEmpty({ rangeEmpty, range }: { rangeEmpty: boolean; range: TableRange }) {
   const t = useTranslations('bookings.views')
   if (!rangeEmpty) {
@@ -30,7 +34,7 @@ function TableEmpty({ rangeEmpty, range }: { rangeEmpty: boolean; range: TableRa
   }
   return (
     <div data-testid="booking-list-empty" className="px-5 py-10 text-center">
-      <p className="font-medium text-foreground">{t(range === 'upcoming' ? 'emptyUpcomingTitle' : 'emptyPastTitle')}</p>
+      <p className="font-medium text-foreground">{t(EMPTY_TITLE[range])}</p>
       <p className="mt-1 text-sm text-muted-foreground">{t('emptyRangeDescription')}</p>
     </div>
   )
@@ -52,7 +56,7 @@ export function BookingsTable({ bookings, rangeEmpty, range, today, isPhone, onR
     <div data-testid="bookings-table" className={isPhone ? 'space-y-4' : 'overflow-hidden rounded-xl border border-border bg-card'}>
       {body}
       <div className={isPhone ? 'flex flex-col items-start gap-2' : 'flex items-center justify-between gap-3 border-t border-border px-4 py-3'}>
-        <p className="text-sm text-muted-foreground">{t(range === 'upcoming' ? 'showingUpcoming' : 'showingPast', { count: bookings.length })}</p>
+        <p className="text-sm text-muted-foreground">{t(SHOWING[range], { count: bookings.length })}</p>
         <Button variant="outline" size="sm" onClick={() => onRange(other)}>
           {t(other === 'past' ? 'showPast' : 'showUpcoming')}
         </Button>

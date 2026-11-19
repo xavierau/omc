@@ -2,15 +2,17 @@
  * BOOK-004: which view and which dates the Bookings page shows. Pure, so the
  * owner rules are testable: Calendar by default, `?view=` wins over the last
  * choice remembered in localStorage; Table Upcoming = today onward, soonest
- * first; Past = the 90 days before today, newest first.
+ * first; Past = the 90 days before today, newest first; Needs a reply (r2) =
+ * every pending booking of any date, soonest first.
  */
 import type { BookingDateRange } from '@/domain/entities/booking-request'
+import type { BookingsQuery } from '@/hooks/use-bookings'
 import { addDays, gridRange, monthKey, shiftMonth } from './booking-dates'
 import type { DayOrder } from './booking-groups'
 
 export const BOOKINGS_VIEWS = ['calendar', 'table'] as const
 export type BookingsView = (typeof BOOKINGS_VIEWS)[number]
-export type TableRange = 'upcoming' | 'past'
+export type TableRange = 'upcoming' | 'past' | 'pending'
 
 export const VIEW_STORAGE_KEY = 'omc.bookings.view'
 export const PAST_DAYS = 90
@@ -24,17 +26,21 @@ export function resolveView(param: string | null, stored: string | null): Bookin
   return asView(param) ?? asView(stored) ?? 'calendar'
 }
 
-export function tableRangeDates(range: TableRange, today: string): BookingDateRange {
+export function tableRangeDates(range: Exclude<TableRange, 'pending'>, today: string): BookingDateRange {
   return range === 'upcoming'
     ? { from: today, to: addDays(today, UPCOMING_DAYS) }
     : { from: addDays(today, -PAST_DAYS), to: addDays(today, -1) }
 }
 
-export const tableOrder = (range: TableRange): DayOrder => (range === 'upcoming' ? 'asc' : 'desc')
+export const tableOrder = (range: TableRange): DayOrder => (range === 'past' ? 'desc' : 'asc')
 
-/** The dates to fetch: the visible month grid of the selected day, or the table range. */
-export function fetchRange(view: BookingsView, selected: string, range: TableRange, today: string): BookingDateRange {
-  return view === 'calendar' ? gridRange(selected) : tableRangeDates(range, today)
+/** What the needs-reply pill's Show opens: every pending booking, with the Pending filter on (owner 2026-11-19). */
+export const SHOW_PENDING = { view: 'table', tableRange: 'pending', status: 'pending' } as const
+
+/** What to fetch: the visible month grid of the selected day, the table range, or every pending booking. */
+export function fetchRange(view: BookingsView, selected: string, range: TableRange, today: string): BookingsQuery {
+  if (view === 'calendar') return gridRange(selected)
+  return range === 'pending' ? { status: 'pending' } : tableRangeDates(range, today)
 }
 
 /** Desktop prev/next: the next month's 1st, or today when that month holds today. Phone: a week. */

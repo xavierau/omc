@@ -45,6 +45,8 @@ vi.mock('@/infrastructure/supabase/guards/tenant-guard')
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { BOOKINGS_RANGE_CAP } from '@/domain/entities/booking-request'
+import { fetchBookings } from '@/hooks/use-bookings'
+import { fetchRange, SHOW_PENDING } from '@/components/dashboard/bookings/bookings-view-state'
 import { GET } from '../route'
 
 const A = 'rest-a'
@@ -150,5 +152,58 @@ describe('GET /api/dashboard/bookings with a date range (BOOK-004)', () => {
 
   it('a 400-day span is allowed', async () => {
     expect((await get('?from=2025-01-01&to=2026-02-05')).status).toBe(200)
+  })
+})
+
+describe('GET /api/dashboard/bookings?status=pending: every pending booking, any date (BOOK-004 r2)', () => {
+  it('lists every pending booking of the tenant, past-dated included, soonest first; length equals pendingCount', async () => {
+    const future = add(A, '2026-12-24', '19:00')
+    const past = add(A, '2025-03-01', '12:00')
+    const soon = add(A, '2026-11-20', '12:30')
+    add(A, '2026-11-20', '13:00', 'confirmed')
+    add(A, '2025-03-01', '13:00', 'declined')
+    add(A, '2026-11-20', '13:30', 'unverified')
+    add(B, '2025-03-01', '11:00')
+    const body = await (await get('?status=pending')).json()
+    expect(body.bookings.map((b: { id: string }) => b.id)).toEqual([past, soon, future])
+    expect(body.bookings).toHaveLength(body.pendingCount)
+    expect(body.truncated).toBe(false)
+    for (const q of table.queries) expect(q).toContain(`eq:restaurant_id=${A}`)
+  })
+
+  it('R4: caps the pending list and says truncated', async () => {
+    for (let i = 0; i < BOOKINGS_RANGE_CAP + 1; i++) add(A, '2026-11-21', '12:30')
+    const body = await (await get('?status=pending')).json()
+    expect(body.bookings).toHaveLength(BOOKINGS_RANGE_CAP)
+    expect(body.truncated).toBe(true)
+  })
+
+  it.each([
+    ['?status=confirmed', 'another status'],
+    ['?status=unverified', 'unverified'],
+    ['?status=', 'empty'],
+    ['?status=pending&from=2026-11-01&to=2026-11-30', 'combined with a range'],
+  ])('400 on %s (%s) and no query runs', async (qs) => {
+    const res = await get(qs)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid_status' })
+    expect(table.queries).toHaveLength(0)
+  })
+
+  it("the needs-reply pill's Show fetches a list whose length equals the pill count, with the past-dated booking", async () => {
+    const past = add(A, '2025-06-01', '12:00')
+    add(A, '2026-11-25', '19:00')
+    add(A, '2026-11-25', '20:00', 'confirmed')
+    vi.stubGlobal('fetch', (url: string) => get(url.replace('/api/dashboard/bookings', '')))
+    try {
+      const query = fetchRange(SHOW_PENDING.view, '2026-11-19', SHOW_PENDING.tableRange, '2026-11-19')
+      const payload = await fetchBookings(query)
+      expect(payload.pendingCount).toBe(2)
+      expect(payload.bookings).toHaveLength(payload.pendingCount)
+      expect(payload.bookings.map((b) => b.id)).toContain(past)
+      expect(payload.bookings.every((b) => b.status === 'pending')).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

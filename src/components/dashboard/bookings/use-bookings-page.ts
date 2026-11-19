@@ -13,6 +13,7 @@ import {
   fetchRange,
   readStoredView,
   resolveView,
+  SHOW_PENDING,
   stepSelected,
   storeView,
   type BookingsView,
@@ -51,9 +52,9 @@ export function useBookingsPage() {
     shift: (direction: 1 | -1) => setSelected((s) => stepSelected(s, direction, isPhone, today)),
     goToday: () => setSelected(today),
     showPending: () => {
-      setStatus('pending')
-      setTableRange('upcoming')
-      setView('table')
+      setStatus(SHOW_PENDING.status)
+      setTableRange(SHOW_PENDING.tableRange)
+      setView(SHOW_PENDING.view)
     },
   }
 }

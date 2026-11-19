@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { addDays, gridRange, monthGrid, shiftMonth, todayInHongKong, weekOf } from '../bookings/booking-dates'
 import { bookingsOn, chipName, covers, daySummary, filterBookings, groupByDay, matchesSearch, statusCounts } from '../bookings/booking-groups'
-import { fetchRange, resolveView, stepSelected, storeView, readStoredView, tableOrder, tableRangeDates } from '../bookings/bookings-view-state'
+import { fetchRange, resolveView, SHOW_PENDING, stepSelected, storeView, readStoredView, tableOrder, tableRangeDates } from '../bookings/bookings-view-state'
 import type { BookingItem } from '@/hooks/use-bookings'
 
 const b = (id: string, date: string, time: string, status: BookingItem['status'], partySize = 2, extra: Partial<BookingItem> = {}): BookingItem => ({
@@ -106,6 +106,12 @@ describe('bookings view state', () => {
     expect(tableRangeDates('past', '2026-11-19')).toEqual({ from: '2026-08-21', to: '2026-11-18' })
     expect(tableOrder('upcoming')).toBe('asc')
     expect(tableOrder('past')).toBe('desc')
+  })
+
+  it('needs-reply Show: Table, the all-pending range (soonest first, any date) and the Pending filter', () => {
+    expect(SHOW_PENDING).toEqual({ view: 'table', tableRange: 'pending', status: 'pending' })
+    expect(fetchRange('table', '2026-11-21', 'pending', '2026-11-19')).toEqual({ status: 'pending' })
+    expect(tableOrder('pending')).toBe('asc')
   })
 
   it('calendar fetches the visible grid of the selected day', () => {

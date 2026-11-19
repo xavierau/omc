@@ -139,6 +139,15 @@ describe('Bookings dashboard', () => {
     expect(past).toContain('bookings.views.showUpcoming')
   })
 
+  it('table needs-reply range: past-dated pending rows first (soonest first), its own footer and empty state', () => {
+    const list = [row('soon', 'pending', { bookingDate: '2026-11-24' }), row('old', 'pending', { bookingDate: '2025-06-01' })]
+    const markup = table(list, false, { range: 'pending' })
+    expect(markup.indexOf('booking-row-old')).toBeLessThan(markup.indexOf('booking-row-soon'))
+    expect(markup).toContain('bookings.views.showingPending:{&quot;count&quot;:2}')
+    expect(markup).toContain('bookings.views.showUpcoming')
+    expect(table([], false, { range: 'pending' })).toContain('bookings.views.emptyPendingTitle')
+  })
+
   it('settings: external mode with no URL shows the add-link hint and disables Save', () => {
     const markup = renderToStaticMarkup(<BookingSettingsSection initialConfig={{ ...DEFAULT_BOOKING_CONFIG, mode: 'external' }} />)
     expect(markup).toContain('data-testid="booking-settings-url-warning"')

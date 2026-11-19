@@ -55,9 +55,19 @@ export interface BookingsPayload {
   truncated: boolean
 }
 
-/** BOOK-004: the bookings dated in `range` (inclusive), by date and time. */
-export async function fetchBookings(range: BookingDateRange): Promise<BookingsPayload> {
-  const res = await fetch(`/api/dashboard/bookings?${new URLSearchParams({ from: range.from, to: range.to })}`)
+/** BOOK-004: a date range (inclusive), or r2: every pending booking of any date. */
+export type BookingsQuery = BookingDateRange | { status: 'pending' }
+
+const searchOf = (query: BookingsQuery) =>
+  new URLSearchParams('status' in query ? { status: query.status } : { from: query.from, to: query.to }).toString()
+
+/** BOOK-004: the bookings the query selects, by date and time. */
+export async function fetchBookings(query: BookingsQuery): Promise<BookingsPayload> {
+  return fetchBookingsBySearch(searchOf(query))
+}
+
+async function fetchBookingsBySearch(search: string): Promise<BookingsPayload> {
+  const res = await fetch(`/api/dashboard/bookings?${search}`)
   if (!res.ok) throw new Error('Failed to fetch bookings')
   const body = (await res.json()) as Partial<BookingsPayload> & { bookings: BookingItem[] }
   return { bookings: body.bookings, pendingCount: body.pendingCount ?? 0, truncated: body.truncated === true }
@@ -66,17 +76,15 @@ export async function fetchBookings(range: BookingDateRange): Promise<BookingsPa
 const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Unknown error')
 
 /**
- * `range` null = wait (nothing fetched yet). `data` is only ever the answer
- * for the current range: after a range change it is null until that range
- * loads, so a view never shows another range's bookings.
+ * `query` null = wait (nothing fetched yet). `data` is only ever the answer
+ * for the current query: after a change it is null until that query loads,
+ * so a view never shows another range's bookings.
  */
-export function useBookings(range: BookingDateRange | null) {
+export function useBookings(query: BookingsQuery | null) {
   const { restaurantId } = useTenant()
   const [loaded, setLoaded] = useState<{ key: string; payload: BookingsPayload } | null>(null)
   const [failed, setFailed] = useState<{ key: string; message: string } | null>(null)
-  const from = range?.from
-  const to = range?.to
-  const key = `${from}..${to}`
+  const key = query ? searchOf(query) : null
 
   const settle = useCallback((forKey: string, outcome: Promise<BookingsPayload>, isActive: () => boolean) => {
     return outcome.then(
@@ -92,22 +100,22 @@ export function useBookings(range: BookingDateRange | null) {
   }, [])
 
   useEffect(() => {
-    if (!restaurantId || !from || !to) return
+    if (!restaurantId || !key) return
     let active = true
-    void settle(`${from}..${to}`, fetchBookings({ from, to }), () => active)
+    void settle(key, fetchBookingsBySearch(key), () => active)
     return () => {
       active = false
     }
-  }, [restaurantId, from, to, settle])
+  }, [restaurantId, key, settle])
 
   const refetch = useCallback(async () => {
-    if (!restaurantId || !from || !to) return
-    await settle(`${from}..${to}`, fetchBookings({ from, to }), () => true)
-  }, [restaurantId, from, to, settle])
+    if (!restaurantId || !key) return
+    await settle(key, fetchBookingsBySearch(key), () => true)
+  }, [restaurantId, key, settle])
 
   const data = loaded?.key === key ? loaded.payload : null
   const error = failed?.key === key ? failed.message : null
-  // The tenant-wide pending count does not depend on the range: keep the last one while a range loads.
+  // The tenant-wide pending count does not depend on the query: keep the last one while a query loads.
   const pendingCount = loaded?.payload.pendingCount ?? 0
   return { data, pendingCount, isLoading: data === null && error === null, error, refetch }
 }

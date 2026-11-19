@@ -1471,6 +1471,43 @@
             "kanban:AGENT-001",
             "threats/2026-11-19-agent-001-ai-reply-agent#OR4"
           ]
+        },
+        {
+          "id": "LINT-001",
+          "title": "Repo-wide ESLint cleanup so `npm run lint` can gate (151 errors, 22 warnings in files BOOK-004 did not touch)",
+          "description": "Found by BOOK-004's gate (owner decision 2026-11-19: accepted for that PR, fixed separately). `npm run lint` on feature/bookings-calendar-table reports 173 problems (151 errors, 22 warnings). Every one is in a file the branch does not touch: the log lists 131 files, 78 of them with errors (the brief counted 92 untouched files). None are in booking code. Fix them (or tune rules deliberately, with a reason) until `npm run lint` exits 0, so lint can join the gate and CI-001. Evidence: .claude-workspace/artifacts/evidence/2026-11-19-book-004/ac3-gate.log.",
+          "priority": "low",
+          "labels": [
+            "quality",
+            "devops",
+            "chore"
+          ],
+          "related": [
+            "kanban:BOOK-004",
+            "kanban:CI-001"
+          ],
+          "workspace_artifacts": [
+            "artifacts/evidence/2026-11-19-book-004/ac3-gate.log"
+          ]
+        },
+        {
+          "id": "BOOK-005",
+          "title": "Show cancelled bookings in the Calendar and Table views (grey, struck through, like Declined)",
+          "description": "Owner decision 2026-11-19 (decision 4). Migration 085 (agent booking changes, on another branch) adds the `cancelled` status. BOOK-004's range query uses a status allow-list in(pending, confirmed, declined), so cancelled bookings are hidden from the views today. Once that branch lands: add `cancelled` to the range query's status list (listBookingRequestsInRange); render it in both views like Declined (grey, struck through): calendar chips, day panel, table rows and phone cards; give it a status badge and a filter chip if the UX spec agrees; exclude it from covers as Declined is; keep it out of pendingCount and the needs-reply list. Tenant scope and the unverified exclusion stay in the query (R1/R2).",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "backend"
+          ],
+          "related": [
+            "kanban:BOOK-004",
+            "kanban:BOOK-003"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-19-book-004-bookings-views-impl.md"
+          ]
         }
       ]
     },
@@ -1605,11 +1642,12 @@
           "workspace_artifacts": [
             "artifacts/2026-11-19-book-004-bookings-views-ux.md",
             "artifacts/2026-11-19-book-004-bookings-views-impl.md",
-            "artifacts/2026-11-19-dev-book-004-handoff.md"
+            "artifacts/2026-11-19-dev-book-004-handoff.md",
+            "artifacts/2026-11-19-dev-book-004-r2-handoff.md"
           ],
           "status": "review",
           "updated": "2026-11-19",
-          "notes": "Built and walked on the local Supabase stack (scratch tenant, en + zh-HK, 1440 + 390); PR into develop. Not deployed."
+          "notes": "Built and walked on the local Supabase stack (scratch tenant, en + zh-HK, 1440 + 390); PR into develop. Not deployed. r2 (2026-11-19): the needs-reply pill's Show opens Table → Needs a reply: every pending booking, any date (past-dated included), soonest first, via GET ?status=pending; list length = pendingCount. Follow-ups LINT-001, BOOK-005."
         },
         {
           "id": "BOOK-003",

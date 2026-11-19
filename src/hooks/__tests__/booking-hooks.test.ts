@@ -121,6 +121,13 @@ describe('fetchBookings (BOOK-004)', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?from=2026-11-01&to=2026-12-05')
   })
 
+  it('asks for every pending booking with status=pending (needs-reply Show)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bookings: [], pendingCount: 0, truncated: false }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchBookings({ status: 'pending' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/bookings?status=pending')
+  })
+
   it('throws on a failed answer so the page shows the error state', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
     await expect(fetchBookings({ from: '2026-11-01', to: '2026-11-30' })).rejects.toThrow()

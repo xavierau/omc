@@ -1,11 +1,11 @@
 'use client'
 
-/** BOOK-004: the left of the toolbar: month navigation (Calendar) or the Upcoming/Past range (Table). */
+/** BOOK-004: the left of the toolbar: month navigation (Calendar) or the Upcoming/Past/Needs a reply range (Table). */
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDate } from './booking-dates'
-import type { TableRange } from './bookings-view-state'
+import { tableOrder, type TableRange } from './bookings-view-state'
 
 export interface CalendarNavProps {
   selected: string
@@ -54,10 +54,11 @@ export function TableRangeControl({ range, onRange }: { range: TableRange; onRan
       >
         <option value="upcoming">{t('upcoming')}</option>
         <option value="past">{t('past')}</option>
+        <option value="pending">{t('pendingRange')}</option>
       </select>
       <span className="hidden items-center gap-1.5 text-sm text-muted-foreground sm:inline-flex">
         <ArrowUpDown aria-hidden className="size-3.5" />
-        {t(range === 'upcoming' ? 'soonestFirst' : 'newestFirst')}
+        {t(tableOrder(range) === 'asc' ? 'soonestFirst' : 'newestFirst')}
       </span>
     </div>
   )

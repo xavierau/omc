@@ -1,0 +1,10 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--bookings-views
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  644 passed | 11 skipped (655)
+      Tests  7268 passed | 79 skipped | 2 todo (7349)
+   Start at  17:55:17
+   Duration  29.34s (transform 21.48s, setup 0ms, import 77.72s, tests 22.32s, environment 45ms)
+

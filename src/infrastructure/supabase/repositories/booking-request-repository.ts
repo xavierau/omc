@@ -157,6 +157,30 @@ export async function listBookingRequestsInRange(
   return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
 }
 
+/**
+ * BOOK-004 r2: every pending request of one restaurant, any date (past-dated
+ * included), by date then time: the list behind the "need a reply" count, so
+ * it holds the same rows as `countRestaurantPendingBookings`. Tenant and
+ * status are filters of the query (R1, R2); reads one past `cap` (R4).
+ */
+export async function listPendingBookingRequests(
+  restaurantId: string,
+  cap: number
+): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('booking_requests')
+    .select(BOOKING_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'pending')
+    .order('booking_date', { ascending: true })
+    .order('booking_time', { ascending: true })
+    .limit(cap + 1)
+  if (error) throw new Error(`listPendingBookingRequests: ${error.message}`)
+  const rows = (data ?? []) as BookingRow[]
+  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+}
+
 /** BOOK-004: every pending request of one restaurant, any date (the "need a reply" count). */
 export async function countRestaurantPendingBookings(restaurantId: string): Promise<number> {
   const supabase = createServerSupabaseClient()

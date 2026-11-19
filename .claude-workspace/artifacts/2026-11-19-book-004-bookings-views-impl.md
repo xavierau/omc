@@ -83,3 +83,22 @@ AC-1 dir: 2 files, 25 tests (16 new range cases, real route + real repository on
 - How `cancelled` (085, other branch) should appear in the views.
 - Pill "Show" cannot show pending bookings dated in the past.
 - No Playwright spec / layout harness in this repo (`ui-map/harness.md` absent); POC stage, so the walk + pasted audit stand in.
+
+## r2 (2026-11-19): needs-reply Show lists every pending booking
+
+Owner decision 3: the pill's count and the list behind Show must agree. Before r2, Show opened Table → Upcoming + Pending, so pending bookings dated before today were counted but never shown.
+
+| file | change |
+|---|---|
+| `src/infrastructure/supabase/repositories/booking-request-repository.ts` | `listPendingBookingRequests(restaurantId, cap)`: `eq(restaurant_id)` + `eq(status,'pending')` in the query, booking date/time ascending, reads cap+1 for `truncated`. Same filter as `countRestaurantPendingBookings`, so length = `pendingCount` up to the cap |
+| `src/app/api/dashboard/bookings/route.ts` | additive `?status=pending` (alone) → `{bookings, truncated, pendingCount}`; any other `status` value, or `status` with `from`/`to` → 400 `{error:'invalid_status'}`. No-param and `from&to` behaviour unchanged |
+| `src/hooks/use-bookings.ts` | `BookingsQuery = BookingDateRange \| {status:'pending'}`; `fetchBookings(query)`; `useBookings` keyed by the query's search string |
+| `src/components/dashboard/bookings/bookings-view-state.ts` | `TableRange` gains `pending`; `SHOW_PENDING` (Table + pending range + Pending filter); `fetchRange` returns `{status:'pending'}` for it; `tableOrder` asc for pending |
+| `use-bookings-page.ts`, `bookings-toolbar.tsx`, `bookings-table.tsx` | Show applies `SHOW_PENDING`; the range select gains "Needs a reply" (soonest first); the table has its own footer ("Showing N bookings that need a reply") and empty title; its footer button goes to Upcoming |
+| `src/messages/en.json`, `zh-HK.json` | `bookings.views.pendingRange`, `emptyPendingTitle`, `showingPending` |
+
+Decision (decide_yourself): an additive API param rather than filtering the no-param list client-side. The no-param list also pulls 200 decided rows and orders by `created_at`. The new mode is the exact rows `pendingCount` counts, in booking order, under the existing cap. The select labels it "Needs a reply" / "待回覆", as a third table range beside Upcoming and Past.
+
+Tests (red first, `evidence/2026-11-19-book-004-r2/ac1-red.log`: 10 failing): the API pending list includes past-dated rows, excludes confirmed/declined/unverified/other tenant, and its length equals `pendingCount`; cap + truncated; 4 × 400 `invalid_status`; the Show chain (`SHOW_PENDING` → `fetchRange` → `fetchBookings` → real route) yields `pendingCount` rows including a past-dated one; helpers; hook URL; the table's pending range orders a past-dated row first, with its own footer and empty state.
+
+Walk (local Supabase stack, scratch tenant, en): sidebar → Bookings, pill "5 requests need a reply" → Show → `?view=table`, range "Needs a reply", chip Pending 5, 5 rows (Oct 2 and Nov 15 past-dated first), unverified row absent, footer "Showing 5 bookings that need a reply". At 1440 and 390: no horizontal overflow, select not clipped, 5 unique row ids. The full `layout-audit.js` was not re-pasted: the chrome-devtools MCP cannot read it by path, and r2 adds no new layout. Targeted geometry probes and screenshots stand in.
