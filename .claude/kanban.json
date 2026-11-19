@@ -1586,6 +1586,32 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "AGENT-003",
+          "title": "AI agent takes table bookings in WhatsApp (BOOK-001 pending requests) + overload retry/fallback model",
+          "description": "propose_booking (BOOK-001 validation, Redis proposal 30 min) → read-back → create_booking_request (no args, only from an earlier job, single use) creates a pending booking_requests row with source agent ('via AI agent' in 訂座) and sends the received message; get_booking_link for external mode; tools offered per booking mode. Gemini client retries once on 429/5xx/timeout, then AgentConfig.fallbackModel / AGENT_FALLBACK_MODEL / gemini-3.5-flash-lite once, inside the 20 s budget.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "poc"
+          ],
+          "related": [
+            "plans/2026-11-19-agent-003-agent-booking",
+            "threats/2026-11-19-agent-003-agent-booking",
+            "kanban:AGENT-001",
+            "kanban:BOOK-001"
+          ],
+          "branch": "feature/agent-003-agent-booking",
+          "pr": "195",
+          "notes": "Dev done 2026-11-19 (artifacts/2026-11-19-agent-003-handoff); PR #195 into develop, not merged. No migration. Deploy: worker restart; omc must tick the three booking tools (stored enabledTools list).",
+          "workspace_artifacts": [
+            "plans/2026-11-19-agent-003-agent-booking",
+            "threats/2026-11-19-agent-003-agent-booking",
+            "artifacts/2026-11-19-agent-003-handoff"
+          ]
+        },
+        {
           "id": "BOOK-003",
           "title": "Booking through personal agents (PAP 1.0 / poppy.json)",
           "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 084. R45 privacy-policy copy is an owner go-live item.",
