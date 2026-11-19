@@ -1,0 +1,44 @@
+# note: the first run's 'active members 903' came from a members read capped by PostgREST max-rows; its will_receive<=active=false is that artifact. Recount with count=exact below (rpc-smoke run 2).
+# forge command 14451442 status finished
+2026-11-19T17:01:38Z
+tenant: largest by active members (id withheld); active members 903
+service_role lapsed=null skip=off: http 200 492ms {"audience":2519,"after_lapsed":2519,"green":1688,"yellow":466,"red":365,"no_data":0,"will_receive":2519} will_receive<=active: false
+service_role lapsed=null skip=red: http 200 185ms {"audience":2519,"after_lapsed":2519,"green":1688,"yellow":466,"red":365,"no_data":0,"will_receive":2154} will_receive<=active: false
+service_role lapsed=30 skip=red: http 200 191ms {"audience":2519,"after_lapsed":2516,"green":1685,"yellow":466,"red":365,"no_data":0,"will_receive":2151} will_receive<=active: false
+service_role lapsed=30 skip=red_yellow: http 200 183ms {"audience":2519,"after_lapsed":2516,"green":1685,"yellow":466,"red":365,"no_data":0,"will_receive":1685} will_receive<=active: false
+anon call: http 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for function campaign_audience_counts"}
+== box
+3321221       01:45 next-server (v16.3.4)
+3321288       01:39 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3321439       01:32 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3321440       01:32 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3321452       01:31 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+nUUD8IZ3cKKd62nx1V0ws
+b40e2e29 release 188bf93: Merge pull request #202 from xavierau/develop
+  "source_ref": "rel-camp016",
+  "source_commit": "188bf93a9365958133bd4b7d94691ae914349499",
+  "build_id": "nUUD8IZ3cKKd62nx1V0ws",
+== daemon-746791 log: /home/forge/.forge/daemon-746791.log
+lines after last start banner: 4
+✓ Ready in 1809ms
+error/warn lines after banner: 2
+✓ Running next.config.ts took 1646ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[Kapso] Error listing templates: WhatsApp configuration not found
+[Kapso] Error listing templates: WhatsApp configuration not found
+== daemon-801730 log: /home/forge/.forge/daemon-801730.log
+lines after last start banner: 0
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+error/warn lines after banner: 0
+MemAvailable:    2431416 kB
+SwapFree:          39328 kB
+/dev/root          58447 31097     27334  54% /
+
+
+# run 2
+# forge command 14451480 status finished
+2026-11-19T17:02:29Z
+tenants 7 active per tenant (desc, ids withheld): 2519,1022,593,84,5,4,0
+largest tenant lapsed=null skip=off: http 200 {"audience":2519,"after_lapsed":2519,"green":1688,"yellow":466,"red":365,"no_data":0,"will_receive":2519} active=2519 audience==active: true will_receive<=active: true
+largest tenant lapsed=30 skip=red: http 200 {"audience":2519,"after_lapsed":2516,"green":1685,"yellow":466,"red":365,"no_data":0,"will_receive":2151} active=2519 audience==active: true will_receive<=active: true
+

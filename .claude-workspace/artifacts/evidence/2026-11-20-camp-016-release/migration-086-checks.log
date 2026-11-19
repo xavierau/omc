@@ -1,0 +1,31 @@
+# forge command 14451400 status finished
+2026-11-19T17:00:40Z
+ref uzimqndenngebzgndlhd http 201 bytes 1546 -> /home/forge/backups/2026-11-20-camp-016/after-catalog.json
+[{"after":{"ledger":["084 agent_booking","085 agent_booking_changes","086 campaign_audience_quality"],"new_cols":[{"t":"campaigns","c":"audience_lapsed_days","type":"integer","null":"YES","default":null},{"t":"campaigns","c":"audience_skip_quality","type":"text","null":"NO","default":"'off'::text"},{"t":"tenant_campaign_settings","c":"lapsed_after_days","type":"integer","null":"NO","default":"30"},{"t":"tenant_campaign_settings","c":"skip_contact_quality","type":"text","null":"NO","default":"'red'::text"}],"functions":[{"sig":"campaign_audience_counts(uuid,text,uuid[],uuid[],uuid,integer,boolean,text,integer,double precision,double precision)","anon":false,"authenticated":false,"service_role":true,"acl":"{postgres=X/postgres,service_role=X/postgres}"},{"sig":"campaign_audience_members(uuid,text,uuid[],uuid[],uuid,integer,boolean,text,integer,double precision,double precision,integer,uuid)","anon":false,"authenticated":false,"service_role":true,"acl":"{postgres=X/postgres,service_role=X/postgres}"},{"sig":"campaign_audience_rated(uuid,text,uuid[],uuid[],uuid,integer,boolean,text,integer,double precision,double precision)","anon":false,"authenticated":false,"service_role":true,"acl":"{postgres=X/postgres,service_role=X/postgres}"}],"restaurants":7,"tcs_rows":7,"restaurants_without_tcs":0,"tcs_by_limit":[{"limit":1000,"n":6},{"limit":10000,"n":1}],"tcs_by_skip":[{"v":"red","n":7}],"tcs_by_lapsed":[{"v":30,"n":7}],"campaigns":46,"camp_by_skip":[{"v":"off","n":46}],"camp_lapsed_null":46,"members":4227,"members_active":4227}}]
+ref uzimqndenngebzgndlhd http 201 bytes 773 -> /home/forge/backups/2026-11-20-camp-016/tcs-after.json
+ref uzimqndenngebzgndlhd http 400 bytes 469 -> /home/forge/backups/2026-11-20-camp-016/campaigns-after.json
+tcs before 7 after 7 rows not (same limit, red, 30): 0
+file:///home/forge/rel-camp016-tmp/cmp.mjs:2
+const rows = f => Object.values(JSON.parse(fs.readFileSync(f))[0])[0];
+                         ^
+
+TypeError: Cannot convert undefined or null to object
+    at Function.values (<anonymous>)
+    at rows (file:///home/forge/rel-camp016-tmp/cmp.mjs:2:26)
+    at file:///home/forge/rel-camp016-tmp/cmp.mjs:7:44
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.23.4
+f7ec6ff5629297f3c28e326d443350b8fb2c4b84c522fa2e078286d8eb0ff988  /home/forge/backups/2026-11-20-camp-016/after-catalog.json
+c82def016688180ee94158956f7eb04f4174ff8cbf5277cd6e99cbfb3924d9f1  /home/forge/backups/2026-11-20-camp-016/tcs-after.json
+b761e99c3ad3c9864528c581c3603b4be91a68689ac7dba2653a8721f7b3d7fe  /home/forge/backups/2026-11-20-camp-016/campaigns-after.json
+
+# forge command 14451414 status finished
+{"message":"Failed to run sql query: ERROR:  42703: column \"updated_at\" does not exist\nLINE 1: select coalesce(json_agg(json_build_object('id',id,'skip',audience_skip_quality,'lapsed',audience_lapsed_days,'updated_at',updated_at)),'[]') from campaigns;\n                                           
+ref uzimqndenngebzgndlhd http 201 bytes 3374 -> /home/forge/backups/2026-11-20-camp-016/campaigns-after.json
+tcs before 7 after 7 rows not (same limit, red, 30): 0
+pre-existing campaigns 46 after total 46 not (off, null): 0 updated_at changed: 0
+dd6c09a64b479db2a8de4572de0b42eecec30b63e8cfe4904989ce260647a028  /home/forge/backups/2026-11-20-camp-016/campaigns-after.json
+

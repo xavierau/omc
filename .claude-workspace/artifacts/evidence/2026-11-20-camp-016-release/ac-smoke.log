@@ -1,0 +1,22 @@
+# prod smoke 2026-11-19T17:02:46Z, unauthenticated, read-only
+## /api/health
+200
+## /login
+200
+new BUILD_ID occurrences: 1
+old BUILD_ID occurrences: 0
+## /dashboard/setup/campaigns
+307 -> https://app.ohmyclient.io/login
+## /dashboard/setup/welcome
+307 -> https://app.ohmyclient.io/login
+## /dashboard/setup
+307 -> https://app.ohmyclient.io/login
+## GET /api/dashboard/settings/campaigns
+{"error":"Unauthorized"}
+HTTP 401
+## GET /api/dashboard/settings/campaigns/quality
+{"error":"Unauthorized"}
+HTTP 401
+## POST /api/dashboard/campaigns/audience-count
+{"error":"Unauthorized"}
+HTTP 401
