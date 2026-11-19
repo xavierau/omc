@@ -1,0 +1,117 @@
+BEGIN
+INSERT 0 1
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+--- F7a column + FK + partial unique index present
+     column_name     | data_type | is_nullable 
+---------------------+-----------+-------------
+ reply_to_message_id | uuid      | YES
+(1 row)
+
+ on_delete 
+-----------
+ n
+(1 row)
+
+                                                                                                                indexdef                                                                                                                 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CREATE UNIQUE INDEX agent_messages_one_reply_key ON public.agent_messages USING btree (reply_to_message_id) WHERE ((reply_to_message_id IS NOT NULL) AND (outcome = ANY (ARRAY['sent'::text, 'shadow_draft'::text, 'fallback'::text])))
+(1 row)
+
+INSERT 0 2
+ outcome |         reply_to_message_id          
+---------+--------------------------------------
+ sent    | 11111111-1111-1111-1111-111111111111
+(1 row)
+
+INSERT 0 1
+--- F7b a second sent / fallback / shadow_draft row for the same user row -> unique_violation
+psql:assert-fix1.sql:16: NOTICE:  F7b ok: second sent -> unique_violation (23505)
+DO
+DO
+psql:assert-fix1.sql:17: NOTICE:  F7b ok: fallback after sent -> unique_violation
+psql:assert-fix1.sql:18: NOTICE:  F7b ok: shadow_draft after sent -> unique_violation
+DO
+--- F7c skipped/error rows for the same user row are allowed; another user row is independent; null reply_to is many
+   outcome    
+--------------
+ skipped
+ error
+ sent
+ rate_limited
+ rate_limited
+(5 rows)
+
+INSERT 0 5
+--- F7d setModelOutcome sent -> fallback on the claimed row (stays the one answer)
+ outcome  
+----------
+ fallback
+(1 row)
+
+UPDATE 1
+--- F7e a user row cannot carry reply_to_message_id
+psql:assert-fix1.sql:29: NOTICE:  F7e ok: user row with reply_to rejected
+DO
+--- F8 count of model-call rows (model not null, any outcome) for the phone
+ model_call_rows 
+-----------------
+               4
+(1 row)
+
+--- F7f purge of an old user row keeps its younger answer (ON DELETE SET NULL), one DELETE over both is fine
+INSERT 0 1
+INSERT 0 1
+ text 
+------
+ old
+(1 row)
+
+DELETE 1
+     text     | reply_to_nulled 
+--------------+-----------------
+ young answer | t
+(1 row)
+
+UPDATE 2
+ text  
+-------
+ hi
+ reply
+(2 rows)
+
+DELETE 2
+--- W1 invariants still hold: RLS on, 0 policies
+    relname     | relrowsecurity 
+----------------+----------------
+ agent_messages | t
+ agent_silences | t
+(2 rows)
+
+ policies 
+----------
+        0
+(1 row)
+
+               indexname               
+---------------------------------------
+ agent_messages_conversation_idx
+ agent_messages_one_reply_key
+ agent_messages_pkey
+ agent_messages_restaurant_created_idx
+ agent_messages_restaurant_wamid_key
+ agent_silences_pkey
+ agent_silences_until_idx
+(7 rows)
+
+ROLLBACK

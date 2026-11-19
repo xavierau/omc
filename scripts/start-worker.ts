@@ -23,6 +23,12 @@ import {
   ensureWorkerStarted as startIntegrationOutboundWorker,
   getWorker as getIntegrationOutboundWorker,
 } from '@/infrastructure/queue/integration-outbound-processor'
+import {
+  ensureWorkerStarted as startAgentReplyWorker,
+  ensureAgentRetentionScheduler,
+  getWorker as getAgentReplyWorker,
+} from '@/infrastructure/queue/agent-reply-queue'
+import { agentReplyWorkerHandlers } from '@/app/api/webhooks/whatsapp/agent-handler'
 
 function startAll(): void {
   startCampaignWorker()
@@ -31,7 +37,12 @@ function startAll(): void {
   startEmailWorker()
   startIntegrationInboundWorker()
   startIntegrationOutboundWorker()
-  console.log('Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound')
+  startAgentReplyWorker(agentReplyWorkerHandlers())
+  // AGENT-001 R5: hourly retention purge. A Redis hiccup here must not kill the other workers.
+  ensureAgentRetentionScheduler().catch((err) => {
+    console.error('[AgentReplyQueue] retention scheduler not registered:', err instanceof Error ? err.name : err)
+  })
+  console.log('Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply')
 }
 
 function activeWorkers(): Worker[] {
@@ -42,6 +53,7 @@ function activeWorkers(): Worker[] {
     getEmailWorker(),
     getIntegrationInboundWorker(),
     getIntegrationOutboundWorker(),
+    getAgentReplyWorker(),
   ].filter((w): w is Worker => w !== null)
 }
 

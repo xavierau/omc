@@ -1,0 +1,8 @@
+2026-11-19T02:34:21.420Z wamid.W2.SHADOW.1 200 {"status":"ok"}
+2026-11-19T02:34:21.398Z POST messages {"to": "+85290000001", "type": "interactive"} {"type": "button", "body": {"text": "抱歉，我不明白您的訊息。請輸入 POINTS / 積分 查詢餘額，或 HELP / 幫助 查看選項。"}, "action": {"buttons": [{"type": "reply", "reply": {"id": "POINTS", "title": "查詢積分"}}, {"type": "reply", "reply": {"id": "REWARDS", "title": "查看獎賞"}}, {"type": "reply", "reply": {"id": "HELP", "title": "幫助"}}]}
+user||||{}|你好，請問你哋幾點開門？|wamid.W2.SHADOW.1
+model|shadow_draft|gemini-3.1-flash-lite|1578|{}|你好！我哋每日嘅營業時間係朝早 11 點至夜晚 10 點。|
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+{"ts":"2026-11-19T02:32:49.188Z","level":"info","event":"agent.purged","deleted":0,"silences":0,"failedTenants":0}
+{"ts":"2026-11-19T02:34:26.041Z","level":"info","event":"agent.reply","messageId":"7486e8e4-9995-4519-a449-1893257365a3","restaurantId":"aaaaaaaa-0000-4000-8000-000000000001","outcome":"shadow_draft","latencyMs":1578,"promptTokens":582,"outputTokens":24,"toolCalls":[]}

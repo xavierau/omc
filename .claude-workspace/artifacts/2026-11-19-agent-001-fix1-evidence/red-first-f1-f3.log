@@ -1,0 +1,8 @@
+     × AC-F1 two overlapping jobs for one conversation → exactly one send (the older job is superseded after its model call) 10ms
+     × AC-F1 a handoff silence set during job A's model call stops job B's send 1ms
+     × AC-F1 a shadow draft is not recorded when the job was superseded during the model call 1ms
+     × AC-F3 auto-admitted job + config read error → fallback once, never read as mode off 1ms
+     × AC-F3 shadow-admitted job + config read error → error row, nothing sent 1ms
+     × AC-F3 auto-admitted job + config now off → fallback once, outcome skipped mode_off, no model call 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 3 passed | 47 skipped (56)

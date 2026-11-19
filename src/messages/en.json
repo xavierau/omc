@@ -42,7 +42,8 @@
     "scan": "Scan QR",
     "stampCampaigns": "Stamp Cards",
     "integrations": "Integrations",
-    "bookings": "Bookings"
+    "bookings": "Bookings",
+    "agent": "AI agent"
   },
   "login": {
     "title": "OhMyClient",
@@ -1509,6 +1510,108 @@
         "invalid_host": "Use a website address like www.yourrestaurant.hk (no path).",
         "not_simple": "Save Simple booking first."
       }
+    }
+  },
+  "agentSettings": {
+    "title": "AI reply agent",
+    "description": "Let an AI agent answer diners' free-text WhatsApp questions using your restaurant info and each diner's own points.",
+    "modeLabel": "Mode",
+    "mode": {
+      "off": "Off",
+      "shadow": "Shadow",
+      "auto": "Auto"
+    },
+    "modeHint": {
+      "off": "The agent never runs; diners get your fallback menu.",
+      "shadow": "The agent drafts a reply you can read in the AI agent log; diners still get the fallback menu.",
+      "auto": "The agent replies to diners directly, ending with the disclosure line."
+    },
+    "knowledgeLabel": "Restaurant info",
+    "knowledgeHint": "Opening hours, menu highlights, how points work. The agent only answers from this and the diner's own points.",
+    "instructionsLabel": "Instructions",
+    "instructionsHint": "Tone and style only, e.g. \"Friendly, short, reply in the diner's language\".",
+    "charCount": "{count} / {max}",
+    "advanced": "Advanced",
+    "disclosureLabel": "Disclosure line",
+    "disclosureHint": "Added to the end of every automatic reply. You can reword it; it can't be removed (left blank, the default comes back).",
+    "modelLabel": "Model",
+    "modelPlaceholder": "Default model",
+    "toolsLabel": "Tools the agent may use",
+    "tool": {
+      "get_member_summary": "Member summary",
+      "list_rewards": "Rewards list",
+      "handoff_to_staff": "Hand off to staff"
+    },
+    "toolHint": {
+      "get_member_summary": "The diner's own points and stamp cards.",
+      "list_rewards": "Your active rewards and their points cost.",
+      "handoff_to_staff": "Sends your contact link and pauses the agent for this diner."
+    },
+    "knob": {
+      "temperature": "Temperature",
+      "maxOutputTokens": "Max output tokens",
+      "maxReplyChars": "Max reply length (characters)",
+      "maxHistoryMessages": "Messages of history sent to the model",
+      "historyTtlHours": "Keep conversations for (hours)",
+      "debounceMs": "Wait for more messages (ms)",
+      "maxToolCalls": "Max tool calls per reply",
+      "handoffSilenceHours": "Silence after hand-off to staff (hours)",
+      "maxRepliesPerPhonePerHour": "Max replies per diner per hour",
+      "maxRepliesPerTenantPerDay": "Max replies per day (restaurant)"
+    },
+    "range": "{min} to {max}",
+    "field": {
+      "mode": "mode",
+      "knowledge": "restaurant info",
+      "instructions": "instructions",
+      "disclosureText": "disclosure line",
+      "model": "model",
+      "enabledTools": "tools",
+      "temperature": "temperature",
+      "maxOutputTokens": "max output tokens",
+      "maxReplyChars": "max reply length (characters)",
+      "maxHistoryMessages": "messages of history sent to the model",
+      "historyTtlHours": "keep conversations for (hours)",
+      "debounceMs": "wait for more messages (ms)",
+      "maxToolCalls": "max tool calls per reply",
+      "handoffSilenceHours": "silence after hand-off to staff (hours)",
+      "maxRepliesPerPhonePerHour": "max replies per diner per hour",
+      "maxRepliesPerTenantPerDay": "max replies per day (restaurant)"
+    },
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "adjusted": "Adjusted to the allowed range: {fields}.",
+    "stale": "These settings were changed somewhere else. Reload to see the latest before saving.",
+    "reload": "Reload",
+    "saveFailed": "Couldn't save. Try again.",
+    "forbidden": "Only an admin can change these settings.",
+    "loadFailed": "Couldn't load the AI agent settings. Reload the page to try again."
+  },
+  "agentLog": {
+    "heading": "AI agent",
+    "description": "Each diner conversation of the last 7 days, with the agent's draft or sent reply.",
+    "loading": "Loading…",
+    "couldntLoad": "Couldn't load the conversations.",
+    "adminOnly": "Only an admin can read the AI agent conversations.",
+    "emptyTitle": "No conversations yet",
+    "emptyHint": "Set the AI reply agent to Shadow or Auto in Settings; free-text messages from diners show up here.",
+    "threadMeta": "{time} · {count, plural, one {# message} other {# messages}}",
+    "pickThread": "Pick a conversation to read it.",
+    "threadGone": "This conversation is no longer available.",
+    "diner": "Diner",
+    "agent": "Agent",
+    "noText": "No reply text",
+    "latency": "{ms} ms",
+    "tools": "tools: {names}",
+    "noTools": "no tools",
+    "outcome": {
+      "shadow_draft": "Draft",
+      "sent": "Sent",
+      "fallback": "Fallback menu",
+      "error": "Error",
+      "rate_limited": "Rate limited",
+      "skipped": "Skipped"
     }
   }
 }
