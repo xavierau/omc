@@ -102,6 +102,12 @@ function AdvancedKnobs(props: ReturnType<typeof useAgentSettings>) {
           <Input id="agent-settings-model" className="max-w-xs" placeholder={t('modelPlaceholder')} value={form.model}
             onChange={(e) => update('model', e.target.value)} data-testid="agent-settings-model" />
         </div>
+        <div className="space-y-1.5">
+          <label htmlFor="agent-settings-fallback-model" className="block text-sm font-medium">{t('fallbackModelLabel')}</label>
+          <Input id="agent-settings-fallback-model" className="max-w-xs" placeholder={t('fallbackModelPlaceholder')} value={form.fallbackModel}
+            onChange={(e) => update('fallbackModel', e.target.value)} data-testid="agent-settings-fallback-model" />
+          <p className="text-xs text-muted-foreground">{t('fallbackModelHint')}</p>
+        </div>
         <fieldset className="space-y-2">
           <legend className="mb-1 text-sm font-medium">{t('toolsLabel')}</legend>
           {AGENT_TOOL_NAMES.map((name) => (

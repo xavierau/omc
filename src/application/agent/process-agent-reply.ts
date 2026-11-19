@@ -22,8 +22,20 @@
  * Every run ends in one stored model row (R9), except a job superseded before
  * its model call and a duplicate run. Logs carry ids, outcome, latency, token
  * counts and tool names, never the text, the phone or the key (R8).
+ *
+ * AGENT-003: the tool context gets the tenant's booking settings (read only
+ * when a booking tool is enabled; a failed read offers none) and the job's
+ * inbound row time for the R15 gate. Shadow and auto run the booking tools
+ * alike (OR5). R18: the model port retries and falls back; the row records
+ * the model that actually answered and the log line its last HTTP status.
  */
-import { effectiveAgentModel, type AgentConfig, type AgentMode } from '@/domain/value-objects/agent-config'
+import {
+  effectiveAgentModel,
+  effectiveFallbackModel,
+  type AgentConfig,
+  type AgentMode,
+} from '@/domain/value-objects/agent-config'
+import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import { boundReply, toAgentTurns, withDisclosure } from '@/domain/services/agent-reply-text'
 import type { AgentModelFailure, AgentModelPort, AgentModelResult } from '@/domain/ports/agent-model'
 import type {
@@ -37,12 +49,18 @@ import type {
 } from '@/domain/ports/agent-reply'
 import type { SendResult } from '@/domain/value-objects/send-result'
 import { buildSystemInstruction } from './agent-prompt'
-import { createAgentToolExecutor, declarationsFor } from './agent-tools'
+import { createAgentToolExecutor, declarationsFor, offeredTools } from './agent-tools'
+import { isAgentBookingTool, type AgentBookingToolContext } from './agent-booking-tools'
 import { HOUR_MS, isOverReplyLimit, isoAgo, recordRateLimited } from './agent-limits'
 import type { AgentLogFn, AgentReplyJob } from './admit-inbound-for-agent'
 
 export const PER_CALL_TIMEOUT_MS = 8_000
 export const JOB_BUDGET_MS = 20_000
+
+/** AGENT-003: what the booking tools need besides the job key and inbound row time. */
+export interface AgentBookingWorkerDeps extends Omit<AgentBookingToolContext, 'config' | 'inboundCreatedAt'> {
+  getConfig(restaurantId: string): Promise<BookingConfig>
+}
 
 export interface AgentWorkerDeps {
   getConfig(restaurantId: string): Promise<AgentConfigRead>
@@ -57,6 +75,9 @@ export interface AgentWorkerDeps {
   sendFallback(phoneNumberId: string, phone: string, restaurantId: string): Promise<boolean>
   now(): Date
   envModel: string | undefined
+  /** R18: env AGENT_FALLBACK_MODEL. */
+  envFallbackModel: string | undefined
+  booking: AgentBookingWorkerDeps
   log: AgentLogFn
 }
 
@@ -80,6 +101,8 @@ interface RunRecord {
     | 'mode_changed'
     | 'config_unavailable'
   usage?: { promptTokens: number; outputTokens: number }
+  /** R18: status of the model's last HTTP response (a number only, R8). */
+  httpStatus?: number
 }
 
 /** The lower of the admitted and the current mode: a job never sends more than either allows. */
@@ -144,6 +167,7 @@ class Run {
       outcome: record.outcome,
       ...(record.reason ? { reason: record.reason } : {}),
       latencyMs: record.latencyMs,
+      ...(record.httpStatus !== undefined ? { httpStatus: record.httpStatus } : {}),
       promptTokens: record.usage?.promptTokens ?? 0,
       outputTokens: record.usage?.outputTokens ?? 0,
       toolCalls: record.toolCalls,
@@ -163,10 +187,27 @@ const noModelCall = (outcome: AgentOutcome, reason: RunRecord['reason']): RunRec
 
 const skipped = (reason: RunRecord['reason']): RunRecord => noModelCall('skipped', reason)
 
+/** The tenant's booking settings for the tools; null (no booking tool) when none is enabled or the read failed. */
+async function bookingContext(run: Run, config: AgentConfig): Promise<AgentBookingToolContext | null> {
+  const { deps, key, job } = run
+  if (!config.enabledTools.some(isAgentBookingTool)) return null
+  const { getConfig, ...ports } = deps.booking
+  const bookingConfig = await getConfig(key.restaurantId).catch(() => null)
+  if (!bookingConfig) return null
+  let inbound: Promise<string | null> | null = null
+  return {
+    ...ports,
+    config: bookingConfig,
+    inboundCreatedAt: () => (inbound ??= deps.messages.userMessageCreatedAt(key, job.messageRowId)),
+  }
+}
+
 async function callModel(run: Run, config: AgentConfig, model: string): Promise<{ result: AgentModelResult; latencyMs: number }> {
   const { deps, key } = run
   const now = deps.now()
   const rows = await deps.messages.history(key, config.maxHistoryMessages, isoAgo(now, config.historyTtlHours * HOUR_MS))
+  const booking = await bookingContext(run, config)
+  const bookingMode = booking?.config.mode ?? null
   const executeTool = createAgentToolExecutor({
     key,
     enabledTools: config.enabledTools,
@@ -179,14 +220,18 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
         run.silencedByThisRun = true
       },
     },
+    booking,
   })
+  const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode)
+  const offersProposal = tools.length > 0 && offeredTools(config.enabledTools, bookingMode).includes('propose_booking')
   const started = Date.now()
   const result = await deps.model.respond({
     model,
-    systemInstruction: buildSystemInstruction(config),
+    fallbackModel: effectiveFallbackModel(config, deps.envFallbackModel),
+    systemInstruction: buildSystemInstruction(config, offersProposal ? now : null),
     history: toAgentTurns(rows),
     // No tool calls allowed → declare none, so the model answers in text (a points question included).
-    tools: config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools),
+    tools,
     executeTool,
     temperature: config.temperature,
     maxOutputTokens: config.maxOutputTokens,
@@ -252,7 +297,14 @@ async function deliver(
 async function answer(run: Run, config: AgentConfig, mode: 'shadow' | 'auto'): Promise<RunRecord | null> {
   const model = effectiveAgentModel(config, run.deps.envModel)
   const { result, latencyMs } = await callModel(run, config, model)
-  const base = { model, latencyMs, toolCalls: result.toolCalls, usage: result.usage }
+  // R18: the model that actually answered (the fallback when it was used).
+  const base = {
+    model: result.model ?? model,
+    latencyMs,
+    toolCalls: result.toolCalls,
+    usage: result.usage,
+    ...(result.httpStatus !== undefined ? { httpStatus: result.httpStatus } : {}),
+  }
   // The call counts toward the limits whatever happens next (`model` is set on every row below).
   const interrupted = await interruptedAfterCall(run)
   if (interrupted) {

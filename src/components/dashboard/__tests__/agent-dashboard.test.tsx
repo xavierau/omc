@@ -86,6 +86,23 @@ describe('AGENT-001 W2 agent dashboard UI', () => {
     expect(JSON.parse(JSON.stringify(payload.config))).not.toHaveProperty('maxReplyChars')
   })
 
+  it('AC-UI AGENT-003 Advanced: fallback model field and the three booking tool checkboxes, labels in en and zh-HK', () => {
+    const html = renderToStaticMarkup(<AgentSettingsSection initial={{ config: { ...DEFAULT_AGENT_CONFIG, fallbackModel: 'gemini-x-lite' }, rev: 1 }} />)
+    expect(html).toContain('data-testid="agent-settings-fallback-model"')
+    expect(html).toMatch(/data-testid="agent-settings-fallback-model"[^>]*value="gemini-x-lite"|value="gemini-x-lite"[^>]*data-testid="agent-settings-fallback-model"/)
+    for (const name of ['propose_booking', 'create_booking_request', 'get_booking_link']) {
+      expect(html).toContain(`data-testid="agent-settings-tool-${name}"`)
+      for (const key of [`tool.${name}`, `toolHint.${name}`]) {
+        expect(typeof lookup(en, `agentSettings.${key}`)).toBe('string')
+        expect(typeof lookup(zhHK, `agentSettings.${key}`)).toBe('string')
+      }
+    }
+    const form = toAgentForm(DEFAULT_AGENT_CONFIG)
+    expect(toAgentPayload(form, 1).config.fallbackModel).toBeNull()
+    form.fallbackModel = ' gemini-3.5-flash-lite '
+    expect(toAgentPayload(form, 1).config.fallbackModel).toBe('gemini-3.5-flash-lite')
+  })
+
   it('AC-UI save outcome mapping: 200 / 409 / 403 / other', () => {
     expect(agentSaveOutcome(200, { config: DEFAULT_AGENT_CONFIG, rev: 2, adjusted: ['mode'] })).toEqual({ kind: 'saved', config: DEFAULT_AGENT_CONFIG, rev: 2, adjusted: ['mode'] })
     expect(agentSaveOutcome(409, { error: 'stale', rev: 3 })).toEqual({ kind: 'stale' })

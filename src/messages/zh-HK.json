@@ -1536,16 +1536,25 @@
     "disclosureHint": "附加在每個自動回覆的結尾。可以改寫，但不能刪除(留空會恢復預設)。",
     "modelLabel": "模型",
     "modelPlaceholder": "預設模型",
+    "fallbackModelLabel": "後備模型",
+    "fallbackModelPlaceholder": "預設後備模型",
+    "fallbackModelHint": "主模型繁忙或逾時時，會改用一次。",
     "toolsLabel": "AI 可使用的工具",
     "tool": {
       "get_member_summary": "會員摘要",
       "list_rewards": "獎賞列表",
-      "handoff_to_staff": "轉交職員"
+      "handoff_to_staff": "轉交職員",
+      "propose_booking": "建議訂座",
+      "create_booking_request": "送出訂座要求",
+      "get_booking_link": "訂座連結"
     },
     "toolHint": {
       "get_member_summary": "顧客自己的積分及印花卡。",
       "list_rewards": "你現有的獎賞及所需積分。",
-      "handoff_to_staff": "傳送你的聯絡連結，並暫停 AI 回覆這位顧客。"
+      "handoff_to_staff": "傳送你的聯絡連結，並暫停 AI 回覆這位顧客。",
+      "propose_booking": "核對顧客提供的日期、時間、人數和姓名，並向顧客覆述。只適用於簡易訂座模式。",
+      "create_booking_request": "顧客同意後，在「訂座」新增一個待確認要求，由你確認。只適用於簡易訂座模式。",
+      "get_booking_link": "分享你的網上訂座連結。只適用於外部訂座模式。"
     },
     "knob": {
       "temperature": "隨機度",
@@ -1566,6 +1575,7 @@
       "instructions": "指示",
       "disclosureText": "自動回覆標示",
       "model": "模型",
+      "fallbackModel": "後備模型",
       "enabledTools": "工具",
       "temperature": "隨機度",
       "maxOutputTokens": "最多輸出 token",

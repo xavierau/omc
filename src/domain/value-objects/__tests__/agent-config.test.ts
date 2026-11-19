@@ -20,6 +20,7 @@ describe('AC-VO AgentConfig resolver', () => {
     expect(resolveAgentConfig({ mode: 'off' })).toEqual({
       mode: 'off',
       model: null,
+      fallbackModel: null,
       knowledge: '',
       instructions: '',
       temperature: 0.3,
@@ -29,7 +30,14 @@ describe('AC-VO AgentConfig resolver', () => {
       historyTtlHours: 72,
       debounceMs: 3000,
       maxToolCalls: 3,
-      enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff'],
+      enabledTools: [
+        'get_member_summary',
+        'list_rewards',
+        'handoff_to_staff',
+        'propose_booking',
+        'create_booking_request',
+        'get_booking_link',
+      ],
       handoffSilenceHours: 12,
       maxRepliesPerPhonePerHour: 10,
       maxRepliesPerTenantPerDay: 500,

@@ -1536,16 +1536,25 @@
     "disclosureHint": "Added to the end of every automatic reply. You can reword it; it can't be removed (left blank, the default comes back).",
     "modelLabel": "Model",
     "modelPlaceholder": "Default model",
+    "fallbackModelLabel": "Fallback model",
+    "fallbackModelPlaceholder": "Default fallback model",
+    "fallbackModelHint": "Used once when the main model is overloaded or times out.",
     "toolsLabel": "Tools the agent may use",
     "tool": {
       "get_member_summary": "Member summary",
       "list_rewards": "Rewards list",
-      "handoff_to_staff": "Hand off to staff"
+      "handoff_to_staff": "Hand off to staff",
+      "propose_booking": "Propose a booking",
+      "create_booking_request": "Send the booking request",
+      "get_booking_link": "Booking link"
     },
     "toolHint": {
       "get_member_summary": "The diner's own points and stamp cards.",
       "list_rewards": "Your active rewards and their points cost.",
-      "handoff_to_staff": "Sends your contact link and pauses the agent for this diner."
+      "handoff_to_staff": "Sends your contact link and pauses the agent for this diner.",
+      "propose_booking": "Checks the date, time, party size and name the diner gave and reads them back. Simple booking mode only.",
+      "create_booking_request": "After the diner agrees, adds a pending request to Bookings for you to confirm. Simple booking mode only.",
+      "get_booking_link": "Shares your online booking link. External booking mode only."
     },
     "knob": {
       "temperature": "Temperature",
@@ -1566,6 +1575,7 @@
       "instructions": "instructions",
       "disclosureText": "disclosure line",
       "model": "model",
+      "fallbackModel": "fallback model",
       "enabledTools": "tools",
       "temperature": "temperature",
       "maxOutputTokens": "max output tokens",

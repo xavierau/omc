@@ -10,7 +10,7 @@ function executor(enabledTools = [...AGENT_TOOL_NAMES]) {
   const clock = new FakeClock()
   const store = new FakeAgentStore(clock)
   const data = fakeToolData()
-  const execute = createAgentToolExecutor({ key: KEY, enabledTools, handoffSilenceHours: 12, now: clock.now, data, silences: store })
+  const execute = createAgentToolExecutor({ key: KEY, enabledTools, handoffSilenceHours: 12, now: clock.now, data, silences: store, booking: null })
   return { execute, data, store }
 }
 
@@ -30,8 +30,10 @@ describe('AC-R2 tools are bound to the job context', () => {
     expect([...store.silences.keys()]).toEqual(['rest-a|+85291234567'])
   })
 
-  it('AC-R2 declarations take no parameters at all', () => {
-    for (const d of Object.values(AGENT_TOOL_DECLARATIONS)) expect(Object.keys(d).sort()).toEqual(['description', 'name'])
+  it('AC-R2 declarations take no parameters at all (every tool but AGENT-003 propose_booking, see AC-R12)', () => {
+    for (const d of Object.values(AGENT_TOOL_DECLARATIONS).filter((d) => d.name !== 'propose_booking')) {
+      expect(Object.keys(d).sort()).toEqual(['description', 'name'])
+    }
   })
 })
 

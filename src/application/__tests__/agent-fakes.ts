@@ -17,7 +17,13 @@ import {
   type RecordModelRowResult,
 } from '@/domain/ports/agent-reply'
 import type { AgentModelPort, AgentModelRequest, AgentModelResult } from '@/domain/ports/agent-model'
-import type { AgentWorkerDeps } from '@/application/agent/process-agent-reply'
+import type { AgentBookingWorkerDeps, AgentWorkerDeps } from '@/application/agent/process-agent-reply'
+import type {
+  AgentBookingProposal,
+  AgentProposalStore,
+  TakeProposalResult,
+} from '@/domain/ports/agent-booking-proposal'
+import { FakeBookingRequests, FakeBookingSender, FakeBookingSettings } from '@/test-utils/fake-booking'
 import type { AgentLogFn } from '@/application/agent/admit-inbound-for-agent'
 import type { SendResult } from '@/domain/value-objects/send-result'
 
@@ -115,6 +121,10 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
     return users.length ? users[users.length - 1].id : null
   }
 
+  async userMessageCreatedAt(key: AgentConversationKey, id: string) {
+    return this.rows.find((r) => r.id === id && same(r, key) && r.role === 'user')?.created_at ?? null
+  }
+
   async history(key: AgentConversationKey, limit: number, sinceIso: string): Promise<AgentHistoryMessage[]> {
     return this.rows
       .filter((r) => same(r, key) && r.created_at >= sinceIso)
@@ -163,6 +173,62 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
       }
     }
     return n
+  }
+}
+
+/** AGENT-003 R15: the Redis proposal store's semantics (TTL on the clock, atomic take-if-earlier). */
+export class FakeProposalStore implements AgentProposalStore {
+  entries = new Map<string, { proposal: AgentBookingProposal; expiresAt: number }>()
+  constructor(private clock: FakeClock) {}
+  private k(key: AgentConversationKey) {
+    return `${key.restaurantId}|${key.phone}`
+  }
+  async save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number) {
+    this.entries.set(this.k(key), { proposal, expiresAt: this.clock.ms + ttlMs })
+  }
+  async takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string): Promise<TakeProposalResult> {
+    const entry = this.entries.get(this.k(key))
+    if (!entry || entry.expiresAt <= this.clock.ms) return { kind: 'none' }
+    if (Date.parse(entry.proposal.inboundCreatedAt) >= Date.parse(inboundCreatedAt)) return { kind: 'not_earlier' }
+    this.entries.delete(this.k(key))
+    return { kind: 'taken', proposal: entry.proposal }
+  }
+}
+
+export interface FakeBookingWorld {
+  deps: AgentBookingWorkerDeps
+  settings: FakeBookingSettings
+  requests: FakeBookingRequests
+  sender: FakeBookingSender
+  proposals: FakeProposalStore
+  unverified: { value: number }
+  memberIds: Map<string, string>
+}
+
+/** BOOK-001 fakes behind the agent's booking tools (booking mode off until a test sets it). */
+export function fakeBookingWorld(clock: FakeClock): FakeBookingWorld {
+  const settings = new FakeBookingSettings()
+  const requests = new FakeBookingRequests()
+  const sender = new FakeBookingSender()
+  const proposals = new FakeProposalStore(clock)
+  const unverified = { value: 0 }
+  const memberIds = new Map<string, string>()
+  return {
+    settings,
+    requests,
+    sender,
+    proposals,
+    unverified,
+    memberIds,
+    deps: {
+      getConfig: (restaurantId) => settings.getConfig(restaurantId),
+      proposals,
+      requests,
+      countLiveUnverified: async () => unverified.value,
+      members: { findMemberId: async (restaurantId, phone) => memberIds.get(`${restaurantId}|${phone}`) ?? null },
+      settings,
+      sender,
+    },
   }
 }
 
@@ -226,6 +292,7 @@ export interface WorkerHarness {
   configReadable: { value: boolean }
   windowOpen: { value: boolean }
   sendResult: { value: SendResult }
+  booking: FakeBookingWorld
 }
 
 export function workerHarness(options: { config?: Record<string, unknown>; model?: FakeAgentModel } = {}): WorkerHarness {
@@ -240,6 +307,7 @@ export function workerHarness(options: { config?: Record<string, unknown>; model
   const configReadable = { value: true }
   const sendResult = { value: { ok: true, kapsoMessageId: 'wamid.out', raw: null } as SendResult }
   const log: AgentLogFn = (level, event, data) => logs.push({ level, event, data })
+  const booking = fakeBookingWorld(clock)
   const deps: AgentWorkerDeps = {
     getConfig: async () => (configReadable.value ? { ok: true, config } : { ok: false }),
     messages: store,
@@ -252,10 +320,13 @@ export function workerHarness(options: { config?: Record<string, unknown>; model
     sendFallback: async (phoneNumberId, phone, restaurantId) => (fallbacks.push({ phoneNumberId, phone, restaurantId }), true),
     now: clock.now,
     envModel: undefined,
+    envFallbackModel: undefined,
+    booking: booking.deps,
     log,
   }
   return {
     deps,
+    booking,
     store,
     clock,
     model,

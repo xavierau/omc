@@ -89,9 +89,10 @@ export interface NewBookingRequest {
   bookingDate: string
   bookingTime: string
   notes: string | null
-  source: BookingLinkSource
+  /** AGENT-003: the WhatsApp AI agent books as 'agent' (shown "via AI agent"), with no token. */
+  source: BookingSource
   campaignId: string | null
-  token: string
+  token: string | null
 }
 
 /** A decline reason as stored: trimmed, newline-free, capped; empty = none. */

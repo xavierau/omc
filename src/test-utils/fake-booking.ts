@@ -68,7 +68,10 @@ export class FakeBookingRequests implements BookingRequestStore {
   async insert(request: NewBookingRequest): Promise<BookingRequest> {
     await tick()
     if (this.failInsert) throw new Error('insert failed')
-    if (this.rows.some((r) => r.token === request.token)) throw new Error('duplicate key booking_requests_token_key')
+    // UNIQUE token: NULLs never clash (AGENT-003 agent bookings carry none).
+    if (request.token !== null && this.rows.some((r) => r.token === request.token)) {
+      throw new Error('duplicate key booking_requests_token_key')
+    }
     const { token, ...rest } = request
     const row = {
       ...rest, token, id: randomUUID(), status: 'pending' as const, declineReason: null, decidedBy: null,

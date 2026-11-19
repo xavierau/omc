@@ -7,18 +7,34 @@
  * so a broken blob behaves as mode off with default knobs.
  *
  * `model` stays null unless the tenant pins one; the worker then uses env
- * `AGENT_MODEL` (fallback `DEFAULT_AGENT_MODEL`). The id goes into the
- * Gemini URL path, so only a plain model-id shape is accepted.
+ * `AGENT_MODEL` (fallback `DEFAULT_AGENT_MODEL`). AGENT-003: `fallbackModel`
+ * (R18, used once when the main model is overloaded) resolves the same way:
+ * the tenant's value → env `AGENT_FALLBACK_MODEL` → `DEFAULT_AGENT_FALLBACK_MODEL`.
+ * The id goes into the Gemini URL path, so only a plain model-id shape is
+ * accepted.
  */
 
 export type AgentMode = 'off' | 'shadow' | 'auto'
 export const AGENT_MODES: readonly AgentMode[] = ['off', 'shadow', 'auto']
 
-/** The read-only tools the agent may call (R3: no write tool exists). */
-export const AGENT_TOOL_NAMES = ['get_member_summary', 'list_rewards', 'handoff_to_staff'] as const
+/**
+ * The tools the agent may call. AGENT-001's three are read-only (R3);
+ * AGENT-003's booking tools write only a BOOK-001 pending request, behind the
+ * two-step gate (R15), and are offered only per the tenant's booking mode.
+ */
+export const AGENT_TOOL_NAMES = [
+  'get_member_summary',
+  'list_rewards',
+  'handoff_to_staff',
+  'propose_booking',
+  'create_booking_request',
+  'get_booking_link',
+] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
 export const DEFAULT_AGENT_MODEL = 'gemini-3.8-flash'
+/** R18: probed 200 with tool calls on the prod key, 2026-11-19. */
+export const DEFAULT_AGENT_FALLBACK_MODEL = 'gemini-3.5-flash-lite'
 export const DEFAULT_DISCLOSURE_TEXT = '🤖 自動回覆 Automated reply'
 
 export const KNOWLEDGE_MAX_CHARS = 8000
@@ -30,6 +46,8 @@ export interface AgentConfig {
   mode: AgentMode
   /** null → env AGENT_MODEL → DEFAULT_AGENT_MODEL. */
   model: string | null
+  /** R18: null → env AGENT_FALLBACK_MODEL → DEFAULT_AGENT_FALLBACK_MODEL. */
+  fallbackModel: string | null
   knowledge: string
   instructions: string
   temperature: number
@@ -73,6 +91,7 @@ type NumericKnob = keyof typeof AGENT_NUMBER_RANGES
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   mode: 'off',
   model: null,
+  fallbackModel: null,
   knowledge: '',
   instructions: '',
   temperature: 0.3,
@@ -129,6 +148,7 @@ export function resolveAgentConfig(raw: unknown): AgentConfig {
   return {
     mode: AGENT_MODES.includes(r.mode as AgentMode) ? (r.mode as AgentMode) : 'off',
     model: resolveModel(r.model),
+    fallbackModel: resolveModel(r.fallbackModel),
     knowledge: boundedText(r.knowledge, KNOWLEDGE_MAX_CHARS),
     instructions: boundedText(r.instructions, INSTRUCTIONS_MAX_CHARS),
     ...numbers,
@@ -140,4 +160,9 @@ export function resolveAgentConfig(raw: unknown): AgentConfig {
 /** The model id a run uses: the tenant's pin, else env, else the default. */
 export function effectiveAgentModel(config: AgentConfig, envModel: string | undefined): string {
   return config.model ?? resolveModel(envModel) ?? DEFAULT_AGENT_MODEL
+}
+
+/** R18: the model tried once after the main one failed twice (tenant → env → default). */
+export function effectiveFallbackModel(config: AgentConfig, envFallbackModel: string | undefined): string {
+  return config.fallbackModel ?? resolveModel(envFallbackModel) ?? DEFAULT_AGENT_FALLBACK_MODEL
 }

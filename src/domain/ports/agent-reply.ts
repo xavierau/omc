@@ -70,6 +70,8 @@ export interface AgentMessageStore {
   setModelOutcome(key: AgentConversationKey, id: string, outcome: AgentOutcome): Promise<void>
   /** Id of the newest user row of the conversation (latest-wins debounce). */
   latestUserMessageId(key: AgentConversationKey): Promise<string | null>
+  /** AGENT-003 R15: `created_at` of one of the conversation's user rows; null when it is gone. */
+  userMessageCreatedAt(key: AgentConversationKey, id: string): Promise<string | null>
   /** ≤ `limit` rows newer than `sinceIso`, chronological (R5). */
   history(key: AgentConversationKey, limit: number, sinceIso: string): Promise<AgentHistoryMessage[]>
   /** Rows that made a model call (`model` not null, any outcome) since `sinceIso`, for one phone or the whole tenant when `phone` is null (R6). */

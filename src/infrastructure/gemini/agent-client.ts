@@ -21,6 +21,13 @@
  * there; 3.5 Flash and 3.1 Flash-Lite support it too). A cut-off answer
  * (finishReason MAX_TOKENS, no function call) is `truncated`, never sent.
  *
+ * AGENT-003 R18, overload resilience: a call that fails with HTTP 429/5xx or
+ * times out is retried once on the same model after a short jitter; if that
+ * fails the same way, the run switches to `fallbackModel` for one try (and
+ * stays on it for the rest of the tool loop). One retry and one fallback per
+ * run, never past `budgetMs`. The result names the model that answered last
+ * and the last HTTP status (a number only).
+ *
  * Every failure maps to an AgentModelFailure and is never thrown. Nothing is
  * logged here: the worker logs the outcome with ids only (R8).
  */
@@ -58,9 +65,27 @@ export interface GeminiAgentClientOptions {
   fetchImpl?: typeof fetch
   getApiKey?: () => string | undefined
   now?: () => number
+  /** R18: the pause before the retry (tests pass a no-op). */
+  sleep?: (ms: number) => Promise<void>
+  random?: () => number
 }
 
-type CallResult = { ok: true; body: GeminiResponse } | { ok: false; reason: AgentModelFailure }
+type CallResult =
+  | { ok: true; body: GeminiResponse; status: number }
+  | { ok: false; reason: AgentModelFailure; status?: number }
+
+/** R18: 200–600 ms before the one retry. */
+export const RETRY_JITTER_MIN_MS = 200
+export const RETRY_JITTER_SPAN_MS = 400
+
+/** R18: overload or transient server failure (429, 5xx) or a timed-out call. */
+export function isRetryable(call: CallResult): boolean {
+  if (call.ok) return false
+  if (call.reason === 'timeout') return true
+  return call.reason === 'http' && call.status !== undefined && (call.status === 429 || call.status >= 500)
+}
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 export function generateContentUrl(model: string): string {
   return `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`
@@ -79,7 +104,7 @@ function requestBody(req: AgentModelRequest, contents: GeminiContent[], withTool
               functionDeclarations: req.tools.map((t) => ({
                 name: t.name,
                 description: t.description,
-                parameters: { type: 'object', properties: {} },
+                parameters: t.parameters ?? { type: 'object', properties: {} },
               })),
             },
           ],
@@ -157,9 +182,12 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
   const fetchImpl = options.fetchImpl ?? fetch
   const getApiKey = options.getApiKey ?? (() => process.env.GEMINI_API_KEY)
   const now = options.now ?? Date.now
+  const sleep = options.sleep ?? realSleep
+  const random = options.random ?? Math.random
 
   async function callOnce(
     req: AgentModelRequest,
+    model: string,
     contents: GeminiContent[],
     apiKey: string,
     timeoutMs: number,
@@ -168,16 +196,16 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const res = await fetchImpl(generateContentUrl(req.model), {
+      const res = await fetchImpl(generateContentUrl(model), {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(requestBody(req, contents, withTools)),
         signal: controller.signal,
       })
-      if (!res.ok) return { ok: false, reason: 'http' }
+      if (!res.ok) return { ok: false, reason: 'http', status: res.status }
       const body = (await res.json().catch(() => undefined)) as GeminiResponse | undefined
-      if (!body || typeof body !== 'object') return { ok: false, reason: 'parse' }
-      return { ok: true, body }
+      if (!body || typeof body !== 'object') return { ok: false, reason: 'parse', status: res.status }
+      return { ok: true, body, status: res.status }
     } catch {
       return { ok: false, reason: controller.signal.aborted ? 'timeout' : 'http' }
     } finally {
@@ -185,11 +213,52 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
     }
   }
 
+  /** R18 state of one run: one retry, then one switch to the fallback model (sticky). */
+  interface Attempts {
+    model: string
+    retried: boolean
+    fellBack: boolean
+    httpStatus?: number
+  }
+
+  /** One generateContent step with R18's retry and fallback, bounded by the run's deadline. */
+  async function callResilient(
+    req: AgentModelRequest,
+    attempts: Attempts,
+    contents: GeminiContent[],
+    apiKey: string,
+    deadline: number,
+    withTools: boolean
+  ): Promise<CallResult> {
+    for (;;) {
+      const remaining = deadline - now()
+      if (remaining <= 0) return { ok: false, reason: 'timeout' }
+      const call = await callOnce(req, attempts.model, contents, apiKey, Math.min(req.perCallTimeoutMs, remaining), withTools)
+      attempts.httpStatus = call.status
+      if (!isRetryable(call)) return call
+      if (!attempts.retried) {
+        attempts.retried = true
+        const pause = Math.min(RETRY_JITTER_MIN_MS + Math.floor(random() * RETRY_JITTER_SPAN_MS), Math.max(0, deadline - now()))
+        await sleep(pause)
+        continue
+      }
+      const fallback = req.fallbackModel
+      if (attempts.fellBack || !fallback || fallback === attempts.model) return call
+      attempts.fellBack = true
+      attempts.model = fallback
+    }
+  }
+
   return {
     async respond(req: AgentModelRequest): Promise<AgentModelResult> {
       const toolCalls: string[] = []
       const usage: AgentModelUsage = { promptTokens: 0, outputTokens: 0 }
-      const fail = (reason: AgentModelFailure): AgentModelResult => ({ ok: false, reason, toolCalls, usage })
+      const attempts: Attempts = { model: req.model, retried: false, fellBack: false }
+      const meta = () => ({
+        model: attempts.model,
+        ...(attempts.httpStatus !== undefined ? { httpStatus: attempts.httpStatus } : {}),
+      })
+      const fail = (reason: AgentModelFailure): AgentModelResult => ({ ok: false, reason, toolCalls, usage, ...meta() })
 
       // A missing key is a configuration error of the HTTP integration.
       const apiKey = getApiKey()
@@ -199,16 +268,14 @@ export function createGeminiAgentClient(options: GeminiAgentClientOptions = {}):
       const deadline = now() + req.budgetMs
 
       for (;;) {
-        const remaining = deadline - now()
-        if (remaining <= 0) return fail('timeout')
         const withTools = req.tools.length > 0 && toolCalls.length < req.maxToolCalls
-        const call = await callOnce(req, contents, apiKey, Math.min(req.perCallTimeoutMs, remaining), withTools)
+        const call = await callResilient(req, attempts, contents, apiKey, deadline, withTools)
         if (!call.ok) return fail(call.reason)
         addUsage(usage, call.body)
 
         const step = readStep(call.body)
         if (step.kind === 'fail') return fail(step.reason)
-        if (step.kind === 'text') return { ok: true, text: step.text, toolCalls, usage }
+        if (step.kind === 'text') return { ok: true, text: step.text, toolCalls, usage, ...meta() }
 
         // A function call although no tools were declared: the model ignores the cap.
         if (!withTools) {
