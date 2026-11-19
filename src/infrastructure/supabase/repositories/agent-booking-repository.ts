@@ -1,6 +1,6 @@
 /**
  * BOOK-003: agent bookings (`booking_requests` rows with source 'agent',
- * migration 083) and the agent booking id directory.
+ * migration 084) and the agent booking id directory.
  *
  * Every query is scoped by restaurant_id inside the query (memory:
  * principle_authorize_by_scoped_query). Promotion is ONE conditional UPDATE
@@ -156,7 +156,7 @@ export async function purgeUnverifiedBookings(createdBefore: Date): Promise<numb
   return (data ?? []).length
 }
 
-/** R33: the restaurant whose booking_config.agentBooking.publicId is this id (unique index, 083). */
+/** R33: the restaurant whose booking_config.agentBooking.publicId is this id (unique index, 084). */
 export async function findRestaurantByAgentPublicId(publicId: string) {
   const { data, error } = await createServerSupabaseClient()
     .from('restaurants')

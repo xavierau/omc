@@ -22,13 +22,14 @@ refs: [artifacts/2026-11-19-book-003-agent-booking-impl, threats/2026-11-19-agen
 ac:
   AC-1: {result: pass, evidence: "evidence/2026-11-19-book-003/ac1-validator.log: PAP kit validator --file, 7 passed 0 failed, exit 0, on the poppy.json downloaded from the admin route"}
   AC-2: {result: pass, evidence: "evidence/2026-11-19-book-003/ac2-openapi-lint.log: npx @redocly/cli@1.25.11 lint (minimal) valid, 0 warnings, exit 0"}
-  AC-3: {result: pass, evidence: "evidence/2026-11-19-book-003/ac3-curl.log: local next dev + local Supabase 001..083; 202 with every field, row unverified/agent, no send, GET token 200 awaiting_confirmation, no token 404"}
+  AC-3: {result: pass, evidence: "evidence/2026-11-19-book-003/ac3-curl.log: local next dev + local Supabase 001..082 + this migration; 202 with every field, row unverified/agent, no send, GET token 200 awaiting_confirmation, no token 404"}
   AC-4: {result: pass, evidence: "src/app/api/webhooks/whatsapp/__tests__/booking-confirm-code.test.ts 12/12 through routeMessage"}
-  AC-5: {result: pass, evidence: "agent-booking-lifecycle.test.ts 3/3; agent-booking.db.test.ts 9/9 on 083 (8/9 red without); local stack: staff Confirm then GET → confirmed (ac3-curl.log tail)"}
+  AC-5: {result: pass, evidence: "agent-booking-lifecycle.test.ts 3/3; agent-booking.db.test.ts 9/9 on 084 (8/9 red without), re-run after the rename; local stack: staff Confirm then GET → confirmed (ac3-curl.log tail)"}
   AC-6: {result: pass, evidence: "R-id → test table in the impl artifact; full vitest 626 files / 6935 tests pass under heavy lock; tsc exit 0; eslint on changed files 0 problems"}
-  AC-7: {result: pass, evidence: "evidence/2026-11-19-book-003/ac7-settings-agent-on-1280.png, ac7-bookings-via-agent-1280.png; seeded on local Supabase (DEV DB lacks 082/083)"}
+  AC-7: {result: pass, evidence: "evidence/2026-11-19-book-003/ac7-settings-agent-on-1280.png, ac7-bookings-via-agent-1280.png; seeded on local Supabase (DEV DB lacks 082 and this migration)"}
   AC-8: {result: pass, evidence: "branch pushed, ls-remote SHA == HEAD; PR into develop (URL in the return block / PR list)"}
 decisions:
+  - "migration renumbered 083 → 084 — team-lead ruling 2026-11-19, AGENT-001 PR #185 owns 083"
   - "snake_case API fields — the brief's response contract is snake_case"
   - "confirm code needs a digit; matching case-insensitive; ≤3 candidates — keeps the webhook lookup to code-shaped texts (plan perf budget)"
   - "check runs in dispatchRoute before resolveRoute — 'first for inbound text … before receipt/YES/NO' [brief fixed]; also beats BOOK"
@@ -52,8 +53,8 @@ unverified:
 review_focus:
   - "src/app/api/webhooks/whatsapp/handlers.ts: confirm-code check placement before resolveRoute"
   - "src/application/booking/create-agent-booking.ts: replay/idempotency and cap ordering"
-  - "supabase/migrations/083_agent_booking.sql: constraint drop/re-add names (082 inline CHECK names)"
+  - "supabase/migrations/084_agent_booking.sql: constraint drop/re-add names (082 inline CHECK names)"
 scope_drift:
   - "src/messages/en.json, zh-HK.json — brief's messages/** names the i18n files; the repo keeps them under src/messages"
 in_flight: []
-next_step: "Owner reviews the PR; before merge, renumber 083 if feature/agent-001-ai-reply merges first."
+next_step: "Owner reviews the PR (migration is 084 per team-lead ruling; agent-001 owns 083)."

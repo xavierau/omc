@@ -1,10 +1,10 @@
 /**
- * DB INTEGRATION TESTS for migration 083 (BOOK-003, R31, R32, R39, R41, R43, R46).
+ * DB INTEGRATION TESTS for migration 084 (BOOK-003, R31, R32, R39, R41, R43, R46).
  *
  * The SQL below mirrors what agent-booking-repository.ts and
  * booking-request-repository.ts send through PostgREST. Gated behind
  * `RUN_DB_TESTS=1`; `PGDATABASE` names a scratch database with migrations
- * 001..083 applied (Supabase stubs for auth/storage/extensions/realtime), built
+ * 001..082 + 084 applied (Supabase stubs for auth/storage/extensions/realtime), built
  * as recorded in .claude-workspace/artifacts/2026-11-19-book-003-agent-booking-impl.md.
  *
  *   RUN_DB_TESTS=1 PGPORT=5432 PGDATABASE=scratch_book003 \
@@ -74,7 +74,7 @@ const staffFind = (id: string) => `SELECT id FROM booking_requests WHERE id = '$
 
 const cleanup = () => psql(`DELETE FROM restaurants WHERE id IN ('${A}', '${B}')`)
 
-d('migration 083 agent booking schema (real Postgres)', () => {
+d('migration 084 agent booking schema (real Postgres)', () => {
   beforeAll(() => {
     cleanup()
     psql(`INSERT INTO restaurants (id, name, slug, whatsapp_number) VALUES

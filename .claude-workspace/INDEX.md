@@ -97,7 +97,7 @@ no artifact files were lost._
 ### Artifacts
 
 **BOOK-003 — booking through personal agents (2026-11-19)**
-- [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 083, agent API, WhatsApp code, settings; AC evidence (dev)
+- [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)
 - [2026-11-19-book-003-dev-handoff](artifacts/2026-11-19-book-003-dev-handoff.md) — BOOK-003 dev handoff (dev)
 
 **CAMP-012/013 — #161/#162 guardrail defaults + recipient RPCs (2026-09-10)**

@@ -1573,7 +1573,7 @@
         {
           "id": "BOOK-003",
           "title": "Booking through personal agents (PAP 1.0 / poppy.json)",
-          "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 083. R45 privacy-policy copy is an owner go-live item.",
+          "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 084. R45 privacy-policy copy is an owner go-live item.",
           "priority": "medium",
           "labels": [
             "booking",

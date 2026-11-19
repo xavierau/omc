@@ -18,7 +18,7 @@ Evidence folder: `.claude-workspace/artifacts/evidence/2026-11-19-book-003/`.
 
 | Piece | Where |
 |---|---|
-| Migration 083: status `unverified`, source `agent`, decision CHECK `(status IN ('unverified','pending')) = (decided_at IS NULL)`, columns `confirm_code`, `verify_expires_at`, `verified_at`, `verified_wamid`, `status_token_hash`, `idempotency_key`; unique `(restaurant_id, idempotency_key)`, unique code among a restaurant's unverified rows, unique `booking_config->agentBooking->>publicId` | `supabase/migrations/083_agent_booking.sql` |
+| Migration 084 (renumbered from 083, team-lead ruling 2026-11-19): status `unverified`, source `agent`, decision CHECK `(status IN ('unverified','pending')) = (decided_at IS NULL)`, columns `confirm_code`, `verify_expires_at`, `verified_at`, `verified_wamid`, `status_token_hash`, `idempotency_key`; unique `(restaurant_id, idempotency_key)`, unique code among a restaurant's unverified rows, unique `booking_config->agentBooking->>publicId` | `supabase/migrations/084_agent_booking.sql` |
 | `booking_config.agentBooking {enabled:false, publicId, websiteHost}`, settings parse/apply/rotate | `src/domain/value-objects/booking-config.ts` |
 | Confirm code VO (6 chars, no 0/O/1/I, at least one digit), body parser (snake_case, identity fields rejected), status view, poppy.json + OpenAPI 3.1 builders, collection statement | `src/domain/services/booking-confirm-code.ts`, `agent-booking.ts`, `poppy-documents.ts` |
 | Use cases: create, status read, verify (webhook), settings/rotate/poppy.json, tenant resolve; retention purge of unverified rows | `src/application/booking/*agent*`, `verify-agent-booking.ts`, `purge-booking-pii.ts` |
@@ -38,7 +38,7 @@ Evidence folder: `.claude-workspace/artifacts/evidence/2026-11-19-book-003/`.
 `evidence/openapi.json` fetched from the local app. `npx -y @redocly/cli@1.25.11 lint openapi.json --extends=minimal`: valid, 0 warnings, exit 0 (`evidence/ac2-openapi-lint.log`). With `--extends=recommended`: valid, 1 warning. No dependency added to package.json.
 
 ### AC-3 local app, curl
-`evidence/ac3-curl.log`: `next dev` on :3093 against a local Supabase stack (CLI, migrations 001..083 applied on start).
+`evidence/ac3-curl.log`: `next dev` on :3093 against a local Supabase stack (CLI, migrations 001..082 + this branch's migration, then numbered 083, applied on start).
 - POST valid body (with a garbage `Poppy-Session`) → **202** with `booking_id, status: awaiting_confirmation, confirm_url (wa.me/85230001111?text=確認Cafe Poppy訂座 Confirm my booking at Cafe Poppy: XJ8BWQ), confirm_code, expires_at (+30 min), status_token, collection_statement {en, zh-HK, privacy_url}`; headers `cache-control: no-store`, `referrer-policy: no-referrer`.
 - DB row: `status unverified, source agent, member_id null, confirm_code XJ8BWQ, status_token_hash` = sha256 of the returned token; not in the staff list query.
 - No WhatsApp send: no send log line during the run (KAPSO key blanked for the run as a guard; the create path has no sender dependency).
@@ -49,7 +49,7 @@ Evidence folder: `.claude-workspace/artifacts/evidence/2026-11-19-book-003/`.
 
 ### AC-5 exclusion and status after confirm
 - `src/application/booking/__tests__/agent-booking-lifecycle.test.ts` 3/3: unverified not listed and decide → not_found (no 409 that would reveal it); code → pending, listed with source agent; staff confirm → status read `confirmed`, messages `received`, `confirmed`.
-- Real Postgres (`src/infrastructure/supabase/__tests__/agent-booking.db.test.ts`, 9/9 on scratch DB with 083; 8/9 RED on the same DB built without 083): staff list/lookup/decide skip unverified, reminder RPC never returns it, decision once after promotion.
+- Real Postgres (`src/infrastructure/supabase/__tests__/agent-booking.db.test.ts`, 9/9 on a scratch DB with 084; 8/9 RED on the same DB built without it): staff list/lookup/decide skip unverified, reminder RPC never returns it, decision once after promotion.
 - Local stack: after promotion and the staff Confirm button, `GET .../bookings/{id}` → `{"status":"confirmed",...}` (end of `evidence/ac3-curl.log`). Promotion on the local stack was the repository's UPDATE run as SQL (no Kapso webhook locally).
 
 ### AC-6 threat-model tests, R-id → test
@@ -77,11 +77,12 @@ Gates (this tree, base 7642764cb5 + this branch): touched-file runs green; full 
 - `evidence/ac7-settings-agent-on-1280.png`: admin `/dashboard/setup`, Simple booking, "Bookings from AI agents" with Allow AI agents ticked, host `www.cafepoppy.hk`, saved, Download poppy.json + Change agent booking address. Before the host was filled, Save showed "Add your website address." (checked in the page).
 - The file the download route served is `evidence/poppy.json`, the same bytes AC-1 validated.
 - `evidence/ac7-bookings-via-agent-1280.png`: `/dashboard/bookings` with the agent row's "via AI agent" badge and a chat row without it; after Confirm the row read "Confirmed · via AI agent · Message not delivered" (WhatsApp blanked locally).
-- Seeded locally (the DEV DB lacks 082/083): local Supabase CLI stack, restaurant + admin user + `user_tenants` row, table grants for `authenticated`/`service_role` (the local image did not grant them; hosted Supabase does), `x-tenant-id` cookie set by hand (`/api/me/tenants` 500'd before the grants). Seed: scratchpad `seed-local.sql` (not committed).
+- Seeded locally (the DEV DB lacks 082 and this migration): local Supabase CLI stack, restaurant + admin user + `user_tenants` row, table grants for `authenticated`/`service_role` (the local image did not grant them; hosted Supabase does), `x-tenant-id` cookie set by hand (`/api/me/tenants` 500'd before the grants). Seed: scratchpad `seed-local.sql` (not committed).
 
 ## Migration validation
-- Scratch DB `scratch_book003` on local Postgres 17 (127.0.0.1:5432) built from 001..082 with Supabase stubs (roles, auth/storage stubs, pgcrypto in `extensions`, search_path public,extensions, publication): all applied; 083 applied cleanly; `agent-booking.db.test.ts` 9/9 plus BOOK-001's `booking.db.test.ts` + `booking-cron.db.test.ts` (24/24 together) on 083; 8/9 red without 083. DB dropped afterwards.
-- Second check: `supabase start` (CLI 2.109.1, realtime/storage excluded) applied 001..083 from the tree on the Supabase Postgres image.
+- **Renumbered 083 → 084** (team-lead ruling 2026-11-19: AGENT-001's PR #185 claimed 083 with `083_agent_reply.sql`). The SQL is unchanged; only the file name and the comments/test names that cite it changed.
+- Re-validated after the rename: scratch DB `scratch_book003` on local Postgres 17 (127.0.0.1:5432) built from develop's 001..082 only (not agent-001's 083) with Supabase stubs (roles, auth/storage stubs, pgcrypto in `extensions`, search_path public,extensions, publication): all applied; 084 applied cleanly. `agent-booking.db.test.ts` + BOOK-001's `booking.db.test.ts` + `booking-cron.db.test.ts`: 24/24 with 084; `agent-booking.db.test.ts` 8/9 red without it. DB dropped afterwards.
+- Before the rename: the same checks ran with the file named 083, and `supabase start` (CLI 2.109.1, realtime/storage excluded) applied 001..082 + this migration on the Supabase Postgres image (the AC-3/AC-7 local stack).
 
 ## Decisions (decide_yourself)
 - API field names are snake_case (`party_size`, `booking_id`), matching the response contract in the brief.
@@ -95,6 +96,6 @@ Gates (this tree, base 7642764cb5 + this branch): touched-file runs green; full 
 
 ## Not as briefed / notes
 - `files_allowed` lists `messages/**` and `src/middleware.ts`; the repo's messages live at `src/messages/*.json` (edited) and its middleware is `src/proxy.ts` (not edited: its matcher already excludes `/api/poppy`).
-- Migration number 083 is also used by `feature/agent-001-ai-reply` (`083_agent_reply.sql`); the branch merged second must renumber (told team-lead).
+- Migration renumbered to 084 per the team-lead ruling (agent-001 PR #185 owns 083); this replaces "migration 083" in the brief.
 - R45 (privacy policy names AI agents) is an owner go-live item; not in this code.
 - `next dev` (Next 16.3.4) rewrites `CLAUDE.md` with an agent-rules block; reverted, not committed.
