@@ -33,7 +33,7 @@ Threat model: the main checkout's copy of `threats/2026-11-19-agent-booking-popp
 | F10 | `agent-booking-domain.test.ts` › "OpenAPI description (review F10) › documents the Idempotency-Key replay…", "documents 500 server_error on both operations" | `f10-red.log` → `f10-green.log` | `createBooking` 200 → `ReplayedBooking` (`allOf` BookingStatus + `status_token` + `collection_statement`); 500 `Error` on both operations. The description's cap sentence now states BOOK-001 R11 (3 open requests: unconfirmed or waiting for the restaurant), since F1 changed the cap. Lint below. |
 
 ## AC-2 migration 084
-- `git ls-files supabase/migrations | grep 08[34]_` → only `084_agent_booking.sql` (`f11-scratch-build.log`). The rename itself was commit 665419a3 (r1 follow-up); r2 added §4 (the promote RPC) to the same file. No other 083 reference left in `src/`, `supabase/`, `tests/` (the plan artifact keeps its historical "083" lines; main-thread planning doc, not edited).
+- `git ls-files supabase/migrations | grep 08[34]_` → only `084_agent_booking.sql` (`f11-scratch-build.log`). F11 (the 083 → 084 rename): done in 665419a by r1, not redone in r2. No `083_agent_booking.sql` remains. r2 added §4 (the promote RPC) to the same file. No other 083 reference left in `src/`, `supabase/`, `tests/` (the plan artifact keeps its historical "083" lines; main-thread planning doc, not edited).
 - Scratch DB `scratch_book003` (local Postgres 17, Supabase stubs): develop's 001..082 (the tree's copies, `git diff origin/develop` on them empty) then 084 → 83 files applied. `agent-booking.db.test.ts` 13/13 + `booking.db.test.ts` + `booking-cron.db.test.ts` = 28/28 (`f1-db-green.log`). DB dropped.
 
 ## AC-3 gates
