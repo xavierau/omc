@@ -1,0 +1,41 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--camp-016
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+ ❯ src/infrastructure/supabase/repositories/__tests__/template-review-detail-queries.test.ts (1 test | 1 failed) 8ms
+     × selects the schedule column and maps rows through mapRowToCampaign (only the panel fields) 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/template-review-detail-queries.test.ts > listCampaignsUsingTemplate > selects the schedule column and maps rows through mapRowToCampaign (only the panel fields)
+AssertionError: expected { id: 'camp-1', …(10) } to deeply equal { Object (id, name, ...) }
+
+- Expected
++ Received
+
+@@ -1,6 +1,8 @@
+  {
++   "audienceLapsedDays": null,
++   "audienceSkipQuality": "off",
+    "couponConfig": null,
+    "createdAt": "2026-10-31T00:00:00Z",
+    "id": "camp-1",
+    "name": "Birthday",
+    "schedule": {
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/template-review-detail-queries.test.ts:44:15
+     42|
+     43|     expect(selects[0]).toContain('schedule')
+     44|     expect(c).toEqual({
+       |               ^
+     45|       id: 'camp-1',
+     46|       name: 'Birthday',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 660 passed | 14 skipped (675)
+      Tests  1 failed | 7527 passed | 127 skipped | 2 todo (7657)
+   Start at  23:58:21
+   Duration  28.03s (transform 20.23s, setup 0ms, import 73.90s, tests 20.80s, environment 47ms)
+

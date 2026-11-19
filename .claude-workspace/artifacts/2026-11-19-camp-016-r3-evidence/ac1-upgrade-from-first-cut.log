@@ -1,0 +1,7 @@
+== 2026-11-19T15:51:04Z fixed 086 applied over the first cut (DB already had pre-r3 086)
+psql:supabase/migrations/086_campaign_audience_quality.sql:71: NOTICE:  column "skip_contact_quality" of relation "tenant_campaign_settings" already exists, skipping
+psql:supabase/migrations/086_campaign_audience_quality.sql:71: NOTICE:  column "lapsed_after_days" of relation "tenant_campaign_settings" already exists, skipping
+psql:supabase/migrations/086_campaign_audience_quality.sql:77: NOTICE:  column "audience_skip_quality" of relation "campaigns" already exists, skipping
+psql:supabase/migrations/086_campaign_audience_quality.sql:77: NOTICE:  column "audience_lapsed_days" of relation "campaigns" already exists, skipping
+exit 0
+campaign_audience_members(uuid,text,uuid[],uuid[],uuid,integer,boolean,text,integer,double precision,double precision,integer,uuid)

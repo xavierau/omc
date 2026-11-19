@@ -1,0 +1,49 @@
+== 2026-11-19T15:52:20Z AC-1: scratch DB = migrations 001..085 (r3 build.sh 085, fresh container c16r3-db), then 086
+-- pre-085 fixtures: an existing tenant (seeded by the 078 trigger) + an existing winback campaign
+INSERT 0 1
+INSERT 0 1
+-- tenant_campaign_settings rows: 1; restaurants: 1; campaigns: 1
+-- apply 086
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+DROP FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+exit 0
+-- apply 086 again (idempotent)
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:71: NOTICE:  column "skip_contact_quality" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:71: NOTICE:  column "lapsed_after_days" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:77: NOTICE:  column "audience_skip_quality" of relation "campaigns" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:77: NOTICE:  column "audience_lapsed_days" of relation "campaigns" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+exit 0
+-- existing tenant row (restaurant_id|skip_contact_quality|lapsed_after_days):
+11111111-0000-0000-0000-0000000c0016|red|30
+-- distinct (skip, lapsed) across ALL existing rows:
+red|30|1
+-- restaurants without a complete row (expect 0):
+0
+-- existing campaigns (audience_skip_quality|audience_lapsed_days):
+off|NULL|1
+-- new tenant inserted after 085 (seeded by the 078 trigger):
+22222222-0000-0000-0000-0000000c0016|red|30|1000
+-- CHECKs reject bad values (expect 3 errors):
+ERROR:  new row for relation "tenant_campaign_settings" violates check constraint "tenant_campaign_settings_skip_contact_quality_check"
+ERROR:  new row for relation "tenant_campaign_settings" violates check constraint "tenant_campaign_settings_lapsed_after_days_check"
+ERROR:  new row for relation "campaigns" violates check constraint "campaigns_audience_lapsed_days_check"
+-- campaign_audience_members signatures (expect exactly one, ending integer,uuid):
+campaign_audience_members(uuid,text,uuid[],uuid[],uuid,integer,boolean,text,integer,double precision,double precision,integer,uuid)

@@ -4,9 +4,9 @@ type: handoff
 contract: handoff-file-v1
 author: dev (camp-016 r2)
 created: 2026-11-19
-status: active
+status: superseded
 supersedes: artifacts/2026-11-19-dev-camp-016-handoff
-superseded_by: null
+superseded_by: artifacts/2026-11-19-dev-camp-016-r3-handoff
 item: CAMP-016
 state: blocked
 brief: inline
