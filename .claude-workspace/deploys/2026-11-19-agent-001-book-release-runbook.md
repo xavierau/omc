@@ -173,6 +173,15 @@ RETURNING id, slug, agent_config, now() AS written_at;
 `rev: 1` is what the app's own settings PUT stamps on a config with no rev (`agent-config-repository.ts`
 `writeIfUnchanged`), so the dashboard form loads it as rev 1 and its next save CAS-checks against 1.
 
+**Main's ruling (after the write): merge, don't replace.** Main ruled that the write should merge `mode` into the
+config (`jsonb_set(jsonb_set(agent_config,'{mode}','"shadow"'),'{rev}',…+1)`) so that knowledge or instructions an
+admin saved on `/dashboard/setup` would be kept. The ruling arrived after the 06:42:49Z write. That write already kept
+every key: it applied only if the stored config was exactly `{"mode":"off"}`, so no knowledge or instructions key
+existed to lose. Its result equals what the merge form gives on that input (`{"mode":"shadow","rev":1}`). No second
+write: mode was no longer off, which is the ruling's own escalate condition, and the merge would only bump rev to 2.
+Read-only recheck at **06:52:25Z** (`omc-agent-config-recheck.json`, 600): omc keys `[mode, rev]` = shadow / 1; the
+other 6 keys `[mode]` = off.
+
 Not checked: an inbound omc message producing a shadow draft (none was sent; no tenant login, no send). The first real
 unmatched text to omc's number is the first live run of the shadow path: check `agent_messages` for omc rows and the
 worker log for `agent-reply` lines after it.
@@ -206,5 +215,5 @@ worker log for `agent-reply` lines after it.
 | local ref `release-backup-25532d9` | kept as the rollback handle |
 | `origin/release` `25532d94` → `55995fa2` | replaced (force-push by design) |
 | worktree `--release-agent001` | kept until the docs PR is pushed; remove afterwards |
-| box `/home/forge/backups/2026-11-19-agent-001/` | kept (now also the three `omc-agent-config-*.json` files); delete once the release is accepted |
+| box `/home/forge/backups/2026-11-19-agent-001/` | kept (now also the four `omc-agent-config-*.json` files); delete once the release is accepted |
 | worktree `--agent-001` (`feature/agent-001-ai-reply`) | **kept**: `wt-finish` (no `--force`) refused, exit 1: `feature/agent-001-ai-reply has 35 commit(s) not in main` (PR #185 was squash-merged, so the branch's own commits are never ancestors of main). Nothing removed; removal is main's call |
