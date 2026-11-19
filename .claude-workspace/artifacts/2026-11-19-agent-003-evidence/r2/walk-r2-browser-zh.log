@@ -1,0 +1,16 @@
+2026-11-19T09:37:41.788Z setup zh perCallTimeoutMs 8000 min 3000 max 15000 handoff checked true menu checked false
+2026-11-19T09:37:41.796Z setup zh new tools checked {"list_my_bookings":true,"propose_booking_change":true,"confirm_booking_change":true,"propose_booking_cancel":true,"confirm_booking_cancel":true}
+2026-11-19T09:37:42.361Z setup zh audit r2-setup-advanced-zh-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:42.811Z setup zh perCallTimeoutMs 8000 min 3000 max 15000 handoff checked true menu checked false
+2026-11-19T09:37:42.847Z setup zh new tools checked {"list_my_bookings":true,"propose_booking_change":true,"confirm_booking_change":true,"propose_booking_cancel":true,"confirm_booking_cancel":true}
+2026-11-19T09:37:43.382Z setup zh audit r2-setup-advanced-zh-390 {"blocking":0,"warning":12,"info":1} scrollW 390 vw 390
+2026-11-19T09:37:46.077Z log zh needs-staff badge "需要職員跟進"
+2026-11-19T09:37:46.576Z log zh audit r2-agent-log-zh-1280 {"blocking":0,"warning":2,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:49.170Z bookings zh row 6a2f "2026-11-26 20:00\n4 位\n已確認\n經 AI 助理\n\n更改要求：2026-11-25 19:30 · 4 位 → 2026-11-26 20:00 · 4 位\n\n陳生 · +85290000003"
+2026-11-19T09:37:49.172Z bookings zh row 0025 "2026-11-25 19:30\n4 位\n已取消\n已改期取代\n\n陳生 · +85290000003"
+2026-11-19T09:37:49.173Z bookings zh row 0027 "2026-11-27 12:30\n2 位\n已取消\n顧客經 AI 助理取消\n\n陳生 · +85290000003"
+2026-11-19T09:37:49.650Z bookings zh audit r2-bookings-zh-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T09:37:49.992Z bookings zh row 6a2f "2026-11-26 20:00\n4 位\n已確認\n經 AI 助理\n\n更改要求：2026-11-25 19:30 · 4 位 → 2026-11-26 20:00 · 4 位\n\n陳生 · +85290000003"
+2026-11-19T09:37:49.994Z bookings zh row 0025 "2026-11-25 19:30\n4 位\n已取消\n已改期取代\n\n陳生 · +85290000003"
+2026-11-19T09:37:49.995Z bookings zh row 0027 "2026-11-27 12:30\n2 位\n已取消\n顧客經 AI 助理取消\n\n陳生 · +85290000003"
+2026-11-19T09:37:50.455Z bookings zh audit r2-bookings-zh-390 {"blocking":0,"warning":0,"info":1} scrollW 390 vw 390

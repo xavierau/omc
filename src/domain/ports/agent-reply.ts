@@ -7,11 +7,13 @@
  */
 import type { AgentConfig } from '@/domain/value-objects/agent-config'
 
-export type AgentOutcome = 'shadow_draft' | 'sent' | 'fallback' | 'error' | 'rate_limited' | 'skipped'
+/** `handoff` (AGENT-003 R19, migration 085): the agent failed and the diner got the handoff reply; the thread needs staff. */
+export type AgentOutcome = 'shadow_draft' | 'sent' | 'fallback' | 'handoff' | 'error' | 'rate_limited' | 'skipped'
 export const AGENT_OUTCOMES: readonly AgentOutcome[] = [
   'shadow_draft',
   'sent',
   'fallback',
+  'handoff',
   'error',
   'rate_limited',
   'skipped',
@@ -19,13 +21,13 @@ export const AGENT_OUTCOMES: readonly AgentOutcome[] = [
 
 /**
  * Outcomes that answer the diner's message (or would have, in shadow). At most
- * one per inbound user row: migration 083's partial UNIQUE on
- * `reply_to_message_id` makes a second run of the same job a no-op.
+ * one per inbound user row: the partial UNIQUE on `reply_to_message_id`
+ * (083, widened to `handoff` by 085) makes a second run of the same job a no-op.
  */
-export const REPLY_CLAIM_OUTCOMES: readonly AgentOutcome[] = ['sent', 'shadow_draft', 'fallback']
+export const REPLY_CLAIM_OUTCOMES: readonly AgentOutcome[] = ['sent', 'shadow_draft', 'fallback', 'handoff']
 
 /** Model rows fed back as history: what the diner got (auto) or would have got (shadow). */
-export const HISTORY_MODEL_OUTCOMES: readonly AgentOutcome[] = ['sent', 'shadow_draft']
+export const HISTORY_MODEL_OUTCOMES: readonly AgentOutcome[] = ['sent', 'shadow_draft', 'handoff']
 
 export interface AgentConversationKey {
   restaurantId: string
@@ -70,6 +72,8 @@ export interface AgentMessageStore {
   setModelOutcome(key: AgentConversationKey, id: string, outcome: AgentOutcome): Promise<void>
   /** Id of the newest user row of the conversation (latest-wins debounce). */
   latestUserMessageId(key: AgentConversationKey): Promise<string | null>
+  /** AGENT-003 R15: `created_at` of one of the conversation's user rows; null when it is gone. */
+  userMessageCreatedAt(key: AgentConversationKey, id: string): Promise<string | null>
   /** ≤ `limit` rows newer than `sinceIso`, chronological (R5). */
   history(key: AgentConversationKey, limit: number, sinceIso: string): Promise<AgentHistoryMessage[]>
   /** Rows that made a model call (`model` not null, any outcome) since `sinceIso`, for one phone or the whole tenant when `phone` is null (R6). */

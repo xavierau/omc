@@ -47,7 +47,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const [pending, decided] = rec.queries
     expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
     expect(pending.calls.some(([m]) => m === 'limit')).toBe(false)
-    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined'])
+    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined,cancelled'])
     expect(decided.calls).toContainEqual(['limit', 200])
     for (const q of rec.queries) expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
   })

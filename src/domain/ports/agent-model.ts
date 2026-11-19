@@ -19,9 +19,18 @@ export interface AgentTurn {
   text: string
 }
 
+/** AGENT-003: a tool's arguments as a Gemini (OpenAPI subset) object schema. */
+export interface AgentToolParameters {
+  type: 'object'
+  properties: Record<string, { type: 'string' | 'integer'; description: string }>
+  required: string[]
+}
+
 export interface AgentToolDeclaration {
   name: string
   description: string
+  /** Absent: the tool takes no arguments (every AGENT-001 tool). */
+  parameters?: AgentToolParameters
 }
 
 /** The JSON object returned to the model as the tool's functionResponse. */
@@ -30,6 +39,11 @@ export type AgentToolExecutor = (name: string, args: Record<string, unknown>) =>
 
 export interface AgentModelRequest {
   model: string
+  /**
+   * R18: tried once when `model` failed twice with 429/5xx/timeout; null or
+   * equal to `model` → no fallback. Every attempt stays inside `budgetMs`.
+   */
+  fallbackModel: string | null
   systemInstruction: string
   /** Chronological, starts and ends with a user turn. */
   history: AgentTurn[]
@@ -49,10 +63,23 @@ export interface AgentModelUsage {
   outputTokens: number
 }
 
-/** Tool names called, in order (names only, never args or results: R9). */
+/**
+ * Tool names called, in order (names only, never args or results: R9).
+ * R18: `model` is the model that answered last (the fallback once it was
+ * used); `httpStatus` is the status of the last HTTP response, absent when
+ * none arrived (timeout, network). Both optional so a scripted port can omit
+ * them: the worker then records the requested model.
+ */
 export type AgentModelResult =
-  | { ok: true; text: string; toolCalls: string[]; usage: AgentModelUsage }
-  | { ok: false; reason: AgentModelFailure; toolCalls: string[]; usage: AgentModelUsage }
+  | { ok: true; text: string; toolCalls: string[]; usage: AgentModelUsage; model?: string; httpStatus?: number }
+  | {
+      ok: false
+      reason: AgentModelFailure
+      toolCalls: string[]
+      usage: AgentModelUsage
+      model?: string
+      httpStatus?: number
+    }
 
 export interface AgentModelPort {
   respond(request: AgentModelRequest): Promise<AgentModelResult>

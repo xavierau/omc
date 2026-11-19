@@ -70,8 +70,8 @@ describe('AC-R7 GET /api/dashboard/agent/conversations', () => {
     expect(filtersOf(rec.queries[0])).toContain(`eq:restaurant_id=${TENANT_A}`)
     const body = await res.json()
     expect(body.threads).toEqual([
-      { key: KEY_A, maskedPhone: '•••• 4567', lastActivityAt: '2026-11-19T10:00:05Z', messageCount: 2, latestOutcome: 'shadow_draft' },
-      { key: 'x2', maskedPhone: '•••• 7777', lastActivityAt: '2026-11-19T09:00:00Z', messageCount: 1, latestOutcome: null },
+      { key: KEY_A, maskedPhone: '•••• 4567', lastActivityAt: '2026-11-19T10:00:05Z', messageCount: 2, latestOutcome: 'shadow_draft', needsStaff: false },
+      { key: 'x2', maskedPhone: '•••• 7777', lastActivityAt: '2026-11-19T09:00:00Z', messageCount: 1, latestOutcome: null, needsStaff: false },
     ])
     const raw = JSON.stringify(body)
     expect(raw).not.toContain('91234567')

@@ -48,3 +48,14 @@ export function toAgentTurns(rows: AgentHistoryMessage[]): AgentTurn[] {
   }
   return turns
 }
+
+/** AGENT-003 R19: the fixed bilingual apology an auto-mode diner gets when the agent fails. */
+export const HANDOFF_APOLOGY =
+  "抱歉，我暫時未能回覆你，職員會盡快跟進。\nSorry, I can't answer that right now. A staff member will follow up."
+const CONTACT_FALLBACK_LABEL = '聯絡我們 Contact us'
+
+/** R19: the apology plus the tenant's contact action (the source handoff_to_staff uses), before the disclosure. */
+export function handoffReplyText(contact: { url: string | null; label: string | null } | null): string {
+  if (!contact?.url) return HANDOFF_APOLOGY
+  return `${HANDOFF_APOLOGY}\n\n${contact.label?.trim() || CONTACT_FALLBACK_LABEL}: ${contact.url}`
+}

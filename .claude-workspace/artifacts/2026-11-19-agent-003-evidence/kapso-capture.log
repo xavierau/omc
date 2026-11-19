@@ -1,0 +1,4 @@
+2026-11-19T08:51:02.842Z POST messages {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+85290000003", "type": "text", "text": {"body": "幫你暫時保留聽日（11月20日）晚上7點，4位，陳生。請問係咪正確？確認嘅話請話我知，我幫你正式發送訂座請求。\n\n🤖 自動回覆 Automated reply"}}
+2026-11-19T08:51:17.724Z POST messages {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+85290000003", "type": "text", "text": {"body": "陳生你好,我們已收到你在A3 Test Cafe的訂座要求:2026-11-20 19:00,4位。餐廳確認後會再通知你。"}}
+2026-11-19T08:51:18.332Z POST messages {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+85290000003", "type": "text", "text": {"body": "已經幫你發送咗訂座請求啦！餐廳確認之後會透過 WhatsApp 通知你架。\n\n🤖 自動回覆 Automated reply"}}
+2026-11-19T08:52:36.235Z POST messages {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+85290000004", "type": "text", "text": {"body": "你好！幫你預訂 11月21日（星期六）晚上 8 點，2位，李生/李小姐，請問資料正確嗎？\n\n🤖 自動回覆 Automated reply"}}

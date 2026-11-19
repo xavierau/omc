@@ -40,7 +40,7 @@ export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyc
 /** Review F6: null unless https (http://localhost outside production); the agent routes then answer 500. */
 const appUrl = () => resolveAgentAppUrl(process.env.NEXT_PUBLIC_APP_URL, process.env.NODE_ENV)
 
-const members: BookingMemberLookup = {
+export const members: BookingMemberLookup = {
   async findMemberId(restaurantId, phone) {
     return (await findMemberByPhone(restaurantId, phone))?.id ?? null
   },
