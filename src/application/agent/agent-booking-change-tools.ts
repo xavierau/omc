@@ -68,7 +68,7 @@ export const CHANGE_TOOL_DECLARATIONS: Record<AgentChangeToolName, AgentToolDecl
   confirm_booking_change: {
     name: 'confirm_booking_change',
     description:
-      'Send the change you proposed with propose_booking_change to the restaurant, only after the diner agreed to your read-back in a later message. Takes no arguments. Tell the diner staff will confirm the new time and their original booking stays until then.',
+      'Send the change you proposed with propose_booking_change to the restaurant, only after the diner agreed to your read-back in a later message. When the diner\'s message agrees, call this directly: do not list or propose again (proposing again restarts the confirmation). Takes no arguments. Tell the diner staff will confirm the new time and their original booking stays until then.',
   },
   propose_booking_cancel: {
     name: 'propose_booking_cancel',
@@ -79,11 +79,16 @@ export const CHANGE_TOOL_DECLARATIONS: Record<AgentChangeToolName, AgentToolDecl
   confirm_booking_cancel: {
     name: 'confirm_booking_cancel',
     description:
-      'Cancel the booking you proposed with propose_booking_cancel, only after the diner agreed in a later message. Takes no arguments.',
+      'Cancel the booking you proposed with propose_booking_cancel, only after the diner agreed in a later message. When the diner\'s message agrees, call this directly: do not list or propose again (proposing again restarts the confirmation). Takes no arguments.',
   },
 }
 
-const refOf = (b: DinerBooking) => b.id.slice(0, BOOKING_REF_LENGTH)
+/** Each booking's ref: the shortest id prefix (at least 8 characters) that is unique within the diner's list. */
+export function bookingRefs(all: readonly DinerBooking[]): Map<string, string> {
+  let length = BOOKING_REF_LENGTH
+  while (length < 36 && new Set(all.map((b) => b.id.slice(0, length))).size < all.length) length++
+  return new Map(all.map((b) => [b.id, b.id.slice(0, length)]))
+}
 const slotOf = (b: { bookingDate: string; bookingTime: string; partySize: number }) => ({
   date: b.bookingDate,
   time: b.bookingTime,
@@ -110,10 +115,10 @@ async function resolveRef(call: BookingCall, raw: unknown): Promise<{ target: Di
 
 async function listMyBookings(call: BookingCall): Promise<AgentToolOutput> {
   const all = await upcoming(call)
-  const refs = new Map(all.map((b) => [b.id, refOf(b)]))
+  const refs = bookingRefs(all)
   return {
     bookings: all.map((b) => ({
-      ref: refOf(b),
+      ref: refs.get(b.id),
       ...slotOf(b),
       status: b.status,
       ...(b.replacesBookingId ? { changeRequestFor: refs.get(b.replacesBookingId) ?? 'another booking' } : {}),

@@ -84,6 +84,22 @@ describe('AC-R20 list_my_bookings: only this phone’s upcoming bookings here', 
       expect(fn).toContain(filter)
     }
   })
+  it('AC-R20 refs stay unique when two of the diner’s ids share their first 8 characters, and each resolves', async () => {
+    const { seed, job, world } = setup()
+    const a = await seed()
+    const b = await seed({ bookingDate: '2026-11-27' })
+    a.id = 'b0000000-0000-4000-8000-000000000025'
+    b.id = 'b0000000-0000-4000-8000-000000000027'
+    const exec = await job()
+    const out = (await exec('list_my_bookings', {})) as { bookings: Array<{ ref: string; date: string }> }
+    const refs = out.bookings.map((x) => x.ref)
+    expect(new Set(refs).size).toBe(2)
+    expect(refs.every((r) => r.length >= 8)).toBe(true)
+    const later = out.bookings.find((x) => x.date === '2026-11-27')!
+    expect(await exec('propose_booking_cancel', { bookingRef: later.ref })).toMatchObject({ proposed: true, booking: { date: '2026-11-27' } })
+    expect(await exec('propose_booking_cancel', { bookingRef: 'b0000000' })).toMatchObject({ error: 'not_found' })
+    expect(world.proposals.entries.size).toBe(1)
+  })
 })
 
 describe('AC-R21 bookingRef resolves only inside the diner’s own upcoming bookings', () => {

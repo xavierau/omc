@@ -265,11 +265,13 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
   const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode)
   const offered = offeredTools(config.enabledTools, bookingMode)
   const offersProposal = tools.length > 0 && (offered.includes('propose_booking') || offered.includes('propose_booking_change'))
+  // R15/R22: tell the model a read-back is waiting (kind only); a failed read just leaves the line out.
+  const pending = offersProposal && booking ? await booking.proposals.peekKind(key).catch(() => null) : null
   const started = Date.now()
   const result = await deps.model.respond({
     model,
     fallbackModel: effectiveFallbackModel(config, deps.envFallbackModel),
-    systemInstruction: buildSystemInstruction(config, offersProposal ? now : null),
+    systemInstruction: buildSystemInstruction(config, offersProposal ? now : null, pending),
     history: toAgentTurns(rows),
     // No tool calls allowed → declare none, so the model answers in text (a points question included).
     tools,

@@ -77,7 +77,7 @@ describe('AC-R2 tool queries are scoped by the job restaurant AND phone in SQL',
 })
 
 describe('AC-R5 history and purge queries', () => {
-  it('AC-R5 history: one conversation, inside the TTL, user rows + sent/draft replies, newest N, returned oldest first', async () => {
+  it('AC-R5 history: one conversation, inside the TTL, user rows + sent/draft/handoff replies (AGENT-003 R19: the diner saw the apology), newest N, returned oldest first', async () => {
     const rec = use([
       {
         data: [
@@ -90,7 +90,7 @@ describe('AC-R5 history and purge queries', () => {
     const rows = await history(KEY, 3, '2026-11-19T09:00:00.000Z')
     const q = rec.queries[0]
     expect(q.table).toBe('agent_messages')
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=rest-a', 'eq:phone=+85291234567', 'or:role.eq.user,outcome.in.(sent,shadow_draft)'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=rest-a', 'eq:phone=+85291234567', 'or:role.eq.user,outcome.in.(sent,shadow_draft,handoff)'])
     expect(q.calls).toContainEqual(['gte', 'created_at', '2026-11-19T09:00:00.000Z'])
     expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
     expect(q.calls).toContainEqual(['limit', 3])

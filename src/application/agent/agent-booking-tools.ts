@@ -82,7 +82,7 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
   create_booking_request: {
     name: 'create_booking_request',
     description:
-      'Send the booking you proposed with propose_booking to the restaurant, only after the diner has agreed to your read-back in a later message. Takes no arguments: it sends exactly the last proposal. The booking is a request: restaurant staff confirm or decline it and the diner gets a WhatsApp update.',
+      'Send the booking you proposed with propose_booking to the restaurant, only after the diner has agreed to your read-back in a later message. When the diner\'s message agrees, call this directly: do not propose again (proposing again restarts the confirmation). Takes no arguments: it sends exactly the last proposal. The booking is a request: restaurant staff confirm or decline it and the diner gets a WhatsApp update.',
   },
   get_booking_link: {
     name: 'get_booking_link',

@@ -30,7 +30,9 @@ d('AC-R15 AC-R22 Redis proposal store', () => {
   it('AC-R15 AC-R22 none → not_earlier / other kind for the same or an older job (kept) → taken once by a newer job', async () => {
     const store = createRedisProposalStore(client)
     expect(await store.takeIfEarlier(KEY, '2026-11-19T10:01:00.000Z', 'create')).toEqual({ kind: 'none' })
+    expect(await store.peekKind(KEY)).toBeNull()
     await store.save(KEY, proposal('2026-11-19T10:01:00.123456+00:00'), 60_000)
+    expect(await store.peekKind(KEY)).toBe('create')
     expect(await store.takeIfEarlier(KEY, '2026-11-19T10:01:00.123456+00:00', 'create')).toEqual({ kind: 'not_earlier' })
     expect(await store.takeIfEarlier(KEY, '2026-11-19T10:05:00.000Z', 'cancel')).toEqual({ kind: 'other_kind' })
     expect(await store.takeIfEarlier(KEY, '2026-11-19T10:00:00.000Z', 'create')).toEqual({ kind: 'not_earlier' })
@@ -39,6 +41,7 @@ d('AC-R15 AC-R22 Redis proposal store', () => {
       store.takeIfEarlier(KEY, '2026-11-19T10:02:00.000Z', 'create'),
     ])
     expect([a.kind, b.kind].sort()).toEqual(['none', 'taken'])
+    expect(await store.peekKind(KEY)).toBeNull()
     expect(a.kind === 'taken' ? a.proposal : b.kind === 'taken' ? b.proposal : null).toEqual(proposal('2026-11-19T10:01:00.123456+00:00'))
   })
 

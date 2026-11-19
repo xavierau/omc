@@ -7,7 +7,7 @@ import { AGENT_TOOL_NAMES, type AgentToolName } from '@/domain/value-objects/age
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
 import type { AgentModelRequest } from '@/domain/ports/agent-model'
 import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
-import { buildSystemInstruction } from '@/application/agent/agent-prompt'
+import { buildSystemInstruction, pendingProposalLine } from '@/application/agent/agent-prompt'
 import {
   FakeAgentModel,
   FakeAgentStore,
@@ -320,6 +320,24 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     expect(h.store.modelRows().map((r) => r.tool_calls)).toEqual([['propose_booking'], ['create_booking_request']])
     expect(model.requests[0].tools.map((t) => t.name)).toContain('propose_booking')
     expect(model.requests[0].systemInstruction).toContain('CURRENT DATE AND TIME IN HONG KONG: 2026-11-19 (Thursday) 18:00')
+    // AC-R15: the "好" turn is told a read-back is waiting (kind only, no booking values); the first turn is not.
+    expect(model.requests[0].systemInstruction).not.toContain('WAITING FOR THE DINER')
+    expect(model.requests[1].systemInstruction).toContain(pendingProposalLine('create'))
+    expect(model.requests[1].systemInstruction).not.toMatch(/19:00|陳生/)
+  })
+
+  it('AC-R22 the pending line names the confirm tool of the stored kind; a failed peek leaves it out and still answers', async () => {
+    expect(pendingProposalLine('change')).toContain('confirm_booking_change')
+    expect(pendingProposalLine('cancel')).toContain('confirm_booking_cancel')
+    const model = new FakeAgentModel([okModel('Hi')])
+    const h = workerHarness({ config: { mode: 'auto' }, model })
+    h.booking.settings.setConfig(R, { mode: 'simple', maxPartySize: 8 })
+    h.booking.proposals.peekKind = async () => {
+      throw new Error('redis down')
+    }
+    await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))
+    expect(model.requests[0].systemInstruction).not.toContain('WAITING FOR THE DINER')
+    expect(h.store.modelRows().map((r) => r.outcome)).toEqual(['sent'])
   })
 
   it('AC-MODE booking mode off → the model is offered no booking tool and no clock line', async () => {

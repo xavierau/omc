@@ -1,0 +1,54 @@
+{
+  "url": "http://localhost:3022/dashboard/agent",
+  "viewport": {
+    "w": 1280,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1280,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1280,
+    "scrollH": 900,
+    "scrollable": false,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 58,
+    "domNodes": 132,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 2,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 A3 Test Cafe \" @0,0 1280x900",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 334px / bottom 700px)",
+      "items": [
+        "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient WhatsApp 智能客戶管理 A3 Test Cafe \" @0,0 240x900",
+        "main.flex-1.bg-background \"AI 助手 過去 7 日每位顧客的對話，以及 AI 的草擬或已發送回覆。 •••\" @240,0 1040x900"
+      ]
+    },
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.grid.gap-6 \"•••• 0003 需要職員跟進 已發送 19 Nov, 17:36 · 23 \" @272,116 976x84",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 16px / center 13px / bottom 10px)",
+      "items": [
+        "ul[data-testid=\"agent-log-thread-list\"].space-y-2 \"•••• 0003 需要職員跟進 已發送 19 Nov, 17:36 · 23 \" @272,116 288x84",
+        "div[data-testid=\"agent-log-detail\"].group/card.flex \"選擇一個對話查看。\" @584,116 664x84"
+      ]
+    }
+  ]
+}

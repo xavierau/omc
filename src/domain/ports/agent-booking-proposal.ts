@@ -44,6 +44,12 @@ export type TakeProposalResult =
 export interface AgentProposalStore {
   /** Stores or replaces the conversation's proposal for `ttlMs`. */
   save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number): Promise<void>
+  /**
+   * The kind of the conversation's live proposal, or null. Only the kind: the
+   * worker tells the model a read-back is waiting (history rows keep no tool
+   * results, R9), never its values. Reading it consumes and authorises nothing.
+   */
+  peekKind(key: AgentConversationKey): Promise<AgentProposalKind | null>
   /** Atomic check-and-delete: hands the proposal out only when it is of `kind` and its inbound row is older than `inboundCreatedAt`. */
   takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string, kind: AgentProposalKind): Promise<TakeProposalResult>
 }

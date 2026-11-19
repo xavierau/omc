@@ -187,6 +187,10 @@ export class FakeProposalStore implements AgentProposalStore {
   async save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number) {
     this.entries.set(this.k(key), { proposal, expiresAt: this.clock.ms + ttlMs })
   }
+  async peekKind(key: AgentConversationKey): Promise<AgentProposalKind | null> {
+    const entry = this.entries.get(this.k(key))
+    return entry && entry.expiresAt > this.clock.ms ? entry.proposal.kind : null
+  }
   async takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string, kind: AgentProposalKind): Promise<TakeProposalResult> {
     const entry = this.entries.get(this.k(key))
     if (!entry || entry.expiresAt <= this.clock.ms) return { kind: 'none' }

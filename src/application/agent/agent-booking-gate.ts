@@ -89,7 +89,10 @@ export async function takeProposal<K extends AgentProposalKind>(
   if (taken.kind === 'not_earlier') {
     return {
       ok: false,
-      output: { error: 'awaiting_diner_confirmation', note: 'Read the proposal back to the diner and wait for their reply before confirming it.' },
+      output: {
+        error: 'awaiting_diner_confirmation',
+        note: 'The proposal was made in this turn, so the diner has not agreed to it yet. Do not call a confirm tool again now: read it back and ask the diner to confirm.',
+      },
     }
   }
   if (taken.kind === 'taken' && call.now().getTime() - Date.parse(taken.proposal.proposedAt) <= AGENT_PROPOSAL_TTL_MS) {

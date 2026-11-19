@@ -1,0 +1,4 @@
+2026-11-19T09:35:58.761Z wamid.X.3 200 {"status":"ok"}
+{"ts":"2026-11-19T09:36:04.259Z","level":"info","event":"agent.reply","messageId":"60ba135a-4d82-4996-bdde-ad0c35e51a74","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a3","outcome":"sent","latencyMs":2417,"httpStatus":200,"promptTokens":4150,"outputTokens":140,"toolCalls":["confirm_booking_cancel"]}
+  >> {"body": "已取消你 2026-11-27 12:30（2 位）的訂座。\nYour booking for 2 on 2026-11-27 at 12:30 is cancelled."}
+  >> {"body": "已經幫你取消咗11月27號12:30嘅訂座啦。\n\n🤖 自動回覆 Automated reply"}

@@ -12,7 +12,9 @@
  */
 import { Redis } from 'ioredis'
 import { parseRedisUrl, redisUrl } from './connection'
-import type { AgentBookingProposal, AgentProposalStore, TakeProposalResult } from '@/domain/ports/agent-booking-proposal'
+import type { AgentBookingProposal, AgentProposalKind, AgentProposalStore, TakeProposalResult } from '@/domain/ports/agent-booking-proposal'
+
+const KINDS: readonly string[] = ['create', 'change', 'cancel'] satisfies AgentProposalKind[]
 import type { AgentConversationKey } from '@/domain/ports/agent-reply'
 
 // KEYS[1] = proposal key, ARGV[1] = the taking job's inbound row time (epoch ms), ARGV[2] = expected kind.
@@ -41,6 +43,10 @@ export function createRedisProposalStore(client: Redis): AgentProposalStore {
         .pexpire(redisKey, ttlMs)
         .exec()
       if (!results || results.some(([err]) => err)) throw new Error('agentProposalStore.save failed')
+    },
+    async peekKind(key) {
+      const kind = await client.hget(proposalKey(key), 'kind')
+      return kind && KINDS.includes(kind) ? (kind as AgentProposalKind) : null
     },
     async takeIfEarlier(key, inboundCreatedAt, kind): Promise<TakeProposalResult> {
       const reply = (await client.eval(
