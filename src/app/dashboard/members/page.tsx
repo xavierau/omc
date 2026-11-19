@@ -11,6 +11,7 @@ import { MemberTagFilter } from '@/components/dashboard/member-tag-filter'
 import { MemberBulkTagBar } from '@/components/dashboard/member-bulk-tag-bar'
 import { MemberDetailPanel } from '@/components/dashboard/member-detail-panel'
 import { EmptyState } from '@/components/shared/empty-state'
+import { settingsGroupHref } from '@/components/dashboard/settings/settings-groups'
 import { Button } from '@/components/ui/button'
 
 export default function MembersPage() {
@@ -202,7 +203,7 @@ function MembersContent({
         title={t('noMembersTitle')}
         description={t('noMembersDescription')}
         actionLabel={t('goToQrSetup')}
-        actionHref="/dashboard/setup"
+        actionHref={settingsGroupHref('welcome')}
       />
     )
   }

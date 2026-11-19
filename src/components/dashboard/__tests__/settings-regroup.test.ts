@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { resolveSettingsGroup, visibleSettingsGroups } from '@/components/dashboard/settings/settings-groups'
+import { resolveSettingsGroup, settingsGroupHref, visibleSettingsGroups } from '@/components/dashboard/settings/settings-groups'
 import { formFromSettings, formToBody, isDirty, skippedToday } from '@/components/dashboard/settings/campaign-settings-form'
 import { qualityMeaningValues } from '@/components/dashboard/quality-meaning'
 import { isNavItemActive } from '@/components/dashboard/sidebar'
@@ -15,6 +17,18 @@ describe('Settings groups (CAMP-016)', () => {
     expect(resolveSettingsGroup('bookings', 'admin')).toBe('bookings')
     expect(resolveSettingsGroup('nope', 'admin')).toBeNull()
   })
+
+  // r3 F5: /dashboard/setup now opens Profile (desktop) or the index (phone),
+  // so a link whose intent is the QR code must name the Welcome & QR group.
+  it.each(['src/app/dashboard/members/page.tsx', 'src/app/dashboard/page.tsx'])(
+    '%s links its QR action to the Welcome & QR group',
+    (file) => {
+      const src = readFileSync(join(process.cwd(), file), 'utf8')
+      expect(src).toContain("settingsGroupHref('welcome')")
+      expect(src).not.toMatch(/["'`]\/dashboard\/setup["'`]/)
+      expect(settingsGroupHref('welcome')).toBe('/dashboard/setup/welcome')
+    }
+  )
 
   it('the sidebar Settings item stays active on a group URL, without widening other items', () => {
     expect(isNavItemActive('/dashboard/setup/campaigns', '/dashboard/setup')).toBe(true)

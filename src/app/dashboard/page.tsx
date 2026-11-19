@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useDashboardOverview } from '@/hooks/use-dashboard-overview'
 import { HeroStat } from '@/components/dashboard/hero-stat'
 import { StatCard } from '@/components/dashboard/stat-card'
+import { settingsGroupHref } from '@/components/dashboard/settings/settings-groups'
 import { MiniFeed } from '@/components/dashboard/mini-feed'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -101,7 +102,7 @@ export default function DashboardPage() {
               <Link href="/dashboard/scan">{t('scanQrCode')}</Link>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/setup">{t('generateQrCode')}</Link>
+              <Link href={settingsGroupHref('welcome')}>{t('generateQrCode')}</Link>
             </Button>
             <Button asChild variant="outline" className="w-full">
               <Link href="/dashboard/members">{t('viewAllMembers')}</Link>
