@@ -11,7 +11,9 @@
  *
  * R4, exactly one response: a job the webhook admitted under `auto` had the
  * fallback menu suppressed, so any failure (model, send, config read, mode
- * switched off since) sends today's fallback menu once; shadow only records.
+ * switched off since, silenced by a handoff) sends today's fallback menu
+ * once; a superseded job sends nothing (the newer job owns the response);
+ * shadow only records.
  * The job never sends more than it was admitted for nor more than the tenant
  * now allows (`effectiveMode`). The answer row is inserted BEFORE the send
  * (`reply_to_message_id` is unique per user row), so a stalled job re-run by
@@ -253,7 +255,11 @@ async function answer(run: Run, config: AgentConfig, mode: 'shadow' | 'auto'): P
   const base = { model, latencyMs, toolCalls: result.toolCalls, usage: result.usage }
   // The call counts toward the limits whatever happens next (`model` is set on every row below).
   const interrupted = await interruptedAfterCall(run)
-  if (interrupted) return { ...base, outcome: 'skipped', text: null, reason: interrupted }
+  if (interrupted) {
+    // Superseded: the newer job owns the response. Silenced: the menu, as the webhook's silenced path (R4).
+    if (interrupted === 'silenced' && run.owesResponse) await run.fallback()
+    return { ...base, outcome: 'skipped', text: null, reason: interrupted }
+  }
   const bounded = boundResult(result, config)
 
   if ('reason' in bounded) {
@@ -297,7 +303,10 @@ async function process(run: Run): Promise<AgentRunResult> {
     return run.finish(skipped('mode_off'))
   }
   const now = deps.now()
-  if (await deps.silences.isSilenced(key, now.toISOString())) return run.finish(skipped('silenced'))
+  if (await deps.silences.isSilenced(key, now.toISOString())) {
+    if (run.owesResponse) await run.fallback()
+    return run.finish(skipped('silenced'))
+  }
 
   if (await isOverReplyLimit(deps.messages, key, config, now)) {
     // recordRateLimited stores the row; finish() would store a second one.

@@ -27,7 +27,11 @@ response per message, agent reply or fallback menu) or the R6 cost caps. Grouped
 - **Fix:** re-check latest-wins and silence after the model call (a run's own handoff excluded);
   `reply_to_message_id` with a partial UNIQUE over sent/shadow_draft/fallback, row inserted
   before the send (claim-first); worker lockDuration 60 s.
+- **Ruling r2:** an auto-admitted job that ends silenced (at start or after the call) sends the
+  fallback menu once, as the webhook's silenced path does; a superseded job sends nothing.
+  Without it, a handoff by a job that is then superseded left the diner with zero responses.
 - **Prevention:** for any side effect behind a slow call, guard with a DB constraint, not a read.
+  For every "skip" branch of an auto-admitted job, ask who sends the diner's one response.
 
 ## 3. Failure paths that ended in silence (F4, F5, F6)
 

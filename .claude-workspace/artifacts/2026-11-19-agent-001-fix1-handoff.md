@@ -7,14 +7,14 @@ created: 2026-11-19
 status: active
 item: AGENT-001-FIX1
 state: done
-brief: inline (team-lead, AGENT-001 FIX-1)
+brief: inline (team-lead, AGENT-001 FIX-1) + ruling r2 (team-lead, 2026-11-19: silenced in auto → fallback once)
 base: 530331c8
-head: e717984e (code; this handoff file is committed on top)
+head: r2 fix commit on top of e717984e (see git log; this handoff file is committed with it)
 branch: feature/agent-001-ai-reply
 pushed: true
 stage: poc
 gate: {result: pass, at: 2026-11-19}
-next: {owner: main, action: "rule on decision D1 (silenced in auto), re-review PR #185"}
+next: {owner: main, action: "re-review PR #185"}
 blockers: []
 refs: [plans/2026-11-19-agent-001-ai-reply-agent, threats/2026-11-19-agent-001-ai-reply-agent, artifacts/2026-11-19-agent-001-w1-handoff, artifacts/2026-11-19-agent-001-w2-handoff, kanban:AGENT-001]
 ---
@@ -22,10 +22,16 @@ refs: [plans/2026-11-19-agent-001-ai-reply-agent, threats/2026-11-19-agent-001-a
 # AGENT-001 FIX-1 handoff: /code-review findings on PR #185
 
 Evidence folder: `.claude-workspace/artifacts/2026-11-19-agent-001-fix1-evidence/`.
-Per-AC test counts: one repo-wide `vitest run -t 'AC-F'` JSON run (36 passed, 0 failed), listed in `ac-f-counts.log`.
+Per-AC test counts come from the round-r2 full-suite JSON run (38 AC-F tests passed, 0 failed), listed in `ac-f-counts.log`.
 
 ## ac
-- **AC-F1: pass** (4 tests, red-first: `red-first-f1-f3.log`, with the post-call re-check removed all 3 original F1 tests fail). `src/application/__tests__/process-agent-reply.test.ts`. Overlapping jobs A and B on one conversation: one send (B), A recorded `skipped` reason `superseded` with `model` set. Job A's handoff during B's in-flight model call: B recorded `skipped` reason `silenced`, nothing sent. A run's own handoff does not block its own reply. A superseded shadow job records no draft.
+- **AC-F1: pass** (6 tests). Red-first is shown twice. `red-first-f1-f3.log`: with the post-call re-check removed, the 3 original F1 tests fail. `red-first-f1-r2.log`: with the r2 fallback lines removed, the 3 silenced-in-auto tests fail. All in `src/application/__tests__/process-agent-reply.test.ts`:
+  - Overlapping jobs A and B on one conversation: one send (B). A is recorded `skipped`, reason `superseded`, with `model` set.
+  - Job A's handoff during B's in-flight model call: nothing sent by B, outcome `skipped`, reason `silenced`.
+  - Ruling r2 case: B (admitted under auto) is silenced by A's handoff, so B sends the fallback menu exactly once. A, superseded, sends nothing. Zero agent sends; the log reasons are `silenced` and `superseded`.
+  - An auto-admitted job silenced at job start sends the fallback once with no model call. A shadow-admitted one sends nothing.
+  - A run's own handoff does not block its own reply.
+  - A superseded shadow job records no draft.
 - **AC-F2: pass** (2). `historyTtlHours: 1` clamps to 24; three model rows 2/12/23 h old survive a purge and still trip the 24 h tenant cap (`purge-agent-messages.test.ts`). The UI knob renders `min="24" max="168"` and the `range` hint `{min:24,max:168}` (`agent-dashboard.test.tsx`). The hint already read `AGENT_NUMBER_RANGES`, so no UI code changed.
 - **AC-F3: pass** (6, red-first in `red-first-f1-f3.log`). Auto-admitted job with a failed config read: fallback once, outcome `fallback`, reason `config_unavailable`, no model call. Shadow-admitted job with a failed read: `error`, nothing sent. Auto-admitted job with config now off: fallback once, outcome `skipped`, reason `mode_off`. The webhook stamps `admittedMode`. Repo test: `readAgentConfig` returns `{ok:false}` on a query error, while `getAgentConfig` (webhook) still degrades to off.
 - **AC-F4: pass** (3). Auto `send_failed`: the fallback is tried once, outcome `fallback`, reason `send_failed`. If the send throws and the fallback also fails: `error`, one attempt each. `no_phone_number`: `error`, no fallback attempt.
@@ -44,18 +50,14 @@ Per-AC test counts: one repo-wide `vitest run -t 'AC-F'` JSON run (36 passed, 0 
   - The schema-contract test covers the new column, the index over exactly `REPLY_CLAIM_OUTCOMES`, SET NULL and the user-row CHECK, and its filter parser now also reads `.not(`.
 - **AC-F8: pass** (3). A `skipped` `window_closed` row with a model counts toward the per-phone cap (the next job is rate_limited) and the per-tenant cap (the webhook gate stops the next message and the worker stops a raced job). Rows without a model call do not count. The repo query is `.not('model','is',null)` with no outcome list.
 - **AC-F10: pass** (1). `agent-routing.test.ts`: `isSilenced` and both `countModelCalls` start before any of them resolves, and the admit result is still `queued`.
-- **AC-REG: pass.** Full suite once under the heavy lock: 633 files passed, 10 skipped; 7057 tests passed, 0 failed (`full-suite.log`). The known-flaky WAQ files did not fail.
-- **AC-GATE: pass.** `tsc --noEmit` under the heavy lock. The first run found a test-only typing error in `agent-reply-queue.test.ts:52`; I fixed it, re-ran that file, and the re-run of tsc exited 0 (`tsc.log`). ESLint is clean on every touched file.
+- **AC-REG: pass.** The full suite ran under the heavy lock twice, once per round. Round r2: 633 files passed, 10 skipped; 7059 tests passed, 0 failed (`full-suite.log`). Round 1: 7057 passed, 0 failed. The known-flaky WAQ files did not fail in either run.
+- **AC-GATE: pass.** `tsc --noEmit` ran under the heavy lock. In round 1 the first run found a test-only typing error in `agent-reply-queue.test.ts:52`; I fixed it and the re-run exited 0. After the r2 change it exited 0 again (`tsc.log`). ESLint is clean on every touched file.
 - F9 (no AC): `changeAgentConfig`, its `CAS_ATTEMPTS`/`ConfigChange` orphans and its test are deleted. `saveAgentSettingsAtRev` is the only write path. No reference to it remains (grep).
 
 ## decisions
-- **D1 (needs a ruling from main; question sent to team-lead mid-run, no reply before the end of the run): the silenced-in-auto case gives zero responses.**
-  - I implemented the brief literally: silenced after the model call → send nothing.
-  - With latest-wins, job B can only overlap job A when B answers a newer message. So in the AC-F1 handoff scenario, A is superseded (its handoff acknowledgement is never sent) and B is silenced by A. In auto the diner gets nothing.
-  - Silenced at job start in an auto-admitted job has the same gap; that one is from W1, not new. The webhook, by contrast, sends the fallback menu when the phone is silenced.
-  - Recommendation: when an auto-admitted job ends silenced (at start or after the call), send the fallback once and keep the outcome `skipped`/`silenced`. That is two lines in `process()`/`answer()`.
-- **Own-handoff exclusion (F1):** the post-call silence re-check ignores a silence this run's own `handoff_to_staff` set. Without it, every handoff reply would block itself. It is tracked by wrapping `silenceUntil` in the run's tool executor. `AgentToolContext.silences` is narrowed to `Pick<…,'silenceUntil'>`.
-- **Mode matrix (F3 spirit, beyond the brief's explicit cases):** the worker runs at `min(admittedMode, current mode)` and owes a fallback if and only if the job was admitted under `auto`.
+- **Silenced in auto, ruling r2 (team-lead 2026-11-19, which replaces the brief's F1 "send nothing"):** an auto-admitted job that ends silenced, at job start or at the post-call re-check, sends the fallback menu once. The outcome stays `skipped`, reason `silenced`. This applies R4 and matches the webhook's silenced path. A superseded job still sends nothing, because the newer job owns the response. Code: `process()` (start check) and `answer()` (post-call re-check) in `process-agent-reply.ts`.
+- **Own-handoff exclusion (F1, accepted in ruling r2):** the post-call silence re-check ignores a silence this run's own `handoff_to_staff` set. Without it, every handoff reply would block itself. It is tracked by wrapping `silenceUntil` in the run's tool executor. `AgentToolContext.silences` is narrowed to `Pick<…,'silenceUntil'>`.
+- **Mode matrix (F3, accepted in ruling r2):** the worker runs at `min(admittedMode, current mode)` and owes a fallback if and only if the job was admitted under `auto`.
   - Admitted auto, now shadow: the draft is stored and the suppressed menu is sent (reason `mode_changed`).
   - Admitted shadow, now auto: draft only, because the diner already got the menu.
   - Any failure (model, send, config read, unexpected throw) falls back on `admittedMode`, not on the current config.
@@ -83,7 +85,6 @@ Per-AC test counts: one repo-wide `vitest run -t 'AC-F'` JSON run (36 passed, 0 
 - **Tool omission after a function call on `gemini-3.8-flash`**: the live probe got 503. Verified only on 3.1-flash-lite. Owner: next live run / I-task.
 - **Real BullMQ stall re-run** with `lockDuration` 60 s: unit-tested with a mocked bullmq only. Owner: I-task on the local stack.
 - **Real PostgREST encoding** of `.not('model','is',null)` and of `insert(...).select('id').single()` mapping 23505 to `taken` on the partial index: SQL semantics proven on the scratch DB, PostgREST only through a recording client. Owner: I-task / prod smoke.
-- **D1 zero-response case**: unchanged pending main's ruling.
 
 ## review_focus
 - `src/application/agent/process-agent-reply.ts`: `effectiveMode`, `Run.claim`/`finish`, `interruptedAfterCall`, `deliver` (claim → send → fallback on failure), `process` (config Result, mode_off fallback).
@@ -94,4 +95,4 @@ Per-AC test counts: one repo-wide `vitest run -t 'AC-F'` JSON run (36 passed, 0 
 ## scope_drift
 - None. Every changed file is inside files_allowed. `src/test-utils/recording-supabase.ts` lacks `.not`, and it is outside files_allowed, so the `countModelCalls` test builds its own small recording chain instead of extending it.
 
-next_step: "Main rules on D1; if yes, a one-line fix round (fallback when an auto-admitted job ends silenced). Then re-review PR #185."
+next_step: "Re-review PR #185."

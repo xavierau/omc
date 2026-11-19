@@ -1,5 +1,7 @@
 passed | AC-F1 overlapping jobs of one conversation AC-F1 two overlapping jobs for one conversation → exactly one send (the older job is superseded after its model call)
 passed | AC-F1 overlapping jobs of one conversation AC-F1 a handoff silence set during job A's model call stops job B's send
+passed | AC-F1 overlapping jobs of one conversation AC-F1 job B silenced by job A's handoff → B sends the fallback once, A (superseded) sends nothing
+passed | AC-F1 overlapping jobs of one conversation AC-F1 an auto-admitted job silenced at job start sends the fallback once; shadow-admitted sends nothing
 passed | AC-F1 overlapping jobs of one conversation AC-F1 a run's own handoff does not stop its own reply
 passed | AC-F1 overlapping jobs of one conversation AC-F1 a shadow draft is not recorded when the job was superseded during the model call
 passed | AC-F3 config read failure and mode changes after admission AC-F3 auto-admitted job + config read error → fallback once, never read as mode off
@@ -34,7 +36,7 @@ passed | agent_messages writes and counters AC-F8 countModelCalls counts rows th
 passed | agent config repository AC-F3 readAgentConfig reports a query error as a failed read (the webhook getter still degrades to off)
 passed | AC-MIG agent schema contract: repositories match migration 083 AC-F7-MIG one answer per user row: partial UNIQUE on reply_to_message_id over exactly the claim outcomes
 passed | AC-F10 the auto gate reads silence and limits concurrently AC-F10 admit gate issues isSilenced and the limit check concurrently (both started before either resolves)
-AC-F1 passed 4 failed 0
+AC-F1 passed 6 failed 0
 AC-F10 passed 1 failed 0
 AC-F2 passed 2 failed 0
 AC-F3 passed 6 failed 0
@@ -44,4 +46,4 @@ AC-F6 passed 5 failed 0
 AC-F7 passed 7 failed 0
 AC-F7-MIG passed 1 failed 0
 AC-F8 passed 3 failed 0
-total 36 failed 0
+suite total passed 7059 failed 0

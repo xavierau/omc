@@ -371,8 +371,53 @@ describe('AC-F1 overlapping jobs of one conversation', () => {
     await processAgentReply(h.deps, jobA)
     expect(await jobB).toBe('skipped')
     expect(h.sends).toEqual([])
+    // R4 (ruling r2): B, admitted under auto, owes the diner the menu; A (superseded) sends nothing.
+    expect(h.fallbacks).toHaveLength(1)
     expect(h.logs.filter((l) => l.event === 'agent.reply').map((l) => l.data.reason).sort()).toEqual(['silenced', 'superseded'])
     expect(h.store.modelRows().map((r) => [r.outcome, r.model])).toEqual([['skipped', MODEL], ['skipped', MODEL]])
+  })
+
+  it("AC-F1 job B silenced by job A's handoff → B sends the fallback once, A (superseded) sends nothing", async () => {
+    const h = workerHarness()
+    const [jobA] = await inbound(h, '我想搵職員', 'wamid.a')
+    let jobB: Promise<unknown> = Promise.resolve()
+    let bCalling!: () => void
+    const bInCall = new Promise<void>((resolve) => (bCalling = resolve))
+    let releaseB!: () => void
+    const bWaiting = new Promise<void>((resolve) => (releaseB = resolve))
+    h.model.results = [
+      async (req) => {
+        const [b] = await inbound(h, '喂?', 'wamid.b')
+        jobB = processAgentReply(h.deps, b)
+        await bInCall
+        await req.executeTool('handoff_to_staff', {})
+        releaseB()
+        return okModel('Staff will follow up.', ['handoff_to_staff'])
+      },
+      async () => (bCalling(), await bWaiting, okModel('B reply')),
+    ]
+    expect(await processAgentReply(h.deps, jobA)).toBe('skipped')
+    expect(await jobB).toBe('skipped')
+    expect(h.sends).toEqual([])
+    expect(h.fallbacks).toEqual([{ phoneNumberId: 'pn-1', phone: PHONE, restaurantId: R }])
+    const reasons = h.logs.filter((l) => l.event === 'agent.reply').map((l) => [l.data.outcome, l.data.reason])
+    expect(reasons.sort()).toEqual([['skipped', 'silenced'], ['skipped', 'superseded']])
+  })
+
+  it('AC-F1 an auto-admitted job silenced at job start sends the fallback once; shadow-admitted sends nothing', async () => {
+    const auto = workerHarness()
+    const [jobAuto] = await inbound(auto, 'hi', 'w1')
+    await auto.store.silenceUntil(KEY, '2026-11-19T12:00:00.000Z')
+    expect(await processAgentReply(auto.deps, jobAuto)).toBe('skipped')
+    expect(auto.fallbacks).toHaveLength(1)
+    expect(auto.model.requests).toHaveLength(0)
+    expect(auto.logs.find((l) => l.event === 'agent.reply')?.data.reason).toBe('silenced')
+
+    const shadow = workerHarness({ config: { mode: 'shadow' } })
+    const [jobShadow] = await inbound(shadow, 'hi', 'w1')
+    await shadow.store.silenceUntil(KEY, '2026-11-19T12:00:00.000Z')
+    expect(await processAgentReply(shadow.deps, jobShadow)).toBe('skipped')
+    expect(shadow.fallbacks).toEqual([])
   })
 
   it("AC-F1 a run's own handoff does not stop its own reply", async () => {
