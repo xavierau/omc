@@ -1,0 +1,25 @@
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/campaign-form-dialog.tsx
+  108:22  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/campaign-form-dialog.tsx:108:22
+  106 |
+  107 |   useEffect(() => {
+> 108 |     if (!campaign) { setForm(initialCampaignForm); return }
+      |                      ^^^^^^^ Avoid calling setState() directly within an effect
+  109 |     setForm(campaignToFormState(campaign))
+  110 |     if (campaign.targetAudience === 'selected') {
+  111 |       fetch(`/api/dashboard/campaigns/${campaign.id}`)  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/sidebar.tsx
+  151:15  warning  Do not use `window.location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+✖ 2 problems (1 error, 1 warning)
+
+eslint exit 1

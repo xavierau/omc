@@ -46,6 +46,12 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+// CAMP-016: the dialog also loads the tenant's audience defaults; stubbed so
+// the hook-order stand-ins above and the fetch assertions below are unchanged.
+vi.mock('@/hooks/use-campaign-audience-settings', () => ({
+  useCampaignAudienceSettings: () => ({ settings: null }),
+}))
+
 import { CampaignFormDialog } from '@/components/dashboard/campaign-form-dialog'
 
 // Flushes the fetch().then().then() microtask chain the hydration effect

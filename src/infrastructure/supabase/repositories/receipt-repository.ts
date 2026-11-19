@@ -67,6 +67,19 @@ export async function updateReceipt(
   if (error) throw new Error(`updateReceipt: ${error.message}`)
 }
 
+/** Head count of a tenant's flagged receipts (CAMP-016 Settings pill): reads no rows. */
+export async function countFlaggedReceipts(restaurantId: string): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { count, error } = await supabase
+    .from('receipts')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'flagged')
+
+  if (error) throw new Error(`countFlaggedReceipts: ${error.message}`)
+  return count ?? 0
+}
+
 export async function findPendingReceipt(
   memberId: string
 ): Promise<Record<string, unknown> | null> {

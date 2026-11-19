@@ -1,0 +1,46 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/campaigns",
+ "viewport": {
+  "w": 390,
+  "h": 844,
+  "dpr": 2,
+  "mobile": true,
+  "consistent": true,
+  "inner": [
+   390,
+   844
+  ]
+ },
+ "page": {
+  "scrollW": 390,
+  "scrollH": 1631,
+  "scrollable": true,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 99,
+  "domNodes": 281,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 1,
+  "info": 1
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-back\"].inline-flex.items-center \"Settings\" @64,24 75x20",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-under-44",
+   "sev": "info",
+   "el": null,
+   "detail": "6 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+  }
+ ]
+}

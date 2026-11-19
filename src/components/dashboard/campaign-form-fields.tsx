@@ -6,6 +6,10 @@ import { CampaignMessageTypeField } from './campaign-message-type-field'
 import { CampaignTargetAudienceFields } from './campaign-target-audience-fields'
 import { WelcomeImageFields } from './welcome-image-fields'
 import { CampaignBookNowFields } from './campaign-book-now-fields'
+import { CampaignAudienceFilters } from './campaign-audience-filters'
+import { CampaignAudienceSummary } from './campaign-audience-summary'
+import type { AudienceFilterState } from './campaign-audience-filter-state'
+import type { CampaignAudienceSettings } from '@/hooks/use-campaign-audience-settings'
 import {
   couponFormMode,
   couponFormQrOnly,
@@ -41,6 +45,9 @@ interface CampaignFormFieldsProps {
   onTagIdsChange: (ids: string[]) => void
   onTemplateChange: (next: { en: string; zhHk: string }) => void
   onBookNowToggle: (enabled: boolean) => void
+  /** CAMP-016: lapsed / quality filters and the tenant defaults they start from. */
+  onAudienceFiltersChange: (patch: Partial<AudienceFilterState>) => void
+  audienceDefaults: CampaignAudienceSettings | null
 }
 
 export function CampaignFormFields({
@@ -52,6 +59,8 @@ export function CampaignFormFields({
   onTagIdsChange,
   onTemplateChange,
   onBookNowToggle,
+  onAudienceFiltersChange,
+  audienceDefaults,
 }: CampaignFormFieldsProps) {
   const t = useTranslations('campaigns')
   // A selected id missing from the approved list's first page (or no longer
@@ -82,6 +91,12 @@ export function CampaignFormFields({
         onMemberIdsChange={onMemberIdsChange}
         onTagIdsChange={onTagIdsChange}
       />
+      {form.type !== 'welcome' && (
+        <>
+          <CampaignAudienceFilters type={form.type} filters={form} defaults={audienceDefaults} onChange={onAudienceFiltersChange} />
+          <CampaignAudienceSummary form={form} />
+        </>
+      )}
       <CampaignMessageTypeField
         form={form}
         approvedTemplates={pickerTemplates(list.templates, lookup)}

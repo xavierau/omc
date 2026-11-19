@@ -4,6 +4,7 @@ import {
   mapRowToCampaign,
   buildCampaignUpdateRow,
   bookNowInsertColumns,
+  audienceInsertColumns,
   extractConstraintName,
   type CreateCampaignParams,
   type UpdateCampaignParams,
@@ -43,6 +44,7 @@ export async function createCampaign(
       target_audience: params.targetAudience ?? 'all',
       status: params.status ?? 'draft',
       ...bookNowInsertColumns(params),
+      ...audienceInsertColumns(params),
     })
     .select('*')
     .single()

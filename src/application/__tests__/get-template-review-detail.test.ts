@@ -11,6 +11,8 @@ import {
 import { TemplateReview, type TemplateReviewProps } from '@/domain/entities/template-review'
 import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import type { TemplateCampaignRow } from '@/infrastructure/supabase/repositories/template-review-detail-queries'
+import type { AudienceCounts, AudienceQuery } from '@/domain/value-objects/audience-query'
+import { audienceQueryForCampaign } from '@/application/campaign-audience-query'
 
 const RESTAURANT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const SUBMITTER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
@@ -66,9 +68,15 @@ function campaign(overrides: Partial<TemplateCampaignRow> = {}): TemplateCampaig
     scheduledAt: null,
     schedule: null,
     createdAt: '2026-10-31T00:00:00Z',
+    audienceSkipQuality: 'red',
+    audienceLapsedDays: 30,
     ...overrides,
   }
 }
+
+const counts = (willReceive: number): AudienceCounts => ({
+  audience: willReceive + 5, afterLapsed: willReceive + 3, green: willReceive, yellow: 0, red: 3, noData: 0, willReceive,
+})
 
 function deps(overrides: Partial<TemplateReviewDetailDeps> = {}): TemplateReviewDetailDeps {
   return {
@@ -77,8 +85,7 @@ function deps(overrides: Partial<TemplateReviewDetailDeps> = {}): TemplateReview
     findLatestTemplateByName: vi.fn(async () => null),
     listCampaignsUsingTemplate: vi.fn(async () => [campaign()]),
     getCampaignTagIds: vi.fn(async () => ['tag-1', 'tag-2']),
-    countActiveMembersByTags: vi.fn(async () => 42),
-    countCampaignMembers: vi.fn(async () => 7),
+    countAudience: vi.fn(async (q: AudienceQuery) => counts(q.audience === 'selected' ? 7 : 42)),
     ...overrides,
   }
 }
@@ -223,31 +230,46 @@ describe('getTemplateReviewDetail', () => {
     expect(detail?.campaignsError).toBe(false)
   })
 
-  it('returns campaigns with coupon config and a tag audience size', async () => {
+  // r3 F6: the admin sees the number the send would reach — the same
+  // resolver query, so the campaign's lapsed and skip filters apply.
+  it('sizes a tag audience with the send resolver: the filtered will-receive count', async () => {
     const d = deps()
     const detail = await getTemplateReviewDetail('rev-1', d)
 
     expect(d.getCampaignTagIds).toHaveBeenCalledWith('camp-1')
-    expect(d.countActiveMembersByTags).toHaveBeenCalledWith(['tag-1', 'tag-2'], RESTAURANT)
+    expect(d.countAudience).toHaveBeenCalledWith(audienceQueryForCampaign(campaign() as never, RESTAURANT, ['tag-1', 'tag-2']))
+    expect(vi.mocked(d.countAudience).mock.calls[0][0]).toMatchObject({ lapsedDays: 30, skip: 'red' })
     expect(detail?.campaigns).toEqual([
       { ...campaign(), audienceSize: 42 },
     ])
   })
 
-  it('sizes a selected audience by its member count and leaves "all" unknown', async () => {
+  it('sizes selected and broadcast "all" audiences through the resolver; a non-broadcast "all" stays unknown', async () => {
     const d = deps({
       listCampaignsUsingTemplate: vi.fn(async () => [
         campaign({ id: 'sel', targetAudience: 'selected', couponConfig: null }),
         campaign({ id: 'all', targetAudience: 'all', scheduledAt: '2026-11-10T02:00:00Z' }),
+        campaign({ id: 'bday', type: 'birthday', targetAudience: 'all' }),
       ]),
     })
     const detail = await getTemplateReviewDetail('rev-1', d)
 
-    expect(d.countCampaignMembers).toHaveBeenCalledWith('sel')
+    expect(vi.mocked(d.countAudience).mock.calls.map(([q]) => [q.audience, q.campaignId])).toEqual([
+      ['selected', 'sel'],
+      ['all', null],
+    ])
     expect(detail?.campaigns?.map((c) => [c.id, c.audienceSize, c.couponConfig])).toEqual([
       ['sel', 7, null],
-      ['all', null, campaign().couponConfig],
+      ['all', 42, campaign().couponConfig],
+      ['bday', null, campaign().couponConfig],
     ])
+  })
+
+  it('a tag campaign with no linked tags reaches nobody', async () => {
+    const d = deps({ getCampaignTagIds: vi.fn(async () => []) })
+    const detail = await getTemplateReviewDetail('rev-1', d)
+    expect(d.countAudience).not.toHaveBeenCalled()
+    expect(detail?.campaigns?.[0].audienceSize).toBe(0)
   })
 
   it('degrades a failed audience count to null instead of failing the panel', async () => {

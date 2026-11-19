@@ -10,11 +10,12 @@ import { mapRowToCampaign } from './campaign-mapper'
 
 export type TemplateCampaignRow = Pick<
   Campaign,
-  'id' | 'name' | 'type' | 'status' | 'targetAudience' | 'couponConfig' | 'schedule' | 'scheduledAt' | 'createdAt'
+  | 'id' | 'name' | 'type' | 'status' | 'targetAudience' | 'couponConfig' | 'schedule' | 'scheduledAt' | 'createdAt'
+  | 'audienceSkipQuality' | 'audienceLapsedDays'
 >
 
 const CAMPAIGN_COLUMNS =
-  'id, name, type, status, target_audience, coupon_config, schedule, scheduled_at, created_at'
+  'id, name, type, status, target_audience, coupon_config, schedule, scheduled_at, created_at, audience_skip_quality, audience_lapsed_days'
 
 // Campaigns per template are few; the cap keeps the panel bounded anyway.
 const CAMPAIGN_LIMIT = 50
@@ -54,17 +55,6 @@ export async function listCampaignsUsingTemplate(
   return ((data ?? []) as Record<string, unknown>[]).map((row) => pickCampaignRow(mapRowToCampaign(row)))
 }
 
-/** Head count — never reads the member ids (no max-rows truncation). */
-export async function countCampaignMembers(campaignId: string): Promise<number> {
-  const supabase = createServerSupabaseClient()
-  const { count, error } = await supabase
-    .from('campaign_members')
-    .select('member_id', { count: 'exact', head: true })
-    .eq('campaign_id', campaignId)
-  if (error) throw new Error(`countCampaignMembers: ${error.message}`)
-  return count ?? 0
-}
-
 function pickCampaignRow(c: Campaign): TemplateCampaignRow {
   return {
     id: c.id,
@@ -76,5 +66,7 @@ function pickCampaignRow(c: Campaign): TemplateCampaignRow {
     schedule: c.schedule,
     scheduledAt: c.scheduledAt,
     createdAt: c.createdAt,
+    audienceSkipQuality: c.audienceSkipQuality,
+    audienceLapsedDays: c.audienceLapsedDays,
   }
 }

@@ -1,0 +1,19 @@
+# forge command 14444212 status finished
+2026-11-19T14:38:43Z
+3267575       01:39 next-server (v16.3.4)
+3267616       01:37 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3267655       01:35 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3267656       01:35 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3267667       01:35 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+== daemon-746791 log: daemon-746791.log
+lines after last start banner: 2
+error/warn lines after banner: 0
+✓ Ready in 456ms
+== daemon-801730 log: daemon-801730.log
+lines after last start banner: 0
+error/warn lines after banner: 0
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+MemAvailable:    2470424 kB
+SwapFree:          75856 kB
+/dev/root          58447 31047     27385  54% /
+

@@ -335,7 +335,37 @@
       "welcome_not_supported": "歡迎訊息不支援「立即訂座」。請選擇沒有「立即訂座」按鈕的範本。",
       "template_missing_button": "此範本沒有「立即訂座」按鈕。請選擇有此按鈕的範本,或關閉立即訂座。",
       "toggle_off_with_button": "此範本有「立即訂座」按鈕。請開啟立即訂座,或選擇其他範本。"
-    }
+    },
+    "audienceFiltersLabel": "篩選",
+    "lapsedToggle": "只限久未光顧的顧客",
+    "lapsedToggleHint": "最近未有光顧的會員。",
+    "lapsedWinbackHint": "喚回顧客活動一律只發送給久未光顧的顧客。",
+    "lapsedNoVisitFor": "超過",
+    "lapsedDaysOrMore": "日或以上未有光顧",
+    "lapsedDaysInvalid": "「最近光顧」篩選請輸入 1–365 日。",
+    "qualityToggle": "略過低質素聯絡人",
+    "qualityHintRed": "紅色聯絡人會被略過。暫無數據的新會員仍會收到。",
+    "qualityHintRedYellow": "紅色及黃色聯絡人會被略過。暫無數據的新會員仍會收到。",
+    "qualityHintOff": "受眾內所有人都會收到，不論送達率。",
+    "qualityLevelRed": "只略過紅色",
+    "qualityLevelRedYellow": "紅色及黃色",
+    "receives": "會收到",
+    "skipped": "略過",
+    "defaultFromSettings": "設定中的預設 · {level}",
+    "defaultOff": "關閉",
+    "changeDefault": "更改",
+    "summaryAll": "所有活躍會員",
+    "summarySelected": "已選會員",
+    "summaryTags": "帶有所選標籤的會員",
+    "summaryLapsed": "超過 {days} 日未有光顧",
+    "summarySkippedRed": "略過：紅色聯絡人",
+    "summarySkippedRedYellow": "略過：紅色及黃色聯絡人",
+    "summaryWillReceive": "將會收到",
+    "summaryFootnote": "發送時會再次檢查同意記錄及 Meta 每日上限，最終人數可能較少。",
+    "summaryCalculating": "…",
+    "summaryError": "未能計算收件人數。",
+    "summaryRetry": "重試",
+    "summaryZero": "沒有人會收到這個推廣活動。"
   },
   "tags": {
     "title": "標籤",
@@ -981,7 +1011,6 @@
     "campaignSchedule": "排程",
     "campaignAudienceSize": "{label} · {count} 位會員",
     "campaignAudienceUnknown": "{label} · —",
-    "campaignAudienceSelected": "已選 {count} 位",
     "campaignNoCoupon": "沒有優惠券",
     "campaignCouponPercent": "{value}% 折扣 · 發送後 {days} 日內有效",
     "campaignCouponFixed": "減 HK${value} · 發送後 {days} 日內有效",
@@ -1715,5 +1744,92 @@
       "rate_limited": "超出上限",
       "skipped": "已略過"
     }
+  },
+  "contactQuality": {
+    "label": {
+      "green": "綠色",
+      "yellow": "黃色",
+      "red": "紅色",
+      "unknown": "暫無數據"
+    },
+    "meaning": {
+      "green": "{green}% 或以上的訊息成功送達。",
+      "yellow": "{yellow}% 至低於 {green}% 送達，部分訊息失敗。",
+      "red": "送達率低於 {yellow}%，或 Meta 表示此號碼無法接收 WhatsApp。",
+      "unknown": "尚未發送任何訊息，例如新會員。一律會收到訊息。"
+    },
+    "short": {
+      "green": "{green}% 或以上送達",
+      "yellow": "{yellow}% 至低於 {green}% 送達",
+      "red": "低於 {yellow}%，或無法接收 WhatsApp",
+      "unknown": "新會員，尚未發送"
+    }
+  },
+  "settingsGroups": {
+    "back": "設定",
+    "newBadge": "新",
+    "flagged": "{count} 張待審",
+    "openGroup": "開啟{group}",
+    "profile": {
+      "label": "餐廳資料",
+      "sub": "標誌"
+    },
+    "messages": {
+      "label": "顧客訊息",
+      "sub": "聯絡轉介、自動回覆"
+    },
+    "bookings": {
+      "label": "訂座及 AI 助理",
+      "sub": "只限管理員"
+    },
+    "campaigns": {
+      "label": "推廣活動",
+      "sub": "受眾質素、喚回顧客"
+    },
+    "welcome": {
+      "label": "加入 QR 碼及歡迎訊息",
+      "sub": "歡迎訊息、QR 碼"
+    },
+    "receipts": {
+      "label": "收據",
+      "sub": "範本、待審收據"
+    }
+  },
+  "campaignSettings": {
+    "title": "推廣活動",
+    "description": "每個新推廣活動的預設設定。發送前你仍可在個別活動中更改。",
+    "qualityTitle": "受眾質素",
+    "qualityDescription": "過去 {days} 日 WhatsApp 訊息成功送達每位會員的可靠程度。",
+    "activeMembers": "{count} 位活躍會員",
+    "lastDays": "過去 {days} 日",
+    "qualityLoading": "正在載入會員質素…",
+    "qualityError": "未能載入會員質素。",
+    "retry": "重試",
+    "qualityEmpty": "暫時未有活躍會員。",
+    "skipLabel": "略過低質素聯絡人",
+    "skipHint": "自動將他們排除於新推廣活動之外，保障你的號碼在 Meta 的質素評級。",
+    "skipWhich": "略過哪些聯絡人",
+    "skipRed": "只略過紅色",
+    "skipRedYellow": "紅色及黃色",
+    "recommended": "建議",
+    "skipImpact": "目前會略過 {count} 位會員。暫無數據的會員一律會收到訊息，新會員仍會收到第一則訊息。",
+    "winbackTitle": "喚回顧客",
+    "winbackDescription": "怎樣才算久未光顧的顧客。",
+    "lapsedLabel": "久未光顧日數",
+    "lapsedHint": "會員超過這個日數未有光顧。用於喚回顧客活動及「最近光顧」篩選。",
+    "days": "日",
+    "lapsedError": "請輸入 1–365 日",
+    "thresholdsTitle": "評級門檻",
+    "adminsOnly": "只限管理員",
+    "thresholdsSummary": "綠色 ≥ {green}% 送達 · 黃色 ≥ {yellow}% · 紅色低於 {yellow}% · 過去 {days} 日",
+    "thresholdsReadOnly": "這些門檻決定每位聯絡人在會員頁面及推廣活動中的顏色，暫時未能更改。",
+    "saveNote": "儲存後建立的推廣活動才會套用更改。",
+    "discard": "捨棄",
+    "save": "儲存更改",
+    "saving": "儲存中…",
+    "saved": "已儲存",
+    "saveError": "未能儲存。你的更改仍然保留，請再試一次。",
+    "loadError": "未能載入推廣活動設定。",
+    "readOnly": "只有管理員可以更改這些設定。"
   }
 }

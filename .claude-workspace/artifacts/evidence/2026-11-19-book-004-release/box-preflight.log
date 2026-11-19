@@ -1,0 +1,28 @@
+# forge command 14443814 status finished
+2026-11-19T14:29:24Z
+/dev/root          58447 31041     27390  54% /
+MemAvailable:    2382144 kB
+SwapFree:          81064 kB
+ 14:29:24 up 55 days,  9:11,  1 user,  load average: 0.22, 0.14, 0.10
+{
+  "source_ref": "rel-agent003",
+  "source_commit": "f7ab94d6462dddb5e20c57d045ffe1eb262589d1",
+  "source_subject": "Merge pull request #197 from xavierau/develop",
+  "build_id": "caIeIeX7IH0Qzhqp5AyPG",
+  "built_at": "2026-11-19T13:16:36Z",
+  "built_by": "<redacted>",
+  "node": "v22.21.1"
+}
+
+caIeIeX7IH0Qzhqp5AyPG
+4 [kworker/R-rcu_gp]
+5 [kworker/R-sync_wq]
+6 [kworker/R-kvfree_rcu_reclaim]
+7 [kworker/R-slub_flushwq]
+8 [kworker/R-netns]
+10 [kworker/0:0H-kblockd]
+13 [kworker/R-mm_percpu_wq]
+17 [rcu_exp_par_gp_kthread_worker/0]
+18 [rcu_exp_gp_kthread_worker]
+28 [kworker/1:0H-kblockd]
+

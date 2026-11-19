@@ -335,7 +335,37 @@
       "welcome_not_supported": "Book now isn't available on welcome messages. Pick a template without the Book now button.",
       "template_missing_button": "This template has no Book now button. Pick a template with one, or turn Book now off.",
       "toggle_off_with_button": "This template has a Book now button. Turn on Book now, or pick another template."
-    }
+    },
+    "audienceFiltersLabel": "Filters",
+    "lapsedToggle": "Only lapsed customers",
+    "lapsedToggleHint": "Members who haven't visited recently.",
+    "lapsedWinbackHint": "Win-back campaigns always go to lapsed customers.",
+    "lapsedNoVisitFor": "No visit for",
+    "lapsedDaysOrMore": "days or more",
+    "lapsedDaysInvalid": "Enter 1–365 days for the last-visit filter.",
+    "qualityToggle": "Skip low-quality contacts",
+    "qualityHintRed": "Red contacts are left out. New members with no data still receive.",
+    "qualityHintRedYellow": "Red and Yellow contacts are left out. New members with no data still receive.",
+    "qualityHintOff": "Everyone in the audience receives, whatever their delivery rate.",
+    "qualityLevelRed": "Red only",
+    "qualityLevelRedYellow": "Red and Yellow",
+    "receives": "Receives",
+    "skipped": "Skipped",
+    "defaultFromSettings": "Default from Settings · {level}",
+    "defaultOff": "Off",
+    "changeDefault": "Change",
+    "summaryAll": "All active members",
+    "summarySelected": "Selected members",
+    "summaryTags": "Members with the selected tags",
+    "summaryLapsed": "No visit for {days}+ days",
+    "summarySkippedRed": "Skipped: Red contacts",
+    "summarySkippedRedYellow": "Skipped: Red and Yellow contacts",
+    "summaryWillReceive": "Will receive",
+    "summaryFootnote": "Consent and Meta's daily limits are checked again when it sends, so the final number can be lower.",
+    "summaryCalculating": "…",
+    "summaryError": "Couldn't calculate recipients.",
+    "summaryRetry": "Retry",
+    "summaryZero": "No one will receive this campaign."
   },
   "tags": {
     "title": "Tags",
@@ -981,7 +1011,6 @@
     "campaignSchedule": "Schedule",
     "campaignAudienceSize": "{label} · {count} members",
     "campaignAudienceUnknown": "{label} · —",
-    "campaignAudienceSelected": "{count} selected",
     "campaignNoCoupon": "No coupon",
     "campaignCouponPercent": "{value}% off · expires {days} days after sending",
     "campaignCouponFixed": "HK${value} off · expires {days} days after sending",
@@ -1715,5 +1744,92 @@
       "rate_limited": "Rate limited",
       "skipped": "Skipped"
     }
+  },
+  "contactQuality": {
+    "label": {
+      "green": "Green",
+      "yellow": "Yellow",
+      "red": "Red",
+      "unknown": "No data"
+    },
+    "meaning": {
+      "green": "{green}% or more of messages delivered.",
+      "yellow": "{yellow}% to under {green}% delivered. Some messages fail.",
+      "red": "Under {yellow}% delivered, or Meta says the number can't receive WhatsApp.",
+      "unknown": "No messages sent yet, e.g. new members. Always included."
+    },
+    "short": {
+      "green": "{green}%+ delivered",
+      "yellow": "{yellow}% to under {green}% delivered",
+      "red": "under {yellow}%, or can't receive WhatsApp",
+      "unknown": "new, nothing sent yet"
+    }
+  },
+  "settingsGroups": {
+    "back": "Settings",
+    "newBadge": "New",
+    "flagged": "{count} flagged",
+    "openGroup": "Open {group}",
+    "profile": {
+      "label": "Restaurant profile",
+      "sub": "Logo"
+    },
+    "messages": {
+      "label": "Customer messages",
+      "sub": "Contact redirect, auto reply"
+    },
+    "bookings": {
+      "label": "Bookings & AI agent",
+      "sub": "Admins only"
+    },
+    "campaigns": {
+      "label": "Campaigns",
+      "sub": "Audience quality, win-back"
+    },
+    "welcome": {
+      "label": "Join QR & welcome",
+      "sub": "Welcome message, QR code"
+    },
+    "receipts": {
+      "label": "Receipts",
+      "sub": "Template, flagged receipts"
+    }
+  },
+  "campaignSettings": {
+    "title": "Campaigns",
+    "description": "Defaults for every new campaign. You can still change them on each campaign before it sends.",
+    "qualityTitle": "Audience quality",
+    "qualityDescription": "How reliably WhatsApp messages reached each member in the last {days} days.",
+    "activeMembers": "{count, plural, one {# active member} other {# active members}}",
+    "lastDays": "Last {days} days",
+    "qualityLoading": "Loading member quality…",
+    "qualityError": "Couldn't load member quality.",
+    "retry": "Retry",
+    "qualityEmpty": "No active members yet.",
+    "skipLabel": "Skip low-quality contacts",
+    "skipHint": "Leave them out of new campaigns automatically. Protects your number's quality rating with Meta.",
+    "skipWhich": "Which contacts to skip",
+    "skipRed": "Red only",
+    "skipRedYellow": "Red and Yellow",
+    "recommended": "Recommended",
+    "skipImpact": "Today this skips {count, plural, one {# member} other {# members}}. Members with no data are always included, so new members still get their first message.",
+    "winbackTitle": "Win-back",
+    "winbackDescription": "Who counts as a lapsed customer.",
+    "lapsedLabel": "Lapsed after",
+    "lapsedHint": "A member who hasn't visited for this many days. Used by win-back campaigns and the Last visit filter.",
+    "days": "days",
+    "lapsedError": "Enter 1–365 days",
+    "thresholdsTitle": "Rating thresholds",
+    "adminsOnly": "Admins only",
+    "thresholdsSummary": "Green ≥ {green}% delivered · Yellow ≥ {yellow}% · Red below {yellow}% · last {days} days",
+    "thresholdsReadOnly": "These thresholds decide each contact's colour on the Members page and in campaigns. They can't be changed yet.",
+    "saveNote": "Changes apply to campaigns created after you save.",
+    "discard": "Discard",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveError": "Couldn't save. Your changes are kept, try again.",
+    "loadError": "Couldn't load campaign settings.",
+    "readOnly": "Only admins can change these settings."
   }
 }

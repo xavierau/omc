@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
+// CAMP-016: campaign create/edit snapshot the tenant's audience defaults.
+vi.mock('@/infrastructure/supabase/repositories/campaign-audience-defaults-repository', () => ({
+  getAudienceDefaults: vi.fn(async () => ({ skipContactQuality: 'red', lapsedAfterDays: 30 })),
+}))
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
   // Keep the real error class so `instanceof` checks in route.ts match
   // when tests simulate repository failures (mirrors POST test setup).
@@ -970,5 +974,67 @@ describe('PATCH /api/dashboard/campaigns/[id] — tag persistence', () => {
 
     expect(r.status).toBe(200)
     expect(setCampaignTags).not.toHaveBeenCalled()
+  })
+})
+
+// CAMP-016 r3 (review F4): an edit that sends ONE filter keeps the other one
+// the campaign was saved with; it is not replaced by the tenant default or
+// cleared. A type change to win-back always re-snapshots, so the campaign
+// gets its own lapsed days and the legacy win-back read no longer applies.
+describe('PATCH /api/dashboard/campaigns/[id] — audience filter snapshot', () => {
+  beforeEach(() => {
+    vi.mocked(getTenantContext).mockReset()
+    vi.mocked(getTenantContext).mockResolvedValue({
+      userId: 'u-1',
+      restaurantId: RESTAURANT_ID,
+      role: 'admin',
+      tenantStatus: 'active',
+    })
+    vi.mocked(getCampaignById).mockReset()
+    vi.mocked(updateCampaign).mockReset()
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ type: 'promo', audienceSkipQuality: 'red_yellow', audienceLapsedDays: 60 })
+    )
+    vi.mocked(updateCampaign).mockResolvedValue(buildCampaign())
+  })
+
+  async function patchChanges(body: Record<string, unknown>) {
+    const r = await PATCH(patchRequest(body), { params: Promise.resolve({ id: CAMPAIGN_ID }) })
+    expect(r.status).toBe(200)
+    return vi.mocked(updateCampaign).mock.calls[0][1]
+  }
+
+  it('PATCH {audienceSkipQuality} keeps the saved lapsed days', async () => {
+    const changes = await patchChanges({ audienceSkipQuality: 'off' })
+    expect(changes).toMatchObject({ audienceSkipQuality: 'off', audienceLapsedDays: 60 })
+  })
+
+  it('PATCH {audienceLapsedDays} keeps the saved skip level', async () => {
+    const changes = await patchChanges({ audienceLapsedDays: 90 })
+    expect(changes).toMatchObject({ audienceSkipQuality: 'red_yellow', audienceLapsedDays: 90 })
+  })
+
+  it('PATCH {audienceLapsedDays: null} on a promo clears the lapsed filter', async () => {
+    const changes = await patchChanges({ audienceLapsedDays: null })
+    expect(changes).toMatchObject({ audienceSkipQuality: 'red_yellow', audienceLapsedDays: null })
+  })
+
+  it("PATCH {type:'winback'} on a campaign with no lapsed days sets the tenant default", async () => {
+    vi.mocked(getCampaignById).mockResolvedValue(
+      buildCampaign({ type: 'promo', audienceSkipQuality: 'red_yellow', audienceLapsedDays: null })
+    )
+    const changes = await patchChanges({ type: 'winback' })
+    expect(changes).toMatchObject({ type: 'winback', audienceSkipQuality: 'red_yellow', audienceLapsedDays: 30 })
+  })
+
+  it("PATCH {type:'winback'} keeps lapsed days the campaign already had", async () => {
+    const changes = await patchChanges({ type: 'winback' })
+    expect(changes).toMatchObject({ type: 'winback', audienceLapsedDays: 60 })
+  })
+
+  it('a PATCH that touches neither the filters nor the type leaves the snapshot alone', async () => {
+    const changes = await patchChanges({ name: 'Renamed' })
+    expect('audienceSkipQuality' in changes).toBe(false)
+    expect('audienceLapsedDays' in changes).toBe(false)
   })
 })
