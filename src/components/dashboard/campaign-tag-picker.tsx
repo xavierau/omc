@@ -7,9 +7,11 @@ import { CampaignTagRecipientCount } from './campaign-tag-recipient-count'
 interface CampaignTagPickerProps {
   selectedIds: string[]
   onChange: (ids: string[]) => void
+  /** CAMP-016: false where the audience summary already shows the tag count. */
+  showRecipientCount?: boolean
 }
 
-export function CampaignTagPicker({ selectedIds, onChange }: CampaignTagPickerProps) {
+export function CampaignTagPicker({ selectedIds, onChange, showRecipientCount = true }: CampaignTagPickerProps) {
   const t = useTranslations('campaigns')
   return (
     <div className="space-y-2">
@@ -22,7 +24,7 @@ export function CampaignTagPicker({ selectedIds, onChange }: CampaignTagPickerPr
       <p data-field="tag-or-hint" className="text-sm text-muted-foreground">
         {t('tagOrHint')}
       </p>
-      <CampaignTagRecipientCount tagIds={selectedIds} />
+      {showRecipientCount && <CampaignTagRecipientCount tagIds={selectedIds} />}
     </div>
   )
 }

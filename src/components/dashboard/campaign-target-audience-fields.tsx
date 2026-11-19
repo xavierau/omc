@@ -66,6 +66,9 @@ export function CampaignTargetAudienceFields({
         <CampaignTagPicker
           selectedIds={form.tagIds}
           onChange={onTagIdsChange}
+          // CAMP-016: non-welcome forms render CampaignAudienceSummary, whose
+          // audience row is this count; a second line would show a different number.
+          showRecipientCount={form.type === 'welcome'}
         />
       )}
     </fieldset>
