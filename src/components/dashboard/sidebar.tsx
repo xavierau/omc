@@ -36,6 +36,13 @@ function NavLink({ href, label, icon: Icon, isActive, onClick }: {
  * INT-001 WI-9's `integrations` item) is unit-testable without rendering
  * `Sidebar` itself, which owns real `useState`/`usePathname` and can't be
  * exercised via a plain function call in this repo's jsdom-free test setup. */
+/** CAMP-016: Settings has one URL per group, so its item stays active under /dashboard/setup/<group>. */
+const NESTED_NAV_HREFS = new Set(['/dashboard/setup'])
+
+export function isNavItemActive(pathname: string, href: string): boolean {
+  return pathname === href || (NESTED_NAV_HREFS.has(href) && pathname.startsWith(`${href}/`))
+}
+
 /** BOOK-001: the Bookings entry, exported so its wiring is unit-testable. */
 export function bookingsNavItem(t: (key: string) => string) {
   return { label: t('bookings'), href: '/dashboard/bookings', icon: CalendarCheck }
@@ -121,7 +128,7 @@ export function Sidebar() {
               href={item.href}
               label={item.label}
               icon={item.icon}
-              isActive={pathname === item.href}
+              isActive={isNavItemActive(pathname, item.href)}
               onClick={closeMobile}
             />
           ))}
@@ -132,7 +139,7 @@ export function Sidebar() {
               href={item.href}
               label={item.label}
               icon={item.icon}
-              isActive={pathname === item.href}
+              isActive={isNavItemActive(pathname, item.href)}
               onClick={closeMobile}
             />
           ))}

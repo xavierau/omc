@@ -1,4 +1,5 @@
 import { Campaign, CouponConfig } from '@/domain/entities/campaign'
+import { parseSkipContactQuality } from '@/domain/value-objects/audience-filters'
 
 export interface CreateCampaignParams {
   restaurantId: string
@@ -24,6 +25,9 @@ export interface CreateCampaignParams {
   /** BOOK-001 W3 (migration 082). */
   bookNowEnabled?: boolean
   bookingUrl?: string | null
+  /** CAMP-016 (migration 086): audience filter snapshot. */
+  audienceSkipQuality?: Campaign['audienceSkipQuality']
+  audienceLapsedDays?: number | null
 }
 
 export interface UpdateCampaignParams {
@@ -52,6 +56,9 @@ export interface UpdateCampaignParams {
   /** BOOK-001 W3 (migration 082). */
   bookNowEnabled?: boolean
   bookingUrl?: string | null
+  /** CAMP-016 (migration 086): audience filter snapshot. */
+  audienceSkipQuality?: Campaign['audienceSkipQuality']
+  audienceLapsedDays?: number | null
 }
 
 export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
@@ -81,6 +88,8 @@ export function mapRowToCampaign(row: Record<string, unknown>): Campaign {
     lastEnqueuedAt: (row.last_enqueued_at as string | null) ?? null,
     bookNowEnabled: (row.book_now_enabled as boolean | undefined) ?? false,
     bookingUrl: (row.booking_url as string | null | undefined) ?? null,
+    audienceSkipQuality: parseSkipContactQuality(row.audience_skip_quality) ?? 'off',
+    audienceLapsedDays: (row.audience_lapsed_days as number | null | undefined) ?? null,
   }
 }
 
@@ -94,6 +103,20 @@ export function bookNowInsertColumns(params: CreateCampaignParams): Record<strin
   const row: Record<string, unknown> = {}
   if (params.bookNowEnabled) row.book_now_enabled = true
   if (params.bookingUrl) row.booking_url = params.bookingUrl
+  return row
+}
+
+/**
+ * CAMP-016: the audience snapshot columns for an INSERT, only when they differ
+ * from the 086 column defaults ('off' / NULL), for the same reason as
+ * bookNowInsertColumns.
+ */
+export function audienceInsertColumns(params: CreateCampaignParams): Record<string, unknown> {
+  const row: Record<string, unknown> = {}
+  if (params.audienceSkipQuality && params.audienceSkipQuality !== 'off') {
+    row.audience_skip_quality = params.audienceSkipQuality
+  }
+  if (params.audienceLapsedDays != null) row.audience_lapsed_days = params.audienceLapsedDays
   return row
 }
 
@@ -125,6 +148,8 @@ export function buildCampaignUpdateRow(
   if (changes.failureReason !== undefined) update.failure_reason = changes.failureReason
   if (changes.bookNowEnabled !== undefined) update.book_now_enabled = changes.bookNowEnabled
   if (changes.bookingUrl !== undefined) update.booking_url = changes.bookingUrl
+  if (changes.audienceSkipQuality !== undefined) update.audience_skip_quality = changes.audienceSkipQuality
+  if (changes.audienceLapsedDays !== undefined) update.audience_lapsed_days = changes.audienceLapsedDays
 
   if (changes.template !== undefined) {
     update.template = changes.template

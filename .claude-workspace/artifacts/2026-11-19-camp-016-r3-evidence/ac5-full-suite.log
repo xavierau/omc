@@ -1,0 +1,10 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--camp-016
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  661 passed | 14 skipped (675)
+      Tests  7528 passed | 127 skipped | 2 todo (7657)
+   Start at  23:59:07
+   Duration  26.85s (transform 18.97s, setup 0ms, import 69.34s, tests 20.62s, environment 46ms)
+

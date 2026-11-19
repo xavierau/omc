@@ -1,0 +1,587 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--camp-016
+
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+ERROR:  function "public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,int,boolean,text,int,float8,float8,int,uuid)" does not exist
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts (32 tests | 22 failed) 2522ms
+     × tags + lapsed 30 + skip red: drops the recent visitor and both reds, keeps no-data members 70ms
+     × tags + lapsed 30 + skip red_yellow also drops yellow 58ms
+     × skip off keeps every lapsed, active, tagged member 50ms
+     × no lapsed filter keeps the recent visitor 49ms
+     × never-visited counts as lapsed, unless the legacy win-back mode asks otherwise 47ms
+     × a never-visited member joined 2 days ago is NOT lapsed at 30; one joined 40 days ago is 49ms
+     × without a lapsed filter the new member is still in the audience 47ms
+     × no-data members are never excluded, at either skip level 51ms
+     × unreachable is red at skip red even with a perfect delivery rate 51ms
+     × unsubscribed members are never recipients 49ms
+     × will_receive equals the resolved set (skip off) 108ms
+     × will_receive equals the resolved set (skip red) 104ms
+     × will_receive equals the resolved set (skip red_yellow) 104ms
+     × count equals the paged walk across two pages (1,600 members, 400 red) 47ms
+     × a member flipping to red between page 1 and page 2 loses nobody else 52ms
+     × selected by campaign id: tenant-scoped, active only, filters apply 54ms
+     × selected by member ids (form preview) gives the same set as the saved selection 51ms
+     × another tenant's campaign id yields nothing 51ms
+     × a poisoned member_tags row never pulls in another tenant's member 49ms
+     × another tenant's message rows never change a member's rating 49ms
+     × tenant B sees none of A's members, whatever the audience 52ms
+     × campaign_audience_members(uuid,text,uuid[],uuid[],uuid,int,boolean,text,int,float8,float8,int,uuid): anon and authenticated cannot execute, service_role can 92ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 22 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > tags + lapsed 30 + skip red: drops the recent visitor and both reds, keeps no-data members
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:225:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > tags + lapsed 30 + skip red_yellow also drops yellow
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red_yellow', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:229:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > skip off keeps every lapsed, active, tagged member
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:233:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > no lapsed filter keeps the recent visitor
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:237:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > never-visited counts as lapsed, unless the legacy win-back mode asks otherwise
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:241:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > a never-visited member joined 2 days ago is NOT lapsed at 30; one joined 40 days ago is
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'selected', p_tag_ids => NULL::uuid[], p_member_ids => ARRAY['a0000010-0000-0000-0000-0000000c0016','a0000003-0000-0000-0000-0000000c0016']::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:248:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > without a lapsed filter the new member is still in the audience
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'selected', p_tag_ids => NULL::uuid[], p_member_ids => ARRAY['a0000010-0000-0000-0000-0000000c0016','a0000003-0000-0000-0000-0000000c0016']::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:253:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > no-data members are never excluded, at either skip level
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:258:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > unreachable is red at skip red even with a perfect delivery rate
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:264:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tags ∩ lapsed ∩ skip > unsubscribed members are never recipients
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:269:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — per-step counts and count/send parity > will_receive equals the resolved set (skip off)
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:313:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — per-step counts and count/send parity > will_receive equals the resolved set (skip red)
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:313:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — per-step counts and count/send parity > will_receive equals the resolved set (skip red_yellow)
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red_yellow', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:313:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — per-step counts and count/send parity > count equals the paged walk across two pages (1,600 members, 400 red)
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'cccccccc-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => 1000::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ walk src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:193:18
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:319:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — keyset paging under a rating flip > a member flipping to red between page 1 and page 2 loses nobody else
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'cccccccc-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => 1000::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ walk src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:193:18
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:343:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — selected audiences > selected by campaign id: tenant-scoped, active only, filters apply
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'selected', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => 'ca000001-0000-0000-0000-0000000c0016'::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:360:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — selected audiences > selected by member ids (form preview) gives the same set as the saved selection
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'selected', p_tag_ids => NULL::uuid[], p_member_ids => ARRAY['a0000002-0000-0000-0000-0000000c0016','a0000004-0000-0000-0000-0000000c0016','a0000006-0000-0000-0000-0000000c0016','a0000009-0000-0000-0000-0000000c0016','b0000001-0000-0000-0000-0000000c0016']::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => 30::int, p_never_visited_lapsed => true, p_skip => 'red', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:367:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — selected audiences > another tenant's campaign id yields nothing
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'bbbbbbbb-0000-0000-0000-0000000c0016'::uuid, p_audience => 'selected', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => 'ca000001-0000-0000-0000-0000000c0016'::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:372:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tenant isolation > a poisoned member_tags row never pulls in another tenant's member
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:378:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tenant isolation > another tenant's message rows never change a member's rating
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'aaaaaaaa-0000-0000-0000-0000000c0016'::uuid, p_audience => 'all', p_tag_ids => NULL::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'red_yellow', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:383:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — tenant isolation > tenant B sees none of A's members, whatever the audience
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT id FROM campaign_audience_members(p_restaurant_id => 'bbbbbbbb-0000-0000-0000-0000000c0016'::uuid, p_audience => 'tag', p_tag_ids => ARRAY['7a000001-0000-0000-0000-0000000c0016']::uuid[], p_member_ids => NULL::uuid[], p_campaign_id => NULL::uuid, p_lapsed_days => NULL::int, p_never_visited_lapsed => true, p_skip => 'off', p_window_days => 90, p_green => 0.9::float8, p_yellow => 0.6::float8, p_limit => NULL::int, p_after_id => NULL::uuid)
+ERROR:  function campaign_audience_members(p_restaurant_id => uuid, p_audience => unknown, p_tag_ids => uuid[], p_member_ids => uuid[], p_campaign_id => uuid, p_lapsed_days => integer, p_never_visited_lapsed => boolean, p_skip => unknown, p_window_days => integer, p_green => double precision, p_yellow => double precision, p_limit => integer, p_after_id => uuid) does not exist
+LINE 1: SELECT id FROM campaign_audience_members(p_restaurant_id => ...
+                       ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ rows src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:47:15
+ ❯ members src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:183:3
+ ❯ named src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:201:29
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:388:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/22]⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts > 086 resolver — grants (R3) > campaign_audience_members(uuid,text,uuid[],uuid[],uuid,int,boolean,text,int,float8,float8,int,uuid): anon and authenticated cannot execute, service_role can
+Error: Command failed: psql -h 127.0.0.1 -p 15941 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc SELECT has_function_privilege('anon', 'public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,int,boolean,text,int,float8,float8,int,uuid)', 'EXECUTE')
+ERROR:  function "public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,int,boolean,text,int,float8,float8,int,uuid)" does not exist
+
+ ❯ psql src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:39:10
+     37|
+     38| function psql(sql: string): string {
+     39|   return execFileSync(
+       |          ^
+     40|     'psql',
+     41|     ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', PG.database, '…
+ ❯ src/infrastructure/supabase/__tests__/campaign-audience-rpcs.db.test.ts:400:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/22]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  22 failed | 10 passed (32)
+   Start at  23:50:08
+   Duration  2.81s (transform 68ms, setup 0ms, import 88ms, tests 2.52s, environment 0ms)
+
+== 2026-11-19T15:50:25Z pre-fix 086 (HEAD 650b6878 file), direct demonstration of F1 and F3
+-- F1: never-visited member joined 2 days ago, lapsed 30: is_lapsed (expect f after fix):
+joined2d|t|t
+-- F3: offset walk over tenant D with 1,600 members (joined 40d), flip page-1 member to red between pages:
+SELECT 1000
+ERROR:  function min(uuid) does not exist
+LINE 1: ...T 'dddddddd-0000-0000-0000-0000000c0016', (SELECT min(id) FR...
+                                                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+-- F3 (retry, min(uuid) does not exist): offset walk, flip the first page-1 member to red between page 1 and page 2:
+SELECT 1000
+INSERT 0 1
+INSERT 0 599
+still included: 1599, never paged: 1
+DROP TABLE

@@ -1,0 +1,40 @@
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/flagged-receipts-panel.tsx
+  29:21  error  Error: Cannot access variable before it is declared
+
+`fetchFlagged` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/flagged-receipts-panel.tsx:29:21
+  27 |   const [actionId, setActionId] = useState<string | null>(null)
+  28 |
+> 29 |   useEffect(() => { fetchFlagged() }, [])
+     |                     ^^^^^^^^^^^^ `fetchFlagged` accessed before it is declared
+  30 |
+  31 |   async function fetchFlagged() {
+  32 |     setLoading(true)
+
+/Users/xavierau/Code/js/whatsapp-crm--camp-016/src/components/dashboard/flagged-receipts-panel.tsx:31:3
+  29 |   useEffect(() => { fetchFlagged() }, [])
+  30 |
+> 31 |   async function fetchFlagged() {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 32 |     setLoading(true)
+     | ^^^^^^^^^^^^^^^^^^^^
+> 33 |     try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^
+> 42 |     }
+     | ^^^^^^^^^^^^^^^^^^^^
+> 43 |   }
+     | ^^^^ `fetchFlagged` is declared here
+  44 |
+  45 |   async function handleAction(receiptId: string, action: 'approve' | 'reject') {
+  46 |     setActionId(receiptId)  react-hooks/immutability
+
+✖ 1 problem (1 error, 0 warnings)
+
+eslint exit 1
+-- pre-existing check: commits touching flagged-receipts-panel.tsx in 275785f2b1b6673600685dacbe58a238f3b2cb7b..45d07224: 0; the useEffect(() => { fetchFlagged() }) before the function declaration is unchanged since base (git blame below)
+76a00fc8f (Xavier Au 2026-04-01 14:09:16 +0800 29) 
+76a00fc8f (Xavier Au 2026-04-01 14:09:16 +0800 30)   async function fetchFlagged() {
+76a00fc8f (Xavier Au 2026-04-01 14:09:16 +0800 31)     setLoading(true)

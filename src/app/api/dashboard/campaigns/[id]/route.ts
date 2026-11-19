@@ -26,6 +26,8 @@ import {
   parseTargetAudience,
   validateTagIds,
 } from '../parse-create-body-audience'
+import { parseAudienceSnapshot, touchesAudienceFilters } from '../parse-audience-filters'
+import { getAudienceDefaults } from '@/infrastructure/supabase/repositories/campaign-audience-defaults-repository'
 import { handleError, isWelcomeUniqueViolation } from '../campaign-error-response'
 import { assertCampaignBookNow, parseBookNowFields, requireAdminForBookingUrlChange } from '../book-now-guard'
 import { withTemplateReview, safeCampaignTemplateReviewStates } from '../with-template-review'
@@ -116,6 +118,13 @@ export async function PATCH(
     requireAdminForBookingUrlChange(ctx, bookNow.bookingUrl, existing.bookingUrl ?? null)
     await assertBookNowPatch(body, bookNow, existing)
     const changes: UpdateCampaignParams = { ...pickAllowed(body), ...bookNow }
+    // CAMP-016: an edit that sends the audience filters (or turns the campaign
+    // into a win-back) re-snapshots them, validated like create; a field the
+    // PATCH omits keeps the campaign's saved value.
+    if (touchesAudienceFilters(body)) {
+      const defaults = await getAudienceDefaults(restaurantId)
+      Object.assign(changes, parseAudienceSnapshot(body, body.type ?? existing.type, defaults, existing))
+    }
     applyImageScopeGuard(changes, existing, restaurantId)
     applyFailureReasonRevivalGuard(changes)
     await attachLegacyTemplateIfNeeded(changes, existing, restaurantId)

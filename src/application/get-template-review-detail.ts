@@ -9,15 +9,16 @@ import type { WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { findTemplateReviewById } from '@/infrastructure/supabase/repositories/template-review-repository'
 import { findByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { getCampaignTagIds } from '@/infrastructure/supabase/repositories/campaign-tags-repository'
-import { countActiveMembersByTags } from '@/infrastructure/supabase/repositories/tag-audience-repository'
+import { countAudience } from '@/infrastructure/supabase/repositories/campaign-audience-repository'
 import { findRestaurantNamesByIds, listUserEmailsById } from '@/infrastructure/supabase/repositories/admin-identity-lookups'
 import { isValidUUID } from '@/infrastructure/validation/validators'
 import {
   findLatestTemplateByNameForRestaurant,
   listCampaignsUsingTemplate,
-  countCampaignMembers,
   type TemplateCampaignRow,
 } from '@/infrastructure/supabase/repositories/template-review-detail-queries'
+import { audienceQueryForCampaign } from './campaign-audience-query'
+import type { AudienceCounts, AudienceQuery } from '@/domain/value-objects/audience-query'
 
 export interface ReviewEnrichmentDeps {
   findRestaurantNames(ids: string[]): Promise<Map<string, string>>
@@ -31,8 +32,8 @@ export interface TemplateReviewDetailDeps {
   findLatestTemplateByName(restaurantId: string, name: string): Promise<WhatsAppTemplate | null>
   listCampaignsUsingTemplate(restaurantId: string, templateId: string): Promise<TemplateCampaignRow[]>
   getCampaignTagIds(campaignId: string): Promise<string[]>
-  countActiveMembersByTags(tagIds: string[], restaurantId: string): Promise<number>
-  countCampaignMembers(campaignId: string): Promise<number>
+  /** The send's resolver (migration 086): what the admin sees is what would be sent. */
+  countAudience(query: AudienceQuery): Promise<AudienceCounts>
 }
 
 const enrichmentDeps: ReviewEnrichmentDeps = {
@@ -46,8 +47,7 @@ const defaultDeps: TemplateReviewDetailDeps = {
   findLatestTemplateByName: findLatestTemplateByNameForRestaurant,
   listCampaignsUsingTemplate,
   getCampaignTagIds,
-  countActiveMembersByTags,
-  countCampaignMembers,
+  countAudience,
 }
 
 export type TemplateReviewDetailTemplate = Pick<
@@ -56,7 +56,7 @@ export type TemplateReviewDetailTemplate = Pick<
 >
 
 export interface TemplateReviewDetailCampaign extends TemplateCampaignRow {
-  /** null = unknown (an 'all' audience, or the count failed) — the UI shows '—'. */
+  /** null = unknown (a non-broadcast 'all' audience, or the count failed) — the UI shows '—'. */
   audienceSize: number | null
 }
 
@@ -171,18 +171,22 @@ async function loadCampaigns(
   )
 }
 
-// A failed count must not take the whole review panel down — the admin can
-// still judge the template; the size reads as unknown.
+// The size is the send's will-receive count: the same resolver query, so the
+// campaign's lapsed and quality-skip filters apply (CAMP-016). A failed count
+// must not take the whole review panel down — the admin can still judge the
+// template; the size reads as unknown.
 async function sizeAudience(
   c: TemplateCampaignRow,
   restaurantId: string,
   deps: TemplateReviewDetailDeps
 ): Promise<number | null> {
   try {
-    if (c.targetAudience === 'selected') return await deps.countCampaignMembers(c.id)
-    if (c.targetAudience !== 'tag') return null
-    const tagIds = await deps.getCampaignTagIds(c.id)
-    return await deps.countActiveMembersByTags(tagIds, restaurantId)
+    const tagIds = c.targetAudience === 'tag' ? await deps.getCampaignTagIds(c.id) : []
+    const query = audienceQueryForCampaign(c, restaurantId, tagIds)
+    // No query: a tag campaign with no tags reaches nobody; a welcome or
+    // birthday 'all' is not a broadcast the resolver sizes.
+    if (!query) return c.targetAudience === 'all' ? null : 0
+    return (await deps.countAudience(query)).willReceive
   } catch (err) {
     console.warn(`getTemplateReviewDetail: audience size for campaign ${c.id} failed:`, err)
     return null

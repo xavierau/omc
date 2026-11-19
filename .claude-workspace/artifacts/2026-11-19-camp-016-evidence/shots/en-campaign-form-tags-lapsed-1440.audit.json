@@ -1,0 +1,64 @@
+{
+ "url": "http://localhost:3040/dashboard/campaigns",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 900,
+  "scrollable": false,
+  "overlaysOpen": [
+   "div.fixed.inset-0 @0,0 1440x900",
+   "div#radix-_r_3_.fixed.z-50 \"Create Campaign Name Type Welcome Win-ba\" @1056,0 384x900"
+  ]
+ },
+ "scanned": {
+  "elements": 125,
+  "domNodes": 272,
+  "capped": false
+ },
+ "cls": 0.001561085390946502,
+ "summary": {
+  "blocking": 0,
+  "warning": 3,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "inconsistent-spacing",
+   "sev": "warning",
+   "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 Insert {{contactName}} In\" @1086,639 325x231",
+   "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+   "items": [
+    "div.group/tabs-list.inline-flex \"EN 繁中\" @1086,639 81x32",
+    "div#radix-_r_6_-content-en.flex-1.text-sm \"0 / 1024\" @1086,679 325x123",
+    "div.mt-2.flex \"Insert {{contactName}} Insert {{couponCo\" @1086,818 325x52"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Cafe Popp\" @0,0 1440x900",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 316px / bottom 664px)",
+   "items": [
+    "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient Powered by WhatsApp Cafe Popp\" @0,0 240x900",
+    "main.flex-1.bg-background \"Campaigns Create Campaign No campaigns y\" @240,0 1200x900"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

@@ -1,0 +1,71 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/welcome",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 1093,
+  "scrollable": true,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 120,
+  "domNodes": 231,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 4,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "inconsistent-spacing",
+   "sev": "warning",
+   "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 插入 {{greeting}} 插入 {{poin\" @560,556 832x201",
+   "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+   "items": [
+    "div.group/tabs-list.inline-flex \"EN 繁中\" @560,556 81x32",
+    "div#radix-_r_0_-content-en.flex-1.text-sm \"0 / 1024\" @560,596 832x123",
+    "div.mt-2.flex \"插入 {{greeting}} 插入 {{points}} 插入 {{conta\" @560,735 832x22"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"推廣活動 新 受眾質素、喚回顧客\" @272,326 232x66",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 23px)",
+   "items": [
+    "span.min-w-0.flex-1 \"推廣活動 新 受眾質素、喚回顧客\" @317,337 174x44",
+    "svg @285,339 20x20"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @272,396 232x66",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 24px)",
+   "items": [
+    "span.min-w-0.flex-1 \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @317,407 174x44",
+    "svg @285,409 20x20"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

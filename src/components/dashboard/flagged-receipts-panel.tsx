@@ -9,6 +9,7 @@ import {
   TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { decideFlaggedReceipt } from '@/components/dashboard/settings/use-flagged-receipt-count'
 
 interface FlaggedReceipt {
   id: string
@@ -44,12 +45,8 @@ export function FlaggedReceiptsPanel() {
   async function handleAction(receiptId: string, action: 'approve' | 'reject') {
     setActionId(receiptId)
     try {
-      const res = await fetch('/api/dashboard/receipts/flagged', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptId, action }),
-      })
-      if (!res.ok) throw new Error('Failed')
+      // Also refreshes the Settings "N flagged" pill.
+      if (!(await decideFlaggedReceipt(receiptId, action))) throw new Error('Failed')
       setReceipts(prev => prev.filter(r => r.id !== receiptId))
     } catch {
       // keep in list on failure

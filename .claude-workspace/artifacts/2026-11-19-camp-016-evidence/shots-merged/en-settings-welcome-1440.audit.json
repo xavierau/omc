@@ -1,0 +1,71 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/welcome",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 1093,
+  "scrollable": true,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 120,
+  "domNodes": 231,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 4,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "inconsistent-spacing",
+   "sev": "warning",
+   "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 Insert {{greeting}} Inser\" @560,556 832x201",
+   "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+   "items": [
+    "div.group/tabs-list.inline-flex \"EN 繁中\" @560,556 81x32",
+    "div#radix-_r_0_-content-en.flex-1.text-sm \"0 / 1024\" @560,596 832x123",
+    "div.mt-2.flex \"Insert {{greeting}} Insert {{points}} In\" @560,735 832x22"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"Campaigns New Audience quality, win-back\" @272,346 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 43px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Campaigns New Audience quality, win-back\" @317,357 174x64",
+    "svg @285,359 20x20"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"Join QR & welcome Welcome message, QR co\" @272,436 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 44px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Join QR & welcome Welcome message, QR co\" @317,447 174x64",
+    "svg @285,449 20x20"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

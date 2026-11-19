@@ -1,3 +1,5 @@
+import type { SkipContactQuality } from '@/domain/value-objects/audience-filters'
+
 export interface Campaign {
   id: string
   restaurantId: string
@@ -44,6 +46,13 @@ export interface Campaign {
   bookNowEnabled?: boolean
   /** Campaign booking URL override for External link mode (AC-17); https only (R14). */
   bookingUrl?: string | null
+  /**
+   * CAMP-016 (migration 086): the audience filters snapshotted at create. The
+   * send reads these, never the live tenant settings. Absent = 'off' / null
+   * (rows that predate 086 keep their old behaviour).
+   */
+  audienceSkipQuality?: SkipContactQuality
+  audienceLapsedDays?: number | null
 }
 
 export interface CouponConfig {

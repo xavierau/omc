@@ -17,6 +17,8 @@ const ROW = {
   schedule: { trigger: 'birthday', daysBefore: 3 },
   scheduled_at: null,
   created_at: '2026-10-31T00:00:00Z',
+  audience_skip_quality: 'red',
+  audience_lapsed_days: 45,
 }
 
 function client(rows: unknown[]) {
@@ -41,6 +43,8 @@ describe('listCampaignsUsingTemplate', () => {
     const [c] = await listCampaignsUsingTemplate('rest-1', 'tpl-1')
 
     expect(selects[0]).toContain('schedule')
+    // CAMP-016 r3 (F6): the snapshot the send's resolver sizes the audience with.
+    expect(selects[0]).toContain('audience_skip_quality, audience_lapsed_days')
     expect(c).toEqual({
       id: 'camp-1',
       name: 'Birthday',
@@ -51,6 +55,8 @@ describe('listCampaignsUsingTemplate', () => {
       schedule: { trigger: 'birthday', daysBefore: 3 },
       scheduledAt: null,
       createdAt: '2026-10-31T00:00:00Z',
+      audienceSkipQuality: 'red',
+      audienceLapsedDays: 45,
     })
   })
 })

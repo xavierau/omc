@@ -5,6 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/infrastructure/supabase/guards/tenant-guard')
+// CAMP-016: campaign create/edit snapshot the tenant's audience defaults.
+vi.mock('@/infrastructure/supabase/repositories/campaign-audience-defaults-repository', () => ({
+  getAudienceDefaults: vi.fn(async () => ({ skipContactQuality: 'red', lapsedAfterDays: 30 })),
+}))
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository', async () => {
   const actual = await vi.importActual<typeof import('@/infrastructure/supabase/repositories/campaign-repository')>(
     '@/infrastructure/supabase/repositories/campaign-repository'

@@ -106,3 +106,12 @@ describe('CampaignTagPicker — recipient count wiring', () => {
     expect((recipientCount?.props as RecipientCountProps).tagIds).toEqual(['t-1', 't-2'])
   })
 })
+
+describe('CampaignTagPicker — legacy count hidden next to the audience summary (CAMP-016)', () => {
+  it('omits CampaignTagRecipientCount when showRecipientCount is false', () => {
+    const tree = renderTree(
+      <CampaignTagPicker selectedIds={['t-1']} onChange={() => {}} showRecipientCount={false} />
+    )
+    expect(byName(tree, 'CampaignTagRecipientCount')).toBeUndefined()
+  })
+})

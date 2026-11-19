@@ -1,0 +1,44 @@
+== 2026-11-19T13:23:58Z AC-1: scratch DB = migrations 001..085 incl. peer 085_agent_booking_changes (build.sh 085, 0 errors), then 086
+-- pre-085 fixtures: an existing tenant (seeded by the 078 trigger) + an existing winback campaign
+INSERT 0 1
+INSERT 0 1
+-- tenant_campaign_settings rows: 1; restaurants: 1; campaigns: 1
+-- apply 086
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+exit 0
+-- apply 086 again (idempotent)
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:66: NOTICE:  column "skip_contact_quality" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:66: NOTICE:  column "lapsed_after_days" of relation "tenant_campaign_settings" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:72: NOTICE:  column "audience_skip_quality" of relation "campaigns" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--camp-016/supabase/migrations/086_campaign_audience_quality.sql:72: NOTICE:  column "audience_lapsed_days" of relation "campaigns" already exists, skipping
+exit 0
+-- existing tenant row (restaurant_id|skip_contact_quality|lapsed_after_days):
+11111111-0000-0000-0000-0000000c0016|red|30
+-- distinct (skip, lapsed) across ALL existing rows:
+red|30|1
+-- restaurants without a complete row (expect 0):
+0
+-- existing campaigns (audience_skip_quality|audience_lapsed_days):
+off|NULL|1
+-- new tenant inserted after 085 (seeded by the 078 trigger):
+22222222-0000-0000-0000-0000000c0016|red|30|1000
+-- CHECKs reject bad values (expect 3 errors):
+ERROR:  new row for relation "tenant_campaign_settings" violates check constraint "tenant_campaign_settings_skip_contact_quality_check"
+ERROR:  new row for relation "tenant_campaign_settings" violates check constraint "tenant_campaign_settings_lapsed_after_days_check"
+ERROR:  new row for relation "campaigns" violates check constraint "campaigns_audience_lapsed_days_check"
