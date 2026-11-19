@@ -15,7 +15,10 @@ Base c09018f (r3, local only). origin/develop at 1e2e881. Branch `feature/book-0
 ## Commits
 - `c9ca90c` merge origin/develop (merge commit, no rebase).
 - `262148e` threat model copied from the main checkout (lines 127–128: per-phone lockout "Accepted for the POC by Xavier, 2026-11-19").
-- (this artifact + evidence) docs commit on top.
+- `7ae078c` this artifact + evidence (first push, fast-forward from 0d95fd0).
+- `3b06b12` merge origin/develop again: develop moved to 4a9b564 (#190, AGENT-001 release docs) after the first fetch, and GitHub reported CONFLICTING. The conflicts in `.claude-workspace/INDEX.md` and `.claude-workspace/poc-log.md` were concurrent appends, so both sides were kept. `poc-log.md` is outside `files_allowed`, but only develop's line and BOOK-003's existing line were kept; nothing was authored.
+- `3a5dfae` merge origin/develop again: d841ed9 (#191, AGENT-001 deploy docs), no conflicts.
+- No change under `src`, `supabase`, `scripts` or the configs since 7ae078c, so the gate logs below still hold for the final head.
 
 ## Conflicts
 - `src/app/api/webhooks/whatsapp/handlers.ts`: import block only. Both `maybeHandleBookingConfirmCode` and `maybeQueueAgentReply` imports kept. Dispatch order unchanged: `maybeHandleBookingConfirmCode` (dispatchRoute, line 102) runs before `resolveRoute` (line 104), so before `maybeQueueAgentReply` (dispatchConfirmation, `route === null`, line 207).
@@ -34,4 +37,4 @@ No existing test asserted the agent entry point is untouched (booking-confirm-co
 - `eslint-handlers.log`: exit 0.
 - `full-vitest.log` (heavy lock): 642 passed / 11 skipped files, 7202 tests passed, exit 0.
 - `tsc.log` (heavy lock): exit 0.
-- Push and PR state: see `push-and-pr.log`.
+- Push and PR state: `push-and-pr.log` records the pushes up to 3a5dfae. The final head is this artifact's own commit; its ls-remote SHA, `gh pr view 186` mergeable state and CI conclusions are in the dev handoff block (a commit can't record its own SHA).
