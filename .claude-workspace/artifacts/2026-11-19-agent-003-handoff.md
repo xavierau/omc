@@ -4,23 +4,98 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-19
+updated: 2026-11-19 (r2: rulings R18 knob, R19, R20–R24)
 status: active
 item: AGENT-003
 state: done
-brief: inline (team-lead, AGENT-003 brief-v1)
+brief: inline (team-lead, AGENT-003 brief-v1 + rulings 1–3)
 base: 7d4decf6
-head: b92e2aa5 (code + evidence; this file and the kanban entry are committed on top)
+head: 5ba10669 (code + evidence; this file and the kanban entry are committed on top)
 branch: feature/agent-003-agent-booking
 pr: https://github.com/xavierau/omc/pull/195 (into develop, not merged)
 pushed: true
 stage: poc
-suite_changed: false
-gate: {result: pass, at: 2026-11-19T08:53Z}
-next: {owner: main, action: "review PR #195; release = worker restart, no migration; tick the three booking tools for omc"}
+suite_changed: true (only where a ruling changed behaviour; listed under AC-GATE r2)
+gate: {result: pass, at: 2026-11-19T09:45Z}
+next: {owner: main, action: "review PR #195; release = migration 085 FIRST, then worker restart; tick the booking tools for omc; decide maxOutputTokens default"}
 blockers: []
 refs: [plans/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-003-agent-booking, threats/2026-11-19-agent-001-ai-reply-agent, kanban:AGENT-003]
 ---
-# AGENT-003 handoff: the agent takes bookings + overload fallback (POC)
+# r2 (rulings 1–3)
+
+Evidence: `.claude-workspace/artifacts/2026-11-19-agent-003-evidence/r2/`. It has the walk logs `walk-r2-*.log`, `worker-agent-lines.log`, `kapso-capture.log`, `walk-r2-db.log`, `db-085.log`, `walk-r2-browser-{en,zh}.log` and screenshots with audit JSON in `shots/`. The tenant `A3 Test Cafe` and phone +85290000003 are fake. Nothing touched prod.
+
+## ac (r2)
+- **AC-R18 (ruling 1): pass.** `perCallTimeoutMs` defaults to 8000 and is clamped to 3000–15000. Attempts run primary, then fallback (sticky), then one primary retry only if the budget allows. The primary call reserves 5 s while the fallback is still unused.
+  - Budget arithmetic tests (`agent-client.test.ts`): at the 8 s default the calls get [8000, 8000, 3600] ms. At 15 s: the primary gets 15000, the fallback gets 5000, and the primary is cut to 18000−5000.
+  - The knob clamp is tested in `agent-failure-action.test.ts`.
+- **AC-R19 (ruling 2): pass.** `vitest run -t AC-R19`, in `agent-failure-action.test.ts` and `agent-dashboard.test.tsx`.
+  - In auto with `handoff`: each failure class (timeout, http, safety, parse, empty, tool_cap, truncated), config unreadable, and a job error each send ONE reply. The reply is the apology + "staff will follow up" + the contact action, with outcome `handoff`, and no silence row is written.
+  - The thread gets `needsStaff`. A failed handoff send falls back to the menu.
+  - `menu` keeps the old behaviour. Shadow, mode_off, silenced and rate-limited are unchanged.
+  - Real DB: `handoff` claims the one reply per user row.
+  - Walked: a truncated turn sent the apology and /dashboard/agent showed "Needs staff" / "需要職員跟進" (`shots/r2-agent-log-*`).
+- **AC-R20: pass.** `list_my_bookings` returns only this phone's upcoming pending and confirmed bookings at this restaurant. Other phones, other tenants, past, declined and cancelled rows never come back.
+  - The repository WHERE clause is asserted.
+  - Refs are the shortest id prefix (at least 8) unique in the list. The walk found the shared-prefix case.
+- **AC-R21: pass.** A ref for another phone, another tenant, a past, declined or cancelled booking, or a malformed or unknown ref → `not_found`, with nothing stored. New values go through `parseBookingSubmission`, and "no change" is refused.
+- **AC-R22: pass.** Change and cancel both mirror R15: no proposal, the same job, expired, and single use. One proposal per conversation across kinds.
+  - The Redis Lua checks the kind (`other_kind`) on a real Redis.
+  - `peekKind` exposes the kind only. It drives a system line telling the model a read-back is waiting, and it consumes nothing.
+- **AC-R23: pass.**
+  - A change request is pending, linked to the original, with source `agent` and the original's name, notes and member; the original is untouched. A second change → `change_already_pending`.
+  - Staff confirm → `confirm_booking_change` RPC: change confirmed, original `cancelled` / `change`, "confirmed" sent for the new time.
+  - Decline → the original is unchanged and nothing is sent.
+  - A failure in the swap rolls both rows back. This was checked in the fake and in real Postgres with a blocking trigger.
+  - Rows that aren't change requests take the old path.
+  - Walked: "我想將25號7點半嘅訂座改去26號8點" → read-back → "係" → pending change request. 訂座 Confirm → 26/11 confirmed, 25/11 "Replaced by a change" / "已改期取代". The diner got "你的訂座已確認… 2026-11-26 20:00".
+- **AC-R24: pass.**
+  - Upcoming pending or confirmed → `cancelled` / `diner_ai`, together with its open change request. The diner gets one bilingual text; a failed text doesn't undo the cancel.
+  - A booking that became past or closed → `not_found`.
+  - The reminder RPC excludes cancelled bookings, checked in real Postgres. The 085 CHECKs couple the status, the marker and `cancelled_at`.
+  - Walked: "27號中午嗰個訂座我想取消" → read-back → "係，取消" → cancelled, with "已取消你 2026-11-27 12:30（2 位）的訂座。…" sent once. 訂座 shows "Cancelled by diner (AI agent)" / "顧客經 AI 助理取消".
+- **AC-UI (r2): pass.** Advanced shows the failure action radios (handoff checked by default), the per-call timeout knob (min 3000, max 15000) and the five new tool checkboxes.
+  - en and zh-HK at 1280 and 390, 0 blocking (`shots/r2-setup-advanced-*`).
+  - 訂座 at 1280 and 390, en and zh-HK, 0 blocking (`shots/r2-bookings-*`).
+  - Render tests are `booking-change-ui.test.tsx` and `agent-dashboard.test.tsx`. Testid registry rows were added.
+- **AC-WALK (r2): pass.** Change, staff confirm and cancel as described above, with screenshots before and after the confirm.
+- **AC-GATE (r2): pass.** `resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run && npx eslint src --quiet'`.
+  - tsc: clean. vitest: 646 files, 7308 tests passed, 90 skipped, 0 failed.
+  - ESLint: 36 errors, all in files this branch doesn't touch (for example `use-stamp-campaigns.ts` and `webhook-adapter.test.ts`). `eslint --quiet` on the 46 touched TS files exits 0.
+  - No test was removed. Changed only where a ruling changed behaviour:
+    - The default config gained `perCallTimeoutMs`, `failureAction` and the five tools.
+    - AC-F3 now expects handoff, because the default is handoff.
+    - The harness default `failureAction: 'menu'` keeps the AGENT-001 R4 tests.
+    - The history query includes `handoff`.
+    - The outcome CHECK and the one-reply index are read from 085.
+    - The decided list includes `cancelled`.
+    - The R2/R12 parameter tests allow `bookingRef`.
+- **AC-PR: pass.** PR #195 retitled, with the body updated to put migration 085 before the deploy. Kanban was updated.
+
+## decisions (r2)
+- **R19 scope.** Model failures, budget, config unreadable and job errors all hand off. `send_failed`, `mode_off`, `silenced` and `rate_limited` keep the menu, because they are not agent failures. The handoff text goes into the model history, since the diner saw it.
+- **Change = a new pending row with `replaces_booking_id`.** The confirm is atomic through a `SECURITY INVOKER` SQL function granted to service_role only. Decline uses the existing decide path, and `decided()` skips the "declined" message for a change request.
+  - BOOK-003 shares `decideBookingRequest`, but rows with a null `replaces_booking_id` behave exactly as before: the RPC returns no row and `decide()` runs. So nothing needed escalating.
+- **Cancel = one scoped UPDATE.** It is filtered by restaurant, phone, open status and date ≥ today, with `id = X or (replaces_booking_id = X and pending)`. It cancels the booking and its open change request together.
+- **Pending-proposal system line.** On the confirm turn the model kept re-proposing, which restarts the gate and loops the diner. The cause: history keeps no tool results (R9). The worker now reads the proposal's kind (no values) and adds "WAITING FOR THE DINER … call <confirm tool> now". The gate itself is unchanged.
+- **The 訂座 change line** reads the original's slot with one extra scoped `.in('id')` query per list load.
+
+## unverified (r2)
+- **Default `maxOutputTokens` 400.** It counts thoughts and text together. On booking turns it truncated 2 of 13 walk turns, and each became a handoff apology. The walk tenant ran at 1024 afterwards with no truncation. I didn't change the AGENT-001 default; that is main's call.
+- **The local Supabase stack is still running** under my `supabase-whatsapp-crm` lock. A peer worktree (`whatsapp-crm--bookings-views`, next dev :3030; tenant "Cafe Poppy (BOOK-004 local)" seeded 09:34Z) is using it, so I didn't stop it.
+  - To stop it: `touch /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/b7ce2348-be88-463f-a29e-8e4b78a7d232/scratchpad/a3/stop.sentinel`. That runs `supabase stop`, which keeps the data, and releases the lock.
+- **The walk tenant's AGENT-001 per-phone hourly cap** (R6) rate-limited the 11th message in about 6 minutes. That is expected; the cap was raised to 60 for the walk.
+- **No real-Gemini walk of a staff decline.** It is covered by the unit and real-DB tests.
+
+## review_focus (r2)
+- `supabase/migrations/085_agent_booking_changes.sql`: the constraints, the RPC and the index rebuild.
+- `src/application/agent/agent-booking-change-tools.ts`: ref resolution and the confirm flows.
+- `src/infrastructure/supabase/repositories/booking-request-repository.ts`: `cancelDinerBooking` (the `.or` filter) and `confirmBookingChange`.
+- `src/application/booking/decide-booking-request.ts`: the change branch.
+- `src/application/agent/process-agent-reply.ts`: `respondToFailure`, `fallBack` and `pending`.
+
+# r1
+## AGENT-003 handoff r1: the agent takes bookings + overload fallback (POC)
 
 Evidence: `.claude-workspace/artifacts/2026-11-19-agent-003-evidence/`. It has the walk logs, `worker-agent-lines.log`, `kapso-capture.log`, `walk-db.log`, screenshots with audit JSON in `shots/`, and the walk scripts in `tools/`. All data is fake: tenant `A3 Test Cafe` and phones +85290000003/4. Nothing touched prod.
 
