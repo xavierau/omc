@@ -99,6 +99,11 @@ no artifact files were lost._
 
 ### Artifacts
 
+**BOOK-004 — bookings Calendar + Table views (2026-11-19)**
+- [2026-11-19-book-004-bookings-views-ux](artifacts/2026-11-19-book-004-bookings-views-ux.md) — BOOK-004 UX spec + POC plan; Pencil mocks in designs/ (main)
+- [2026-11-19-book-004-bookings-views-impl](artifacts/2026-11-19-book-004-bookings-views-impl.md) — BOOK-004 impl: ranged bookings API, calendar + table views, en/zh walk (dev)
+- [2026-11-19-dev-book-004-handoff](artifacts/2026-11-19-dev-book-004-handoff.md) — BOOK-004 dev handoff (dev)
+
 **BOOK-003 — booking through personal agents (2026-11-19)**
 - [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)
 - [2026-11-19-book-003-dev-handoff](artifacts/2026-11-19-book-003-dev-handoff.md) — BOOK-003 dev handoff (dev)

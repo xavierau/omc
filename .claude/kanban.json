@@ -1586,6 +1586,32 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "BOOK-004",
+          "title": "Bookings page: Calendar view (default) + Table view",
+          "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/bookings-calendar-table",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-003"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-19-book-004-bookings-views-ux.md",
+            "artifacts/2026-11-19-book-004-bookings-views-impl.md",
+            "artifacts/2026-11-19-dev-book-004-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-19",
+          "notes": "Built and walked on the local Supabase stack (scratch tenant, en + zh-HK, 1440 + 390); PR into develop. Not deployed."
+        },
+        {
           "id": "BOOK-003",
           "title": "Booking through personal agents (PAP 1.0 / poppy.json)",
           "description": "POC: a per-tenant, signed-out OpenAPI booking API (POST/GET /api/poppy/{publicId}/bookings, /openapi.json) listed in a poppy.json the restaurant hosts on its own domain (owner decision 1B). An agent booking stays 'unverified' (invisible to staff, never messaged) until the diner sends its 6-char confirm code on WhatsApp from the booking phone (owner decision 2B); then it is a normal pending booking with a 'via AI agent' badge. Admin settings: Allow AI agents toggle (Simple mode), website host, rotate id, download poppy.json. Migration 084. R45 privacy-policy copy is an owner go-live item.",
