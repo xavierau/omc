@@ -1,0 +1,15 @@
+# prod smoke 2026-11-19T14:38:11Z, unauthenticated, read-only
+## /api/health
+200
+## /login
+200
+new BUILD_ID occurrences: 1
+old BUILD_ID occurrences: 0
+## /dashboard/bookings
+307 -> https://app.ohmyclient.io/login
+## GET /api/dashboard/bookings?from=2026-11-01&to=2026-11-30
+{"error":"Unauthorized"}
+HTTP 401
+## BOOK-004 marker in served JS chunks
+/_next/static/chunks/0s_j8m74ejgk_.js -> 200, 'bookings-calendar' x7
+chunks with marker served by prod: 1 of 1

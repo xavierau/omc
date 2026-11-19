@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-19-book-004-release-runbook](deploys/2026-11-19-book-004-release-runbook.md) — BOOK-004 to prod: #199 → main f1fa26b → release 79c2634, no migration (dev)
 - [2026-11-19-book-003-release-runbook](deploys/2026-11-19-book-003-release-runbook.md) — BOOK-003 to prod dark: sync #192, release #193 → main 45a1023 → release da99e4d, mig 084, BUILD_ID 4VXrhhE4uWnAnm-o-34bu; agent booking off for all 7 restaurants (dev)
 - [2026-11-19-agent-001-book-release-runbook](deploys/2026-11-19-agent-001-book-release-runbook.md) — AGENT-001 to prod: #187/#189 → main 091b36b → release 55995fa, mig 083, BUILD_ID iOPJoRj0NXfsHDLCC1TO3, live Gemini probe 200; omc → shadow 06:42:49Z, other 6 off (dev)
 - [2026-10-07-mem-001-004-release-runbook](deploys/2026-10-07-mem-001-004-release-runbook.md) — MEM-001/004 prod release, mig 080+081 (devops-engineer)
@@ -107,6 +108,7 @@ no artifact files were lost._
 - ~~[2026-11-19-dev-book-004-r2-handoff](artifacts/2026-11-19-dev-book-004-r2-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r3-handoff
 - ~~[2026-11-19-dev-book-004-r3-handoff](artifacts/2026-11-19-dev-book-004-r3-handoff.md)~~ → replaced by 2026-11-19-dev-book-004-r4-handoff
 - [2026-11-19-dev-book-004-r4-handoff](artifacts/2026-11-19-dev-book-004-r4-handoff.md) — BOOK-004 r4: develop merge, AGENT-003 rows + cancelled in the views (dev)
+- [2026-11-19-rel-book004-handoff](artifacts/2026-11-19-rel-book004-handoff.md) — BOOK-004 release handoff: prod on 79c2634, smoke pass (dev)
 
 **BOOK-003 — booking through personal agents (2026-11-19)**
 - [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)

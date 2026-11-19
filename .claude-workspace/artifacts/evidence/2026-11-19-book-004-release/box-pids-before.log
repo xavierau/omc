@@ -1,0 +1,5 @@
+# forge command 14443830 status finished
+3237666    01:11:44 next-server (v16.3.4)
+3237756    01:11:39 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-worker.ts
+3237771    01:11:39 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import file:///home/forge/ap
+3237805    01:11:35 /home/forge/app.ohmyclient.io/node_modules/@esbuild/linux-x64/bin/esbuild --service=0.27.7 --ping
