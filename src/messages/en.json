@@ -1349,20 +1349,27 @@
     "sendDecline": "Send decline",
     "cancel": "Cancel",
     "declineReasonPlaceholder": "Reason (optional)",
+    "partyOf": "{count, plural, one {# person} other {# people}}",
     "status": {
       "pending": "Pending",
       "confirmed": "Confirmed",
       "declined": "Declined",
+      "cancelled": "Cancelled",
       "unverified": "Awaiting diner"
     },
     "notDelivered": "Message not delivered, contact the diner",
     "nameRemoved": "(name removed)",
+    "cancelledByDiner": "Cancelled by diner (AI agent)",
+    "replacedByChange": "Replaced by a change",
+    "changeFrom": "Change request: {from} → {to}",
+    "changeRequest": "Change request",
     "declinedBecause": "Reason: {reason}",
     "confirmationSent": "Confirmation sent",
     "declineSent": "Decline sent",
     "alreadyHandled": "This request was already {status}.",
     "alreadyHandledStatus": {
       "confirmed": "confirmed",
+      "cancelled": "cancelled",
       "declined": "declined"
     },
     "actionFailed": "Couldn't update this request. Please try again.",
@@ -1392,7 +1399,8 @@
         "all": "All",
         "pending": "Pending",
         "confirmed": "Confirmed",
-        "declined": "Declined"
+        "declined": "Declined",
+        "cancelled": "Cancelled"
       },
       "searchPlaceholder": "Name or phone",
       "guests": "{count, plural, one {# guest} other {# guests}}",
@@ -1596,16 +1604,44 @@
     "disclosureHint": "Added to the end of every automatic reply. You can reword it; it can't be removed (left blank, the default comes back).",
     "modelLabel": "Model",
     "modelPlaceholder": "Default model",
+    "fallbackModelLabel": "Fallback model",
+    "fallbackModelPlaceholder": "Default fallback model",
+    "fallbackModelHint": "Used once when the main model is overloaded or times out.",
+    "failureActionLabel": "When the agent fails",
+    "failureAction": {
+      "handoff": "Hand off to staff",
+      "menu": "Send the menu"
+    },
+    "failureActionHint": {
+      "handoff": "The diner gets an apology and your contact link, and the conversation is marked \"Needs staff\". Recommended.",
+      "menu": "The diner gets the usual fallback menu."
+    },
     "toolsLabel": "Tools the agent may use",
     "tool": {
       "get_member_summary": "Member summary",
       "list_rewards": "Rewards list",
-      "handoff_to_staff": "Hand off to staff"
+      "handoff_to_staff": "Hand off to staff",
+      "propose_booking": "Propose a booking",
+      "create_booking_request": "Send the booking request",
+      "get_booking_link": "Booking link",
+      "list_my_bookings": "List my bookings",
+      "propose_booking_change": "Propose a change",
+      "confirm_booking_change": "Send the change request",
+      "propose_booking_cancel": "Propose a cancellation",
+      "confirm_booking_cancel": "Cancel the booking"
     },
     "toolHint": {
       "get_member_summary": "The diner's own points and stamp cards.",
       "list_rewards": "Your active rewards and their points cost.",
-      "handoff_to_staff": "Sends your contact link and pauses the agent for this diner."
+      "handoff_to_staff": "Sends your contact link and pauses the agent for this diner.",
+      "propose_booking": "Checks the date, time, party size and name the diner gave and reads them back. Simple booking mode only.",
+      "create_booking_request": "After the diner agrees, adds a pending request to Bookings for you to confirm. Simple booking mode only.",
+      "get_booking_link": "Shares your online booking link. External booking mode only.",
+      "list_my_bookings": "The diner's own upcoming bookings. Simple booking mode only.",
+      "propose_booking_change": "Checks a new date, time or party size and reads it back. Simple booking mode only.",
+      "confirm_booking_change": "After the diner agrees, adds a change request to Bookings; the original stays until you confirm. Simple booking mode only.",
+      "propose_booking_cancel": "Reads back the booking the diner wants to cancel. Simple booking mode only.",
+      "confirm_booking_cancel": "After the diner agrees, cancels the booking and texts the diner. Simple booking mode only."
     },
     "knob": {
       "temperature": "Temperature",
@@ -1615,6 +1651,7 @@
       "historyTtlHours": "Keep conversations for (hours)",
       "debounceMs": "Wait for more messages (ms)",
       "maxToolCalls": "Max tool calls per reply",
+      "perCallTimeoutMs": "Max wait for the model per call (ms)",
       "handoffSilenceHours": "Silence after hand-off to staff (hours)",
       "maxRepliesPerPhonePerHour": "Max replies per diner per hour",
       "maxRepliesPerTenantPerDay": "Max replies per day (restaurant)"
@@ -1625,7 +1662,9 @@
       "knowledge": "restaurant info",
       "instructions": "instructions",
       "disclosureText": "disclosure line",
+      "failureAction": "when the agent fails",
       "model": "model",
+      "fallbackModel": "fallback model",
       "enabledTools": "tools",
       "temperature": "temperature",
       "maxOutputTokens": "max output tokens",
@@ -1634,6 +1673,7 @@
       "historyTtlHours": "keep conversations for (hours)",
       "debounceMs": "wait for more messages (ms)",
       "maxToolCalls": "max tool calls per reply",
+      "perCallTimeoutMs": "max wait for the model per call (ms)",
       "handoffSilenceHours": "silence after hand-off to staff (hours)",
       "maxRepliesPerPhonePerHour": "max replies per diner per hour",
       "maxRepliesPerTenantPerDay": "max replies per day (restaurant)"
@@ -1665,10 +1705,12 @@
     "latency": "{ms} ms",
     "tools": "tools: {names}",
     "noTools": "no tools",
+    "needsStaff": "Needs staff",
     "outcome": {
       "shadow_draft": "Draft",
       "sent": "Sent",
       "fallback": "Fallback menu",
+      "handoff": "Handed to staff",
       "error": "Error",
       "rate_limited": "Rate limited",
       "skipped": "Skipped"

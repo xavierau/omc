@@ -2,7 +2,7 @@
 
 /**
  * BOOK-004: the desktop month grid. Weeks start Sunday; days of other months
- * are greyed; each day shows its guests (declined left out), up to three
+ * are greyed; each day shows its guests (declined and cancelled left out), up to three
  * chips by time coloured by status, then "+N more". Clicking selects the day.
  */
 import { useLocale, useTranslations } from 'next-intl'
@@ -18,6 +18,7 @@ const CHIP_TONE: Record<BookingItem['status'], string> = {
   pending: 'bg-pending-soft text-pending-foreground ring-1 ring-accent/30',
   confirmed: 'bg-primary/10 text-primary',
   declined: 'bg-muted text-muted-foreground line-through',
+  cancelled: 'bg-muted text-muted-foreground line-through',
 }
 
 const DOT_TONE: Record<BookingItem['status'], string> = {
@@ -25,6 +26,7 @@ const DOT_TONE: Record<BookingItem['status'], string> = {
   pending: 'bg-accent',
   confirmed: 'bg-primary',
   declined: 'bg-muted-foreground',
+  cancelled: 'bg-muted-foreground',
 }
 
 export interface CalendarDaysProps {

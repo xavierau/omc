@@ -1,0 +1,44 @@
+{
+  "url": "http://localhost:3022/dashboard/bookings",
+  "viewport": {
+    "w": 1280,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1280,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1280,
+    "scrollH": 900,
+    "scrollable": false,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 72,
+    "domNodes": 146,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 1,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 A3 Test Cafe \" @0,0 1280x900",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 234px / bottom 500px)",
+      "items": [
+        "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient WhatsApp 智能客戶管理 A3 Test Cafe \" @0,0 240x900",
+        "main.flex-1.bg-background \"訂座 客人提交的訂座要求,請逐一確認或拒絕。 2026-11-26 20:00 \" @240,0 1040x900"
+      ]
+    }
+  ]
+}

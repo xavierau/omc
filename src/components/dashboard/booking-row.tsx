@@ -6,8 +6,12 @@
  * (with an optional reason); a decision whose message did not go out shows
  * the "contact the diner" badge, from this session or as stored (F9).
  * BOOK-003: a booking an AI agent made shows the "via AI agent" badge.
+ * AGENT-003: a change request shows the slot it would replace (old → new);
+ * a cancelled booking says whether the diner cancelled it through the AI
+ * agent or a confirmed change replaced it.
  * BOOK-004: the day-list row (calendar day panel, phone day list): time and
  * party on the left; the badges and actions are shared with the table views.
+ * A cancelled booking is greyed and struck through, like a declined chip.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -27,12 +31,18 @@ export interface BookingRowProps {
   onDecide: DecideFn
 }
 
-/** BOOK-004: pending = the accent amber family, confirmed = primary, declined = muted. */
+/** BOOK-004: pending = the accent amber family, confirmed = primary, declined and cancelled = muted. */
 export const STATUS_TONE: Record<BookingItem['status'], string> = {
   unverified: 'border-border text-muted-foreground',
   pending: 'border-accent/40 bg-pending-soft text-pending-foreground',
   confirmed: 'border-primary/25 bg-primary/10 text-primary',
   declined: 'border-border bg-muted text-muted-foreground',
+  cancelled: 'border-border bg-muted text-muted-foreground',
+}
+
+/** A cancelled booking's time and guest are greyed and struck through (owner 2026-11-19). */
+export function cancelledText(booking: BookingItem): string | false {
+  return booking.status === 'cancelled' && 'text-muted-foreground line-through'
 }
 
 export function BookingStatusBadge({ booking }: { booking: BookingItem }) {
@@ -67,6 +77,31 @@ export function NotDeliveredBadge({ booking, undelivered, short = false }: { boo
     >
       {short ? t('notDeliveredShort') : t('notDelivered')}
     </Badge>
+  )
+}
+
+/** AGENT-003 R24/R23: who cancelled it, the diner through the AI agent or a confirmed change. */
+export function CancelledByBadge({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.cancelledBy) return null
+  const byDiner = booking.cancelledBy === 'diner_ai'
+  return (
+    <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-cancelled-by-${byDiner ? 'diner' : 'change'}`}>
+      {t(byDiner ? 'cancelledByDiner' : 'replacedByChange')}
+    </Badge>
+  )
+}
+
+/** AGENT-003 R23: a change request shows the slot it would replace (old → new). */
+export function ChangeFromLine({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.replacesBookingId) return null
+  const slot = (b: { bookingDate: string; bookingTime: string; partySize: number }) =>
+    `${b.bookingDate} ${b.bookingTime} · ${t('partyOf', { count: b.partySize })}`
+  return (
+    <p className="text-sm text-foreground" data-testid={`booking-row-${booking.id}-change-from`}>
+      {booking.replaces ? t('changeFrom', { from: slot(booking.replaces), to: slot(booking) }) : t('changeRequest')}
+    </p>
   )
 }
 
@@ -140,15 +175,17 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
   return (
     <li data-testid={`booking-row-${booking.id}`} className={cn('flex gap-4 px-4 py-4 sm:px-5', booking.status === 'pending' && 'bg-pending-soft')}>
       <div className="w-12 shrink-0">
-        <p className="font-semibold tabular-nums text-foreground">{booking.bookingTime}</p>
+        <p className={cn('font-semibold tabular-nums text-foreground', cancelledText(booking))}>{booking.bookingTime}</p>
         <p className="text-xs text-muted-foreground">{t('pax', { count: booking.partySize })}</p>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold break-words text-foreground">{booking.name ?? t('nameRemoved')}</span>
+          <span className={cn('font-semibold break-words text-foreground', cancelledText(booking))}>{booking.name ?? t('nameRemoved')}</span>
           <BookingStatusBadge booking={booking} />
           <AgentBadge booking={booking} />
+          <CancelledByBadge booking={booking} />
         </div>
+        <ChangeFromLine booking={booking} />
         <p className="text-sm text-muted-foreground">
           <PhoneLink phone={booking.phone} />
         </p>

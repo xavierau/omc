@@ -1349,20 +1349,27 @@
     "sendDecline": "發送拒絕",
     "cancel": "取消",
     "declineReasonPlaceholder": "原因(可選填)",
+    "partyOf": "{count} 位",
     "status": {
       "pending": "待確認",
       "confirmed": "已確認",
       "declined": "已拒絕",
+      "cancelled": "已取消",
       "unverified": "等待客人確認"
     },
     "notDelivered": "訊息未能送達,請聯絡客人",
     "nameRemoved": "(姓名已刪除)",
+    "cancelledByDiner": "顧客經 AI 助理取消",
+    "replacedByChange": "已改期取代",
+    "changeFrom": "更改要求：{from} → {to}",
+    "changeRequest": "更改要求",
     "declinedBecause": "原因:{reason}",
     "confirmationSent": "已發送確認",
     "declineSent": "已發送拒絕",
     "alreadyHandled": "此要求{status}。",
     "alreadyHandledStatus": {
       "confirmed": "已確認",
+      "cancelled": "取消",
       "declined": "已拒絕"
     },
     "actionFailed": "未能更新此要求,請再試一次。",
@@ -1392,7 +1399,8 @@
         "all": "全部",
         "pending": "待確認",
         "confirmed": "已確認",
-        "declined": "已拒絕"
+        "declined": "已拒絕",
+        "cancelled": "已取消"
       },
       "searchPlaceholder": "姓名或電話",
       "guests": "{count} 位客人",
@@ -1596,16 +1604,44 @@
     "disclosureHint": "附加在每個自動回覆的結尾。可以改寫，但不能刪除(留空會恢復預設)。",
     "modelLabel": "模型",
     "modelPlaceholder": "預設模型",
+    "fallbackModelLabel": "後備模型",
+    "fallbackModelPlaceholder": "預設後備模型",
+    "fallbackModelHint": "主模型繁忙或逾時時，會改用一次。",
+    "failureActionLabel": "AI 未能回覆時",
+    "failureAction": {
+      "handoff": "轉交職員",
+      "menu": "傳送選單"
+    },
+    "failureActionHint": {
+      "handoff": "顧客會收到致歉及你的聯絡連結，對話會標示「需要職員跟進」。建議使用。",
+      "menu": "顧客會收到平常的後備選單。"
+    },
     "toolsLabel": "AI 可使用的工具",
     "tool": {
       "get_member_summary": "會員摘要",
       "list_rewards": "獎賞列表",
-      "handoff_to_staff": "轉交職員"
+      "handoff_to_staff": "轉交職員",
+      "propose_booking": "建議訂座",
+      "create_booking_request": "送出訂座要求",
+      "get_booking_link": "訂座連結",
+      "list_my_bookings": "列出我的訂座",
+      "propose_booking_change": "建議更改訂座",
+      "confirm_booking_change": "送出更改要求",
+      "propose_booking_cancel": "建議取消訂座",
+      "confirm_booking_cancel": "取消訂座"
     },
     "toolHint": {
       "get_member_summary": "顧客自己的積分及印花卡。",
       "list_rewards": "你現有的獎賞及所需積分。",
-      "handoff_to_staff": "傳送你的聯絡連結，並暫停 AI 回覆這位顧客。"
+      "handoff_to_staff": "傳送你的聯絡連結，並暫停 AI 回覆這位顧客。",
+      "propose_booking": "核對顧客提供的日期、時間、人數和姓名，並向顧客覆述。只適用於簡易訂座模式。",
+      "create_booking_request": "顧客同意後，在「訂座」新增一個待確認要求，由你確認。只適用於簡易訂座模式。",
+      "get_booking_link": "分享你的網上訂座連結。只適用於外部訂座模式。",
+      "list_my_bookings": "顧客自己即將到來的訂座。只適用於簡易訂座模式。",
+      "propose_booking_change": "核對新的日期、時間或人數，並向顧客覆述。只適用於簡易訂座模式。",
+      "confirm_booking_change": "顧客同意後，在「訂座」新增更改要求；你確認前原本的訂座維持不變。只適用於簡易訂座模式。",
+      "propose_booking_cancel": "向顧客覆述想取消的訂座。只適用於簡易訂座模式。",
+      "confirm_booking_cancel": "顧客同意後，取消訂座並以訊息通知顧客。只適用於簡易訂座模式。"
     },
     "knob": {
       "temperature": "隨機度",
@@ -1615,6 +1651,7 @@
       "historyTtlHours": "對話保留時間(小時)",
       "debounceMs": "等待更多訊息(毫秒)",
       "maxToolCalls": "每次回覆最多工具調用",
+      "perCallTimeoutMs": "每次等待模型最長時間(毫秒)",
       "handoffSilenceHours": "轉交職員後暫停(小時)",
       "maxRepliesPerPhonePerHour": "每位顧客每小時最多回覆",
       "maxRepliesPerTenantPerDay": "每日最多回覆(全店)"
@@ -1625,7 +1662,9 @@
       "knowledge": "餐廳資料",
       "instructions": "指示",
       "disclosureText": "自動回覆標示",
+      "failureAction": "AI 未能回覆時",
       "model": "模型",
+      "fallbackModel": "後備模型",
       "enabledTools": "工具",
       "temperature": "隨機度",
       "maxOutputTokens": "最多輸出 token",
@@ -1634,6 +1673,7 @@
       "historyTtlHours": "對話保留時間(小時)",
       "debounceMs": "等待更多訊息(毫秒)",
       "maxToolCalls": "每次回覆最多工具調用",
+      "perCallTimeoutMs": "每次等待模型最長時間(毫秒)",
       "handoffSilenceHours": "轉交職員後暫停(小時)",
       "maxRepliesPerPhonePerHour": "每位顧客每小時最多回覆",
       "maxRepliesPerTenantPerDay": "每日最多回覆(全店)"
@@ -1665,10 +1705,12 @@
     "latency": "{ms} 毫秒",
     "tools": "工具:{names}",
     "noTools": "沒有使用工具",
+    "needsStaff": "需要職員跟進",
     "outcome": {
       "shadow_draft": "草擬",
       "sent": "已發送",
       "fallback": "預設選單",
+      "handoff": "已轉交職員",
       "error": "錯誤",
       "rate_limited": "超出上限",
       "skipped": "已略過"

@@ -3,10 +3,20 @@
 /**
  * BOOK-004: the desktop Table view: one shadcn table, day group header rows,
  * then one row per booking. Pending rows are tinted and carry Confirm/Decline.
+ * AGENT-003: the cancelled-by badge sits by the status, the change-from line in
+ * the notes; a cancelled booking's time and guest are struck through.
  */
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { BookingStatusBadge, NotDeliveredBadge, PhoneLink, RowActions } from '@/components/dashboard/booking-row'
+import {
+  BookingStatusBadge,
+  CancelledByBadge,
+  cancelledText,
+  ChangeFromLine,
+  NotDeliveredBadge,
+  PhoneLink,
+  RowActions,
+} from '@/components/dashboard/booking-row'
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { cn } from '@/lib/utils'
@@ -23,13 +33,14 @@ function BookingTableRow({ booking, busyId, undelivered, onDecide }: BookingActi
   const t = useTranslations('bookings')
   return (
     <TableRow data-testid={`booking-row-${booking.id}`} className={cn(booking.status === 'pending' && 'bg-pending-soft hover:bg-pending-soft')}>
-      <TableCell className="text-base font-semibold tabular-nums">{booking.bookingTime}</TableCell>
-      <TableCell className="font-medium whitespace-normal">{booking.name ?? t('nameRemoved')}</TableCell>
+      <TableCell className={cn('text-base font-semibold tabular-nums', cancelledText(booking))}>{booking.bookingTime}</TableCell>
+      <TableCell className={cn('font-medium whitespace-normal', cancelledText(booking))}>{booking.name ?? t('nameRemoved')}</TableCell>
       <TableCell className="text-muted-foreground"><PhoneLink phone={booking.phone} /></TableCell>
       <TableCell className="tabular-nums">{booking.partySize}</TableCell>
       <TableCell>
-        <span className="flex items-center gap-1.5">
+        <span className="flex flex-wrap items-center gap-1.5">
           <BookingStatusBadge booking={booking} />
+          <CancelledByBadge booking={booking} />
           <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} short />
         </span>
       </TableCell>
@@ -38,7 +49,8 @@ function BookingTableRow({ booking, busyId, undelivered, onDecide }: BookingActi
         <BookingSource source={booking.source} />
       </TableCell>
       <TableCell className="max-w-56 whitespace-pre-wrap text-muted-foreground">
-        {booking.notes ?? (booking.declineReason ? null : '—')}
+        <ChangeFromLine booking={booking} />
+        {booking.notes ?? (booking.declineReason || booking.replacesBookingId ? null : '—')}
         {booking.status === 'declined' && booking.declineReason ? (
           <span className="block text-xs">{t('declinedBecause', { reason: booking.declineReason })}</span>
         ) : null}

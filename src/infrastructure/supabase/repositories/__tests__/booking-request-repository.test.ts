@@ -12,6 +12,7 @@ import {
   insertBookingRequest,
   listBookingRequests,
   listBookingRequestsInRange,
+  listPendingBookingRequests,
   recordDecisionMessage,
 } from '../booking-request-repository'
 
@@ -49,7 +50,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const [pending, decided] = rec.queries
     expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
     expect(pending.calls.some(([m]) => m === 'limit')).toBe(false)
-    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined'])
+    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined,cancelled'])
     expect(decided.calls).toContainEqual(['limit', 200])
     for (const q of rec.queries) expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
   })
@@ -59,7 +60,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ data: [ROW, { ...ROW, id: 'b-2' }, { ...ROW, id: 'b-3' }] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 2)
     const q = rec.queries[0]
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled'])
     expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-01'])
     expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-30'])
     expect(q.calls.filter(([m]) => m === 'order')).toEqual([
@@ -69,6 +70,41 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(q.calls).toContainEqual(['limit', 3])
     expect(result.bookings.map((b) => b.id)).toEqual(['b-1', 'b-2'])
     expect(result.truncated).toBe(true)
+  })
+
+  // BOOK-004 r4 (owner 2026-11-19): cancelled bookings are shown like declined; unverified stays out (R2).
+  // AGENT-003 (7af9494b): the new views carry the change/cancel columns and the replaced slot.
+  const OLD_SLOT = { id: 'b-old', booking_date: '2026-11-12', booking_time: '19:00:00', party_size: 2 }
+  const changeRow = { ...ROW, id: 'b-new', replaces_booking_id: 'b-old', cancelled_by: null }
+  const cancelledRow = { ...ROW, id: 'b-gone', status: 'cancelled', replaces_booking_id: null, cancelled_by: 'diner_ai' }
+
+  it('r4: the range list allow-lists cancelled (never unverified) and reads the AGENT-003 columns and replaced slots', async () => {
+    const rec = use([{ data: [cancelledRow, changeRow] }, { data: [OLD_SLOT] }])
+    const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
+    const [q, slots] = rec.queries
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled'])
+    expect(filtersOf(q).join()).not.toContain('unverified')
+    expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toContain('replaces_booking_id, cancelled_by')
+    expect(filtersOf(slots)).toEqual(['eq:restaurant_id=r-a', 'in:id=b-old'])
+    expect(result.bookings.find((b) => b.id === 'b-new')?.replaces).toEqual({ bookingDate: '2026-11-12', bookingTime: '19:00', partySize: 2 })
+    expect(result.bookings.find((b) => b.id === 'b-gone')?.cancelledBy).toBe('diner_ai')
+    expect(result.truncated).toBe(false)
+  })
+
+  it('r4: the all-pending list reads the AGENT-003 columns and the replaced slot, scoped by restaurant', async () => {
+    const rec = use([{ data: [changeRow] }, { data: [OLD_SLOT] }])
+    const result = await listPendingBookingRequests('r-a', 10)
+    const [q, slots] = rec.queries
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+    expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toContain('replaces_booking_id, cancelled_by')
+    expect(filtersOf(slots)).toEqual(['eq:restaurant_id=r-a', 'in:id=b-old'])
+    expect(result.bookings[0].replaces).toEqual({ bookingDate: '2026-11-12', bookingTime: '19:00', partySize: 2 })
+  })
+
+  it('r4: a range with no change request makes no replaced-slot read', async () => {
+    const rec = use([{ data: [ROW] }])
+    await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
+    expect(rec.queries).toHaveLength(1)
   })
 
   it('counts every pending request of a restaurant', async () => {

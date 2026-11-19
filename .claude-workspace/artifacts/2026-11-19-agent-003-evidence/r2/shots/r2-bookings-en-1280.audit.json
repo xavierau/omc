@@ -1,0 +1,44 @@
+{
+  "url": "http://localhost:3022/dashboard/bookings",
+  "viewport": {
+    "w": 1280,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1280,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1280,
+    "scrollH": 900,
+    "scrollable": false,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 72,
+    "domNodes": 146,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 1,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.flex.min-h-screen \"OhMyClient Powered by WhatsApp A3 Test C\" @0,0 1280x900",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 234px / bottom 500px)",
+      "items": [
+        "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient Powered by WhatsApp A3 Test C\" @0,0 240x900",
+        "main.flex-1.bg-background \"Bookings Booking requests from your dine\" @240,0 1040x900"
+      ]
+    }
+  ]
+}

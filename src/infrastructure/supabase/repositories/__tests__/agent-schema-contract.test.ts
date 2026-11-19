@@ -12,6 +12,8 @@ import { AGENT_OUTCOMES, REPLY_CLAIM_OUTCOMES } from '@/domain/ports/agent-reply
 
 const REPOS_DIR = path.join(process.cwd(), 'src/infrastructure/supabase/repositories')
 const MIGRATION = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/083_agent_reply.sql'), 'utf8')
+/** AGENT-003 R19: 085 redefines the outcome CHECK and the one-reply index (adds 'handoff'); the latest definition is the live one. */
+const MIGRATION_085 = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/085_agent_booking_changes.sql'), 'utf8')
 
 const CASES = [
   { table: 'agent_messages', file: 'agent-message-repository.ts' },
@@ -73,14 +75,17 @@ describe('AC-MIG agent schema contract: repositories match migration 083', () =>
   })
 
   it('AC-F7-MIG one answer per user row: partial UNIQUE on reply_to_message_id over exactly the claim outcomes', () => {
-    const index = /CREATE UNIQUE INDEX agent_messages_one_reply_key\s+ON agent_messages \(reply_to_message_id\)\s+WHERE reply_to_message_id IS NOT NULL AND outcome IN \(([^)]*)\);/.exec(MIGRATION)
+    const index = /CREATE UNIQUE INDEX agent_messages_one_reply_key\s+ON agent_messages \(reply_to_message_id\)\s+WHERE reply_to_message_id IS NOT NULL AND outcome IN \(([^)]*)\);/.exec(MIGRATION_085)
+    expect(MIGRATION_085).toContain('DROP INDEX IF EXISTS agent_messages_one_reply_key;')
     expect(index).not.toBeNull()
     expect(index?.[1].split(',').map((s) => s.trim().replace(/'/g, '')).sort()).toEqual([...REPLY_CLAIM_OUTCOMES].sort())
     expect(MIGRATION).toMatch(/reply_to_message_id UUID REFERENCES agent_messages\(id\) ON DELETE SET NULL/)
     expect(MIGRATION).toContain("role = 'user' AND text IS NOT NULL AND outcome IS NULL AND reply_to_message_id IS NULL")
   })
 
-  it('AC-MIG RLS is enabled on both tables and 083 adds no policy and no grant', () => {
+  it('AC-MIG RLS is enabled on both tables and neither 083 nor 085 adds a policy or a table grant', () => {
+    expect(MIGRATION_085).not.toMatch(/CREATE POLICY/i)
+    expect(MIGRATION_085).not.toMatch(/GRANT [^;]* ON (TABLE )?agent_/i)
     expect(MIGRATION).toMatch(/ALTER TABLE agent_messages ENABLE ROW LEVEL SECURITY;/)
     expect(MIGRATION).toMatch(/ALTER TABLE agent_silences ENABLE ROW LEVEL SECURITY;/)
     expect(MIGRATION).not.toMatch(/CREATE POLICY/i)
@@ -88,8 +93,9 @@ describe('AC-MIG agent schema contract: repositories match migration 083', () =>
   })
 
   it('AC-MIG the outcome CHECK matches the domain enum; mode CHECK matches the VO modes', () => {
-    const check = /outcome\s+TEXT CHECK \(outcome IN \(([^)]*)\)\)/.exec(MIGRATION)?.[1] ?? ''
+    const check = /agent_messages_outcome_check\s+CHECK \(outcome IN \(([^)]*)\)\)/.exec(MIGRATION_085)?.[1] ?? ''
     expect(check.split(',').map((s) => s.trim().replace(/'/g, ''))).toEqual([...AGENT_OUTCOMES])
+    expect(MIGRATION_085).toContain('ALTER TABLE agent_messages DROP CONSTRAINT IF EXISTS agent_messages_outcome_check;')
     expect(MIGRATION).toContain("IN ('off', 'shadow', 'auto')")
     expect(MIGRATION).toContain(`DEFAULT '{"mode":"off"}'::jsonb`)
   })

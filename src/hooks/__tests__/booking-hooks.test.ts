@@ -4,8 +4,10 @@ import {
   bookingsSettler,
   decideBooking,
   fetchBookings,
+  decisionOutcomeHandler,
   noticeFor,
   runDecision,
+  showsUndelivered,
   type BookingDecisionOutcome,
   type BookingsPayload,
 } from '@/hooks/use-bookings'
@@ -39,6 +41,23 @@ describe('use-bookings helpers', () => {
   it('says sent only when the message was delivered (spec warning row)', () => {
     expect(noticeFor('confirm', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
     expect(noticeFor('decline', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
+  })
+
+  it('AC-F8 a declined change request (delivered null: no message by design) → no undelivered badge, no notice; BOOK-001 decline unchanged', () => {
+    const booking = { id: 'b1', status: 'declined' }
+    const change = bookingDecisionOutcome(200, { booking, delivered: null })
+    expect(change).toEqual({ kind: 'done', booking, delivered: null })
+    expect(showsUndelivered(change)).toBe(false)
+    expect(noticeFor('decline', change)).toBeNull()
+    // BOOK-001: a decline whose message failed still gets the badge; a delivered one says "Decline sent".
+    const failed = bookingDecisionOutcome(200, { booking, delivered: false })
+    expect(showsUndelivered(failed)).toBe(true)
+    expect(noticeFor('decline', failed)).toBeNull()
+    const sent = bookingDecisionOutcome(200, { booking, delivered: true })
+    expect(showsUndelivered(sent)).toBe(false)
+    expect(noticeFor('decline', sent)).toEqual({ kind: 'sent', decision: 'decline' })
+    // A missing flag is still read as not delivered (old servers).
+    expect(showsUndelivered(bookingDecisionOutcome(200, { booking }))).toBe(true)
   })
 
   // I1: zh-HK rendered '已已拒絕'. F14: en rendered 'already Declined' (the
@@ -229,5 +248,42 @@ describe('runDecision (F4): the row stays busy until the list has reloaded', () 
     )
     await expect(run).rejects.toThrow('x')
     expect(busy).toEqual(['b1', null])
+  })
+})
+
+// BOOK-004 r4: runDecision (r3 F4) feeds the AGENT-003 F8 rule: a decline that sends no message by
+// design (delivered: null) adds no "not delivered" badge; a failed message (false) still does.
+describe('runDecision + decisionOutcomeHandler (F4 + F8)', () => {
+  const booking = {} as never
+  const run = async (delivered: boolean | null) => {
+    const setNotice = vi.fn()
+    const addUndelivered = vi.fn()
+    await runDecision(
+      {
+        setBusyId: () => {},
+        decide: async () => ({ kind: 'done', booking, delivered }),
+        onOutcome: decisionOutcomeHandler('b1', 'decline', { setNotice, addUndelivered }),
+        refetch: async () => {},
+      },
+      { id: 'b1', decision: 'decline' }
+    )
+    return { setNotice, addUndelivered }
+  }
+
+  it('delivered null: no undelivered badge and no notice', async () => {
+    const { setNotice, addUndelivered } = await run(null)
+    expect(addUndelivered).not.toHaveBeenCalled()
+    expect(setNotice).toHaveBeenCalledWith(null)
+  })
+
+  it('delivered false: the row gets the undelivered badge', async () => {
+    const { addUndelivered } = await run(false)
+    expect(addUndelivered).toHaveBeenCalledWith('b1')
+  })
+
+  it('delivered true: the sent notice, no badge', async () => {
+    const { setNotice, addUndelivered } = await run(true)
+    expect(addUndelivered).not.toHaveBeenCalled()
+    expect(setNotice).toHaveBeenCalledWith({ kind: 'sent', decision: 'decline' })
   })
 })

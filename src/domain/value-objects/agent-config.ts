@@ -7,18 +7,55 @@
  * so a broken blob behaves as mode off with default knobs.
  *
  * `model` stays null unless the tenant pins one; the worker then uses env
- * `AGENT_MODEL` (fallback `DEFAULT_AGENT_MODEL`). The id goes into the
- * Gemini URL path, so only a plain model-id shape is accepted.
+ * `AGENT_MODEL` (fallback `DEFAULT_AGENT_MODEL`). AGENT-003: `fallbackModel`
+ * (R18, used once when the main model is overloaded) resolves the same way:
+ * the tenant's value → env `AGENT_FALLBACK_MODEL` → `DEFAULT_AGENT_FALLBACK_MODEL`.
+ * The id goes into the Gemini URL path, so only a plain model-id shape is
+ * accepted.
  */
 
 export type AgentMode = 'off' | 'shadow' | 'auto'
 export const AGENT_MODES: readonly AgentMode[] = ['off', 'shadow', 'auto']
 
-/** The read-only tools the agent may call (R3: no write tool exists). */
-export const AGENT_TOOL_NAMES = ['get_member_summary', 'list_rewards', 'handoff_to_staff'] as const
+/**
+ * AGENT-003 R19: what an auto-mode diner gets when the agent fails: a
+ * handoff reply (apology + staff will follow up + the contact action, thread
+ * flagged "needs staff"; the default) or today's fallback menu.
+ */
+export type AgentFailureAction = 'handoff' | 'menu'
+export const AGENT_FAILURE_ACTIONS: readonly AgentFailureAction[] = ['handoff', 'menu']
+
+/**
+ * The tools the agent may call. AGENT-001's three are read-only (R3).
+ * AGENT-003's booking tools write only behind the two-step gate (R15, R22):
+ * a BOOK-001 pending request, a change request staff decide, or the diner's
+ * own cancel; they are offered only per the tenant's booking mode.
+ */
+export const AGENT_TOOL_NAMES = [
+  'get_member_summary',
+  'list_rewards',
+  'handoff_to_staff',
+  'propose_booking',
+  'create_booking_request',
+  'get_booking_link',
+  'list_my_bookings',
+  'propose_booking_change',
+  'confirm_booking_change',
+  'propose_booking_cancel',
+  'confirm_booking_cancel',
+] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
+/**
+ * Review F4: the default tool set is AGENT-001's three read-only tools. Every
+ * booking tool (they write) is opt-in through the Advanced checkboxes, so a
+ * new tenant, or a stored config without `enabledTools`, gets none.
+ */
+export const DEFAULT_ENABLED_TOOLS: readonly AgentToolName[] = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+
 export const DEFAULT_AGENT_MODEL = 'gemini-3.8-flash'
+/** R18: probed 200 with tool calls on the prod key, 2026-11-19. */
+export const DEFAULT_AGENT_FALLBACK_MODEL = 'gemini-3.5-flash-lite'
 export const DEFAULT_DISCLOSURE_TEXT = '🤖 自動回覆 Automated reply'
 
 export const KNOWLEDGE_MAX_CHARS = 8000
@@ -30,6 +67,8 @@ export interface AgentConfig {
   mode: AgentMode
   /** null → env AGENT_MODEL → DEFAULT_AGENT_MODEL. */
   model: string | null
+  /** R18: null → env AGENT_FALLBACK_MODEL → DEFAULT_AGENT_FALLBACK_MODEL. */
+  fallbackModel: string | null
   knowledge: string
   instructions: string
   temperature: number
@@ -39,12 +78,16 @@ export interface AgentConfig {
   historyTtlHours: number
   debounceMs: number
   maxToolCalls: number
+  /** R18: hard timeout of each model call (the job budget stays 20 s). */
+  perCallTimeoutMs: number
   enabledTools: AgentToolName[]
   handoffSilenceHours: number
   maxRepliesPerPhonePerHour: number
   maxRepliesPerTenantPerDay: number
   /** R11: appended to every auto reply; can be reworded, never removed. */
   disclosureText: string
+  /** R19: the auto-mode response to an agent failure. */
+  failureAction: AgentFailureAction
 }
 
 interface NumberRange {
@@ -63,6 +106,8 @@ export const AGENT_NUMBER_RANGES = {
   historyTtlHours: { min: 24, max: 168, integer: true },
   debounceMs: { min: 0, max: 15000, integer: true },
   maxToolCalls: { min: 0, max: 5, integer: true },
+  // AGENT-003 R18: ≤ 15 s so the fallback model keeps ≥ 5 s of the 20 s job budget.
+  perCallTimeoutMs: { min: 3000, max: 15000, integer: true },
   handoffSilenceHours: { min: 1, max: 72, integer: true },
   maxRepliesPerPhonePerHour: { min: 1, max: 60, integer: true },
   maxRepliesPerTenantPerDay: { min: 1, max: 5000, integer: true },
@@ -73,20 +118,24 @@ type NumericKnob = keyof typeof AGENT_NUMBER_RANGES
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   mode: 'off',
   model: null,
+  fallbackModel: null,
   knowledge: '',
   instructions: '',
   temperature: 0.3,
-  maxOutputTokens: 400,
+  // AGENT-003 ruling 5: thoughts and text share this budget; 400 truncated booking read-backs. maxReplyChars still bounds what is sent (R10).
+  maxOutputTokens: 1024,
   maxReplyChars: 600,
   maxHistoryMessages: 10,
   historyTtlHours: 72,
   debounceMs: 3000,
   maxToolCalls: 3,
-  enabledTools: [...AGENT_TOOL_NAMES],
+  perCallTimeoutMs: 8000,
+  enabledTools: [...DEFAULT_ENABLED_TOOLS],
   handoffSilenceHours: 12,
   maxRepliesPerPhonePerHour: 10,
   maxRepliesPerTenantPerDay: 500,
   disclosureText: DEFAULT_DISCLOSURE_TEXT,
+  failureAction: 'handoff',
 }
 
 function clampNumber(raw: unknown, knob: NumericKnob): number {
@@ -109,7 +158,7 @@ export function isAgentToolName(value: unknown): value is AgentToolName {
   return (AGENT_TOOL_NAMES as readonly unknown[]).includes(value)
 }
 
-/** A non-array keeps the default set; an array keeps only known names, deduped (empty is allowed). */
+/** A non-array gets the default set (no booking tool, F4); an array keeps only known names, deduped (empty is allowed). */
 function resolveEnabledTools(raw: unknown): AgentToolName[] {
   if (!Array.isArray(raw)) return [...DEFAULT_AGENT_CONFIG.enabledTools]
   return AGENT_TOOL_NAMES.filter((name) => raw.includes(name))
@@ -129,15 +178,24 @@ export function resolveAgentConfig(raw: unknown): AgentConfig {
   return {
     mode: AGENT_MODES.includes(r.mode as AgentMode) ? (r.mode as AgentMode) : 'off',
     model: resolveModel(r.model),
+    fallbackModel: resolveModel(r.fallbackModel),
     knowledge: boundedText(r.knowledge, KNOWLEDGE_MAX_CHARS),
     instructions: boundedText(r.instructions, INSTRUCTIONS_MAX_CHARS),
     ...numbers,
     enabledTools: resolveEnabledTools(r.enabledTools),
     disclosureText: resolveDisclosure(r.disclosureText),
+    failureAction: AGENT_FAILURE_ACTIONS.includes(r.failureAction as AgentFailureAction)
+      ? (r.failureAction as AgentFailureAction)
+      : DEFAULT_AGENT_CONFIG.failureAction,
   }
 }
 
 /** The model id a run uses: the tenant's pin, else env, else the default. */
 export function effectiveAgentModel(config: AgentConfig, envModel: string | undefined): string {
   return config.model ?? resolveModel(envModel) ?? DEFAULT_AGENT_MODEL
+}
+
+/** R18: the model tried once after the main one failed twice (tenant → env → default). */
+export function effectiveFallbackModel(config: AgentConfig, envFallbackModel: string | undefined): string {
+  return config.fallbackModel ?? resolveModel(envFallbackModel) ?? DEFAULT_AGENT_FALLBACK_MODEL
 }

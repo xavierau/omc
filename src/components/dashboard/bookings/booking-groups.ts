@@ -1,12 +1,12 @@
 /**
  * BOOK-004: pure list logic shared by the calendar and table views: status
  * filter + name/phone search (client-side, R6: never in the URL), per-day
- * groups, and covers (guests; declined bookings do not come).
+ * groups, and covers (guests; declined and cancelled bookings do not come).
  */
 import type { BookingItem } from '@/hooks/use-bookings'
 import { monthKey } from './booking-dates'
 
-export const STATUS_FILTERS = ['all', 'pending', 'confirmed', 'declined'] as const
+export const STATUS_FILTERS = ['all', 'pending', 'confirmed', 'declined', 'cancelled'] as const
 export type StatusFilter = (typeof STATUS_FILTERS)[number]
 export type DayOrder = 'asc' | 'desc'
 
@@ -43,13 +43,13 @@ export function filterBookings(bookings: BookingItem[], status: StatusFilter, qu
 }
 
 export function statusCounts(bookings: BookingItem[]): Record<StatusFilter, number> {
-  const counts = { all: bookings.length, pending: 0, confirmed: 0, declined: 0 }
+  const counts = { all: bookings.length, pending: 0, confirmed: 0, declined: 0, cancelled: 0 }
   for (const b of bookings) if (b.status !== 'unverified') counts[b.status] += 1
   return counts
 }
 
 export function covers(bookings: BookingItem[]): number {
-  return bookings.reduce((sum, b) => (b.status === 'declined' ? sum : sum + b.partySize), 0)
+  return bookings.reduce((sum, b) => (b.status === 'declined' || b.status === 'cancelled' ? sum : sum + b.partySize), 0)
 }
 
 export function daySummary(bookings: BookingItem[]): DaySummary {

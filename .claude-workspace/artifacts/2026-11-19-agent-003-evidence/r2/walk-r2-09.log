@@ -1,0 +1,4 @@
+2026-11-19T09:32:53.279Z wamid.C.9 200 {"status":"ok"}
+{"ts":"2026-11-19T09:32:58.804Z","level":"info","event":"agent.reply","messageId":"1f930730-ae01-4336-9672-c08325bfde95","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a3","outcome":"sent","latencyMs":2368,"httpStatus":200,"promptTokens":4205,"outputTokens":174,"toolCalls":["confirm_booking_change"]}
+  >> {"body": "陳生你好,我們已收到你在A3 Test Cafe的訂座要求:2026-11-26 20:00,4位。餐廳確認後會再通知你。"}
+  >> {"body": "已經幫你向餐廳提交咗改期申請啦！職員會透過 WhatsApp 確認新時間，喺確認之前，你原本嘅訂座仍然有效架。\n\n🤖 自動回覆 Automated reply"}

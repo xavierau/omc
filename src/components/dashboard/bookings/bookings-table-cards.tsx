@@ -2,7 +2,16 @@
 
 /** BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. */
 import { useTranslations } from 'next-intl'
-import { BookingNotes, BookingStatusBadge, NotDeliveredBadge, PhoneLink, RowActions } from '@/components/dashboard/booking-row'
+import {
+  BookingNotes,
+  BookingStatusBadge,
+  CancelledByBadge,
+  cancelledText,
+  ChangeFromLine,
+  NotDeliveredBadge,
+  PhoneLink,
+  RowActions,
+} from '@/components/dashboard/booking-row'
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { cn } from '@/lib/utils'
@@ -18,7 +27,7 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
       className={cn('flex flex-col gap-2 rounded-xl border border-border bg-card p-4', booking.status === 'pending' && 'border-accent/40 bg-pending-soft')}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 text-base font-semibold break-words text-foreground">
+        <p className={cn('min-w-0 text-base font-semibold break-words text-foreground', cancelledText(booking))}>
           <span className="mr-2 tabular-nums">{booking.bookingTime}</span>
           {booking.name ?? t('nameRemoved')}
         </p>
@@ -31,6 +40,10 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
           <BookingSource source={booking.source} />
         </span>
       </p>
+      <div className="flex empty:hidden">
+        <CancelledByBadge booking={booking} />
+      </div>
+      <ChangeFromLine booking={booking} />
       <BookingNotes booking={booking} />
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
       <div className="pt-1 empty:hidden">

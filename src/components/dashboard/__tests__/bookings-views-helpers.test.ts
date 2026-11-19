@@ -9,6 +9,7 @@ import {
   filterBookings,
   groupByDay,
   matchesSearch,
+  STATUS_FILTERS,
   statusCounts,
 } from '../bookings/booking-groups'
 import { fetchRange, resolveView, SHOW_PENDING, stepSelected, storeView, readStoredView, tableOrder, tableRangeDates } from '../bookings/bookings-view-state'
@@ -78,10 +79,21 @@ describe('booking groups', () => {
     expect(daySummary(bookingsOn(list, '2026-11-21'))).toEqual({ count: 3, guests: 6, pending: 1 })
   })
 
+  // BOOK-004 r4 (owner 2026-11-19): a cancelled booking is listed like a declined one, but never
+  // counts as guests or as needing a reply; it has its own status chip.
+  it('r4: cancelled bookings are left out of guests and pending, and counted under their own chip', () => {
+    const day = [...bookingsOn(list, '2026-11-21'), b('gone', '2026-11-21', '18:00', 'cancelled', 5, { cancelledBy: 'diner_ai' })]
+    expect(covers(day)).toBe(6)
+    expect(daySummary(day)).toEqual({ count: 4, guests: 6, pending: 1 })
+    expect(statusCounts(day)).toEqual({ all: 4, pending: 1, confirmed: 1, declined: 1, cancelled: 1 })
+    expect(filterBookings(day, 'cancelled', '').map((x) => x.id)).toEqual(['gone'])
+    expect(STATUS_FILTERS).toEqual(['all', 'pending', 'confirmed', 'declined', 'cancelled'])
+  })
+
   it('status filter keeps only that status; all keeps everything', () => {
     expect(filterBookings(list, 'pending', '').map((x) => x.id)).toEqual(['late', 'next'])
     expect(filterBookings(list, 'all', '')).toHaveLength(5)
-    expect(statusCounts(list)).toEqual({ all: 5, pending: 2, confirmed: 2, declined: 1 })
+    expect(statusCounts(list)).toEqual({ all: 5, pending: 2, confirmed: 2, declined: 1, cancelled: 0 })
   })
 
   it('search: name case-insensitive, phone by digits whatever the spacing', () => {
@@ -139,7 +151,7 @@ describe('bookingsPageLists: what the page lists, counts and calls empty (F3, F5
   // F5: the grid range spills into the next month; the month's counts and empty state must not.
   it("F5: Calendar counts and month-empty cover the selected month only, not the grid's spill-over days", () => {
     const desk = { ...phoneCal, isPhone: false, status: 'all', query: '' } as const
-    expect(bookingsPageLists(nov, desk).counts).toEqual({ all: 3, pending: 1, confirmed: 1, declined: 1 })
+    expect(bookingsPageLists(nov, desk).counts).toEqual({ all: 3, pending: 1, confirmed: 1, declined: 1, cancelled: 0 })
     const onlySpill = bookingsPageLists([nov[3]], desk)
     expect(onlySpill.scopeEmpty).toBe(true)
     expect(onlySpill.shown.map((x) => x.id)).toEqual(['spill'])
@@ -147,7 +159,7 @@ describe('bookingsPageLists: what the page lists, counts and calls empty (F3, F5
 
   it('the Table counts and empty state cover the whole loaded range', () => {
     const lists = bookingsPageLists(nov, { ...phoneCal, calendar: false, status: 'all', query: '' })
-    expect(lists.counts).toEqual({ all: 4, pending: 2, confirmed: 1, declined: 1 })
+    expect(lists.counts).toEqual({ all: 4, pending: 2, confirmed: 1, declined: 1, cancelled: 0 })
     expect(lists.scopeEmpty).toBe(false)
   })
 
