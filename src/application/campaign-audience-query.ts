@@ -6,7 +6,12 @@ import type { AudienceKind, AudienceQuery } from '@/domain/value-objects/audienc
 import type { SkipContactQuality } from '@/domain/value-objects/audience-filters'
 
 /** Types an 'all' audience sends to; others (welcome, birthday) resolve to nobody here. */
-const BROADCAST_TYPES: ReadonlyArray<Campaign['type']> = ['promo', 'winback']
+const BROADCAST_TYPES: ReadonlyArray<unknown> = ['promo', 'winback'] satisfies ReadonlyArray<Campaign['type']>
+
+/** The one rule the send and the form's count share: an 'all' audience of a non-broadcast type is nobody. */
+export function isNonBroadcastAll(type: unknown, audience: AudienceKind): boolean {
+  return audience === 'all' && !BROADCAST_TYPES.includes(type)
+}
 
 const LEGACY_WINBACK_DAYS = 30
 
@@ -36,7 +41,7 @@ export function audienceQueryForCampaign(
   restaurantId: string,
   tagIds: string[]
 ): AudienceQuery | null {
-  if (campaign.targetAudience === 'all' && !BROADCAST_TYPES.includes(campaign.type)) return null
+  if (isNonBroadcastAll(campaign.type, campaign.targetAudience)) return null
   if (campaign.targetAudience === 'tag' && tagIds.length === 0) return null
   const legacy = isLegacyWinback(campaign)
   return {

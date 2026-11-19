@@ -143,6 +143,23 @@ describe('count/send parity (CAMP-016 AC-4)', () => {
     expect(without(send, 'p_member_ids', 'p_campaign_id')).toEqual(without(count, 'p_member_ids', 'p_campaign_id'))
   })
 
+  // r3 F7: one BROADCAST_TYPES definition — an 'all' audience for a type the
+  // send never broadcasts (birthday) counts zero, as the send resolves nobody.
+  it("'all' for a non-broadcast type counts zero and sends to nobody", async () => {
+    const body = { type: 'birthday', targetAudience: 'all', audienceSkipQuality: 'red', audienceLapsedDays: 30 }
+    const calls = recordRpc()
+    const res = await COUNT(new NextRequest('http://localhost/api/dashboard/campaigns/audience-count', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ audience: 0, afterLapsed: 0, green: 0, yellow: 0, red: 0, noData: 0, willReceive: 0 })
+    expect(calls).toEqual([])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(await resolveTargetMembers(createdCampaign(body), RID)).toEqual([])
+    warn.mockRestore()
+    expect(calls).toEqual([])
+  })
+
   it('a win-back always sends with a lapsed filter, even if the form sent none', async () => {
     const send = await sendArgs({ type: 'winback', targetAudience: 'tag', tagIds: TAGS, audienceLapsedDays: null })
     expect(send).toMatchObject({ p_lapsed_days: 30, p_never_visited_lapsed: true })

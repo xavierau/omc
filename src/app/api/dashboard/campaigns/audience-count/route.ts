@@ -10,7 +10,8 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { assertTagsBelongToTenant } from '@/infrastructure/supabase/repositories/member-tag-repository'
 import { getAudienceDefaults } from '@/infrastructure/supabase/repositories/campaign-audience-defaults-repository'
 import { countAudience } from '@/infrastructure/supabase/repositories/campaign-audience-repository'
-import { audienceQueryForPreview } from '@/application/campaign-audience-query'
+import { audienceQueryForPreview, isNonBroadcastAll } from '@/application/campaign-audience-query'
+import { NO_AUDIENCE_COUNTS } from '@/domain/value-objects/audience-query'
 import { isValidUUID } from '@/infrastructure/validation/validators'
 import { parseTargetAudience, validateTagIds } from '../parse-create-body-audience'
 import { parseAudienceSnapshot } from '../parse-audience-filters'
@@ -30,16 +31,19 @@ export async function POST(request: NextRequest) {
     if (audience === 'tag') await assertTagsBelongToTenant(tagIds, restaurantId)
     const memberIds = audience === 'selected' ? parseMemberIds(body.memberIds) : []
     const snapshot = parseAudienceSnapshot(body, body.type, await getAudienceDefaults(restaurantId))
-    const counts = await countAudience(
-      audienceQueryForPreview({
-        restaurantId,
-        audience,
-        tagIds,
-        memberIds,
-        lapsedDays: snapshot.audienceLapsedDays,
-        skip: snapshot.audienceSkipQuality,
-      })
-    )
+    // Same rule as the send: an 'all' audience of a non-broadcast type is nobody.
+    const counts = isNonBroadcastAll(body.type, audience)
+      ? NO_AUDIENCE_COUNTS
+      : await countAudience(
+          audienceQueryForPreview({
+            restaurantId,
+            audience,
+            tagIds,
+            memberIds,
+            lapsedDays: snapshot.audienceLapsedDays,
+            skip: snapshot.audienceSkipQuality,
+          })
+        )
     return NextResponse.json({ ...counts, ...snapshot })
   } catch (error) {
     return handleError(error, 'Audience count API error', 'Failed to count recipients')

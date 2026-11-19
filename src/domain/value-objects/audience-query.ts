@@ -33,3 +33,8 @@ export interface AudienceCounts {
   /** After the quality skip: the set the send resolves to. */
   willReceive: number
 }
+
+/** The counts of an audience the send resolves to nobody. */
+export const NO_AUDIENCE_COUNTS: AudienceCounts = {
+  audience: 0, afterLapsed: 0, green: 0, yellow: 0, red: 0, noData: 0, willReceive: 0,
+}
