@@ -4,7 +4,8 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-19
-status: active
+status: superseded
+superseded_by: artifacts/2026-11-19-dev-book-004-r2-handoff
 item: BOOK-004
 state: done
 brief: inline (brief-v1 BOOK-004, 2026-11-19)
