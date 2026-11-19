@@ -4,7 +4,8 @@ type: handoff
 contract: handoff-file-v1
 author: dev (camp-016)
 created: 2026-11-19
-status: active
+status: superseded
+superseded_by: artifacts/2026-11-19-dev-camp-016-r2-handoff
 item: CAMP-016
 state: done
 brief: inline brief-v1 (main dispatch 2026-11-19)

@@ -112,7 +112,8 @@ no artifact files were lost._
 - [2026-11-19-camp-016-plan](artifacts/2026-11-19-camp-016-plan.md) — CAMP-016 POC plan: tenant defaults, one resolver, settings regroup (main)
 - [2026-11-19-settings-campaign-quality-ux](artifacts/2026-11-19-settings-campaign-quality-ux.md) — CAMP-016 UX spec: Settings groups, Campaigns group, form Audience (main)
 - [2026-11-19-camp-016-impl](artifacts/2026-11-19-camp-016-impl.md) — CAMP-016 impl: mig 085, shared resolver, routes, regroup, form; walk evidence (dev)
-- [2026-11-19-dev-camp-016-handoff](artifacts/2026-11-19-dev-camp-016-handoff.md) — CAMP-016 dev handoff (dev)
+- ~~[2026-11-19-dev-camp-016-handoff](artifacts/2026-11-19-dev-camp-016-handoff.md)~~ → replaced by 2026-11-19-dev-camp-016-r2-handoff
+- [2026-11-19-dev-camp-016-r2-handoff](artifacts/2026-11-19-dev-camp-016-r2-handoff.md) — CAMP-016 r2: develop merge, one recipient number in the form (dev)
 
 **BOOK-003 — booking through personal agents (2026-11-19)**
 - [2026-11-19-book-003-agent-booking-impl](artifacts/2026-11-19-book-003-agent-booking-impl.md) — BOOK-003 impl: mig 084, agent API, WhatsApp code, settings; AC evidence (dev)

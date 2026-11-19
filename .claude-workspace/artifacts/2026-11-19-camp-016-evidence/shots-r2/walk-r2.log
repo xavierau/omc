@@ -1,0 +1,6 @@
+[2026-11-19T15:34:39.371Z] signed in as admin → http://localhost:3040/dashboard
+[2026-11-19T15:34:41.757Z] will receive = 57
+[2026-11-19T15:34:41.762Z] promo + tags: legacy [data-field=recipient-count] count=0; "will receive this" lines=0; summary="Members with the selected tags 60 Skipped: Red contacts − 3 Will receive 57 Consent and Meta's daily limits are checked again when it sends, so the final number can be lower."
+[2026-11-19T15:34:42.307Z] checkpoint campaign-form-summary-r2@1440: blocking=0 warning=2 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-r2/en-campaign-form-summary-r2-1440.png
+[2026-11-19T15:34:43.834Z] welcome + tags: legacy line count=1; summary count=0
+[2026-11-19T15:34:44.356Z] checkpoint campaign-form-welcome-r2@1440: blocking=0 warning=3 → /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0667e693-3225-4e9c-92e7-d789b1112048/scratchpad/c16/shots-r2/en-campaign-form-welcome-r2-1440.png
