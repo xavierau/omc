@@ -1,0 +1,22 @@
+# forge command 14444181 status finished
+2026-11-19T14:37:45Z
+{
+  "source_ref": "rel-book004",
+  "source_commit": "f1fa26b8e22c229f8580838748053be5bd7c78d6",
+  "source_subject": "Merge pull request #199 from xavierau/develop",
+  "build_id": "3swaJrxsFle8BXKvCxYCZ",
+  "built_at": "2026-11-19T14:33:04Z",
+  "built_by": "<redacted>",
+  "node": "v22.21.1"
+}
+
+3swaJrxsFle8BXKvCxYCZ
+/dev/root          58447 31046     27385  54% /
+MemAvailable:    2442292 kB
+SwapFree:          77128 kB
+ 14:37:45 up 55 days,  9:19,  1 user,  load average: 1.83, 0.73, 0.31
+3267575 Thu Nov 19 14:37:03 2026       00:41 next-server (v16.3.4)
+3267656 Thu Nov 19 14:37:07 2026       00:37 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-worker.t
+3267667 Thu Nov 19 14:37:07 2026       00:37 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import file:/
+3267688 Thu Nov 19 14:37:10 2026       00:34 /home/forge/app.ohmyclient.io/node_modules/@esbuild/linux-x64/bin/esbuild --service=0.27.7 --ping
+
