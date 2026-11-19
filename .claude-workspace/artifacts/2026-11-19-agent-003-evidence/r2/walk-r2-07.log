@@ -1,0 +1,3 @@
+2026-11-19T09:32:18.266Z wamid.C.7 200 {"status":"ok"}
+{"ts":"2026-11-19T09:32:24.837Z","level":"info","event":"agent.reply","messageId":"fde2055c-78d5-45d2-9b8e-f8d1044323eb","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a3","outcome":"sent","latencyMs":3428,"httpStatus":200,"promptTokens":6442,"outputTokens":139,"toolCalls":["list_my_bookings","propose_booking_change"]}
+  >> {"body": "我幫你將11月25號 19:30（4位）嘅訂座申請改去11月26號 20:00（4位），請問係咪確認？\n\n🤖 自動回覆 Automated reply"}

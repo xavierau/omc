@@ -1,0 +1,3 @@
+F10_PROBE_OK
+ ✓ src/infrastructure/supabase/__tests__/zz-f10-syntax-probe.test.ts > F10 probe: list and cancel filters parse on real PostgREST (0 rows) 76ms
+      Tests  1 passed (1)

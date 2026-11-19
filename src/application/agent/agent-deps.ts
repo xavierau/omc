@@ -13,8 +13,13 @@ import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositori
 import { createGeminiAgentClient } from '@/infrastructure/gemini/agent-client'
 import { enqueueAgentReply } from '@/infrastructure/queue/agent-reply-queue'
 import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { getAgentProposalStore } from '@/infrastructure/redis/agent-proposal-store'
+import { bookingRequestStore, dinerBookingStore } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { agentBookingStore } from '@/infrastructure/supabase/repositories/agent-booking-repository'
+import { bookingMessageSender, members } from '@/application/booking/booking-deps'
 import type { AdmitAgentDeps, AgentLogFn } from './admit-inbound-for-agent'
-import type { AgentWorkerDeps } from './process-agent-reply'
+import type { AgentBookingWorkerDeps, AgentWorkerDeps } from './process-agent-reply'
 import type { PurgeAgentDeps } from './purge-agent-messages'
 
 /** Worker log line: event + ids/outcomes only (callers never pass text or phone, R8). */
@@ -36,6 +41,26 @@ export function admitAgentDeps(log: AgentLogFn): AdmitAgentDeps {
   }
 }
 
+/** AGENT-003: BOOK-001's own stores and sender, the R15 proposal store, the diner's bookings (R20–R24). */
+function agentBookingWorkerDeps(): AgentBookingWorkerDeps {
+  return {
+    getConfig: bookingSettingsReader.getConfig,
+    proposals: getAgentProposalStore(),
+    requests: bookingRequestStore,
+    countLiveUnverified: (restaurantId, now, phone) => agentBookingStore.countLiveUnverified(restaurantId, now, phone),
+    members,
+    settings: bookingSettingsReader,
+    sender: bookingMessageSender(),
+    diner: dinerBookingStore,
+    // R24: the diner just wrote, so the service window is open; a closed one is a failed send.
+    notifyText: async (restaurantId, phone, text) => {
+      const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
+      if (!phoneNumberId) return false
+      return (await sendTextMessage(phoneNumberId, phone, text)).ok
+    },
+  }
+}
+
 export function agentWorkerDeps(
   sendFallback: AgentWorkerDeps['sendFallback'],
   log: AgentLogFn = agentConsoleLog
@@ -52,6 +77,8 @@ export function agentWorkerDeps(
     sendFallback,
     now: () => new Date(),
     envModel: process.env.AGENT_MODEL,
+    envFallbackModel: process.env.AGENT_FALLBACK_MODEL,
+    booking: agentBookingWorkerDeps(),
     log,
   }
 }

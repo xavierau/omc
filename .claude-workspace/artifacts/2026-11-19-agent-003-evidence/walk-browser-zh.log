@@ -1,0 +1,10 @@
+2026-11-19T08:52:45.588Z setup zh logged in
+2026-11-19T08:52:46.286Z setup zh fallback field visible true placeholder 預設後備模型 tools checked {"propose_booking":true,"create_booking_request":true,"get_booking_link":true}
+2026-11-19T08:52:46.287Z setup zh advanced text "進階設定\n自動回覆標示\n\n附加在每個自動回覆的結尾。可以改寫，但不能刪除(留空會恢復預設)。\n\n模型\n後備模型\n\n主模型繁忙或逾時時，會改用一次。\n\nAI 可使用的工具\n會員摘要 顧客自己的積分及印花卡。\n獎賞列表 你現有的獎賞及所需積分。\n轉交職員 傳送你的聯絡連結，並暫停 AI 回覆這位顧客。\n建議訂座 核對顧客提供的日期、時間、人數和姓名，並向顧客覆述。只適用於簡易訂座模式。\n送出訂座要求 顧客同意後，在「訂座」新增一個待確認要求，由你確認。只適用於簡易訂座模式。\n訂座連結 分享你的網上訂座連結。只適用於外部訂座模式。\n隨機度\n\n0 至 1\n\n最多輸出 token\n\n64 至 2048\n\n回覆長度上限(字元)\n\n200 至 1500\n\n傳給模型的對話則數\n\n1 至 30\n\n對話保留時間(小時)\n\n24 至 168\n\n等待更多訊息(毫秒)\n\n0 至 15000\n\n每次回覆最多工具調用\n\n0 至 5\n
+2026-11-19T08:52:46.827Z setup zh audit setup-advanced-zh-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280
+2026-11-19T08:52:47.290Z setup zh fallback field visible true placeholder 預設後備模型 tools checked {"propose_booking":true,"create_booking_request":true,"get_booking_link":true}
+2026-11-19T08:52:47.301Z setup zh advanced text "進階設定\n自動回覆標示\n\n附加在每個自動回覆的結尾。可以改寫，但不能刪除(留空會恢復預設)。\n\n模型\n後備模型\n\n主模型繁忙或逾時時，會改用一次。\n\nAI 可使用的工具\n會員摘要 顧客自己的積分及印花卡。\n獎賞列表 你現有的獎賞及所需積分。\n轉交職員 傳送你的聯絡連結，並暫停 AI 回覆這位顧客。\n建議訂座 核對顧客提供的日期、時間、人數和姓名，並向顧客覆述。只適用於簡易訂座模式。\n送出訂座要求 顧客同意後，在「訂座」新增一個待確認要求，由你確認。只適用於簡易訂座模式。\n訂座連結 分享你的網上訂座連結。只適用於外部訂座模式。\n隨機度\n\n0 至 1\n\n最多輸出 token\n\n64 至 2048\n\n回覆長度上限(字元)\n\n200 至 1500\n\n傳給模型的對話則數\n\n1 至 30\n\n對話保留時間(小時)\n\n24 至 168\n\n等待更多訊息(毫秒)\n\n0 至 15000\n\n每次回覆最多工具調用\n\n0 至 5\n
+2026-11-19T08:52:47.804Z setup zh audit setup-advanced-zh-390 {"blocking":0,"warning":12,"info":1} scrollW 390 vw 390
+2026-11-19T08:52:49.808Z bookings zh logged in
+2026-11-19T08:52:50.393Z bookings zh rows 1 first row "2026-11-20 19:00\n4 位\n待確認\n經 AI 助理\n\n陳生 · +85290000003\n\n確認\n拒絕"
+2026-11-19T08:52:50.873Z bookings zh audit bookings-zh-1280 {"blocking":0,"warning":1,"info":0} scrollW 1280 vw 1280

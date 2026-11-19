@@ -90,7 +90,16 @@ async function store(
   }
 }
 
-async function notifyReceived(deps: SubmitBookingDeps, booking: BookingRequest): Promise<boolean> {
+/** BOOK-001 rules for a submission made now (Hong Kong today and time, the tenant's party cap). Shared with AGENT-003. */
+export function bookingRulesAt(now: Date, maxPartySize: number) {
+  return { today: hongKongToday(now), nowTime: hongKongTime(now), maxPartySize }
+}
+
+/** The diner's "received" message, best effort (shared with AGENT-003 R16). */
+export async function notifyReceived(
+  deps: { settings: Pick<BookingSettingsReader, 'getRestaurant'>; sender: BookingMessageSender },
+  booking: BookingRequest
+): Promise<boolean> {
   const restaurant = await deps.settings.getRestaurant(booking.restaurantId)
   const result = await deps.sender.send({
     restaurantId: booking.restaurantId, phone: booking.phone, memberId: booking.memberId, kind: 'received',
@@ -110,9 +119,7 @@ export async function submitBookingRequest(
   const config = await deps.settings.getConfig(peeked.owner.restaurantId)
   if (config.mode !== 'simple') return { ok: false, reason: 'booking_unavailable' }
 
-  const now = deps.now()
-  const rules = { today: hongKongToday(now), nowTime: hongKongTime(now), maxPartySize: config.maxPartySize }
-  const result = parseBookingSubmission(input.body, rules)
+  const result = parseBookingSubmission(input.body, bookingRulesAt(deps.now(), config.maxPartySize))
   if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
   if ((await deps.requests.countPending(peeked.owner.restaurantId, peeked.owner.phone)) >= MAX_PENDING_PER_PHONE) {
     return { ok: false, reason: 'too_many_pending' }

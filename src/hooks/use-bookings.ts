@@ -11,8 +11,9 @@ import type { BookingRequest } from '@/domain/entities/booking-request'
 
 export type BookingItem = BookingRequest
 
+/** `delivered: null`: no message by design (a declined change request), so no "not delivered" badge (F8). */
 export type BookingDecisionOutcome =
-  | { kind: 'done'; booking: BookingItem; delivered: boolean }
+  | { kind: 'done'; booking: BookingItem; delivered: boolean | null }
   | { kind: 'already_handled'; status: BookingItem['status'] }
   | { kind: 'not_found' }
   | { kind: 'error' }
@@ -20,10 +21,12 @@ export type BookingDecisionOutcome =
 export function bookingDecisionOutcome(status: number, body: unknown): BookingDecisionOutcome {
   const b = (body && typeof body === 'object' ? body : {}) as {
     booking?: BookingItem
-    delivered?: boolean
+    delivered?: boolean | null
     status?: BookingItem['status']
   }
-  if (status === 200 && b.booking) return { kind: 'done', booking: b.booking, delivered: b.delivered === true }
+  if (status === 200 && b.booking) {
+    return { kind: 'done', booking: b.booking, delivered: b.delivered === null ? null : b.delivered === true }
+  }
   if (status === 409 && b.status) return { kind: 'already_handled', status: b.status }
   if (status === 404) return { kind: 'not_found' }
   return { kind: 'error' }
@@ -104,12 +107,18 @@ export type BookingNotice =
 /**
  * The notice a decision outcome produces; `already_handled`/`not_found` also refresh the list.
  * A saved decision whose message was not delivered has no notice: the row's
- * "Message not delivered" badge says what happened (spec warning row).
+ * "Message not delivered" badge says what happened (spec warning row). One
+ * that sends no message by design (`delivered: null`) has neither (F8).
  */
 export function noticeFor(decision: 'confirm' | 'decline', outcome: BookingDecisionOutcome): BookingNotice | null {
   if (outcome.kind === 'done') return outcome.delivered ? { kind: 'sent', decision } : null
   if (outcome.kind === 'already_handled') return { kind: 'already_handled', status: outcome.status }
   return { kind: 'error' }
+}
+
+/** The row gets the "Message not delivered" badge only when a message was meant to go and did not (F8). */
+export function showsUndelivered(outcome: BookingDecisionOutcome): boolean {
+  return outcome.kind === 'done' && outcome.delivered === false
 }
 
 export function useBookingActions(refetch: () => Promise<void>) {
@@ -121,7 +130,7 @@ export function useBookingActions(refetch: () => Promise<void>) {
     setBusyId(id)
     const outcome = await decideBooking(id, decision, reason)
     setNotice(noticeFor(decision, outcome))
-    if (outcome.kind === 'done' && !outcome.delivered) setUndelivered((prev) => new Set(prev).add(id))
+    if (showsUndelivered(outcome)) setUndelivered((prev) => new Set(prev).add(id))
     setBusyId(null)
     await refetch()
   }

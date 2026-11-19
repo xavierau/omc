@@ -1,0 +1,3 @@
+2026-11-19T09:28:31.096Z wamid.C.2 200 {"status":"ok"}
+{"ts":"2026-11-19T09:28:37.849Z","level":"info","event":"agent.reply","messageId":"22a4323b-302b-490e-b033-3e95e2697d8d","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a3","outcome":"handoff","reason":"tool_cap","latencyMs":3646,"httpStatus":200,"promptTokens":6467,"outputTokens":133,"toolCalls":["list_my_bookings","propose_booking_change","list_my_bookings","propose_booking_change"]}
+  >> {"body": "抱歉，我暫時未能回覆你，職員會盡快跟進。\nSorry, I can't answer that right now. A staff member will follow up.\n\n🤖 自動回覆 Automated reply"}

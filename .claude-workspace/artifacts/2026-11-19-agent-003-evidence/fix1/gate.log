@@ -1,0 +1,8 @@
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  647 passed | 13 skipped (660)
+      Tests  7342 passed | 93 skipped | 2 todo (7437)
+   Start at  18:37:23
+   Duration  24.71s (transform 16.55s, setup 0ms, import 62.58s, tests 19.05s, environment 43ms)
+

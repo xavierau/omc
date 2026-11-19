@@ -22,7 +22,7 @@ import { agentLogStatus } from '@/hooks/use-agent-conversations'
 import { AGENT_OUTCOMES } from '@/domain/ports/agent-reply'
 import { DEFAULT_AGENT_CONFIG } from '@/domain/value-objects/agent-config'
 
-const THREAD = { key: '11111111-1111-4111-8111-111111111111', maskedPhone: '•••• 4567', lastActivityAt: '2026-11-19T10:00:05Z', messageCount: 2, latestOutcome: 'shadow_draft' as const }
+const THREAD = { key: '11111111-1111-4111-8111-111111111111', maskedPhone: '•••• 4567', lastActivityAt: '2026-11-19T10:00:05Z', messageCount: 2, latestOutcome: 'shadow_draft' as const, needsStaff: false }
 const DETAIL = {
   thread: { key: THREAD.key, maskedPhone: '•••• 4567' },
   messages: [
@@ -84,6 +84,51 @@ describe('AGENT-001 W2 agent dashboard UI', () => {
     expect(payload.rev).toBe(5)
     expect(payload.config).toMatchObject({ mode: 'shadow', model: null, temperature: 0.7, enabledTools: DEFAULT_AGENT_CONFIG.enabledTools })
     expect(JSON.parse(JSON.stringify(payload.config))).not.toHaveProperty('maxReplyChars')
+  })
+
+  it('AC-UI AGENT-003 Advanced: fallback model field and the three booking tool checkboxes, labels in en and zh-HK', () => {
+    const html = renderToStaticMarkup(<AgentSettingsSection initial={{ config: { ...DEFAULT_AGENT_CONFIG, fallbackModel: 'gemini-x-lite' }, rev: 1 }} />)
+    expect(html).toContain('data-testid="agent-settings-fallback-model"')
+    expect(html).toMatch(/data-testid="agent-settings-fallback-model"[^>]*value="gemini-x-lite"|value="gemini-x-lite"[^>]*data-testid="agent-settings-fallback-model"/)
+    for (const name of ['propose_booking', 'create_booking_request', 'get_booking_link']) {
+      expect(html).toContain(`data-testid="agent-settings-tool-${name}"`)
+      for (const key of [`tool.${name}`, `toolHint.${name}`]) {
+        expect(typeof lookup(en, `agentSettings.${key}`)).toBe('string')
+        expect(typeof lookup(zhHK, `agentSettings.${key}`)).toBe('string')
+      }
+    }
+    const form = toAgentForm(DEFAULT_AGENT_CONFIG)
+    expect(toAgentPayload(form, 1).config.fallbackModel).toBeNull()
+    form.fallbackModel = ' gemini-3.5-flash-lite '
+    expect(toAgentPayload(form, 1).config.fallbackModel).toBe('gemini-3.5-flash-lite')
+  })
+
+  it('AC-UI AGENT-003 R18/R19 Advanced: per-call timeout knob (3000–15000) and the failure action (handoff default)', () => {
+    const html = renderToStaticMarkup(<AgentSettingsSection initial={{ config: DEFAULT_AGENT_CONFIG, rev: 1 }} />)
+    const knob = html.slice(html.indexOf('id="agent-settings-perCallTimeoutMs"'))
+    expect(knob.slice(0, knob.indexOf('>'))).toMatch(/min="3000"[^>]*max="15000"|max="15000"[^>]*min="3000"/)
+    const handoff = html.slice(html.lastIndexOf('<input', html.indexOf('data-testid="agent-settings-failure-action-handoff"')))
+    expect(handoff.slice(0, handoff.indexOf('>'))).toContain('checked')
+    expect(html).toContain('data-testid="agent-settings-failure-action-menu"')
+    for (const key of ['failureActionLabel', 'failureAction.handoff', 'failureAction.menu', 'failureActionHint.handoff', 'failureActionHint.menu', 'knob.perCallTimeoutMs', 'field.perCallTimeoutMs', 'field.failureAction']) {
+      expect(typeof lookup(en, `agentSettings.${key}`)).toBe('string')
+      expect(typeof lookup(zhHK, `agentSettings.${key}`)).toBe('string')
+    }
+    const form = toAgentForm(DEFAULT_AGENT_CONFIG)
+    form.failureAction = 'menu'
+    expect(toAgentPayload(form, 1).config).toMatchObject({ failureAction: 'menu', perCallTimeoutMs: 8000 })
+  })
+
+  it('AC-R19 thread list: a thread the agent handed to staff shows the needs-staff badge', () => {
+    const html = renderToStaticMarkup(
+      <AgentThreadList threads={[{ ...THREAD, latestOutcome: 'handoff', needsStaff: true }]} selectedKey={null} onSelect={() => {}} />
+    )
+    expect(html).toContain(`data-testid="agent-log-thread-row-${THREAD.key}-needs-staff"`)
+    expect(html).toContain('agentLog.needsStaff')
+    for (const key of ['agentLog.needsStaff', 'agentLog.outcome.handoff']) {
+      expect(typeof lookup(en, key)).toBe('string')
+      expect(typeof lookup(zhHK, key)).toBe('string')
+    }
   })
 
   it('AC-UI save outcome mapping: 200 / 409 / 403 / other', () => {

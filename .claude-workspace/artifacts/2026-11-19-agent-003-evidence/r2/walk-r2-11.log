@@ -1,0 +1,3 @@
+2026-11-19T09:33:18.430Z wamid.X.2 200 {"status":"ok"}
+{"ts":"2026-11-19T09:33:15.717Z","level":"info","event":"agent.reply","messageId":"db18aada-3d8e-4d09-beb0-b5f42010f845","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a3","outcome":"sent","latencyMs":3271,"httpStatus":200,"promptTokens":6517,"outputTokens":102,"toolCalls":["list_my_bookings","propose_booking_cancel"]}
+  >> null

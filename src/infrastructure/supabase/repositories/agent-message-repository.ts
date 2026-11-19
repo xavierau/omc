@@ -88,6 +88,19 @@ export async function latestUserMessageId(key: AgentConversationKey): Promise<st
   return (data as { id: string } | null)?.id ?? null
 }
 
+export async function userMessageCreatedAt(key: AgentConversationKey, id: string): Promise<string | null> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('agent_messages')
+    .select('created_at')
+    .eq('id', id)
+    .eq('restaurant_id', key.restaurantId)
+    .eq('phone', key.phone)
+    .eq('role', 'user')
+    .maybeSingle()
+  if (error) throw fail('userMessageCreatedAt', error)
+  return (data as { created_at: string } | null)?.created_at ?? null
+}
+
 /** Newest `limit` rows inside the TTL (user rows + replies the diner got or would have got), oldest first. */
 export async function history(key: AgentConversationKey, limit: number, sinceIso: string): Promise<AgentHistoryMessage[]> {
   const { data, error } = await createServerSupabaseClient()
@@ -145,6 +158,7 @@ export const agentMessageStore: AgentMessageStore = {
   recordModelRow,
   setModelOutcome,
   latestUserMessageId,
+  userMessageCreatedAt,
   history,
   countModelCalls,
   hasRateLimitedSince,
