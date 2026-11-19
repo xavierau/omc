@@ -3,10 +3,14 @@
  * the real repository against an in-memory table that evaluates the PostgREST
  * filters the repository sends (eq/neq/gte/lte/in, order, limit, head count),
  * so tenant scoping, the date window, ordering and the cap are all exercised.
+ * Like PostgREST, it never returns more than `max_rows` (supabase/config.toml,
+ * hosted default 1000) whatever `limit` asks for (review F1).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 type Row = Record<string, unknown>
+/** PostgREST `max_rows` (supabase/config.toml:18; the hosted default too). */
+const MAX_ROWS = 1000
 const table: { rows: Row[]; queries: string[][] } = { rows: [], queries: [] }
 
 function query() {
@@ -34,7 +38,7 @@ function query() {
         }
         return 0
       })
-      return Promise.resolve(head ? { count: hits.length, error: null } : { data: hits.slice(0, limit), error: null }).then(resolve)
+      return Promise.resolve(head ? { count: hits.length, error: null } : { data: hits.slice(0, Math.min(limit, MAX_ROWS)), error: null }).then(resolve)
     },
   }
   return chain
@@ -110,6 +114,15 @@ describe('GET /api/dashboard/bookings with a date range (BOOK-004)', () => {
     expect(body.truncated).toBe(true)
   })
 
+  // F1 (review 2026-11-19): asking for cap + 1 rows past max_rows got max_rows back, so a range of
+  // more than max_rows rows was cut with truncated false.
+  it('R4: a range longer than PostgREST max_rows is flagged truncated, not cut silently', async () => {
+    for (let i = 0; i < MAX_ROWS + 500; i++) add(A, '2026-11-21', '12:30')
+    const body = await (await get('?from=2026-11-01&to=2026-11-30')).json()
+    expect(body.truncated).toBe(true)
+    expect(body.bookings.length).toBeLessThan(MAX_ROWS)
+  })
+
   it('not truncated when everything fits', async () => {
     add(A, '2026-11-21', '12:30')
     expect((await (await get('?from=2026-11-01&to=2026-11-30')).json()).truncated).toBe(false)
@@ -176,6 +189,13 @@ describe('GET /api/dashboard/bookings?status=pending: every pending booking, any
     const body = await (await get('?status=pending')).json()
     expect(body.bookings).toHaveLength(BOOKINGS_RANGE_CAP)
     expect(body.truncated).toBe(true)
+  })
+
+  it('R4 (F1): more pending bookings than PostgREST max_rows is flagged truncated, not cut silently', async () => {
+    for (let i = 0; i < MAX_ROWS + 500; i++) add(A, '2026-11-21', '12:30')
+    const body = await (await get('?status=pending')).json()
+    expect(body.truncated).toBe(true)
+    expect(body.bookings.length).toBeLessThan(body.pendingCount)
   })
 
   it.each([

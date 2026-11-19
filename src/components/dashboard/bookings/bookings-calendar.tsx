@@ -15,15 +15,17 @@ import { CalendarWeekStrip } from './calendar-week-strip'
 export interface BookingsCalendarProps extends BookingActionProps {
   bookings: BookingItem[]
   monthEmpty: boolean
+  /** The selected day has bookings the filter hid: its panel says nothing matches. */
+  dayHidden?: boolean
   selected: string
   today: string
   isPhone: boolean
   onSelect: (date: string) => void
 }
 
-export function BookingsCalendar({ bookings, monthEmpty, selected, today, isPhone, onSelect, ...actions }: BookingsCalendarProps) {
+export function BookingsCalendar({ bookings, monthEmpty, dayHidden = false, selected, today, isPhone, onSelect, ...actions }: BookingsCalendarProps) {
   const days = { bookings, selected, today, onSelect }
-  const panel = { date: selected, bookings: bookingsOn(bookings, selected), monthEmpty, ...actions }
+  const panel = { date: selected, bookings: bookingsOn(bookings, selected), monthEmpty, dayHidden, ...actions }
   if (isPhone) {
     return (
       <div className="space-y-4">

@@ -24,6 +24,22 @@ import type {
 const BOOKING_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status'
 
+/** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
+const POSTGREST_MAX_ROWS = 1000
+
+/**
+ * BOOK-004 R4 (review F1): a capped list reads one row past the cap to know it
+ * was cut, so the cap must leave room for that row under `max_rows`; otherwise
+ * PostgREST returns exactly `max_rows` and `truncated` is never true.
+ */
+function readCap(cap: number): number {
+  return Math.min(cap, POSTGREST_MAX_ROWS - 1)
+}
+
+function cappedList(rows: BookingRow[], cap: number): { bookings: BookingRequest[]; truncated: boolean } {
+  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+}
+
 interface BookingRow {
   id: string
   restaurant_id: string
@@ -134,13 +150,14 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
  * (inclusive), by date then time. R1 tenant scope and R2 the unverified
  * exclusion are filters of the query itself (an allow-list, so a status added
  * later stays hidden until the views handle it); R4 reads one row past `cap`
- * to know whether the list was cut.
+ * to know whether the list was cut (under `max_rows`: `readCap`).
  */
 export async function listBookingRequestsInRange(
   restaurantId: string,
   range: BookingDateRange,
   cap: number
 ): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const keep = readCap(cap)
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('booking_requests')
@@ -151,22 +168,22 @@ export async function listBookingRequestsInRange(
     .lte('booking_date', range.to)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true })
-    .limit(cap + 1)
+    .limit(keep + 1)
   if (error) throw new Error(`listBookingRequestsInRange: ${error.message}`)
-  const rows = (data ?? []) as BookingRow[]
-  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+  return cappedList((data ?? []) as BookingRow[], keep)
 }
 
 /**
  * BOOK-004 r2: every pending request of one restaurant, any date (past-dated
  * included), by date then time: the list behind the "need a reply" count, so
  * it holds the same rows as `countRestaurantPendingBookings`. Tenant and
- * status are filters of the query (R1, R2); reads one past `cap` (R4).
+ * status are filters of the query (R1, R2); reads one past `cap` (R4, `readCap`).
  */
 export async function listPendingBookingRequests(
   restaurantId: string,
   cap: number
 ): Promise<{ bookings: BookingRequest[]; truncated: boolean }> {
+  const keep = readCap(cap)
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('booking_requests')
@@ -175,10 +192,9 @@ export async function listPendingBookingRequests(
     .eq('status', 'pending')
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true })
-    .limit(cap + 1)
+    .limit(keep + 1)
   if (error) throw new Error(`listPendingBookingRequests: ${error.message}`)
-  const rows = (data ?? []) as BookingRow[]
-  return { bookings: rows.slice(0, cap).map(toBookingRequest), truncated: rows.length > cap }
+  return cappedList((data ?? []) as BookingRow[], keep)
 }
 
 /** BOOK-004: every pending request of one restaurant, any date (the "need a reply" count). */

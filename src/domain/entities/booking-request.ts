@@ -94,8 +94,12 @@ export interface NewBookingRequest {
   token: string
 }
 
-/** BOOK-004 (R4): the most rows one date-range list returns; more sets `truncated`. */
-export const BOOKINGS_RANGE_CAP = 1000
+/**
+ * BOOK-004 (R4): the most rows one date-range list returns; more sets `truncated`.
+ * The list reads cap + 1 rows, which must fit PostgREST's `max_rows` (1000), or
+ * the extra row is never returned and a cut list looks complete (review F1).
+ */
+export const BOOKINGS_RANGE_CAP = 999
 /** BOOK-004 (R3): the widest date range one list may ask for, in days. */
 export const BOOKINGS_RANGE_MAX_DAYS = 400
 

@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { BookingNoticeLine } from '@/components/dashboard/booking-list'
 import { useBookingActions, useBookings } from '@/hooks/use-bookings'
-import { filterBookings, statusCounts } from './booking-groups'
+import { bookingsPageLists } from './booking-groups'
 import { BookingsCalendar } from './bookings-calendar'
 import { BookingsFilters } from './bookings-filters'
 import { BookingsHeader } from './bookings-header'
@@ -40,9 +40,9 @@ export function BookingsScreen() {
   const { data, pendingCount, isLoading, error, refetch } = useBookings(page.range)
   const { busyId, notice, undelivered, act } = useBookingActions(refetch)
   const all = data?.bookings ?? []
-  const shown = filterBookings(all, page.status, page.query)
-  const actions = { busyId, undelivered, onDecide: act }
   const calendar = page.view === 'calendar'
+  const lists = bookingsPageLists(all, { calendar, isPhone: page.isPhone, selected: page.selected, status: page.status, query: page.query })
+  const actions = { busyId, undelivered, onDecide: act }
   const nav = calendar ? (
     <CalendarNav selected={page.selected} isPhone={page.isPhone} onShift={page.shift} onToday={page.goToday} />
   ) : (
@@ -54,12 +54,12 @@ export function BookingsScreen() {
       <BookingsHeader view={page.view} pendingCount={pendingCount} onView={page.setView} onShowPending={page.showPending} />
       <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
         {nav}
-        {calendar && page.isPhone ? null : (
+        {lists.filtersShown ? (
           <BookingsFilters
-            status={page.status} counts={statusCounts(all)} query={page.query} showSearch
+            status={page.status} counts={lists.counts} query={page.query} showSearch
             onStatus={page.setStatus} onQuery={page.setQuery}
           />
-        )}
+        ) : null}
       </div>
       <BookingNoticeLine notice={notice} />
       {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
@@ -69,12 +69,12 @@ export function BookingsScreen() {
         <BookingsLoading />
       ) : calendar ? (
         <BookingsCalendar
-          bookings={shown} monthEmpty={all.length === 0} selected={page.selected} today={page.today}
+          bookings={lists.shown} monthEmpty={lists.scopeEmpty} dayHidden={lists.dayHidden} selected={page.selected} today={page.today}
           isPhone={page.isPhone} onSelect={page.select} {...actions}
         />
       ) : (
         <BookingsTable
-          bookings={shown} rangeEmpty={all.length === 0} range={page.tableRange} today={page.today}
+          bookings={lists.shown} rangeEmpty={lists.scopeEmpty} range={page.tableRange} today={page.today}
           isPhone={page.isPhone} onRange={page.setTableRange} {...actions}
         />
       )}

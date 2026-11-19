@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { addDays, gridRange, monthGrid, shiftMonth, todayInHongKong, weekOf } from '../bookings/booking-dates'
-import { bookingsOn, chipName, covers, daySummary, filterBookings, groupByDay, matchesSearch, statusCounts } from '../bookings/booking-groups'
+import {
+  bookingsOn,
+  bookingsPageLists,
+  chipName,
+  covers,
+  daySummary,
+  filterBookings,
+  groupByDay,
+  matchesSearch,
+  statusCounts,
+} from '../bookings/booking-groups'
 import { fetchRange, resolveView, SHOW_PENDING, stepSelected, storeView, readStoredView, tableOrder, tableRangeDates } from '../bookings/bookings-view-state'
 import type { BookingItem } from '@/hooks/use-bookings'
 
@@ -85,11 +95,67 @@ describe('booking groups', () => {
     expect(filterBookings(list, 'confirmed', '4455').map((x) => x.id)).toEqual(['early'])
   })
 
+  // F6 (review 2026-11-19): 'Chan 9' fell back to digits '9' and matched nearly every phone.
+  it('search: a mixed name + digits query is a name search, never a phone match', () => {
+    expect(matchesSearch(list[1], 'Chan 6')).toBe(false)
+    expect(matchesSearch(list[1], 'Au 4455')).toBe(false)
+    expect(matchesSearch(list[1], '+852 6123-4455')).toBe(true)
+    expect(matchesSearch(list[1], '(852) 6123')).toBe(true)
+    expect(filterBookings(list, 'all', 'Chan 9')).toEqual([])
+  })
+
   it('a purged name never matches a name search and the chip shows no name', () => {
     const purged = b('p', '2026-11-21', '12:00', 'confirmed', 2, { name: null })
     expect(matchesSearch(purged, 'chan')).toBe(false)
     expect(chipName(null)).toBe('')
     expect(chipName('  Chan Tai Man ')).toBe('Chan')
+  })
+})
+
+describe('bookingsPageLists: what the page lists, counts and calls empty (F3, F5)', () => {
+  const nov = [
+    b('pend', '2026-11-21', '12:00', 'pending'),
+    b('conf', '2026-11-21', '13:00', 'confirmed'),
+    b('dec', '2026-11-22', '13:00', 'declined'),
+    b('spill', '2026-12-02', '12:00', 'pending'),
+  ]
+  const phoneCal = { calendar: true, isPhone: true, selected: '2026-11-21', status: 'pending', query: 'zzz' } as const
+
+  // F3: on phone Calendar the chips and search are hidden; a status left on by Show must not empty the days.
+  it('F3: phone Calendar shows no filters, so it applies none', () => {
+    const lists = bookingsPageLists(nov, phoneCal)
+    expect(lists.filtersShown).toBe(false)
+    expect(lists.shown.map((x) => x.id)).toEqual(['pend', 'conf', 'dec', 'spill'])
+  })
+
+  it('desktop Calendar and the Table (phone too) apply the filters they show', () => {
+    for (const o of [{ ...phoneCal, isPhone: false }, { ...phoneCal, calendar: false }]) {
+      const lists = bookingsPageLists(nov, { ...o, query: '' })
+      expect(lists.filtersShown).toBe(true)
+      expect(lists.shown.map((x) => x.id)).toEqual(['pend', 'spill'])
+    }
+  })
+
+  // F5: the grid range spills into the next month; the month's counts and empty state must not.
+  it("F5: Calendar counts and month-empty cover the selected month only, not the grid's spill-over days", () => {
+    const desk = { ...phoneCal, isPhone: false, status: 'all', query: '' } as const
+    expect(bookingsPageLists(nov, desk).counts).toEqual({ all: 3, pending: 1, confirmed: 1, declined: 1 })
+    const onlySpill = bookingsPageLists([nov[3]], desk)
+    expect(onlySpill.scopeEmpty).toBe(true)
+    expect(onlySpill.shown.map((x) => x.id)).toEqual(['spill'])
+  })
+
+  it('the Table counts and empty state cover the whole loaded range', () => {
+    const lists = bookingsPageLists(nov, { ...phoneCal, calendar: false, status: 'all', query: '' })
+    expect(lists.counts).toEqual({ all: 4, pending: 2, confirmed: 1, declined: 1 })
+    expect(lists.scopeEmpty).toBe(false)
+  })
+
+  it('F5: dayHidden only when the filter hid every booking of the selected day', () => {
+    const desk = { ...phoneCal, isPhone: false, query: '' } as const
+    expect(bookingsPageLists(nov, { ...desk, status: 'declined' }).dayHidden).toBe(true)
+    expect(bookingsPageLists(nov, { ...desk, status: 'pending' }).dayHidden).toBe(false)
+    expect(bookingsPageLists(nov, { ...desk, status: 'all', selected: '2026-11-23' }).dayHidden).toBe(false)
   })
 })
 

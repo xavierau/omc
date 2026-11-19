@@ -4,6 +4,7 @@
  * groups, and covers (guests; declined bookings do not come).
  */
 import type { BookingItem } from '@/hooks/use-bookings'
+import { monthKey } from './booking-dates'
 
 export const STATUS_FILTERS = ['all', 'pending', 'confirmed', 'declined'] as const
 export type StatusFilter = (typeof STATUS_FILTERS)[number]
@@ -21,14 +22,20 @@ export interface DaySummary {
 }
 
 const digits = (value: string) => value.replace(/\D/g, '')
+/** A query made only of digits and phone punctuation is a phone search. */
+const PHONE_QUERY = /^[\d\s+()-]+$/
 
-/** Name: case-insensitive substring. Phone: the query's digits inside the phone's digits. */
+/**
+ * Name: case-insensitive substring. Phone: the query's digits inside the
+ * phone's digits, only when the query is digits/phone punctuation alone, so a
+ * mixed query like "Chan 9" never matches every phone with a 9 (review F6).
+ */
 export function matchesSearch(booking: BookingItem, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (q === '') return true
   if ((booking.name ?? '').toLowerCase().includes(q)) return true
   const qDigits = digits(q)
-  return qDigits !== '' && digits(booking.phone).includes(qDigits)
+  return PHONE_QUERY.test(q) && qDigits !== '' && digits(booking.phone).includes(qDigits)
 }
 
 export function filterBookings(bookings: BookingItem[], status: StatusFilter, query: string): BookingItem[] {
@@ -67,6 +74,35 @@ export function groupByDay(bookings: BookingItem[], order: DayOrder): DayGroup[]
 /** One day's bookings by time, from any list. */
 export function bookingsOn(bookings: BookingItem[], date: string): BookingItem[] {
   return bookings.filter((b) => b.bookingDate === date).sort(byDateTime)
+}
+
+export interface PageListsInput {
+  calendar: boolean
+  isPhone: boolean
+  selected: string
+  status: StatusFilter
+  query: string
+}
+
+export interface PageLists {
+  /** Phone Calendar hides the chips and search, so it applies neither (review F3). */
+  filtersShown: boolean
+  shown: BookingItem[]
+  /** Chip counts: the selected month in Calendar (no spill-over days, F5), the whole range in Table. */
+  counts: Record<StatusFilter, number>
+  /** No bookings in that month / range at all: the page's empty state. */
+  scopeEmpty: boolean
+  /** The selected day has bookings but the filter hid them all: "no match", not "no bookings" (F5). */
+  dayHidden: boolean
+}
+
+/** What the Bookings page lists, counts and calls empty, from every booking it loaded. */
+export function bookingsPageLists(all: BookingItem[], o: PageListsInput): PageLists {
+  const filtersShown = !(o.calendar && o.isPhone)
+  const shown = filtersShown ? filterBookings(all, o.status, o.query) : all
+  const scope = o.calendar ? all.filter((b) => monthKey(b.bookingDate) === monthKey(o.selected)) : all
+  const dayHidden = bookingsOn(all, o.selected).length > 0 && bookingsOn(shown, o.selected).length === 0
+  return { filtersShown, shown, counts: statusCounts(scope), scopeEmpty: scope.length === 0, dayHidden }
 }
 
 /** The calendar chip label: the first word of the name. */
