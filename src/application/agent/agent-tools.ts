@@ -26,6 +26,7 @@ import {
   isAgentBookingTool,
   runBookingTool,
   type AgentBookingToolContext,
+  type AgentRunMode,
 } from './agent-booking-tools'
 
 export const AGENT_TOOL_DECLARATIONS: Record<AgentToolName, AgentToolDeclaration> = {
@@ -46,22 +47,35 @@ export const AGENT_TOOL_DECLARATIONS: Record<AgentToolName, AgentToolDeclaration
   ...AGENT_BOOKING_TOOL_DECLARATIONS,
 }
 
-/** Enabled tools the tenant may use now: a booking tool also needs its booking mode (null = unreadable → none). */
-export function offeredTools(enabled: readonly AgentToolName[], bookingMode: BookingMode | null): AgentToolName[] {
-  const allowedBooking = bookingToolsForMode(bookingMode)
+/**
+ * Enabled tools the tenant may use now: a booking tool also needs its booking
+ * mode (null = unreadable → none) and, in shadow, not to change or cancel (F2).
+ */
+export function offeredTools(
+  enabled: readonly AgentToolName[],
+  bookingMode: BookingMode | null,
+  agentMode: AgentRunMode
+): AgentToolName[] {
+  const allowedBooking = bookingToolsForMode(bookingMode, agentMode)
   return AGENT_TOOL_NAMES.filter(
     (name) => enabled.includes(name) && (!isAgentBookingTool(name) || allowedBooking.includes(name))
   )
 }
 
-export function declarationsFor(enabled: readonly AgentToolName[], bookingMode: BookingMode | null = null): AgentToolDeclaration[] {
-  return offeredTools(enabled, bookingMode).map((name) => AGENT_TOOL_DECLARATIONS[name])
+export function declarationsFor(
+  enabled: readonly AgentToolName[],
+  bookingMode: BookingMode | null = null,
+  agentMode: AgentRunMode = 'auto'
+): AgentToolDeclaration[] {
+  return offeredTools(enabled, bookingMode, agentMode).map((name) => AGENT_TOOL_DECLARATIONS[name])
 }
 
 export interface AgentToolContext {
   /** From the job (signed webhook), never from the model (R2). */
   key: AgentConversationKey
   enabledTools: readonly AgentToolName[]
+  /** The run's effective mode: shadow is offered (and runs) no change/cancel tool (F2). */
+  agentMode: AgentRunMode
   handoffSilenceHours: number
   now: () => Date
   data: AgentToolData
@@ -101,7 +115,7 @@ async function runTool(name: AgentToolName, ctx: AgentToolContext, args: Record<
 export function createAgentToolExecutor(ctx: AgentToolContext): AgentToolExecutor {
   return async (name: string, args: Record<string, unknown> = {}) => {
     if (!isAgentToolName(name)) return NOT_AVAILABLE
-    if (!offeredTools(ctx.enabledTools, ctx.booking?.config.mode ?? null).includes(name)) return NOT_AVAILABLE
+    if (!offeredTools(ctx.enabledTools, ctx.booking?.config.mode ?? null, ctx.agentMode).includes(name)) return NOT_AVAILABLE
     try {
       return await runTool(name, ctx, args)
     } catch {

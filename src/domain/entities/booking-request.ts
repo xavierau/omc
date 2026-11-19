@@ -108,7 +108,7 @@ export interface NewBookingRequest {
   replacesBookingId?: string | null
 }
 
-/** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, today or later). */
+/** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, from the Hong Kong time now on). */
 export interface DinerBooking {
   id: string
   bookingDate: string
@@ -119,6 +119,15 @@ export interface DinerBooking {
   notes: string | null
   memberId: string | null
   replacesBookingId: string | null
+}
+
+/**
+ * AGENT-003 R23 (review F3): a change request is OPEN only while it is
+ * pending. A confirmed change keeps `replacesBookingId` (history) but is an
+ * ordinary booking from then on: listed as one and changeable again.
+ */
+export function isOpenChangeRequest(b: { replacesBookingId?: string | null; status: string }): boolean {
+  return !!b.replacesBookingId && b.status === 'pending'
 }
 
 /** A decline reason as stored: trimmed, newline-free, capped; empty = none. */

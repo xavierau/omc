@@ -10,7 +10,7 @@ function executor(enabledTools = [...AGENT_TOOL_NAMES]) {
   const clock = new FakeClock()
   const store = new FakeAgentStore(clock)
   const data = fakeToolData()
-  const execute = createAgentToolExecutor({ key: KEY, enabledTools, handoffSilenceHours: 12, now: clock.now, data, silences: store, booking: null })
+  const execute = createAgentToolExecutor({ key: KEY, enabledTools, agentMode: 'auto', handoffSilenceHours: 12, now: clock.now, data, silences: store, booking: null })
   return { execute, data, store }
 }
 

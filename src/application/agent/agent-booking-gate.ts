@@ -5,10 +5,12 @@
  * The gate: a confirm tool takes the conversation's stored proposal only when
  * it is of the expected kind, was stored by an EARLIER job than this one (the
  * diner wrote again after the read-back), is under 30 minutes old and unused;
- * the take is atomic, so it is single use.
+ * the take is atomic, so it is single use. Review F1: and only when it is
+ * CONFIRMABLE, i.e. the proposing job's read-back actually reached the diner
+ * (the worker marks it; see process-agent-reply.ts).
  */
 import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
-import { hongKongToday } from '@/domain/services/booking-submission'
+import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
 import {
   AGENT_PROPOSAL_TTL_MS,
   type AgentBookingProposal,
@@ -25,6 +27,7 @@ import type {
   BookingRequestStore,
   BookingSettingsReader,
   DinerBookingStore,
+  HongKongMoment,
 } from '@/domain/ports/booking'
 
 export interface AgentBookingToolContext {
@@ -33,6 +36,14 @@ export interface AgentBookingToolContext {
   /** `created_at` of this job's inbound agent_messages row (R15); null when it is gone. */
   inboundCreatedAt(): Promise<string | null>
   proposals: AgentProposalStore
+  /**
+   * Review F1: this run's id. A proposal is stored under it, NOT confirmable;
+   * the worker makes it confirmable only once this run's read-back reached
+   * the diner, and discards it on any other outcome.
+   */
+  proposalOwner: string
+  /** R11: the tenant's disclosure, appended to a text a tool sends (review F9). */
+  disclosureText: string
   requests: Pick<BookingRequestStore, 'insert' | 'countPending'>
   /** BOOK-003 unverified bookings still live for this phone (they count toward the cap, R14). */
   countLiveUnverified(restaurantId: string, now: Date, phone: string): Promise<number>
@@ -51,7 +62,11 @@ export interface BookingCall {
   booking: AgentBookingToolContext
 }
 
-export const hkToday = (call: BookingCall) => hongKongToday(call.now())
+/** R20/R24 (review F10): the Hong Kong date and HH:MM now; earlier today is past. */
+export const hkNow = (call: BookingCall): HongKongMoment => {
+  const now = call.now()
+  return { date: hongKongToday(now), time: hongKongTime(now) }
+}
 
 /** R14: pending requests plus live BOOK-003 unverified ones, as the BOOK-003 create path counts them. */
 export async function atOpenCap({ key, now, booking }: BookingCall): Promise<boolean> {
@@ -67,12 +82,15 @@ export const TOO_MANY_PENDING: AgentToolOutput = {
   note: 'The diner already has the most open booking requests allowed. Tell them staff will reply to those first.',
 }
 
-/** Stores the proposal for this conversation (replacing any other kind); false when the job's inbound row is gone. */
+/**
+ * Stores the proposal for this conversation (replacing any other kind), owned
+ * by this run and not yet confirmable (F1); false when the job's inbound row is gone.
+ */
 export async function saveProposal(call: BookingCall, action: AgentProposalAction): Promise<boolean> {
   const inboundCreatedAt = await call.booking.inboundCreatedAt()
   if (!inboundCreatedAt) return false
   const proposal: AgentBookingProposal = { ...action, inboundCreatedAt, proposedAt: call.now().toISOString() }
-  await call.booking.proposals.save(call.key, proposal, AGENT_PROPOSAL_TTL_MS)
+  await call.booking.proposals.save(call.key, proposal, AGENT_PROPOSAL_TTL_MS, call.booking.proposalOwner)
   return true
 }
 

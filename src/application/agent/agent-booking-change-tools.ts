@@ -2,8 +2,9 @@
  * AGENT-003 R20–R24: the diner changes or cancels their own booking by chat.
  *
  * - `list_my_bookings()` (R20): the job phone's UPCOMING bookings at the job
- *   restaurant (pending + confirmed, today or later), minimal fields, each
- *   with a short `ref` (the first 8 characters of its id).
+ *   restaurant (pending + confirmed, from the Hong Kong time now on), minimal
+ *   fields, each with a short `ref` (the first 8 characters of its id). A
+ *   change request counts as one only while it is pending (F3).
  * - `propose_booking_change(bookingRef, date?, time?, partySize?)` and
  *   `propose_booking_cancel(bookingRef)` (R21): `bookingRef` is the only id
  *   the model may pass, and it is looked up INSIDE the diner's own upcoming
@@ -18,11 +19,12 @@
  *   short in-window text (R24).
  */
 import { parseBookingSubmission, type BookingSubmission } from '@/domain/services/booking-submission'
-import type { DinerBooking } from '@/domain/entities/booking-request'
+import { isOpenChangeRequest, type DinerBooking } from '@/domain/entities/booking-request'
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentToolName } from '@/domain/value-objects/agent-config'
+import { withDisclosure } from '@/domain/services/agent-reply-text'
 import { bookingRulesAt, notifyReceived } from '@/application/booking/submit-booking-request'
-import { hkToday, saveProposal, takeProposal, type BookingCall } from './agent-booking-gate'
+import { hkNow, saveProposal, takeProposal, type BookingCall } from './agent-booking-gate'
 
 export type AgentChangeToolName = Extract<
   AgentToolName,
@@ -100,8 +102,9 @@ const NOT_FOUND: AgentToolOutput = {
   note: 'No upcoming booking of this diner has that ref. Call list_my_bookings and use one of its refs.',
 }
 
+/** R20 (review F10): from the Hong Kong time now on; today's bookings already past are not upcoming. */
 function upcoming(call: BookingCall): Promise<DinerBooking[]> {
-  return call.booking.diner.listUpcoming(call.key.restaurantId, call.key.phone, hkToday(call))
+  return call.booking.diner.listUpcoming(call.key.restaurantId, call.key.phone, hkNow(call))
 }
 
 /** R21: the ref resolved inside the diner's own upcoming bookings (scoped query); ambiguous or unknown → null. */
@@ -121,7 +124,9 @@ async function listMyBookings(call: BookingCall): Promise<AgentToolOutput> {
       ref: refs.get(b.id),
       ...slotOf(b),
       status: b.status,
-      ...(b.replacesBookingId ? { changeRequestFor: refs.get(b.replacesBookingId) ?? 'another booking' } : {}),
+      ...(isOpenChangeRequest(b) && b.replacesBookingId
+        ? { changeRequestFor: refs.get(b.replacesBookingId) ?? 'another booking' }
+        : {}),
     })),
   }
 }
@@ -144,8 +149,8 @@ async function proposeChange(call: BookingCall, args: Record<string, unknown>): 
   const found = await resolveRef(call, args.bookingRef)
   if (!found) return NOT_FOUND
   const { target, all } = found
-  if (target.replacesBookingId) return { error: 'not_changeable', note: 'This is already a change request waiting for staff.' }
-  if (all.some((b) => b.replacesBookingId === target.id)) {
+  if (isOpenChangeRequest(target)) return { error: 'not_changeable', note: 'This is already a change request waiting for staff.' }
+  if (all.some((b) => isOpenChangeRequest(b) && b.replacesBookingId === target.id)) {
     return { error: 'change_already_pending', note: 'A change of this booking is already waiting for staff.' }
   }
   const parsed = changedSubmission(call, target, args)
@@ -165,7 +170,7 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
   const taken = await takeProposal(call, 'change')
   if (!taken.ok) return taken.output
   // The original must still be the diner's open, upcoming booking.
-  const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !b.replacesBookingId)
+  const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !isOpenChangeRequest(b))
   if (!target) return NOT_FOUND
   const parsed = parseBookingSubmission({ ...taken.proposal.booking }, bookingRulesAt(call.now(), booking.config.maxPartySize))
   if (!parsed.ok) return { error: 'invalid', fields: parsed.errors, note: 'Ask the diner for new details and propose again.' }
@@ -230,11 +235,13 @@ async function confirmCancel(call: BookingCall): Promise<AgentToolOutput> {
     restaurantId: key.restaurantId,
     phone: key.phone,
     id: target.id,
-    today: hkToday(call),
+    from: hkNow(call),
     at: call.now(),
   })
   if (!ids.includes(target.id)) return NOT_FOUND
-  const texted = await booking.notifyText(key.restaurantId, key.phone, cancelledText(target)).catch(() => false)
+  // R11 (review F9): an agent-sent text carries the tenant's disclosure, as every other agent reply does.
+  const text = withDisclosure(cancelledText(target), booking.disclosureText)
+  const texted = await booking.notifyText(key.restaurantId, key.phone, text).catch(() => false)
   return {
     cancelled: true,
     booking: slotOf(target),

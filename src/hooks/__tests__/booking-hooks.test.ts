@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bookingDecisionOutcome, decideBooking, noticeFor } from '@/hooks/use-bookings'
+import { bookingDecisionOutcome, decideBooking, noticeFor, showsUndelivered } from '@/hooks/use-bookings'
 import { needsExternalUrl, saveOutcome, toForm, toPayload } from '@/hooks/use-booking-settings'
 import { DEFAULT_BOOKING_CONFIG, parseBookingSettings } from '@/domain/value-objects/booking-config'
 
@@ -30,6 +30,23 @@ describe('use-bookings helpers', () => {
   it('says sent only when the message was delivered (spec warning row)', () => {
     expect(noticeFor('confirm', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
     expect(noticeFor('decline', { kind: 'done', booking: {} as never, delivered: false })).toBeNull()
+  })
+
+  it('AC-F8 a declined change request (delivered null: no message by design) → no undelivered badge, no notice; BOOK-001 decline unchanged', () => {
+    const booking = { id: 'b1', status: 'declined' }
+    const change = bookingDecisionOutcome(200, { booking, delivered: null })
+    expect(change).toEqual({ kind: 'done', booking, delivered: null })
+    expect(showsUndelivered(change)).toBe(false)
+    expect(noticeFor('decline', change)).toBeNull()
+    // BOOK-001: a decline whose message failed still gets the badge; a delivered one says "Decline sent".
+    const failed = bookingDecisionOutcome(200, { booking, delivered: false })
+    expect(showsUndelivered(failed)).toBe(true)
+    expect(noticeFor('decline', failed)).toBeNull()
+    const sent = bookingDecisionOutcome(200, { booking, delivered: true })
+    expect(showsUndelivered(sent)).toBe(false)
+    expect(noticeFor('decline', sent)).toEqual({ kind: 'sent', decision: 'decline' })
+    // A missing flag is still read as not delivered (old servers).
+    expect(showsUndelivered(bookingDecisionOutcome(200, { booking }))).toBe(true)
   })
 
   // I1: zh-HK rendered '已已拒絕'. F14: en rendered 'already Declined' (the

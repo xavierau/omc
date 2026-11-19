@@ -96,12 +96,21 @@ export interface BookingMemberLookup {
   findMemberId(restaurantId: string, phone: string): Promise<string | null>
 }
 
+/**
+ * AGENT-003 R20/R24 (review F10): the Hong Kong date and HH:MM now. A booking
+ * is upcoming when it is on a later date, or today at this time or later.
+ */
+export interface HongKongMoment {
+  date: string
+  time: string
+}
+
 export interface CancelDinerBookingArgs {
   restaurantId: string
   phone: string
   id: string
-  /** Hong Kong today: only upcoming bookings can be cancelled. */
-  today: string
+  /** Hong Kong now: only upcoming bookings can be cancelled. */
+  from: HongKongMoment
   at: Date
 }
 
@@ -110,8 +119,8 @@ export interface CancelDinerBookingArgs {
  * job's restaurant AND phone in its WHERE (authorize by scoped query).
  */
 export interface DinerBookingStore {
-  /** Upcoming (pending + confirmed, date >= today) bookings of this phone at this restaurant, soonest first. */
-  listUpcoming(restaurantId: string, phone: string, today: string): Promise<DinerBooking[]>
+  /** Upcoming (pending + confirmed, at or after `from`) bookings of this phone at this restaurant, soonest first. */
+  listUpcoming(restaurantId: string, phone: string, from: HongKongMoment): Promise<DinerBooking[]>
   /**
    * One conditional UPDATE: the booking (if upcoming, pending or confirmed)
    * and its open change requests -> cancelled by 'diner_ai'. Returns the ids changed.

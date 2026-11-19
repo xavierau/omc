@@ -5,7 +5,9 @@ import { describe, it, expect } from 'vitest'
 import { createAgentToolExecutor } from '@/application/agent/agent-tools'
 import { cancelledText } from '@/application/agent/agent-booking-change-tools'
 import { decideBookingRequest } from '@/application/booking/decide-booking-request'
-import { AGENT_TOOL_NAMES } from '@/domain/value-objects/agent-config'
+import { upcomingFilter } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { withDisclosure } from '@/domain/services/agent-reply-text'
+import { AGENT_TOOL_NAMES, DEFAULT_DISCLOSURE_TEXT } from '@/domain/value-objects/agent-config'
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import { FakeAgentStore, FakeClock, fakeBookingWorld, fakeToolData } from './agent-fakes'
 
@@ -33,6 +35,8 @@ function setup() {
 
   /** A diner message arrives one minute later; the executor its job builds. */
   async function job() {
+    // F1: the previous job's read-back reached the diner (the worker marks its proposal confirmable after the send).
+    world.proposals.deliverAll()
     clock.advance(60_000)
     const row = store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'msg' })
     const { getConfig, ...ports } = world.deps
@@ -44,7 +48,14 @@ function setup() {
       now: clock.now,
       data: fakeToolData(),
       silences: store,
-      booking: { ...ports, config, inboundCreatedAt: () => store.userMessageCreatedAt(KEY, row.id) },
+      agentMode: 'auto',
+      booking: {
+        ...ports,
+        config,
+        inboundCreatedAt: () => store.userMessageCreatedAt(KEY, row.id),
+        proposalOwner: `run-${row.id}`,
+        disclosureText: DEFAULT_DISCLOSURE_TEXT,
+      },
     })
   }
 
@@ -74,15 +85,19 @@ describe('AC-R20 list_my_bookings: only this phone’s upcoming bookings here', 
         { ref: mine.id.slice(0, 8), date: '2026-11-25', time: '19:30', partySize: 4, status: 'pending' },
       ],
     })
-    expect(world.requests.queries).toEqual([`listUpcoming restaurant_id=${R} phone=${PHONE} date>=2026-11-19`])
+    // F10: upcoming from the Hong Kong time now (the job runs at 18:01 HK).
+    expect(world.requests.queries).toEqual([`listUpcoming restaurant_id=${R} phone=${PHONE} upcoming>=2026-11-19 18:01`])
   })
 
   it('AC-R20 the repository WHERE is scoped by restaurant AND phone, upcoming and open status', () => {
     const source = fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/supabase/repositories/booking-request-repository.ts'), 'utf8')
     const fn = source.slice(source.indexOf('export async function listUpcomingDinerBookings'), source.indexOf('export async function cancelDinerBooking'))
-    for (const filter of [".eq('restaurant_id', restaurantId)", ".eq('phone', phone)", ".in('status', ['pending', 'confirmed'])", ".gte('booking_date', today)"]) {
+    for (const filter of [".eq('restaurant_id', restaurantId)", ".eq('phone', phone)", ".in('status', ['pending', 'confirmed'])", '.or(upcomingFilter(from))']) {
       expect(fn).toContain(filter)
     }
+    expect(upcomingFilter({ date: '2026-11-19', time: '21:00' })).toBe(
+      'booking_date.gt.2026-11-19,and(booking_date.eq.2026-11-19,booking_time.gte.21:00)'
+    )
   })
   it('AC-R20 refs stay unique when two of the diner’s ids share their first 8 characters, and each resolves', async () => {
     const { seed, job, world } = setup()
@@ -238,7 +253,8 @@ describe('AC-R23 change = a linked change request staff decide in 訂座', () =>
   it('AC-R23 staff decline → the original stays as it was; no "declined" message about it', async () => {
     const { original, change, world, decide } = await requestChange()
     const sentBefore = world.sender.sent.length
-    expect(await decide(change.id, 'declined')).toMatchObject({ ok: true, booking: { status: 'declined' }, delivered: false })
+    // F8: no message by design → delivered null (not false), so no "not delivered" badge.
+    expect(await decide(change.id, 'declined')).toMatchObject({ ok: true, booking: { status: 'declined' }, delivered: null })
     expect(world.requests.rows.find((r) => r.id === original.id)).toMatchObject({ status: 'confirmed', bookingDate: '2026-11-25', cancelledBy: null })
     expect(world.sender.sent.slice(sentBefore)).toEqual([])
   })
@@ -281,7 +297,7 @@ describe('AC-R24 cancel is direct, marked, texted once; reminders skip it', () =
     expect(await (await job())('confirm_booking_cancel', {})).toMatchObject({ cancelled: true })
     expect(world.requests.rows.find((r) => r.id === target.id)).toMatchObject({ status: 'cancelled', cancelledBy: 'diner_ai' })
     expect(world.requests.rows.find((r) => r.id === openChange.id)).toMatchObject({ status: 'cancelled', cancelledBy: 'diner_ai' })
-    expect(world.texts).toEqual([{ restaurantId: R, phone: PHONE, text: cancelledText(target) }])
+    expect(world.texts).toEqual([{ restaurantId: R, phone: PHONE, text: withDisclosure(cancelledText(target), DEFAULT_DISCLOSURE_TEXT) }])
     expect(world.requests.queries.at(-1)).toBe(`cancelByDiner restaurant_id=${R} phone=${PHONE} id=${target.id}`)
   })
 

@@ -1,0 +1,4 @@
+ ✓ src/infrastructure/redis/__tests__/agent-proposal-store.redis.test.ts > AC-R15 AC-R22 Redis proposal store > AC-R15 AC-R22 none → not_earlier / other kind for the same or an older job (kept) → taken once by a newer job 16ms
+ ✓ src/infrastructure/redis/__tests__/agent-proposal-store.redis.test.ts > AC-R15 AC-R22 Redis proposal store > AC-R15 the proposal expires with its TTL 126ms
+ ✓ src/infrastructure/redis/__tests__/agent-proposal-store.redis.test.ts > AC-R15 AC-R22 Redis proposal store > AC-F1 a proposal is invisible until its owner marks it confirmable; discard and mark are owner-checked 14ms
+      Tests  3 passed (3)

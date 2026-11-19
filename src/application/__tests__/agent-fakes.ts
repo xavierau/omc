@@ -177,25 +177,43 @@ export class FakeAgentStore implements AgentMessageStore, AgentSilenceStore {
   }
 }
 
-/** AGENT-003 R15: the Redis proposal store's semantics (TTL on the clock, atomic take-if-earlier). */
+/** AGENT-003 R15 + review F1: the Redis proposal store's semantics (TTL on the clock, owner, confirmable, atomic take-if-earlier). */
 export class FakeProposalStore implements AgentProposalStore {
-  entries = new Map<string, { proposal: AgentBookingProposal; expiresAt: number }>()
+  entries = new Map<string, { proposal: AgentBookingProposal; expiresAt: number; owner: string; confirmable: boolean }>()
   constructor(private clock: FakeClock) {}
   private k(key: AgentConversationKey) {
     return `${key.restaurantId}|${key.phone}`
   }
-  async save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number) {
-    this.entries.set(this.k(key), { proposal, expiresAt: this.clock.ms + ttlMs })
+  private live(key: AgentConversationKey) {
+    const entry = this.entries.get(this.k(key))
+    return entry && entry.expiresAt > this.clock.ms ? entry : undefined
+  }
+  async save(key: AgentConversationKey, proposal: AgentBookingProposal, ttlMs: number, owner: string) {
+    this.entries.set(this.k(key), { proposal, expiresAt: this.clock.ms + ttlMs, owner, confirmable: false })
+  }
+  async markConfirmable(key: AgentConversationKey, owner: string) {
+    const entry = this.live(key)
+    if (!entry || entry.owner !== owner) return false
+    entry.confirmable = true
+    return true
+  }
+  async discard(key: AgentConversationKey, owner: string) {
+    if (this.entries.get(this.k(key))?.owner === owner) this.entries.delete(this.k(key))
+  }
+  /** Tool-level tests: the proposing job's read-back reached the diner (the worker's markConfirmable). */
+  deliverAll() {
+    for (const entry of this.entries.values()) entry.confirmable = true
   }
   async peekKind(key: AgentConversationKey): Promise<AgentProposalKind | null> {
-    const entry = this.entries.get(this.k(key))
-    return entry && entry.expiresAt > this.clock.ms ? entry.proposal.kind : null
+    const entry = this.live(key)
+    return entry?.confirmable ? entry.proposal.kind : null
   }
   async takeIfEarlier(key: AgentConversationKey, inboundCreatedAt: string, kind: AgentProposalKind): Promise<TakeProposalResult> {
-    const entry = this.entries.get(this.k(key))
-    if (!entry || entry.expiresAt <= this.clock.ms) return { kind: 'none' }
+    const entry = this.live(key)
+    if (!entry) return { kind: 'none' }
     if (entry.proposal.kind !== kind) return { kind: 'other_kind' }
     if (Date.parse(entry.proposal.inboundCreatedAt) >= Date.parse(inboundCreatedAt)) return { kind: 'not_earlier' }
+    if (!entry.confirmable) return { kind: 'none' }
     this.entries.delete(this.k(key))
     return { kind: 'taken', proposal: entry.proposal }
   }

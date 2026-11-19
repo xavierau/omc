@@ -15,14 +15,14 @@
  *
  * Which tools a tenant is offered follows its booking mode: simple → every
  * booking tool but the link, external → the link, off → none (threat Auth &
- * Authz). Identity is the job key only: no argument names a phone,
+ * Authz); a shadow run gets no change/cancel tool (review F2). Identity is the job key only: no argument names a phone,
  * restaurant or member; the one id the model passes is the change/cancel
  * `bookingRef`, resolved inside the diner's own bookings (R21). Proposal
  * values are never logged (R8).
  */
 import { parseBookingSubmission } from '@/domain/services/booking-submission'
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
-import type { AgentToolName } from '@/domain/value-objects/agent-config'
+import type { AgentMode, AgentToolName } from '@/domain/value-objects/agent-config'
 import type { BookingMode } from '@/domain/value-objects/booking-config'
 import { bookingRulesAt, notifyReceived } from '@/application/booking/submit-booking-request'
 import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
@@ -34,6 +34,9 @@ import {
 } from './agent-booking-change-tools'
 
 export type { AgentBookingToolContext } from './agent-booking-gate'
+
+/** The effective mode a run answers in (off never reaches the tools). */
+export type AgentRunMode = Exclude<AgentMode, 'off'>
 
 type NewBookingToolName = Extract<AgentToolName, 'propose_booking' | 'create_booking_request' | 'get_booking_link'>
 export type AgentBookingToolName = NewBookingToolName | AgentChangeToolName
@@ -50,13 +53,28 @@ const TOOLS_BY_MODE: Record<BookingMode, readonly AgentBookingToolName[]> = {
   external: ['get_booking_link'],
 }
 
+/**
+ * Review F2: shadow never changes or cancels a booking. The owner accepted
+ * that shadow CREATES pending requests (OR5) and nothing more; listing stays.
+ */
+const NOT_IN_SHADOW: readonly AgentBookingToolName[] = [
+  'propose_booking_change',
+  'confirm_booking_change',
+  'propose_booking_cancel',
+  'confirm_booking_cancel',
+]
+
+/** The tools that store a proposal; any of them makes the worker offer the WAITING line (review F5). */
+export const PROPOSING_TOOLS: readonly AgentBookingToolName[] = ['propose_booking', 'propose_booking_change', 'propose_booking_cancel']
+
 export function isAgentBookingTool(name: AgentToolName): name is AgentBookingToolName {
   return (AGENT_BOOKING_TOOL_NAMES as readonly string[]).includes(name)
 }
 
-/** The booking tools a tenant's booking mode allows; null (unreadable config) = none. */
-export function bookingToolsForMode(mode: BookingMode | null): readonly AgentBookingToolName[] {
-  return mode ? TOOLS_BY_MODE[mode] : []
+/** The booking tools a tenant's booking mode allows in this run's agent mode; null (unreadable config) = none. */
+export function bookingToolsForMode(mode: BookingMode | null, agentMode: AgentRunMode): readonly AgentBookingToolName[] {
+  const tools = mode ? TOOLS_BY_MODE[mode] : []
+  return agentMode === 'shadow' ? tools.filter((t) => !NOT_IN_SHADOW.includes(t)) : tools
 }
 
 /** The only arguments propose_booking reads; anything else the model sends is dropped (R12). */

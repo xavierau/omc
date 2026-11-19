@@ -33,9 +33,22 @@
  *
  * AGENT-003: the tool context gets the tenant's booking settings (read only
  * when a booking tool is enabled; a failed read offers none) and the job's
- * inbound row time for the R15 gate. Shadow and auto run the booking tools
- * alike (OR5). R18: the model port retries and falls back; the row records
- * the model that actually answered and the log line its last HTTP status.
+ * inbound row time for the R15 gate. Shadow creates bookings as auto does
+ * (OR5) but is offered no change/cancel tool (review F2). R18: the model port
+ * retries and falls back; the row records the model that actually answered
+ * and the log line its last HTTP status.
+ *
+ * Review F1: a proposal this run stored becomes confirmable only once its
+ * read-back reached the diner: auto after this run's reply was sent, shadow
+ * once the draft row is stored (OR5). Any other end of the run (superseded,
+ * silenced, window closed, failure → handoff or menu, claim lost, error)
+ * discards it, so a later "yes" can never confirm something the diner never
+ * saw.
+ *
+ * Review F7: a job error claims its answer row (outcome `handoff`, so the
+ * thread is flagged "needs staff") before the handoff goes out; a config that
+ * was never read is read once more, and when it still cannot be read the diner
+ * gets the menu, not the handoff.
  */
 import {
   DEFAULT_AGENT_CONFIG,
@@ -57,16 +70,18 @@ import type {
   AgentToolData,
 } from '@/domain/ports/agent-reply'
 import type { SendResult } from '@/domain/value-objects/send-result'
+import type { AgentProposalStore } from '@/domain/ports/agent-booking-proposal'
 import { buildSystemInstruction } from './agent-prompt'
 import { createAgentToolExecutor, declarationsFor, offeredTools } from './agent-tools'
-import { isAgentBookingTool, type AgentBookingToolContext } from './agent-booking-tools'
+import { isAgentBookingTool, PROPOSING_TOOLS, type AgentBookingToolContext, type AgentRunMode } from './agent-booking-tools'
 import { HOUR_MS, isOverReplyLimit, isoAgo, recordRateLimited } from './agent-limits'
 import type { AgentLogFn, AgentReplyJob } from './admit-inbound-for-agent'
 
 export const JOB_BUDGET_MS = 20_000
 
 /** AGENT-003: what the booking tools need besides the job key and inbound row time. */
-export interface AgentBookingWorkerDeps extends Omit<AgentBookingToolContext, 'config' | 'inboundCreatedAt'> {
+export interface AgentBookingWorkerDeps
+  extends Omit<AgentBookingToolContext, 'config' | 'inboundCreatedAt' | 'proposalOwner' | 'disclosureText'> {
   getConfig(restaurantId: string): Promise<BookingConfig>
 }
 
@@ -128,6 +143,12 @@ class Run {
   config: AgentConfig | null = null
   /** Set when this run's own handoff_to_staff silenced the diner: that silence must not stop its own reply. */
   silencedByThisRun = false
+  /** F1: owner id of the proposals this run stores. */
+  readonly id = crypto.randomUUID()
+  /** F1: the proposal store, once this run was offered booking tools. */
+  proposals: AgentProposalStore | null = null
+  /** F1: this run's read-back reached the diner and its proposal (if any) is confirmable. */
+  proposalDelivered = false
   private claimed: { id: string; outcome: AgentOutcome } | null = null
   constructor(
     readonly deps: AgentWorkerDeps,
@@ -170,10 +191,48 @@ class Run {
     return this.handoffSent
   }
 
-  /** R19 for a failure with no row of its own (a job error): handoff, else the menu. */
-  async respondToFailure(): Promise<void> {
-    if (this.failureAction === 'handoff' && (await this.sendHandoff(await this.handoffText()))) return
-    await this.fallback()
+  /**
+   * F7: R19 for a job error. The config is read once more if it never was;
+   * still unreadable → the menu (the safe default). Handoff: the answer row is
+   * claimed first (outcome `handoff`, so the thread needs staff), then the
+   * reply goes out; a handoff that does not go out becomes the menu.
+   */
+  async respondToJobError(): Promise<void> {
+    if (this.fallbackSent || this.handoffSent) return
+    if (!this.config) {
+      const read = await this.deps.getConfig(this.key.restaurantId).catch(() => null)
+      if (read?.ok) this.config = read.config
+    }
+    if (this.config?.failureAction !== 'handoff') {
+      await this.fallback()
+      return
+    }
+    const text = await this.handoffText()
+    if (this.claimed) {
+      if (this.claimed.outcome !== 'handoff') await this.setOutcome('handoff')
+    } else if (!(await this.claim({ ...noModelCall('handoff', undefined), text }))) {
+      return // another run of this job already answered
+    }
+    if (await this.sendHandoff(text)) return
+    await this.setOutcome((await this.fallback()) ? 'fallback' : 'error')
+  }
+
+  private async setOutcome(outcome: AgentOutcome): Promise<void> {
+    if (!this.claimed) return
+    await this.deps.messages.setModelOutcome(this.key, this.claimed.id, outcome)
+    this.claimed = { ...this.claimed, outcome }
+  }
+
+  /** F1: this run's read-back reached the diner; its proposal (if any, and still its own) becomes confirmable. */
+  async deliverProposal(): Promise<void> {
+    if (!this.proposals) return
+    this.proposalDelivered = await this.proposals.markConfirmable(this.key, this.id).catch(() => false)
+  }
+
+  /** F1: any other end of the run; the proposal this run stored (if still its own) is deleted. */
+  async discardProposal(): Promise<void> {
+    if (!this.proposals || this.proposalDelivered) return
+    await this.proposals.discard(this.key, this.id).catch(() => undefined)
   }
 
   private row(record: RunRecord): AgentModelRowInput {
@@ -235,14 +294,22 @@ async function bookingContext(run: Run, config: AgentConfig): Promise<AgentBooki
   const bookingConfig = await getConfig(key.restaurantId).catch(() => null)
   if (!bookingConfig) return null
   let inbound: Promise<string | null> | null = null
+  run.proposals = ports.proposals
   return {
     ...ports,
     config: bookingConfig,
     inboundCreatedAt: () => (inbound ??= deps.messages.userMessageCreatedAt(key, job.messageRowId)),
+    proposalOwner: run.id,
+    disclosureText: config.disclosureText,
   }
 }
 
-async function callModel(run: Run, config: AgentConfig, model: string): Promise<{ result: AgentModelResult; latencyMs: number }> {
+async function callModel(
+  run: Run,
+  config: AgentConfig,
+  model: string,
+  mode: AgentRunMode
+): Promise<{ result: AgentModelResult; latencyMs: number }> {
   const { deps, key } = run
   const now = deps.now()
   const rows = await deps.messages.history(key, config.maxHistoryMessages, isoAgo(now, config.historyTtlHours * HOUR_MS))
@@ -251,6 +318,7 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
   const executeTool = createAgentToolExecutor({
     key,
     enabledTools: config.enabledTools,
+    agentMode: mode,
     handoffSilenceHours: config.handoffSilenceHours,
     now: deps.now,
     data: deps.toolData,
@@ -262,9 +330,10 @@ async function callModel(run: Run, config: AgentConfig, model: string): Promise<
     },
     booking,
   })
-  const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode)
-  const offered = offeredTools(config.enabledTools, bookingMode)
-  const offersProposal = tools.length > 0 && (offered.includes('propose_booking') || offered.includes('propose_booking_change'))
+  const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode, mode)
+  const offered = offeredTools(config.enabledTools, bookingMode, mode)
+  // F5: any proposing tool (a cancel-only set included) needs the WAITING line on the diner's "yes".
+  const offersProposal = tools.length > 0 && offered.some((t) => (PROPOSING_TOOLS as readonly string[]).includes(t))
   // R15/R22: tell the model a read-back is waiting (kind only); a failed read just leaves the line out.
   const pending = offersProposal && booking ? await booking.proposals.peekKind(key).catch(() => null) : null
   const started = Date.now()
@@ -338,6 +407,8 @@ async function deliver(
   const result = await deps.sendText(phoneNumberId, key.phone, withDisclosure(reply, config.disclosureText)).catch(() => null)
   if (result?.ok) {
     run.replySent = true
+    // F1: the read-back reached the diner, so this run's proposal may now be confirmed by a later message.
+    await run.deliverProposal()
     return sent
   }
   // R4: the reply did not go out, so the diner gets the menu instead (it may fail too; recorded as error).
@@ -347,7 +418,7 @@ async function deliver(
 
 async function answer(run: Run, config: AgentConfig, mode: 'shadow' | 'auto'): Promise<RunRecord | null> {
   const model = effectiveAgentModel(config, run.deps.envModel)
-  const { result, latencyMs } = await callModel(run, config, model)
+  const { result, latencyMs } = await callModel(run, config, model, mode)
   // R18: the model that actually answered (the fallback when it was used).
   const base = {
     model: result.model ?? model,
@@ -372,6 +443,8 @@ async function answer(run: Run, config: AgentConfig, mode: 'shadow' | 'auto'): P
   if (mode === 'shadow') {
     const draft: RunRecord = { ...base, outcome: 'shadow_draft', text: bounded.reply }
     if (!(await run.claim(draft))) return null
+    // F1 + OR5: in shadow the stored draft stands for the read-back (shadow offers only the create tools, F2).
+    await run.deliverProposal()
     if (!run.owesResponse) return draft
     // Admitted under auto, switched to shadow since: the suppressed menu goes out now.
     await run.fallback()
@@ -433,7 +506,10 @@ export async function processAgentReply(deps: AgentWorkerDeps, job: AgentReplyJo
       restaurantId: job.restaurantId,
       errorClass: (err as Error)?.name ?? 'unknown',
     })
-    if (run.owesResponse && !run.replySent) await run.respondToFailure().catch(() => undefined)
+    if (run.owesResponse && !run.replySent) await run.respondToJobError().catch(() => undefined)
     return 'error'
+  } finally {
+    // F1: a proposal whose read-back did not reach the diner never becomes confirmable.
+    await run.discardProposal()
   }
 }

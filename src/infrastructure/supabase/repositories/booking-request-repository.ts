@@ -22,6 +22,7 @@ import type {
   CancelDinerBookingArgs,
   DecideBookingArgs,
   DinerBookingStore,
+  HongKongMoment,
 } from '@/domain/ports/booking'
 
 const BOOKING_COLUMNS =
@@ -269,15 +270,24 @@ export async function purgeBookingPii(beforeDate: string, at: Date): Promise<num
 
 const DINER_COLUMNS = 'id, booking_date, booking_time, party_size, status, name, notes, member_id, replaces_booking_id'
 
+/**
+ * AGENT-003 R20/R24 (review F10): a later date, or today at the Hong Kong
+ * time now or later, as one PostgREST logic tree. `from` is built by the app
+ * (YYYY-MM-DD, HH:MM), never from model input.
+ */
+export function upcomingFilter(from: HongKongMoment): string {
+  return `booking_date.gt.${from.date},and(booking_date.eq.${from.date},booking_time.gte.${from.time})`
+}
+
 /** AGENT-003 R20: scoped by restaurant AND phone in the WHERE; upcoming only. */
-export async function listUpcomingDinerBookings(restaurantId: string, phone: string, today: string): Promise<DinerBooking[]> {
+export async function listUpcomingDinerBookings(restaurantId: string, phone: string, from: HongKongMoment): Promise<DinerBooking[]> {
   const { data, error } = await createServerSupabaseClient()
     .from('booking_requests')
     .select(DINER_COLUMNS)
     .eq('restaurant_id', restaurantId)
     .eq('phone', phone)
     .in('status', ['pending', 'confirmed'])
-    .gte('booking_date', today)
+    .or(upcomingFilter(from))
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true })
     .limit(20)
@@ -319,8 +329,8 @@ export async function cancelDinerBooking(args: CancelDinerBookingArgs): Promise<
     .eq('restaurant_id', args.restaurantId)
     .eq('phone', args.phone)
     .in('status', ['pending', 'confirmed'])
-    .gte('booking_date', args.today)
-    .or(`id.eq.${args.id},and(replaces_booking_id.eq.${args.id},status.eq.pending)`)
+    // One logic tree (both ORs must hold): the booking or its open change request, AND upcoming.
+    .or(`and(or(id.eq.${args.id},and(replaces_booking_id.eq.${args.id},status.eq.pending)),or(${upcomingFilter(args.from)}))`)
     .select('id')
   if (error) throw new Error(`cancelDinerBooking: ${error.message}`)
   return ((data ?? []) as Array<{ id: string }>).map((r) => r.id)

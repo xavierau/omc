@@ -40,19 +40,8 @@ describe('AC-VO AgentConfig resolver', () => {
       debounceMs: 3000,
       maxToolCalls: 3,
       perCallTimeoutMs: 8000,
-      enabledTools: [
-        'get_member_summary',
-        'list_rewards',
-        'handoff_to_staff',
-        'propose_booking',
-        'create_booking_request',
-        'get_booking_link',
-        'list_my_bookings',
-        'propose_booking_change',
-        'confirm_booking_change',
-        'propose_booking_cancel',
-        'confirm_booking_cancel',
-      ],
+      // Review F4: booking tools are opt-in; the default is AGENT-001's three.
+      enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff'],
       handoffSilenceHours: 12,
       maxRepliesPerPhonePerHour: 10,
       maxRepliesPerTenantPerDay: 500,
@@ -131,5 +120,19 @@ describe('AC-VO AgentConfig resolver', () => {
     Object.defineProperty(hostile, 'knowledge', { get: () => 'x', enumerable: true })
     expect(() => resolveAgentConfig(hostile)).not.toThrow()
     expect(() => resolveAgentConfig({ enabledTools: { length: 3 } })).not.toThrow()
+  })
+
+  it('AC-F4 the default (and a blob without enabledTools) enables only the 3 AGENT-001 tools: no booking tool unless ticked', () => {
+    const agent001 = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+    expect(DEFAULT_AGENT_CONFIG.enabledTools).toEqual(agent001)
+    for (const raw of [{}, { mode: 'auto' }, { mode: 'auto', enabledTools: null }, null, 'junk']) {
+      const tools = resolveAgentConfig(raw).enabledTools
+      expect(tools).toEqual(agent001)
+      expect(tools.some((t) => /booking/.test(t))).toBe(false)
+    }
+    // Ticked in Advanced → kept.
+    expect(resolveAgentConfig({ enabledTools: ['list_rewards', 'propose_booking', 'create_booking_request'] }).enabledTools).toEqual(
+      ['list_rewards', 'propose_booking', 'create_booking_request']
+    )
   })
 })

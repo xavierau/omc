@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { AGENT_TOOL_DECLARATIONS, createAgentToolExecutor, declarationsFor } from '@/application/agent/agent-tools'
 import { processAgentReply } from '@/application/agent/process-agent-reply'
 import { admitInboundForAgent, type AgentReplyJob } from '@/application/agent/admit-inbound-for-agent'
-import { AGENT_TOOL_NAMES, type AgentToolName } from '@/domain/value-objects/agent-config'
+import { AGENT_TOOL_NAMES, DEFAULT_DISCLOSURE_TEXT, type AgentToolName } from '@/domain/value-objects/agent-config'
 import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
 import type { AgentModelRequest } from '@/domain/ports/agent-model'
 import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
@@ -35,6 +35,8 @@ function setup(mode: BookingMode = 'simple', patch: Partial<BookingConfig> = {})
 
   /** A diner message arrives one minute later and its job's tool executor is built, as the worker does. */
   async function job(enabledTools: AgentToolName[] = [...AGENT_TOOL_NAMES]) {
+    // F1: the previous job's read-back reached the diner (the worker marks its proposal confirmable after the send).
+    world.proposals.deliverAll()
     clock.advance(60_000)
     const row = store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'msg' })
     const { getConfig, ...ports } = world.deps
@@ -46,7 +48,14 @@ function setup(mode: BookingMode = 'simple', patch: Partial<BookingConfig> = {})
       now: clock.now,
       data: fakeToolData(),
       silences: store,
-      booking: { ...ports, config, inboundCreatedAt: () => store.userMessageCreatedAt(KEY, row.id) },
+      agentMode: 'auto',
+      booking: {
+        ...ports,
+        config,
+        inboundCreatedAt: () => store.userMessageCreatedAt(KEY, row.id),
+        proposalOwner: `run-${row.id}`,
+        disclosureText: DEFAULT_DISCLOSURE_TEXT,
+      },
     })
   }
   return { clock, store, world, job }
@@ -156,9 +165,13 @@ describe('AC-R15 two-step gate', () => {
     const older = store.seed({ restaurant_id: R, phone: PHONE, role: 'user', text: 'older' })
     await (await job())('propose_booking', GOOD)
     const { getConfig, ...ports } = world.deps
+    world.proposals.deliverAll()
     const olderExec = createAgentToolExecutor({
-      key: KEY, enabledTools: [...AGENT_TOOL_NAMES], handoffSilenceHours: 12, now: clock.now, data: fakeToolData(), silences: store,
-      booking: { ...ports, config: await getConfig(R), inboundCreatedAt: () => store.userMessageCreatedAt(KEY, older.id) },
+      key: KEY, enabledTools: [...AGENT_TOOL_NAMES], agentMode: 'auto', handoffSilenceHours: 12, now: clock.now, data: fakeToolData(), silences: store,
+      booking: {
+        ...ports, config: await getConfig(R), inboundCreatedAt: () => store.userMessageCreatedAt(KEY, older.id),
+        proposalOwner: 'run-older', disclosureText: DEFAULT_DISCLOSURE_TEXT,
+      },
     })
     expect(await olderExec('create_booking_request', {})).toMatchObject({ error: 'awaiting_diner_confirmation' })
     expect(world.requests.rows).toHaveLength(0)
@@ -298,6 +311,9 @@ async function inbound(h: WorkerHarness, text: string, wamid: string): Promise<A
   return jobs[0]
 }
 
+// F4: booking tools are opt-in; the worker tests below tick them all, as an owner does in Advanced.
+const ALL_TOOLS = { enabledTools: [...AGENT_TOOL_NAMES] }
+
 const callsTool = (name: string, args: Record<string, unknown>, text: string) => async (req: AgentModelRequest) => {
   await req.executeTool(name, args)
   return okModel(text, [name])
@@ -309,7 +325,7 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
       callsTool('propose_booking', GOOD, '幫你確認：聽日 19:00，4 位，陳生，啱唔啱？'),
       callsTool('create_booking_request', {}, '已收到你嘅訂座要求，餐廳會再確認。'),
     ])
-    const h = workerHarness({ config: { mode }, model })
+    const h = workerHarness({ config: { mode, ...ALL_TOOLS }, model })
     h.booking.settings.setConfig(R, { mode: 'simple', maxPartySize: 8 })
     await processAgentReply(h.deps, await inbound(h, '我想訂枱，聽日7點4位，陳生', 'wamid.1'))
     h.clock.advance(60_000)
@@ -330,7 +346,7 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     expect(pendingProposalLine('change')).toContain('confirm_booking_change')
     expect(pendingProposalLine('cancel')).toContain('confirm_booking_cancel')
     const model = new FakeAgentModel([okModel('Hi')])
-    const h = workerHarness({ config: { mode: 'auto' }, model })
+    const h = workerHarness({ config: { mode: 'auto', ...ALL_TOOLS }, model })
     h.booking.settings.setConfig(R, { mode: 'simple', maxPartySize: 8 })
     h.booking.proposals.peekKind = async () => {
       throw new Error('redis down')
@@ -350,7 +366,7 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
 
   it('AC-MODE an unreadable booking config → no booking tool, the reply still goes out', async () => {
     const model = new FakeAgentModel([okModel('Hi')])
-    const h = workerHarness({ model })
+    const h = workerHarness({ config: ALL_TOOLS, model })
     h.deps.booking.getConfig = async () => {
       throw new Error('db down')
     }
@@ -368,7 +384,7 @@ describe('AC-CLOCK every reply carries the Hong Kong date and time, whatever the
     ['external', { mode: 'external', externalUrl: 'https://book.example.test/omc' }],
   ] as const)('AC-CLOCK booking mode %s → the clock line is in the system instruction', async (_mode, bookingConfig) => {
     const model = new FakeAgentModel([okModel('Hi')])
-    const h = workerHarness({ model })
+    const h = workerHarness({ config: ALL_TOOLS, model })
     if (bookingConfig) h.booking.settings.setConfig(R, bookingConfig)
     await processAgentReply(h.deps, await inbound(h, '今晚開唔開？', 'wamid.1'))
     expect(model.requests[0].systemInstruction).toContain(CLOCK)
@@ -384,7 +400,7 @@ describe('AC-CLOCK every reply carries the Hong Kong date and time, whatever the
 
   it('AC-CLOCK an unreadable booking config → no booking tool, the clock line still comes', async () => {
     const model = new FakeAgentModel([okModel('Hi')])
-    const h = workerHarness({ model })
+    const h = workerHarness({ config: ALL_TOOLS, model })
     h.deps.booking.getConfig = async () => {
       throw new Error('db down')
     }

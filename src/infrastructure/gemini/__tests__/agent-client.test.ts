@@ -364,3 +364,53 @@ describe('AC-R18 overload: the fallback model first, then one retry of the main 
     expect(requests).toHaveLength(2)
   })
 })
+
+describe('AC-F6 a mid-loop switch to the fallback model keeps the main model’s tool step verbatim', () => {
+  // Live check 2026-11-19 (evidence fix1/f6-live-probe.log): gemini-3.8-flash's functionCall + thoughtSignature sent
+  // VERBATIM to gemini-3.5-flash-lite and gemini-3.1-flash-lite → 200 both; the same step with the signature STRIPPED
+  // → 400 "Function call is missing a thought_signature" on every model. So the switch must not strip it.
+  const overloaded = { status: 503, body: { error: { code: 503, message: 'The model is overloaded.' } } }
+  const FALLBACK = 'gemini-3.5-flash-lite'
+  const mainStep = {
+    body: {
+      candidates: [
+        {
+          content: {
+            role: 'model',
+            parts: [{ functionCall: { id: 'call_1', name: 'list_rewards', args: {} }, thoughtSignature: 'sig-from-main' }],
+          },
+          finishReason: 'STOP',
+        },
+      ],
+    },
+  }
+
+  it('AC-F6 tool step on the main model, follow-up 503 → the fallback request carries the step with its thoughtSignature and the tool result', async () => {
+    const { fetchImpl, requests } = fetchSequence([mainStep, overloaded, textReply('We have a free coffee.')])
+    const client = createGeminiAgentClient({ fetchImpl, getApiKey: () => KEY, sleep: async () => undefined })
+    const result = await client.respond(
+      request({
+        fallbackModel: FALLBACK,
+        tools: [{ name: 'list_rewards', description: 'd' }],
+        executeTool: async () => ({ rewards: [{ name: 'Free coffee', pointsCost: 100 }] }),
+      })
+    )
+    expect(result).toMatchObject({ ok: true, model: FALLBACK, toolCalls: ['list_rewards'], httpStatus: 200 })
+    expect(requests.map((r) => r.url.split('/models/')[1])).toEqual([
+      'gemini-3.8-flash:generateContent',
+      'gemini-3.8-flash:generateContent',
+      `${FALLBACK}:generateContent`,
+    ])
+    const switched = requests[2].body.contents as Array<{ role: string; parts: Array<Record<string, unknown>> }>
+    // The fallback gets exactly what the main model's follow-up got: the step verbatim (signature kept), then the result.
+    expect(switched).toEqual(requests[1].body.contents)
+    expect(switched[1]).toEqual({
+      role: 'model',
+      parts: [{ functionCall: { id: 'call_1', name: 'list_rewards', args: {} }, thoughtSignature: 'sig-from-main' }],
+    })
+    expect(switched[2]).toEqual({
+      role: 'user',
+      parts: [{ functionResponse: { id: 'call_1', name: 'list_rewards', response: { rewards: [{ name: 'Free coffee', pointsCost: 100 }] } } }],
+    })
+  })
+})

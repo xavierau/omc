@@ -38,8 +38,13 @@ export interface DecideBookingInput {
   reason?: unknown
 }
 
+/**
+ * `delivered`: whether the decision message reached the diner; `null` when no
+ * message is sent by design (a declined change request, AGENT-003 R23), so no
+ * "not delivered" warning applies (review F8).
+ */
 export type DecideBookingResult =
-  | { ok: true; booking: BookingRequest; delivered: boolean }
+  | { ok: true; booking: BookingRequest; delivered: boolean | null }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'already_handled'; status: BookingRequest['status'] }
 
@@ -75,8 +80,8 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
 }
 
 async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
-  // R23: a declined change request is not news about the diner's booking; nothing is sent.
-  if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: false }
+  // R23: a declined change request is not news about the diner's booking; nothing is sent (F8: nothing undelivered either).
+  if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: null }
   const delivered = await notify(deps, booking)
   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
 }

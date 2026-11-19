@@ -6,9 +6,15 @@
  *
  *   RUN_DB_TESTS=1 PGPORT=54322 PGUSER=postgres PGDATABASE=postgres \
  *     npx vitest run src/infrastructure/supabase/__tests__/agent-booking-changes.db.test.ts
+ *
+ * Review F10: the AC-F10 block also runs the REAL repository functions
+ * through PostgREST (the nested or/and filter), only when
+ * NEXT_PUBLIC_SUPABASE_URL points at a local stack (127.0.0.1 / localhost)
+ * and SUPABASE_SERVICE_ROLE_KEY is set.
  */
 import { execFileSync } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { cancelDinerBooking, listUpcomingDinerBookings } from '@/infrastructure/supabase/repositories/booking-request-repository'
 
 const RUN = process.env.RUN_DB_TESTS === '1'
 const d = RUN ? describe : describe.skip
@@ -47,11 +53,12 @@ const insert = (id: string, opts: { status?: string; replaces?: string; phone?: 
 const statusOf = (id: string) => psql(`SELECT status || '|' || coalesce(cancelled_by, '-') FROM booking_requests WHERE id = '${id}'`)
 const confirmChange = (id: string, restaurant = A) =>
   psql(`SELECT id FROM confirm_booking_change('${id}', '${restaurant}', '${STAFF}', now())`)
-// booking-request-repository.ts cancelDinerBooking (one UPDATE, PostgREST or= filter).
+// booking-request-repository.ts cancelDinerBooking (one UPDATE, PostgREST or= filter; F10: upcoming = later date or today from now).
 const dinerCancel = (id: string, phone = PHONE) =>
   psql(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'diner_ai', cancelled_at = now()
          WHERE restaurant_id = '${A}' AND phone = '${phone}' AND status IN ('pending', 'confirmed')
-           AND booking_date >= current_date AND (id = '${id}' OR (replaces_booking_id = '${id}' AND status = 'pending'))
+           AND (booking_date > current_date OR (booking_date = current_date AND booking_time >= localtime(0)))
+           AND (id = '${id}' OR (replaces_booking_id = '${id}' AND status = 'pending'))
          RETURNING id`)
 
 const cleanup = () => psql(`DELETE FROM restaurants WHERE id IN ('${A}', '${B}')`)
@@ -150,5 +157,46 @@ d('migration 085 (real Postgres)', () => {
     psql(`INSERT INTO agent_messages (restaurant_id, phone, role, text, outcome, reply_to_message_id) VALUES ('${A}', '${PHONE}', 'model', 'sorry', 'handoff', '${user}')`)
     expect(fails(`INSERT INTO agent_messages (restaurant_id, phone, role, text, outcome, reply_to_message_id) VALUES ('${A}', '${PHONE}', 'model', 'x', 'sent', '${user}')`)).toBe(true)
     expect(fails(`INSERT INTO agent_messages (restaurant_id, phone, role, outcome) VALUES ('${A}', '${PHONE}', 'model', 'bogus')`)).toBe(true)
+  })
+})
+
+const LOCAL_REST = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '') && !!process.env.SUPABASE_SERVICE_ROLE_KEY
+const dRest = RUN && LOCAL_REST ? describe : describe.skip
+
+dRest('AC-F10 upcoming = a later date, or today from the Hong Kong time now (real PostgREST)', () => {
+  const D = '2030-01-15'
+  const FROM = { date: D, time: '21:00' }
+  const id = (n: number) => `a3850000-0000-4000-8000-0000000010${String(n).padStart(2, '0')}`
+  const row = (n: number, date: string, time: string, opts: { status?: string; replaces?: string } = {}) =>
+    psql(`INSERT INTO booking_requests (id, restaurant_id, phone, name, party_size, booking_date, booking_time, status, source, decided_at, replaces_booking_id)
+            VALUES ('${id(n)}', '${A}', '${PHONE}', 'Chan', 2, '${date}', '${time}', '${opts.status ?? 'confirmed'}', 'agent',
+              ${(opts.status ?? 'confirmed') === 'confirmed' ? 'now()' : 'NULL'}, ${opts.replaces ? `'${opts.replaces}'` : 'NULL'})`)
+
+  beforeAll(() => {
+    cleanup()
+    psql(`INSERT INTO restaurants (id, name, slug, whatsapp_number) VALUES ('${A}', 'A3 DB A', 'a3-db-a-085', '+85230000001')`)
+  })
+  afterAll(() => cleanup())
+  beforeEach(() => {
+    psql(`DELETE FROM booking_requests WHERE restaurant_id = '${A}'`)
+    row(1, '2030-01-14', '22:00') // yesterday
+    row(2, D, '12:00') // today, already past at 21:00
+    row(3, D, '21:00') // today, now
+    row(4, '2030-01-16', '09:00') // tomorrow
+    row(5, '2030-01-17', '20:00', { status: 'pending', replaces: id(3) }) // open change request of #3
+    row(6, '2030-01-18', '20:00', { replaces: id(1) }) // a CONFIRMED change (F3): an ordinary booking
+  })
+
+  it('AC-F10 list: today 12:00 at 21:00 HK is not listed; today 21:00, later dates and a confirmed change are', async () => {
+    const listed = await listUpcomingDinerBookings(A, PHONE, FROM)
+    expect(listed.map((b) => b.id)).toEqual([id(3), id(4), id(5), id(6)])
+  })
+
+  it('AC-F10 cancel: a booking already past today is not cancelled; an upcoming one goes with its open change request', async () => {
+    expect(await cancelDinerBooking({ restaurantId: A, phone: PHONE, id: id(2), from: FROM, at: new Date() })).toEqual([])
+    expect(statusOf(id(2))).toBe('confirmed|-')
+    expect((await cancelDinerBooking({ restaurantId: A, phone: PHONE, id: id(3), from: FROM, at: new Date() })).sort()).toEqual([id(3), id(5)].sort())
+    expect(await cancelDinerBooking({ restaurantId: A, phone: OTHER, id: id(4), from: FROM, at: new Date() })).toEqual([])
+    expect(statusOf(id(4))).toBe('confirmed|-')
   })
 })

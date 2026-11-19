@@ -17,7 +17,12 @@ import type {
   CancelDinerBookingArgs,
   DecideBookingArgs,
   DinerBookingStore,
+  HongKongMoment,
 } from '@/domain/ports/booking'
+
+/** Mirrors the repository's upcomingFilter: a later date, or today at `from.time` or later. */
+const isUpcoming = (r: { bookingDate: string; bookingTime: string }, from: HongKongMoment) =>
+  r.bookingDate > from.date || (r.bookingDate === from.date && r.bookingTime >= from.time)
 
 export interface FakeTokenRow {
   token: string
@@ -129,10 +134,10 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     return { ...row }
   }
 
-  async listUpcoming(restaurantId: string, phone: string, today: string): Promise<DinerBooking[]> {
-    this.queries.push(`listUpcoming restaurant_id=${restaurantId} phone=${phone} date>=${today}`)
+  async listUpcoming(restaurantId: string, phone: string, from: HongKongMoment): Promise<DinerBooking[]> {
+    this.queries.push(`listUpcoming restaurant_id=${restaurantId} phone=${phone} upcoming>=${from.date} ${from.time}`)
     return this.rows
-      .filter((r) => r.restaurantId === restaurantId && r.phone === phone && ['pending', 'confirmed'].includes(r.status) && r.bookingDate >= today)
+      .filter((r) => r.restaurantId === restaurantId && r.phone === phone && ['pending', 'confirmed'].includes(r.status) && isUpcoming(r, from))
       .sort((a, b) => `${a.bookingDate} ${a.bookingTime}`.localeCompare(`${b.bookingDate} ${b.bookingTime}`))
       .map((r) => ({
         id: r.id, bookingDate: r.bookingDate, bookingTime: r.bookingTime, partySize: r.partySize,
@@ -147,7 +152,7 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     const hit = this.rows.filter(
       (r) =>
         r.restaurantId === args.restaurantId && r.phone === args.phone && ['pending', 'confirmed'].includes(r.status) &&
-        r.bookingDate >= args.today && (r.id === args.id || (r.replacesBookingId === args.id && r.status === 'pending'))
+        isUpcoming(r, args.from) && (r.id === args.id || (r.replacesBookingId === args.id && r.status === 'pending'))
     )
     for (const r of hit) Object.assign(r, { status: 'cancelled', cancelledBy: 'diner_ai', cancelledAt: args.at.toISOString() })
     return hit.map((r) => r.id)

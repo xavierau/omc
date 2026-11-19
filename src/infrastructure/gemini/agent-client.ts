@@ -29,7 +29,11 @@
  * `FALLBACK_RESERVE_MS` of the budget, so with the per-call cap (≤ 15 s) and
  * the 20 s budget the fallback always gets a call. One fallback and one
  * retry per run. The result names the model that answered last and the last
- * HTTP status (a number only).
+ * HTTP status (a number only). A switch in the middle of the tool loop sends
+ * the main model's tool step VERBATIM, thoughtSignature included (review F6,
+ * probed live 2026-11-19: gemini-3.8-flash's signed step → gemini-3.5-flash-lite
+ * and gemini-3.1-flash-lite 200; the step with the signature stripped → 400
+ * "missing a thought_signature" on every model, so never strip it).
  *
  * Every failure maps to an AgentModelFailure and is never thrown. Nothing is
  * logged here: the worker logs the outcome with ids only (R8).

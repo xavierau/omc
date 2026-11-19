@@ -46,6 +46,13 @@ export const AGENT_TOOL_NAMES = [
 ] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
+/**
+ * Review F4: the default tool set is AGENT-001's three read-only tools. Every
+ * booking tool (they write) is opt-in through the Advanced checkboxes, so a
+ * new tenant, or a stored config without `enabledTools`, gets none.
+ */
+export const DEFAULT_ENABLED_TOOLS: readonly AgentToolName[] = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+
 export const DEFAULT_AGENT_MODEL = 'gemini-3.8-flash'
 /** R18: probed 200 with tool calls on the prod key, 2026-11-19. */
 export const DEFAULT_AGENT_FALLBACK_MODEL = 'gemini-3.5-flash-lite'
@@ -123,7 +130,7 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   debounceMs: 3000,
   maxToolCalls: 3,
   perCallTimeoutMs: 8000,
-  enabledTools: [...AGENT_TOOL_NAMES],
+  enabledTools: [...DEFAULT_ENABLED_TOOLS],
   handoffSilenceHours: 12,
   maxRepliesPerPhonePerHour: 10,
   maxRepliesPerTenantPerDay: 500,
@@ -151,7 +158,7 @@ export function isAgentToolName(value: unknown): value is AgentToolName {
   return (AGENT_TOOL_NAMES as readonly unknown[]).includes(value)
 }
 
-/** A non-array keeps the default set; an array keeps only known names, deduped (empty is allowed). */
+/** A non-array gets the default set (no booking tool, F4); an array keeps only known names, deduped (empty is allowed). */
 function resolveEnabledTools(raw: unknown): AgentToolName[] {
   if (!Array.isArray(raw)) return [...DEFAULT_AGENT_CONFIG.enabledTools]
   return AGENT_TOOL_NAMES.filter((name) => raw.includes(name))
