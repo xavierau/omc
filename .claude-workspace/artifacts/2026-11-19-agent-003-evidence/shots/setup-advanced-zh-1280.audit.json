@@ -1,0 +1,45 @@
+{
+  "url": "http://localhost:3022/dashboard/setup",
+  "viewport": {
+    "w": 1280,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1280,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1280,
+    "scrollH": 6295,
+    "scrollable": true,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 388,
+    "domNodes": 472,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 1,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "inconsistent-spacing",
+      "sev": "warning",
+      "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 插入 {{greeting}} 插入 {{poin\" @288,5072 944x201",
+      "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+      "items": [
+        "div.group/tabs-list.inline-flex \"EN 繁中\" @288,5072 81x32",
+        "div#radix-_r_0_-content-en.flex-1.text-sm \"0 / 1024\" @288,5112 944x123",
+        "div.mt-2.flex \"插入 {{greeting}} 插入 {{points}} 插入 {{conta\" @288,5251 944x22"
+      ]
+    }
+  ]
+}

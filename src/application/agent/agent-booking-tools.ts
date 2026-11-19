@@ -61,7 +61,7 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
   propose_booking: {
     name: 'propose_booking',
     description:
-      'Check and hold a table booking for the diner you are talking to, once you know the date, time, party size and the name for the booking. It books nothing: read the returned details back to the diner and ask them to confirm. On field errors, ask the diner to correct those details.',
+      'Check the details of a table booking for the diner you are talking to, once you know the date, time, party size and the name for the booking. It books and reserves nothing (never say a table is held): read the returned details back to the diner and ask them to confirm. On field errors, ask the diner to correct those details.',
     parameters: {
       type: 'object',
       properties: {
