@@ -1011,7 +1011,6 @@
     "campaignSchedule": "Schedule",
     "campaignAudienceSize": "{label} · {count} members",
     "campaignAudienceUnknown": "{label} · —",
-    "campaignAudienceSelected": "{count} selected",
     "campaignNoCoupon": "No coupon",
     "campaignCouponPercent": "{value}% off · expires {days} days after sending",
     "campaignCouponFixed": "HK${value} off · expires {days} days after sending",

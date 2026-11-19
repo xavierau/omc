@@ -17,7 +17,6 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', (
 vi.mock('@/infrastructure/supabase/repositories/template-review-detail-queries', () => ({
   findLatestTemplateByNameForRestaurant: vi.fn(),
   listCampaignsUsingTemplate: vi.fn(),
-  countCampaignMembers: vi.fn(),
 }))
 
 import { assertPlatformAdmin } from '@/infrastructure/supabase/guards/platform-admin-guard'

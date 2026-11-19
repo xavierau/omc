@@ -10,23 +10,29 @@ const BROADCAST_TYPES: ReadonlyArray<Campaign['type']> = ['promo', 'winback']
 
 const LEGACY_WINBACK_DAYS = 30
 
+/** The campaign fields the send's query reads (a full Campaign, or a listing row). */
+export type AudienceCampaign = Pick<
+  Campaign,
+  'id' | 'type' | 'targetAudience' | 'schedule' | 'audienceSkipQuality' | 'audienceLapsedDays'
+>
+
 /**
  * A pre-086 win-back campaign (no snapshot) keeps its old read: `all`
  * audience, `schedule.inactiveDays` (default 30), never-visited members
  * excluded. Every win-back created since 086 carries its lapsed days.
  */
-function isLegacyWinback(c: Campaign): boolean {
+function isLegacyWinback(c: AudienceCampaign): boolean {
   return c.type === 'winback' && c.targetAudience === 'all' && c.audienceLapsedDays == null
 }
 
-function legacyInactiveDays(c: Campaign): number {
+function legacyInactiveDays(c: AudienceCampaign): number {
   const days = (c.schedule as { inactiveDays?: unknown } | null)?.inactiveDays
   return typeof days === 'number' && days > 0 ? days : LEGACY_WINBACK_DAYS
 }
 
 /** The send's query, from the campaign's snapshot. null = nobody to resolve. */
 export function audienceQueryForCampaign(
-  campaign: Campaign,
+  campaign: AudienceCampaign,
   restaurantId: string,
   tagIds: string[]
 ): AudienceQuery | null {

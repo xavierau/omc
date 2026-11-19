@@ -93,11 +93,13 @@ describe('TemplateReviewCampaigns', () => {
     expect(all).toContain('campaignCouponFixed:{"value":50,"days":7}')
   })
 
-  it('labels a selected audience as a count of selected rows, not reach', () => {
+  // CAMP-016 r3 (F6): every size is the send's will-receive count, so a
+  // selected audience reads as reach like the others.
+  it('labels a selected audience as members the send would reach', () => {
     const all = texts(
       <TemplateReviewCampaigns campaigns={[campaign({ targetAudience: 'selected', audienceSize: 3 })]} />
     )
-    expect(all).toContain('campaignAudienceSelected:{"count":3}')
+    expect(all).toContain('campaignAudienceSize:{"label":"audience.selected","count":3}')
   })
 
   describe('schedule label', () => {

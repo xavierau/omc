@@ -1011,7 +1011,6 @@
     "campaignSchedule": "排程",
     "campaignAudienceSize": "{label} · {count} 位會員",
     "campaignAudienceUnknown": "{label} · —",
-    "campaignAudienceSelected": "已選 {count} 位",
     "campaignNoCoupon": "沒有優惠券",
     "campaignCouponPercent": "{value}% 折扣 · 發送後 {days} 日內有效",
     "campaignCouponFixed": "減 HK${value} · 發送後 {days} 日內有效",

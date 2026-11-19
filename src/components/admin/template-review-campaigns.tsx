@@ -54,11 +54,10 @@ function CampaignCard({ campaign: c, t, format }: {
   )
 }
 
-// 'selected' is a count of picked campaign_members rows, not active reach.
+// Every size is the send's will-receive count (CAMP-016), 'selected' included.
 function audienceLabel(c: TemplateReviewDetailCampaign, t: T): string {
   const label = t(`audience.${c.targetAudience}`)
   if (c.audienceSize === null) return t('campaignAudienceUnknown', { label })
-  if (c.targetAudience === 'selected') return t('campaignAudienceSelected', { count: c.audienceSize })
   return t('campaignAudienceSize', { label, count: c.audienceSize })
 }
 
