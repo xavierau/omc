@@ -1754,13 +1754,13 @@
     },
     "meaning": {
       "green": "{green}% 或以上的訊息成功送達。",
-      "yellow": "{yellow}–{yellowMax}% 送達，部分訊息失敗。",
+      "yellow": "{yellow}% 至低於 {green}% 送達，部分訊息失敗。",
       "red": "送達率低於 {yellow}%，或 Meta 表示此號碼無法接收 WhatsApp。",
       "unknown": "尚未發送任何訊息，例如新會員。一律會收到訊息。"
     },
     "short": {
       "green": "{green}% 或以上送達",
-      "yellow": "{yellow}–{yellowMax}% 送達",
+      "yellow": "{yellow}% 至低於 {green}% 送達",
       "red": "低於 {yellow}%，或無法接收 WhatsApp",
       "unknown": "新會員，尚未發送"
     }

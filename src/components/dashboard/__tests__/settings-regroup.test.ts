@@ -58,6 +58,24 @@ describe('Settings → Campaigns form (CAMP-016)', () => {
   })
 
   it('meaning percentages come from the thresholds', () => {
-    expect(qualityMeaningValues()).toEqual({ green: 90, yellow: 60, yellowMax: 89, days: 90 })
+    expect(qualityMeaningValues()).toEqual({ green: 90, yellow: 60, days: 90 })
+  })
+
+  // r3 F9: "60–89%" left 89.x% in no band; yellow runs up to UNDER green.
+  const fill = (msg: string) =>
+    msg.replace(/\{(\w+)\}/g, (_, k: string) => String((qualityMeaningValues() as unknown as Record<string, number>)[k]))
+  const quality = (locale: string) =>
+    (JSON.parse(readFileSync(join(process.cwd(), `src/messages/${locale}.json`), 'utf8')) as Record<string, Record<string, Record<string, string>>>).contactQuality
+
+  it.each([
+    ['en', '60% to under 90% delivered. Some messages fail.', '60% to under 90% delivered'],
+    ['zh-HK', '60% 至低於 90% 送達，部分訊息失敗。', '60% 至低於 90% 送達'],
+  ])('%s: the yellow band reads up to under the green threshold, with no gap', (locale, meaning, short) => {
+    const q = quality(locale)
+    expect(fill(q.meaning.yellow)).toBe(meaning)
+    expect(fill(q.short.yellow)).toBe(short)
+    for (const group of [q.meaning, q.short]) {
+      for (const text of Object.values(group)) expect(fill(text)).not.toMatch(/89|undefined/)
+    }
   })
 })

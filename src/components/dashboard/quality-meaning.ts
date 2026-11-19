@@ -12,16 +12,15 @@ export const QUALITY_RATINGS: readonly ContactQualityRating[] = ['green', 'yello
 
 export interface QualityMeaningValues {
   green: number
+  /** Yellow runs from here up to UNDER green (copy says "to under", so 89.x% is never in a gap). */
   yellow: number
-  /** The top of the yellow band: one below green. */
-  yellowMax: number
   days: number
 }
 
 export function qualityMeaningValues(): QualityMeaningValues {
   const green = Math.round(CONTACT_QUALITY_THRESHOLDS.green * 100)
   const yellow = Math.round(CONTACT_QUALITY_THRESHOLDS.yellow * 100)
-  return { green, yellow, yellowMax: green - 1, days: CONTACT_QUALITY_WINDOW_DAYS }
+  return { green, yellow, days: CONTACT_QUALITY_WINDOW_DAYS }
 }
 
 /** Solid shades for dots and the stacked bar (the badge uses the 15% tints). */

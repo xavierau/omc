@@ -1754,13 +1754,13 @@
     },
     "meaning": {
       "green": "{green}% or more of messages delivered.",
-      "yellow": "{yellow}–{yellowMax}% delivered. Some messages fail.",
+      "yellow": "{yellow}% to under {green}% delivered. Some messages fail.",
       "red": "Under {yellow}% delivered, or Meta says the number can't receive WhatsApp.",
       "unknown": "No messages sent yet, e.g. new members. Always included."
     },
     "short": {
       "green": "{green}%+ delivered",
-      "yellow": "{yellow}–{yellowMax}% delivered",
+      "yellow": "{yellow}% to under {green}% delivered",
       "red": "under {yellow}%, or can't receive WhatsApp",
       "unknown": "new, nothing sent yet"
     }

@@ -47,7 +47,7 @@ Surface mode: **Operate** (restaurant owner/admin, low frequency, must be self-e
 ### Card: Audience quality
 - Distribution: "N active members" + "Last 90 days", stacked bar (Green/Yellow/Red/No data), and a **legend with a one-line meaning under each colour** (always visible, not a tooltip):
   - Green — "90% or more of messages delivered."
-  - Yellow — "60–89% delivered. Some messages fail."
+  - Yellow — "60% to under 90% delivered. Some messages fail." (zh-HK "60% 至低於 90% 送達，部分訊息失敗。"; r3: "60–89%" left 89.x% in no band)
   - Red — "Under 60% delivered, or Meta says the number can't receive WhatsApp."
   - No data — "No messages sent yet, e.g. new members. Always included."
   - The percentages come from the configured thresholds (today the constants in `src/domain/value-objects/contact-quality.ts`), never hard-coded copy.
@@ -64,7 +64,7 @@ Surface mode: **Operate** (restaurant owner/admin, low frequency, must be self-e
 - Send to: All members | Selected members | Tags (existing behaviour).
 - Filters box:
   - **Only lapsed customers** toggle + "No visit for [N] days or more" (N pre-filled from Settings). Combines with any audience, including Tags (fixes tag precedence over win-back in `resolve-campaign-members.ts`).
-  - **Skip low-quality contacts** toggle (pre-filled from Settings) + **colour key**: Green 90%+ delivered · Yellow 60–89% · Red under 60% or can't receive · No data new; each row shows "Receives" or "Skipped" for the current skip level. Footer: "Default from Settings · Red only · Change" (link to `/dashboard/setup/campaigns`).
+  - **Skip low-quality contacts** toggle (pre-filled from Settings) + **colour key**: Green 90%+ delivered · Yellow 60% to under 90% · Red under 60% or can't receive · No data new; each row shows "Receives" or "Skipped" for the current skip level. Footer: "Default from Settings · Red only · Change" (link to `/dashboard/setup/campaigns`).
 - Recipient summary: audience count → after last-visit filter → "Skipped: Red contacts −n" → **Will receive**. Footnote: consent and Meta daily limits are re-checked at send time.
 - The summary numbers and the send must use the same server-side resolution (count/send parity).
 
