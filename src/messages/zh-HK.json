@@ -1424,6 +1424,7 @@
     },
     "actionFailed": "未能更新此要求,請再試一次。",
     "viaAgent": "經 AI 助理",
+    "termsAccepted": "已同意訂座須知",
     "pax": "{count} 位",
     "notDeliveredShort": "未能送達",
     "views": {

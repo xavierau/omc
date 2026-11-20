@@ -10,6 +10,10 @@
  *  5. insert the booking for the TOKEN's restaurant and phone (R2), linking
  *     an existing member only (R21);
  *  6. tell the diner, best effort: a send failure never fails the request.
+ *
+ * BOOK-009: the restaurant's booking hours and terms are part of step 2
+ * (`bookingRulesAt`); accepted terms are stored on the booking with the exact
+ * text the diner saw (spec AC-10).
  */
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import {
@@ -18,8 +22,11 @@ import {
   parseBookingSubmission,
   type BookingFieldErrors,
   type BookingSubmission,
+  type BookingSubmissionRules,
 } from '@/domain/services/booking-submission'
 import type { BookingTokenState } from '@/domain/services/booking-token'
+import { termsRequired, termsSnapshot } from '@/domain/value-objects/booking-hours'
+import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import type {
   BookingMemberLookup,
@@ -71,9 +78,15 @@ async function claimOrState(deps: SubmitBookingDeps, token: string, at: Date) {
   return { state: state === 'valid' ? ('consumed' as const) : state }
 }
 
+/** BOOK-009 AC-10: when, and the exact text, of terms the diner accepted. */
+function termsAcceptance(s: BookingSubmission, config: BookingConfig, at: Date) {
+  const text = s.termsAccepted ? termsSnapshot(config.bookingHours) : null
+  return text ? { termsAcceptedAt: at.toISOString(), termsText: text } : {}
+}
+
 async function store(
   deps: SubmitBookingDeps,
-  claim: { token: string; owner: BookingTokenOwner; claimedAt: Date },
+  claim: { token: string; owner: BookingTokenOwner; claimedAt: Date; config: BookingConfig },
   s: BookingSubmission
 ): Promise<BookingRequest | null> {
   const { token, owner, claimedAt } = claim
@@ -82,6 +95,7 @@ async function store(
     return await deps.requests.insert({
       restaurantId: owner.restaurantId, memberId, phone: owner.phone, name: s.name, partySize: s.partySize,
       bookingDate: s.date, bookingTime: s.time, notes: s.notes, source: owner.source, campaignId: owner.campaignId, token,
+      ...termsAcceptance(s, claim.config, claimedAt),
     })
   } catch (err) {
     console.error('[Booking] insert failed:', { to: maskPhone(owner.phone), error: (err as Error).message })
@@ -90,9 +104,21 @@ async function store(
   }
 }
 
-/** BOOK-001 rules for a submission made now (Hong Kong today and time, the tenant's party cap). Shared with AGENT-003. */
-export function bookingRulesAt(now: Date, maxPartySize: number) {
-  return { today: hongKongToday(now), nowTime: hongKongTime(now), maxPartySize }
+/** What `bookingRulesAt` needs from a restaurant's booking config. */
+export type BookingRulesConfig = Pick<BookingConfig, 'maxPartySize' | 'bookingHours'>
+
+/**
+ * BOOK-001 rules for a submission made now (Hong Kong today and time, the
+ * tenant's party cap). Shared with AGENT-003 and BOOK-003.
+ * BOOK-009: given the config, also its booking hours and whether its terms
+ * must be accepted. A bare party cap (callers not yet passing the config)
+ * keeps the BOOK-001 rules only.
+ */
+export function bookingRulesAt(now: Date, config: number | BookingRulesConfig): BookingSubmissionRules {
+  const base = { today: hongKongToday(now), nowTime: hongKongTime(now) }
+  if (typeof config === 'number') return { ...base, maxPartySize: config }
+  const hours = config.bookingHours
+  return { ...base, maxPartySize: config.maxPartySize, hours, termsRequired: termsRequired(hours) }
 }
 
 /** The diner's "received" message, best effort (shared with AGENT-003 R16). */
@@ -119,7 +145,7 @@ export async function submitBookingRequest(
   const config = await deps.settings.getConfig(peeked.owner.restaurantId)
   if (config.mode !== 'simple') return { ok: false, reason: 'booking_unavailable' }
 
-  const result = parseBookingSubmission(input.body, bookingRulesAt(deps.now(), config.maxPartySize))
+  const result = parseBookingSubmission(input.body, bookingRulesAt(deps.now(), config))
   if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
   if ((await deps.requests.countPending(peeked.owner.restaurantId, peeked.owner.phone)) >= MAX_PENDING_PER_PHONE) {
     return { ok: false, reason: 'too_many_pending' }
@@ -128,7 +154,7 @@ export async function submitBookingRequest(
   const claimedAt = deps.now()
   const claim = await claimOrState(deps, input.token, claimedAt)
   if (!claim.owner) return { ok: false, reason: 'token_unusable', state: claim.state }
-  const booking = await store(deps, { token: input.token, owner: claim.owner, claimedAt }, result.submission)
+  const booking = await store(deps, { token: input.token, owner: claim.owner, claimedAt, config }, result.submission)
   if (!booking) return { ok: false, reason: 'failed' }
   return { ok: true, bookingId: booking.id, delivered: await notifyReceived(deps, booking) }
 }

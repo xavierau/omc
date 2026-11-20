@@ -74,6 +74,13 @@ export interface BookingRequest {
    */
   openChange?: OpenChangeSlot | null
   cancelledBy?: BookingCancelledBy | null
+  /**
+   * BOOK-009 (migration 091, spec AC-10): when the diner accepted the
+   * restaurant's booking terms, and the exact text accepted; null = no terms
+   * were required. Read by the dashboard lists only (undefined elsewhere).
+   */
+  termsAcceptedAt?: string | null
+  termsText?: string | null
 }
 
 /** BOOK-006: the open (pending) change request that would replace a booking. */
@@ -123,6 +130,9 @@ export interface NewBookingRequest {
   token: string | null
   /** AGENT-003 R23: a change request names the booking it would replace. */
   replacesBookingId?: string | null
+  /** BOOK-009 AC-10: set together, only when terms were required and accepted. */
+  termsAcceptedAt?: string
+  termsText?: string
 }
 
 /** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, from the Hong Kong time now on). */

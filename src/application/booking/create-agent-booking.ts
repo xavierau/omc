@@ -42,7 +42,7 @@ import {
   type AgentBookingStatusView,
   type AgentBookingSubmission,
 } from '@/domain/services/agent-booking'
-import { hongKongTime, hongKongToday, type BookingFieldErrors } from '@/domain/services/booking-submission'
+import type { BookingFieldErrors } from '@/domain/services/booking-submission'
 import { generateConfirmCode } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, buildConfirmText, type CollectionStatement } from '@/domain/services/poppy-documents'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
@@ -56,6 +56,7 @@ import type {
 } from '@/domain/ports/booking'
 import { hashStatusToken, type AgentBookingSecrets } from './agent-booking-secrets'
 import { resolveAgentBookingTenant } from './resolve-agent-booking-tenant'
+import { bookingRulesAt, type BookingRulesConfig } from './submit-booking-request'
 
 export const AGENT_SUBMIT_LIMIT_PER_MINUTE = 10
 export const IP_RETRY_AFTER_SEC = 60
@@ -210,9 +211,9 @@ async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTena
   }
 }
 
-function parseInput(ctx: Context, input: CreateAgentBookingInput, maxPartySize: number) {
-  const rules = { today: hongKongToday(ctx.now), nowTime: hongKongTime(ctx.now), maxPartySize }
-  const parsed = parseAgentBookingBody(input.body, rules)
+/** BOOK-009: the tenant's booking hours and terms bind agents too (`bookingRulesAt`, spec AC-12/13). */
+function parseInput(ctx: Context, input: CreateAgentBookingInput, config: BookingRulesConfig) {
+  const parsed = parseAgentBookingBody(input.body, bookingRulesAt(ctx.now, config))
   const keyError = input.idempotencyKey !== null && !isValidIdempotencyKey(input.idempotencyKey)
   if (!parsed.ok || keyError) {
     const errors = { ...(parsed.ok ? {} : parsed.errors), ...(keyError ? { 'Idempotency-Key': 'invalid' } : {}) }
@@ -230,7 +231,7 @@ export async function createAgentBooking(
   const ctx = tenant ? await contextFor(deps, tenant) : null
   if (!tenant || !ctx) return { ok: false, reason: 'not_found' }
 
-  const parsed = parseInput(ctx, input, tenant.config.maxPartySize)
+  const parsed = parseInput(ctx, input, tenant.config)
   if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors }
   const s = parsed.submission
   try {

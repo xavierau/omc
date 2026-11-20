@@ -1424,6 +1424,7 @@
     },
     "actionFailed": "Couldn't update this request. Please try again.",
     "viaAgent": "via AI agent",
+    "termsAccepted": "Terms accepted",
     "pax": "{count} pax",
     "notDeliveredShort": "Not delivered",
     "views": {
