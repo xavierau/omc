@@ -56,3 +56,28 @@ describe('AGENT-003 訂座 rows', () => {
     expect(missing).toEqual([])
   })
 })
+
+describe('BOOK-006 legacy booking row', () => {
+  const orig: BookingItem = { ...base, id: 'b-old', partySize: 2, openChange: { id: 'b-new', bookingDate: '2026-11-26', bookingTime: '18:30', partySize: 4 } }
+
+  it('an original with an open change shows the marker with the new slot and no Confirm / Decline', () => {
+    const html = render(orig)
+    expect(html).toContain('data-testid="booking-row-b-old-change-pending"')
+    expect(html).toContain('2026-11-26 18:30')
+    expect(html).not.toContain('booking-row-b-old-confirm')
+    expect(html).not.toContain('booking-row-b-old-decline')
+  })
+
+  it('once the change is declined the original renders its normal buttons', () => {
+    const html = render({ ...orig, openChange: null })
+    expect(html).toContain('data-testid="booking-row-b-old-confirm"')
+    expect(html).not.toContain('change-pending')
+  })
+
+  it('the marker copy exists in en and zh-HK', () => {
+    usedKeys.clear()
+    render(orig)
+    const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !== 'string' || typeof lookup(zhHK, k) !== 'string')
+    expect(missing).toEqual([])
+  })
+})
