@@ -141,7 +141,7 @@ export function JoinFormNotice({ error, claimUrl }: { error: string; claimUrl: s
     )
   }
   const errorMessage = resolveError(error, t)
-  return errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null
+  return errorMessage ? <p data-testid="join-error" className="text-sm text-destructive">{errorMessage}</p> : null
 }
 
 function resolveError(error: string, t: (key: string) => string): string {

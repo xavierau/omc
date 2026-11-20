@@ -9,6 +9,7 @@ import {
   attemptWelcomeClaimLock,
   createWelcomeClaimLock,
   tryAcquireWelcomeClaimLock,
+  waitForWelcomeClaimLock,
   welcomeClaimLockKey,
   WELCOME_CLAIM_LOCK_TTL_MS,
 } from '../welcome-claim-lock'
@@ -116,6 +117,49 @@ describe('welcome claim lock (WONB-020 r1 F3)', () => {
 
       expect(await attemptWelcomeClaimLock('rest-1', 'm-1')).toEqual({ kind: 'unavailable' })
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('lock unavailable'), 'Command timed out')
+      warn.mockRestore()
+    })
+  })
+  // r6 J2: a new member whose lock is held waits for the concurrent claim
+  // (bounded), instead of returning un-welcomed.
+  describe('waitForWelcomeClaimLock (r6 J2, never throws)', () => {
+    it('held, then released -> retries at the interval and resolves the lease', async () => {
+      fakeClient.set.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce('OK')
+      fakeClient.eval.mockResolvedValue(1)
+
+      const lease = await waitForWelcomeClaimLock('rest-1', 'm-1', { intervalMs: 1, timeoutMs: 1000 })
+
+      expect(lease).not.toBeNull()
+      expect(fakeClient.set).toHaveBeenCalledTimes(3)
+      await lease?.release()
+      expect(fakeClient.eval.mock.calls[0][2]).toBe('wonb020:welcome-claim:rest-1:m-1')
+    })
+
+    it('still held at the deadline -> null; the default wait is 250 ms x 20 = 5 s, no busy loop', async () => {
+      vi.useFakeTimers()
+      try {
+        fakeClient.set.mockResolvedValue(null)
+        let settled: unknown = 'pending'
+        void waitForWelcomeClaimLock('rest-1', 'm-1').then((v) => (settled = v))
+
+        await vi.advanceTimersByTimeAsync(4_999)
+        expect(settled).toBe('pending')
+        expect(fakeClient.set).toHaveBeenCalledTimes(19)
+        await vi.advanceTimersByTimeAsync(1)
+
+        expect(settled).toBeNull()
+        expect(fakeClient.set).toHaveBeenCalledTimes(20)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('Redis error mid-wait -> null at once (fail closed: a claim was in flight), with a warning', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      fakeClient.set.mockRejectedValue(new Error('Command timed out'))
+
+      expect(await waitForWelcomeClaimLock('rest-1', 'm-1', { intervalMs: 1, timeoutMs: 1000 })).toBeNull()
+      expect(fakeClient.set).toHaveBeenCalledTimes(1)
       warn.mockRestore()
     })
   })

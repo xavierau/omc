@@ -16,7 +16,8 @@ import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
-import { attemptWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { attemptWelcomeClaimLock, waitForWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { isAlreadyWelcomed } from './has-join-event'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -107,12 +108,10 @@ async function createNewWebMember(
 
   // r4 H1: the web path never claims, but a WhatsApp claim can race this
   // signup; hold the claim lock through the mint and join event. Held -> that
-  // claim is welcoming this member on WhatsApp. Redis down -> fail open.
+  // claim is welcoming this member on WhatsApp (r6 J2: wait for it). Redis
+  // down -> fail open.
   const lock = await attemptWelcomeClaimLock(restaurantId, result.memberId)
-  if (lock.kind === 'held') {
-    console.warn('[onboarding/web] new member is being welcomed by a concurrent welcome claim, skipping the mint:', result.memberId)
-    return respondToExistingWebMember(restaurantId, result.memberId)
-  }
+  if (lock.kind === 'held') return welcomeAfterConcurrentClaim(restaurantId, result.memberId, name)
   if (lock.kind === 'unavailable') {
     console.warn('[onboarding/web] welcome lock unavailable for a new member, minting without it:', result.memberId)
   }
@@ -120,6 +119,32 @@ async function createNewWebMember(
     return await welcomeNewWebMember(restaurantId, result.memberId, name)
   } finally {
     if (lock.kind === 'acquired') await lock.lease.release()
+  }
+}
+
+// WONB-020 r6 J2: wait (<= ~5 s) for the WhatsApp claim holding this new
+// member's lock, then re-check under the lock: not welcomed -> mint as usual.
+// Welcomed, still held, or the lookup fails -> the existing-member answer
+// (the WhatsApp JOIN link); never a mint without the lock.
+async function welcomeAfterConcurrentClaim(
+  restaurantId: string,
+  memberId: string,
+  name: string
+): Promise<WebRegisterResult> {
+  const lease = await waitForWelcomeClaimLock(restaurantId, memberId)
+  if (!lease) {
+    console.warn('[onboarding/web] welcome lock still held after the wait, answering as an existing member:', memberId)
+    return respondToExistingWebMember(restaurantId, memberId)
+  }
+  try {
+    const welcomed = await isAlreadyWelcomed(restaurantId, memberId).catch((err: Error) => {
+      console.warn('[onboarding/web] welcomed lookup failed after the wait, answering as an existing member:', err.message)
+      return null
+    })
+    if (welcomed === false) return await welcomeNewWebMember(restaurantId, memberId, name)
+    return await respondToExistingWebMember(restaurantId, memberId)
+  } finally {
+    await lease.release()
   }
 }
 

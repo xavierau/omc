@@ -18,10 +18,19 @@ export async function canClaimWelcome(
   memberId: string
 ): Promise<boolean> {
   try {
-    if (await hasJoinEvent(restaurantId, memberId)) return false
-    return !(await hasWelcomeCoupon(restaurantId, memberId))
+    return !(await isAlreadyWelcomed(restaurantId, memberId))
   } catch (err) {
     console.warn('[onboarding] welcome claim lookup failed, treating as already welcomed:', err)
     return false
   }
+}
+
+/**
+ * WONB-020 r6 J2: the same two lookups as canClaimWelcome (a join event, or
+ * a welcome coupon on file), but a lookup error throws, so a caller can tell
+ * "welcomed" from "could not check".
+ */
+export async function isAlreadyWelcomed(restaurantId: string, memberId: string): Promise<boolean> {
+  if (await hasJoinEvent(restaurantId, memberId)) return true
+  return hasWelcomeCoupon(restaurantId, memberId)
 }

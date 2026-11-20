@@ -48,7 +48,10 @@ async function mintCampaignCouponIdempotent(
   if (existing) return { code: existing.code, id: existing.id }
 
   try {
-    return await createCampaignCoupon(restaurantId, memberId, campaign, memberName)
+    // WONB-020 r6 J1: mark the partner welcome mint like every other welcome
+    // mint (createWelcomeCoupon below marks itself), so the claim check never
+    // depends on the campaign's current type.
+    return await createCampaignCoupon(restaurantId, memberId, campaign, memberName, { welcomeOffer: true })
   } catch (err) {
     const recovered = await findCouponByMemberAndCampaign(restaurantId, memberId, campaign.id)
     if (recovered) return { code: recovered.code, id: recovered.id }

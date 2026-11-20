@@ -106,3 +106,30 @@ export async function tryAcquireWelcomeClaimLock(
   const attempt = await attemptWelcomeClaimLock(restaurantId, memberId)
   return attempt.kind === 'acquired' ? attempt.lease : null
 }
+
+export const WELCOME_CLAIM_WAIT_INTERVAL_MS = 250
+export const WELCOME_CLAIM_WAIT_TIMEOUT_MS = 5_000
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * WONB-020 r6 J2: a new member's first attempt found the lock held, so a
+ * concurrent JOIN claim is welcoming them. Retry every `intervalMs` for at
+ * most `timeoutMs` (default 250 ms x 20 = 5 s). Resolves the lease, or null
+ * when still held at the deadline or Redis errors mid-wait: fail closed,
+ * since a claim was in flight a moment ago. Never throws.
+ */
+export async function waitForWelcomeClaimLock(
+  restaurantId: string,
+  memberId: string,
+  { intervalMs = WELCOME_CLAIM_WAIT_INTERVAL_MS, timeoutMs = WELCOME_CLAIM_WAIT_TIMEOUT_MS } = {}
+): Promise<WelcomeClaimLease | null> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() + intervalMs <= deadline) {
+    await sleep(intervalMs)
+    const attempt = await attemptWelcomeClaimLock(restaurantId, memberId)
+    if (attempt.kind === 'acquired') return attempt.lease
+    if (attempt.kind === 'unavailable') return null
+  }
+  return null
+}

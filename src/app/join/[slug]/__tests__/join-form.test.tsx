@@ -38,8 +38,15 @@ describe('slug join form: existing member answer (WONB-020 r1)', () => {
     const html = renderToStaticMarkup(<JoinFormNotice error="already_member" claimUrl={null} />)
 
     expect(html).toContain('join.alreadyMember')
+    expect(html).toContain('data-testid="join-error"')
     expect(html).not.toContain('wa.me')
     expect(html).not.toContain('join-claim-whatsapp')
+  })
+
+  // r6 J4: the error / already-member line is a feedback container.
+  it('an error notice carries data-testid join-error; the claim notice does not', () => {
+    expect(renderToStaticMarkup(<JoinFormNotice error="fields_required" claimUrl={null} />)).toContain('data-testid="join-error"')
+    expect(renderToStaticMarkup(<JoinFormNotice error="" claimUrl={URL} />)).not.toContain('join-error')
   })
 
   it('no error and no claim -> renders nothing', () => {
