@@ -35,6 +35,15 @@ vi.mock('../optin-confirmation', () => ({
 }))
 vi.mock('@/application/booking/inbound-booking-deps', () => ({ inboundBookingDeps: vi.fn() }))
 vi.mock('@/infrastructure/supabase/client', () => ({ createServerSupabaseClient: vi.fn() }))
+// AGENT-004 reads the agent config before the classifier; these tenants run the agent off (defaults).
+vi.mock('@/infrastructure/supabase/repositories/agent-config-repository', async () => {
+  const { resolveAgentConfig } = await import('@/domain/value-objects/agent-config')
+  return {
+    getAgentConfig: vi.fn(async () => resolveAgentConfig(undefined)),
+    readAgentConfig: vi.fn(async () => ({ ok: true, config: resolveAgentConfig(undefined) })),
+    listAgentTenantConfigs: vi.fn(async () => []),
+  }
+})
 
 import { routeMessage } from '../handlers'
 import { sendCtaUrlButton } from '@/infrastructure/whatsapp/messaging'

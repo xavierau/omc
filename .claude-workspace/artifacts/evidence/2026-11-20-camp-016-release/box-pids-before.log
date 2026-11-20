@@ -1,0 +1,10 @@
+# forge command 14451266 status finished
+2026-11-19T16:56:34Z
+3267575    02:19:31 next-server (v16.3.4)
+3267616    02:19:28 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3267655    02:19:26 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3267656    02:19:26 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-worker.ts
+3267667    02:19:26 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import file:///home/forge/ap
+3swaJrxsFle8BXKvCxYCZ
+79c2634f release f1fa26b: Merge pull request #199 from xavierau/develop
+

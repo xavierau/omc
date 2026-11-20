@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-19",
+  "updated_at": "2026-11-20",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1604,6 +1604,32 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "AGENT-004",
+          "title": "Skip the BOOK-001 booking-intent classifier when the auto reply agent owns bookings",
+          "description": "Unmatched free text skips maybeReplyToBookingIntent and goes straight to maybeQueueAgentReply when agent mode is auto AND the worker's effective tool set (offeredTools: enabledTools filtered by booking mode, none at maxToolCalls 0) has a booking tool. Off/shadow/no effective booking tool/config read failure keep today's order (classifier first). BOOK keyword route unchanged. Prod 2026-11-19: a reply to the agent's own question got the new-booking CTA → duplicate booking.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "bug",
+            "poc"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:BOOK-001",
+            "github:204"
+          ],
+          "branch": "fix/agent-004-classifier-skip-when-agent-books",
+          "pr": "204",
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-agent-004-handoff"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "notes": "PR #204 into develop, not merged, not released. No migration. Journal debugging_journals/2026-11-20-agent-004-classifier-preempts-agent.md."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
@@ -1793,7 +1819,12 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
-        },
+        }
+      ]
+    },
+    "done": {
+      "label": "Done",
+      "tasks": [
         {
           "id": "CAMP-016",
           "title": "Campaign audience quality + lapsed filters as tenant settings; Settings regrouped into per-group pages",
@@ -1809,20 +1840,23 @@
             "artifact:2026-11-19-settings-campaign-quality-ux",
             "artifact:2026-11-19-dev-camp-016-handoff",
             "kanban:MEM-001",
-            "kanban:CAMP-013"
+            "kanban:CAMP-013",
+            "github:200",
+            "github:202"
           ],
           "workspace_artifacts": [
             "artifacts/2026-11-19-camp-016-plan",
             "artifacts/2026-11-19-settings-campaign-quality-ux",
             "artifacts/2026-11-19-camp-016-impl",
-            "artifacts/2026-11-19-dev-camp-016-handoff"
-          ]
-        }
-      ]
-    },
-    "done": {
-      "label": "Done",
-      "tasks": [
+            "artifacts/2026-11-19-dev-camp-016-handoff",
+            "artifacts/2026-11-19-dev-camp-016-r3-handoff",
+            "deploys/2026-11-20-camp-016-release-runbook",
+            "artifacts/2026-11-20-rel-camp-016-handoff"
+          ],
+          "status": "done",
+          "updated": "2026-11-20",
+          "notes": "Released 2026-11-19 17:00Z UTC (2026-11-20 HKT): release PR #202 (develop 3c3b553d → main 188bf93a), release b40e2e29, BUILD_ID nUUD8IZ3cKKd62nx1V0ws. Migration 086 applied by Forge deploy 83484463 before the restart, after managed backup 2306777673 (COMPLETED) + row copies. All 7 tenants keep their monthly_send_limit and read skip red / lapsed 30; all 46 existing campaigns read off / NULL; resolvers service_role only. Record: deploys/2026-11-20-camp-016-release-runbook."
+        },
         {
           "id": "BOOK-005",
           "title": "Show cancelled bookings in the Calendar and Table views (grey, struck through, like Declined)",

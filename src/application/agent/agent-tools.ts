@@ -15,6 +15,7 @@
 import {
   AGENT_TOOL_NAMES,
   isAgentToolName,
+  type AgentConfig,
   type AgentToolName,
 } from '@/domain/value-objects/agent-config'
 import type { AgentToolDeclaration, AgentToolExecutor, AgentToolOutput } from '@/domain/ports/agent-model'
@@ -60,6 +61,20 @@ export function offeredTools(
   return AGENT_TOOL_NAMES.filter(
     (name) => enabled.includes(name) && (!isAgentBookingTool(name) || allowedBooking.includes(name))
   )
+}
+
+/**
+ * AGENT-004: an auto agent that the worker would offer at least one booking
+ * tool owns the diner's booking talk, so BOOK-001's single-message classifier
+ * must not answer first. Same rule as the worker: `offeredTools`, and no tool
+ * at all when `maxToolCalls` is 0.
+ */
+export function agentOffersBookingTools(
+  config: Pick<AgentConfig, 'mode' | 'enabledTools' | 'maxToolCalls'>,
+  bookingMode: BookingMode | null
+): boolean {
+  if (config.mode !== 'auto' || config.maxToolCalls === 0) return false
+  return offeredTools(config.enabledTools, bookingMode, 'auto').some(isAgentBookingTool)
 }
 
 export function declarationsFor(

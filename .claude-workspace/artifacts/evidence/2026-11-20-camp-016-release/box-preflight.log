@@ -1,0 +1,36 @@
+# forge command 14451020 status finished
+2026-11-19T16:48:33Z
+/dev/root          58447 31068     27363  54% /
+MemAvailable:    2372268 kB
+SwapFree:           7580 kB
+ 16:48:33 up 55 days, 11:30,  1 user,  load average: 0.19, 0.07, 0.09
+ref uzimqndenngebzgndlhd http 200 bytes 848 -> /home/forge/backups/2026-11-20-camp-016/managed-backups.json
+pitr false walg true
+2276196336 COMPLETED 2026-11-15T19:32:13.068Z true
+2266196784 COMPLETED 2026-11-14T19:32:14.297Z true
+2256190898 COMPLETED 2026-11-13T19:32:11.009Z true
+2246214304 COMPLETED 2026-11-12T19:32:04.311Z true
+ref uzimqndenngebzgndlhd http 201 bytes 851 -> /home/forge/backups/2026-11-20-camp-016/baseline-catalog.json
+[{"baseline":{"ledger":["082 booking","083 agent_reply","084 agent_booking","085 agent_booking_changes"],"tcs_cols":["active_hours_end_local","active_hours_start_local","auto_pause_active","auto_pause_reason","auto_pause_set_at","auto_throttle_factor","campaign_paused","created_at","daily_campaign_limit","id","max_unsubscribe_rate","monthly_send_limit","optin_confirmation_template_id","pacing_strategy","paused_at","paused_reason","per_user_marketing_cap","probe_chunk_size","restaurant_id","scale_chunk_size","tenant_timezone","updated_at"],"camp_audience_cols":null,"functions":null,"restaurants":7,"tcs_rows":7,"restaurants_without_tcs":0,"tcs_by_limit":[{"limit":1000,"n":6},{"limit":10000,"n":1}],"campaigns":46,"campaigns_by_status":[{"s":"active","n":15},{"s":"completed","n":26},{"s":"failed","n":5}],"members":4227,"members_active":4227}}]
+ref uzimqndenngebzgndlhd http 201 bytes 4882 -> /home/forge/backups/2026-11-20-camp-016/tenant_campaign_settings.json
+ref uzimqndenngebzgndlhd http 201 bytes 37219 -> /home/forge/backups/2026-11-20-camp-016/campaigns.json
+total 64
+drwx------ 2 forge forge  4096 Nov 19 16:48 .
+drwx------ 9 forge forge  4096 Nov 19 16:47 ..
+-rw------- 1 forge forge   851 Nov 19 16:48 baseline-catalog.json
+-rw------- 1 forge forge 39183 Nov 19 16:48 campaigns.json
+-rw------- 1 forge forge   848 Nov 19 16:48 managed-backups.json
+-rw------- 1 forge forge  4882 Nov 19 16:48 tenant_campaign_settings.json
+e1ba77ec43092894f3fbdfe5c57399bcdaa9bc00730885f29678036524356acb  /home/forge/backups/2026-11-20-camp-016/baseline-catalog.json
+260cace91f6736b184151716a4e5c74ca98cab56e26d56b0f3879ead9c4c6b7a  /home/forge/backups/2026-11-20-camp-016/campaigns.json
+f9e37b6ef0a2f4bf397e311bc559e0de0da005197494fca66598107cb08918c1  /home/forge/backups/2026-11-20-camp-016/managed-backups.json
+7ca6929409e2faca8c5266cd6adc041e6a092c638ffa779a2738900676df79b3  /home/forge/backups/2026-11-20-camp-016/tenant_campaign_settings.json
+
+# forge command 14451041 status finished
+2286293505 COMPLETED 2026-11-16T19:32:04.124Z physical true
+2296483892 COMPLETED 2026-11-17T19:32:12.788Z physical true
+2306777673 COMPLETED 2026-11-18T19:32:11.626Z physical true
+total 7
+tenant_campaign_settings rows 7
+campaigns rows 46
+

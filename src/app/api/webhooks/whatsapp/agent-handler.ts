@@ -8,11 +8,17 @@
  * phone, or a webhook retry); false keeps today's fallback (mode off,
  * shadow, a silenced phone, a first over-limit message, any error).
  *
+ * `agentOwnsBookings` (AGENT-004) runs before the booking classifier: true
+ * when the auto agent is offered a booking tool, so the text skips the
+ * classifier and comes straight here. Text only; any error → false.
+ *
  * `agentReplyWorkerHandlers` is the worker's composition: the fallback menu
  * the worker sends on an auto failure is this adapter's `handleUnknown`.
  */
 import { admitInboundForAgent, admitSendsFallback, type AgentLogFn } from '@/application/agent/admit-inbound-for-agent'
 import { admitAgentDeps, agentWorkerDeps, purgeAgentDeps } from '@/application/agent/agent-deps'
+import { agentOwnsBookingText } from '@/application/agent/agent-owns-booking-text'
+import { inboundBookingDeps } from '@/application/booking/inbound-booking-deps'
 import { processAgentReply } from '@/application/agent/process-agent-reply'
 import { purgeAgentMessages } from '@/application/agent/purge-agent-messages'
 import type { AgentReplyWorkerHandlers } from '@/infrastructure/queue/agent-reply-queue'
@@ -24,6 +30,18 @@ export interface AgentContext {
   restaurantId: string
   phone: string
   log: AgentLogFn
+}
+
+export async function agentOwnsBookings(ctx: AgentContext): Promise<boolean> {
+  if (ctx.message.type !== 'text') return false
+  return agentOwnsBookingText(
+    {
+      getAgentConfig: (id) => admitAgentDeps(ctx.log).getConfig(id),
+      getBookingConfig: (id) => inboundBookingDeps(ctx.log).getConfig(id),
+      log: ctx.log,
+    },
+    ctx.restaurantId
+  )
 }
 
 export async function maybeQueueAgentReply(ctx: AgentContext): Promise<boolean> {

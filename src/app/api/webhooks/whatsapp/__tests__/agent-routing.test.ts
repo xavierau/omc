@@ -36,13 +36,17 @@ vi.mock('@/infrastructure/gemini/agent-client', () => ({ createGeminiAgentClient
 import { routeMessage } from '../handlers'
 import { admitInboundForAgent } from '@/application/agent/admit-inbound-for-agent'
 import { handleUnknown, handleHelp } from '../unknown-help-handlers'
+import { sendCtaUrlButton } from '@/infrastructure/whatsapp/messaging'
+import { resolveLanguageForMember } from '../resolve-language'
+import { Language } from '@/domain/value-objects/language'
+import { okResult } from '@/test-utils/send-result'
 import { handlePoints } from '../join-and-image-handlers'
 import { inboundBookingDeps } from '@/application/booking/inbound-booking-deps'
 import { admitAgentDeps } from '@/application/agent/agent-deps'
 import { createGeminiAgentClient } from '@/infrastructure/gemini/agent-client'
 import { getReplyConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { resolveReplyConfig } from '@/domain/services/reply-config'
-import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import { resolveAgentConfig, type AgentConfig } from '@/domain/value-objects/agent-config'
 import type { AdmitAgentDeps, AgentReplyJob } from '@/application/agent/admit-inbound-for-agent'
 import type { RouteBookingIntentDeps } from '@/application/booking/route-booking-intent'
@@ -210,5 +214,159 @@ describe('AC-F10 the auto gate reads silence and limits concurrently', () => {
     expect(started.sort()).toEqual(['countPhone', 'countTenant', 'isSilenced'])
     release()
     expect(await admitted).toEqual({ kind: 'queued', mode: 'auto' })
+  })
+})
+
+// AGENT-004: when the auto agent owns bookings, unmatched text skips BOOK-001's
+// single-message classifier and goes straight to the agent; otherwise today's order.
+describe('AGENT-004 the classifier yields to an auto agent that is offered a booking tool', () => {
+  const BOOKING_TOOLS = ['propose_booking', 'create_booking_request', 'list_my_bookings', 'propose_booking_change', 'confirm_booking_change']
+  const REPLY = 'the Friday one, make it 3 of us'
+  let bookingConfig: BookingConfig
+  let classifier: FakeIntentClassifier
+  let classifications: FakeClassificationStore
+  let tokens: FakeChatTokens
+  let bookingConfigError: Error | null
+
+  const agentWith = (mode: AgentConfig['mode'], extra: Record<string, unknown> = {}) =>
+    resolveAgentConfig({ mode, enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff', ...BOOKING_TOOLS], ...extra })
+
+  const expectClassifierFirst = () => {
+    expect(classifier.calls).toEqual([REPLY])
+    expect(classifications.rows).toHaveLength(1)
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    expect(enqueued).toEqual([])
+    expect(handleUnknown).not.toHaveBeenCalled()
+  }
+
+  beforeEach(() => {
+    bookingConfig = { ...DEFAULT_BOOKING_CONFIG, mode: 'simple', aiRoutingEnabled: true }
+    classifier = new FakeIntentClassifier({ ok: true, label: 'booking', confidence: 0.89 })
+    classifications = new FakeClassificationStore()
+    tokens = new FakeChatTokens()
+    bookingConfigError = null
+    vi.mocked(inboundBookingDeps).mockImplementation((log) => ({
+      getConfig: async () => {
+        if (bookingConfigError) throw bookingConfigError
+        return bookingConfig
+      },
+      classifier,
+      classifications,
+      tokens,
+      appUrl: 'https://app.example.com',
+      log,
+    }) satisfies RouteBookingIntentDeps)
+    vi.mocked(resolveLanguageForMember).mockResolvedValue(Language.ZH_HK)
+    vi.mocked(sendCtaUrlButton).mockResolvedValue(okResult())
+  })
+
+  it('(a) auto + simple booking + booking tools enabled → agent queued; no classifier call, no CTA, no classification row, no token', async () => {
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(classifier.calls).toEqual([])
+    expect(classifications.rows).toEqual([])
+    expect(tokens.mints).toEqual([])
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
+    expect(enqueued[0].job.admittedMode).toBe('auto')
+    expect(userRows()).toEqual([expect.objectContaining({ text: REPLY })])
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  it('(a) auto + external booking + get_booking_link enabled → agent queued, classifier skipped', async () => {
+    bookingConfig = { ...bookingConfig, mode: 'external', externalUrl: 'https://booking.example.com/r/demo' }
+    agentConfig = resolveAgentConfig({ mode: 'auto', enabledTools: ['get_booking_link'] })
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(classifier.calls).toEqual([])
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
+  })
+
+  it('(b) auto with no booking tool enabled (default tools) → classifier first, as today', async () => {
+    agentConfig = resolveAgentConfig({ mode: 'auto' })
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it('(b) auto with maxToolCalls 0 (the worker offers no tool) → classifier first', async () => {
+    agentConfig = agentWith('auto', { maxToolCalls: 0 })
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it.each(['shadow', 'off'] as const)('(c) %s with booking tools enabled → classifier first, as today', async (mode) => {
+    agentConfig = agentWith(mode)
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it('(d) auto + booking tools enabled but booking mode off → the classifier hook runs first (declines), then the agent', async () => {
+    bookingConfig = { ...DEFAULT_BOOKING_CONFIG, mode: 'off', aiRoutingEnabled: true }
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  it('(d) auto + only simple-mode booking tools while booking mode is external (none effective) → classifier first', async () => {
+    bookingConfig = { ...bookingConfig, mode: 'external', externalUrl: 'https://booking.example.com/r/demo' }
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it('(e) the agent config read throws → fall open to the classifier first; one reply only', async () => {
+    agentConfig = agentWith('auto')
+    vi.mocked(admitAgentDeps).mockImplementation((log) => ({
+      getConfig: async () => {
+        throw new Error('agent_config: 08006')
+      },
+      messages: store,
+      silences: store,
+      enqueue: (job, delayMs) => enqueue(job, delayMs),
+      now: () => new Date('2026-11-20T00:00:00.000Z'),
+      log,
+    }))
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it('(e) the booking config read throws while deciding → fall open to the classifier first', async () => {
+    agentConfig = agentWith('auto')
+    let reads = 0
+    vi.mocked(inboundBookingDeps).mockImplementation((log) => ({
+      getConfig: async () => {
+        if (reads++ === 0) throw new Error('booking_config: 08006')
+        return bookingConfig
+      },
+      classifier,
+      classifications,
+      tokens,
+      appUrl: 'https://app.example.com',
+      log,
+    }) satisfies RouteBookingIntentDeps)
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it.each(['BOOK', '訂位'])('(f) exact %s with the agent owning bookings → booking form sent instantly, agent not queued', async (text) => {
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text }), R)
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendCtaUrlButton).mock.calls[0][4]).toMatch(/^https:\/\/app\.example\.com\/b\/tok1x+$/)
+    expect(classifier.calls).toEqual([])
+    expect(store.rows).toEqual([])
+    expect(enqueued).toEqual([])
+  })
+
+  it('a webhook retry of the skipped message queues once and sends nothing', async () => {
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text: REPLY }), R)
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(enqueued).toHaveLength(1)
+    expect(classifier.calls).toEqual([])
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(handleUnknown).not.toHaveBeenCalled()
   })
 })
