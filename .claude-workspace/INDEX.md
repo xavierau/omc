@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-20-wonb-020-release-runbook](deploys/2026-11-20-wonb-020-release-runbook.md) — WONB-020 to prod: #221 → main 660f82d → release c353dea, mig 089 + 090 (dev)
 - [2026-11-20-agent-005-release-runbook](deploys/2026-11-20-agent-005-release-runbook.md) — AGENT-005 to prod: #219 → main fe1cdbf → release d05e647, no migration (dev)
 - [2026-11-20-book-008-release-runbook](deploys/2026-11-20-book-008-release-runbook.md) — BOOK-008 to prod: #217 → main 1f2b9eb → release d74942c, mig 088 (dev)
 - [2026-11-20-book-007-release-runbook](deploys/2026-11-20-book-007-release-runbook.md) — BOOK-007 to prod: #211 → main 23dc635 → release ca44103, mig 087 (dev)

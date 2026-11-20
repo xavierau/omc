@@ -1623,34 +1623,6 @@
       "label": "Review",
       "tasks": [
         {
-          "id": "WONB-020",
-          "title": "Imported members claim their welcome offer on first join (WhatsApp JOIN + web join form)",
-          "description": "Owner 2026-11-20: imported members scanning the join QR were told 'already a member' and could never claim the welcome promotion (imports write only consent_imported, never join). Rule: member exists AND has no 'join' event AND holds no welcome coupon (type welcome, or a coupon of the current welcome campaign) -> claimable. WhatsApp JOIN claims it once (onboardNewMember with stored name/language) under a per-member Redis lock (SET NX PX 30s, owner-checked release, re-check under the lock); no lock / Redis down / any claim failure -> welcome-back. r1 owner ruling 2026-11-20: the web join form never mints for an existing member; a claimable one gets {existing, claimOnWhatsApp, whatsappClaimUrl} and a translated link to wa.me/<number>?text=JOIN (plain alreadyMember without a usable number). Partner create-job retries write the missing join event. Lookup errors fail toward welcome-back. r2 (second review, main ruling 2026-11-20): a claim failing after the mint sends the minimal welcome text with the minted code (welcome-back only when no coupon is on file or recovery fails); a coupon of ANY welcome-type campaign blocks the claim; the public join endpoint answers every existing member identically ({existing, claimOnWhatsApp, whatsappClaimUrl} when the number is usable), copy 'open WhatsApp to see your offers and points'; a validation error clears the link; the partner create-job never fails on the join-event lookup. r3: migration 089_events_join_member_index.sql (non-unique partial index events(restaurant_id, member_id) WHERE type = 'join', review F6) MUST be applied at release; no code depends on it, apply before or after the deploy; check SELECT count(*) FROM events first and pre-create it CONCURRENTLY if large (see the migration header). Coupons already covered (uniq_coupons_welcome_member, idx_coupons_member_id). r4 (third review): the new-member paths (WhatsApp createNewMember, web createNewWebMember) hold the same per-member welcome-claim lock through mint + join event (+ sends); lock held by a concurrent claim -> no mint (that claim welcomes the member); Redis down -> onboard anyway (fail open) with a warning. Welcome provenance is stored on the coupon: migration 090_coupons_welcome_offer.sql adds coupons.welcome_offer boolean NOT NULL DEFAULT false and backfills true for type welcome and coupons of a same-restaurant welcome-type campaign; every welcome mint (createWelcomeCoupon; createCampaignCoupon with welcomeOffer from onboardNewMember and registerMemberWeb) writes true; the claim lookup matches type welcome OR welcome_offer, so deleting or retyping the campaign no longer reopens the claim. The web join race branch answers like any existing member. The partner create-job no longer emits a join event when its join-event lookup errors (warns with job + member). RELEASE ORDER: 089 and 090 are applied BEFORE the code switch. Evidence: deploy.sh (set -euo pipefail) runs `supabase db push --linked --include-all` (line 267) before `restart_daemon` app/worker (lines 381-382), and BOOK-007's Forge log shows 'Applying migration 087... Finished supabase db push' before 'Restarting daemons'; a failed push aborts before the restart. 090 must not be skipped: welcome mints write welcome_offer. r6 (final review): the partner welcome mint (mintWelcomeCouponIdempotent, both legs) writes welcome_offer true; a new member whose lock is held WAITS for it (250 ms x 20, max ~5 s) and re-checks under the lock: welcomed by the concurrent claim -> no mint, no sends (web: existing answer); not welcomed -> onboarded once under the lock; still held or the lookup errors -> WhatsApp minimal no-code welcome (member stays claimable) / web existing answer; never a mint without the lock. The createOrGetMember race branch on WhatsApp goes through the same claim gate as the pre-check. Join form error line: data-testid join-error.",
-          "priority": "high",
-          "labels": [
-            "onboarding",
-            "import",
-            "members",
-            "backend",
-            "poc"
-          ],
-          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
-          "branch": "feature/wonb-020-imported-welcome-claim",
-          "pr": "https://github.com/xavierau/omc/pull/212",
-          "related": [
-            "kanban:WONB-004",
-            "github:212"
-          ],
-          "workspace_artifacts": [
-            "artifacts/2026-11-20-dev-wonb-020-handoff.md",
-            "artifacts/2026-11-20-dev-wonb-020-r1-handoff.md",
-            "artifacts/2026-11-20-dev-wonb-020-r2-handoff.md",
-            "artifacts/2026-11-20-dev-wonb-020-r3-handoff.md",
-            "artifacts/2026-11-20-dev-wonb-020-r4-handoff.md",
-            "artifacts/2026-11-20-dev-wonb-020-r6-handoff.md"
-          ]
-        },
-        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
@@ -1846,6 +1818,39 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "WONB-020",
+          "title": "Imported members claim their welcome offer on first join (WhatsApp JOIN + web join form)",
+          "description": "Owner 2026-11-20: imported members scanning the join QR were told 'already a member' and could never claim the welcome promotion (imports write only consent_imported, never join). Rule: member exists AND has no 'join' event AND holds no welcome coupon (type welcome, or a coupon of the current welcome campaign) -> claimable. WhatsApp JOIN claims it once (onboardNewMember with stored name/language) under a per-member Redis lock (SET NX PX 30s, owner-checked release, re-check under the lock); no lock / Redis down / any claim failure -> welcome-back. r1 owner ruling 2026-11-20: the web join form never mints for an existing member; a claimable one gets {existing, claimOnWhatsApp, whatsappClaimUrl} and a translated link to wa.me/<number>?text=JOIN (plain alreadyMember without a usable number). Partner create-job retries write the missing join event. Lookup errors fail toward welcome-back. r2 (second review, main ruling 2026-11-20): a claim failing after the mint sends the minimal welcome text with the minted code (welcome-back only when no coupon is on file or recovery fails); a coupon of ANY welcome-type campaign blocks the claim; the public join endpoint answers every existing member identically ({existing, claimOnWhatsApp, whatsappClaimUrl} when the number is usable), copy 'open WhatsApp to see your offers and points'; a validation error clears the link; the partner create-job never fails on the join-event lookup. r3: migration 089_events_join_member_index.sql (non-unique partial index events(restaurant_id, member_id) WHERE type = 'join', review F6) MUST be applied at release; no code depends on it, apply before or after the deploy; check SELECT count(*) FROM events first and pre-create it CONCURRENTLY if large (see the migration header). Coupons already covered (uniq_coupons_welcome_member, idx_coupons_member_id). r4 (third review): the new-member paths (WhatsApp createNewMember, web createNewWebMember) hold the same per-member welcome-claim lock through mint + join event (+ sends); lock held by a concurrent claim -> no mint (that claim welcomes the member); Redis down -> onboard anyway (fail open) with a warning. Welcome provenance is stored on the coupon: migration 090_coupons_welcome_offer.sql adds coupons.welcome_offer boolean NOT NULL DEFAULT false and backfills true for type welcome and coupons of a same-restaurant welcome-type campaign; every welcome mint (createWelcomeCoupon; createCampaignCoupon with welcomeOffer from onboardNewMember and registerMemberWeb) writes true; the claim lookup matches type welcome OR welcome_offer, so deleting or retyping the campaign no longer reopens the claim. The web join race branch answers like any existing member. The partner create-job no longer emits a join event when its join-event lookup errors (warns with job + member). RELEASE ORDER: 089 and 090 are applied BEFORE the code switch. Evidence: deploy.sh (set -euo pipefail) runs `supabase db push --linked --include-all` (line 267) before `restart_daemon` app/worker (lines 381-382), and BOOK-007's Forge log shows 'Applying migration 087... Finished supabase db push' before 'Restarting daemons'; a failed push aborts before the restart. 090 must not be skipped: welcome mints write welcome_offer. r6 (final review): the partner welcome mint (mintWelcomeCouponIdempotent, both legs) writes welcome_offer true; a new member whose lock is held WAITS for it (250 ms x 20, max ~5 s) and re-checks under the lock: welcomed by the concurrent claim -> no mint, no sends (web: existing answer); not welcomed -> onboarded once under the lock; still held or the lookup errors -> WhatsApp minimal no-code welcome (member stays claimable) / web existing answer; never a mint without the lock. The createOrGetMember race branch on WhatsApp goes through the same claim gate as the pre-check. Join form error line: data-testid join-error.",
+          "priority": "high",
+          "labels": [
+            "onboarding",
+            "import",
+            "members",
+            "backend",
+            "poc"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "branch": "feature/wonb-020-imported-welcome-claim",
+          "pr": "https://github.com/xavierau/omc/pull/212",
+          "related": [
+            "kanban:WONB-004",
+            "github:212",
+            "github:221"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-dev-wonb-020-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r1-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r2-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r3-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r4-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r6-handoff.md",
+            "reviews/2026-11-20-wonb-020-r6-re-review",
+            "deploys/2026-11-20-wonb-020-release-runbook"
+          ],
+          "status": "done",
+          "updated": "2026-11-20"
+        },
         {
           "id": "AGENT-005",
           "title": "Agent skills (core / loyalty / booking) and a 訂座規則 booking-rules field the booking skill checks",

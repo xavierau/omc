@@ -1,0 +1,22 @@
+# forge site command 14485088, 2026-11-20T13:22:28Z-13:22:36Z (before the release PR existed, before any migration)
+# helper /home/forge/rel-wonb020-tmp/q.py: Supabase Management API (read-only query endpoint), project uzimqndenngebzgndlhd,
+# token SUPABASE_ACCESS_TOKEN read in-process from the site .env, never printed. Rows stay on the box.
+# box dir /home/forge/backups/2026-11-20-wonb-020/ (700), files 600
+2026-11-20T13:22:28Z
+GET  /database/backups HTTP 200 managed-backups.json sha256 a99749b99b1519a8e254033fccfd3316562c48d3bea2123d106cda9850062dc7
+     7 backups, walg True, pitr False; newest 2317028887 COMPLETED 2026-11-19T19:32:05.865Z
+POST read-only catalog HTTP 201 baseline-catalog.json sha256 4c58d5f681f7fe269b8a5e407613cc82b440db29160e285e4178cd10f6413a6b
+POST read-only ids HTTP 201 baseline-welcome-coupon-ids.json sha256 694fff2fa82a361be0a836aeb0193f5d9104b67985901fe9653be8c464935ba1 (314 rows: id, type, campaign_id only)
+ledger tail: 088 booking_member_backfill, 087 booking_no_show, 086 campaign_audience_quality, 085 agent_booking_changes, 084 agent_booking
+events indexes: events_pkey, idx_events_created_at, idx_events_restaurant_id, idx_events_type, uq_events_stamp_dedup
+idx_events_join_restaurant_member: absent
+coupons columns: 18; welcome_offer: absent
+events size: {'total': '4112 kB', 'bytes': 4210688}
+counts: {'events_total': 12813, 'events_join': 314, 'coupons_total': 570, 'coupons_type_welcome': 24, 'promo_of_welcome_campaign': 290, 'backfill_predicate': 314, 'members': 4229, 'restaurants': 7}
+q.py exit=0
+total 52
+-rw------- 1 forge forge  4422 Nov 20 13:22 baseline-catalog.json
+-rw------- 1 forge forge 40054 Nov 20 13:22 baseline-welcome-coupon-ids.json
+-rw------- 1 forge forge  1048 Nov 20 13:22 managed-backups.json
+2026-11-20T13:22:36Z
+

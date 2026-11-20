@@ -1,0 +1,20 @@
+# forge site command 14485311 (read-only), 2026-11-20T13:28:35Z; helper q.py after, Management API read-only endpoint, project uzimqndenngebzgndlhd
+# box file /home/forge/backups/2026-11-20-wonb-020/after-catalog.json (600); ids compared on the box, not printed
+2026-11-20T13:28:35Z
+POST read-only catalog HTTP 201 after-catalog.json sha256 89a5ffdcef036aaead27a3b77862cc88a6e22e284e777abd76e6b6d28bead16b
+ledger tail: 090 coupons_welcome_offer, 089 events_join_member_index, 088 booking_member_backfill, 087 booking_no_show, 086 campaign_audience_quality
+events indexes: events_pkey, idx_events_created_at, idx_events_join_restaurant_member, idx_events_restaurant_id, idx_events_type, uq_events_stamp_dedup
+idx_events_join_restaurant_member: CREATE INDEX idx_events_join_restaurant_member ON public.events USING btree (restaurant_id, member_id) WHERE (type = 'join'::text)
+coupons columns: 19; welcome_offer: {'column_name': 'welcome_offer', 'data_type': 'boolean', 'is_nullable': 'NO', 'column_default': 'false'}
+events size: {'total': '4144 kB', 'bytes': 4243456}
+counts: {'events_total': 12813, 'events_join': 314, 'coupons_total': 570, 'coupons_type_welcome': 24, 'promo_of_welcome_campaign': 290, 'backfill_predicate': 314, 'members': 4229, 'restaurants': 7}
+welcome_offer column: [{'is_nullable': 'NO', 'column_default': 'false', 'data_type': 'boolean'}]
+welcome_offer=true count 314; baseline predicate count 314; in both 314; only after 0; only baseline 0
+predicate rows still false (expect 0): [{'n': 0}]
+q.py exit=0
+total 60
+-rw------- 1 forge forge  4805 Nov 20 13:28 after-catalog.json
+-rw------- 1 forge forge  4422 Nov 20 13:22 baseline-catalog.json
+-rw------- 1 forge forge 40054 Nov 20 13:22 baseline-welcome-coupon-ids.json
+-rw------- 1 forge forge  1048 Nov 20 13:22 managed-backups.json
+
