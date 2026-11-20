@@ -1,0 +1,9 @@
+# forge site command 14471027 (read-only), 2026-11-20T04:29:02Z
+HEAD ca44103ae0efb401ead3ce5b779c66ba6b5d277b
+.next/BUILD_ID 2X-ml2OJycTIYik4jAYvg
+RELEASE.json {source_ref: rel-book007, source_commit: 23dc635f00bfd2b807842a7794acc99e04dbb0aa, build_id: 2X-ml2OJycTIYik4jAYvg, built_at: 2026-11-20T04:25:40Z}
+git status: " M supabase/.temp/cli-latest" (pre-existing, only dirt)
+next-server (v16.3.4) pid 3573648 started 04:28:32Z
+worker npm exec tsx ... scripts/start-worker.ts pid 3573713 started 04:28:37Z (children 3573756/3573757/3573768)
+/login 200 ; /api/health 200
+/login body: new BUILD_ID 2X-ml2OJycTIYik4jAYvg x1, old e1I15X2aClu1mW4QksVz2 x0
