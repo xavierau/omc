@@ -23,10 +23,14 @@ export const AGENT_PROPOSAL_TTL_MS = 30 * 60_000
 
 export type AgentProposalKind = 'create' | 'change' | 'cancel'
 
-/** create: a new booking · change: new values for `bookingId` · cancel: `bookingId`. */
+/**
+ * create: a new booking · change: new values for `bookingId` · cancel: `bookingId`.
+ * BOOK-009: `termsText` = the booking terms read back with the proposal
+ * (absent when the restaurant had none); the diner's agreement accepts them.
+ */
 export type AgentProposalAction =
-  | { kind: 'create'; booking: BookingSubmission }
-  | { kind: 'change'; bookingId: string; booking: BookingSubmission }
+  | { kind: 'create'; booking: BookingSubmission; termsText?: string }
+  | { kind: 'change'; bookingId: string; booking: BookingSubmission; termsText?: string }
   | { kind: 'cancel'; bookingId: string }
 
 export type AgentBookingProposal = AgentProposalAction & {

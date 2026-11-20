@@ -113,6 +113,9 @@ export interface NewAgentBooking {
   verifyExpiresAt: string
   statusTokenHash: string
   idempotencyKey: string | null
+  /** BOOK-009 AC-13: set together, only when terms were required and the agent sent accept_terms: true. */
+  termsAcceptedAt?: string
+  termsText?: string
 }
 
 export interface NewBookingRequest {

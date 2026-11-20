@@ -19,13 +19,18 @@
  * restaurant or member; the one id the model passes is the change/cancel
  * `bookingRef`, resolved inside the diner's own bookings (R21). Proposal
  * values are never logged (R8).
+ *
+ * BOOK-009 W4 (spec AC-16, AC-17): the restaurant's booking hours and terms
+ * bind both steps (agent-booking-rules.ts): a refused slot returns
+ * `suggestedTimes` and stores nothing; the terms come back with the
+ * proposal for the read-back and are stored as accepted on create.
  */
-import { parseBookingSubmission } from '@/domain/services/booking-submission'
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentMode, AgentToolName } from '@/domain/value-objects/agent-config'
 import type { BookingMode } from '@/domain/value-objects/booking-config'
-import { bookingRulesAt, notifyReceived } from '@/application/booking/submit-booking-request'
+import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
+import { acceptedTerms, parseAgreed, parseProposal, termsForReadBack } from './agent-booking-rules'
 import {
   CHANGE_TOOL_DECLARATIONS,
   CHANGE_TOOL_NAMES,
@@ -109,29 +114,34 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
   ...CHANGE_TOOL_DECLARATIONS,
 }
 
+const PROPOSED_NOTE =
+  'Nothing is booked yet. Read these details back to the diner and ask them to confirm. Call create_booking_request only after they agree in their next message.'
+
 async function proposeBooking(call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
-  const { now, booking } = call
+  const { booking } = call
   const body = Object.fromEntries(PROPOSAL_FIELDS.filter((f) => args[f] !== undefined).map((f) => [f, args[f]]))
-  const parsed = parseBookingSubmission(body, bookingRulesAt(now(), booking.config.maxPartySize))
-  if (!parsed.ok) {
-    return { error: 'invalid', fields: parsed.errors, maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' }
-  }
+  const parsed = parseProposal(call, body, { maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' })
+  if (!parsed.ok) return parsed.output
   if (await atOpenCap(call)) return TOO_MANY_PENDING
-  if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission }))) return { error: 'lookup_failed' }
+  const { terms, note } = termsForReadBack(call)
+  if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }))) {
+    return { error: 'lookup_failed' }
+  }
   return {
     proposed: true,
     booking: parsed.submission,
-    note: 'Nothing is booked yet. Read these details back to the diner and ask them to confirm. Call create_booking_request only after they agree in their next message.',
+    ...(terms ? { terms } : {}),
+    note: note ? `${PROPOSED_NOTE} ${note}` : PROPOSED_NOTE,
   }
 }
 
 async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput> {
-  const { key, now, booking } = call
+  const { key, booking } = call
   const taken = await takeProposal(call, 'create')
   if (!taken.ok) return taken.output
-  // Re-checked now: the proposed time may have passed while the diner answered.
-  const parsed = parseBookingSubmission({ ...taken.proposal.booking }, bookingRulesAt(now(), booking.config.maxPartySize))
-  if (!parsed.ok) return { error: 'invalid', fields: parsed.errors, note: 'Ask the diner for new details and propose again.' }
+  // Re-checked now: the proposed time may have passed (or left the hours) while the diner answered.
+  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  if (!parsed.ok) return parsed.output
   if (await atOpenCap(call)) return TOO_MANY_PENDING
 
   const s = parsed.submission
@@ -148,6 +158,7 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
     source: 'agent',
     campaignId: null,
     token: null,
+    ...acceptedTerms(call, s),
   })
   // R16: best effort; a failed "received" message never fails the booking.
   await notifyReceived(booking, created).catch(() => false)

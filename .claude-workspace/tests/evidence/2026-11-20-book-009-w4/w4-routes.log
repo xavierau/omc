@@ -1,0 +1,362 @@
+# BOOK-009 W4 route-level evidence (route handlers + in-memory ports)
+# generated 2026-11-20T15:12:17.610Z; fake clock 2026-11-19T02:00Z = Thu 19 Nov 10:00 HK
+# tenant A: hours Tue-Sun 12:00-14:00 & 18:00-21:30, Mon closed, 25 Nov closed, 30 min, 2 h notice, 30 days, table 120, terms set
+# tenant N: booking hours null (pre-BOOK-009)
+
+### GET /availability, hours set (Mon 23 closed, special 25 closed)
+GET https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/availability?from=2026-11-19&days=7&party_size=4
+→ 200 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "dates": [
+    {
+      "date": "2026-11-19",
+      "open": true,
+      "times": [
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30"
+      ]
+    },
+    {
+      "date": "2026-11-20",
+      "open": true,
+      "times": [
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30"
+      ]
+    },
+    {
+      "date": "2026-11-21",
+      "open": true,
+      "times": [
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30"
+      ]
+    },
+    {
+      "date": "2026-11-22",
+      "open": true,
+      "times": [
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30"
+      ]
+    },
+    {
+      "date": "2026-11-23",
+      "open": false,
+      "times": []
+    },
+    {
+      "date": "2026-11-24",
+      "open": true,
+      "times": [
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30"
+      ]
+    },
+    {
+      "date": "2026-11-25",
+      "open": false,
+      "times": []
+    }
+  ],
+  "interval_minutes": 30,
+  "table_minutes": 120,
+  "max_party_size": 8,
+  "terms": {
+    "zh-HK": "訂座保留 15 分鐘。",
+    "en": "Tables are held for 15 minutes."
+  }
+}
+
+### GET /availability, days above the 30-day window → 400
+GET https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/availability?from=2026-11-20&days=31
+→ 400 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "invalid_request",
+  "error_description": "from, days or party_size is missing or invalid.",
+  "fields": {
+    "days": "too_large"
+  }
+}
+
+### GET /availability, unknown publicId → 404
+GET https://app.ohmyclient.io/api/poppy/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC/availability?from=2026-11-20&days=3
+→ 404 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "not_found",
+  "error_description": "No booking API at this address, or no such booking."
+}
+
+### GET /availability, hours null → any time
+GET https://app.ohmyclient.io/api/poppy/NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN/availability?from=2026-11-19&days=3
+→ 200 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "dates": [
+    {
+      "date": "2026-11-19",
+      "open": true,
+      "times": null
+    },
+    {
+      "date": "2026-11-20",
+      "open": true,
+      "times": null
+    },
+    {
+      "date": "2026-11-21",
+      "open": true,
+      "times": null
+    }
+  ],
+  "interval_minutes": null,
+  "table_minutes": null,
+  "max_party_size": 8,
+  "terms": null
+}
+
+### POST /bookings 15:00 → outside_hours + suggested_times
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-11-20","time":"15:00","party_size":4,"name":"Chan","phone":"+85291234567","accept_terms":true}
+→ 400 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "invalid_request",
+  "error_description": "A field is missing or invalid.",
+  "fields": {
+    "time": "outside_hours"
+  },
+  "suggested_times": [
+    {
+      "date": "2026-11-20",
+      "time": "14:00"
+    },
+    {
+      "date": "2026-11-20",
+      "time": "13:30"
+    },
+    {
+      "date": "2026-11-20",
+      "time": "13:00"
+    }
+  ]
+}
+
+### POST /bookings Mon 23 Nov → closed_day + suggested_times
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-11-23","time":"19:00","party_size":4,"name":"Chan","phone":"+85291234567","accept_terms":true}
+→ 400 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "invalid_request",
+  "error_description": "A field is missing or invalid.",
+  "fields": {
+    "date": "closed_day"
+  },
+  "suggested_times": [
+    {
+      "date": "2026-11-24",
+      "time": "19:00"
+    },
+    {
+      "date": "2026-11-24",
+      "time": "18:30"
+    },
+    {
+      "date": "2026-11-24",
+      "time": "19:30"
+    }
+  ]
+}
+
+### POST /bookings 30 Dec → too_far + suggested_times
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-12-30","time":"19:00","party_size":4,"name":"Chan","phone":"+85291234567","accept_terms":true}
+→ 400 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "invalid_request",
+  "error_description": "A field is missing or invalid.",
+  "fields": {
+    "time": "too_far"
+  },
+  "suggested_times": [
+    {
+      "date": "2026-12-19",
+      "time": "19:00"
+    },
+    {
+      "date": "2026-12-19",
+      "time": "18:30"
+    },
+    {
+      "date": "2026-12-19",
+      "time": "19:30"
+    }
+  ]
+}
+
+### POST /bookings without accept_terms → terms_required
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-11-20","time":"19:00","party_size":4,"name":"Chan","phone":"+85291234567"}
+→ 400 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "error": "invalid_request",
+  "error_description": "A field is missing or invalid.",
+  "fields": {
+    "accept_terms": "terms_required"
+  }
+}
+
+### POST /bookings on the grid with accept_terms → 202
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-11-20","time":"19:00","party_size":4,"name":"Chan","phone":"+85291234567","accept_terms":true}
+→ 202 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "booking_id": "842b9d49-d9ad-404f-a87a-6d8768b663f3",
+  "status": "awaiting_confirmation",
+  "confirm_url": "https://wa.me/85230001111?text=%E7%A2%BA%E8%AA%8DCafe%20A%E8%A8%82%E5%BA%A7%20Confirm%20my%20booking%20at%20Cafe%20A%3A%20K7PX3M",
+  "confirm_code": "K7PX3M",
+  "expires_at": "2026-11-19T02:30:00.000Z",
+  "status_token": "tokxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1",
+  "collection_statement": {
+    "en": "The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking.",
+    "zh-HK": "你提交的資料(日期、時間、人數、姓名、電話號碼及備註)只會交給Cafe A,用作處理今次訂座。",
+    "privacy_url": "https://ohmyclient.io/privacy-policy.html"
+  }
+}
+
+### POST /bookings hours null, 03:00, no accept_terms → 202 (unchanged)
+POST https://app.ohmyclient.io/api/poppy/NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN/bookings
+body: {"date":"2026-11-20","time":"03:00","party_size":4,"name":"Chan","phone":"+85291234567"}
+→ 202 (Retry-After: null | Cache-Control: no-store, max-age=0)
+{
+  "booking_id": "b85f448e-e4f4-4530-92a2-cdb6fce77028",
+  "status": "awaiting_confirmation",
+  "confirm_url": "https://wa.me/85230002222?text=%E7%A2%BA%E8%AA%8DCafe%20N%E8%A8%82%E5%BA%A7%20Confirm%20my%20booking%20at%20Cafe%20N%3A%20Q2W3E4",
+  "confirm_code": "Q2W3E4",
+  "expires_at": "2026-11-19T02:30:00.000Z",
+  "status_token": "tokxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2",
+  "collection_statement": {
+    "en": "The details you submit (date, time, party size, name, phone number and notes) go only to Cafe N, to handle this booking.",
+    "zh-HK": "你提交的資料(日期、時間、人數、姓名、電話號碼及備註)只會交給Cafe N,用作處理今次訂座。",
+    "privacy_url": "https://ohmyclient.io/privacy-policy.html"
+  }
+}
+
+### Stored rows (terms columns)
+[
+  {
+    "restaurantId": "rest-a",
+    "date": "2026-11-20",
+    "time": "19:00",
+    "status": "unverified",
+    "termsAcceptedAt": "2026-11-19T02:00:00.000Z",
+    "termsText": "訂座保留 15 分鐘。\n\nTables are held for 15 minutes."
+  },
+  {
+    "restaurantId": "rest-n",
+    "date": "2026-11-20",
+    "time": "03:00",
+    "status": "unverified",
+    "termsAcceptedAt": null,
+    "termsText": null
+  }
+]
+
+### GET /availability x10 from 192.0.2.50 within one minute: statuses [200,200,200,200,200,200,200,200,200,200]
+
+### GET /availability, 11th call from that IP in the minute → 429
+GET https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/availability?from=2026-11-20&days=1
+→ 429 (Retry-After: 60 | Cache-Control: no-store, max-age=0)
+{
+  "error": "rate_limited",
+  "error_description": "Too many requests. Wait for Retry-After seconds."
+}
+
+### POST /bookings from that IP right after → 429 (same limiter as /availability)
+POST https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/bookings
+body: {"date":"2026-11-20","time":"19:00","party_size":4,"name":"Chan","phone":"+85291234567","accept_terms":true}
+→ 429 (Retry-After: 60 | Cache-Control: no-store, max-age=0)
+{
+  "error": "rate_limited",
+  "error_description": "Too many requests. Wait for Retry-After seconds."
+}
+
+### GET /openapi.json, hours set: paths and description
+paths: ["/bookings","/bookings/{booking_id}","/availability"]
+Request a table at Cafe A. No sign-in.
+
+How it works:
+1. POST /bookings with the diner's details. The answer has a `confirm_code` and a `confirm_url` (a WhatsApp link).
+2. The diner opens `confirm_url` and sends the prefilled message from THE SAME phone number as `phone`, within 30 minutes (`expires_at`).
+   Until then the request is not sent to the restaurant. A code sent from another number does nothing.
+3. The restaurant then accepts or declines it, and tells the diner on WhatsApp.
+   Poll GET /bookings/{booking_id} with the `X-Booking-Status-Token` header to follow it.
+
+At most 3 open requests per phone number at a time (unconfirmed, or confirmed by the diner and waiting for the restaurant). Send an Idempotency-Key header to retry safely.
+
+Booking rules: Diners can book Tue–Sun 午市 12:00–14:00 and 晚市 18:00–21:30, every 30 minutes, 2 hours to 30 days ahead, up to 8 people. Closed: 25 Nov (冬至). Tables are for 2 hours.
+Call GET /availability first: it lists the open dates and the times the restaurant takes; only those times are accepted.
+A request outside the rules gets 400 invalid_request with per-field codes in `fields` (date: closed_day; time: outside_hours, too_soon or too_far; accept_terms: terms_required) and up to 3 `suggested_times` ({date, time}, nearest first) the restaurant does take: offer those to the diner.
+
+Booking terms: show these booking terms to the diner and get their agreement BEFORE you call POST /bookings, then send `accept_terms: true` (without it the request is refused with accept_terms: terms_required).
+訂座須知: 訂座保留 15 分鐘。
+Terms: Tables are held for 15 minutes.
+
+Collection statement: The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking. Privacy policy: https://ohmyclient.io/privacy-policy.html
+收集個人資料聲明: 你提交的資料(日期、時間、人數、姓名、電話號碼及備註)只會交給Cafe A,用作處理今次訂座。 私隱政策: https://ohmyclient.io/privacy-policy.html
+
+### GET /openapi.json, hours null: paths
+["/bookings","/bookings/{booking_id}"]

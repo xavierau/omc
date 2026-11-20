@@ -39,6 +39,7 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
       decidedBy: null, decidedAt: null, source: 'agent', campaignId: null, createdAt: this.createdAt().toISOString(),
       decisionMessageStatus: null, confirmCode: b.confirmCode, verifyExpiresAt: b.verifyExpiresAt, verifiedAt: null,
       verifiedWamid: null, statusTokenHash: b.statusTokenHash, idempotencyKey: b.idempotencyKey,
+      ...(b.termsAcceptedAt ? { termsAcceptedAt: b.termsAcceptedAt, termsText: b.termsText } : {}),
     }
     this.rows.push(row)
     return { ok: true, booking: { ...row } }

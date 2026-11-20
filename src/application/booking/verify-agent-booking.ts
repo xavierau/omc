@@ -16,9 +16,14 @@
  * restaurant with the booking phone (never before: the phone is unproven
  * while unverified). Best effort: a failed link is logged by error name and
  * staff can link by hand; no member is ever created.
+ * BOOK-009 W4 (spec AC-13): when terms are set, the same free-form text also
+ * carries the terms: the exact text stored on the booking, else the
+ * restaurant's current terms. No new Meta template (inside the 24 h window).
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
-import { buildCollectionStatement, collectionStatementText } from '@/domain/services/poppy-documents'
+import { buildCollectionStatement, collectionStatementText, termsReplyText } from '@/domain/services/poppy-documents'
+import { termsSnapshot } from '@/domain/value-objects/booking-hours'
+import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
 
@@ -40,13 +45,20 @@ export interface InboundCodeMessage {
   wamid: string
 }
 
-async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest): Promise<void> {
+/** The collection statement, then (BOOK-009 AC-13) the terms the diner accepted. */
+function confirmedText(statement: string, booking: BookingRequest, config: BookingConfig): string {
+  const terms = booking.termsText ?? termsSnapshot(config.bookingHours)
+  return terms ? `${statement}\n\n${termsReplyText(terms)}` : statement
+}
+
+async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest, config: BookingConfig): Promise<void> {
   const restaurantName = (await deps.settings.getRestaurant(booking.restaurantId))?.name ?? ''
   await deps.sender.send({
     restaurantId: booking.restaurantId, phone: booking.phone, memberId: booking.memberId, kind: 'received',
     details: { restaurantName, name: booking.name, date: booking.bookingDate, time: booking.bookingTime, partySize: booking.partySize },
   })
-  await deps.sendText(booking.restaurantId, booking.phone, collectionStatementText(buildCollectionStatement(restaurantName, deps.privacyUrl)))
+  const statement = collectionStatementText(buildCollectionStatement(restaurantName, deps.privacyUrl))
+  await deps.sendText(booking.restaurantId, booking.phone, confirmedText(statement, booking, config))
 }
 
 /** R1: only now, after promotion, does the booking phone count as the diner's. */
@@ -64,8 +76,8 @@ async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: Booking
 export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<{ handled: boolean }> {
   const codes = extractConfirmCodeCandidates(message.text)
   if (codes.length === 0) return { handled: false }
-  const { mode, agentBooking } = await deps.settings.getConfig(message.restaurantId)
-  if (!agentBooking.enabled || mode !== 'simple') return { handled: false }
+  const config = await deps.settings.getConfig(message.restaurantId)
+  if (!config.agentBooking.enabled || config.mode !== 'simple') return { handled: false }
   const promoted = await deps.store.promote({
     restaurantId: message.restaurantId, phone: message.phone, codes, wamid: message.wamid, at: deps.now(),
     maxPending: MAX_PENDING_PER_PHONE,
@@ -73,7 +85,7 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
   for (const row of promoted) {
     const booking = await linkExistingMember(deps, row)
     try {
-      await acknowledge(deps, booking)
+      await acknowledge(deps, booking, config)
     } catch (err) {
       console.error('[AgentBooking] acknowledge failed:', { error: (err as Error).name, bookingId: booking.id })
     }

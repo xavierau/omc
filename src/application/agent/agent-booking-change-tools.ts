@@ -17,14 +17,19 @@
  *   it is until then. A cancel is direct: the booking (and any open change
  *   request of it) becomes `cancelled` by `diner_ai`, and the diner gets a
  *   short in-window text (R24).
+ *
+ * BOOK-009 W4 (spec AC-16, AC-17): a new slot the booking hours refuse
+ * returns `suggestedTimes` and stores nothing; the terms are read back with
+ * the change and stored as accepted on the change request.
  */
-import { parseBookingSubmission, type BookingSubmission } from '@/domain/services/booking-submission'
+import type { BookingSubmission } from '@/domain/services/booking-submission'
 import { isOpenChangeRequest, type DinerBooking } from '@/domain/entities/booking-request'
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentToolName } from '@/domain/value-objects/agent-config'
 import { withDisclosure } from '@/domain/services/agent-reply-text'
-import { bookingRulesAt, notifyReceived } from '@/application/booking/submit-booking-request'
+import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { hkNow, saveProposal, takeProposal, type BookingCall } from './agent-booking-gate'
+import { acceptedTerms, parseAgreed, parseProposal, termsForReadBack } from './agent-booking-rules'
 
 export type AgentChangeToolName = Extract<
   AgentToolName,
@@ -139,7 +144,7 @@ function changedSubmission(call: BookingCall, target: DinerBooking, args: Record
     name: target.name ?? '-',
     notes: target.notes,
   }
-  return parseBookingSubmission(body, bookingRulesAt(call.now(), call.booking.config.maxPartySize))
+  return parseProposal(call, body, { note: 'Ask the diner to correct these details.' })
 }
 
 const sameSlot = (s: BookingSubmission, b: DinerBooking) =>
@@ -154,14 +159,19 @@ async function proposeChange(call: BookingCall, args: Record<string, unknown>): 
     return { error: 'change_already_pending', note: 'A change of this booking is already waiting for staff.' }
   }
   const parsed = changedSubmission(call, target, args)
-  if (!parsed.ok) return { error: 'invalid', fields: parsed.errors, note: 'Ask the diner to correct these details.' }
+  if (!parsed.ok) return parsed.output
   if (sameSlot(parsed.submission, target)) return { error: 'nothing_to_change', note: 'Ask the diner what they want to change.' }
-  if (!(await saveProposal(call, { kind: 'change', bookingId: target.id, booking: parsed.submission }))) return { error: 'lookup_failed' }
+  const { terms, note } = termsForReadBack(call)
+  const action = { kind: 'change' as const, bookingId: target.id, booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }
+  if (!(await saveProposal(call, action))) return { error: 'lookup_failed' }
+  const base =
+    'Nothing is changed yet. Read the old and new details back and ask the diner to confirm. Call confirm_booking_change only after they agree in their next message.'
   return {
     proposed: true,
     from: slotOf(target),
     to: { date: parsed.submission.date, time: parsed.submission.time, partySize: parsed.submission.partySize },
-    note: 'Nothing is changed yet. Read the old and new details back and ask the diner to confirm. Call confirm_booking_change only after they agree in their next message.',
+    ...(terms ? { terms } : {}),
+    note: note ? `${base} ${note}` : base,
   }
 }
 
@@ -172,8 +182,8 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
   // The original must still be the diner's open, upcoming booking.
   const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !isOpenChangeRequest(b))
   if (!target) return NOT_FOUND
-  const parsed = parseBookingSubmission({ ...taken.proposal.booking }, bookingRulesAt(call.now(), booking.config.maxPartySize))
-  if (!parsed.ok) return { error: 'invalid', fields: parsed.errors, note: 'Ask the diner for new details and propose again.' }
+  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  if (!parsed.ok) return parsed.output
   const s = parsed.submission
   let created
   try {
@@ -190,6 +200,7 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
       campaignId: null,
       token: null,
       replacesBookingId: target.id,
+      ...acceptedTerms(call, s),
     })
   } catch (err) {
     // R23: one open change request per booking (unique index).
