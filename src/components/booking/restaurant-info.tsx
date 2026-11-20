@@ -13,7 +13,7 @@ export function RestaurantInfo({ info }: { info: BookingHours['info'] }) {
   const t = useTranslations('booking.picker')
   if (!info.address && !info.phone && !info.mapUrl) return null
   return (
-    <section data-testid="booking-restaurant-info" className="space-y-2 rounded-xl border border-border p-3 text-sm">
+    <section data-testid="booking-restaurant-info" className="space-y-2 border-y border-border py-3 text-sm">
       {info.address ? (
         <p className="flex items-start gap-2 text-foreground"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{info.address}</p>
       ) : null}

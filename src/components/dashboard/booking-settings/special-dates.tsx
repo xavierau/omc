@@ -24,7 +24,7 @@ function SpecialRow({ special, index, errors, onEdit }: Omit<HoursEditProps, 'ho
   const stem = `booking-settings-special-${index}`
   const open = special.periods.length > 0
   return (
-    <div data-testid={stem} className={cn('space-y-2 rounded-lg border border-border px-3 py-2.5', code && 'border-destructive bg-destructive/5')}>
+    <div data-testid={stem} className={cn('space-y-2 border-b border-border px-1 py-2.5', code && 'bg-destructive/5')}>
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" aria-label={t('specialDate')} value={special.date} data-testid={`${stem}-date`} className={cn(field, 'w-40')}
           onChange={(e) => onEdit((h) => patchSpecial(h, index, { date: e.target.value }))} />

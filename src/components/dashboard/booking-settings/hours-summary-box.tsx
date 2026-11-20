@@ -23,7 +23,7 @@ export function HoursSummaryBox({ summary, dirty }: { summary: BookingHoursSumma
           <ExternalLink className="size-3.5" aria-hidden />{t('preview')}
         </a>
       </div>
-      <p data-testid="booking-settings-summary" className="text-sm leading-relaxed whitespace-pre-line text-foreground">{text ?? t('summaryNone')}</p>
+      <p data-testid="booking-settings-summary" className="max-w-[75ch] text-sm leading-relaxed whitespace-pre-line text-foreground">{text ?? t('summaryNone')}</p>
       {dirty ? <p data-testid="booking-settings-preview-stale" className="text-xs text-muted-foreground">{t('previewStale')}</p> : null}
     </section>
   )

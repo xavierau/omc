@@ -24,7 +24,7 @@ export function Segmented<T extends string | number | null>({ label, value, opti
         <button key={String(o.value)} type="button" role="radio" aria-checked={o.value === value} onClick={() => onChange(o.value)}
           data-testid={`${testId}-${o.value ?? 'none'}`}
           className={cn('h-8 rounded-md px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-            o.value === value ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+            o.value === value ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-foreground/80 hover:text-foreground')}>
           {o.label}
         </button>
       ))}

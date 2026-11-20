@@ -56,7 +56,7 @@ export function WeeklyHoursTable(props: HoursEditProps) {
   const t = useTranslations('bookingSettings.bookingHours')
   return (
     <div className="space-y-2">
-      <div className="divide-y divide-border rounded-lg border border-border">
+      <div className="divide-y divide-border border-y border-border">
         {WEEKDAYS.map((day) => <DayRow key={day} day={day} {...props} />)}
       </div>
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Info className="size-3.5" aria-hidden />{t('copyHint')}</p>

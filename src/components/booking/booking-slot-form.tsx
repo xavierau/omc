@@ -45,7 +45,7 @@ function Heading({ title, aside }: { title: string; aside?: string }) {
 function TimesChanged({ time }: { time: string }) {
   const t = useTranslations('booking.picker')
   return (
-    <div data-testid="booking-times-changed" role="alert" className="space-y-1 rounded-xl border border-pending-foreground/30 bg-pending-soft p-3 text-sm">
+    <div data-testid="booking-times-changed" role="alert" className="space-y-1 rounded-lg bg-pending-soft p-3 text-sm">
       <p className="flex items-center gap-1.5 font-semibold text-pending-foreground"><AlertTriangle className="size-4" aria-hidden />{t('timesChangedTitle')}</p>
       <p className="text-foreground">{t('timesChangedBody', { time })}</p>
     </div>

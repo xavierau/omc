@@ -28,15 +28,15 @@ function DayCell({ date, state, selected, today, onPick }: { date: string; state
   const t = useTranslations('booking.picker')
   const day = Number(date.slice(8, 10))
   if (state === 'past' || state === 'beyond') {
-    return <span data-testid={`booking-day-${date}`} data-state={state} className="flex h-12 items-center justify-center text-sm text-muted-foreground/60">{day}</span>
+    return <span data-testid={`booking-day-${date}`} data-state={state} className="flex h-12 items-center justify-center text-sm text-muted-foreground">{day}</span>
   }
   const open = state === 'open'
   return (
     <button type="button" disabled={!open} aria-disabled={!open} aria-pressed={selected} onClick={onPick} data-testid={`booking-day-${date}`} data-state={state}
       aria-label={open ? undefined : `${day} ${t(state === 'closed' ? 'closed' : 'noTimes')}`}
-      className={cn(chipClass(selected), 'h-12 flex-col gap-0 leading-tight', !open && 'border-transparent bg-muted text-muted-foreground/70')}>
+      className={cn(chipClass(selected), 'h-12 flex-col gap-0 leading-tight', !open && 'border-transparent bg-muted text-muted-foreground')}>
       <span className="text-base">{day}</span>
-      {state === 'closed' ? <span className="text-[10px] font-normal">{t('closed')}</span> : today ? <span className={cn('text-[10px] font-normal', !selected && 'text-primary')}>{t('today')}</span> : null}
+      {state === 'closed' ? <span className="text-[11px] font-normal">{t('closed')}</span> : today ? <span className={cn('text-[11px] font-normal', !selected && 'text-primary')}>{t('today')}</span> : null}
     </button>
   )
 }
@@ -62,7 +62,7 @@ export function DayCalendar({ hours, clock, value, onChange }: DayCalendarProps)
   const nav = 'inline-flex size-10 items-center justify-center rounded-md text-foreground hover:bg-muted disabled:text-muted-foreground/40 focus-visible:outline-2 focus-visible:outline-ring'
   return (
     <div className="space-y-3">
-      <div data-testid="booking-calendar" className="space-y-2 rounded-xl border border-border p-2">
+      <div data-testid="booking-calendar" className="space-y-2 border-y border-border py-2">
         <div className="flex items-center justify-between">
           <button type="button" className={nav} disabled={index === 0} onClick={() => setIndex((i) => i - 1)} aria-label={t('prevMonth')} data-testid="booking-calendar-prev">
             <ChevronLeft className="size-5" aria-hidden />

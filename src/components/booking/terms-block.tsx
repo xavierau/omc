@@ -19,14 +19,14 @@ export interface TermsBlockProps {
 export function TermsBlock({ terms, accepted, onChange, error }: TermsBlockProps) {
   const t = useTranslations('booking')
   return (
-    <section data-testid="booking-terms" className="space-y-3 rounded-xl border border-pending-foreground/30 bg-pending-soft p-4">
+    <section data-testid="booking-terms" className="space-y-3 border-y border-pending-foreground/30 bg-pending-soft -mx-4 px-4 py-4">
       <h2 className="flex items-center gap-1.5 text-base font-semibold text-pending-foreground"><Info className="size-4" aria-hidden />{t('picker.termsTitle')}</h2>
       {HOURS_LANGUAGES.filter((lang) => terms[lang] !== '').map((lang) => (
         <p key={lang} lang={lang === 'zh_hk' ? 'zh-HK' : 'en'} className="text-sm leading-relaxed whitespace-pre-line text-foreground">{terms[lang]}</p>
       ))}
       <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold text-foreground">
         <input type="checkbox" checked={accepted} onChange={(e) => onChange(e.target.checked)} data-testid="booking-terms-tick"
-          aria-invalid={Boolean(error)} aria-describedby={error ? 'booking-acceptTerms-error' : undefined} className="size-5 accent-primary" />
+          aria-invalid={Boolean(error)} aria-describedby={error ? 'booking-acceptTerms-error' : undefined} className="size-6 shrink-0 accent-primary" />
         {t('picker.termsTick')}
       </label>
       {error ? <p id="booking-acceptTerms-error" data-testid="booking-field-error-acceptTerms" className="text-xs text-destructive">{t(`errors.${error}`)}</p> : null}
