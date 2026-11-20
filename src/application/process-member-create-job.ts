@@ -27,6 +27,7 @@ import {
   findLatestConsentByCategory,
 } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { upsertIntegrationMemberRef } from '@/infrastructure/supabase/repositories/integration-member-ref-repository'
+import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import {
   getOnboardingSettings,
   getRestaurantDefaultLanguage,
@@ -318,7 +319,13 @@ export async function processMemberCreateJob(
       })
     }
 
-    if (createResult.outcome === 'created') {
+    // WONB-020 r1 F5: a retry of the job that created this member writes the
+    // join event if the earlier attempt crashed before it, so a
+    // partner-created member never looks never-welcomed (claimable).
+    if (
+      createResult.outcome === 'created' ||
+      (createdByThisJob && !(await hasJoinEvent(data.restaurantId, createResult.memberId)))
+    ) {
       await emitEvent({
         restaurantId: data.restaurantId,
         memberId: createResult.memberId,

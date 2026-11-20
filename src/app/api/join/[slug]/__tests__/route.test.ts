@@ -44,13 +44,21 @@ describe('POST /api/join/[slug]', () => {
     expect(await res.json()).toEqual({ couponCode: 'WLCM01' })
   })
 
-  it('WONB-020 AC-3: existing member who just claimed the welcome -> {couponCode}, not {existing:true}', async () => {
-    vi.mocked(registerMemberWeb).mockResolvedValueOnce({ isNew: false, memberId: 'm-imp', couponCode: 'WLCM02' })
+  it('WONB-020 r1 AC-1: existing never-welcomed member -> {existing:true, claimOnWhatsApp:true, whatsappClaimUrl}, no couponCode', async () => {
+    vi.mocked(registerMemberWeb).mockResolvedValueOnce({
+      isNew: false,
+      memberId: 'm-imp',
+      whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN',
+    })
 
     const res = await post({ phone: '+85291234567', name: 'Ivy' })
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ couponCode: 'WLCM02' })
+    expect(await res.json()).toEqual({
+      existing: true,
+      claimOnWhatsApp: true,
+      whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN',
+    })
   })
 
   it('existing member with nothing to claim -> {existing:true}', async () => {

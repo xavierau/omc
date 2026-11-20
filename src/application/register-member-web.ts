@@ -9,6 +9,8 @@ import {
   incrementCampaignSent,
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { getRestaurantEmailContext } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { buildContactUrl } from '@/domain/services/contact-redirect'
 import { PhoneNumber } from '@/domain/value-objects/phone-number'
 import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
@@ -20,6 +22,8 @@ interface WebRegisterResult {
   isNew: boolean
   memberId: string
   couponCode?: string
+  /** WONB-020 r1: existing never-welcomed member -> claim by sending JOIN here. */
+  whatsappClaimUrl?: string
 }
 
 // G-3 / N-8: the strict-then-fallback E.164 resolver itself now lives in
@@ -49,21 +53,30 @@ export async function registerMemberWeb(
 
   const { data: existing } = await supabase
     .from('members')
-    .select('id, name')
+    .select('id')
     .eq('restaurant_id', restaurantId)
     .eq('phone', resolvedPhone.value)
     .single()
 
   if (existing) {
-    // WONB-020: never welcomed (no join event, e.g. imported) -> claim once.
-    if (await canClaimWelcome(restaurantId, existing.id)) {
-      const couponCode = await mintWelcome(restaurantId, existing.id, existing.name ?? contactName)
-      return { isNew: false, memberId: existing.id, couponCode }
-    }
-    return { isNew: false, memberId: existing.id }
+    return respondToExistingWebMember(restaurantId, existing.id)
   }
 
   return createNewWebMember(resolvedPhone, contactName, restaurantId)
+}
+
+// WONB-020 r1 F1 (owner ruling 2026-11-20): the web form can't prove phone
+// ownership, so it never mints for an existing member. A never-welcomed one
+// (e.g. CSV-imported) gets a wa.me JOIN link: a WhatsApp message proves the
+// number, and JOIN there claims the welcome. No usable number -> plain.
+async function respondToExistingWebMember(
+  restaurantId: string,
+  memberId: string
+): Promise<WebRegisterResult> {
+  if (!(await canClaimWelcome(restaurantId, memberId))) return { isNew: false, memberId }
+  const { whatsappNumber } = await getRestaurantEmailContext(restaurantId)
+  const whatsappClaimUrl = whatsappNumber ? buildContactUrl(whatsappNumber, 'JOIN') : null
+  return whatsappClaimUrl ? { isNew: false, memberId, whatsappClaimUrl } : { isNew: false, memberId }
 }
 
 async function createNewWebMember(
@@ -90,25 +103,14 @@ async function createNewWebMember(
     return { isNew: false, memberId: result.memberId }
   }
 
-  const couponCode = await mintWelcome(restaurantId, result.memberId, name)
-  return { isNew: true, memberId: result.memberId, couponCode }
-}
-
-// Mints the welcome coupon, then writes the join event (which marks the
-// member as welcomed). Shared by new members and WONB-020 claims.
-async function mintWelcome(
-  restaurantId: string,
-  memberId: string,
-  name: string
-): Promise<string> {
   const campaign = await resolveWelcomeCampaign(restaurantId)
   const coupon = campaign
-    ? await mintCampaignCoupon(restaurantId, memberId, campaign, name)
-    : await createWelcomeCoupon(restaurantId, memberId)
+    ? await mintCampaignCoupon(restaurantId, result.memberId, campaign, name)
+    : await createWelcomeCoupon(restaurantId, result.memberId)
 
   await emitEvent({
     restaurantId,
-    memberId,
+    memberId: result.memberId,
     type: 'join',
     dataJson: {
       source: 'web',
@@ -117,7 +119,7 @@ async function mintWelcome(
     },
   })
 
-  return coupon.code
+  return { isNew: true, memberId: result.memberId, couponCode: coupon.code }
 }
 
 async function resolveWelcomeCampaign(

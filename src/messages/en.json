@@ -425,6 +425,8 @@
     "alreadyMember": "You are already a member!",
     "genericError": "Something went wrong. Please try again.",
     "promotionUnavailable": "This promotion is no longer available. Please contact us to continue.",
+    "claimOnWhatsApp": "You're already a member — tap to claim your welcome offer on WhatsApp",
+    "claimOnWhatsAppButton": "Claim on WhatsApp",
     "successHeading": "Welcome!",
     "successSubtitle": "Your welcome coupon is ready"
   },

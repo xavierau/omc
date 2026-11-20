@@ -13,6 +13,7 @@ import { sendReturningWelcome } from './send-returning-welcome'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 import { canClaimWelcome } from './has-join-event'
+import { tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 
 interface RegisterResult {
   isNew: boolean
@@ -52,7 +53,7 @@ export async function registerMember(
   if (existing) {
     // WONB-020: never welcomed (no join event, e.g. imported) -> claim once.
     if (await canClaimWelcome(restaurantId, existing.id)) {
-      return claimWelcomeForExisting(restaurantId, phoneNumberId, phone, existing, contactName)
+      return claimWelcomeUnderLock(restaurantId, phoneNumberId, phone, existing, contactName)
     }
     return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
   }
@@ -101,6 +102,30 @@ async function respondToReturningMember(
   return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance }
 }
 
+// WONB-020 r1 F3: one claim at a time per (restaurant, member). No lock
+// (held elsewhere, or Redis down) -> welcome-back, never a coupon; the
+// claim is re-checked under the lock so a claim that just finished wins.
+async function claimWelcomeUnderLock(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: PhoneNumber,
+  existing: ExistingMember,
+  contactName?: string
+): Promise<RegisterResult> {
+  const lease = await tryAcquireWelcomeClaimLock(restaurantId, existing.id)
+  if (!lease) return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
+  try {
+    if (!(await canClaimWelcome(restaurantId, existing.id))) {
+      return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
+    }
+    return await claimWelcomeForExisting(restaurantId, phoneNumberId, phone, existing, contactName)
+  } finally {
+    await lease.release()
+  }
+}
+
+// r1 F4: any failure inside the claim (mint, event, sends) -> the member's
+// normal welcome-back, not the new-member minimal welcome text.
 async function claimWelcomeForExisting(
   restaurantId: string,
   phoneNumberId: string,
@@ -108,13 +133,20 @@ async function claimWelcomeForExisting(
   existing: ExistingMember,
   contactName?: string
 ): Promise<RegisterResult> {
-  const memberPreferredLanguage = existing.preferred_language ?? null
-  const couponCode = await runOnboarding(restaurantId, phoneNumberId, phone.value, {
-    memberId: existing.id,
-    contactName: existing.name ?? contactName,
-    memberPreferredLanguage,
-  })
-  return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance, couponCode }
+  try {
+    const couponCode = await onboardNewMember({
+      restaurantId,
+      phoneNumberId,
+      phone: phone.value,
+      memberId: existing.id,
+      contactName: existing.name ?? contactName,
+      memberPreferredLanguage: existing.preferred_language ?? null,
+    })
+    return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance, couponCode }
+  } catch (err) {
+    console.warn('[register] welcome claim failed, sending welcome-back:', (err as Error).message)
+    return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
+  }
 }
 
 async function createNewMember(
@@ -167,35 +199,27 @@ async function createNewMember(
     )
   }
 
-  const couponCode = await runOnboarding(restaurantId, phoneNumberId, phone.value, {
-    memberId: result.memberId,
-    contactName,
-    memberPreferredLanguage,
-  })
-
-  return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }
-}
-
-// Welcome flow (coupon + join event + sends) shared by new members and
-// WONB-020 claims; on failure sends the minimal welcome text instead.
-async function runOnboarding(
-  restaurantId: string,
-  phoneNumberId: string,
-  phone: string,
-  member: { memberId: string; contactName?: string; memberPreferredLanguage: string | null }
-): Promise<string | undefined> {
+  let couponCode: string | undefined
   try {
-    return await onboardNewMember({ restaurantId, phoneNumberId, phone, ...member })
+    couponCode = await onboardNewMember({
+      restaurantId,
+      memberId: result.memberId,
+      phoneNumberId,
+      phone: phone.value,
+      contactName,
+      memberPreferredLanguage,
+    })
   } catch (err) {
     console.warn('[register] Post-insert step failed:', (err as Error).message)
     await sendFallbackMinimalWelcome(
       restaurantId,
       phoneNumberId,
-      phone,
-      member.memberPreferredLanguage
+      phone.value,
+      memberPreferredLanguage
     )
-    return undefined
   }
+
+  return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }
 }
 
 async function sendFallbackMinimalWelcome(

@@ -17,6 +17,7 @@ vi.mock('@/infrastructure/queue/integration-inbound-queue')
 vi.mock('@/application/create-or-get-member')
 vi.mock('@/application/emit-event')
 vi.mock('@/application/notify-ops-alert')
+vi.mock('@/infrastructure/supabase/repositories/event-repository')
 
 import { processMemberCreateJob } from '../process-member-create-job'
 import { createOrGetMember } from '../create-or-get-member'
@@ -45,6 +46,7 @@ import {
   recordMemberJobMemberId,
 } from '@/infrastructure/supabase/repositories/integration-member-job-repository'
 import { addWelcomeSendJob, getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
+import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import type { MemberCreateJobData } from '@/infrastructure/queue/integration-inbound-queue'
 
 function jobData(overrides: Partial<MemberCreateJobData> = {}): MemberCreateJobData {
@@ -116,6 +118,7 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
     vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'created', memberId: 'm-1', status: 'active' })
     vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: null } as never)
     vi.mocked(recordMemberJobMemberId).mockResolvedValue(undefined)
+    vi.mocked(hasJoinEvent).mockResolvedValue(false)
   })
 
   it('new member: created, consent written per category, join event with source partner_api and no coupon_code, welcome_off recorded, job marked succeeded', async () => {
@@ -432,5 +435,60 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
     await expect(processMemberCreateJob(jobData(), 1, 3)).rejects.toThrow()
 
     expect(limiter.decr).not.toHaveBeenCalled()
+  })
+
+  // WONB-020 r1 F5: a job that created the member, then crashed before (or
+  // while) writing the join event, must write it on retry -- otherwise the
+  // partner-created member looks never-welcomed and can claim the welcome.
+  describe('WONB-020 F5: partner join event on a create-job retry', () => {
+    function joinEmits(): number {
+      return vi.mocked(emitEvent).mock.calls.filter(([e]) => e.type === 'join').length
+    }
+
+    it('retry with createdByThisJob and no join event yet -> join event emitted once', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-1' } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
+
+      await processMemberCreateJob(jobData(), 2, 3)
+
+      expect(hasJoinEvent).toHaveBeenCalledWith('rest-1', 'm-1')
+      expect(joinEmits()).toBe(1)
+      expect(emitEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'join',
+          memberId: 'm-1',
+          dataJson: { source: 'partner_api', integration_id: 'int-1' },
+          source: 'pos:int-1',
+        })
+      )
+    })
+
+    it('retry with createdByThisJob and the join event already written -> no second join event', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-1' } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
+      vi.mocked(hasJoinEvent).mockResolvedValue(true)
+
+      await processMemberCreateJob(jobData(), 2, 3)
+
+      expect(joinEmits()).toBe(0)
+    })
+
+    it('a genuinely pre-existing member -> no join event and no join lookup (unchanged)', async () => {
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: null } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-99', status: 'active' })
+
+      await processMemberCreateJob(jobData(), 1, 3)
+
+      expect(joinEmits()).toBe(0)
+      expect(hasJoinEvent).not.toHaveBeenCalled()
+    })
+
+    it('first attempt created the member -> one join event without a lookup (unchanged)', async () => {
+      await processMemberCreateJob(jobData(), 1, 3)
+
+      expect(joinEmits()).toBe(1)
+      expect(hasJoinEvent).not.toHaveBeenCalled()
+    })
   })
 })

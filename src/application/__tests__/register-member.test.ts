@@ -10,6 +10,7 @@ vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 vi.mock('@/infrastructure/whatsapp/messaging')
 vi.mock('@/infrastructure/supabase/storage')
 vi.mock('@/infrastructure/supabase/repositories/event-repository')
+vi.mock('@/infrastructure/redis/welcome-claim-lock')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
@@ -26,6 +27,8 @@ import {
 import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/messaging'
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { hasWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
+import { tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 import { registerMember } from '../register-member'
 import type { Campaign } from '@/domain/entities/campaign'
 import { okResult } from '@/test-utils/send-result'
@@ -47,6 +50,8 @@ const mockInsertSelect = vi.fn().mockReturnValue({ single: mockInsertSingle })
 const mockInsert = vi.fn().mockReturnValue({ select: mockInsertSelect })
 const mockFrom = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsert })
 const mockSupabase = { from: mockFrom }
+
+const lockRelease = vi.fn<() => Promise<void>>()
 
 const RESTAURANT_ID = 'rest-1'
 const PHONE_NUMBER_ID = 'pn-1'
@@ -94,6 +99,10 @@ describe('registerMember', () => {
     vi.mocked(uploadCouponQr).mockResolvedValue('https://qr.example.com/img.png')
     vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WELCOME1', id: 'c-1' })
     vi.mocked(createCampaignCoupon).mockResolvedValue({ code: 'MAPPED1', id: 'c-2' })
+    // r1 F7: reset (not just clear) the mocks a test may make stateful, so no
+    // implementation or unconsumed Once value leaks into the next test.
+    vi.mocked(emitEvent).mockReset()
+    vi.mocked(hasJoinEvent).mockReset()
     vi.mocked(emitEvent).mockResolvedValue(undefined as never)
     vi.mocked(incrementCampaignSent).mockResolvedValue(undefined)
     vi.mocked(getOnboardingSettings).mockResolvedValue({
@@ -107,6 +116,9 @@ describe('registerMember', () => {
     // WONB-020: existing members in the tests above already have a join
     // event (welcome-back); the claim block below overrides this.
     vi.mocked(hasJoinEvent).mockResolvedValue(true)
+    vi.mocked(hasWelcomeCoupon).mockResolvedValue(false)
+    lockRelease.mockReset().mockResolvedValue(undefined)
+    vi.mocked(tryAcquireWelcomeClaimLock).mockReset().mockResolvedValue({ release: lockRelease })
   })
 
   it('returns isNew=false and sends default greeting for existing unnamed member', async () => {
@@ -669,7 +681,7 @@ describe('registerMember', () => {
     }
 
     it('AC-1: runs the welcome flow (coupon + welcome + QR) once with the stored name and language, no welcome-back', async () => {
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(false)
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'WaProfileName')
@@ -699,7 +711,7 @@ describe('registerMember', () => {
     })
 
     it('AC-1: falls back to the WhatsApp contact name when the stored name is null', async () => {
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(false)
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
       vi.mocked(getOnboardingSettings).mockResolvedValue({
         welcomeCampaignId: 'camp-welcome',
         returningMemberTemplate: null,
@@ -722,8 +734,8 @@ describe('registerMember', () => {
       expect(sendTextMessage).toHaveBeenCalledWith(PHONE_NUMBER_ID, VALID_PHONE, 'Hi Carol, here is your code: MAPPED1')
     })
 
-    it('AC-2: a member WITH a join event gets welcome-back only, no coupon', async () => {
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(true)
+    it('AC-2: a member WITH a join event gets welcome-back only, no coupon, no lock', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(true)
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
@@ -732,10 +744,12 @@ describe('registerMember', () => {
       expect(createWelcomeCoupon).not.toHaveBeenCalled()
       expect(createCampaignCoupon).not.toHaveBeenCalled()
       expect(emitEvent).not.toHaveBeenCalled()
+      expect(tryAcquireWelcomeClaimLock).not.toHaveBeenCalled()
       expect(welcomeBackSent()).toBe(true)
     })
 
-    it('AC-4: after the claim writes its join event, a second JOIN is welcome-back with no second coupon', async () => {
+    it('AC-4 (r0): after the claim writes its join event, a second JOIN is welcome-back with no second coupon', async () => {
+      // Stateful fake, reset in beforeEach (r1 F7).
       let joined = false
       vi.mocked(emitEvent).mockImplementation(async (e) => {
         if (e.type === 'join') joined = true
@@ -755,9 +769,9 @@ describe('registerMember', () => {
       expect(welcomeBackSent()).toBe(true)
     })
 
-    it('AC-5: a join-event lookup failure mints nothing, falls back to welcome-back and warns', async () => {
+    it('AC-5 (r0): a join-event lookup failure mints nothing, falls back to welcome-back and warns', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      vi.mocked(hasJoinEvent).mockRejectedValueOnce(new Error('hasJoinEvent: connection reset'))
+      vi.mocked(hasJoinEvent).mockRejectedValue(new Error('hasJoinEvent: connection reset'))
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
@@ -766,28 +780,164 @@ describe('registerMember', () => {
       expect(createWelcomeCoupon).not.toHaveBeenCalled()
       expect(createCampaignCoupon).not.toHaveBeenCalled()
       expect(welcomeBackSent()).toBe(true)
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('join-event lookup failed'), expect.anything())
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('lookup failed'), expect.anything())
       warn.mockRestore()
     })
 
-    it('keeps the failure fallback on the claim path: onboarding throws -> minimal welcome text, no welcome-back', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(false)
-      vi.mocked(createWelcomeCoupon).mockRejectedValueOnce(new Error('coupon insert failed'))
-      mockSingle.mockResolvedValueOnce({ data: { ...IMPORTED, preferred_language: 'en' }, error: null })
+    it('r1 F2: a member already holding a welcome coupon (join event write failed) gets welcome-back, no second mint', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
+      vi.mocked(hasWelcomeCoupon).mockResolvedValue(true)
+      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
 
-      expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 0, couponCode: undefined })
-      expect(emitEvent).not.toHaveBeenCalled()
-      expect(sendTextMessage).toHaveBeenCalledTimes(1)
-      expect(sendTextMessage).toHaveBeenCalledWith(
-        PHONE_NUMBER_ID,
-        VALID_PHONE,
-        expect.stringContaining('Welcome to our loyalty program!')
-      )
-      expect(welcomeBackSent()).toBe(false)
-      warn.mockRestore()
+      expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 0 })
+      expect(createWelcomeCoupon).not.toHaveBeenCalled()
+      expect(welcomeBackSent()).toBe(true)
+    })
+
+    // r1 F3: the claim is serialised per (restaurant, member).
+    describe('r1 F3: claim lock', () => {
+      it('AC-4: takes the lock for (restaurant, member), mints once, then releases it', async () => {
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result.couponCode).toBe('WELCOME1')
+        expect(tryAcquireWelcomeClaimLock).toHaveBeenCalledWith(RESTAURANT_ID, 'm-imp')
+        expect(lockRelease).toHaveBeenCalledTimes(1)
+        const lockOrder = vi.mocked(tryAcquireWelcomeClaimLock).mock.invocationCallOrder[0]
+        expect(lockOrder).toBeLessThan(vi.mocked(createWelcomeCoupon).mock.invocationCallOrder[0])
+        expect(vi.mocked(createWelcomeCoupon).mock.invocationCallOrder[0]).toBeLessThan(lockRelease.mock.invocationCallOrder[0])
+      })
+
+      it('AC-4: lock not acquired (another JOIN is claiming) -> welcome-back, no mint, no release', async () => {
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        vi.mocked(tryAcquireWelcomeClaimLock).mockResolvedValue(null)
+        mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 0 })
+        expect(createWelcomeCoupon).not.toHaveBeenCalled()
+        expect(createCampaignCoupon).not.toHaveBeenCalled()
+        expect(emitEvent).not.toHaveBeenCalled()
+        expect(lockRelease).not.toHaveBeenCalled()
+        expect(welcomeBackSent()).toBe(true)
+      })
+
+      it('AC-4: Redis unavailable (the lock helper reads it as not acquired) -> welcome-back, no mint', async () => {
+        // tryAcquireWelcomeClaimLock never throws: a Redis error resolves null
+        // (welcome-claim-lock.test.ts); this is that answer at the use case.
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        vi.mocked(tryAcquireWelcomeClaimLock).mockResolvedValueOnce(null)
+        mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+        await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(createWelcomeCoupon).not.toHaveBeenCalled()
+        expect(welcomeBackSent()).toBe(true)
+      })
+
+      it('AC-4: claimability is re-checked after the lock: a join event written meanwhile -> welcome-back, no mint, lock released', async () => {
+        vi.mocked(hasJoinEvent).mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+        mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 0 })
+        expect(hasJoinEvent).toHaveBeenCalledTimes(2)
+        const recheck = vi.mocked(hasJoinEvent).mock.invocationCallOrder[1]
+        expect(vi.mocked(tryAcquireWelcomeClaimLock).mock.invocationCallOrder[0]).toBeLessThan(recheck)
+        expect(createWelcomeCoupon).not.toHaveBeenCalled()
+        expect(lockRelease).toHaveBeenCalledTimes(1)
+        expect(welcomeBackSent()).toBe(true)
+      })
+    })
+
+    // r1 F4: a failed claim degrades to the member's normal welcome-back.
+    describe('r1 F4: claim failure falls back to welcome-back', () => {
+      it('AC-5: coupon mint fails -> welcome-back with the member points, not the minimal welcome text; lock released', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        vi.mocked(createWelcomeCoupon).mockRejectedValueOnce(new Error('coupon insert failed'))
+        mockSingle.mockResolvedValueOnce({ data: { ...IMPORTED, points_balance: 120, preferred_language: 'en' }, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 120 })
+        expect(emitEvent).not.toHaveBeenCalled()
+        expect(sendTextMessage).toHaveBeenCalledTimes(1)
+        const [, , text] = vi.mocked(sendTextMessage).mock.calls[0]
+        expect(String(text)).toMatch(/Welcome back/)
+        expect(String(text)).toContain('120')
+        expect(String(text)).not.toContain('Welcome to our loyalty program')
+        expect(lockRelease).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('welcome claim failed'), expect.anything())
+        warn.mockRestore()
+      })
+
+      it('AC-5: join event write fails after the mint -> welcome-back, not the minimal welcome text', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        vi.mocked(emitEvent).mockRejectedValue(new Error('events insert failed'))
+        mockSingle.mockResolvedValueOnce({ data: { ...IMPORTED, points_balance: 40, preferred_language: 'en' }, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result).toEqual({ isNew: false, memberId: 'm-imp', pointsBalance: 40 })
+        expect(welcomeBackSent()).toBe(true)
+        expect(sendTextMessage).not.toHaveBeenCalledWith(
+          PHONE_NUMBER_ID,
+          VALID_PHONE,
+          expect.stringContaining('Welcome to our loyalty program')
+        )
+        warn.mockRestore()
+      })
+
+      it('AC-5: a send fails inside the claim -> welcome-back', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(hasJoinEvent).mockResolvedValue(false)
+        vi.mocked(uploadCouponQr).mockRejectedValueOnce(new Error('upload failed'))
+        vi.mocked(sendImageMessage).mockRejectedValue(new Error('send failed'))
+        vi.mocked(sendTextMessage)
+          .mockRejectedValueOnce(new Error('send failed'))
+          .mockResolvedValue(okResult())
+        mockSingle.mockResolvedValueOnce({ data: { ...IMPORTED, preferred_language: 'en' }, error: null })
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        // Sends are best-effort (onboard-send-helpers swallow their own
+        // errors), so the claim may still succeed; either way no minimal
+        // welcome text goes out on the claim path.
+        expect(sendTextMessage).not.toHaveBeenCalledWith(
+          PHONE_NUMBER_ID,
+          VALID_PHONE,
+          expect.stringMatching(/^Welcome to our loyalty program!/)
+        )
+        expect(result.memberId).toBe('m-imp')
+        warn.mockRestore()
+      })
+
+      it('AC-5: the new-member failure path still sends the minimal welcome text (unchanged)', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        mockSingle.mockResolvedValueOnce({ data: null, error: null })
+        mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+        vi.mocked(createWelcomeCoupon).mockRejectedValueOnce(new Error('coupon insert failed'))
+
+        const result = await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+        expect(result).toEqual({ isNew: true, memberId: 'm-new', pointsBalance: 0, couponCode: undefined })
+        expect(sendTextMessage).toHaveBeenCalledWith(
+          PHONE_NUMBER_ID,
+          VALID_PHONE,
+          expect.stringContaining('Welcome to our loyalty program!')
+        )
+        expect(welcomeBackSent()).toBe(false)
+        expect(tryAcquireWelcomeClaimLock).not.toHaveBeenCalled()
+        warn.mockRestore()
+      })
     })
   })
 })

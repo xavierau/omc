@@ -7,6 +7,8 @@ vi.mock('@/application/emit-event')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/infrastructure/supabase/repositories/event-repository')
+vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
+vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
@@ -20,6 +22,8 @@ import {
 } from '@/infrastructure/supabase/repositories/campaign-repository'
 import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
 import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
+import { hasWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
+import { getRestaurantEmailContext } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { registerMemberWeb } from '../register-member-web'
 
 const mockSingle = vi.fn()
@@ -69,7 +73,8 @@ describe('registerMemberWeb', () => {
     vi.mocked(createServerSupabaseClient).mockReturnValue(mockSupabase as never)
     vi.mocked(createWelcomeCoupon).mockResolvedValue({ code: 'WLCM01', id: 'c-1' })
     vi.mocked(createCampaignCoupon).mockResolvedValue({ code: 'PROMO1', id: 'c-2' })
-    vi.mocked(emitEvent).mockResolvedValue(undefined as never)
+    // r1 F7: reset (not just clear) the mocks a test may make stateful.
+    vi.mocked(emitEvent).mockReset().mockResolvedValue(undefined as never)
     vi.mocked(getCampaignById).mockResolvedValue(null)
     vi.mocked(incrementCampaignSent).mockResolvedValue(undefined)
     vi.mocked(getOnboardingSettings).mockResolvedValue({
@@ -81,7 +86,9 @@ describe('registerMemberWeb', () => {
     })
     // WONB-020: existing members in the tests above already have a join
     // event; the claim block below overrides this.
-    vi.mocked(hasJoinEvent).mockResolvedValue(true)
+    vi.mocked(hasJoinEvent).mockReset().mockResolvedValue(true)
+    vi.mocked(hasWelcomeCoupon).mockResolvedValue(false)
+    vi.mocked(getRestaurantEmailContext).mockResolvedValue({ name: 'Poppy', whatsappNumber: '+85261234567' })
   })
 
   it('returns isNew=false for existing member without touching coupon code', async () => {
@@ -195,99 +202,106 @@ describe('registerMemberWeb', () => {
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
-  // WONB-020: web join form for an existing member with no `join` event
-  // (e.g. CSV-imported) mints the welcome coupon once.
-  describe('WONB-020: existing member with no join event claims the welcome offer', () => {
-    const IMPORTED = { id: 'm-imp', name: 'Ivy' }
+  // WONB-020 r1 F1 (owner ruling 2026-11-20): the web form can't prove phone
+  // ownership, so it never mints for an existing member. A never-welcomed
+  // member (e.g. CSV-imported) is pointed at WhatsApp, where JOIN claims it.
+  describe('WONB-020 r1 F1: existing member with no join event is sent to WhatsApp to claim', () => {
+    const IMPORTED = { id: 'm-imp' }
 
-    it('AC-3: mints the welcome coupon, emits the join event after the mint, returns the code', async () => {
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(false)
-      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
-
-      const result = await registerMemberWeb(VALID_PHONE, 'Typed Name', RESTAURANT_ID)
-
-      expect(result).toEqual({ isNew: false, memberId: 'm-imp', couponCode: 'WLCM01' })
-      expect(hasJoinEvent).toHaveBeenCalledWith(RESTAURANT_ID, 'm-imp')
+    function nothingMinted() {
+      expect(createWelcomeCoupon).not.toHaveBeenCalled()
+      expect(createCampaignCoupon).not.toHaveBeenCalled()
+      expect(incrementCampaignSent).not.toHaveBeenCalled()
+      expect(emitEvent).not.toHaveBeenCalled()
       expect(mockInsert).not.toHaveBeenCalled()
-      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
-      expect(createWelcomeCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-imp')
-      expect(emitEvent).toHaveBeenCalledWith({
-        restaurantId: RESTAURANT_ID,
-        memberId: 'm-imp',
-        type: 'join',
-        dataJson: { source: 'web', coupon_code: 'WLCM01', campaign_id: null },
-      })
-      const mintOrder = vi.mocked(createWelcomeCoupon).mock.invocationCallOrder[0]
-      const joinOrder = vi.mocked(emitEvent).mock.invocationCallOrder[0]
-      expect(mintOrder).toBeLessThan(joinOrder)
-    })
+    }
 
-    it('AC-3: uses the mapped welcome campaign with the stored name (form name when none stored)', async () => {
-      vi.mocked(getOnboardingSettings).mockResolvedValue({
-        welcomeCampaignId: 'camp-1',
-        returningMemberTemplate: null,
-        returningMemberTemplateEn: null,
-        returningMemberTemplateZhHk: null,
-        defaultLanguage: 'zh_hk',
-      })
-      vi.mocked(getCampaignById).mockResolvedValue(buildCampaign())
+    it('AC-1: claimable -> no coupon, no join event, a wa.me JOIN link to the restaurant number', async () => {
       vi.mocked(hasJoinEvent).mockResolvedValue(false)
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
-      mockSingle.mockResolvedValueOnce({ data: { id: 'm-imp2', name: null }, error: null })
-
-      const stored = await registerMemberWeb(VALID_PHONE, 'Typed Name', RESTAURANT_ID)
-      const unnamed = await registerMemberWeb(VALID_PHONE, 'Typed Name', RESTAURANT_ID)
-
-      expect(stored.couponCode).toBe('PROMO1')
-      expect(unnamed.couponCode).toBe('PROMO1')
-      expect(createCampaignCoupon).toHaveBeenNthCalledWith(1, RESTAURANT_ID, 'm-imp', expect.objectContaining({ id: 'camp-1' }), 'Ivy')
-      expect(createCampaignCoupon).toHaveBeenNthCalledWith(2, RESTAURANT_ID, 'm-imp2', expect.objectContaining({ id: 'camp-1' }), 'Typed Name')
-      expect(incrementCampaignSent).toHaveBeenCalledWith('camp-1', false)
-    })
-
-    it('AC-3: a member WITH a join event stays isNew=false with no coupon', async () => {
-      vi.mocked(hasJoinEvent).mockResolvedValueOnce(true)
-      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
 
-      expect(result).toEqual({ isNew: false, memberId: 'm-imp' })
-      expect(createWelcomeCoupon).not.toHaveBeenCalled()
-      expect(createCampaignCoupon).not.toHaveBeenCalled()
-      expect(emitEvent).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        isNew: false,
+        memberId: 'm-imp',
+        whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN',
+      })
+      expect(hasJoinEvent).toHaveBeenCalledWith(RESTAURANT_ID, 'm-imp')
+      expect(getRestaurantEmailContext).toHaveBeenCalledWith(RESTAURANT_ID)
+      nothingMinted()
     })
 
-    it('AC-4: after the claim writes its join event, a second submission gets no second coupon', async () => {
-      let joined = false
-      vi.mocked(emitEvent).mockImplementation(async (e) => {
-        if (e.type === 'join') joined = true
-        return undefined as never
-      })
-      vi.mocked(hasJoinEvent).mockImplementation(async () => joined)
+    it('AC-1: claimable, submitted twice -> still zero coupons and zero join events', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
-      const first = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
+      await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
       const second = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
 
-      expect(first.couponCode).toBe('WLCM01')
-      expect(second).toEqual({ isNew: false, memberId: 'm-imp' })
-      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
+      expect(second.whatsappClaimUrl).toBe('https://wa.me/85261234567?text=JOIN')
+      nothingMinted()
     })
 
-    it('AC-5: a join-event lookup failure mints nothing and warns', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      vi.mocked(hasJoinEvent).mockRejectedValueOnce(new Error('hasJoinEvent: timeout'))
+    it('AC-1: claimable but the restaurant has no usable WhatsApp number -> plain existing, no link', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
+      vi.mocked(getRestaurantEmailContext).mockResolvedValue({ name: 'Poppy', whatsappNumber: null })
+      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+      const none = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
+      vi.mocked(getRestaurantEmailContext).mockResolvedValue({ name: 'Poppy', whatsappNumber: '12' })
+      const bad = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
+
+      expect(none).toEqual({ isNew: false, memberId: 'm-imp' })
+      expect(bad).toEqual({ isNew: false, memberId: 'm-imp' })
+      nothingMinted()
+    })
+
+    it('AC-1: already welcomed (join event) -> plain existing, no link, no number lookup', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(true)
       mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
 
       const result = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
 
       expect(result).toEqual({ isNew: false, memberId: 'm-imp' })
-      expect(createWelcomeCoupon).not.toHaveBeenCalled()
-      expect(createCampaignCoupon).not.toHaveBeenCalled()
-      expect(emitEvent).not.toHaveBeenCalled()
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('join-event lookup failed'), expect.anything())
+      expect(getRestaurantEmailContext).not.toHaveBeenCalled()
+      nothingMinted()
+    })
+
+    it('AC-1: holds a welcome coupon (r1 F2) -> plain existing, no link', async () => {
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
+      vi.mocked(hasWelcomeCoupon).mockResolvedValue(true)
+      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+      expect(await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)).toEqual({ isNew: false, memberId: 'm-imp' })
+      nothingMinted()
+    })
+
+    it('AC-5 (r0): a claim lookup failure -> plain existing, no link, warns', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(hasJoinEvent).mockRejectedValue(new Error('hasJoinEvent: timeout'))
+      mockSingle.mockResolvedValueOnce({ data: IMPORTED, error: null })
+
+      const result = await registerMemberWeb(VALID_PHONE, 'Ivy', RESTAURANT_ID)
+
+      expect(result).toEqual({ isNew: false, memberId: 'm-imp' })
+      nothingMinted()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('lookup failed'), expect.anything())
       warn.mockRestore()
+    })
+
+    it('AC-1: a new member is unchanged -> coupon minted, join event, {isNew:true, couponCode}', async () => {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+
+      const result = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(result).toEqual({ isNew: true, memberId: 'm-new', couponCode: 'WLCM01' })
+      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
+      expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ memberId: 'm-new', type: 'join' }))
+      expect(hasJoinEvent).not.toHaveBeenCalled()
     })
   })
 })

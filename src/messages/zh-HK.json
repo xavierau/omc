@@ -425,6 +425,8 @@
     "alreadyMember": "您已經是會員！",
     "genericError": "出了點問題，請重試。",
     "promotionUnavailable": "此推廣活動已結束，請聯繫我們以繼續。",
+    "claimOnWhatsApp": "您已經是會員 — 按此在 WhatsApp 領取迎新優惠",
+    "claimOnWhatsAppButton": "在 WhatsApp 領取",
     "successHeading": "歡迎！",
     "successSubtitle": "您的迎新優惠券已準備好"
   },

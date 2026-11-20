@@ -111,6 +111,31 @@ export async function findWelcomeCouponByMember(
   return data ? mapRowToCoupon(data) : null
 }
 
+// WONB-020 r1 F2: has this member already been given a welcome offer --
+// a `welcome` coupon, or any coupon of the restaurant's current welcome
+// campaign? Covers a mint whose join-event write failed. Throws on a DB
+// error so the caller can decide which way to fail.
+export async function hasWelcomeCoupon(
+  restaurantId: string,
+  memberId: string,
+  welcomeCampaignId: string | null
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const filter = welcomeCampaignId
+    ? `type.eq.welcome,campaign_id.eq.${welcomeCampaignId}`
+    : 'type.eq.welcome'
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
+    .or(filter)
+    .limit(1)
+
+  if (error) throw new Error(`hasWelcomeCoupon: ${error.message}`)
+  return (data ?? []).length > 0
+}
+
 export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {
   const supabase = createServerSupabaseClient()
   const { restaurantId, page, pageSize, type, isActive } = params
