@@ -81,7 +81,7 @@ describe('mintWelcomeCouponIdempotent (INT-001 WI-4, OD-15)', () => {
       const result = await mintWelcomeCouponIdempotent('rest-1', 'm-1', 'Ada', campaign())
 
       expect(result).toEqual({ code: 'NEW1', id: 'cpn-new' })
-      expect(createCampaignCoupon).toHaveBeenCalledWith('rest-1', 'm-1', campaign(), 'Ada')
+      expect(createCampaignCoupon).toHaveBeenCalledWith('rest-1', 'm-1', campaign(), 'Ada', { welcomeOffer: true })
     })
 
     it('retry after a crash between mint and send: finds the existing coupon, never mints again', async () => {

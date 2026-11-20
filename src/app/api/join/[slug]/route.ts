@@ -53,6 +53,15 @@ export async function POST(
       return NextResponse.json({ couponCode: result.couponCode })
     }
 
+    // WONB-020: an existing member continues (and claims, if never welcomed) on WhatsApp.
+    if (result.whatsappClaimUrl) {
+      return NextResponse.json({
+        existing: true,
+        claimOnWhatsApp: true,
+        whatsappClaimUrl: result.whatsappClaimUrl,
+      })
+    }
+
     return NextResponse.json({ existing: true })
   } catch (error) {
     const message = (error as Error).message ?? ''

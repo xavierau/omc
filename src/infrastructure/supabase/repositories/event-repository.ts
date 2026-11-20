@@ -79,3 +79,25 @@ export async function createEvent(params: {
   if (!data) throw new Error('createEvent: no data returned')
   return data.id as string
 }
+
+/**
+ * WONB-020: whether this member has ever had a `join` event at this
+ * restaurant (i.e. was welcomed). Throws on a DB error so the caller can
+ * decide which way to fail.
+ */
+export async function hasJoinEvent(
+  restaurantId: string,
+  memberId: string
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('events')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('member_id', memberId)
+    .eq('type', 'join')
+    .limit(1)
+
+  if (error) throw new Error(`hasJoinEvent: ${error.message}`)
+  return (data ?? []).length > 0
+}

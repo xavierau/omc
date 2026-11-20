@@ -25,6 +25,12 @@ vi.mock('@/infrastructure/supabase/repositories/coupon-factory')
 vi.mock('@/application/emit-event')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
+// WONB-020 r4 H1: the new-member paths take the welcome-claim lock; keep
+// these tests off Redis.
+vi.mock('@/infrastructure/redis/welcome-claim-lock', () => ({
+  attemptWelcomeClaimLock: vi.fn(async () => ({ kind: 'acquired', lease: { release: async () => {} } })),
+  tryAcquireWelcomeClaimLock: vi.fn(async () => ({ release: async () => {} })),
+}))
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-factory'

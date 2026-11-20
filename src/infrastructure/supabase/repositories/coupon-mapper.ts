@@ -42,6 +42,11 @@ export interface CreateCouponParams {
    * the welcome campaign don't retroactively rewrite billing history.
    */
   isChargeable?: boolean
+  /**
+   * WONB-020 r4 H2: true on every welcome mint (coupons.welcome_offer,
+   * migration 090). Omitted/false leaves the column to its DB default.
+   */
+  welcomeOffer?: boolean
 }
 
 export interface ListCouponsParams {
