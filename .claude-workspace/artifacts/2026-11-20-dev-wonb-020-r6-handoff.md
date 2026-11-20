@@ -13,7 +13,7 @@ stage: POC
 state: done
 brief: inline (WONB-020 r6, final /code-review findings J1-J4)
 base: f60315c0
-head: "9d54eafe (code + tests + testid registry) -> one docs commit (kanban, poc-log, this file, r4 superseded); its SHA is the branch head, see ls-remote in the dev return block"
+head: "d582d8d0 = 9d54eafe (r6 code + tests + testid registry) + the r6 records commit (kanban, poc-log, this file, r4 superseded), pushed by r6b 2026-11-20; one later docs commit sets this line, so the branch tip is that commit (ls-remote)"
 branch: feature/wonb-020-imported-welcome-claim
 pushed: true
 gate: {result: pass, at: "2026-11-20", note: "heavy lock, once: vitest 689 files / 7899 tests passed (15 files / 129 skipped, 2 todo), exit 0; tsc --noEmit 0 bytes, exit 0; eslint on the 12 touched .ts/.tsx files: no issues"}
@@ -27,7 +27,7 @@ ac:
   AC-3: "pass: red first (r6-ac3-red.log: 5 failed / 18 passed). Green `npx vitest run src/application/__tests__/register-member-web.test.ts` 23/23. Held -> lease -> join event or welcome coupon on file -> {isNew:false, memberId, whatsappClaimUrl}, no mint, no join event, released; not welcomed -> minted once + join event under the lease (wait before mint, join event before release); wait returns null -> existing answer, no mint, warning 'still held'; lookup throws -> existing answer, no mint, released"
   AC-4: "pass: red first (r6-ac4-red.log: 2 failed / 7 passed); green `npx vitest run src/app/join/[slug]/__tests__/join-form.test.tsx` 9/9: the already_member and fields_required notices render data-testid=\"join-error\", the claim notice does not; join-claim-whatsapp ids unchanged. Registry row added under the WONB-020 join rows (.claude-workspace/ui-map/testid-registry.md line 119)"
   AC-5: "pass: `python3 ~/.claude/bin/resource-lock.py heavy -- sh -c 'npx vitest run; npx tsc --noEmit'` once after the touched-file loop: Test Files 689 passed | 15 skipped (704), Tests 7899 passed | 129 skipped | 2 todo; tsc output 0 bytes. eslint on every touched file: no issues"
-  AC-6: "pass: see the dev return block for ls-remote == HEAD and gh pr view 212 mergeable; origin/develop unchanged since the r5 merge (89160ef5 is an ancestor of HEAD), so no merge was needed. PR body updated (r5 + r6 review bullets, new-member r6 sub-bullets, welcome_offer now on the partner mint, join-error, r6 test plan, the partner-mint known gap removed and the held-wait latency gap added). r4 handoff superseded_by this file"
+  AC-6: "pass: r6b: ls-remote == HEAD after the push and gh pr view 212 mergeable MERGEABLE (r6 itself never pushed); origin/develop unchanged since the r5 merge (89160ef5 is an ancestor of HEAD), so no merge was needed. PR body updated (r5 + r6 review bullets, new-member r6 sub-bullets, welcome_offer now on the partner mint, join-error, r6 test plan, the partner-mint known gap removed and the held-wait latency gap added). r4 handoff superseded_by this file"
 decisions:
   - "Wait helper: waitForWelcomeClaimLock(restaurantId, memberId, {intervalMs=250, timeoutMs=5000}) in welcome-claim-lock.ts. It sleeps first (the caller already saw held), retries attemptWelcomeClaimLock, and stops when the next sleep would pass the deadline: 20 retries, settles at 5.0 s under fake timers. Each retry is bounded by the client's 2 s commandTimeout, so the worst case with a slow Redis is a little above 5 s, still bounded"
   - "Redis error DURING the wait -> null (treated as still held), not fail-open. A claim held the lock a moment earlier, so onboarding without the lock risks the double mint the lock exists to stop. The first-attempt 'unavailable' keeps the r4 fail-open, as the brief says"
@@ -35,7 +35,8 @@ decisions:
   - "register-member.ts: the new-member tail split into onboardCreatedMember (onboard; on throw the minimal welcome, as before), welcomeAfterConcurrentClaim (J2) and sendMinimalWelcomeOnly; the onboarding context reuses the exported OnboardContext type. J3 extracts respondToExistingMember (canClaimWelcome -> claimWelcomeUnderLock, else welcome-back), used by the pre-check and the race branch"
   - "J1 test: a new file runs processWelcomeSendJob with the real mint and coupon factory (coupon-repository faked by factory mock), because process-welcome-send-job.test.ts automocks the mint module for its whole file"
   - "Superseded tests: r4's two 'lock held -> no mint/sends' cases (WhatsApp and web) asserted the behaviour J2 replaces; they were replaced by the J2 cases above, not weakened"
-failed: []
+failed:
+  - "r6 run ended after code commit 9d54eafe, before the records commit and the push (origin stayed f60315c0 while this file said pushed: true); r6b committed the records (d582d8d0), pushed, and set pushed/head here"
 invariants:
   - "At most one welcome coupon per member: every mint on the new-member paths runs under the lock or with Redis down (r4 fail-open); the waited path mints only after re-checking join event + welcome coupon under the lock"
   - "Web never mints for an existing member: pre-check and race branches unchanged; the waited path mints only for the member this request created, after the not-welcomed check"
