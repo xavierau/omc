@@ -1,0 +1,36 @@
+# forge site command 14475923
+# status finished
+2026-11-20T08:25:23Z
+rm: cannot remove '/home/forge/rel-book008-tmp/__pycache__/q.cpython-312.pyc': Permission denied
+/home/forge/rel-book008-tmp
+total 636
+drwx------ ov 20 08:22 .
+drwx------ ov 20 06:06 ..
+-rw------- ov 20 08:20 after-deploy-catalog.json
+-rw------- ov 20 08:20 after-deploy-ids.json
+-rw------- ov 20 06:06 baseline-catalog.json
+-rw------- ov 20 06:06 baseline-ids.json
+-rw------- ov 20 08:14 booking_requests-predeploy.json
+-rw------- ov 20 06:06 booking_requests.json
+-rw------- ov 20 06:06 managed-backups.json
+-rw------- ov 20 06:06 members.json
+-rw------- ov 20 08:15 predeploy-catalog.json
+-rw------- ov 20 08:15 predeploy-ids.json
+-rw------- ov 20 08:22 rerun-matched-ids.json
+c98b201a0e059c0dd4d9e36f644a6e6d51a455b917c76688e370a7a478fbd6ef  /home/forge/backups/2026-11-20-book-008/after-deploy-catalog.json
+43dd8213678f210979113d908375902926904906948aabcd791734c04fb0918c  /home/forge/backups/2026-11-20-book-008/after-deploy-ids.json
+0e359546756fcd8b87002aea5dc60bfd774f405a69c31235cfd17b924028c32e  /home/forge/backups/2026-11-20-book-008/baseline-catalog.json
+4d3b097d6790abc4eab3a7d53a44f02ff6d6b1c755b1d9ab0334ee9509cc82a4  /home/forge/backups/2026-11-20-book-008/baseline-ids.json
+6f8235dff32a55e93b83586ee50955e0e46b8a4d71a0d6279db0e4c0ec5fd5ee  /home/forge/backups/2026-11-20-book-008/booking_requests-predeploy.json
+6f8235dff32a55e93b83586ee50955e0e46b8a4d71a0d6279db0e4c0ec5fd5ee  /home/forge/backups/2026-11-20-book-008/booking_requests.json
+b9e8ba4d132a58befe2d6101ddf19917c17b14189579146fa09d109963e7c845  /home/forge/backups/2026-11-20-book-008/managed-backups.json
+f6d0b9c5b2bc35da107fae349924b1320c4d935136f4445ef28a4cbe8678266d  /home/forge/backups/2026-11-20-book-008/members.json
+0e359546756fcd8b87002aea5dc60bfd774f405a69c31235cfd17b924028c32e  /home/forge/backups/2026-11-20-book-008/predeploy-catalog.json
+4d3b097d6790abc4eab3a7d53a44f02ff6d6b1c755b1d9ab0334ee9509cc82a4  /home/forge/backups/2026-11-20-book-008/predeploy-ids.json
+4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945  /home/forge/backups/2026-11-20-book-008/rerun-matched-ids.json
+
+# forge site command 14475932
+# status failed
+2026-11-20T08:25:39Z
+ls: cannot access '/home/forge/rel-book008-tmp': No such file or directory
+

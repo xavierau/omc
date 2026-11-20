@@ -1,0 +1,11 @@
+# forge site command 14472614
+# status finished
+2026-11-20T06:05:48Z
+HTTP 201 distinct prod event types: 5
+  ['campaign', 'consent_imported', 'join', 'redeem', 'whatsapp_error']
+088 list: 21 types
+prod types missing from 088: NONE
+current events_type_check: CHECK ((type = ANY (ARRAY['join'::text, 'redeem'::text, 'receipt'::text, 'campaign'::text, 'points'::text, 'unsubscribe'::text, 'reward_redeem'::text, 'pos_transaction'::text, 'pos_refund'::text, 'pos_customer_link'::text, 'integration_error'::text, 'whatsapp_error'::text, 'onboarding_phase_advanced'::text, 'consent_imported'::text, 'consent_granted'::text, 'consent_revoked'::text, 'consent_expired'::text, 'stamp'::text, 'stamp_reversal'::text, 'reachability_restored'::text])))
+constraint types not in 088: NONE | 088 types not in constraint: ['booking.member_relinked']
+PRECHECK PASS
+

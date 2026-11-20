@@ -1,0 +1,21 @@
+# forge site command 14475841
+# status finished
+2026-11-20T08:22:34Z
+--- statement (sha256 of backfill_update.sql):
+c50d72fd9536f4b5f456508a407ef1c838af232878482ac8dc498cdbf3b8aa78  backfill_update.sql
+UPDATE booking_requests b
+   SET member_id = m.id
+  FROM members m
+ WHERE b.member_id IS NULL
+   AND b.status <> 'unverified'
+   AND m.restaurant_id = b.restaurant_id
+   AND m.phone = b.phone;
+SELECT count (same WHERE as the 088 backfill) HTTP 201 -> 0
+member_id null before: 0
+matched ids -> /home/forge/backups/2026-11-20-book-008/rerun-matched-ids.json sha256 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945 (not printed)
+verbatim 088 backfill UPDATE via /database/query HTTP 201 response []
+SELECT count after (must be 0): 0
+member_id null after: 0
+ROWS AFFECTED: 0
+2026-11-20T08:22:40Z
+
