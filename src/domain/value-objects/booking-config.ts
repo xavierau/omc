@@ -9,6 +9,10 @@
  * `templateBodies` and `templateCandidates`, written by the message editor;
  * BOOK-003's `agentBooking`, written by its own admin routes) from the current
  * config, so a save can never switch them.
+ *
+ * AGENT-005: `bookingRules` (訂座規則) is the restaurant's free text on booking
+ * hours, last booking, last order and closed days. The settings form owns it;
+ * the reply agent's booking skill checks a requested time against it.
  */
 import type { LanguageCode } from './language'
 
@@ -47,6 +51,8 @@ export interface BookingConfig {
   /** BOOK-002: template id of a submitted edit awaiting Meta; promoted to templateIds once approved. */
   templateCandidates: Record<BookingTemplateKind, BookingTemplateTextByLanguage>
   agentBooking: AgentBookingConfig
+  /** AGENT-005: free text, trimmed, at most BOOKING_RULES_MAX_CHARS; '' = none. */
+  bookingRules: string
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -55,6 +61,7 @@ export const TEMPLATE_LANGUAGES: readonly LanguageCode[] = ['zh_hk', 'en']
 export const MAX_TTL_HOURS = 8760
 export const MAX_PARTY_SIZE_LIMIT = 100
 export const EXTERNAL_URL_MAX = 2048
+export const BOOKING_RULES_MAX_CHARS = 2000
 
 export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   mode: 'off',
@@ -72,6 +79,7 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {} },
   templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {} },
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
+  bookingRules: '',
 }
 
 /** BOOK-003: 128-384 bits as base64url. */
@@ -178,18 +186,31 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     templateBodies: resolveTexts(r.templateBodies),
     templateCandidates: resolveTexts(r.templateCandidates),
     agentBooking: resolveAgentBooking(r.agentBooking),
+    bookingRules: typeof r.bookingRules === 'string' ? r.bookingRules.trim().slice(0, BOOKING_RULES_MAX_CHARS) : '',
   }
 }
 
 export type BookingSettingsErrors = Partial<
-  Record<'mode' | 'externalUrl' | 'chatLinkTtlHours' | 'campaignLinkTtlHours' | 'maxPartySize' | 'form', string>
+  Record<'mode' | 'externalUrl' | 'chatLinkTtlHours' | 'campaignLinkTtlHours' | 'maxPartySize' | 'bookingRules' | 'form', string>
 >
 
 export type ParseBookingSettingsResult =
   | { ok: true; config: BookingConfig }
   | { ok: false; errors: BookingSettingsErrors }
 
-const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize']
+const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize', 'bookingRules']
+
+/** AGENT-005: omitted keeps the stored rules; a string is trimmed and at most BOOKING_RULES_MAX_CHARS. */
+function parseBookingRules(raw: unknown, current: string, errors: BookingSettingsErrors): string {
+  if (raw === undefined) return current
+  if (typeof raw !== 'string') {
+    errors.bookingRules = 'invalid'
+    return current
+  }
+  const value = raw.trim()
+  if (value.length > BOOKING_RULES_MAX_CHARS) errors.bookingRules = 'too_long'
+  return value
+}
 
 function parseExternalUrl(raw: unknown, mode: BookingMode, errors: BookingSettingsErrors): string | null {
   const value = typeof raw === 'string' ? raw.trim() : raw
@@ -217,8 +238,8 @@ function parseTtlField(raw: unknown, current: number | null, key: keyof BookingS
  * template ids, edits or candidates it read earlier.
  */
 export function applyBookingSettings(current: BookingConfig, settings: BookingConfig): BookingConfig {
-  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize } = settings
-  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize }
+  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules } = settings
+  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules }
 }
 
 /** Validates an admin's booking settings save against the current config. */
@@ -236,11 +257,12 @@ export function parseBookingSettings(body: unknown, current: BookingConfig): Par
   const campaignLinkTtlHours = parseTtlField(b.campaignLinkTtlHours, current.campaignLinkTtlHours, 'campaignLinkTtlHours', errors)
   const maxPartySize = b.maxPartySize === undefined ? current.maxPartySize : b.maxPartySize
   if (!isPartyMax(maxPartySize)) errors.maxPartySize = 'invalid_party_size'
+  const bookingRules = parseBookingRules(b.bookingRules, current.bookingRules, errors)
 
   if (Object.keys(errors).length > 0 || !mode) return { ok: false, errors }
   return {
     ok: true,
-    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number },
+    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number, bookingRules },
   }
 }
 

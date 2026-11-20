@@ -6,6 +6,7 @@
  * BOOK-002: each booking message's text can be edited per language in an
  * inline editor under the message list.
  * BOOK-003: under Simple booking, "Allow AI agents" with its own save.
+ * AGENT-005: 訂座規則 (booking rules) unless mode is off; saved with the section.
  */
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +18,7 @@ import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overvie
 import { BookingTemplateStatusList } from './booking-template-status-list'
 import { BookingTemplateEditor } from './booking-template-editor'
 import { BookingAgentSettings } from './booking-agent-settings'
-import type { BookingConfig, BookingMode } from '@/domain/value-objects/booking-config'
+import { BOOKING_RULES_MAX_CHARS, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
 
 const MODES: BookingMode[] = ['off', 'simple', 'external']
 type Update = <K extends keyof BookingSettingsForm>(key: K, value: BookingSettingsForm[K]) => void
@@ -45,6 +46,21 @@ function LifetimeField(props: { kind: 'chat' | 'campaign'; form: BookingSettings
         </label>
       </div>
       <FieldError code={props.error} testId={`booking-settings-${props.kind}-ttl-error`} />
+    </div>
+  )
+}
+
+function BookingRulesField({ form, update, error }: { form: BookingSettingsForm; update: Update; error?: string }) {
+  const t = useTranslations('bookingSettings')
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="booking-settings-rules" className="text-sm font-medium">{t('bookingRules')}</label>
+      <textarea id="booking-settings-rules" rows={4} maxLength={BOOKING_RULES_MAX_CHARS} value={form.bookingRules}
+        aria-describedby="booking-settings-rules-hint" aria-invalid={Boolean(error)} onChange={(e) => update('bookingRules', e.target.value)}
+        data-testid="booking-settings-rules"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive" />
+      <p id="booking-settings-rules-hint" data-testid="booking-settings-rules-hint" className="text-xs text-muted-foreground">{t('bookingRulesHint')}</p>
+      <FieldError code={error} testId="booking-settings-rules-error" />
     </div>
   )
 }
@@ -94,6 +110,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
             <FieldError code={errors.externalUrl} testId="booking-settings-url-error" />
           </div>
         ) : null}
+        {form.mode !== 'off' ? <BookingRulesField form={form} update={update} error={errors.bookingRules} /> : null}
         {form.mode === 'simple' ? (
           <>
             <LifetimeField kind="chat" form={form} update={update} error={errors.chatLinkTtlHours} />

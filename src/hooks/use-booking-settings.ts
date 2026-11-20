@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import {
+  BOOKING_RULES_MAX_CHARS,
   isPartyMax,
   isSafeHttpsUrl,
   isTtl,
@@ -25,6 +26,8 @@ export interface BookingSettingsForm {
   campaignLinkTtlHours: string
   campaignLinkNoExpiry: boolean
   maxPartySize: string
+  /** AGENT-005: 訂座規則, shown unless mode is off. */
+  bookingRules: string
 }
 
 export type SaveBookingSettingsOutcome =
@@ -42,6 +45,7 @@ export function toForm(config: BookingConfig): BookingSettingsForm {
     campaignLinkTtlHours: String(config.campaignLinkTtlHours ?? 168),
     campaignLinkNoExpiry: config.campaignLinkTtlHours === null,
     maxPartySize: String(config.maxPartySize),
+    bookingRules: config.bookingRules,
   }
 }
 
@@ -73,6 +77,8 @@ export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
     chatLinkTtlHours: simpleOnly(form, form.chatLinkNoExpiry ? null : toInt(form.chatLinkTtlHours), isTtlOrNone),
     campaignLinkTtlHours: simpleOnly(form, form.campaignLinkNoExpiry ? null : toInt(form.campaignLinkTtlHours), isTtlOrNone),
     maxPartySize: simpleOnly(form, toInt(form.maxPartySize), isPartyMax),
+    // AGENT-005: Off hides the field, so there an over-long draft is left out (same idea as F1).
+    bookingRules: form.mode !== 'off' || form.bookingRules.trim().length <= BOOKING_RULES_MAX_CHARS ? form.bookingRules : undefined,
   }
 }
 

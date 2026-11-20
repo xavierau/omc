@@ -1623,6 +1623,33 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "AGENT-005",
+          "title": "Agent skills (core / loyalty / booking) and a 訂座規則 booking-rules field the booking skill checks",
+          "description": "The reply agent's system instruction = core rules 1-5 (unchanged) + one section per skill whose tools are offered for the job (loyalty: get_member_summary, list_rewards; booking: the booking tools); rule 6 split by meaning into the two skills. The booking skill adds the check rule (requested time vs BOOKING RULES, else the opening hours in the knowledge; outside → say so, suggest times, do not propose) and a BOOKING RULES data block from booking_config.bookingRules (free text, max 2000, no migration), edited in Settings → Booking when mode is not off. Prod omc 2026-11-20: the agent proposed 11:00 and offered 10:00 although 餐廳資料 says 11:00-21:00. POC.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "poc"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:AGENT-004",
+            "kanban:BOOK-007"
+          ],
+          "branch": "feature/agent-005-agent-skills",
+          "pr": "216",
+          "workspace_artifacts": [
+            "plans/2026-11-20-agent-005-agent-skills",
+            "artifacts/2026-11-20-agent-005-agent-skills-impl",
+            "artifacts/2026-11-20-agent-005-handoff"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "notes": "PR #216 into develop opened; not merged or released. Evidence: artifacts/evidence/2026-11-20-agent-005/ (3 rendered prompts over fake configs, settings field screenshots en + zh-HK)."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",

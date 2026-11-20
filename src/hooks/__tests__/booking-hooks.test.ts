@@ -90,8 +90,19 @@ describe('use-booking-settings helpers', () => {
     const form = toForm({ ...DEFAULT_BOOKING_CONFIG, mode: 'simple', chatLinkTtlHours: null })
     expect(form.chatLinkNoExpiry).toBe(true)
     expect(toPayload(form)).toEqual({
-      mode: 'simple', externalUrl: null, chatLinkTtlHours: null, campaignLinkTtlHours: 168, maxPartySize: 20,
+      mode: 'simple', externalUrl: null, chatLinkTtlHours: null, campaignLinkTtlHours: 168, maxPartySize: 20, bookingRules: '',
     })
+  })
+
+  // AGENT-005: 訂座規則 is in the form and the payload; Off hides the field, so
+  // there an over-long draft is left out (the server keeps the stored rules).
+  it('AGENT-005 bookingRules round-trips through the form and the payload', () => {
+    const form = toForm({ ...DEFAULT_BOOKING_CONFIG, mode: 'simple', bookingRules: 'Last order 20:30' })
+    expect(form.bookingRules).toBe('Last order 20:30')
+    expect(toPayload({ ...form, bookingRules: ' Bookings 12:00-20:00 ' }).bookingRules).toBe(' Bookings 12:00-20:00 ')
+    expect(toPayload({ ...form, mode: 'external', bookingRules: 'x'.repeat(2001) }).bookingRules).toHaveLength(2001)
+    expect(toPayload({ ...form, mode: 'off', bookingRules: 'kept' }).bookingRules).toBe('kept')
+    expect('bookingRules' in JSON.parse(JSON.stringify(toPayload({ ...form, mode: 'off', bookingRules: 'x'.repeat(2001) })))).toBe(false)
   })
 
   // I1 seam bug: an invalid URL typed in External mode stayed in the hidden

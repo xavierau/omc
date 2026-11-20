@@ -1519,6 +1519,8 @@
     "hours": "小時",
     "noExpiry": "不設期限",
     "maxPartySize": "最多人數",
+    "bookingRules": "訂座規則",
+    "bookingRulesHint": "訂座時段、最後訂座、最後點餐、休息日等。AI 接受訂座前會按此檢查。",
     "save": "儲存",
     "saving": "儲存中...",
     "saved": "已儲存訂座設定",
@@ -1528,7 +1530,9 @@
       "required": "請加入訂座連結。",
       "invalid_https_url": "請使用 https:// 開頭的連結",
       "invalid_ttl": "請輸入 1 至 8760 的整數小時。",
-      "invalid_party_size": "請輸入 1 至 100 的數字。"
+      "invalid_party_size": "請輸入 1 至 100 的數字。",
+      "too_long": "請保持在 2,000 字以內。",
+      "invalid": "請以文字輸入訂座規則。"
     },
     "templates": {
       "title": "WhatsApp 訂座訊息",
