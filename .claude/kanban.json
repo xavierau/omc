@@ -1604,6 +1604,32 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "AGENT-004",
+          "title": "Skip the BOOK-001 booking-intent classifier when the auto reply agent owns bookings",
+          "description": "Unmatched free text skips maybeReplyToBookingIntent and goes straight to maybeQueueAgentReply when agent mode is auto AND the worker's effective tool set (offeredTools: enabledTools filtered by booking mode, none at maxToolCalls 0) has a booking tool. Off/shadow/no effective booking tool/config read failure keep today's order (classifier first). BOOK keyword route unchanged. Prod 2026-11-19: a reply to the agent's own question got the new-booking CTA → duplicate booking.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "bug",
+            "poc"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:BOOK-001",
+            "github:204"
+          ],
+          "branch": "fix/agent-004-classifier-skip-when-agent-books",
+          "pr": "204",
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-agent-004-handoff"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "notes": "PR #204 into develop, not merged, not released. No migration. Journal debugging_journals/2026-11-20-agent-004-classifier-preempts-agent.md."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
