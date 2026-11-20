@@ -1,0 +1,29 @@
+# forge command 14469524 status finished exit 0
+2026-11-20T02:44:12Z
+3531138       04:38 next-server (v16.3.4)
+3531178       04:34 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531214       04:33 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531215       04:33 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3531230       04:33 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+== daemon-746791 log
+start banner at line 22200; lines after banner: 5
+error/warn lines after banner: 1
+of which [Kapso] Error listing templates (pre-existing): 0
+of which the known standalone warning: 1
+-- distinct lines after banner (counts):
+      1 ✓ Running next.config.ts took 636ms
+      1 ✓ Ready in 470ms
+      1 ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+      1 - Network:       http://10.148.0.3:3100
+      1 - Local:         http://localhost:3100
+== daemon-801730 log
+start banner at line 53107; lines after banner: 0
+error/warn lines after banner: 0
+of which [Kapso] Error listing templates (pre-existing): 0
+of which the known standalone warning: 0
+-- distinct lines after banner (counts):
+MemAvailable:    2370572 kB
+SwapFree:          93388 kB
+/dev/root          58447 31495     26936  54% /
+ 02:44:13 up 55 days, 21:26,  1 user,  load average: 0.25, 0.36, 0.26
+
