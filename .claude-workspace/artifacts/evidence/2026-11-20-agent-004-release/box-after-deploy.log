@@ -1,0 +1,34 @@
+# forge command 14469455 status finished exit 0
+2026-11-20T02:40:25Z
+3531138       00:51 next-server (v16.3.4)
+3531178       00:47 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531214       00:45 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531215       00:45 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-wor
+3531230       00:45 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import f
+zzJgH7D65-G0P4rKNa3uS
+e5ddd701443406910f20eab8ae4f12a63e09f37f release 4af4caa: Merge pull request #205 from xavierau/develop
+{
+  "source_ref": "rel-agent004",
+  "source_commit": "4af4caaf6d43b2af66fda67c0fdd789f36177b9c",
+  "source_subject": "Merge pull request #205 from xavierau/develop",
+  "build_id": "zzJgH7D65-G0P4rKNa3uS",
+  "built_at": "2026-11-20T02:34:15Z",
+  "node": "v22.21.1"
+}
+
+== app tail
+> next start
+
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://10.148.0.3:3100
+✓ Ready in 470ms
+✓ Running next.config.ts took 636ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+== worker tail
+[EmailQueue] Worker started
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+
