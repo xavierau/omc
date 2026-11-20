@@ -1,0 +1,28 @@
+# ssh read-only stability check (>=3 min after the 08:43:23Z restart)
+2026-11-20T08:47:04Z
+3671054 Fri Nov 20 08:43:23 2026       03:40 next-server (v16.3.4)
+3671113 Fri Nov 20 08:43:26 2026       03:37 npm exec tsx --env-file-if-exists=.env script
+current next-server pids: 3671054 3672493 3672499 
+--- app log after banner line 22290 of 22297
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://10.148.0.3:3100
+✓ Ready in 403ms
+✓ Running next.config.ts took 213ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[Kapso] Error listing templates: WhatsApp configuration not found
+[Kapso] Error listing templates: WhatsApp configuration not found
+--- worker log from line 53151 of 53160
+Workers shutting down (draining active jobs) on SIGTERM...
+Workers shut down cleanly
+[CampaignQueue] Worker started
+[EventDispatchQueue] Worker started
+[ReceiptQueue] Worker started
+[EmailQueue] Worker started
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+--- counts after banner: kapso 2, limiter 0, other error-ish app 0, worker error/warn 0
+MemAvailable:    2398456 kB SwapFree:          55516 kB 0.20 0.44 0.34 2/555 3672529
+/dev/root          58447 31443     26989  54% /

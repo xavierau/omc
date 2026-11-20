@@ -1489,6 +1489,25 @@
           "workspace_artifacts": [
             "artifacts/evidence/2026-11-19-book-004/ac3-gate.log"
           ]
+        },
+        {
+          "id": "BOOK-OPS-1",
+          "title": "Booking rate limiters fail open on the first request after each restart",
+          "description": "BOOK-OPS-1: booking rate limiters fail open on the first request after each restart (Redis handshake race, getInboundRateLimiter fail-fast client); one unlimited request per deploy; fix: await readiness in withinWindow/withinRateLimit. Seen as '[AgentBooking]/[Booking] rate limiter unavailable, allowing: Error' after restarts (main ruling 2026-11-20: known, not a release regression).",
+          "priority": "low",
+          "labels": [
+            "booking",
+            "backend",
+            "ops"
+          ],
+          "related": [
+            "src/application/booking/create-agent-booking.ts:113",
+            "src/application/booking/submit-booking-request.ts:62",
+            "kanban:BOOK-008",
+            "deploys/2026-11-20-book-008-release-runbook"
+          ],
+          "status": "backlog",
+          "updated": "2026-11-20"
         }
       ]
     },
@@ -1629,33 +1648,6 @@
             "artifacts/2026-11-20-dev-wonb-020-r3-handoff.md",
             "artifacts/2026-11-20-dev-wonb-020-r4-handoff.md"
           ]
-        },
-        {
-          "id": "BOOK-008",
-          "title": "Link members and their bookings (auto by phone, manual edit), bookings + stats on the member panel",
-          "description": "Owner 2026-11-20: 'we also need to link member with their bookings'. Bookings link to an EXISTING same-restaurant member by phone at creation (BOOK-001 page, agent tool: unchanged) and when a poppy booking's confirm code promotes it to pending (unverified stays member-less); migration 088 backfills member-less, non-unverified rows once. PATCH /api/dashboard/bookings/[id]/member (admin/staff, tenant-scoped booking AND member, 404 on any miss, 409 when the link changed first) links/relinks/unlinks with one events row booking.member_relinked (actor + ids only), in one RPC. Member detail GET returns bookingHistory: newest 50 bookings + stats over all (total, confirmed, cancelled, declined, no_show, pending, last/next date) via RPC member_booking_stats; null when unreadable. Member panel Bookings section; in 訂座 the diner name opens the member panel, Link member / Change member / Unlink member with an inline member search. member_id never decides who is messaged (R3). No member is ever created from a booking.",
-          "priority": "medium",
-          "labels": [
-            "booking",
-            "members",
-            "dashboard",
-            "frontend",
-            "backend",
-            "poc"
-          ],
-          "related": [
-            "kanban:BOOK-007",
-            "threats/2026-11-20-book-007-008-member-bookings",
-            "plans/2026-11-20-book-007-008-member-bookings"
-          ],
-          "workspace_artifacts": [
-            "artifacts/2026-11-20-book-008-member-bookings-impl.md",
-            "artifacts/2026-11-20-book-008-handoff.md"
-          ],
-          "status": "review",
-          "updated": "2026-11-20",
-          "branch": "feature/book-008-member-bookings",
-          "notes": "Apply migration 088 before deploying (events type CHECK + index + 2 service_role RPCs + one-off backfill; idempotent). Validated on a scratch DB built from 001..087 in a rolled-back txn (artifacts/evidence/2026-11-20-book-008/ac6-088-scratch.log). Never run 088 against a shared DB outside the release."
         },
         {
           "id": "BOOK-004",
@@ -1853,6 +1845,70 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "AGENT-005",
+          "title": "Agent skills (core / loyalty / booking) and a 訂座規則 booking-rules field the booking skill checks",
+          "description": "The reply agent's system instruction = core rules 1-5 (unchanged) + one section per skill whose tools are offered for the job (loyalty: get_member_summary, list_rewards; booking: the booking tools); rule 6 split by meaning into the two skills. The booking skill adds the check rule (requested time vs BOOKING RULES, else the opening hours in the knowledge; outside → say so, suggest times, do not propose) and a BOOKING RULES data block from booking_config.bookingRules (free text, max 2000, no migration), edited in Settings → Booking when mode is not off. Prod omc 2026-11-20: the agent proposed 11:00 and offered 10:00 although 餐廳資料 says 11:00-21:00. POC.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "poc"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:AGENT-004",
+            "kanban:BOOK-007",
+            "github:216",
+            "github:219"
+          ],
+          "branch": "feature/agent-005-agent-skills",
+          "pr": "216",
+          "workspace_artifacts": [
+            "plans/2026-11-20-agent-005-agent-skills",
+            "artifacts/2026-11-20-agent-005-agent-skills-impl",
+            "artifacts/2026-11-20-agent-005-handoff",
+            "deploys/2026-11-20-agent-005-release-runbook",
+            "artifacts/2026-11-20-rel-agent005-handoff"
+          ],
+          "status": "done",
+          "updated": "2026-11-20",
+          "notes": "Released 2026-11-20 08:43Z: PR #216 → develop 11e65e6e, release PR #219 (develop → main fe1cdbfb), release d05e6470, BUILD_ID F2oHXhD6zjqi7IwuTmGfA, no migration. omc's 訂座規則 is still empty (booking_config has no bookingRules key; agent_config rev 11 unchanged): the booking skill falls back to the opening hours in 餐廳資料 until the owner fills it (deploys/2026-11-20-agent-005-release-runbook). Owner live check pending. Evidence before release: artifacts/evidence/2026-11-20-agent-005/."
+        },
+        {
+          "id": "BOOK-008",
+          "title": "Link members and their bookings (auto by phone, manual edit), bookings + stats on the member panel",
+          "description": "Owner 2026-11-20: 'we also need to link member with their bookings'. Bookings link to an EXISTING same-restaurant member by phone at creation (BOOK-001 page, agent tool: unchanged) and when a poppy booking's confirm code promotes it to pending (unverified stays member-less); migration 088 backfills member-less, non-unverified rows once. PATCH /api/dashboard/bookings/[id]/member (admin/staff, tenant-scoped booking AND member, 404 on any miss, 409 when the link changed first) links/relinks/unlinks with one events row booking.member_relinked (actor + ids only), in one RPC. Member detail GET returns bookingHistory: newest 50 bookings + stats over all (total, confirmed, cancelled, declined, no_show, pending, last/next date) via RPC member_booking_stats; null when unreadable. Member panel Bookings section; in 訂座 the diner name opens the member panel, Link member / Change member / Unlink member with an inline member search. member_id never decides who is messaged (R3). No member is ever created from a booking.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "members",
+            "dashboard",
+            "frontend",
+            "backend",
+            "poc"
+          ],
+          "related": [
+            "kanban:BOOK-007",
+            "threats/2026-11-20-book-007-008-member-bookings",
+            "plans/2026-11-20-book-007-008-member-bookings",
+            "github:214",
+            "github:217"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-book-008-member-bookings-impl.md",
+            "artifacts/2026-11-20-book-008-handoff.md",
+            "artifacts/2026-11-20-book-008-r1-handoff.md",
+            "deploys/2026-11-20-book-008-release-runbook",
+            "artifacts/2026-11-20-rel-book008-handoff"
+          ],
+          "status": "done",
+          "updated": "2026-11-20",
+          "branch": "feature/book-008-member-bookings",
+          "notes": "Apply migration 088 before deploying (events type CHECK + index + 2 service_role RPCs + one-off backfill; idempotent). Validated on a scratch DB built from 001..087 in a rolled-back txn (artifacts/evidence/2026-11-20-book-008/ac6-088-scratch.log). Never run 088 against a shared DB outside the release. Released 2026-11-20 08:19Z: PR #214 → develop e751ee5a, release PR #217 (develop → main 1f2b9eb4), release d74942c1, BUILD_ID Dy3BMrmauUbUY9gIzFdVI; migration 088 applied by supabase db push before the daemon restarts; post-deploy catalog as in 088; 088's backfill linked 1 booking (member-less 1 → 0); the one post-deploy re-run touched 0 rows (deploys/2026-11-20-book-008-release-runbook). Owner's live member-panel / relink check pending.",
+          "pr": "214, 217"
+        },
         {
           "id": "BOOK-007",
           "title": "Staff mark a past confirmed booking as no-show (and undo)",

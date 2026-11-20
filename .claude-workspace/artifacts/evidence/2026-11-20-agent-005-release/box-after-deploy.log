@@ -1,0 +1,26 @@
+# ssh read-only post-deploy box check
+2026-11-20T08:43:57Z
+HEAD d05e64708ee04b39a8613e7158f2e519786e6981
+.next/BUILD_ID F2oHXhD6zjqi7IwuTmGfA
+RELEASE.json {'source_ref': 'rel-agent005', 'source_commit': 'fe1cdbfbb4749cad91e298c95a14336a904a1f6f', 'build_id': 'F2oHXhD6zjqi7IwuTmGfA', 'built_at': '2026-11-20T08:40:13Z'}
+git status:  M supabase/.temp/cli-latest
+3671054 Fri Nov 20 08:43:23 2026       00:35 next-server (v16.3.4)
+3671388 Fri Nov 20 08:43:57 2026       00:01 bash -c cd /home/forge/app.ohmyclient.io && date -u +%FT%TZ; echo "HEAD $(g
+3671113 Fri Nov 20 08:43:26 2026       00:31 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+app log lines 22295, last banner at 22290
+worker log lines 53160
+Workers shutting down (draining active jobs) on SIGTERM...
+Workers shut down cleanly
+[CampaignQueue] Worker started
+[EventDispatchQueue] Worker started
+[ReceiptQueue] Worker started
+[EmailQueue] Worker started
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+--- from the Mac 08:43:58Z
+/login 200
+/login new BUILD_ID x1, old Dy3BMrmauUbUY9gIzFdVI x0
+/api/health 200
+unsigned empty POST /api/webhooks/whatsapp 401

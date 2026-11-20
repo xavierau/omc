@@ -31,8 +31,8 @@ import type {
 } from '@/domain/ports/booking'
 
 export interface AgentBookingToolContext {
-  /** The tenant's booking settings, read when the job started. */
-  config: Pick<BookingConfig, 'mode' | 'maxPartySize' | 'externalUrl'>
+  /** The tenant's booking settings, read when the job started (AGENT-005: bookingRules feeds the booking skill's prompt). */
+  config: Pick<BookingConfig, 'mode' | 'maxPartySize' | 'externalUrl' | 'bookingRules'>
   /** `created_at` of this job's inbound agent_messages row (R15); null when it is gone. */
   inboundCreatedAt(): Promise<string | null>
   proposals: AgentProposalStore

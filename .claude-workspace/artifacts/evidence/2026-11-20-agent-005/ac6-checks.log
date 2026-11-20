@@ -1,0 +1,9 @@
+AGENT-005 AC-6: the real BookingSettingsSection with the real en / zh-HK messages and the app's globals.css compiled by
+@tailwindcss/postcss, over a fake config (mode simple, fake booking rules; ac6-render.tsx.txt), served on 127.0.0.1 and
+captured with Chrome (chrome-devtools MCP), plain viewport 1440x900x1 and 390x844x2, light scheme.
+Not the running app: the setup page needs an authenticated tenant and no local Supabase stack with the app schema was up.
+390 zh-HK: innerWidth 390, scrollWidth 390 (no horizontal overflow); label 訂座規則; hint 訂座時段、最後訂座、最後點餐、休息日等。AI 接受訂座前會按此檢查。
+  textarea [data-testid=booking-settings-rules] x 32, width 326, height 109, maxLength 2000, aria-describedby booking-settings-rules-hint
+390 en: innerWidth 390, scrollWidth 390; label "Booking rules"
+Files: ac6-{en,zh-HK}-desktop-1440.png, ac6-{en,zh-HK}-phone-390.png
+Prompt renders (fake configs): 1-no-tools.txt, 2-loyalty-only.txt, 3-loyalty-and-booking.txt
