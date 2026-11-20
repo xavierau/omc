@@ -3,7 +3,11 @@
  * their dependencies from here; tests pass in-memory fakes instead.
  */
 import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
-import { bookingCronStore, bookingRequestStore } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import {
+  bookingCronStore,
+  bookingNoShowStore,
+  bookingRequestStore,
+} from '@/infrastructure/supabase/repositories/booking-request-repository'
 import { bookingSettingsReader, promoteBookingTemplateCandidate } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
@@ -24,6 +28,7 @@ import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
 import type { DecideBookingDeps } from './decide-booking-request'
+import type { BookingNoShowDeps } from './booking-no-show'
 import type { ResolveBookingLinkDeps } from './resolve-booking-link'
 import type { SendBookingRemindersDeps } from './send-booking-reminders'
 import type { PurgeBookingPiiDeps } from './purge-booking-pii'
@@ -73,6 +78,11 @@ export function submitBookingDeps(): SubmitBookingDeps {
 
 export function decideBookingDeps(): DecideBookingDeps {
   return { requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now }
+}
+
+/** BOOK-007 (R5): mark / undo a no-show. No message sender: the diner is never told. */
+export function noShowBookingDeps(): BookingNoShowDeps {
+  return { store: bookingNoShowStore, now }
 }
 
 export function resolveBookingLinkDeps(): ResolveBookingLinkDeps {

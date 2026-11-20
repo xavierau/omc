@@ -1,6 +1,6 @@
 'use client'
 
-/** BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. */
+/** BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. BOOK-007: full-width Mark no-show / Undo. */
 import { useTranslations } from 'next-intl'
 import {
   BookingNotes,
@@ -16,11 +16,12 @@ import {
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { cn } from '@/lib/utils'
+import { NoShowAction } from './booking-no-show-action'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
 import type { BookingGroupsProps } from './bookings-table-desktop'
 
-function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionProps & { booking: BookingItem }) {
+function BookingCard({ booking, busyId, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
   const t = useTranslations('bookings')
   return (
     <li
@@ -50,6 +51,7 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
       <div className="pt-1 empty:hidden">
         <RowActions booking={booking} busy={busyId === booking.id} onDecide={onDecide} stretch />
+        <NoShowAction booking={booking} busy={busyId === booking.id} onNoShow={onNoShow} stretch />
       </div>
     </li>
   )

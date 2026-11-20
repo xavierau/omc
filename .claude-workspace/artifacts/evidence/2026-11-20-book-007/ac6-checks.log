@@ -1,0 +1,11 @@
+BOOK-007 AC-6: real BookingsFilters + BookingsTableDesktop / BookingsTableCards with the real en / zh-HK messages and the
+app's globals.css compiled by @tailwindcss/postcss, over fake bookings (ac6-render.tsx.txt), served on 127.0.0.1 and
+captured with Chrome (chrome-devtools MCP), plain viewport 1440x900x1 and 390x844x2, light scheme. Clock: 2026-11-20 HK.
+Not the running app: the page needs an authenticated tenant and no local Supabase stack with the app schema was up.
+chip counts: {"all":5,"pending":1,"confirmed":2,"declined":1,"cancelled":0,"no_show":1}
+Nov 19 heading guests: 4 (Diner A only; the no-show (2) and the declined (6) are left out)
+390 zh-HK: innerWidth 390, scrollWidth 390 (no horizontal overflow)
+  booking-row-came-no-show "標記未出席" height 36, cursor pointer; booking-row-noshow-no-show-undo "復原" height 36
+  bookings-filter-no-show "未出席 1"
+390 en: innerWidth 390, scrollWidth 390
+Files: ac6-{en,zh-HK}-desktop-1440.png, ac6-{en,zh-HK}-phone-390.png

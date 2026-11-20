@@ -1376,6 +1376,8 @@
     "confirm": "確認",
     "decline": "拒絕",
     "sendDecline": "發送拒絕",
+    "markNoShow": "標記未出席",
+    "undoNoShow": "復原",
     "cancel": "取消",
     "declineReasonPlaceholder": "原因(可選填)",
     "partyOf": "{count} 位",
@@ -1384,7 +1386,8 @@
       "confirmed": "已確認",
       "declined": "已拒絕",
       "cancelled": "已取消",
-      "unverified": "等待客人確認"
+      "unverified": "等待客人確認",
+      "no_show": "未出席"
     },
     "notDelivered": "訊息未能送達,請聯絡客人",
     "nameRemoved": "(姓名已刪除)",
@@ -1400,7 +1403,8 @@
     "alreadyHandledStatus": {
       "confirmed": "已確認",
       "cancelled": "取消",
-      "declined": "已拒絕"
+      "declined": "已拒絕",
+      "no_show": "已標記為未出席"
     },
     "actionFailed": "未能更新此要求,請再試一次。",
     "viaAgent": "經 AI 助理",
@@ -1430,7 +1434,8 @@
         "pending": "待確認",
         "confirmed": "已確認",
         "declined": "已拒絕",
-        "cancelled": "已取消"
+        "cancelled": "已取消",
+        "no_show": "未出席"
       },
       "searchPlaceholder": "姓名或電話",
       "guests": "{count} 位客人",

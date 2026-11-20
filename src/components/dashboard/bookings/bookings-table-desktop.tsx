@@ -6,6 +6,7 @@
  * AGENT-003: the cancelled-by badge sits by the status, the change-from line in
  * the notes; a cancelled booking's time and guest are struck through.
  * BOOK-006: the change-pending marker sits in the notes too, in place of the actions.
+ * BOOK-007: past confirmed rows offer "Mark no-show"; no-show rows "Undo".
  */
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -22,6 +23,7 @@ import {
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { cn } from '@/lib/utils'
+import { NoShowAction } from './booking-no-show-action'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
 import type { DayGroup } from './booking-groups'
@@ -31,7 +33,7 @@ export interface BookingGroupsProps extends BookingActionProps {
   today: string
 }
 
-function BookingTableRow({ booking, busyId, undelivered, onDecide }: BookingActionProps & { booking: BookingItem }) {
+function BookingTableRow({ booking, busyId, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
   const t = useTranslations('bookings')
   return (
     <TableRow data-testid={`booking-row-${booking.id}`} className={cn(booking.status === 'pending' && 'bg-pending-soft hover:bg-pending-soft')}>
@@ -61,6 +63,7 @@ function BookingTableRow({ booking, busyId, undelivered, onDecide }: BookingActi
       <TableCell className="text-right">
         <span className="inline-flex justify-end">
           <RowActions booking={booking} busy={busyId === booking.id} onDecide={onDecide} />
+          <NoShowAction booking={booking} busy={busyId === booking.id} onNoShow={onNoShow} />
         </span>
       </TableCell>
     </TableRow>

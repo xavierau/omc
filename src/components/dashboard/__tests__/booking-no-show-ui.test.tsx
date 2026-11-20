@@ -115,11 +115,11 @@ describe('BOOK-007 no-show calls', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('mark POSTs and undo DELETEs .../no-show for that booking', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ booking: noShow }), { status: 200 }))
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ booking: noShow }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     expect(await requestNoShow('ns', 'mark')).toEqual({ kind: 'done' })
     expect(await requestNoShow('ns', 'undo')).toEqual({ kind: 'done' })
-    expect(fetchMock.mock.calls.map((c) => [c[0], (c[1] as RequestInit).method])).toEqual([
+    expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
       ['/api/dashboard/bookings/ns/no-show', 'POST'],
       ['/api/dashboard/bookings/ns/no-show', 'DELETE'],
     ])

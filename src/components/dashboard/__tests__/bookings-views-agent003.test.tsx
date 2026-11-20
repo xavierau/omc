@@ -91,7 +91,7 @@ describe('AGENT-003 cancelled bookings in the calendar', () => {
   })
 
   it('filters: Cancelled has its own chip with its count', () => {
-    const counts = { all: 3, pending: 1, confirmed: 0, declined: 0, cancelled: 2 }
+    const counts = { all: 3, pending: 1, confirmed: 0, declined: 0, cancelled: 2, no_show: 0 }
     const html = renderToStaticMarkup(
       <BookingsFilters status="all" counts={counts} query="" showSearch onStatus={() => {}} onQuery={() => {}} />
     )
@@ -102,7 +102,7 @@ describe('AGENT-003 cancelled bookings in the calendar', () => {
   it('every key these views use exists in en and zh-HK', () => {
     usedKeys.clear()
     for (const render of Object.values(views)) render()
-    renderToStaticMarkup(<BookingsFilters status="all" counts={{ all: 0, pending: 0, confirmed: 0, declined: 0, cancelled: 0 }} query="" showSearch onStatus={() => {}} onQuery={() => {}} />)
+    renderToStaticMarkup(<BookingsFilters status="all" counts={{ all: 0, pending: 0, confirmed: 0, declined: 0, cancelled: 0, no_show: 0 }} query="" showSearch onStatus={() => {}} onQuery={() => {}} />)
     const lookup = (m: unknown, p: string) => p.split('.').reduce<unknown>((n, k) => (n && typeof n === 'object' ? (n as Record<string, unknown>)[k] : undefined), m)
     const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !== 'string' || typeof lookup(zhHK, k) !== 'string')
     expect(missing).toEqual([])

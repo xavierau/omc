@@ -4,11 +4,13 @@
  * BOOK-004: the Bookings page: header (needs-reply pill, view toggle),
  * toolbar (month nav or range; status chips + search), then the Calendar or
  * Table view over the fetched date range. Loading / error + Retry / notices
- * keep their BOOK-001 test ids.
+ * keep their BOOK-001 test ids. BOOK-007: rows mark / undo a no-show.
  */
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { BookingNoticeLine } from '@/components/dashboard/booking-list'
+import { NoShowNoticeLine } from './booking-no-show-action'
+import { useBookingNoShow } from './use-booking-no-show'
 import { useBookingActions, useBookings } from '@/hooks/use-bookings'
 import { bookingsPageLists } from './booking-groups'
 import { BookingsCalendar } from './bookings-calendar'
@@ -39,10 +41,11 @@ export function BookingsScreen() {
   const page = useBookingsPage()
   const { data, pendingCount, isLoading, error, refetch } = useBookings(page.range)
   const { busyId, notice, undelivered, act } = useBookingActions(refetch)
+  const noShow = useBookingNoShow(refetch)
   const all = data?.bookings ?? []
   const calendar = page.view === 'calendar'
   const lists = bookingsPageLists(all, { calendar, isPhone: page.isPhone, selected: page.selected, status: page.status, query: page.query })
-  const actions = { busyId, undelivered, onDecide: act }
+  const actions = { busyId: busyId ?? noShow.busyId, undelivered, onDecide: act, onNoShow: noShow.act }
   const nav = calendar ? (
     <CalendarNav selected={page.selected} isPhone={page.isPhone} onShift={page.shift} onToday={page.goToday} />
   ) : (
@@ -62,6 +65,7 @@ export function BookingsScreen() {
         ) : null}
       </div>
       <BookingNoticeLine notice={notice} />
+      <NoShowNoticeLine notice={noShow.notice} />
       {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
       {error ? (
         <LoadError onRetry={refetch} />
