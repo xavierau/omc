@@ -23,8 +23,9 @@ import type {
 } from '@/domain/ports/booking'
 import { countPendingBookings, toBookingRequest } from './booking-request-repository'
 
+// BOOK-009: 091's terms columns, so the confirm reply can repeat the accepted text (spec AC-13).
 const AGENT_BOOKING_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, confirm_code, verify_expires_at, verified_at, verified_wamid, status_token_hash, idempotency_key'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, confirm_code, verify_expires_at, verified_at, verified_wamid, status_token_hash, idempotency_key, terms_accepted_at, terms_text'
 
 type BookingRow = Parameters<typeof toBookingRequest>[0]
 
@@ -74,6 +75,8 @@ export async function insertAgentBooking(booking: NewAgentBooking): Promise<Inse
       verify_expires_at: booking.verifyExpiresAt,
       status_token_hash: booking.statusTokenHash,
       idempotency_key: booking.idempotencyKey,
+      // BOOK-009: only a booking with accepted terms writes 091's columns.
+      ...(booking.termsAcceptedAt ? { terms_accepted_at: booking.termsAcceptedAt, terms_text: booking.termsText } : {}),
     })
     .select(AGENT_BOOKING_COLUMNS)
     .single()

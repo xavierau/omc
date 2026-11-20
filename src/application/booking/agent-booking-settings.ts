@@ -15,6 +15,8 @@ import {
 } from '@/domain/value-objects/booking-config'
 import { buildAgentBookingOpenApi, buildCollectionStatement, buildPoppyJson } from '@/domain/services/poppy-documents'
 import { hasConfirmableWhatsAppNumber } from '@/domain/services/agent-booking'
+import { hongKongToday } from '@/domain/services/booking-submission'
+import type { BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
 import type { AgentBookingSecrets } from './agent-booking-secrets'
 
@@ -121,12 +123,14 @@ export interface AgentOpenApiDeps {
   /** As AgentBookingSettingsDeps.appUrl. */
   appUrl: string | null
   privacyUrl: string
+  /** BOOK-009: Hong Kong today bounds the special dates the description lists (read only when hours are set). */
+  now(): Date
 }
 
 /** The OpenAPI 3.1 description for one tenant (the caller resolved the tenant). */
 export async function agentOpenApiFor(
   deps: AgentOpenApiDeps,
-  tenant: { restaurantId: string; publicId: string; maxPartySize: number }
+  tenant: { restaurantId: string; publicId: string; maxPartySize: number; bookingHours?: BookingHours | null }
 ) {
   const apiBaseUrl = agentApiBaseUrl(deps.appUrl, tenant.publicId)
   const name = (await deps.settings.getRestaurant(tenant.restaurantId))?.name ?? ''
@@ -135,5 +139,6 @@ export async function agentOpenApiFor(
     apiBaseUrl,
     maxPartySize: tenant.maxPartySize,
     statement: buildCollectionStatement(name, deps.privacyUrl),
+    booking: tenant.bookingHours ? { hours: tenant.bookingHours, today: hongKongToday(deps.now()) } : null,
   })
 }

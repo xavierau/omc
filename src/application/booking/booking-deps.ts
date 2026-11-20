@@ -35,6 +35,7 @@ import type { PurgeBookingPiiDeps } from './purge-booking-pii'
 import type { PurgeUnverifiedBookingsDeps } from './purge-unverified-bookings'
 import type { CreateAgentBookingDeps } from './create-agent-booking'
 import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
+import type { GetAgentAvailabilityDeps } from './get-agent-availability'
 import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 
@@ -131,7 +132,12 @@ export function getAgentBookingStatusDeps(): GetAgentBookingStatusDeps {
 
 /** BOOK-003: the OpenAPI description an agent reads. */
 export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agentBookingDirectory } {
-  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL }
+  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL, now }
+}
+
+/** BOOK-009 W4: the public agent API (availability), on the create path's limiter. */
+export function getAgentAvailabilityDeps(): GetAgentAvailabilityDeps {
+  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now }
 }
 
 /** BOOK-003: the webhook's confirm-code check. */

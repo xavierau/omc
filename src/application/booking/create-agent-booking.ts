@@ -20,6 +20,10 @@
  *     member or consent row is touched: the diner has not proved the phone.
  *
  * Logs carry the error class and the booking id only (R37).
+ *
+ * BOOK-009 W4: a slot the booking hours refuse answers with up to 3
+ * `suggestedTimes` (spec AC-12); accepted terms are stored on the row with
+ * the exact text, when it is created (spec AC-13, W1 snapshot rule).
  */
 import {
   AGENT_CREATES_PER_IP_WINDOW_SEC,
@@ -38,11 +42,14 @@ import {
   isSameAgentSubmission,
   isValidIdempotencyKey,
   parseAgentBookingBody,
+  suggestionsForRefusal,
   type AgentBookingStatus,
   type AgentBookingStatusView,
   type AgentBookingSubmission,
 } from '@/domain/services/agent-booking'
 import type { BookingFieldErrors } from '@/domain/services/booking-submission'
+import type { SuggestedTime } from '@/domain/services/booking-hours'
+import { termsSnapshot } from '@/domain/value-objects/booking-hours'
 import { generateConfirmCode } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, buildConfirmText, type CollectionStatement } from '@/domain/services/poppy-documents'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
@@ -98,9 +105,17 @@ export type CreateAgentBookingResult =
   | { ok: true; kind: 'replayed_status'; body: ReplayedStatusBody }
   | { ok: false; reason: 'rate_limited'; retryAfterSec: number }
   | { ok: false; reason: 'not_found' }
-  | { ok: false; reason: 'invalid'; errors: BookingFieldErrors }
+  | { ok: false; reason: 'invalid'; errors: BookingFieldErrors; suggestedTimes?: SuggestedTime[] }
   | { ok: false; reason: 'idempotency_conflict'; description: string }
   | { ok: false; reason: 'failed' }
+
+/**
+ * R39: the per-IP limit every agent API call shares (POST /bookings and,
+ * BOOK-009 threat R2, GET /availability), before any database read.
+ */
+export function withinAgentIpLimit(limiter: RateLimiterPort, clientIp: string): Promise<boolean> {
+  return withinWindow(limiter, `book003:agent:${clientIp}`, AGENT_SUBMIT_LIMIT_PER_MINUTE, 60)
+}
 
 /** The per-IP-per-restaurant window is fixed, so the wait is at most one full window. */
 export const IP_RESTAURANT_RETRY_AFTER_SEC = AGENT_CREATES_PER_IP_WINDOW_SEC
@@ -119,6 +134,7 @@ async function withinWindow(limiter: RateLimiterPort, key: string, limit: number
 interface Context {
   deps: CreateAgentBookingDeps
   restaurantId: string
+  config: BookingRulesConfig
   restaurant: BookingRestaurantContext & { whatsappNumber: string }
   statement: CollectionStatement
   now: Date
@@ -177,6 +193,12 @@ function withinIpRestaurantWindow(ctx: Context, clientIp: string): Promise<boole
   return withinWindow(ctx.deps.limiter, key, MAX_AGENT_CREATES_PER_IP_PER_RESTAURANT, AGENT_CREATES_PER_IP_WINDOW_SEC)
 }
 
+/** BOOK-009 AC-13: when, and the exact text, of terms the diner accepted through the agent. */
+function termsAcceptance(ctx: Context, s: AgentBookingSubmission) {
+  const text = s.termsAccepted ? termsSnapshot(ctx.config.bookingHours) : null
+  return text ? { termsAcceptedAt: ctx.now.toISOString(), termsText: text } : {}
+}
+
 async function insert(ctx: Context, s: AgentBookingSubmission, key: string | null): Promise<CreateAgentBookingResult> {
   const { deps } = ctx
   const verifyExpiresAt = new Date(ctx.now.getTime() + AGENT_VERIFY_TTL_MS).toISOString()
@@ -185,7 +207,7 @@ async function insert(ctx: Context, s: AgentBookingSubmission, key: string | nul
     const result = await deps.store.insert({
       restaurantId: ctx.restaurantId, phone: s.phone, name: s.name, partySize: s.partySize, bookingDate: s.date,
       bookingTime: s.time, notes: s.notes, confirmCode: generateConfirmCode(deps.secrets.randomIndex), verifyExpiresAt,
-      statusTokenHash: hashStatusToken(statusToken), idempotencyKey: key,
+      statusTokenHash: hashStatusToken(statusToken), idempotencyKey: key, ...termsAcceptance(ctx, s),
     })
     if (result.ok) {
       const body = awaitingBody(ctx, result.booking, statusToken)
@@ -205,6 +227,7 @@ async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTena
   return {
     deps,
     restaurantId: tenant.restaurantId,
+    config: tenant.config,
     restaurant: { ...restaurant, whatsappNumber },
     statement: buildCollectionStatement(restaurant.name, deps.privacyUrl),
     now: deps.now(),
@@ -212,12 +235,15 @@ async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTena
 }
 
 /** BOOK-009: the tenant's booking hours and terms bind agents too (`bookingRulesAt`, spec AC-12/13). */
-function parseInput(ctx: Context, input: CreateAgentBookingInput, config: BookingRulesConfig) {
-  const parsed = parseAgentBookingBody(input.body, bookingRulesAt(ctx.now, config))
+function parseInput(ctx: Context, input: CreateAgentBookingInput) {
+  const rules = bookingRulesAt(ctx.now, ctx.config)
+  const parsed = parseAgentBookingBody(input.body, rules)
   const keyError = input.idempotencyKey !== null && !isValidIdempotencyKey(input.idempotencyKey)
   if (!parsed.ok || keyError) {
     const errors = { ...(parsed.ok ? {} : parsed.errors), ...(keyError ? { 'Idempotency-Key': 'invalid' } : {}) }
-    return { ok: false as const, errors }
+    const b = (input.body ?? {}) as Record<string, unknown>
+    const suggested = suggestionsForRefusal(rules.hours, errors, { date: String(b.date), time: String(b.time), clock: rules })
+    return { ok: false as const, errors, ...(suggested ? { suggestedTimes: suggested } : {}) }
   }
   return parsed
 }
@@ -226,13 +252,13 @@ export async function createAgentBooking(
   deps: CreateAgentBookingDeps,
   input: CreateAgentBookingInput
 ): Promise<CreateAgentBookingResult> {
-  if (!(await withinWindow(deps.limiter, `book003:agent:${input.clientIp}`, AGENT_SUBMIT_LIMIT_PER_MINUTE, 60))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
+  if (!(await withinAgentIpLimit(deps.limiter, input.clientIp))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
   const tenant = await resolveAgentBookingTenant(deps.directory, input.publicId)
   const ctx = tenant ? await contextFor(deps, tenant) : null
   if (!tenant || !ctx) return { ok: false, reason: 'not_found' }
 
-  const parsed = parseInput(ctx, input, tenant.config)
-  if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors }
+  const parsed = parseInput(ctx, input)
+  if (!parsed.ok) return { ok: false, reason: 'invalid', ...parsed }
   const s = parsed.submission
   try {
     if (input.idempotencyKey) {
