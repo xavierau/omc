@@ -1,0 +1,32 @@
+# forge command 14469958 status finished
+2026-11-20T03:17:06Z
+3545420       00:43 next-server (v16.3.4)
+3545481       00:36 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3545520       00:30 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3545521       00:30 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-wor
+3545532       00:29 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import f
+e1I15X2aClu1mW4QksVz2
+8de9aea69fc4e3910bd8ad0755cdcefb718329d6 release 99f8173: Merge pull request #208 from xavierau/develop
+{
+  "source_ref": "rel-book006",
+  "source_commit": "99f81731a69182098cfa49fd2293394c64f68d63",
+  "source_subject": "Merge pull request #208 from xavierau/develop",
+  "build_id": "e1I15X2aClu1mW4QksVz2",
+  "built_at": "2026-11-20T03:13:07Z",
+  "node": "v22.21.1"
+}
+== app tail
+
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://10.148.0.3:3100
+✓ Ready in 1569ms
+✓ Running next.config.ts took 896ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[AgentBooking] rate limiter unavailable, allowing: Error
+== worker tail
+[EmailQueue] Worker started
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
