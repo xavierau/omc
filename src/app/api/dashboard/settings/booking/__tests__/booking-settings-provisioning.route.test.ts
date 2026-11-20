@@ -98,6 +98,8 @@ describe('GET booking settings', () => {
     expect(await res.json()).toEqual({
       mode: 'external', externalUrl: 'https://inline.app/x', templates: all('not_submitted'), canEditBookingUrl: false,
       templateEditor: { canEdit: false, slots: SLOTS },
+      // BOOK-009 AC-5: no booking hours set → both null.
+      bookingHours: null, summary: null,
     })
     expect(getBookingConfig).toHaveBeenCalledTimes(1)
     expect(getBookingConfig).toHaveBeenCalledWith(RID)
