@@ -1,0 +1,11 @@
+# forge site command 14470810 (read-only), 2026-11-20T04:10:17Z
+# (status "failed" = the last `ls` of the not-yet-created backup dir; every other line succeeded)
+cwd /home/forge/app.ohmyclient.io
+HEAD 8de9aea69fc4e3910bd8ad0755cdcefb718329d6
+.next/BUILD_ID e1I15X2aClu1mW4QksVz2
+RELEASE.json source_commit 99f81731a69182098cfa49fd2293394c64f68d63 build_id e1I15X2aClu1mW4QksVz2
+next-server (v16.3.4) pid 3545420 etime 53:53
+npm exec tsx ... scripts/start-worker.ts pid 3545481 etime 53:47
+disk /: 26912 MB free (54% used)
+MemAvailable 2404312 kB, SwapFree 33300 kB, loadavg 0.26 0.20 0.18
+site .env: SUPABASE_ACCESS_TOKEN non-empty lines 1; lines naming project uzimqndenngebzgndlhd 1

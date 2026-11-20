@@ -1,0 +1,15 @@
+# forge site command 14471027, 04:29:0xZ; helper q.py, Management API read-only endpoint, project uzimqndenngebzgndlhd
+# box file /home/forge/backups/2026-11-20-book-007/after-catalog.json (600) sha256 8951811175b7505aef39fc49b103fe2570008b67b739b6d67df5811be1e12c81
+ledger tail: 087 booking_no_show, 086, 085
+booking_requests_status_check: CHECK (status = ANY (ARRAY['unverified','pending','confirmed','declined','cancelled','no_show']))
+booking_requests_decision_consistent: CHECK (((status IN (unverified,pending)) AND decided_at IS NULL) OR ((status IN (confirmed,declined,no_show)) AND decided_at IS NOT NULL) OR (status = 'cancelled' AND cancelled_at IS NOT NULL))
+booking_requests_no_show_marker: CHECK ((status = 'no_show') = (no_show_marked_at IS NOT NULL))
+booking_requests_cancel_marker: unchanged from baseline
+new columns: no_show_marked_by uuid NULL, no_show_marked_at timestamptz NULL (32 columns, baseline 30)
+mark_booking_no_show(uuid,uuid,uuid,timestamptz,date,time) RETURNS SETOF booking_requests, LANGUAGE sql; EXECUTE anon false, authenticated false, service_role true
+counts: booking_requests 5 (baseline 5) {pending 4, confirmed 1}; status no_show 0; rows with a no_show marker 0; restaurants 7; members 4227
+# status mix vs baseline {confirmed 1, unverified 1, pending 3}: forge cmds 14471032, 14471038 (box files after-status-move.json, after-ids.json, 600; ids compared on the box, not printed)
+GONE 1: unverified, source agent, created 03:11:27Z, verify_expires_at 03:41:27Z -> deleted by the booking-reminders cron purge (purgeUnverifiedBookings, BOOK-003 R41)
+NEW  1: pending, source agent, created 04:24:04Z (old build; before the 04:27:38Z deploy)
+kept 4: same status as baseline; verified_since_baseline 0
+=> 087 changed no row; the equal count (5 = 5) is a coincidence of one purge + one new booking
