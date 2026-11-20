@@ -60,8 +60,8 @@ export function parseAgreed(
   extra: AgentToolOutput
 ): ParsedProposal {
   if ((proposal.termsText ?? null) !== currentTerms(call)) return { ok: false, output: TERMS_CHANGED }
-  const { termsAccepted: _accepted, ...booking } = proposal.booking
-  return parseWith(rulesFor(call), { ...booking, acceptTerms: true }, extra)
+  const { date, time, partySize, name, notes } = proposal.booking
+  return parseWith(rulesFor(call), { date, time, partySize, name, notes, acceptTerms: true }, extra)
 }
 
 /** BOOK-009 AC-10/AC-17: when, and the exact text, of terms the diner accepted in chat (stored on the row, source agent). */

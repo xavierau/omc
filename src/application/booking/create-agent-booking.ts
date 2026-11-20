@@ -258,7 +258,7 @@ export async function createAgentBooking(
   if (!tenant || !ctx) return { ok: false, reason: 'not_found' }
 
   const parsed = parseInput(ctx, input)
-  if (!parsed.ok) return { ok: false, reason: 'invalid', ...parsed }
+  if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors, ...('suggestedTimes' in parsed ? { suggestedTimes: parsed.suggestedTimes } : {}) }
   const s = parsed.submission
   try {
     if (input.idempotencyKey) {
