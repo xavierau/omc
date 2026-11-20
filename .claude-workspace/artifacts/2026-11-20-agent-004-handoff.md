@@ -7,18 +7,17 @@ created: 2026-11-20
 status: active
 item: AGENT-004
 state: done
-brief: inline (main, AGENT-004 brief-v1; resume note: base the PR on current origin/develop)
-base: 15fb61ef (origin/develop; brief base 275785f2, rebased; 275785f2..15fb61ef touches none of the AGENT-004 files)
-head: 6ac3e4c8 (code; this file, the journal and the kanban entry are committed on top)
+brief: inline
+base: 15fb61ef
+head: 6ac3e4c8
 branch: fix/agent-004-classifier-skip-when-agent-books
-pr: https://github.com/xavierau/omc/pull/204 (into develop, not merged)
 pushed: true
 stage: poc
 suite_changed: false
 gate: {result: pass, at: 2026-11-20T00:47Z}
 next: {owner: main, action: "review PR #204; merge into develop and release with the owner; no migration, the web app restart is enough (the webhook code changed, the worker did not)"}
 blockers: []
-refs: [kanban:AGENT-004, kanban:AGENT-003, kanban:BOOK-001, github:204]
+refs: [kanban:AGENT-004, kanban:AGENT-003, kanban:BOOK-001, "github:204", "https://github.com/xavierau/omc/pull/204"]
 ---
 ac:
   AC-1: {result: pass, evidence: "agent-routing.test.ts: 'AGENT-004 ...' describe, 13 cases a–f + retry; red first in f59e2568 (4 failed), green in 6ac3e4c8; 65/65 in the two files, also after the rebase"}
@@ -45,6 +44,7 @@ review_focus:
   - "src/application/agent/agent-owns-booking-text.ts: the fall-open catch"
   - "A side effect to accept or reject: in auto with booking tools, a phone silenced by a handoff (or over its rate limit) now gets the fallback menu for booking-sounding text, where before it got the classifier's CTA"
 scope_drift:
+  - "Rebased from brief base 275785f2 onto origin/develop 15fb61ef (coordinator instruction); the CAMP-016 files a diff against 275785f2 shows came from develop (#200/#203), not this branch. PR #204 diff = 7 files, all in files_allowed"
   - "src/app/api/webhooks/whatsapp/__tests__/book-routing.test.ts: setup now mocks agent-config-repository (agent off), because the predicate reads agent_config before the classifier and W2-06 asserts no DB client. Assertions unchanged. Inside files_allowed"
 in_flight: []
 next_step: "Review and merge PR #204 into develop, then release with the owner and run the live omc check."
