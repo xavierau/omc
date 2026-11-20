@@ -28,12 +28,13 @@ export function outcomeFromResponse(status: number, body: unknown): BookingSubmi
   return { kind: 'error' }
 }
 
-export async function postBooking(token: string, values: BookingFormValues): Promise<BookingSubmitOutcome> {
+/** BOOK-009: `acceptTerms` is sent only by the slot form, when the restaurant set terms. */
+export async function postBooking(token: string, values: BookingFormValues, extra: { acceptTerms?: boolean } = {}): Promise<BookingSubmitOutcome> {
   try {
     const res = await fetch(`/api/b/${encodeURIComponent(token)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, notes: values.notes.trim() === '' ? null : values.notes }),
+      body: JSON.stringify({ ...values, notes: values.notes.trim() === '' ? null : values.notes, ...extra }),
     })
     return outcomeFromResponse(res.status, await res.json().catch(() => null))
   } catch {

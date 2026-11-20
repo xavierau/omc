@@ -9,9 +9,18 @@
  *    wa.me link that sends BOOK to the restaurant (spec AC-12), no form.
  *
  * The token is only peeked: opening a page is not submitting one.
+ *
+ * BOOK-009: the form view carries the restaurant's booking hours (null = not
+ * configured: today's date/time form, AC-5) and the Hong Kong clock, so the
+ * page computes days and slots with the same pure `slotsFor` the server
+ * checks with. Hours that leave no bookable time in the window → the off page.
+ * `previewBookingView` builds the admin Preview from the SAVED config (S1.10).
  */
 import { buildContactUrl } from '@/domain/services/contact-redirect'
-import { hongKongToday } from '@/domain/services/booking-submission'
+import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
+import { slotsFor, windowEnd } from '@/domain/services/booking-hours'
+import { addDays } from '@/domain/services/booking-calendar'
+import type { BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingTokenState } from '@/domain/services/booking-token'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { BookingRestaurantContext, BookingSettingsReader, BookingTokenOwner, BookingTokenStore } from '@/domain/ports/booking'
@@ -37,6 +46,11 @@ export type BookingLinkView =
       maskedPhone: string
       maxPartySize: number
       today: string
+      /**
+       * BOOK-009: set only when the restaurant has booking hours (absent = the
+       * BOOK-001 date/time form, unchanged, AC-5), with Hong Kong now (HH:MM).
+       */
+      schedule?: { hours: BookingHours; nowTime: string }
       retryUrl: string | null
     }
   | { kind: 'redirect'; url: string }
@@ -73,6 +87,45 @@ async function externalTarget(deps: ResolveBookingLinkDeps, owner: BookingTokenO
   return campaignUrl ?? config.externalUrl
 }
 
+/** Whether any day in the window still has a slot. */
+function anyBookableTime(hours: BookingHours, clock: { today: string; nowTime: string }): boolean {
+  for (let d = clock.today; d <= windowEnd(hours, clock.today); d = addDays(d, 1)) {
+    if (slotsFor(hours, d, clock).length > 0) return true
+  }
+  return false
+}
+
+type FormView = Extract<BookingLinkView, { kind: 'form' }>
+
+function formView(deps: Pick<ResolveBookingLinkDeps, 'now'>, restaurant: BookingRestaurantContext, config: BookingConfig, maskedPhone: string): BookingLinkView {
+  const now = deps.now()
+  const clock = { today: hongKongToday(now), nowTime: hongKongTime(now) }
+  if (config.bookingHours && !anyBookableTime(config.bookingHours, clock)) return unavailable('off', restaurant)
+  const view: FormView = {
+    kind: 'form',
+    restaurant: { name: restaurant.name, logoUrl: restaurant.logoUrl },
+    maskedPhone,
+    maxPartySize: config.maxPartySize,
+    today: clock.today,
+    retryUrl: retryUrlOf(restaurant),
+    ...(config.bookingHours ? { schedule: { hours: config.bookingHours, nowTime: clock.nowTime } } : {}),
+  }
+  return view
+}
+
+/** Spec S1.10: what the masked number reads as in the admin Preview. */
+export const PREVIEW_MASKED_PHONE = '•••• ••••'
+
+/**
+ * BOOK-009 S1.10: the diner page for the admin's own restaurant with its
+ * SAVED settings, whatever the mode (no token; the page disables submit).
+ */
+export async function previewBookingView(deps: Omit<ResolveBookingLinkDeps, 'tokens'>, restaurantId: string): Promise<BookingLinkView> {
+  const [restaurant, config] = await Promise.all([deps.settings.getRestaurant(restaurantId), deps.settings.getConfig(restaurantId)])
+  if (!restaurant) return unavailable('off', null)
+  return formView(deps, restaurant, config, PREVIEW_MASKED_PHONE)
+}
+
 export async function resolveBookingLink(deps: ResolveBookingLinkDeps, token: string): Promise<BookingLinkView> {
   const { state, owner } = await deps.tokens.peek(token, deps.now())
   if (!owner) return unavailable('unknown', null)
@@ -85,12 +138,5 @@ export async function resolveBookingLink(deps: ResolveBookingLinkDeps, token: st
     return url ? { kind: 'redirect', url } : unavailable('off', restaurant)
   }
   if (config.mode !== 'simple' || !restaurant) return unavailable('off', restaurant)
-  return {
-    kind: 'form',
-    restaurant: { name: restaurant.name, logoUrl: restaurant.logoUrl },
-    maskedPhone: maskDinerPhone(owner.phone),
-    maxPartySize: config.maxPartySize,
-    today: hongKongToday(deps.now()),
-    retryUrl: retryUrlOf(restaurant),
-  }
+  return formView(deps, restaurant, config, maskDinerPhone(owner.phone))
 }

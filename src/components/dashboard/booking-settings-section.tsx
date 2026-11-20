@@ -16,7 +16,7 @@ import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { needsExternalUrl, useAgentBookingSettings, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
+import { hasUnsavedChanges, needsExternalUrl, toForm, useAgentBookingSettings, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
 import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability'
 import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overview'
 import { BookingTemplateStatusList } from './booking-template-status-list'
@@ -95,7 +95,11 @@ function NotSavedNotice({ errors }: { errors: Record<string, string> }) {
 
 export function BookingSettingsSection({ initialConfig }: { initialConfig: BookingConfig }) {
   const t = useTranslations('bookingSettings')
-  const { form, update, updateHours, save: saveForm, saving, outcome, dirty } = useBookingSettings(initialConfig)
+  const { form, update, save: saveForm, saving, outcome } = useBookingSettings(initialConfig)
+  // BOOK-009: Preview shows the last SAVED settings; track them to warn about unsaved edits.
+  const [savedConfig, setSavedConfig] = useState(initialConfig)
+  if (outcome?.kind === 'saved' && outcome.config !== savedConfig) setSavedConfig(outcome.config)
+  const dirty = hasUnsavedChanges(form, toForm(savedConfig))
   // BOOK-009: the rules summary comes from GET; fetch it again after a save.
   const [summaryVersion, setSummaryVersion] = useState(0)
   const save = async () => {
@@ -129,8 +133,8 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
           </div>
         ) : null}
         {form.mode === 'simple' ? (
-          <BookingHoursBlocks form={form} errors={errors} onEdit={(edit) => updateHours(edit)} onMaxPartySize={(v) => update('maxPartySize', v)}
-            summary={summary?.hoursSummary ?? null} dirty={Boolean(dirty)} />
+          <BookingHoursBlocks form={form} errors={errors} onEdit={(edit) => update('bookingHours', edit(form.bookingHours))} onMaxPartySize={(v) => update('maxPartySize', v)}
+            summary={summary?.hoursSummary ?? null} dirty={dirty} />
         ) : null}
         {form.mode !== 'off' ? <BookingRulesField form={form} update={update} error={errors.bookingRules} /> : null}
         {form.mode === 'simple' ? (

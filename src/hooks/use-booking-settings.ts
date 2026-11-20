@@ -137,7 +137,6 @@ export function hasUnsavedChanges(form: BookingSettingsForm, saved: BookingSetti
 
 export function useBookingSettings(initial: BookingConfig) {
   const [form, setForm] = useState<BookingSettingsForm>(() => toForm(initial))
-  const [saved, setSaved] = useState<BookingSettingsForm>(() => toForm(initial))
   const [outcome, setOutcome] = useState<SaveBookingSettingsOutcome | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -146,24 +145,15 @@ export function useBookingSettings(initial: BookingConfig) {
     setOutcome(null)
   }
 
-  /** BOOK-009: an edit of the hours (a pure function from hours-model). */
-  function updateHours(edit: (hours: BookingHours) => BookingHours) {
-    setForm((prev) => ({ ...prev, bookingHours: edit(prev.bookingHours) }))
-    setOutcome(null)
-  }
-
   async function save() {
     setSaving(true)
     const result = await saveBookingSettings(form)
-    if (result.kind === 'saved') {
-      setForm(toForm(result.config))
-      setSaved(toForm(result.config))
-    }
+    if (result.kind === 'saved') setForm(toForm(result.config))
     setOutcome(result)
     setSaving(false)
   }
 
-  return { form, update, updateHours, save, saving, outcome, dirty: hasUnsavedChanges(form, saved) }
+  return { form, update, save, saving, outcome }
 }
 
 /**

@@ -18,6 +18,8 @@ export interface BookingFormProps {
   today: string
   maxPartySize: number
   retryUrl: string | null
+  /** BOOK-009 S1.10: the admin Preview; submit stays disabled. */
+  preview?: boolean
 }
 
 const EMPTY: BookingFormValues = { date: '', time: '', partySize: '2', name: '', notes: '' }
@@ -43,7 +45,7 @@ export function BookingFormNotice({ outcome }: { outcome: BookingSubmitOutcome |
   )
 }
 
-export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl }: BookingFormProps) {
+export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl, preview = false }: BookingFormProps) {
   const t = useTranslations('booking')
   const [values, setValues] = useState<BookingFormValues>(EMPTY)
   const [outcome, setOutcome] = useState<BookingSubmitOutcome | null>(null)
@@ -54,6 +56,7 @@ export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl 
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (preview) return
     setSubmitting(true)
     setOutcome(await postBooking(token, values))
     setSubmitting(false)
@@ -72,7 +75,7 @@ export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl 
         onChange={(field, value) => setValues((v) => ({ ...v, [field]: value }))}
       />
       <BookingFormNotice outcome={outcome} />
-      <Button type="submit" disabled={submitting} className="h-11 w-full" data-testid="booking-submit">
+      <Button type="submit" disabled={submitting || preview} className="h-11 w-full" data-testid="booking-submit">
         {submitting ? t('submitting') : t('submit')}
       </Button>
     </form>
