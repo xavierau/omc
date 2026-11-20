@@ -1,0 +1,146 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts (4 tests | 4 failed) 6ms
+     × is a single SQL statement: one UPDATE, no separate read before it 3ms
+     × moves only this restaurant's confirmed, past row, storing who and when 1ms
+     × refuses when a pending change request replaces it in the same restaurant, inside the same UPDATE 0ms
+     × returns the changed row, runs as the caller (no SECURITY DEFINER) and only service_role may execute it 0ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts (8 tests | 2 failed) 12ms
+     × mark: one RPC call with id, restaurant, who, when and the Hong Kong now, returning the staff columns 6ms
+     × mark: no row changed → null 1ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts (26 tests | 3 failed) 48ms
+     × confirmed + later today → 409 not_past, unchanged 6ms
+     × confirmed + a future date → 409 not_past, unchanged 2ms
+     × confirmed + past with an open change request → 409 change_pending; neither row changes 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts > 087 mark_booking_no_show (r1 F1) > is a single SQL statement: one UPDATE, no separate read before it
+AssertionError: mark_booking_no_show is defined in 087: expected -1 to be greater than or equal to 0
+ ❯ fnSource src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:18:59
+     16| function fnSource(): string {
+     17|   const start = SQL.indexOf('CREATE OR REPLACE FUNCTION public.mark_bo…
+     18|   expect(start, 'mark_booking_no_show is defined in 087').toBeGreaterT…
+       |                                                           ^
+     19|   const end = SQL.indexOf('$$ LANGUAGE', SQL.indexOf('$$', start) + 2)
+     20|   return squash(SQL.slice(start, SQL.indexOf(';', end) + 1))
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:25:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts > 087 mark_booking_no_show (r1 F1) > moves only this restaurant's confirmed, past row, storing who and when
+AssertionError: mark_booking_no_show is defined in 087: expected -1 to be greater than or equal to 0
+ ❯ fnSource src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:18:59
+     16| function fnSource(): string {
+     17|   const start = SQL.indexOf('CREATE OR REPLACE FUNCTION public.mark_bo…
+     18|   expect(start, 'mark_booking_no_show is defined in 087').toBeGreaterT…
+       |                                                           ^
+     19|   const end = SQL.indexOf('$$ LANGUAGE', SQL.indexOf('$$', start) + 2)
+     20|   return squash(SQL.slice(start, SQL.indexOf(';', end) + 1))
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:34:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts > 087 mark_booking_no_show (r1 F1) > refuses when a pending change request replaces it in the same restaurant, inside the same UPDATE
+AssertionError: mark_booking_no_show is defined in 087: expected -1 to be greater than or equal to 0
+ ❯ fnSource src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:18:59
+     16| function fnSource(): string {
+     17|   const start = SQL.indexOf('CREATE OR REPLACE FUNCTION public.mark_bo…
+     18|   expect(start, 'mark_booking_no_show is defined in 087').toBeGreaterT…
+       |                                                           ^
+     19|   const end = SQL.indexOf('$$ LANGUAGE', SQL.indexOf('$$', start) + 2)
+     20|   return squash(SQL.slice(start, SQL.indexOf(';', end) + 1))
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:42:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts > 087 mark_booking_no_show (r1 F1) > returns the changed row, runs as the caller (no SECURITY DEFINER) and only service_role may execute it
+AssertionError: mark_booking_no_show is defined in 087: expected -1 to be greater than or equal to 0
+ ❯ fnSource src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:18:59
+     16| function fnSource(): string {
+     17|   const start = SQL.indexOf('CREATE OR REPLACE FUNCTION public.mark_bo…
+     18|   expect(start, 'mark_booking_no_show is defined in 087').toBeGreaterT…
+       |                                                           ^
+     19|   const end = SQL.indexOf('$$ LANGUAGE', SQL.indexOf('$$', start) + 2)
+     20|   return squash(SQL.slice(start, SQL.indexOf(';', end) + 1))
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-migration-contract.test.ts:48:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > mark: one RPC call with id, restaurant, who, when and the Hong Kong now, returning the staff columns
+TypeError: Cannot read properties of undefined (reading 'slice')
+ ❯ toBookingRequest src/infrastructure/supabase/repositories/booking-request-repository.ts:90:35
+     88|     partySize: row.party_size,
+     89|     bookingDate: row.booking_date,
+     90|     bookingTime: row.booking_time.slice(0, 5),
+       |                                   ^
+     91|     notes: row.notes,
+     92|     status: row.status,
+ ❯ Module.markBookingNoShow src/infrastructure/supabase/repositories/booking-request-repository.ts:379:17
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:44:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > mark: no row changed → null
+TypeError: Cannot read properties of undefined (reading 'slice')
+ ❯ toBookingRequest src/infrastructure/supabase/repositories/booking-request-repository.ts:90:35
+     88|     partySize: row.party_size,
+     89|     bookingDate: row.booking_date,
+     90|     bookingTime: row.booking_time.slice(0, 5),
+       |                                   ^
+     91|     notes: row.notes,
+     92|     status: row.status,
+ ❯ Module.markBookingNoShow src/infrastructure/supabase/repositories/booking-request-repository.ts:379:17
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:59:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts > POST no-show (R5, R6) > confirmed + later today → 409 not_past, unchanged
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts > POST no-show (R5, R6) > confirmed + a future date → 409 not_past, unchanged
+AssertionError: expected { error: 'already_handled', …(1) } to deeply equal { error: 'not_past', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "error": "not_past",
++   "error": "already_handled",
+    "status": "confirmed",
+  }
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts:81:30
+     79|     const res = await mark(req('POST'), ctx(id))
+     80|     expect(res.status).toBe(409)
+     81|     expect(await res.json()).toEqual({ error: 'not_past', status: 'con…
+       |                              ^
+     82|     expect(rowOf(id)).toEqual(before)
+     83|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts > POST no-show (R5, R6) > confirmed + past with an open change request → 409 change_pending; neither row changes
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts:105:24
+    103|     const before = [{ ...rowOf(original) }, { ...rowOf(change) }]
+    104|     const res = await mark(req('POST'), ctx(original))
+    105|     expect(res.status).toBe(409)
+       |                        ^
+    106|     expect(await res.json()).toEqual({ error: 'change_pending', status…
+    107|     expect([rowOf(original), rowOf(change)]).toEqual(before)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  9 failed | 29 passed (38)
+   Start at  11:51:42
+   Duration  454ms (transform 260ms, setup 0ms, import 457ms, tests 66ms, environment 0ms)
+

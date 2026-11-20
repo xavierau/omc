@@ -50,7 +50,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const [pending, decided] = rec.queries
     expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
     expect(pending.calls.some(([m]) => m === 'limit')).toBe(false)
-    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined,cancelled'])
+    expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined,cancelled,no_show'])
     expect(decided.calls).toContainEqual(['limit', 200])
     for (const q of rec.queries) expect(q.calls).toContainEqual(['order', 'created_at', { ascending: false }])
   })
@@ -60,7 +60,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ data: [ROW, { ...ROW, id: 'b-2' }, { ...ROW, id: 'b-3' }] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 2)
     const q = rec.queries[0]
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled,no_show'])
     expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-01'])
     expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-30'])
     expect(q.calls.filter(([m]) => m === 'order')).toEqual([
@@ -82,7 +82,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ data: [cancelledRow, changeRow] }, { data: [OLD_SLOT] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
     const [q, slots] = rec.queries
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled,no_show'])
     expect(filtersOf(q).join()).not.toContain('unverified')
     expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toContain('replaces_booking_id, cancelled_by')
     expect(filtersOf(slots)).toEqual(['eq:restaurant_id=r-a', 'in:id=b-old'])

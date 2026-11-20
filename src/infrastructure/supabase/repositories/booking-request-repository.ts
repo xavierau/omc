@@ -20,12 +20,14 @@ import { pendingNeedingReply } from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
+  BookingNoShowStore,
   BookingRequestStore,
   BookingRetentionStore,
   CancelDinerBookingArgs,
   DecideBookingArgs,
   DinerBookingStore,
   HongKongMoment,
+  MarkNoShowArgs,
 } from '@/domain/ports/booking'
 
 const BOOKING_COLUMNS =
@@ -154,7 +156,7 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
       .from('booking_requests')
       .select(STAFF_COLUMNS)
       .eq('restaurant_id', restaurantId)
-      .in('status', ['confirmed', 'declined', 'cancelled'])
+      .in('status', ['confirmed', 'declined', 'cancelled', 'no_show'])
       .order('created_at', { ascending: false })
       .limit(decidedLimit),
   ])
@@ -238,7 +240,7 @@ async function withReplacedSlotsIn(restaurantId: string, list: CappedList): Prom
  * (inclusive), by date then time. R1 tenant scope and R2 the unverified
  * exclusion are filters of the query itself (an allow-list, so a status added
  * later stays hidden until the views handle it; r4: cancelled is shown, like
- * declined, owner 2026-11-19); R4 reads one row past `cap` to know whether the
+ * declined, owner 2026-11-19; BOOK-007: no_show too); R4 reads one row past `cap` to know whether the
  * list was cut (under `max_rows`: `readCap`). AGENT-003 columns + replaced slots.
  */
 export async function listBookingRequestsInRange(
@@ -252,7 +254,7 @@ export async function listBookingRequestsInRange(
     .from('booking_requests')
     .select(STAFF_COLUMNS)
     .eq('restaurant_id', restaurantId)
-    .in('status', ['pending', 'confirmed', 'declined', 'cancelled'])
+    .in('status', ['pending', 'confirmed', 'declined', 'cancelled', 'no_show'])
     .gte('booking_date', range.from)
     .lte('booking_date', range.to)
     .order('booking_date', { ascending: true })
@@ -351,6 +353,42 @@ export async function confirmBookingChange(
   if (error) throw new Error(`confirmBookingChange: ${error.message}`)
   const row = ((data ?? []) as BookingRow[])[0]
   return row ? toBookingRequest(row) : null
+}
+
+/**
+ * BOOK-007 R5/R6 + r1 F1: confirmed + past + no open (pending) change request
+ * -> no_show, who and when stored. One statement in SQL (mark_booking_no_show,
+ * migration 087), scoped by restaurant, so the change check cannot race the
+ * UPDATE. `before` (Hong Kong now, YYYY-MM-DD + HH:MM) is built by the app.
+ */
+export async function markBookingNoShow(args: MarkNoShowArgs): Promise<BookingRequest | null> {
+  const { data, error } = await createServerSupabaseClient()
+    .rpc('mark_booking_no_show', {
+      p_id: args.id,
+      p_restaurant_id: args.restaurantId,
+      p_marked_by: args.markedBy,
+      p_marked_at: args.at.toISOString(),
+      p_before_date: args.before.date,
+      p_before_time: args.before.time,
+    })
+    .select(STAFF_COLUMNS)
+  if (error) throw new Error(`markBookingNoShow: ${error.message}`)
+  const row = ((data ?? []) as BookingRow[])[0]
+  return row ? toBookingRequest(row) : null
+}
+
+/** BOOK-007 R5/R6: undo, no_show -> confirmed with both marker columns cleared; scoped by restaurant. */
+export async function undoBookingNoShow(args: { id: string; restaurantId: string }): Promise<BookingRequest | null> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .update({ status: 'confirmed', no_show_marked_by: null, no_show_marked_at: null })
+    .eq('id', args.id)
+    .eq('restaurant_id', args.restaurantId)
+    .eq('status', 'no_show')
+    .select(STAFF_COLUMNS)
+    .maybeSingle()
+  if (error) throw new Error(`undoBookingNoShow: ${error.message}`)
+  return data ? toBookingRequest(data as BookingRow) : null
 }
 
 /** F9 (review #7): store the decision message outcome so the badge survives a reload. */
@@ -492,6 +530,12 @@ export const bookingCronStore: BookingReminderStore & BookingRetentionStore = {
   listReminderCandidates,
   claimReminder: claimBookingReminder,
   purgePii: purgeBookingPii,
+}
+
+export const bookingNoShowStore: BookingNoShowStore = {
+  markNoShow: markBookingNoShow,
+  undoNoShow: undoBookingNoShow,
+  findForRestaurant: findBookingForRestaurant,
 }
 
 export const bookingRequestStore: BookingRequestStore = {

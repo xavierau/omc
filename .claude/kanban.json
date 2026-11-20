@@ -1604,6 +1604,33 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "BOOK-007",
+          "title": "Staff mark a past confirmed booking as no-show (and undo)",
+          "description": "Owner 2026-11-20: no-show tracking so BOOK-008 can show per-member booking stats. New booking status no_show (migration 087: status CHECK, no_show_marked_by/at, decision/marker CHECKs), POST/DELETE /api/dashboard/bookings/[id]/no-show (admin/staff, tenant-scoped conditional UPDATE: confirmed + past in Asia/Hong_Kong -> no_show; undo -> confirmed), no diner message. 'Mark no-show' / 'Undo' in the table, phone cards and calendar day panel, no_show badge + filter chip. Guests exclude no_show; an original with an open change counts once as its change row (BOOK-006 follow-up). Poppy/agent outputs show no_show as confirmed; published enums unchanged.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "backend",
+            "poc"
+          ],
+          "related": [
+            "kanban:BOOK-006",
+            "kanban:BOOK-008",
+            "threats/2026-11-20-book-007-008-member-bookings",
+            "plans/2026-11-20-book-007-008-member-bookings"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-book-007-no-show-impl.md",
+            "artifacts/2026-11-20-book-007-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "branch": "feature/book-007-no-show",
+          "notes": "Apply migration 087 before deploying (additive). Validated on a scratch DB built from 001..086 in a rolled-back txn (artifacts/evidence/2026-11-20-book-007/ac4-087-scratch.log)."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",

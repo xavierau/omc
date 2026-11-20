@@ -1376,6 +1376,10 @@
     "confirm": "Confirm",
     "decline": "Decline",
     "sendDecline": "Send decline",
+    "markNoShow": "Mark no-show",
+    "undoNoShow": "Undo",
+    "noShowNotPast": "This booking's time hasn't passed yet, so it can't be marked as a no-show.",
+    "noShowChangePending": "This booking has a change request waiting for a reply. Confirm or decline the change first.",
     "cancel": "Cancel",
     "declineReasonPlaceholder": "Reason (optional)",
     "partyOf": "{count, plural, one {# person} other {# people}}",
@@ -1384,7 +1388,8 @@
       "confirmed": "Confirmed",
       "declined": "Declined",
       "cancelled": "Cancelled",
-      "unverified": "Awaiting diner"
+      "unverified": "Awaiting diner",
+      "no_show": "No-show"
     },
     "notDelivered": "Message not delivered, contact the diner",
     "nameRemoved": "(name removed)",
@@ -1400,7 +1405,8 @@
     "alreadyHandledStatus": {
       "confirmed": "confirmed",
       "cancelled": "cancelled",
-      "declined": "declined"
+      "declined": "declined",
+      "no_show": "marked as a no-show"
     },
     "actionFailed": "Couldn't update this request. Please try again.",
     "viaAgent": "via AI agent",
@@ -1430,7 +1436,8 @@
         "pending": "Pending",
         "confirmed": "Confirmed",
         "declined": "Declined",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "no_show": "No-show"
       },
       "searchPlaceholder": "Name or phone",
       "guests": "{count, plural, one {# guest} other {# guests}}",

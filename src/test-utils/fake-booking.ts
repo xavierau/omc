@@ -9,6 +9,7 @@ import type { BookingRequest, DecisionMessageStatus, DinerBooking, NewBookingReq
 import type {
   BookingMessageInput,
   BookingMessageSender,
+  BookingNoShowStore,
   BookingRequestStore,
   BookingRestaurantContext,
   BookingSendResult,
@@ -18,6 +19,7 @@ import type {
   DecideBookingArgs,
   DinerBookingStore,
   HongKongMoment,
+  MarkNoShowArgs,
 } from '@/domain/ports/booking'
 
 /** Mirrors the repository's upcomingFilter: a later date, or today at `from.time` or later. */
@@ -67,8 +69,16 @@ export class FakeBookingTokens implements BookingTokenStore {
   }
 }
 
-export class FakeBookingRequests implements BookingRequestStore, DinerBookingStore {
-  readonly rows: Array<BookingRequest & { token: string | null; cancelledAt?: string | null }> = []
+type FakeBookingRow = BookingRequest & {
+  token: string | null
+  cancelledAt?: string | null
+  /** BOOK-007 (migration 087). */
+  noShowMarkedBy?: string | null
+  noShowMarkedAt?: string | null
+}
+
+export class FakeBookingRequests implements BookingRequestStore, DinerBookingStore, BookingNoShowStore {
+  readonly rows: FakeBookingRow[] = []
   /** AGENT-003: queries the store received, as `where` strings (scoping assertions). */
   readonly queries: string[] = []
   failConfirmChangeCancel = false
@@ -114,8 +124,32 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     if (row) row.decisionMessageStatus = status
   }
 
+  /** Mirrors findBookingForRestaurant: an unverified agent booking does not exist for staff (R41). */
   async findForRestaurant(id: string, restaurantId: string) {
-    return this.rows.find((r) => r.id === id && r.restaurantId === restaurantId) ?? null
+    return this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status !== 'unverified') ?? null
+  }
+
+  /** BOOK-007: mirrors mark_booking_no_show (confirmed + before `args.before` + no pending change in this restaurant, r1 F1). */
+  async markNoShow(args: MarkNoShowArgs) {
+    await tick()
+    const changeOpen = this.rows.some(
+      (c) => c.replacesBookingId === args.id && c.restaurantId === args.restaurantId && c.status === 'pending'
+    )
+    const row = this.rows.find(
+      (r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'confirmed' && !isUpcoming(r, args.before)
+    )
+    if (!row || changeOpen) return null
+    Object.assign(row, { status: 'no_show', noShowMarkedBy: args.markedBy, noShowMarkedAt: args.at.toISOString() })
+    return { ...row }
+  }
+
+  /** BOOK-007: mirrors undoBookingNoShow. */
+  async undoNoShow(args: { id: string; restaurantId: string }) {
+    await tick()
+    const row = this.rows.find((r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'no_show')
+    if (!row) return null
+    Object.assign(row, { status: 'confirmed', noShowMarkedBy: null, noShowMarkedAt: null })
+    return { ...row }
   }
 
   /** Mirrors RPC confirm_booking_change: both rows change or neither (failConfirmChangeCancel simulates a mid-way failure). */

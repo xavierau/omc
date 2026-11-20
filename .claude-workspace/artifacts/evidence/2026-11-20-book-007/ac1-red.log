@@ -1,0 +1,25 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts [ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts ]
+Error: Cannot find module '/src/app/api/dashboard/bookings/[id]/no-show/route' imported from /Users/xavierau/Code/js/whatsapp-crm--book-007/src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-no-show.test.ts:24:1
+     22| import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+     23| import { sendWhatsAppTemplateMessage } from '@/application/send-templa…
+     24| import { DELETE as undo, POST as mark } from '../[id]/no-show/route'
+       | ^
+     25|
+     26| const A = 'rest-a'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  11:10:37
+   Duration  417ms (transform 89ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

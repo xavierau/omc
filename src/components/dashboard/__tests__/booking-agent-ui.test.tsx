@@ -93,7 +93,7 @@ describe('BOOK-003 dashboard UI', () => {
 
   it('a booking made by an AI agent shows the badge; chat and campaign rows do not', () => {
     const html = renderToStaticMarkup(
-      <BookingList bookings={[row('a1', 'agent'), row('c1', 'chat')]} busyId={null} undelivered={new Set()} onDecide={() => {}} />
+      <BookingList bookings={[row('a1', 'agent'), row('c1', 'chat')]} busyIds={new Set()} undelivered={new Set()} onDecide={() => {}} />
     )
     expect(html).toContain('data-testid="booking-row-a1-via-agent"')
     expect(html).toContain('bookings.viaAgent')

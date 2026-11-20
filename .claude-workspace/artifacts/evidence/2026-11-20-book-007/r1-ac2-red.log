@@ -1,0 +1,93 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts (10 tests | 4 failed) 10ms
+     × the original alone (its change on another day) counts its own party on its day 4ms
+     × a status filter that hides the pending change row leaves the original counted (table day heading) 1ms
+     × another row that is not the change (different id) does not stand in for it 0ms
+     × the calendar month grid cell counts the original when its change moved to another day 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > the original alone (its change on another day) counts its own party on its day
+AssertionError: expected 4 to be 6 // Object.is equality
+
+- Expected
++ Received
+
+- 6
++ 4
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:40:72
+     38|   it('the original alone (its change on another day) counts its own pa…
+     39|     const original = b('orig', 'confirmed', { partySize: 2, openChange…
+     40|     expect(covers([original, b('o2', 'confirmed', { partySize: 4 })]))…
+       |                                                                        ^
+     41|   })
+     42|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > a status filter that hides the pending change row leaves the original counted (table day heading)
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:48:35
+     46|     const confirmedOnly = filterBookings(all, 'confirmed', '')
+     47|     expect(confirmedOnly.map((x) => x.id)).toEqual(['orig'])
+     48|     expect(covers(confirmedOnly)).toBe(2)
+       |                                   ^
+     49|     expect(daySummary(confirmedOnly).guests).toBe(2)
+     50|     expect(covers(all)).toBe(6)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > another row that is not the change (different id) does not stand in for it
+AssertionError: expected 6 to be 8 // Object.is equality
+
+- Expected
++ Received
+
+- 8
++ 6
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:55:73
+     53|   it('another row that is not the change (different id) does not stand…
+     54|     const original = b('orig', 'confirmed', { partySize: 2, openChange…
+     55|     expect(covers([original, b('other', 'pending', { partySize: 6 })])…
+       |                                                                         ^
+     56|   })
+     57|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > the calendar month grid cell counts the original when its change moved to another day
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:61:53
+     59|     const openChange = { id: 'chg', bookingDate: '2026-11-25', booking…
+     60|     const month = [b('orig', 'confirmed', { partySize: 2, openChange }…
+     61|     expect(covers(bookingsOn(month, '2026-11-19'))).toBe(2)
+       |                                                     ^
+     62|     expect(covers(bookingsOn(month, '2026-11-25'))).toBe(6)
+     63|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 6 passed (10)
+   Start at  11:51:43
+   Duration  181ms (transform 36ms, setup 0ms, import 49ms, tests 10ms, environment 0ms)
+
