@@ -1,0 +1,14 @@
+# forge command 14469964 status finished (read-only; app log grep for the AgentBooking rate-limiter line)
+2026-11-20T03:17:33Z
+total lines 22223
+rate limiter lines total: 6
+banner lines (line numbers):
+22007 22058 22078 22106 22200 22217 
+rate limiter line numbers (last 10):
+19755 20045 20146 22013 22210 22223 
+-- context of last occurrence (8 after, cut 160):
+[AgentBooking] rate limiter unavailable, allowing: Error
+-- source
+src/application/booking/create-agent-booking.ts
+src/application/booking/submit-booking-request.ts
+redis ping: PONG

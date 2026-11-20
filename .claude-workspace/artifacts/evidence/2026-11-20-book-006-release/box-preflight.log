@@ -1,0 +1,21 @@
+# forge command 14469779 status finished
+2026-11-20T03:04:39Z
+3531138       25:05 next-server (v16.3.4)
+3531178       25:01 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531214       24:59 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531215       24:59 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-worker.ts
+3531230       24:59 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import file:///home/forge/ap
+zzJgH7D65-G0P4rKNa3uS
+e5ddd701443406910f20eab8ae4f12a63e09f37f release 4af4caa: Merge pull request #205 from xavierau/develop
+{
+  "source_ref": "rel-agent004",
+  "source_commit": "4af4caaf6d43b2af66fda67c0fdd789f36177b9c",
+  "source_subject": "Merge pull request #205 from xavierau/develop",
+  "build_id": "zzJgH7D65-G0P4rKNa3uS",
+  "built_at": "2026-11-20T02:34:15Z",
+  "node": "v22.21.1"
+}
+MemAvailable:    2334428 kB
+SwapFree:         100448 kB
+/dev/root          58447 31506     26925  54% /
+ 03:04:39 up 55 days, 21:46,  1 user,  load average: 0.14, 0.14, 0.16

@@ -77,8 +77,12 @@ export function isValidIdempotencyKey(value: string): boolean {
 
 export type AgentBookingStatus = 'awaiting_confirmation' | 'expired' | 'pending' | 'confirmed' | 'declined' | 'cancelled'
 
-/** What the agent sees: unverified splits into awaiting and expired by the clock. */
+/**
+ * What the agent sees: unverified splits into awaiting and expired by the clock.
+ * BOOK-007 R7: a no-show is a staff-only mark; the agent still sees `confirmed`.
+ */
 export function agentBookingStatus(status: BookingStatus, verifyExpiresAt: string | null, now: Date): AgentBookingStatus {
+  if (status === 'no_show') return 'confirmed'
   if (status !== 'unverified') return status
   return verifyExpiresAt !== null && Date.parse(verifyExpiresAt) > now.getTime() ? 'awaiting_confirmation' : 'expired'
 }
