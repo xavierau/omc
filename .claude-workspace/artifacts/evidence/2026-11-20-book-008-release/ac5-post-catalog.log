@@ -1,0 +1,85 @@
+# forge site command 14475786 (read-only)
+2026-11-20T08:20:42Z
+catalog HTTP 201 -> /home/forge/backups/2026-11-20-book-008/after-deploy-catalog.json sha256 c98b201a0e059c0dd4d9e36f644a6e6d51a455b917c76688e370a7a478fbd6ef
+{
+ "counts": {
+  "backfill_would_match": 0,
+  "booking_requests": 5,
+  "by_status": {
+   "confirmed": 1,
+   "pending": 4
+  },
+  "events_member_relinked": 0,
+  "member_null": 0,
+  "member_null_by_status": {},
+  "members": 4229,
+  "restaurants": 7
+ },
+ "events_type_check": "CHECK ((type = ANY (ARRAY['join'::text, 'redeem'::text, 'receipt'::text, 'campaign'::text, 'points'::text, 'unsubscribe'::text, 'reward_redeem'::text, 'pos_transaction'::text, 'pos_refund'::text, 'pos_customer_link'::text, 'integration_error'::text, 'whatsapp_error'::text, 'onboarding_phase_advanced'::text, 'consent_imported'::text, 'consent_granted'::text, 'consent_revoked'::text, 'consent_expired'::text, 'stamp'::text, 'stamp_reversal'::text, 'reachability_restored'::text, 'booking.member_relinked'::text])))",
+ "functions": [
+  {
+   "anon": false,
+   "authenticated": false,
+   "lang": "plpgsql",
+   "secdef": false,
+   "service_role": true,
+   "sig": "link_member_bookings()",
+   "volatile": "v"
+  },
+  {
+   "anon": false,
+   "authenticated": false,
+   "lang": "sql",
+   "secdef": false,
+   "service_role": true,
+   "sig": "member_booking_stats(uuid,uuid,date,time without time zone)",
+   "volatile": "s"
+  },
+  {
+   "anon": false,
+   "authenticated": false,
+   "lang": "sql",
+   "secdef": false,
+   "service_role": true,
+   "sig": "relink_booking_member(uuid,uuid,uuid,uuid,uuid)",
+   "volatile": "v"
+  }
+ ],
+ "index_restaurant_member_date": "CREATE INDEX booking_requests_restaurant_member_date_idx ON public.booking_requests USING btree (restaurant_id, member_id, booking_date DESC, booking_time DESC) WHERE (member_id IS NOT NULL)",
+ "ledger_tail": [
+  {
+   "name": "booking_member_backfill",
+   "version": "088"
+  },
+  {
+   "name": "booking_no_show",
+   "version": "087"
+  },
+  {
+   "name": "campaign_audience_quality",
+   "version": "086"
+  },
+  {
+   "name": "agent_booking_changes",
+   "version": "085"
+  }
+ ],
+ "members_triggers": [
+  {
+   "def": "CREATE TRIGGER trg_member_updated_outbox AFTER UPDATE OF name, preferred_language, status ON public.members FOR EACH ROW EXECUTE FUNCTION member_updated_outbox()",
+   "name": "trg_member_updated_outbox"
+  },
+  {
+   "def": "CREATE TRIGGER trg_members_link_bookings AFTER INSERT ON public.members FOR EACH ROW EXECUTE FUNCTION link_member_bookings()",
+   "name": "trg_members_link_bookings"
+  }
+ ]
+}
+ids HTTP 201 -> /home/forge/backups/2026-11-20-book-008/after-deploy-ids.json sha256 43dd8213678f210979113d908375902926904906948aabcd791734c04fb0918c (not printed)
+predeploy -> after-deploy: rows 5 -> 5
+ gone 0 []
+ new  0 (status, member_null) []
+ kept 5; status changed 0; member_null true->false 1; false->true 0
+SELECT count (same WHERE as the 088 backfill) HTTP 201 -> 0
+member_id null before: 0
+

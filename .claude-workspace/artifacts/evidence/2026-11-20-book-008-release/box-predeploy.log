@@ -1,0 +1,67 @@
+# forge site command 14475583
+# status finished
+2026-11-20T08:14:58Z
+booking_requests full rows HTTP 201 5 rows -> /home/forge/backups/2026-11-20-book-008/booking_requests-predeploy.json sha256 6f8235dff32a55e93b83586ee50955e0e46b8a4d71a0d6279db0e4c0ec5fd5ee
+catalog HTTP 201 -> /home/forge/backups/2026-11-20-book-008/predeploy-catalog.json sha256 0e359546756fcd8b87002aea5dc60bfd774f405a69c31235cfd17b924028c32e
+{
+ "counts": {
+  "backfill_would_match": 1,
+  "booking_requests": 5,
+  "by_status": {
+   "confirmed": 1,
+   "pending": 4
+  },
+  "events_member_relinked": 0,
+  "member_null": 1,
+  "member_null_by_status": {
+   "pending": 1
+  },
+  "members": 4229,
+  "restaurants": 7
+ },
+ "events_type_check": "CHECK ((type = ANY (ARRAY['join'::text, 'redeem'::text, 'receipt'::text, 'campaign'::text, 'points'::text, 'unsubscribe'::text, 'reward_redeem'::text, 'pos_transaction'::text, 'pos_refund'::text, 'pos_customer_link'::text, 'integration_error'::text, 'whatsapp_error'::text, 'onboarding_phase_advanced'::text, 'consent_imported'::text, 'consent_granted'::text, 'consent_revoked'::text, 'consent_expired'::text, 'stamp'::text, 'stamp_reversal'::text, 'reachability_restored'::text])))",
+ "functions": [],
+ "index_restaurant_member_date": null,
+ "ledger_tail": [
+  {
+   "name": "booking_no_show",
+   "version": "087"
+  },
+  {
+   "name": "campaign_audience_quality",
+   "version": "086"
+  },
+  {
+   "name": "agent_booking_changes",
+   "version": "085"
+  },
+  {
+   "name": "agent_booking",
+   "version": "084"
+  }
+ ],
+ "members_triggers": [
+  {
+   "def": "CREATE TRIGGER trg_member_updated_outbox AFTER UPDATE OF name, preferred_language, status ON public.members FOR EACH ROW EXECUTE FUNCTION member_updated_outbox()",
+   "name": "trg_member_updated_outbox"
+  }
+ ]
+}
+ids HTTP 201 -> /home/forge/backups/2026-11-20-book-008/predeploy-ids.json sha256 4d3b097d6790abc4eab3a7d53a44f02ff6d6b1c755b1d9ab0334ee9509cc82a4 (not printed)
+baseline -> predeploy: rows 5 -> 5
+ gone 0 []
+ new  0 (status, member_null) []
+ kept 5; status changed 0; member_null true->false 0; false->true 0
+SELECT count (same WHERE as the 088 backfill) HTTP 201 -> 1
+member_id null before: 1
+2X-ml2OJycTIYik4jAYvg
+__pycache__
+backfill.py
+backfill_update.sql
+backup.py
+catalog.py
+iddiff.py
+precheck.py
+predeploy.py
+q.py
+
