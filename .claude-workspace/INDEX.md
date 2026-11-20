@@ -40,6 +40,8 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-20-book-006-release-runbook](deploys/2026-11-20-book-006-release-runbook.md) — BOOK-006 to prod: #208 → main 99f8173 → release 8de9aea, no migration (dev)
+- [2026-11-20-agent-004-release-runbook](deploys/2026-11-20-agent-004-release-runbook.md) — AGENT-004 to prod: #205 → main 4af4caa → release e5ddd70, no migration (dev)
 - [2026-11-20-camp-016-release-runbook](deploys/2026-11-20-camp-016-release-runbook.md) — CAMP-016 to prod: #202, release b40e2e2, mig 086 (dev)
 - [2026-11-19-book-004-release-runbook](deploys/2026-11-19-book-004-release-runbook.md) — BOOK-004 to prod: #199 → main f1fa26b → release 79c2634, no migration (dev)
 - [2026-11-19-book-003-release-runbook](deploys/2026-11-19-book-003-release-runbook.md) — BOOK-003 to prod dark: sync #192, release #193 → main 45a1023 → release da99e4d, mig 084, BUILD_ID 4VXrhhE4uWnAnm-o-34bu; agent booking off for all 7 restaurants (dev)
@@ -101,6 +103,15 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**BOOK-006 — change-request pairs decided as one item (2026-11-20)**
+- [2026-11-20-book-006-change-request-pairs-impl](artifacts/2026-11-20-book-006-change-request-pairs-impl.md) — BOOK-006 impl: marker on the original, pair counted once (dev)
+- [2026-11-20-book-006-handoff](artifacts/2026-11-20-book-006-handoff.md) — BOOK-006 dev handoff (dev)
+- [2026-11-20-rel-book006-handoff](artifacts/2026-11-20-rel-book006-handoff.md) — BOOK-006 release handoff: prod on 8de9aea, checks pass (dev)
+
+**AGENT-004 — classifier skip when the agent owns bookings (2026-11-20)**
+- [2026-11-20-agent-004-handoff](artifacts/2026-11-20-agent-004-handoff.md) — AGENT-004 dev handoff (dev)
+- [2026-11-20-rel-agent004-handoff](artifacts/2026-11-20-rel-agent004-handoff.md) — AGENT-004 release handoff: prod on e5ddd70, checks pass (dev)
 
 **BOOK-004 — bookings Calendar + Table views (2026-11-19)**
 - [2026-11-19-book-004-bookings-views-ux](artifacts/2026-11-19-book-004-bookings-views-ux.md) — BOOK-004 UX spec + POC plan; Pencil mocks in designs/ (main)

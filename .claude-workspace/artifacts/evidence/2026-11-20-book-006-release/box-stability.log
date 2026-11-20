@@ -1,0 +1,27 @@
+# forge command 14470003 status finished
+2026-11-20T03:20:07Z
+3545420       03:43 next-server (v16.3.4)
+3545481       03:37 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3545520       03:30 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3545521       03:30 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3545532       03:29 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+== daemon-746791 log
+start banner at line 22217; lines after banner: 6
+error/warn lines after banner: 2
+of which the known standalone warning: 1
+-- distinct lines after banner (counts):
+      1 ✓ Running next.config.ts took 896ms
+      1 ✓ Ready in 1569ms
+      1 ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+      1 [AgentBooking] rate limiter unavailable, allowing: Error
+      1 - Network:       http://10.148.0.3:3100
+      1 - Local:         http://localhost:3100
+== daemon-801730 log
+start banner at line 53118; lines after banner: 0
+error/warn lines after banner: 0
+of which the known standalone warning: 0
+-- distinct lines after banner (counts):
+MemAvailable:    2391028 kB
+SwapFree:          93908 kB
+/dev/root          58447 31511     26920  54% /
+ 03:20:07 up 55 days, 22:02,  1 user,  load average: 0.90, 0.64, 0.44
