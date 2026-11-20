@@ -1,5 +1,5 @@
 // BOOK-007 (R5, R6, R9): the SHAPE of the no-show queries. Mark and undo are
-// one conditional UPDATE each, scoped by id AND restaurant in the query; the
+// one conditional statement each (mark: RPC, r1 F1), scoped by id AND restaurant; the
 // staff lists' status allow-lists carry no_show; the purge has no status
 // filter (so it clears no_show rows too); reminders and the diner/agent list
 // only ever select their own statuses. SQL semantics: AC-4 scratch-DB log.
@@ -15,7 +15,6 @@ import {
   listBookingRequestsInRange,
   listUpcomingDinerBookings,
   markBookingNoShow,
-  pastFilter,
   purgeBookingPii,
   undoBookingNoShow,
 } from '../booking-request-repository'
@@ -38,23 +37,25 @@ function use(results: Parameters<typeof recordingSupabase>[0]) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('no-show mark / undo (R5, R6)', () => {
-  it('past = an earlier date, or today before the Hong Kong time now', () => {
-    expect(pastFilter(BEFORE)).toBe('booking_date.lt.2026-11-20,and(booking_date.eq.2026-11-20,booking_time.lt.11:00)')
-  })
-
-  it('mark: one UPDATE from confirmed + past only, scoped by id and restaurant, storing who and when', async () => {
-    const rec = use([{ data: ROW }])
+  // r1 F1: the mark is one statement in SQL (mark_booking_no_show, migration 087) so the "no open change" check
+  // and the UPDATE cannot race; the SQL itself is pinned by booking-no-show-migration-contract.test.ts + AC-4.
+  it('mark: one RPC call with id, restaurant, who, when and the Hong Kong now, returning the staff columns', async () => {
+    const rec = use([{ data: [ROW] }])
     const booking = await markBookingNoShow({ id: 'b-1', restaurantId: 'r-a', markedBy: 'user-1', at: AT, before: BEFORE })
+    expect(rec.queries).toHaveLength(1)
     const q = rec.queries[0]
-    expect(q.table).toBe('booking_requests')
-    expect(q.calls[0]).toEqual(['update', { status: 'no_show', no_show_marked_by: 'user-1', no_show_marked_at: AT.toISOString() }])
-    expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'eq:status=confirmed', `or:${pastFilter(BEFORE)}`])
-    expect(q.calls.at(-1)).toEqual(['maybeSingle'])
+    expect(q.table).toBe('rpc:mark_booking_no_show')
+    expect(q.calls[0]).toEqual([
+      'rpc',
+      { p_id: 'b-1', p_restaurant_id: 'r-a', p_marked_by: 'user-1', p_marked_at: AT.toISOString(), p_before_date: '2026-11-20', p_before_time: '11:00' },
+    ])
+    expect(q.calls[1][0]).toBe('select')
+    expect(String(q.calls[1][1])).toContain('replaces_booking_id')
     expect(booking).toMatchObject({ id: 'b-1', status: 'no_show', bookingTime: '19:30' })
   })
 
   it('mark: no row changed → null', async () => {
-    use([{ data: null }])
+    use([{ data: [] }])
     expect(await markBookingNoShow({ id: 'b-1', restaurantId: 'r-a', markedBy: 'u', at: AT, before: BEFORE })).toBeNull()
   })
 

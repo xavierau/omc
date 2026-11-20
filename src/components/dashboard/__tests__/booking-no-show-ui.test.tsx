@@ -21,6 +21,9 @@ import { BookingsTableDesktop } from '../bookings/bookings-table-desktop'
 import { BookingsTableCards } from '../bookings/bookings-table-cards'
 import { BookingsFilters } from '../bookings/bookings-filters'
 import { noShowOutcome, requestNoShow } from '../bookings/use-booking-no-show'
+import { NoShowAction, NoShowNoticeLine } from '../bookings/booking-no-show-action'
+import { rowActions, visibleNotice } from '../bookings/use-booking-row-actions'
+import { BookingsNow, startMinuteTick } from '../bookings/bookings-clock'
 import type { BookingItem } from '@/hooks/use-bookings'
 
 // 2026-11-20 03:00 UTC = 11:00 in Hong Kong.
@@ -40,9 +43,11 @@ const pastPending = b('pp', 'pending', '2026-11-19')
 const pastDeclined = b('pd', 'declined', '2026-11-19')
 const pastCancelled = b('px', 'cancelled', '2026-11-19')
 const noShow = b('ns', 'no_show', '2026-11-19')
-const all = [pastConfirmed, earlierToday, laterToday, futureConfirmed, pastPending, pastDeclined, pastCancelled, noShow]
+// r1 F1: a past confirmed original whose change request is still open.
+const withChange = { ...b('wc', 'confirmed', '2026-11-19'), openChange: { id: 'wc-chg', bookingDate: '2026-11-22', bookingTime: '20:00', partySize: 4 } }
+const all = [pastConfirmed, earlierToday, laterToday, futureConfirmed, pastPending, pastDeclined, pastCancelled, noShow, withChange]
 
-const actions = { busyId: null, undelivered: new Set<string>(), onDecide: () => {}, onNoShow: () => {} }
+const actions = { busyIds: new Set<string>(), undelivered: new Set<string>(), onDecide: () => {}, onNoShow: () => {} }
 const groups = [{ date: '2026-11-19', bookings: all }]
 
 const views: Record<string, () => string> = {
@@ -63,7 +68,7 @@ describe.each(Object.keys(views))('BOOK-007 no-show in the %s', (name) => {
     const html = views[name]()
     expect(html).toContain('data-testid="booking-row-pc-no-show"')
     expect(html).toContain('data-testid="booking-row-et-no-show"')
-    for (const id of ['lt', 'fc', 'pp', 'pd', 'px', 'ns']) expect(html).not.toContain(`data-testid="booking-row-${id}-no-show"`)
+    for (const id of ['lt', 'fc', 'pp', 'pd', 'px', 'ns', 'wc']) expect(html).not.toContain(`data-testid="booking-row-${id}-no-show"`)
     expect(html).toContain('bookings.markNoShow')
   })
 
@@ -73,7 +78,7 @@ describe.each(Object.keys(views))('BOOK-007 no-show in the %s', (name) => {
     expect(html).toContain('data-testid="booking-row-ns-no-show-undo"')
     expect(html).toContain('bookings.undoNoShow')
     expect(html).not.toContain('data-testid="booking-row-ns-confirm"')
-    for (const id of ['pc', 'et', 'lt', 'fc', 'pp', 'pd', 'px']) expect(html).not.toContain(`booking-row-${id}-no-show-undo`)
+    for (const id of ['pc', 'et', 'lt', 'fc', 'pp', 'pd', 'px', 'wc']) expect(html).not.toContain(`booking-row-${id}-no-show-undo`)
   })
 })
 
@@ -107,6 +112,10 @@ describe('BOOK-007 no-show badge, chip and copy', () => {
       expect(m.bookings.undoNoShow).toBeTruthy()
     }
     expect(zhHK.bookings.markNoShow).toBe('標記未出席')
+    for (const m of [en, zhHK]) {
+      expect(m.bookings.noShowNotPast).toBeTruthy()
+      expect(m.bookings.noShowChangePending).toBeTruthy()
+    }
     expect(zhHK.bookings.status.no_show).toBe('未出席')
   })
 })
@@ -129,5 +138,146 @@ describe('BOOK-007 no-show calls', () => {
     expect(noShowOutcome(409, { error: 'already_handled', status: 'pending' })).toEqual({ kind: 'already_handled', status: 'pending' })
     expect(noShowOutcome(404, { error: 'not_found' })).toEqual({ kind: 'not_found' })
     expect(noShowOutcome(500, null)).toEqual({ kind: 'error' })
+  })
+})
+
+describe('r1 F1: no Mark no-show while a change request is open', () => {
+  it('a past confirmed original with openChange offers nothing; the same booking without it offers the mark', () => {
+    const html = renderToStaticMarkup(<NoShowAction booking={withChange} busy={false} onNoShow={() => {}} />)
+    expect(html).toBe('')
+    const { openChange: _drop, ...plain } = withChange
+    expect(renderToStaticMarkup(<NoShowAction booking={plain} busy={false} onNoShow={() => {}} />)).toContain('booking-row-wc-no-show')
+  })
+})
+
+describe('r1 F3: refusal reasons get their own notice', () => {
+  it('409 not_past and 409 change_pending map to their own outcomes, not already handled', () => {
+    expect(noShowOutcome(409, { error: 'not_past', status: 'confirmed' })).toEqual({ kind: 'not_past' })
+    expect(noShowOutcome(409, { error: 'change_pending', status: 'confirmed' })).toEqual({ kind: 'change_pending' })
+    expect(noShowOutcome(409, { error: 'already_handled', status: 'cancelled' })).toEqual({ kind: 'already_handled', status: 'cancelled' })
+  })
+
+  it('the notice line says why, with the not-past and change-pending copy', () => {
+    const notPast = renderToStaticMarkup(<NoShowNoticeLine notice={{ kind: 'not_past' }} />)
+    expect(notPast).toContain('bookings.noShowNotPast')
+    expect(notPast).toContain('data-kind="not_past"')
+    expect(notPast).not.toContain('alreadyHandled')
+    expect(renderToStaticMarkup(<NoShowNoticeLine notice={{ kind: 'change_pending' }} />)).toContain('bookings.noShowChangePending')
+  })
+})
+
+function deferred() {
+  let resolve!: () => void
+  const promise = new Promise<void>((r) => (resolve = r))
+  return { promise, resolve }
+}
+
+describe('r1 F4: one busy set and one notice across decide and no-show', () => {
+  function harness() {
+    const state = { busy: new Set<string>() as ReadonlySet<string>, cleared: 0 }
+    const work = { decide: deferred(), noShow: deferred() }
+    const run = {
+      decide: vi.fn(() => work.decide.promise),
+      noShow: vi.fn(() => work.noShow.promise),
+    }
+    const sinks = {
+      setBusy: (update: (prev: ReadonlySet<string>) => ReadonlySet<string>) => void (state.busy = update(state.busy)),
+      clearNotices: () => void (state.cleared += 1),
+    }
+    return { state, work, run, actions: rowActions(sinks, run) }
+  }
+
+  it('two concurrent actions on two rows keep both rows busy until each one finishes', async () => {
+    vi.useRealTimers()
+    const h = harness()
+    const a = h.actions.onDecide('row-a', 'confirm')
+    const n = h.actions.onNoShow('row-b', 'mark')
+    expect([...h.state.busy].sort()).toEqual(['row-a', 'row-b'])
+    h.work.noShow.resolve()
+    await n
+    expect([...h.state.busy]).toEqual(['row-a'])
+    h.work.decide.resolve()
+    await a
+    expect(h.state.busy.size).toBe(0)
+    expect(h.run.decide).toHaveBeenCalledWith('row-a', 'confirm', undefined)
+    expect(h.run.noShow).toHaveBeenCalledWith('row-b', 'mark')
+  })
+
+  it('a row is released even when its action throws', async () => {
+    vi.useRealTimers()
+    let busy: ReadonlySet<string> = new Set()
+    const failing = rowActions(
+      { setBusy: (update) => void (busy = update(busy)), clearNotices: () => {} },
+      { decide: async () => { throw new Error('x') }, noShow: async () => {} }
+    )
+    const run = failing.onDecide('row-c', 'decline', 'Full')
+    expect([...busy]).toEqual(['row-c'])
+    await expect(run).rejects.toThrow('x')
+    expect(busy.size).toBe(0)
+  })
+
+  it.each(Object.keys(views))('in the %s every row in the busy set is disabled, the others are not', (name) => {
+    const busy = { ...actions, busyIds: new Set(['pc', 'et']) }
+    const html = {
+      'desktop table': () => renderToStaticMarkup(<BookingsTableDesktop groups={groups} today="2026-11-20" {...busy} />),
+      'phone cards': () => renderToStaticMarkup(<BookingsTableCards groups={groups} today="2026-11-20" {...busy} />),
+      'calendar day panel': () => renderToStaticMarkup(<CalendarDayPanel date="2026-11-19" bookings={all} monthEmpty={false} {...busy} />),
+    }[name]!()
+    const tag = (id: string) => html.match(new RegExp(`<button[^>]*data-testid="booking-row-${id}-no-show(?:-undo)?"[^>]*>`))?.[0] ?? ''
+    expect(tag('pc')).toContain('disabled')
+    expect(tag('et')).toContain('disabled')
+    expect(tag('ns')).not.toContain('disabled')
+  })
+
+  it('starting any action clears both notices first', () => {
+    vi.useRealTimers()
+    const h = harness()
+    void h.actions.onDecide('row-a', 'confirm')
+    expect(h.state.cleared).toBe(1)
+    void h.actions.onNoShow('row-b', 'mark')
+    expect(h.state.cleared).toBe(2)
+  })
+
+  it('a decide notice hidden when an action started stays hidden; a newer one shows', () => {
+    const old = { kind: 'error' } as const
+    const fresh = { kind: 'sent', decision: 'confirm' } as const
+    expect(visibleNotice(old, old)).toBeNull()
+    expect(visibleNotice(fresh, old)).toBe(fresh)
+    expect(visibleNotice(old, null)).toBe(old)
+    expect(visibleNotice(null, old)).toBeNull()
+  })
+})
+
+describe('r1 F5: Mark no-show appears when the booking time passes while the page is open', () => {
+  // 11:00:30 in Hong Kong; the booking is at 11:00, so it is past from 11:01.
+  const ELEVEN_THIRTY_S = new Date('2026-11-20T03:00:30Z')
+  const atEleven = b('lt', 'confirmed', '2026-11-20', '11:00')
+  const render = (now: Date) =>
+    renderToStaticMarkup(
+      <BookingsNow.Provider value={now}>
+        <NoShowAction booking={atEleven} busy={false} onNoShow={() => {}} />
+      </BookingsNow.Provider>
+    )
+
+  it('one timer ticks at the next minute with the new time, without any refetch; stopping it clears the timer', () => {
+    vi.setSystemTime(ELEVEN_THIRTY_S)
+    const ticks: Date[] = []
+    const stop = startMinuteTick((now) => ticks.push(now))
+    expect(vi.getTimerCount()).toBe(1)
+    expect(render(new Date())).toBe('')
+
+    vi.advanceTimersByTime(29_000)
+    expect(ticks).toHaveLength(0)
+    vi.advanceTimersByTime(1_000)
+    expect(ticks).toHaveLength(1)
+    expect(render(ticks[0])).toContain('data-testid="booking-row-lt-no-show"')
+
+    vi.advanceTimersByTime(60_000)
+    expect(ticks).toHaveLength(2)
+    expect(vi.getTimerCount()).toBe(1)
+    stop()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.advanceTimersByTime(120_000)
+    expect(ticks).toHaveLength(2)
   })
 })

@@ -69,9 +69,20 @@ describe('POST no-show (R5, R6)', () => {
     expect(rowOf(id).status).toBe('no_show')
   })
 
+  // r1 F3: a confirmed booking the server clock does not see as past yet is its own refusal, not "already handled".
   it.each([
-    ['confirmed + later today', { bookingDate: '2026-11-20', bookingTime: '11:00' }],
-    ['confirmed + future date', { bookingDate: '2026-11-21', bookingTime: '09:00' }],
+    ['later today', { bookingDate: '2026-11-20', bookingTime: '11:00' }],
+    ['a future date', { bookingDate: '2026-11-21', bookingTime: '09:00' }],
+  ] as const)('confirmed + %s → 409 not_past, unchanged', async (_label, extra) => {
+    const id = seed(extra)
+    const before = { ...rowOf(id) }
+    const res = await mark(req('POST'), ctx(id))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'not_past', status: 'confirmed' })
+    expect(rowOf(id)).toEqual(before)
+  })
+
+  it.each([
     ['pending', { status: 'pending', decidedBy: null, decidedAt: null }],
     ['declined', { status: 'declined' }],
     ['cancelled', { status: 'cancelled', cancelledBy: 'diner_ai' }],
@@ -83,6 +94,35 @@ describe('POST no-show (R5, R6)', () => {
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'already_handled', status: before.status })
     expect(rowOf(id)).toEqual(before)
+  })
+
+  // r1 F1: an original with an open (pending) change request is decided through the change, never marked.
+  it('confirmed + past with an open change request → 409 change_pending; neither row changes', async () => {
+    const original = seed({})
+    const change = seed({ status: 'pending', decidedBy: null, decidedAt: null, replacesBookingId: original, source: 'agent' })
+    const before = [{ ...rowOf(original) }, { ...rowOf(change) }]
+    const res = await mark(req('POST'), ctx(original))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'change_pending', status: 'confirmed' })
+    expect([rowOf(original), rowOf(change)]).toEqual(before)
+  })
+
+  it.each([
+    ['declined', { status: 'declined' }],
+    ['cancelled', { status: 'cancelled', cancelledBy: 'diner_ai' }],
+    ['unverified', { status: 'unverified', decidedBy: null, decidedAt: null }],
+  ] as const)('a %s change request is not open: the original is marked as before', async (_label, extra) => {
+    const original = seed({})
+    seed({ ...(extra as Partial<Row>), replacesBookingId: original, source: 'agent' })
+    expect((await mark(req('POST'), ctx(original))).status).toBe(200)
+    expect(rowOf(original).status).toBe('no_show')
+  })
+
+  it("another restaurant's pending row pointing at this id does not block the mark (the condition is tenant-scoped)", async () => {
+    const original = seed({})
+    seed({ restaurantId: B, status: 'pending', decidedBy: null, decidedAt: null, replacesBookingId: original })
+    expect((await mark(req('POST'), ctx(original))).status).toBe(200)
+    expect(rowOf(original).status).toBe('no_show')
   })
 
   it('an unverified agent booking does not exist for staff (BOOK-003 R41) → 404, unchanged', async () => {

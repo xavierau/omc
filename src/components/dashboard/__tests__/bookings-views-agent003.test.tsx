@@ -34,7 +34,7 @@ const change: BookingItem = { ...base, replacesBookingId: 'b-old', replaces: { b
 const byDiner: BookingItem = { ...base, id: 'b-c', bookingTime: '18:00', status: 'cancelled', cancelledBy: 'diner_ai', source: 'chat' }
 const replaced: BookingItem = { ...base, id: 'b-old', bookingTime: '19:00', status: 'cancelled', cancelledBy: 'change' }
 const day = [byDiner, replaced, change]
-const actions = { busyId: null, undelivered: new Set<string>(), onDecide: () => {} }
+const actions = { busyIds: new Set<string>(), undelivered: new Set<string>(), onDecide: () => {} }
 const groups = [{ date: '2026-11-26', bookings: day }]
 
 const views: Record<string, () => string> = {
