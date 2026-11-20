@@ -101,10 +101,61 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(result.bookings[0].replaces).toEqual({ bookingDate: '2026-11-12', bookingTime: '19:00', partySize: 2 })
   })
 
+  // BOOK-006 changed this from "exactly one query": the open-change read runs for any listed pending/confirmed row.
   it('r4: a range with no change request makes no replaced-slot read', async () => {
     const rec = use([{ data: [ROW] }])
     await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
+    expect(rec.queries.some((q) => filtersOf(q).some((f) => f.startsWith('in:id=')))).toBe(false)
+  })
+
+  // BOOK-006: an original with an open (pending) change carries that change's slot, found by
+  // replaces_booking_id in one tenant-scoped read of the pending rows, not in the returned page.
+  const PENDING_CHANGE = { id: 'b-chg', replaces_booking_id: 'b-1', booking_date: '2026-12-24', booking_time: '18:30:00', party_size: 6 }
+  const PENDING_PLAIN = { id: 'b-9', replaces_booking_id: null, booking_date: '2026-11-14', booking_time: '12:00:00', party_size: 2 }
+
+  it('BOOK-006: the range list marks an original whose change is dated outside the range', async () => {
+    const rec = use([{ data: [ROW, { ...ROW, id: 'b-2', status: 'confirmed' }] }, { data: [PENDING_PLAIN, PENDING_CHANGE] }])
+    const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
+    expect(rec.queries).toHaveLength(2)
+    const open = rec.queries[1]
+    expect(filtersOf(open)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+    expect(String(open.calls.find(([m]) => m === 'select')?.[1])).toContain('replaces_booking_id')
+    expect(result.bookings.find((b) => b.id === 'b-1')?.openChange).toEqual({ id: 'b-chg', bookingDate: '2026-12-24', bookingTime: '18:30', partySize: 6 })
+    expect(result.bookings.find((b) => b.id === 'b-2')?.openChange).toBeUndefined()
+  })
+
+  it('BOOK-006: a confirmed original is marked too; the pending and default lists attach open changes', async () => {
+    const confirmed = { ...ROW, status: 'confirmed' }
+    use([{ data: [confirmed] }, { data: [PENDING_CHANGE] }])
+    expect((await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)).bookings[0].openChange?.id).toBe('b-chg')
+    use([{ data: [ROW] }, { data: [PENDING_CHANGE] }])
+    expect((await listPendingBookingRequests('r-a', 10)).bookings[0].openChange?.id).toBe('b-chg')
+    const rec = use([{ data: [ROW] }, { data: [confirmed] }, { data: [PENDING_CHANGE] }])
+    const list = await listBookingRequests('r-a', 200)
+    expect(list.every((b) => b.openChange?.id === 'b-chg')).toBe(true)
+    expect(filtersOf(rec.queries[2])).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+  })
+
+  it('BOOK-006: a list of only decided rows makes no open-change read', async () => {
+    const rec = use([{ data: [{ ...ROW, status: 'declined' }] }])
+    const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
     expect(rec.queries).toHaveLength(1)
+    expect(result.bookings[0].openChange).toBeUndefined()
+  })
+
+  it('BOOK-006: pendingCount counts an open pair once; the open-change read is tenant-scoped', async () => {
+    const orig = { ...PENDING_PLAIN, id: 'b-1' }
+    const rec = use([{ count: 2 }, { data: [orig, PENDING_CHANGE] }])
+    expect(await countRestaurantPendingBookings('r-a')).toBe(1)
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+    expect(filtersOf(rec.queries[1])).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+  })
+
+  it('BOOK-006: two unrelated pending rows count 2; a confirmed original + its pending change count 1', async () => {
+    use([{ count: 2 }, { data: [PENDING_PLAIN, { ...PENDING_PLAIN, id: 'b-8' }] }])
+    expect(await countRestaurantPendingBookings('r-a')).toBe(2)
+    use([{ count: 1 }, { data: [PENDING_CHANGE] }])
+    expect(await countRestaurantPendingBookings('r-a')).toBe(1)
   })
 
   it('counts every pending request of a restaurant', async () => {
@@ -151,6 +202,8 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ count: 3 }])
     expect(await countPendingBookings('r-a', '+852')).toBe(3)
     expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+852', 'eq:status=pending'])
+    // BOOK-006: the diner-side rate limit counts every pending row, pairs included (unchanged, one query).
+    expect(rec.queries).toHaveLength(1)
   })
 
   it('inserts with the token so the database enforces one booking per link', async () => {

@@ -2,8 +2,10 @@
  * BOOK-004: pure list logic shared by the calendar and table views: status
  * filter + name/phone search (client-side, R6: never in the URL), per-day
  * groups, and covers (guests; declined and cancelled bookings do not come).
+ * BOOK-006: pending counts count an original + its open change once (needsReply).
  */
 import type { BookingItem } from '@/hooks/use-bookings'
+import { needsReply } from '@/domain/entities/booking-request'
 import { monthKey } from './booking-dates'
 
 export const STATUS_FILTERS = ['all', 'pending', 'confirmed', 'declined', 'cancelled'] as const
@@ -44,7 +46,7 @@ export function filterBookings(bookings: BookingItem[], status: StatusFilter, qu
 
 export function statusCounts(bookings: BookingItem[]): Record<StatusFilter, number> {
   const counts = { all: bookings.length, pending: 0, confirmed: 0, declined: 0, cancelled: 0 }
-  for (const b of bookings) if (b.status !== 'unverified') counts[b.status] += 1
+  for (const b of bookings) if (b.status !== 'unverified' && (b.status !== 'pending' || needsReply(b))) counts[b.status] += 1
   return counts
 }
 
@@ -53,7 +55,7 @@ export function covers(bookings: BookingItem[]): number {
 }
 
 export function daySummary(bookings: BookingItem[]): DaySummary {
-  return { count: bookings.length, guests: covers(bookings), pending: bookings.filter((b) => b.status === 'pending').length }
+  return { count: bookings.length, guests: covers(bookings), pending: bookings.filter(needsReply).length }
 }
 
 const byDateTime = (a: BookingItem, b: BookingItem) =>

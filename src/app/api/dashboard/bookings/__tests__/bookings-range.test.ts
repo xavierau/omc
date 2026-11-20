@@ -57,13 +57,14 @@ const A = 'rest-a'
 const B = 'rest-b'
 let seq = 0
 
-function add(restaurantId: string, booking_date: string, booking_time: string, status = 'pending') {
+function add(restaurantId: string, booking_date: string, booking_time: string, status = 'pending', replaces_booking_id: string | null = null) {
   const id = `b${++seq}`
   table.rows.push({
     id, restaurant_id: restaurantId, member_id: null, phone: '+85291234567', name: `Diner ${id}`, party_size: 2,
     booking_date, booking_time: `${booking_time}:00`, notes: null, status, decline_reason: null, decided_by: null,
     decided_at: status === 'pending' ? null : '2026-11-01T00:00:00Z', source: 'chat', campaign_id: null,
     created_at: new Date(Date.UTC(2026, 10, 1) + seq * 1000).toISOString(), decision_message_status: null,
+    replaces_booking_id, cancelled_by: null,
   })
   return id
 }
@@ -225,5 +226,58 @@ describe('GET /api/dashboard/bookings?status=pending: every pending booking, any
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+})
+
+type Listed = { id: string; openChange?: { id: string; bookingDate: string } | null }
+
+describe('BOOK-006: an original + its open change request count once and the original is marked', () => {
+  it('pendingCount counts the pair once, in every list shape; unrelated pending rows still count', async () => {
+    const orig = add(A, '2026-11-21', '19:00')
+    add(A, '2026-11-21', '20:00', 'pending', orig)
+    add(A, '2026-11-22', '12:00')
+    for (const qs of ['', '?from=2026-11-01&to=2026-11-30', '?status=pending']) {
+      expect((await (await get(qs)).json()).pendingCount).toBe(2)
+    }
+  })
+
+  it('a confirmed original + its pending change count 1', async () => {
+    const orig = add(A, '2026-11-21', '19:00', 'confirmed')
+    add(A, '2026-11-21', '20:00', 'pending', orig)
+    expect((await (await get('?from=2026-11-01&to=2026-11-30')).json()).pendingCount).toBe(1)
+  })
+
+  it('the pending list holds both rows; only the original carries the open change', async () => {
+    const orig = add(A, '2026-11-21', '19:00')
+    const chg = add(A, '2026-11-21', '20:00', 'pending', orig)
+    const body = await (await get('?status=pending')).json()
+    const byId = new Map((body.bookings as Listed[]).map((b) => [b.id, b]))
+    expect(byId.get(orig)?.openChange?.id).toBe(chg)
+    expect(byId.get(chg)?.openChange).toBeUndefined()
+  })
+
+  it('the original is marked even when its change is dated outside the listed range', async () => {
+    const orig = add(A, '2026-11-21', '19:00')
+    const chg = add(A, '2026-12-24', '20:00', 'pending', orig)
+    const body = await (await get('?from=2026-11-01&to=2026-11-30')).json()
+    expect((body.bookings as Listed[]).map((b) => b.id)).toEqual([orig])
+    expect(body.bookings[0].openChange).toMatchObject({ id: chg, bookingDate: '2026-12-24' })
+  })
+
+  it("R6: another tenant's row never marks this tenant's booking, and every read is tenant-scoped", async () => {
+    const orig = add(A, '2026-11-21', '19:00')
+    add(B, '2026-11-21', '20:00', 'pending', orig)
+    const body = await (await get('?from=2026-11-01&to=2026-11-30')).json()
+    expect(body.bookings[0].openChange).toBeUndefined()
+    expect(body.pendingCount).toBe(1)
+    for (const q of table.queries) expect(q).toContain(`eq:restaurant_id=${A}`)
+  })
+
+  it('after the change is declined the original is a normal pending row again', async () => {
+    const orig = add(A, '2026-11-21', '19:00')
+    add(A, '2026-11-21', '20:00', 'declined', orig)
+    const body = await (await get('?from=2026-11-01&to=2026-11-30')).json()
+    expect((body.bookings as Listed[]).find((b) => b.id === orig)?.openChange).toBeUndefined()
+    expect(body.pendingCount).toBe(1)
   })
 })

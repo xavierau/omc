@@ -64,7 +64,21 @@ export interface BookingRequest {
   replacesBookingId?: string | null
   /** AGENT-003: the replaced booking's slot, for the 訂座 "old → new" line. */
   replaces?: { bookingDate: string; bookingTime: string; partySize: number } | null
+  /**
+   * BOOK-006: on an original (pending or confirmed), its open change request's
+   * id and requested slot. Staff then decide only through that change row.
+   * Read by the dashboard lists only (undefined elsewhere).
+   */
+  openChange?: OpenChangeSlot | null
   cancelledBy?: BookingCancelledBy | null
+}
+
+/** BOOK-006: the open (pending) change request that would replace a booking. */
+export interface OpenChangeSlot {
+  id: string
+  bookingDate: string
+  bookingTime: string
+  partySize: number
 }
 
 /** BOOK-003: an agent booking with its phone-proof and status-token columns. */
@@ -128,6 +142,25 @@ export interface DinerBooking {
  */
 export function isOpenChangeRequest(b: { replacesBookingId?: string | null; status: string }): boolean {
   return !!b.replacesBookingId && b.status === 'pending'
+}
+
+/**
+ * BOOK-006: a booking staff still have to answer: pending, and not the
+ * original of an open change request (that pair is answered on the change row).
+ */
+export function needsReply(b: { status: string; openChange?: OpenChangeSlot | null }): boolean {
+  return b.status === 'pending' && !b.openChange
+}
+
+/**
+ * BOOK-006 count rule: `total` pending rows minus the pending originals that
+ * have an open change, found among `pending` (the pending rows read). An
+ * original whose change is pending is then counted once, as its change.
+ */
+export function pendingNeedingReply(total: number, pending: Array<{ id: string; replacesBookingId: string | null }>): number {
+  const ids = new Set(pending.map((p) => p.id))
+  const pairs = pending.filter((p) => p.replacesBookingId !== null && ids.has(p.replacesBookingId)).length
+  return total - pairs
 }
 
 /**

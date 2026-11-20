@@ -1392,6 +1392,7 @@
     "replacedByChange": "已改期取代",
     "changeFrom": "更改要求：{from} → {to}",
     "changeRequest": "更改要求",
+    "changePending": "有更改要求 → {to}",
     "declinedBecause": "原因:{reason}",
     "confirmationSent": "已發送確認",
     "declineSent": "已發送拒絕",

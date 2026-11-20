@@ -1604,6 +1604,30 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "BOOK-006",
+          "title": "A booking with an open change request is decided only through its change row",
+          "description": "Prod omc 2026-11-20: a pending booking and its pending AI change request showed as two independent pending rows, each with Confirm/Decline; deciding the original first sends the diner contradictory messages. Owner 2026-11-20: the original shows a 'change requested → new slot' marker and no Confirm/Decline while the change is open (staff decide via the change row), and every staff-facing pending/needs-reply count counts the pair once. Not the merged single-card design. No API, SQL, migration or diner-message change.",
+          "priority": "high",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "backend"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:BOOK-004"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-book-006-change-request-pairs-impl.md",
+            "artifacts/2026-11-20-book-006-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "branch": "fix/book-006-change-request-pairs",
+          "notes": "Open changes resolved by replaces_booking_id from one tenant-scoped read of the restaurant's pending rows (so a change dated outside the list still marks its original); pendingCount = exact head count minus pending originals with an open change; per-phone countPending unchanged."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
