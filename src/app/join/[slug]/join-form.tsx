@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useReducer, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
@@ -8,21 +8,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-// WONB-020 r1: an existing never-welcomed member is sent to WhatsApp to claim.
+// WONB-020: an existing member continues on WhatsApp (JOIN claims if never welcomed).
 export function claimUrlFrom(data: { existing?: boolean; claimOnWhatsApp?: boolean; whatsappClaimUrl?: string }): string | null {
   const url = data.existing && data.claimOnWhatsApp ? data.whatsappClaimUrl : undefined
   return url?.startsWith('https://wa.me/') ? url : null
 }
 
+// r2 G4: the form shows a claim link OR an error, never both; every action
+// replaces the whole notice, so a validation error clears a shown claim.
+export interface JoinNotice { error: string; claimUrl: string | null }
+export type JoinNoticeAction = { type: 'reset' } | { type: 'error'; code: string } | { type: 'claim'; url: string }
+export const INITIAL_JOIN_NOTICE: JoinNotice = { error: '', claimUrl: null }
+
+export function joinNoticeReducer(_notice: JoinNotice, action: JoinNoticeAction): JoinNotice {
+  if (action.type === 'error') return { error: action.code, claimUrl: null }
+  if (action.type === 'claim') return { error: '', claimUrl: action.url }
+  return INITIAL_JOIN_NOTICE
+}
+
 function useJoinSubmit(slug: string) {
   const router = useRouter()
-  const [error, setError] = useState('')
-  const [claimUrl, setClaimUrl] = useState<string | null>(null)
+  const [{ error, claimUrl }, dispatch] = useReducer(joinNoticeReducer, INITIAL_JOIN_NOTICE)
   const [loading, setLoading] = useState(false)
+  const setError = (code: string) => dispatch({ type: 'error', code })
+  const setClaimUrl = (url: string) => dispatch({ type: 'claim', url })
 
   const submit = async (phone: string, name: string) => {
-    setError('')
-    setClaimUrl(null)
+    dispatch({ type: 'reset' })
     setLoading(true)
     try {
       const res = await fetch(`/api/join/${slug}`, {

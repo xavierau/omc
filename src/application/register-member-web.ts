@@ -16,13 +16,12 @@ import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
-import { canClaimWelcome } from './has-join-event'
 
 interface WebRegisterResult {
   isNew: boolean
   memberId: string
   couponCode?: string
-  /** WONB-020 r1: existing never-welcomed member -> claim by sending JOIN here. */
+  /** WONB-020: any existing member -> JOIN here (claims if never welcomed). */
   whatsappClaimUrl?: string
 }
 
@@ -66,14 +65,15 @@ export async function registerMemberWeb(
 }
 
 // WONB-020 r1 F1 (owner ruling 2026-11-20): the web form can't prove phone
-// ownership, so it never mints for an existing member. A never-welcomed one
-// (e.g. CSV-imported) gets a wa.me JOIN link: a WhatsApp message proves the
-// number, and JOIN there claims the welcome. No usable number -> plain.
+// ownership, so it never mints for an existing member; a WhatsApp message
+// proves the number, and JOIN there claims the welcome if never welcomed.
+// r2 G5: every existing member gets the same wa.me JOIN link, so this
+// public answer never reveals who was imported or welcomed. No usable
+// number -> plain.
 async function respondToExistingWebMember(
   restaurantId: string,
   memberId: string
 ): Promise<WebRegisterResult> {
-  if (!(await canClaimWelcome(restaurantId, memberId))) return { isNew: false, memberId }
   const { whatsappNumber } = await getRestaurantEmailContext(restaurantId)
   const whatsappClaimUrl = whatsappNumber ? buildContactUrl(whatsappNumber, 'JOIN') : null
   return whatsappClaimUrl ? { isNew: false, memberId, whatsappClaimUrl } : { isNew: false, memberId }

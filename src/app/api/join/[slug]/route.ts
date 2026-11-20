@@ -53,7 +53,7 @@ export async function POST(
       return NextResponse.json({ couponCode: result.couponCode })
     }
 
-    // WONB-020 r1: a never-welcomed existing member claims on WhatsApp.
+    // WONB-020: an existing member continues (and claims, if never welcomed) on WhatsApp.
     if (result.whatsappClaimUrl) {
       return NextResponse.json({
         existing: true,

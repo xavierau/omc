@@ -474,6 +474,24 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
       expect(joinEmits()).toBe(0)
     })
 
+    it('r2 G2 / AC-2: the join-event lookup throws -> warning, one join event anyway, job succeeds', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-1' } as never)
+      vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
+      vi.mocked(hasJoinEvent).mockRejectedValue(new Error('events timeout'))
+
+      await expect(processMemberCreateJob(jobData(), 2, 3)).resolves.not.toThrow()
+
+      expect(joinEmits()).toBe(1)
+      expect(completeMemberJobSucceeded).toHaveBeenCalledTimes(1)
+      expect(completeMemberJobFailed).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('join event lookup failed'),
+        expect.anything()
+      )
+      warn.mockRestore()
+    })
+
     it('a genuinely pre-existing member -> no join event and no join lookup (unchanged)', async () => {
       vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: null } as never)
       vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-99', status: 'active' })

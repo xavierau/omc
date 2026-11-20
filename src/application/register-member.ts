@@ -14,6 +14,7 @@ import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 import { canClaimWelcome } from './has-join-event'
 import { tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { findLatestWelcomeOfferCode } from '@/infrastructure/supabase/repositories/coupon-repository'
 
 interface RegisterResult {
   isNew: boolean
@@ -124,8 +125,8 @@ async function claimWelcomeUnderLock(
   }
 }
 
-// r1 F4: any failure inside the claim (mint, event, sends) -> the member's
-// normal welcome-back, not the new-member minimal welcome text.
+// r2 G1 (supersedes r1 F4 after the mint): any failure inside the claim ->
+// recoverFailedClaim, never a silent coupon.
 async function claimWelcomeForExisting(
   restaurantId: string,
   phoneNumberId: string,
@@ -144,9 +145,50 @@ async function claimWelcomeForExisting(
     })
     return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance, couponCode }
   } catch (err) {
-    console.warn('[register] welcome claim failed, sending welcome-back:', (err as Error).message)
-    return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
+    console.warn('[register] welcome claim failed:', (err as Error).message)
+    return recoverFailedClaim(restaurantId, phoneNumberId, phone, existing, contactName)
   }
+}
+
+// r2 G1 (main ruling 2026-11-20): a failure after the mint (e.g. the join
+// event write) leaves a coupon the member was never told about, and that
+// coupon blocks any later claim. None was on file under the lock, so a
+// welcome offer on file now is this claim's: send its code in the minimal
+// welcome text. None on file, or the lookup/send fails -> welcome-back.
+async function recoverFailedClaim(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: PhoneNumber,
+  existing: ExistingMember,
+  contactName?: string
+): Promise<RegisterResult> {
+  try {
+    const couponCode = await findLatestWelcomeOfferCode(restaurantId, existing.id)
+    if (couponCode) {
+      await sendClaimedCode(restaurantId, phoneNumberId, phone.value, existing.preferred_language ?? null, couponCode)
+      return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance, couponCode }
+    }
+  } catch (err) {
+    console.warn('[register] welcome claim recovery failed, sending welcome-back:', (err as Error).message)
+  }
+  return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
+}
+
+// Language resolved as onboardNewMember does; throws when the send fails.
+async function sendClaimedCode(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: string,
+  memberPreferredLanguage: string | null,
+  couponCode: string
+): Promise<void> {
+  const settings = await getOnboardingSettings(restaurantId).catch(() => null)
+  const language = resolvePreferredLanguage(
+    { preferredLanguage: memberPreferredLanguage },
+    { defaultLanguage: settings?.defaultLanguage ?? null }
+  )
+  const sent = await sendTextMessage(phoneNumberId, phone, minimalWelcomeText(language, couponCode))
+  if (!sent.ok) throw new Error(`welcome code send not ok: ${sent.error?.title ?? 'unknown'}`)
 }
 
 async function createNewMember(

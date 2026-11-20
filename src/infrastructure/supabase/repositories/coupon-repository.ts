@@ -111,29 +111,45 @@ export async function findWelcomeCouponByMember(
   return data ? mapRowToCoupon(data) : null
 }
 
-// WONB-020 r1 F2: has this member already been given a welcome offer --
-// a `welcome` coupon, or any coupon of the restaurant's current welcome
-// campaign? Covers a mint whose join-event write failed. Throws on a DB
-// error so the caller can decide which way to fail.
-export async function hasWelcomeCoupon(
+// WONB-020 r1 F2 / r2 G3: the member's most recent welcome offer -- a
+// `welcome` coupon, or a coupon of ANY of the restaurant's welcome-type
+// campaigns (not only the one mapped now, so a remap never reopens the
+// claim). Two tenant-scoped queries; throws on a DB error so the caller
+// can decide which way to fail.
+export async function findLatestWelcomeOfferCode(
   restaurantId: string,
-  memberId: string,
-  welcomeCampaignId: string | null
-): Promise<boolean> {
+  memberId: string
+): Promise<string | null> {
   const supabase = createServerSupabaseClient()
-  const filter = welcomeCampaignId
-    ? `type.eq.welcome,campaign_id.eq.${welcomeCampaignId}`
-    : 'type.eq.welcome'
-  const { data, error } = await supabase
-    .from('coupons')
-    .select('id')
-    .eq('restaurant_id', restaurantId)
-    .eq('member_id', memberId)
-    .or(filter)
-    .limit(1)
+  const [plain, viaCampaign] = await Promise.all([
+    supabase
+      .from('coupons')
+      .select('code, created_at')
+      .eq('restaurant_id', restaurantId)
+      .eq('member_id', memberId)
+      .eq('type', 'welcome')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('coupons')
+      .select('code, created_at, campaigns!inner(type)')
+      .eq('restaurant_id', restaurantId)
+      .eq('member_id', memberId)
+      .eq('campaigns.type', 'welcome')
+      .eq('campaigns.restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ])
 
-  if (error) throw new Error(`hasWelcomeCoupon: ${error.message}`)
-  return (data ?? []).length > 0
+  const error = plain.error ?? viaCampaign.error
+  if (error) throw new Error(`findLatestWelcomeOfferCode: ${error.message}`)
+  const rows: Array<{ code: string; created_at: string }> = [...(plain.data ?? []), ...(viaCampaign.data ?? [])]
+  rows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  return rows[0]?.code ?? null
+}
+
+export async function hasWelcomeCoupon(restaurantId: string, memberId: string): Promise<boolean> {
+  return (await findLatestWelcomeOfferCode(restaurantId, memberId)) !== null
 }
 
 export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {

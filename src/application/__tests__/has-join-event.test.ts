@@ -10,15 +10,23 @@ import { canClaimWelcome } from '../has-join-event'
 type Result = { data: unknown[] | null; error: { message: string } | null }
 
 // One chain per table so the events and coupons queries are asserted apart.
+// coupons runs two queries (r2 G3): the campaigns!inner embed picks viaCampaign.
 function tableChain() {
   const calls: Array<[string, ...unknown[]]> = []
   const limit = vi.fn<(n: number) => Promise<Result>>()
-  const chain = {
-    eq: vi.fn((col: string, val: unknown) => (calls.push(['eq', col, val]), chain)),
-    or: vi.fn((filter: string) => (calls.push(['or', filter]), chain)),
-    limit,
-  }
-  return { calls, limit, select: vi.fn().mockReturnValue(chain) }
+  const viaCampaign = vi.fn<(n: number) => Promise<Result>>()
+  const selects: string[] = []
+  const select = vi.fn((cols?: string) => {
+    selects.push(String(cols))
+    const embed = String(cols).includes('campaigns!inner')
+    const chain = {
+      eq: vi.fn((col: string, val: unknown) => (calls.push(['eq', col, val]), chain)),
+      order: vi.fn(() => chain),
+      limit: embed ? viaCampaign : limit,
+    }
+    return chain
+  })
+  return { calls, limit, viaCampaign, selects, select }
 }
 
 let events = tableChain()
@@ -44,6 +52,7 @@ describe('canClaimWelcome (WONB-020)', () => {
     vi.mocked(getOnboardingSettings).mockResolvedValue(settings(null))
     events.limit.mockResolvedValue({ data: [], error: null })
     coupons.limit.mockResolvedValue({ data: [], error: null })
+    coupons.viaCampaign.mockResolvedValue({ data: [], error: null })
   })
 
   it('queries one join event scoped to restaurant + member', async () => {
@@ -79,53 +88,43 @@ describe('canClaimWelcome (WONB-020)', () => {
   })
 
   // r1 F2: a mint whose join-event write failed leaves a coupon and no event;
-  // the coupon alone must stop a second mint.
-  describe('r1 F2: an existing welcome coupon blocks the claim', () => {
+  // the coupon alone must stop a second mint. r2 G3: a coupon of ANY
+  // welcome-type campaign counts, not just the one mapped now.
+  describe('r1 F2 / r2 G3: an existing welcome coupon blocks the claim', () => {
     it('AC-3: holds a type welcome coupon, no join event -> not claimable', async () => {
-      coupons.limit.mockResolvedValue({ data: [{ id: 'c-1' }], error: null })
+      coupons.limit.mockResolvedValue({ data: [{ code: 'W1', created_at: '2026-11-20T00:00:00Z' }], error: null })
 
       expect(await canClaimWelcome('rest-1', 'm-1')).toBe(false)
-      expect(coupons.calls).toEqual([
-        ['eq', 'restaurant_id', 'rest-1'],
-        ['eq', 'member_id', 'm-1'],
-        ['or', 'type.eq.welcome'],
-      ])
-      expect(coupons.limit).toHaveBeenCalledWith(1)
+      expect(coupons.calls).toContainEqual(['eq', 'type', 'welcome'])
     })
 
-    it('AC-3: with a welcome campaign mapped, a coupon of that campaign also counts', async () => {
-      vi.mocked(getOnboardingSettings).mockResolvedValue(settings('camp-9'))
-      coupons.limit.mockResolvedValue({ data: [{ id: 'c-2' }], error: null })
+    it('AC-3: holds a promo coupon of a NON-current welcome-type campaign, no join event -> not claimable', async () => {
+      // the restaurant now maps a different welcome campaign
+      vi.mocked(getOnboardingSettings).mockResolvedValue(settings('camp-new'))
+      coupons.viaCampaign.mockResolvedValue({ data: [{ code: 'OLD1', created_at: '2026-01-01T00:00:00Z' }], error: null })
 
       expect(await canClaimWelcome('rest-1', 'm-1')).toBe(false)
-      expect(coupons.calls).toContainEqual(['or', 'type.eq.welcome,campaign_id.eq.camp-9'])
+      expect(coupons.calls).toContainEqual(['eq', 'campaigns.type', 'welcome'])
+      expect(coupons.calls).toContainEqual(['eq', 'campaigns.restaurant_id', 'rest-1'])
     })
 
-    it('AC-3: no welcome coupon of either kind -> claimable, both lookups ran', async () => {
-      vi.mocked(getOnboardingSettings).mockResolvedValue(settings('camp-9'))
-
+    it('AC-3: no welcome coupon of either kind -> claimable, both lookups ran, no settings load', async () => {
       expect(await canClaimWelcome('rest-1', 'm-1')).toBe(true)
       expect(mockFrom).toHaveBeenCalledWith('events')
-      expect(mockFrom).toHaveBeenCalledWith('coupons')
+      expect(coupons.limit).toHaveBeenCalledTimes(1)
+      expect(coupons.viaCampaign).toHaveBeenCalledTimes(1)
+      expect(getOnboardingSettings).not.toHaveBeenCalled()
     })
 
     it('AC-3: a coupon lookup error -> not claimable, with a warning', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      coupons.limit.mockResolvedValue({ data: null, error: { message: 'coupons timeout' } })
+      coupons.viaCampaign.mockResolvedValue({ data: null, error: { message: 'coupons timeout' } })
 
       expect(await canClaimWelcome('rest-1', 'm-1')).toBe(false)
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('lookup failed'),
         expect.objectContaining({ message: expect.stringContaining('coupons timeout') })
       )
-      warn.mockRestore()
-    })
-
-    it('AC-3: an onboarding settings error -> not claimable', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      vi.mocked(getOnboardingSettings).mockRejectedValue(new Error('getOnboardingSettings: restaurant not found'))
-
-      expect(await canClaimWelcome('rest-1', 'm-1')).toBe(false)
       warn.mockRestore()
     })
   })

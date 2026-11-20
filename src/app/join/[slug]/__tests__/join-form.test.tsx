@@ -10,7 +10,7 @@ vi.mock('next-intl', () => ({
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
-import { JoinFormNotice, claimUrlFrom } from '../join-form'
+import { JoinFormNotice, claimUrlFrom, joinNoticeReducer, INITIAL_JOIN_NOTICE, type JoinNotice } from '../join-form'
 
 const URL = 'https://wa.me/85261234567?text=JOIN'
 
@@ -53,5 +53,35 @@ describe('slug join form: existing member answer (WONB-020 r1)', () => {
     }
     expect(en.join.claimOnWhatsApp).toMatch(/WhatsApp/)
     expect((zhHK as { join: Record<string, string> }).join.claimOnWhatsApp).toMatch(/WhatsApp/)
+  })
+
+  // r2 G4: the notice shows a claim OR an error, never a stale claim over a
+  // fresh client-side validation error.
+  describe('r2 G4: notice state', () => {
+    const render = (n: JoinNotice) => renderToStaticMarkup(<JoinFormNotice error={n.error} claimUrl={n.claimUrl} />)
+
+    it('AC-4: after the claim notice shows, a submit with an empty name shows the fields_required error', () => {
+      let notice = joinNoticeReducer(INITIAL_JOIN_NOTICE, { type: 'claim', url: URL })
+      expect(render(notice)).toContain('join-claim-whatsapp')
+
+      notice = joinNoticeReducer(notice, { type: 'error', code: 'fields_required' })
+
+      expect(render(notice)).toContain('join.fieldsRequired')
+      expect(render(notice)).not.toContain('join-claim-whatsapp')
+    })
+
+    it('AC-4: a new submit resets both the claim and the error', () => {
+      const withClaim = joinNoticeReducer(INITIAL_JOIN_NOTICE, { type: 'claim', url: URL })
+      const withError = joinNoticeReducer(INITIAL_JOIN_NOTICE, { type: 'error', code: 'generic_error' })
+
+      expect(joinNoticeReducer(withClaim, { type: 'reset' })).toEqual({ error: '', claimUrl: null })
+      expect(joinNoticeReducer(withError, { type: 'reset' })).toEqual({ error: '', claimUrl: null })
+      expect(render(joinNoticeReducer(withClaim, { type: 'reset' }))).toBe('')
+    })
+
+    it('a claim answer replaces an earlier error', () => {
+      const withError = joinNoticeReducer(INITIAL_JOIN_NOTICE, { type: 'error', code: 'fields_required' })
+      expect(joinNoticeReducer(withError, { type: 'claim', url: URL })).toEqual({ error: '', claimUrl: URL })
+    })
   })
 })

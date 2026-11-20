@@ -324,7 +324,7 @@ export async function processMemberCreateJob(
     // partner-created member never looks never-welcomed (claimable).
     if (
       createResult.outcome === 'created' ||
-      (createdByThisJob && !(await hasJoinEvent(data.restaurantId, createResult.memberId)))
+      (createdByThisJob && !(await joinEventWritten(data.restaurantId, createResult.memberId)))
     ) {
       await emitEvent({
         restaurantId: data.restaurantId,
@@ -389,5 +389,17 @@ export async function processMemberCreateJob(
     if (terminal) {
       await releaseDepthCounter(data.integrationId)
     }
+  }
+}
+
+// WONB-020 r2 G2: never fail the job on this lookup. Unknown reads as
+// "not written": a duplicate join event is harmless to the claim rule, a
+// missing one would leave the member claimable.
+async function joinEventWritten(restaurantId: string, memberId: string): Promise<boolean> {
+  try {
+    return await hasJoinEvent(restaurantId, memberId)
+  } catch (err) {
+    console.warn('[member-create] join event lookup failed, emitting the join event anyway:', err)
+    return false
   }
 }

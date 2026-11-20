@@ -44,24 +44,24 @@ describe('POST /api/join/[slug]', () => {
     expect(await res.json()).toEqual({ couponCode: 'WLCM01' })
   })
 
-  it('WONB-020 r1 AC-1: existing never-welcomed member -> {existing:true, claimOnWhatsApp:true, whatsappClaimUrl}, no couponCode', async () => {
-    vi.mocked(registerMemberWeb).mockResolvedValueOnce({
-      isNew: false,
-      memberId: 'm-imp',
-      whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN',
-    })
+  // WONB-020 r2 G5: the use case answers every existing member the same way,
+  // so the route body is identical whoever the member is.
+  it('r2 AC-5: any existing member -> {existing:true, claimOnWhatsApp:true, whatsappClaimUrl}, no couponCode', async () => {
+    const linked = { isNew: false, memberId: 'm-imp', whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN' }
+    vi.mocked(registerMemberWeb).mockResolvedValueOnce(linked).mockResolvedValueOnce({ ...linked, memberId: 'm-welcomed' })
 
-    const res = await post({ phone: '+85291234567', name: 'Ivy' })
+    const first = await (await post({ phone: '+85291234567', name: 'Ivy' })).json()
+    const second = await (await post({ phone: '+85291234568', name: 'Wen' })).json()
 
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({
+    expect(first).toEqual({
       existing: true,
       claimOnWhatsApp: true,
       whatsappClaimUrl: 'https://wa.me/85261234567?text=JOIN',
     })
+    expect(second).toEqual(first)
   })
 
-  it('existing member with nothing to claim -> {existing:true}', async () => {
+  it('existing member and no usable WhatsApp number -> {existing:true}', async () => {
     vi.mocked(registerMemberWeb).mockResolvedValueOnce({ isNew: false, memberId: 'm-imp' })
 
     const res = await post({ phone: '+85291234567', name: 'Ivy' })
