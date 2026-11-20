@@ -12,14 +12,19 @@
  * Once a row is promoted the text was ours (review G3): a failed
  * acknowledgement is logged by error name and never sends the diner to the
  * fallback menu or skips the other promoted rows.
+ * BOOK-008 (R1): a promoted booking links to an EXISTING member of the same
+ * restaurant with the booking phone (never before: the phone is unproven
+ * while unverified). Best effort: a failed link is logged by error name and
+ * staff can link by hand; no member is ever created.
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText } from '@/domain/services/poppy-documents'
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
-import type { AgentBookingStore, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
+import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
 
 export interface VerifyAgentBookingDeps {
-  store: Pick<AgentBookingStore, 'promote'>
+  store: Pick<AgentBookingStore, 'promote' | 'linkMember'>
+  members: BookingMemberLookup
   settings: Pick<BookingSettingsReader, 'getConfig' | 'getRestaurant'>
   sender: BookingMessageSender
   /** Free text inside the window the diner's own message just opened; never throws. */
@@ -44,6 +49,18 @@ async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest
   await deps.sendText(booking.restaurantId, booking.phone, collectionStatementText(buildCollectionStatement(restaurantName, deps.privacyUrl)))
 }
 
+/** R1: only now, after promotion, does the booking phone count as the diner's. */
+async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: BookingRequest): Promise<BookingRequest> {
+  if (booking.memberId) return booking
+  try {
+    const memberId = await deps.members.findMemberId(booking.restaurantId, booking.phone)
+    if (memberId && (await deps.store.linkMember(booking.id, booking.restaurantId, memberId))) return { ...booking, memberId }
+  } catch (err) {
+    console.warn('[AgentBooking] member link failed:', { error: (err as Error).name, bookingId: booking.id })
+  }
+  return booking
+}
+
 export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<{ handled: boolean }> {
   const codes = extractConfirmCodeCandidates(message.text)
   if (codes.length === 0) return { handled: false }
@@ -53,7 +70,8 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
     restaurantId: message.restaurantId, phone: message.phone, codes, wamid: message.wamid, at: deps.now(),
     maxPending: MAX_PENDING_PER_PHONE,
   })
-  for (const booking of promoted) {
+  for (const row of promoted) {
+    const booking = await linkExistingMember(deps, row)
     try {
       await acknowledge(deps, booking)
     } catch (err) {

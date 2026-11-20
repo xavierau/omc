@@ -80,6 +80,8 @@ beforeEach(() => {
   settings.setConfig(R, { mode: 'simple', agentBooking: AGENT_ON })
   vi.mocked(verifyAgentBookingDeps).mockImplementation(() => ({
     store,
+    // BOOK-008: no member has the booking phone here; linking is covered in booking-member-linking.test.ts.
+    members: { findMemberId: async () => null },
     settings,
     sender,
     sendText: async (restaurantId, phone, text) => void texts.push({ restaurantId, phone, text }),

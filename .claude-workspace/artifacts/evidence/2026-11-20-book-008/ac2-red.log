@@ -1,0 +1,25 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-008
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts [ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts ]
+Error: Cannot find module '/src/app/api/dashboard/bookings/[id]/member/route' imported from /Users/xavierau/Code/js/whatsapp-crm--book-008/src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:27:1
+     25| import { getTenantContext } from '@/infrastructure/supabase/guards/ten…
+     26| import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
+     27| import { PATCH } from '../[id]/member/route'
+       | ^
+     28|
+     29| const A = 'rest-a'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  12:18:26
+   Duration  354ms (transform 92ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

@@ -44,6 +44,9 @@ function staffStore(rows: BookingRequest[]): BookingRequestStore {
   }
 }
 
+/** BOOK-008: no member has the booking phone (linking: booking-member-linking.test.ts). */
+const noMembers = { findMemberId: async () => null }
+
 let clock: FakeClock
 let store: FakeAgentBookingStore
 let settings: FakeBookingSettings
@@ -95,7 +98,7 @@ describe('agent booking lifecycle (AC-5, R41)', () => {
     const created = await create()
     clock.advanceMs(5 * 60_000)
     const verify = await verifyAgentBooking(
-      { store, settings, sender, sendText: async () => {}, privacyUrl: 'https://p', now: () => clock.now() },
+      { store, members: noMembers, settings, sender, sendText: async () => {}, privacyUrl: 'https://p', now: () => clock.now() },
       { restaurantId: R, phone: PHONE, text: `Confirm ${created.confirm_code}`, wamid: 'wamid.9' }
     )
     expect(verify).toEqual({ handled: true })
@@ -115,7 +118,7 @@ describe('agent booking lifecycle (AC-5, R41)', () => {
   it('R35: after create + verify, source, verified_at, verified_wamid and created_at are set', async () => {
     const created = await create()
     await verifyAgentBooking(
-      { store, settings, sender, sendText: async () => {}, privacyUrl: 'https://p', now: () => clock.now() },
+      { store, members: noMembers, settings, sender, sendText: async () => {}, privacyUrl: 'https://p', now: () => clock.now() },
       { restaurantId: R, phone: PHONE, text: created.confirm_code, wamid: 'wamid.9' }
     )
     expect(store.rows[0]).toMatchObject({

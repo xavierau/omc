@@ -1,0 +1,22 @@
+# forge site command 14471080 (read-only), 2026-11-20T04:32:06Z (restart 04:28:32Z app / 04:28:37Z worker)
+next-server pid 3573648 etime 03:33 ; worker pid 3573713 etime 03:28 (same pids as 04:29:02Z: no restart)
+--- app log after the banner (line 22236 of 22243)
+▲ Next.js 16.3.4 / Local / Network
+✓ Ready in 796ms
+✓ Running next.config.ts took 735ms
+⚠ "next start" does not work with "output: standalone" configuration. (known, every release)
+[Kapso] Error listing templates: WhatsApp configuration not found   x2 (lines 22242-22243, written ~04:30:05Z)
+--- worker log: [AgentReplyQueue] Worker started; Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply; 0 lines after; 0 error/warn
+--- known limiter line '[AgentBooking]/[Booking] rate limiter unavailable, allowing: Error' after restart: 0
+box: MemAvailable 2415696 kB, SwapFree 62960 kB, load 0.59, disk 26905 MB free
+# forge site command 14471088 (read-only): the Kapso line is pre-existing
+app log total 'Error listing templates: WhatsApp configuration not found': 6694
+banners (last 8): 21961 22007 22058 22078 22106 22200 22217 22236
+Kapso lines (last 15): 22207 22208 22209 22211 22212 22224 22225 22226 22227 22228 22229 22230 22231 22242 22243
+ -> lines 22207-22212 under the AGENT-004 build (banner 22200), 22224-22231 under the BOOK-006 build (banner 22217)
+source: console.warn in src/infrastructure/kapso/template-client.ts:118, unchanged in 99f81731..23dc635f
+# forge site command 14471702 (read-only), 2026-11-20T05:14:37Z (46 min after restart)
+next-server 3573648 etime 46:04 ; worker 3573713 etime 45:59 (no restart)
+app: 11 lines after the banner = the 5 startup lines + 6 x '[Kapso] Error listing templates: WhatsApp configuration not found' (pre-existing warn); 0 other error lines; 0 limiter lines
+worker: 1 line after the start banner, info 'agent.purged' {deleted 0, silences 0, failedTenants 0} at 04:51:56Z
+/api/health 200

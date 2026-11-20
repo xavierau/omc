@@ -11,6 +11,8 @@ import { MemberTagsSection } from './member-tags-section'
 import { fetchMemberDetail, formatDate } from './member-detail-helpers'
 import type { MemberQualityEvidence } from '@/infrastructure/supabase/repositories/member-quality-evidence'
 import { MemberQualityEvidenceSection } from './member-quality-evidence-section'
+import { MemberBookingsSection } from './member-bookings-section'
+import type { MemberBookingHistory } from '@/domain/entities/member-booking'
 
 interface MemberDetail {
   id: string
@@ -25,6 +27,8 @@ interface MemberDetail {
   visitCount: number
   tags?: { id: string; name: string; color: string }[]
   qualityEvidence?: MemberQualityEvidence | null
+  /** BOOK-008: null when the bookings could not be read. */
+  bookingHistory?: MemberBookingHistory | null
 }
 
 interface MemberDetailPanelProps {
@@ -162,6 +166,8 @@ export function MemberDetailPanel({ memberId, open, onClose, onDeleted, onTagsCh
               <MemberTagsSection memberId={member.id} tags={member.tags ?? []} onChanged={onTagsChanged} />
               <Separator />
               <MemberQualityEvidenceSection memberId={member.id} evidence={member.qualityEvidence ?? null} />
+              <Separator />
+              <MemberBookingsSection history={member.bookingHistory} />
               <Separator />
               <ReceiptList receipts={member.receipts} />
               <Separator />

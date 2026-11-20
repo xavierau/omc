@@ -205,6 +205,12 @@ export interface AgentBookingStore {
    * changed (none on a replay, any mismatch or a full cap).
    */
   promote(args: PromoteAgentBookingArgs): Promise<BookingRequest[]>
+  /**
+   * BOOK-008 R1: after promotion, link a booking to an EXISTING member found
+   * by phone. One conditional UPDATE scoped by id AND restaurant, only while
+   * member_id is null and the row is no longer unverified; true when it changed.
+   */
+  linkMember(id: string, restaurantId: string, memberId: string): Promise<boolean>
 }
 
 export interface AgentBookingTenant {

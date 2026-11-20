@@ -185,7 +185,19 @@
     "pagePrevious": "Previous",
     "pageNext": "Next",
     "pageLast": "Last",
-    "pageOf": "Page {page} of {total}"
+    "pageOf": "Page {page} of {total}",
+    "bookingsSection": "Bookings",
+    "bookingsUnavailable": "Couldn't load this member's bookings.",
+    "noBookings": "No bookings yet.",
+    "bookingStatTotal": "Total",
+    "bookingStatConfirmed": "Confirmed",
+    "bookingStatNoShow": "No-show",
+    "bookingStatCancelled": "Cancelled",
+    "bookingStatDeclined": "Declined",
+    "bookingStatPending": "Pending",
+    "lastBooking": "Last booking",
+    "nextBooking": "Next booking",
+    "bookingsShownOf": "Showing the latest {shown} of {total}"
   },
   "coupons": {
     "heading": "Coupons",
@@ -1474,7 +1486,17 @@
         "campaign": "Campaign",
         "agent": "AI agent"
       }
-    }
+    },
+    "viewMember": "Open member profile",
+    "linkMember": "Link member",
+    "changeMember": "Change member",
+    "unlinkMember": "Unlink member",
+    "memberSearchLabel": "Search members",
+    "memberSearchPlaceholder": "Name or phone",
+    "memberSearching": "Searching…",
+    "memberSearchEmpty": "No members match.",
+    "memberSearchFailed": "Couldn't search members.",
+    "memberLinkFailed": "Couldn't update the member link. The list has been refreshed; try again."
   },
   "bookingSettings": {
     "title": "Booking",

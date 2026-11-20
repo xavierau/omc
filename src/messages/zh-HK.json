@@ -185,7 +185,19 @@
     "pagePrevious": "上一頁",
     "pageNext": "下一頁",
     "pageLast": "最後一頁",
-    "pageOf": "第 {page} 頁，共 {total} 頁"
+    "pageOf": "第 {page} 頁，共 {total} 頁",
+    "bookingsSection": "訂座",
+    "bookingsUnavailable": "未能載入此會員的訂座。",
+    "noBookings": "暫時未有訂座。",
+    "bookingStatTotal": "總數",
+    "bookingStatConfirmed": "已確認",
+    "bookingStatNoShow": "未出席",
+    "bookingStatCancelled": "已取消",
+    "bookingStatDeclined": "已拒絕",
+    "bookingStatPending": "待確認",
+    "lastBooking": "上次訂座",
+    "nextBooking": "下次訂座",
+    "bookingsShownOf": "顯示最近 {shown} 個，共 {total} 個"
   },
   "coupons": {
     "heading": "優惠券",
@@ -1474,7 +1486,17 @@
         "campaign": "推廣活動",
         "agent": "AI 助理"
       }
-    }
+    },
+    "viewMember": "查看會員資料",
+    "linkMember": "連結會員",
+    "changeMember": "更改會員",
+    "unlinkMember": "取消連結",
+    "memberSearchLabel": "搜尋會員",
+    "memberSearchPlaceholder": "姓名或電話",
+    "memberSearching": "搜尋中…",
+    "memberSearchEmpty": "沒有相符的會員。",
+    "memberSearchFailed": "未能搜尋會員。",
+    "memberLinkFailed": "未能更新會員連結。列表已重新整理，請再試一次。"
   },
   "bookingSettings": {
     "title": "訂座",
