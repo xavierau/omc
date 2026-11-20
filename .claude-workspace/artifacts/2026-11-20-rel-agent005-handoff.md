@@ -1,38 +1,40 @@
 ---
 id: artifacts/2026-11-20-rel-agent005-handoff
-type: artifact
+type: handoff
+contract: handoff-file-v1
 author: dev
 created: 2026-11-20
 status: active
-supersedes: null
-superseded_by: null
-related: [deploys/2026-11-20-agent-005-release-runbook, kanban:AGENT-005, github:216, github:219]
+item: AGENT-005
+state: done
+brief: inline
+base: 11e65e6e
+head: fe1cdbfb
+branch: docs/agent-005-release-records
+pushed: true
+gate: {result: pass, at: "2026-11-20T08:36:39Z"}
+next: {owner: main, action: "merge records PR #220 into develop; owner fills omc 訂座規則 and live-checks an out-of-hours booking ask"}
+blockers: []
+refs: [deploys/2026-11-20-agent-005-release-runbook, kanban:AGENT-005, github:216, github:219, github:220]
 ---
-
-# Handoff: AGENT-005 release (dev, one-shot)
-
-- **Stage:** POC (no `stages/mature.md` import). Hosting: existing Forge box.
-- **Status:** done. Prod serves `main@fe1cdbfb` → release `d05e6470`, BUILD_ID `F2oHXhD6zjqi7IwuTmGfA`, no migration.
-- **Primary artifact:** `deploys/2026-11-20-agent-005-release-runbook` (scope, pre-flight, runbook as executed,
-  deploy facts, verification table, rollback, cleanup). Evidence: `artifacts/evidence/2026-11-20-agent-005-release/`.
-
-## Acceptance
-| id | result | evidence |
-|---|---|---|
-| AC-1 | PASS: `npm ci`, `tsc --noEmit`, `vitest run` exit 0 on `11e65e6e` (683 files / 7,800 tests passed), once, heavy lock | `ac1-*.exit`, `ac1-vitest.log` |
-| AC-2 | PASS: release PR #219 merged 08:38:23Z → `fe1cdbfb`; tree `b284303a` == `11e65e6e` tree | https://github.com/xavierau/omc/pull/219 |
-| AC-3 | PASS: release.sh exit 0, scan clean, `release` d74942c1 → d05e6470. Forge 83536518 `Deploy complete` with no migration; app and worker RUNNING with new pids (3671054 / 3671113), stable at 3m40s. RELEASE.json matches the merge commit and BUILD_ID. `/login` 200 serves the new BUILD_ID, not the old one; `/api/health` 200; worker `Workers started … agent-reply`. After the restart: Kapso known line ×2, limiter ×0, other errors 0. omc: no `bookingRules` key, `agent_config` rev 11 and md5 unchanged | `release-sh.log`, `forge-deploy-83536518.log`, `box-after-deploy.log`, `box-stability.log`, `omc-config-{pre,post}deploy.log` |
-| AC-4 | PASS: runbook, poc-log line, kanban AGENT-005 → done, INDEX + handoffs rows. Docs PR into develop opened, not merged | this file's handoff block |
-
-## Notes for main
-- SSH as `forge@34.158.58.133` was **accepted** today, so the box checks ran over SSH (read-only) and no Forge site
-  command was needed. Earlier runbooks say port 22 is firewalled.
-- The local rollback ref `release-backup-d74942c` did not exist at the start, so this run created it from `origin/release`.
-- The PR had no CI checks (`gh pr checks`: none reported). It was MERGEABLE/CLEAN.
-- Rollback caveat: once the owner fills 訂座規則, a rolled-back build may drop the key on its next Booking-settings
-  save. The runbook says to read the value first.
-
-## Next
-- main: merge the records PR into develop.
-- Owner: fill omc's 訂座規則 in Settings → Booking (or rely on 餐廳資料 hours), then live-check that the agent
-  refuses an out-of-hours time (the 10:00-before-11:00 case).
+ac:
+  AC-1: "pass: npm ci, tsc --noEmit, vitest run exit 0 on 11e65e6e (683 files / 7,800 tests passed), once, heavy lock (evidence ac1-*)"
+  AC-2: "pass: https://github.com/xavierau/omc/pull/219 merged 08:38:23Z → main fe1cdbfb; tree b284303a == 11e65e6e tree"
+  AC-3: "pass: release.sh exit 0, scan clean, release d74942c1 → d05e6470; Forge 83536518 'Deploy complete', no migration; app 3671054 / worker 3671113 RUNNING, stable at 3m40s; RELEASE.json source_commit fe1cdbfb, build_id F2oHXhD6zjqi7IwuTmGfA == .next/BUILD_ID; /login 200 new BUILD_ID x1, old x0; /api/health 200; worker 'Workers started … agent-reply'; after restart Kapso known x2, limiter x0, other errors 0; omc booking_config has no bookingRules key, agent_config rev 11 md5 unchanged"
+  AC-4: "pass: runbook, poc-log line, kanban AGENT-005 → done, INDEX + handoffs rows; records PR https://github.com/xavierau/omc/pull/220 into develop opened, not merged"
+decisions:
+  - "Release PR merged with a merge commit, as prior releases"
+  - "Box checks ran over SSH (forge@34.158.58.133 accepted today); no Forge site command was needed"
+  - "Local rollback ref release-backup-d74942c did not exist; created from origin/release (d74942c1), not pushed"
+  - "omc config check returns counts and md5s only (public repo); token read in-process on the box, never printed"
+failed: []
+invariants:
+  - "No migration, env, package or lockfile change in 1f2b9eb4..fe1cdbfb"
+  - "omc agent_config rev 11, md5 cb96e1e4a9c5514f2f6e03de98bbad0b before and after; booking_config without bookingRules"
+unverified:
+  - "Settings → Booking 訂座規則 field and an out-of-hours agent reply on prod (need tenant login / WhatsApp send): owner live check"
+  - "Whether a rolled-back build drops a saved bookingRules key on its next Booking-settings save (old resolveBookingConfig keeps known keys only; write path not traced)"
+review_focus: []
+scope_drift:
+  - "Worktree ../whatsapp-crm--release-agent005 was removed after the records push, then re-added on docs/agent-005-release-records to fix this handoff file's format; it is left in place for main to remove (git worktree remove) after PR #220 merges"
+next_step: "Merge records PR #220 into develop, then remove the worktree ../whatsapp-crm--release-agent005."
