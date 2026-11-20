@@ -8,6 +8,7 @@ import {
   CancelledByBadge,
   cancelledText,
   ChangeFromLine,
+  ChangePendingLine,
   NotDeliveredBadge,
   PhoneLink,
   RowActions,
@@ -44,6 +45,7 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
         <CancelledByBadge booking={booking} />
       </div>
       <ChangeFromLine booking={booking} />
+      <ChangePendingLine booking={booking} />
       <BookingNotes booking={booking} />
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
       <div className="pt-1 empty:hidden">

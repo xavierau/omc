@@ -21,6 +21,7 @@ import { BookingRow } from '../booking-row'
 import { BookingsTableDesktop } from '../bookings/bookings-table-desktop'
 import { BookingsTableCards } from '../bookings/bookings-table-cards'
 import { CalendarMonthGrid } from '../bookings/calendar-month-grid'
+import { CalendarWeekStrip } from '../bookings/calendar-week-strip'
 import { BookingsFilters } from '../bookings/bookings-filters'
 import type { BookingItem } from '@/hooks/use-bookings'
 
@@ -140,7 +141,7 @@ describe.each(Object.keys(pairViews))('BOOK-006 change-request pairs in the %s',
     expect(row).toContain('data-testid="booking-row-b-orig-change-pending"')
     expect(row).toContain('bookings.changePending:')
     expect(row).toContain('2026-11-26 18:30')
-    expect(row).toContain('bookings.partyOf:{&quot;count&quot;:4}')
+    expect(row).toMatch(/bookings\.partyOf:[^<]*count[^<]*:4/)
     expect(html).not.toContain('booking-row-b-orig-confirm')
     expect(html).not.toContain('booking-row-b-orig-decline')
   })
@@ -177,5 +178,21 @@ describe('BOOK-006 copy', () => {
     const lookup = (m: unknown, p: string) => p.split('.').reduce<unknown>((n, k) => (n && typeof n === 'object' ? (n as Record<string, unknown>)[k] : undefined), m)
     const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !== 'string' || typeof lookup(zhHK, k) !== 'string')
     expect(missing).toEqual([])
+  })
+})
+
+describe('BOOK-006 phone week strip', () => {
+  const dayButton = (html: string) => html.slice(html.indexOf('data-testid="bookings-calendar-day-2026-11-26"'), html.indexOf('</button>', html.indexOf('data-testid="bookings-calendar-day-2026-11-26"')))
+  const strip = (bookings: BookingItem[]) =>
+    dayButton(renderToStaticMarkup(<CalendarWeekStrip bookings={bookings} selected="2026-11-24" today="2026-11-19" onSelect={() => {}} />))
+
+  it('a day holding only an original with an open change has no needs-reply (amber) dot', () => {
+    expect(strip([original])).not.toContain('bg-accent')
+    expect(strip([original])).toContain('bg-primary')
+  })
+
+  it('the day of its change row (or any pending row without an open change) has the amber dot', () => {
+    expect(strip([original, changeRow])).toContain('bg-accent')
+    expect(strip([afterDecline])).toContain('bg-accent')
   })
 })

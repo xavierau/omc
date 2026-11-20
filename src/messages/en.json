@@ -1392,6 +1392,7 @@
     "replacedByChange": "Replaced by a change",
     "changeFrom": "Change request: {from} → {to}",
     "changeRequest": "Change request",
+    "changePending": "Change requested → {to}",
     "declinedBecause": "Reason: {reason}",
     "confirmationSent": "Confirmation sent",
     "declineSent": "Decline sent",

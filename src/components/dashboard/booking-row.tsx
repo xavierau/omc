@@ -9,6 +9,8 @@
  * AGENT-003: a change request shows the slot it would replace (old → new);
  * a cancelled booking says whether the diner cancelled it through the AI
  * agent or a confirmed change replaced it.
+ * BOOK-006: an original with an open change request shows "change requested
+ * → new slot" and no Confirm/Decline: staff decide the pair on the change row.
  * BOOK-004: the day-list row (calendar day panel, phone day list): time and
  * party on the left; the badges and actions are shared with the table views.
  * A cancelled booking is greyed and struck through, like a declined chip.
@@ -92,15 +94,28 @@ export function CancelledByBadge({ booking }: { booking: BookingItem }) {
   )
 }
 
+type Slot = { bookingDate: string; bookingTime: string; partySize: number }
+type Translate = ReturnType<typeof useTranslations<'bookings'>>
+const slotText = (t: Translate, b: Slot) => `${b.bookingDate} ${b.bookingTime} · ${t('partyOf', { count: b.partySize })}`
+
 /** AGENT-003 R23: a change request shows the slot it would replace (old → new). */
 export function ChangeFromLine({ booking }: { booking: BookingItem }) {
   const t = useTranslations('bookings')
   if (!booking.replacesBookingId) return null
-  const slot = (b: { bookingDate: string; bookingTime: string; partySize: number }) =>
-    `${b.bookingDate} ${b.bookingTime} · ${t('partyOf', { count: b.partySize })}`
   return (
     <p className="text-sm text-foreground" data-testid={`booking-row-${booking.id}-change-from`}>
-      {booking.replaces ? t('changeFrom', { from: slot(booking.replaces), to: slot(booking) }) : t('changeRequest')}
+      {booking.replaces ? t('changeFrom', { from: slotText(t, booking.replaces), to: slotText(t, booking) }) : t('changeRequest')}
+    </p>
+  )
+}
+
+/** BOOK-006: the original of an open change request: "change requested → new slot", decided on the change row. */
+export function ChangePendingLine({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.openChange) return null
+  return (
+    <p className="text-sm font-medium text-pending-foreground" data-testid={`booking-row-${booking.id}-change-pending`}>
+      {t('changePending', { to: slotText(t, booking.openChange) })}
     </p>
   )
 }
@@ -129,11 +144,14 @@ function DeclineReason({ id, busy, onSend, onCancel }: { id: string; busy: boole
   )
 }
 
-/** Confirm / Decline for a pending booking; `stretch` = full-width buttons (phone cards). */
+/**
+ * Confirm / Decline for a pending booking; `stretch` = full-width buttons (phone cards).
+ * BOOK-006: none on the original of an open change request (decided via the change row).
+ */
 export function RowActions({ booking, busy, onDecide, stretch = false }: Omit<BookingRowProps, 'undelivered'> & { stretch?: boolean }) {
   const t = useTranslations('bookings')
   const [declining, setDeclining] = useState(false)
-  if (booking.status !== 'pending') return null
+  if (booking.status !== 'pending' || booking.openChange) return null
   if (declining) {
     return <DeclineReason id={booking.id} busy={busy} onCancel={() => setDeclining(false)} onSend={(r) => onDecide(booking.id, 'decline', r)} />
   }
@@ -186,6 +204,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
           <CancelledByBadge booking={booking} />
         </div>
         <ChangeFromLine booking={booking} />
+        <ChangePendingLine booking={booking} />
         <p className="text-sm text-muted-foreground">
           <PhoneLink phone={booking.phone} />
         </p>

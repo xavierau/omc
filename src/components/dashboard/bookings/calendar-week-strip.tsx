@@ -3,17 +3,20 @@
 /**
  * BOOK-004: the phone calendar: the 7 days (Sun..Sat) of the selected day's
  * week. The selected day is filled; a dot marks days with bookings, amber
- * when any still needs a reply, primary when all are decided.
+ * when any still needs a reply, primary when all are decided (BOOK-006: an
+ * original with an open change needs none; its change row does).
  */
 import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { needsReply } from '@/domain/entities/booking-request'
+import type { BookingItem } from '@/hooks/use-bookings'
 import { formatDate, weekOf } from './booking-dates'
 import { bookingsOn } from './booking-groups'
 import type { CalendarDaysProps } from './calendar-month-grid'
 
-function dotTone(statuses: string[]): string | null {
-  if (statuses.length === 0) return null
-  return statuses.includes('pending') ? 'bg-accent' : 'bg-primary'
+function dotTone(day: BookingItem[]): string | null {
+  if (day.length === 0) return null
+  return day.some(needsReply) ? 'bg-accent' : 'bg-primary'
 }
 
 export function CalendarWeekStrip(props: CalendarDaysProps) {
@@ -22,7 +25,7 @@ export function CalendarWeekStrip(props: CalendarDaysProps) {
     <div data-testid="bookings-calendar" className="grid grid-cols-7 gap-1 rounded-xl border border-border bg-card p-1.5">
       {weekOf(props.selected).map((date) => {
         const selected = date === props.selected
-        const dot = dotTone(bookingsOn(props.bookings, date).map((b) => b.status))
+        const dot = dotTone(bookingsOn(props.bookings, date))
         return (
           <button
             key={date}

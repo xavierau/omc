@@ -5,6 +5,7 @@
  * then one row per booking. Pending rows are tinted and carry Confirm/Decline.
  * AGENT-003: the cancelled-by badge sits by the status, the change-from line in
  * the notes; a cancelled booking's time and guest are struck through.
+ * BOOK-006: the change-pending marker sits in the notes too, in place of the actions.
  */
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,6 +14,7 @@ import {
   CancelledByBadge,
   cancelledText,
   ChangeFromLine,
+  ChangePendingLine,
   NotDeliveredBadge,
   PhoneLink,
   RowActions,
@@ -50,7 +52,8 @@ function BookingTableRow({ booking, busyId, undelivered, onDecide }: BookingActi
       </TableCell>
       <TableCell className="max-w-56 whitespace-pre-wrap text-muted-foreground">
         <ChangeFromLine booking={booking} />
-        {booking.notes ?? (booking.declineReason || booking.replacesBookingId ? null : '—')}
+        <ChangePendingLine booking={booking} />
+        {booking.notes ?? (booking.declineReason || booking.replacesBookingId || booking.openChange ? null : '—')}
         {booking.status === 'declined' && booking.declineReason ? (
           <span className="block text-xs">{t('declinedBecause', { reason: booking.declineReason })}</span>
         ) : null}
