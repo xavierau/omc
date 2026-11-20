@@ -1,0 +1,16 @@
+# forge site command 14470823, 2026-11-20T04:11:09Z-04:11:11Z (before the release PR existed)
+# helper /home/forge/rel-book007-tmp/q.py: Supabase Management API, project uzimqndenngebzgndlhd,
+# token SUPABASE_ACCESS_TOKEN read in-process from the site .env, never printed. Rows stay on the box.
+# box dir /home/forge/backups/2026-11-20-book-007/ (700), files 600
+GET  /database/backups                 HTTP 200  managed-backups.json   sha256 aba7fa74236c3bc9f6d890ba483a88f4b48eb558b4d6e1957d8793372ac8fd85
+     7 backups, walg True, pitr False; newest 2317028887 COMPLETED 2026-11-19T19:32:05.865Z (forge cmd 14470831)
+POST /database/query/read-only rows    HTTP 201  booking_requests.json  sha256 ae5d35ecf46db8b4c08b4d1f2584106fd842a4c8818a75edbe66cd97c68cb3a8  (5 rows, full)
+POST /database/query/read-only catalog HTTP 201  baseline-catalog.json  sha256 8bdbc8d5759eefd32652cc6bcfd5ebf434728359f4353629b817af811ffe4fef
+# baseline catalog summary (schema + counts, no row data)
+ledger tail: 086 campaign_audience_quality, 085 agent_booking_changes, 084, 083, 082 (no 087)
+booking_requests_status_check: status IN (unverified, pending, confirmed, declined, cancelled)   -- no no_show
+booking_requests_decision_consistent: (unverified/pending AND decided_at NULL) OR (confirmed/declined AND decided_at NOT NULL) OR (cancelled AND cancelled_at NOT NULL)
+booking_requests_no_show_marker: absent
+columns: 30, last three replaces_booking_id, cancelled_by, cancelled_at; no no_show_marked_by / no_show_marked_at
+mark_booking_no_show: absent (null)
+counts: booking_requests 5 {confirmed 1, unverified 1, pending 3}, restaurants 7, members 4227

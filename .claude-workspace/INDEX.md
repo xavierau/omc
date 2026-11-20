@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-20-book-007-release-runbook](deploys/2026-11-20-book-007-release-runbook.md) — BOOK-007 to prod: #211 → main 23dc635 → release ca44103, mig 087 (dev)
 - [2026-11-20-book-006-release-runbook](deploys/2026-11-20-book-006-release-runbook.md) — BOOK-006 to prod: #208 → main 99f8173 → release 8de9aea, no migration (dev)
 - [2026-11-20-agent-004-release-runbook](deploys/2026-11-20-agent-004-release-runbook.md) — AGENT-004 to prod: #205 → main 4af4caa → release e5ddd70, no migration (dev)
 - [2026-11-20-camp-016-release-runbook](deploys/2026-11-20-camp-016-release-runbook.md) — CAMP-016 to prod: #202, release b40e2e2, mig 086 (dev)
@@ -103,6 +104,9 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**BOOK-007 — no-show marking (2026-11-20)**
+- [2026-11-20-rel-book007-handoff](artifacts/2026-11-20-rel-book007-handoff.md) — BOOK-007 release handoff: prod on ca44103, mig 087 applied (dev)
 
 **BOOK-006 — change-request pairs decided as one item (2026-11-20)**
 - [2026-11-20-book-006-change-request-pairs-impl](artifacts/2026-11-20-book-006-change-request-pairs-impl.md) — BOOK-006 impl: marker on the original, pair counted once (dev)
