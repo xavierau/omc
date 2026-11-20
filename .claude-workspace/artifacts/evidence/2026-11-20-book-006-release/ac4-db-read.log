@@ -1,0 +1,8 @@
+# forge command 14469968 (site command on the box), Supabase Management API read-only query endpoint, project ref uzimqndenngebzgndlhd
+# token: SUPABASE_ACCESS_TOKEN from the site .env (read inside the command, never printed)
+# query (tenant id redacted): select id, replaces_booking_id from booking_requests where restaurant_id = '<omc id>' and status = 'pending'
+# output reduced on the box to counts; no ids recorded
+2026-11-20T03:18:06Z
+HTTP 201
+rows 3 with_replaces_booking_id 1
+columns ['id', 'replaces_booking_id']
