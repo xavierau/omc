@@ -75,6 +75,14 @@ describe('createWelcomeCoupon', () => {
       expect.objectContaining({ type: 'welcome', isChargeable: false })
     )
   })
+
+  it('WONB-020 r4 H2 AC-3: marks the coupon welcomeOffer=true', async () => {
+    vi.mocked(createCoupon).mockResolvedValue({ id: 'c-1', code: 'CODE123' } as never)
+
+    await createWelcomeCoupon('rest-1', 'm-1')
+
+    expect(createCoupon).toHaveBeenCalledWith(expect.objectContaining({ welcomeOffer: true }))
+  })
 })
 
 describe('createCampaignCoupon', () => {
@@ -151,5 +159,21 @@ describe('createCampaignCoupon', () => {
     expect(createCoupon).toHaveBeenCalledWith(
       expect.objectContaining({ description: 'Get HK$50 off' })
     )
+  })
+
+  describe('WONB-020 r4 H2 AC-3: welcomeOffer flag', () => {
+    beforeEach(() => vi.mocked(createCoupon).mockResolvedValue({ id: 'c-6', code: 'CODE123' } as never))
+
+    it('defaults to false (ordinary promo campaign mint)', async () => {
+      await createCampaignCoupon('rest-1', 'm-1', buildCampaign({ type: 'promo' }), 'Alice')
+
+      expect(createCoupon).toHaveBeenCalledWith(expect.objectContaining({ welcomeOffer: false, type: 'promo' }))
+    })
+
+    it('passes true through for a welcome mint', async () => {
+      await createCampaignCoupon('rest-1', 'm-1', buildCampaign(), 'Alice', { welcomeOffer: true })
+
+      expect(createCoupon).toHaveBeenCalledWith(expect.objectContaining({ welcomeOffer: true, campaignId: 'camp-1' }))
+    })
   })
 })

@@ -6,6 +6,7 @@ const fakeClient = { set: vi.fn(), eval: vi.fn(), on: vi.fn() }
 vi.mock('ioredis', () => ({ Redis: vi.fn(function () { return fakeClient }) }))
 
 import {
+  attemptWelcomeClaimLock,
   createWelcomeClaimLock,
   tryAcquireWelcomeClaimLock,
   welcomeClaimLockKey,
@@ -84,6 +85,37 @@ describe('welcome claim lock (WONB-020 r1 F3)', () => {
       const lease = await tryAcquireWelcomeClaimLock('rest-1', 'm-1')
       await expect(lease!.release()).resolves.toBeUndefined()
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('release failed'), 'Connection is closed.')
+      warn.mockRestore()
+    })
+  })
+  // r4 H1: new-member onboarding must tell "held by a concurrent claim" from
+  // "Redis down": held -> skip the mint, Redis down -> onboard without it.
+  describe('attemptWelcomeClaimLock (r4 H1, never throws)', () => {
+    it('acquired -> kind acquired with a releasable lease', async () => {
+      fakeClient.set.mockResolvedValue('OK')
+      fakeClient.eval.mockResolvedValue(1)
+
+      const attempt = await attemptWelcomeClaimLock('rest-1', 'm-1')
+
+      expect(attempt.kind).toBe('acquired')
+      if (attempt.kind !== 'acquired') return
+      await attempt.lease.release()
+      expect(fakeClient.eval.mock.calls[0][2]).toBe('wonb020:welcome-claim:rest-1:m-1')
+    })
+
+    it('held by another run -> kind held, no release', async () => {
+      fakeClient.set.mockResolvedValue(null)
+
+      expect(await attemptWelcomeClaimLock('rest-1', 'm-1')).toEqual({ kind: 'held' })
+      expect(fakeClient.eval).not.toHaveBeenCalled()
+    })
+
+    it('Redis error -> kind unavailable with a warning', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      fakeClient.set.mockRejectedValue(new Error('Command timed out'))
+
+      expect(await attemptWelcomeClaimLock('rest-1', 'm-1')).toEqual({ kind: 'unavailable' })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('lock unavailable'), 'Command timed out')
       warn.mockRestore()
     })
   })

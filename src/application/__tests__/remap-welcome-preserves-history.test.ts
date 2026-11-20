@@ -30,6 +30,12 @@ vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
 vi.mock('@/infrastructure/supabase/repositories/campaign-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository')
 vi.mock('@/application/emit-event')
+// WONB-020 r4 H1: the new-member paths take the welcome-claim lock; keep
+// these tests off Redis.
+vi.mock('@/infrastructure/redis/welcome-claim-lock', () => ({
+  attemptWelcomeClaimLock: vi.fn(async () => ({ kind: 'acquired', lease: { release: async () => {} } })),
+  tryAcquireWelcomeClaimLock: vi.fn(async () => ({ release: async () => {} })),
+}))
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
@@ -139,7 +145,8 @@ describe('remap welcome campaign: preserves history', () => {
       RESTAURANT_ID,
       'm-a',
       expect.objectContaining({ id: 'camp-a', isChargeable: false }),
-      'Alice'
+      'Alice',
+      { welcomeOffer: true }
     )
     // Counter: non-chargeable bucket incremented via atomic RPC.
     expect(incrementCampaignSent).toHaveBeenCalledWith('camp-a', false)
@@ -183,7 +190,8 @@ describe('remap welcome campaign: preserves history', () => {
       RESTAURANT_ID,
       'm-b',
       expect.objectContaining({ id: 'camp-b', isChargeable: false }),
-      'Bob'
+      'Bob',
+      { welcomeOffer: true }
     )
     expect(incrementCampaignSent).toHaveBeenCalledWith('camp-b', false)
     // Critical: the remap did NOT cause a new increment against camp-a.

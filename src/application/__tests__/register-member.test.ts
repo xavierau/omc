@@ -28,7 +28,7 @@ import { sendTextMessage, sendImageMessage } from '@/infrastructure/whatsapp/mes
 import { uploadCouponQr } from '@/infrastructure/supabase/storage'
 import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import { hasWelcomeCoupon, findLatestWelcomeOfferCode } from '@/infrastructure/supabase/repositories/coupon-repository'
-import { tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { attemptWelcomeClaimLock, tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 import { registerMember } from '../register-member'
 import type { Campaign } from '@/domain/entities/campaign'
 import { okResult, failResult } from '@/test-utils/send-result'
@@ -52,6 +52,7 @@ const mockFrom = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInser
 const mockSupabase = { from: mockFrom }
 
 const lockRelease = vi.fn<() => Promise<void>>()
+const newMemberRelease = vi.fn<() => Promise<void>>()
 
 const RESTAURANT_ID = 'rest-1'
 const PHONE_NUMBER_ID = 'pn-1'
@@ -120,6 +121,10 @@ describe('registerMember', () => {
     vi.mocked(findLatestWelcomeOfferCode).mockReset().mockResolvedValue(null)
     lockRelease.mockReset().mockResolvedValue(undefined)
     vi.mocked(tryAcquireWelcomeClaimLock).mockReset().mockResolvedValue({ release: lockRelease })
+    newMemberRelease.mockReset().mockResolvedValue(undefined)
+    vi.mocked(attemptWelcomeClaimLock)
+      .mockReset()
+      .mockResolvedValue({ kind: 'acquired', lease: { release: newMemberRelease } })
   })
 
   it('returns isNew=false and sends default greeting for existing unnamed member', async () => {
@@ -327,7 +332,8 @@ describe('registerMember', () => {
       RESTAURANT_ID,
       'm-new',
       expect.objectContaining({ id: 'camp-welcome', isChargeable: false }),
-      'Carol'
+      'Carol',
+      { welcomeOffer: true }
     )
     expect(createWelcomeCoupon).not.toHaveBeenCalled()
     expect(incrementCampaignSent).toHaveBeenCalledWith('camp-welcome', false)
@@ -730,7 +736,8 @@ describe('registerMember', () => {
         RESTAURANT_ID,
         'm-imp',
         expect.objectContaining({ id: 'camp-welcome' }),
-        'Carol'
+        'Carol',
+        { welcomeOffer: true }
       )
       expect(sendTextMessage).toHaveBeenCalledWith(PHONE_NUMBER_ID, VALID_PHONE, 'Hi Carol, here is your code: MAPPED1')
     })
@@ -1021,6 +1028,110 @@ describe('registerMember', () => {
         expect(tryAcquireWelcomeClaimLock).not.toHaveBeenCalled()
         warn.mockRestore()
       })
+    })
+  })
+  // WONB-020 r4 H1: the new-member path takes the same per-member lock as the
+  // claim, so a second JOIN racing a brand-new member's onboarding can't mint.
+  describe('r4 H1: new-member welcome lock', () => {
+    function newMemberRows() {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+    }
+
+    it('AC-1: takes the lock for the new member before the mint and releases it after the sends', async () => {
+      newMemberRows()
+
+      const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
+
+      expect(result.couponCode).toBe('WELCOME1')
+      expect(attemptWelcomeClaimLock).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+      expect(newMemberRelease).toHaveBeenCalledTimes(1)
+      const acquired = vi.mocked(attemptWelcomeClaimLock).mock.invocationCallOrder[0]
+      expect(acquired).toBeLessThan(vi.mocked(createWelcomeCoupon).mock.invocationCallOrder[0])
+      const lastSend = vi.mocked(sendImageMessage).mock.invocationCallOrder[0]
+      expect(lastSend).toBeLessThan(newMemberRelease.mock.invocationCallOrder[0])
+      expect(vi.mocked(emitEvent).mock.invocationCallOrder[0]).toBeLessThan(newMemberRelease.mock.invocationCallOrder[0])
+    })
+
+    it('AC-1: onboarding throws -> fallback welcome sent and the lock still released', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      newMemberRows()
+      vi.mocked(createWelcomeCoupon).mockRejectedValueOnce(new Error('coupon insert failed'))
+
+      await registerMember(RESTAURANT_ID, VALID_PHONE)
+
+      expect(newMemberRelease).toHaveBeenCalledTimes(1)
+      warn.mockRestore()
+    })
+
+    it('AC-1: lock unavailable (Redis down) -> the new member is still onboarded, with a warning', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(attemptWelcomeClaimLock).mockResolvedValueOnce({ kind: 'unavailable' })
+      newMemberRows()
+
+      const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
+
+      expect(result).toEqual({ isNew: true, memberId: 'm-new', pointsBalance: 0, couponCode: 'WELCOME1' })
+      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
+      expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ memberId: 'm-new', type: 'join' }))
+      expect(sendImageMessage).toHaveBeenCalledTimes(1)
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('welcome lock unavailable'), 'm-new')
+      expect(newMemberRelease).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('lock held (a concurrent claim is welcoming this member) -> no mint, no join event, no send, warning', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(attemptWelcomeClaimLock).mockResolvedValueOnce({ kind: 'held' })
+      newMemberRows()
+
+      const result = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
+
+      expect(result).toEqual({ isNew: true, memberId: 'm-new', pointsBalance: 0 })
+      expect(createWelcomeCoupon).not.toHaveBeenCalled()
+      expect(createCampaignCoupon).not.toHaveBeenCalled()
+      expect(emitEvent).not.toHaveBeenCalled()
+      expect(sendTextMessage).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('concurrent welcome claim'), 'm-new')
+      warn.mockRestore()
+    })
+
+    it('AC-1: a claim JOIN while the new-member onboarding holds the lock -> welcome-back, one coupon in total', async () => {
+      // One in-memory lock shared by both entry points, as Redis would be.
+      const held = new Set<string>()
+      const take = (r: string, m: string) => (held.has(`${r}:${m}`) ? null : (held.add(`${r}:${m}`), `${r}:${m}`))
+      vi.mocked(attemptWelcomeClaimLock).mockImplementation(async (r, m) => {
+        const key = take(r, m)
+        return key ? { kind: 'acquired', lease: { release: async () => void held.delete(key) } } : { kind: 'held' }
+      })
+      vi.mocked(tryAcquireWelcomeClaimLock).mockImplementation(async (r, m) => {
+        const key = take(r, m)
+        return key ? { release: async () => void held.delete(key) } : null
+      })
+      // The new member has no join event or coupon yet while it is onboarding.
+      vi.mocked(hasJoinEvent).mockResolvedValue(false)
+      let releaseMint!: () => void
+      const mintGate = new Promise<void>((resolve) => (releaseMint = resolve))
+      vi.mocked(createWelcomeCoupon).mockImplementationOnce(async () => {
+        await mintGate
+        return { code: 'WELCOME1', id: 'c-1' }
+      })
+      newMemberRows()
+
+      const first = registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
+      await vi.waitFor(() => expect(createWelcomeCoupon).toHaveBeenCalledTimes(1))
+      // Second JOIN: the pre-check now finds the row inserted by the first.
+      mockSingle.mockResolvedValueOnce({ data: { id: 'm-new', points_balance: 0, name: 'Bob' }, error: null })
+      const second = await registerMember(RESTAURANT_ID, VALID_PHONE, 'Bob')
+      releaseMint()
+      const firstResult = await first
+
+      expect(firstResult.couponCode).toBe('WELCOME1')
+      expect(second).toEqual({ isNew: false, memberId: 'm-new', pointsBalance: 0 })
+      expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
+      expect(createCampaignCoupon).not.toHaveBeenCalled()
+      expect(vi.mocked(sendTextMessage).mock.calls.some(([, , t]) => /Welcome back/.test(String(t)))).toBe(true)
+      expect(held.size).toBe(0)
     })
   })
 })

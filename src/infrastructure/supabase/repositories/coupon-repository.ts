@@ -27,6 +27,8 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
       title: params.title ?? null,
       description: params.description ?? null,
       campaign_id: params.campaignId ?? null,
+      // WONB-020 r4 H2: sent only when true, so every other insert is unchanged.
+      ...(params.welcomeOffer ? { welcome_offer: true } : {}),
     })
     .select('*')
     .single()
@@ -111,11 +113,12 @@ export async function findWelcomeCouponByMember(
   return data ? mapRowToCoupon(data) : null
 }
 
-// WONB-020 r1 F2 / r2 G3: the member's most recent welcome offer -- a
-// `welcome` coupon, or a coupon of ANY of the restaurant's welcome-type
-// campaigns (not only the one mapped now, so a remap never reopens the
-// claim). Two tenant-scoped queries; throws on a DB error so the caller
-// can decide which way to fail.
+// WONB-020 r1 F2 / r2 G3 / r4 H2: the member's most recent welcome offer --
+// a `welcome` coupon or one marked welcome_offer at mint (migration 090),
+// which holds when its campaign is later deleted or retyped; plus, as before,
+// a coupon of ANY of the restaurant's welcome-type campaigns (covers mints
+// that don't set the mark). Two tenant-scoped queries; throws on a DB error
+// so the caller can decide which way to fail.
 export async function findLatestWelcomeOfferCode(
   restaurantId: string,
   memberId: string
@@ -127,7 +130,7 @@ export async function findLatestWelcomeOfferCode(
       .select('code, created_at')
       .eq('restaurant_id', restaurantId)
       .eq('member_id', memberId)
-      .eq('type', 'welcome')
+      .or('type.eq.welcome,welcome_offer.is.true')
       .order('created_at', { ascending: false })
       .limit(1),
     supabase

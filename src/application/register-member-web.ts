@@ -16,6 +16,7 @@ import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+import { attemptWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -100,17 +101,41 @@ async function createNewWebMember(
   })
 
   if (result.outcome === 'existing') {
-    return { isNew: false, memberId: result.memberId }
+    // r4 H3: the race lands on the same answer as the pre-check.
+    return respondToExistingWebMember(restaurantId, result.memberId)
   }
 
+  // r4 H1: the web path never claims, but a WhatsApp claim can race this
+  // signup; hold the claim lock through the mint and join event. Held -> that
+  // claim is welcoming this member on WhatsApp. Redis down -> fail open.
+  const lock = await attemptWelcomeClaimLock(restaurantId, result.memberId)
+  if (lock.kind === 'held') {
+    console.warn('[onboarding/web] new member is being welcomed by a concurrent welcome claim, skipping the mint:', result.memberId)
+    return respondToExistingWebMember(restaurantId, result.memberId)
+  }
+  if (lock.kind === 'unavailable') {
+    console.warn('[onboarding/web] welcome lock unavailable for a new member, minting without it:', result.memberId)
+  }
+  try {
+    return await welcomeNewWebMember(restaurantId, result.memberId, name)
+  } finally {
+    if (lock.kind === 'acquired') await lock.lease.release()
+  }
+}
+
+async function welcomeNewWebMember(
+  restaurantId: string,
+  memberId: string,
+  name: string
+): Promise<WebRegisterResult> {
   const campaign = await resolveWelcomeCampaign(restaurantId)
   const coupon = campaign
-    ? await mintCampaignCoupon(restaurantId, result.memberId, campaign, name)
-    : await createWelcomeCoupon(restaurantId, result.memberId)
+    ? await mintCampaignCoupon(restaurantId, memberId, campaign, name)
+    : await createWelcomeCoupon(restaurantId, memberId)
 
   await emitEvent({
     restaurantId,
-    memberId: result.memberId,
+    memberId,
     type: 'join',
     dataJson: {
       source: 'web',
@@ -119,7 +144,7 @@ async function createNewWebMember(
     },
   })
 
-  return { isNew: true, memberId: result.memberId, couponCode: coupon.code }
+  return { isNew: true, memberId, couponCode: coupon.code }
 }
 
 async function resolveWelcomeCampaign(
@@ -143,7 +168,7 @@ async function mintCampaignCoupon(
   name: string
 ): Promise<{ code: string; id: string }> {
   try {
-    const coupon = await createCampaignCoupon(restaurantId, memberId, campaign, name)
+    const coupon = await createCampaignCoupon(restaurantId, memberId, campaign, name, { welcomeOffer: true })
     await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
       console.warn('[onboarding] welcome campaign counter increment failed:', err)
     })

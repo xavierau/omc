@@ -13,7 +13,7 @@ import { sendReturningWelcome } from './send-returning-welcome'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
 import { canClaimWelcome } from './has-join-event'
-import { tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { attemptWelcomeClaimLock, tryAcquireWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 import { findLatestWelcomeOfferCode } from '@/infrastructure/supabase/repositories/coupon-repository'
 
 interface RegisterResult {
@@ -241,6 +241,19 @@ async function createNewMember(
     )
   }
 
+  // WONB-020 r4 H1: hold the claim lock through the mint, join event and
+  // sends, so a second JOIN that already sees this row gets welcome-back.
+  // Held -> a concurrent claim got here first and is welcoming this member.
+  // Redis down -> fail open: the lock only exists to block claims.
+  const lock = await attemptWelcomeClaimLock(restaurantId, result.memberId)
+  if (lock.kind === 'held') {
+    console.warn('[register] new member is being welcomed by a concurrent welcome claim, skipping onboarding:', result.memberId)
+    return { isNew: true, memberId: result.memberId, pointsBalance: 0 }
+  }
+  if (lock.kind === 'unavailable') {
+    console.warn('[register] welcome lock unavailable for a new member, onboarding without it:', result.memberId)
+  }
+
   let couponCode: string | undefined
   try {
     couponCode = await onboardNewMember({
@@ -259,6 +272,8 @@ async function createNewMember(
       phone.value,
       memberPreferredLanguage
     )
+  } finally {
+    if (lock.kind === 'acquired') await lock.lease.release()
   }
 
   return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }

@@ -474,7 +474,10 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
       expect(joinEmits()).toBe(0)
     })
 
-    it('r2 G2 / AC-2: the join-event lookup throws -> warning, one join event anyway, job succeeds', async () => {
+    // r4 H4 (reverses r2 G2): emitEvent fans out to partner join listeners,
+    // and a duplicate join webhook is worse than a rare later claim (which
+    // still needs the member to hold no welcome coupon).
+    it('r4 H4 / AC-4: the join-event lookup throws -> no join event, a warning naming job and member, job succeeds', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       vi.mocked(findMemberJobForIntegration).mockResolvedValue({ member_id: 'm-1' } as never)
       vi.mocked(createOrGetMember).mockResolvedValue({ outcome: 'existing', memberId: 'm-1', status: 'active' })
@@ -482,12 +485,12 @@ describe('processMemberCreateJob (INT-001 WI-3)', () => {
 
       await expect(processMemberCreateJob(jobData(), 2, 3)).resolves.not.toThrow()
 
-      expect(joinEmits()).toBe(1)
+      expect(joinEmits()).toBe(0)
       expect(completeMemberJobSucceeded).toHaveBeenCalledTimes(1)
       expect(completeMemberJobFailed).not.toHaveBeenCalled()
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('join event lookup failed'),
-        expect.anything()
+        expect.objectContaining({ jobId: 'mj_abc', memberId: 'm-1', error: 'events timeout' })
       )
       warn.mockRestore()
     })

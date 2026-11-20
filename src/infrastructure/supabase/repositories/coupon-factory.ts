@@ -30,6 +30,7 @@ export async function createWelcomeCoupon(
         maxUses: 1,
         // Welcome coupons are ALWAYS non-chargeable, regardless of mapping.
         isChargeable: false,
+        welcomeOffer: true,
       })
       return { code: coupon.code, id: coupon.id }
     } catch (err) {
@@ -45,12 +46,17 @@ export async function createWelcomeCoupon(
  * coupon's chargeability is STAMPED from the campaign's current
  * is_chargeable value at insert time — remapping the welcome campaign
  * later does NOT rewrite existing coupons.
+ *
+ * WONB-020 r4 H2: `welcomeOffer: true` marks a welcome mint on the row
+ * itself (coupons.welcome_offer, migration 090), so the claim check never
+ * depends on the campaign's current type. Default false.
  */
 export async function createCampaignCoupon(
   restaurantId: string,
   memberId: string,
   campaign: Campaign,
-  memberName: string
+  memberName: string,
+  options: { welcomeOffer?: boolean } = {}
 ): Promise<{ code: string; id: string }> {
   if (!campaign.couponConfig) {
     throw new Error('Campaign has no coupon_config')
@@ -83,6 +89,7 @@ export async function createCampaignCoupon(
         isChargeable: campaign.isChargeable,
         title: campaign.name ?? null,
         description,
+        welcomeOffer: options.welcomeOffer ?? false,
       })
       return { code: coupon.code, id: coupon.id }
     } catch (err) {

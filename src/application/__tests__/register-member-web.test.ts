@@ -9,6 +9,7 @@ vi.mock('@/infrastructure/supabase/repositories/restaurant-onboarding-repository
 vi.mock('@/infrastructure/supabase/repositories/event-repository')
 vi.mock('@/infrastructure/supabase/repositories/coupon-repository')
 vi.mock('@/infrastructure/supabase/repositories/restaurant-repository')
+vi.mock('@/infrastructure/redis/welcome-claim-lock')
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
@@ -24,10 +25,12 @@ import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/re
 import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import { hasWelcomeCoupon } from '@/infrastructure/supabase/repositories/coupon-repository'
 import { getRestaurantEmailContext } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { attemptWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
 import { registerMemberWeb } from '../register-member-web'
 
 const mockSingle = vi.fn()
-const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle })
+const mockMaybeSingle = vi.fn()
+const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockMaybeSingle })
 const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 })
 const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 })
 const mockInsertSingle = vi.fn()
@@ -35,6 +38,8 @@ const mockInsertSelect = vi.fn().mockReturnValue({ single: mockInsertSingle })
 const mockInsert = vi.fn().mockReturnValue({ select: mockInsertSelect })
 const mockFrom = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsert })
 const mockSupabase = { from: mockFrom }
+
+const lockRelease = vi.fn<() => Promise<void>>()
 
 const RESTAURANT_ID = 'rest-1'
 const VALID_PHONE = '+85291234567'
@@ -89,6 +94,8 @@ describe('registerMemberWeb', () => {
     vi.mocked(hasJoinEvent).mockReset().mockResolvedValue(true)
     vi.mocked(hasWelcomeCoupon).mockReset().mockResolvedValue(false)
     vi.mocked(getRestaurantEmailContext).mockResolvedValue({ name: 'Poppy', whatsappNumber: '+85261234567' })
+    lockRelease.mockReset().mockResolvedValue(undefined)
+    vi.mocked(attemptWelcomeClaimLock).mockReset().mockResolvedValue({ kind: 'acquired', lease: { release: lockRelease } })
   })
 
   it('returns isNew=false for existing member without touching coupon code', async () => {
@@ -167,7 +174,8 @@ describe('registerMemberWeb', () => {
       RESTAURANT_ID,
       'm-new',
       expect.objectContaining({ id: 'camp-1', isChargeable: false }),
-      'Carol'
+      'Carol',
+      { welcomeOffer: true }
     )
     expect(incrementCampaignSent).toHaveBeenCalledWith('camp-1', false)
     expect(emitEvent).toHaveBeenCalledWith(
@@ -273,6 +281,99 @@ describe('registerMemberWeb', () => {
       expect(createWelcomeCoupon).toHaveBeenCalledTimes(1)
       expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ memberId: 'm-new', type: 'join' }))
       expect(hasJoinEvent).not.toHaveBeenCalled()
+    })
+  })
+  // WONB-020 r4 H1 / H3.
+  describe('r4: new-member lock and the race branch', () => {
+    const CLAIM_URL = 'https://wa.me/85261234567?text=JOIN'
+
+    function newMemberRows() {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({ data: { id: 'm-new' }, error: null })
+    }
+
+    it('AC-2: takes the lock for the new member before the mint and releases it after the join event', async () => {
+      newMemberRows()
+
+      const result = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(result).toEqual({ isNew: true, memberId: 'm-new', couponCode: 'WLCM01' })
+      expect(attemptWelcomeClaimLock).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new')
+      const acquired = vi.mocked(attemptWelcomeClaimLock).mock.invocationCallOrder[0]
+      expect(acquired).toBeLessThan(vi.mocked(createWelcomeCoupon).mock.invocationCallOrder[0])
+      expect(vi.mocked(emitEvent).mock.invocationCallOrder[0]).toBeLessThan(lockRelease.mock.invocationCallOrder[0])
+      expect(lockRelease).toHaveBeenCalledTimes(1)
+    })
+
+    it('AC-2: the mint throws -> the lock is still released', async () => {
+      newMemberRows()
+      vi.mocked(createWelcomeCoupon).mockRejectedValueOnce(new Error('coupon insert failed'))
+
+      await expect(registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)).rejects.toThrow('coupon insert failed')
+      expect(lockRelease).toHaveBeenCalledTimes(1)
+    })
+
+    it('AC-2: lock unavailable (Redis down) -> still minted with a join event, with a warning (fail open)', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(attemptWelcomeClaimLock).mockResolvedValueOnce({ kind: 'unavailable' })
+      newMemberRows()
+
+      const result = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(result).toEqual({ isNew: true, memberId: 'm-new', couponCode: 'WLCM01' })
+      expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ memberId: 'm-new', type: 'join' }))
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('welcome lock unavailable'), 'm-new')
+      expect(lockRelease).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('lock held (a WhatsApp claim is welcoming this member) -> no mint, no join event, the existing-member answer', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.mocked(attemptWelcomeClaimLock).mockResolvedValueOnce({ kind: 'held' })
+      newMemberRows()
+
+      const result = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(result).toEqual({ isNew: false, memberId: 'm-new', whatsappClaimUrl: CLAIM_URL })
+      expect(createWelcomeCoupon).not.toHaveBeenCalled()
+      expect(createCampaignCoupon).not.toHaveBeenCalled()
+      expect(emitEvent).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('concurrent welcome claim'), 'm-new')
+      warn.mockRestore()
+    })
+
+    it('AC-2 (H3): the createOrGetMember race (outcome existing) -> the same answer as any existing member', async () => {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockInsertSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      })
+      mockMaybeSingle.mockResolvedValueOnce({ data: { id: 'm-race', status: 'active' }, error: null })
+      const raced = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+      mockSingle.mockResolvedValueOnce({ data: { id: 'm-race' }, error: null })
+      const prechecked = await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(raced).toEqual({ isNew: false, memberId: 'm-race', whatsappClaimUrl: CLAIM_URL })
+      expect(raced).toEqual(prechecked)
+      expect(createWelcomeCoupon).not.toHaveBeenCalled()
+      expect(emitEvent).not.toHaveBeenCalled()
+      expect(attemptWelcomeClaimLock).not.toHaveBeenCalled()
+    })
+
+    it('AC-3: the welcome-campaign mint passes welcomeOffer: true', async () => {
+      vi.mocked(getOnboardingSettings).mockResolvedValueOnce({
+        welcomeCampaignId: 'camp-1',
+        returningMemberTemplate: null,
+        returningMemberTemplateEn: null,
+        returningMemberTemplateZhHk: null,
+        defaultLanguage: 'zh_hk',
+      })
+      vi.mocked(getCampaignById).mockResolvedValueOnce(buildCampaign())
+      newMemberRows()
+
+      await registerMemberWeb(VALID_PHONE, 'Bob', RESTAURANT_ID)
+
+      expect(createCampaignCoupon).toHaveBeenCalledWith(RESTAURANT_ID, 'm-new', expect.anything(), 'Bob', { welcomeOffer: true })
     })
   })
 })

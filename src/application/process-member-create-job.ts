@@ -324,7 +324,7 @@ export async function processMemberCreateJob(
     // partner-created member never looks never-welcomed (claimable).
     if (
       createResult.outcome === 'created' ||
-      (createdByThisJob && !(await joinEventWritten(data.restaurantId, createResult.memberId)))
+      (createdByThisJob && !(await joinEventWritten(data.jobId, data.restaurantId, createResult.memberId)))
     ) {
       await emitEvent({
         restaurantId: data.restaurantId,
@@ -392,14 +392,19 @@ export async function processMemberCreateJob(
   }
 }
 
-// WONB-020 r2 G2: never fail the job on this lookup. Unknown reads as
-// "not written": a duplicate join event is harmless to the claim rule, a
-// missing one would leave the member claimable.
-async function joinEventWritten(restaurantId: string, memberId: string): Promise<boolean> {
+// WONB-020 r2 G2, reversed by r4 H4: never fail the job on this lookup, and
+// read an error as "written" (no emit). emitEvent fans out to partner join
+// listeners, so a duplicate join webhook is worse than the rare later claim,
+// which still needs the member to hold no welcome coupon.
+async function joinEventWritten(jobId: string, restaurantId: string, memberId: string): Promise<boolean> {
   try {
     return await hasJoinEvent(restaurantId, memberId)
   } catch (err) {
-    console.warn('[member-create] join event lookup failed, emitting the join event anyway:', err)
-    return false
+    console.warn('[member-create] join event lookup failed, not emitting the join event:', {
+      jobId,
+      memberId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return true
   }
 }

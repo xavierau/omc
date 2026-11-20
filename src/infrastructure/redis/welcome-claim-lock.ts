@@ -61,27 +61,48 @@ function getAcquire(): ReturnType<typeof createWelcomeClaimLock> {
   return acquire
 }
 
+export type WelcomeClaimLockAttempt =
+  | { kind: 'acquired'; lease: WelcomeClaimLease }
+  | { kind: 'held' }
+  | { kind: 'unavailable' }
+
 /**
- * Never throws: a Redis error is logged and reads as not acquired, and the
+ * WONB-020 r4 H1: tells "held by another run" from "Redis down", which the
+ * new-member path treats differently (held -> a concurrent claim is
+ * welcoming this member; down -> onboard without the lock).
+ *
+ * Never throws: a Redis error is logged and reads as unavailable, and the
  * lease's release swallows its own error (the TTL frees the key anyway).
  */
-export async function tryAcquireWelcomeClaimLock(
+export async function attemptWelcomeClaimLock(
   restaurantId: string,
   memberId: string
-): Promise<WelcomeClaimLease | null> {
+): Promise<WelcomeClaimLockAttempt> {
   let lease: WelcomeClaimLease | null
   try {
     lease = await getAcquire()(restaurantId, memberId)
   } catch (err) {
     console.warn('[onboarding] welcome claim lock unavailable, treating as not acquired:', (err as Error).message)
-    return null
+    return { kind: 'unavailable' }
   }
-  if (!lease) return null
+  if (!lease) return { kind: 'held' }
   const held = lease
   return {
-    release: () =>
-      held.release().catch((err: Error) => {
-        console.warn('[onboarding] welcome claim lock release failed:', err.message)
-      }),
+    kind: 'acquired',
+    lease: {
+      release: () =>
+        held.release().catch((err: Error) => {
+          console.warn('[onboarding] welcome claim lock release failed:', err.message)
+        }),
+    },
   }
+}
+
+/** The claim path's view: anything but acquired reads as not acquired (null). */
+export async function tryAcquireWelcomeClaimLock(
+  restaurantId: string,
+  memberId: string
+): Promise<WelcomeClaimLease | null> {
+  const attempt = await attemptWelcomeClaimLock(restaurantId, memberId)
+  return attempt.kind === 'acquired' ? attempt.lease : null
 }

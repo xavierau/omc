@@ -21,6 +21,7 @@ function tableChain() {
     const embed = String(cols).includes('campaigns!inner')
     const chain = {
       eq: vi.fn((col: string, val: unknown) => (calls.push(['eq', col, val]), chain)),
+      or: vi.fn((filter: string) => (calls.push(['or', filter]), chain)),
       order: vi.fn(() => chain),
       limit: embed ? viaCampaign : limit,
     }
@@ -95,7 +96,7 @@ describe('canClaimWelcome (WONB-020)', () => {
       coupons.limit.mockResolvedValue({ data: [{ code: 'W1', created_at: '2026-11-20T00:00:00Z' }], error: null })
 
       expect(await canClaimWelcome('rest-1', 'm-1')).toBe(false)
-      expect(coupons.calls).toContainEqual(['eq', 'type', 'welcome'])
+      expect(coupons.calls).toContainEqual(['or', 'type.eq.welcome,welcome_offer.is.true'])
     })
 
     it('AC-3: holds a promo coupon of a NON-current welcome-type campaign, no join event -> not claimable', async () => {
