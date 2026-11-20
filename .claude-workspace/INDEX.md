@@ -98,6 +98,7 @@ no artifact files were lost._
 
 ### Tests
 - [evidence/2026-11-20-book-009-w1](tests/evidence/2026-11-20-book-009-w1/w1-091-assert.log) — migration 091 on scratch Postgres: 7/7 constraint checks (dev)
+- [evidence/2026-11-20-book-009-w23](tests/evidence/2026-11-20-book-009-w23/) — W2/W3 harness screenshots D1–D3, A1–A2 + layout audits (dev)
 - [2026-09-10-int-001-ui-walk](tests/2026-09-10-int-001-ui-walk.md) — WI-12: BLOCKED by DEV PostgREST schema-cache gap; list/create/inbound-rotate PASS, 2 frontend defects found (ui-test-runner)
 - [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
@@ -112,6 +113,8 @@ no artifact files were lost._
 **BOOK-009 — booking hours, slot form, terms (2026-11-20)**
 - [2026-11-20-book-009-w1-impl](artifacts/2026-11-20-book-009-w1-impl.md) — W1 booking-hours domain, shared slot check, settings API, terms acceptance (091) (dev)
 - [2026-11-20-book-009-w1-handoff](artifacts/2026-11-20-book-009-w1-handoff.md) — W1 handoff: AI tool call sites left for W4, PAP terms field pending (dev)
+- [2026-11-20-book-009-w23-impl](artifacts/2026-11-20-book-009-w23-impl.md) — W2/W3 settings hours blocks + preview, diner slot page (dev)
+- [2026-11-20-book-009-w23-handoff](artifacts/2026-11-20-book-009-w23-handoff.md) — W2/W3 handoff: done, not DB-walked (I-009) (dev)
 
 **AGENT-005 — agent skills + 訂座規則 (2026-11-20)**
 - [2026-11-20-rel-agent005-handoff](artifacts/2026-11-20-rel-agent005-handoff.md) — AGENT-005 release handoff: prod on d05e647, no migration, omc config unchanged (dev)
