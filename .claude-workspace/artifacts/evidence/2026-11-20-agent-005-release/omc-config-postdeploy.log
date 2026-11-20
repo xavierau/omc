@@ -1,0 +1,4 @@
+# ssh read-only omc config check (post-deploy); counts/hashes only
+2026-11-20T08:44:12Z
+[{"agent_rev":"11","agent_keys":20,"agent_md5":"cb96e1e4a9c5514f2f6e03de98bbad0b","agent_mode":"auto","has_booking_rules_key":false,"booking_rules_len":-1,"booking_mode":"simple","booking_keys":11,"booking_md5":"540ec34c6c33cbd5277d9bf0e1a542f5"}]
+HTTP 201
