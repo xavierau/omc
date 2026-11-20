@@ -41,7 +41,7 @@ const render = (config: BookingConfig) => renderToStaticMarkup(<BookingSettingsS
 
 function withOutcome(config: BookingConfig, errors: Record<string, string>) {
   vi.mocked(useBookingSettings).mockImplementationOnce(() => ({
-    form: toForm(config), update: () => {}, updateHours: () => {}, save: async () => {}, saving: false, dirty: false,
+    form: toForm(config), update: () => {}, save: async () => {}, saving: false,
     outcome: { kind: 'fields', errors },
   }))
   return render(config)
