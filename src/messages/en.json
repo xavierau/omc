@@ -1519,6 +1519,8 @@
     "hours": "hours",
     "noExpiry": "No expiry",
     "maxPartySize": "Largest party size",
+    "bookingRules": "Booking rules",
+    "bookingRulesHint": "Booking hours, last booking, last order, closed days and so on. The AI checks a requested time against these before taking a booking.",
     "save": "Save",
     "saving": "Saving...",
     "saved": "Booking settings saved",
@@ -1528,7 +1530,9 @@
       "required": "Add a booking link.",
       "invalid_https_url": "Use a link starting with https://",
       "invalid_ttl": "Use a whole number of hours (1 to 8760).",
-      "invalid_party_size": "Use a number from 1 to 100."
+      "invalid_party_size": "Use a number from 1 to 100.",
+      "too_long": "Keep it to 2,000 characters or fewer.",
+      "invalid": "Enter the booking rules as text."
     },
     "templates": {
       "title": "WhatsApp booking messages",

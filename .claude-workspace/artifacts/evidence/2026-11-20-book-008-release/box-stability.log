@@ -1,0 +1,27 @@
+# forge site command 14475909
+# status finished
+2026-11-20T08:25:04Z
+HEAD d74942c119e55b17bfec0961c8a319bd6e30faad
+.next/BUILD_ID Dy3BMrmauUbUY9gIzFdVI
+RELEASE.json {'source_ref': 'rel-book008', 'source_commit': '1f2b9eb44ad665ae4e0818cb6b66235d0a96f8b4', 'build_id': 'Dy3BMrmauUbUY9gIzFdVI', 'built_at': '2026-11-20T08:17:09Z'}
+git status:  M supabase/.temp/cli-latest 
+next-server pid 3661017 start Fri Nov 20 08:19:51 2026 etime       05:12
+worker pid 3661081 start Fri Nov 20 08:19:56 2026 etime       05:07
+/login 200
+/login new BUILD_ID x1, old 2X-ml2OJycTIYik4jAYvg x0
+/api/health 200
+--- app log after banner line 22278 of 22283
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://10.148.0.3:3100
+✓ Ready in 428ms
+✓ Running next.config.ts took 632ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+--- worker log from line 53150 of 53150
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+--- counts after banner: kapso 0, limiter 0, other error-ish app 0, worker error/warn 0
+MemAvailable:    2389480 kB SwapFree:          58560 kB 0.07 0.20 0.16 2/559 3663305
+/dev/root          58447 31401     27030  54% /
+--- total kapso lines in app log: 6724
+
