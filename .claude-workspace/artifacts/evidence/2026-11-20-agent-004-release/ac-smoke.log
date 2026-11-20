@@ -1,0 +1,9 @@
+# prod smoke 2026-11-20T02:40:04Z, unauthenticated, read-only
+## /api/health
+200
+## /login
+HTTP 200
+new BUILD_ID zzJgH7D65-G0P4rKNa3uS occurrences: 1
+old BUILD_ID nUUD8IZ3cKKd62nx1V0ws occurrences: 0
+## POST /api/webhooks/whatsapp (no signature, empty body)
+401

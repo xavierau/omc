@@ -21,6 +21,7 @@ import { BookingRow } from '../booking-row'
 import { BookingsTableDesktop } from '../bookings/bookings-table-desktop'
 import { BookingsTableCards } from '../bookings/bookings-table-cards'
 import { CalendarMonthGrid } from '../bookings/calendar-month-grid'
+import { CalendarWeekStrip } from '../bookings/calendar-week-strip'
 import { BookingsFilters } from '../bookings/bookings-filters'
 import type { BookingItem } from '@/hooks/use-bookings'
 
@@ -105,5 +106,93 @@ describe('AGENT-003 cancelled bookings in the calendar', () => {
     const lookup = (m: unknown, p: string) => p.split('.').reduce<unknown>((n, k) => (n && typeof n === 'object' ? (n as Record<string, unknown>)[k] : undefined), m)
     const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !== 'string' || typeof lookup(zhHK, k) !== 'string')
     expect(missing).toEqual([])
+  })
+})
+
+/**
+ * BOOK-006: a booking with an open (pending) change request is decided only
+ * through its change row. The original shows "change requested → new slot"
+ * and no Confirm / Decline in every view; the change row keeps both.
+ */
+const original: BookingItem = {
+  ...base, id: 'b-orig', bookingTime: '19:30', partySize: 2, source: 'chat',
+  openChange: { id: 'b-chg', bookingDate: '2026-11-26', bookingTime: '18:30', partySize: 4 },
+}
+const changeRow: BookingItem = {
+  ...base, id: 'b-chg', bookingTime: '18:30', replacesBookingId: 'b-orig', replaces: { bookingDate: '2026-11-26', bookingTime: '19:30', partySize: 2 },
+}
+/** The change moved the date: its row is outside the listed range, the original still carries it. */
+const movedAway: BookingItem = { ...original, id: 'b-away', openChange: { id: 'b-far', bookingDate: '2026-12-24', bookingTime: '20:00', partySize: 6 } }
+const confirmedOriginal: BookingItem = { ...original, id: 'b-conf', status: 'confirmed' }
+const afterDecline: BookingItem = { ...original, id: 'b-back', openChange: null }
+const pairDay = [original, changeRow, movedAway, confirmedOriginal, afterDecline]
+const pairGroups = [{ date: '2026-11-26', bookings: pairDay }]
+const pairViews: Record<string, () => string> = {
+  'day panel row': () => pairDay.map((b) => renderToStaticMarkup(<BookingRow booking={b} busy={false} undelivered={false} onDecide={() => {}} />)).join(''),
+  'desktop table': () => renderToStaticMarkup(<BookingsTableDesktop groups={pairGroups} today="2026-11-19" {...actions} />),
+  'phone cards': () => renderToStaticMarkup(<BookingsTableCards groups={pairGroups} today="2026-11-19" {...actions} />),
+}
+
+describe.each(Object.keys(pairViews))('BOOK-006 change-request pairs in the %s', (name) => {
+  const html = pairViews[name]()
+
+  it('the original shows the change-requested marker with the new slot and no Confirm / Decline', () => {
+    const row = rowOf(html, 'b-orig')
+    expect(row).toContain('data-testid="booking-row-b-orig-change-pending"')
+    expect(row).toContain('bookings.changePending:')
+    expect(row).toContain('2026-11-26 18:30')
+    expect(row).toMatch(/bookings\.partyOf:[^<]*count[^<]*:4/)
+    expect(html).not.toContain('booking-row-b-orig-confirm')
+    expect(html).not.toContain('booking-row-b-orig-decline')
+  })
+
+  it('the change row keeps its Confirm / Decline and its old → new line', () => {
+    expect(html).toContain('data-testid="booking-row-b-chg-confirm"')
+    expect(html).toContain('data-testid="booking-row-b-chg-decline"')
+    expect(html).toContain('data-testid="booking-row-b-chg-change-from"')
+    expect(html).not.toContain('booking-row-b-chg-change-pending')
+  })
+
+  it('an original whose change is dated outside the listed range still shows the marker', () => {
+    expect(rowOf(html, 'b-away')).toContain('data-testid="booking-row-b-away-change-pending"')
+    expect(rowOf(html, 'b-away')).toContain('2026-12-24 20:00')
+    expect(html).not.toContain('booking-row-b-away-confirm')
+  })
+
+  it('a confirmed original with an open change shows the marker too', () => {
+    expect(rowOf(html, 'b-conf')).toContain('data-testid="booking-row-b-conf-change-pending"')
+    expect(html).not.toContain('booking-row-b-conf-confirm')
+  })
+
+  it('after the change is declined (no open change) the original has its own buttons again', () => {
+    expect(html).toContain('data-testid="booking-row-b-back-confirm"')
+    expect(html).toContain('data-testid="booking-row-b-back-decline"')
+    expect(html).not.toContain('booking-row-b-back-change-pending')
+  })
+})
+
+describe('BOOK-006 copy', () => {
+  it('every key the pair views use exists in en and zh-HK', () => {
+    usedKeys.clear()
+    for (const render of Object.values(pairViews)) render()
+    const lookup = (m: unknown, p: string) => p.split('.').reduce<unknown>((n, k) => (n && typeof n === 'object' ? (n as Record<string, unknown>)[k] : undefined), m)
+    const missing = [...usedKeys].filter((k) => typeof lookup(en, k) !== 'string' || typeof lookup(zhHK, k) !== 'string')
+    expect(missing).toEqual([])
+  })
+})
+
+describe('BOOK-006 phone week strip', () => {
+  const dayButton = (html: string) => html.slice(html.indexOf('data-testid="bookings-calendar-day-2026-11-26"'), html.indexOf('</button>', html.indexOf('data-testid="bookings-calendar-day-2026-11-26"')))
+  const strip = (bookings: BookingItem[]) =>
+    dayButton(renderToStaticMarkup(<CalendarWeekStrip bookings={bookings} selected="2026-11-24" today="2026-11-19" onSelect={() => {}} />))
+
+  it('a day holding only an original with an open change has no needs-reply (amber) dot', () => {
+    expect(strip([original])).not.toContain('bg-accent')
+    expect(strip([original])).toContain('bg-primary')
+  })
+
+  it('the day of its change row (or any pending row without an open change) has the amber dot', () => {
+    expect(strip([original, changeRow])).toContain('bg-accent')
+    expect(strip([afterDecline])).toContain('bg-accent')
   })
 })

@@ -14,7 +14,9 @@ import type {
   DecisionMessageStatus,
   DinerBooking,
   NewBookingRequest,
+  OpenChangeSlot,
 } from '@/domain/entities/booking-request'
+import { pendingNeedingReply } from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
@@ -160,7 +162,7 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
   if (error) throw new Error(`listBookingRequests: ${error.message}`)
   const rows = [...((pending.data ?? []) as BookingRow[]), ...((decided.data ?? []) as BookingRow[])]
   const bookings = rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).map(toBookingRequest)
-  return withReplacedSlots(restaurantId, bookings)
+  return withChangeSlots(restaurantId, bookings)
 }
 
 /** AGENT-003 R23: the slot each change request would replace (old → new in 訂座), one scoped read. */
@@ -182,11 +184,53 @@ async function withReplacedSlots(restaurantId: string, bookings: BookingRequest[
   return bookings.map((b) => (b.replacesBookingId ? { ...b, replaces: slots.get(b.replacesBookingId) ?? null } : b))
 }
 
+interface PendingRow {
+  id: string
+  replaces_booking_id?: string | null
+  booking_date: string
+  booking_time: string
+  party_size: number
+}
+
+/**
+ * BOOK-006: one restaurant's pending rows with what pairs them (R6: scoped in
+ * the query). No `in` on listed ids, so a long list cannot overflow the
+ * PostgREST header; newest first, so the change rows fit under `max_rows`.
+ */
+async function readPendingRows(restaurantId: string): Promise<PendingRow[]> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select('id, replaces_booking_id, booking_date, booking_time, party_size')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`readPendingRows: ${error.message}`)
+  return (data ?? []) as PendingRow[]
+}
+
+/** BOOK-006: original id → its open change's slot, whatever the change's date (it can move the booking out of the list). */
+async function openChangesFor(restaurantId: string, bookings: BookingRequest[]): Promise<Map<string, OpenChangeSlot>> {
+  if (!bookings.some((b) => b.status === 'pending' || b.status === 'confirmed')) return new Map()
+  const changes = (await readPendingRows(restaurantId)).filter((r) => !!r.replaces_booking_id)
+  return new Map(
+    changes.map((r) => [
+      r.replaces_booking_id as string,
+      { id: r.id, bookingDate: r.booking_date, bookingTime: r.booking_time.slice(0, 5), partySize: r.party_size },
+    ])
+  )
+}
+
+/** AGENT-003 replaced slots (old → new) and BOOK-006 open changes on the listed bookings. */
+async function withChangeSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
+  const [withReplaced, open] = await Promise.all([withReplacedSlots(restaurantId, bookings), openChangesFor(restaurantId, bookings)])
+  return withReplaced.map((b) => (open.has(b.id) ? { ...b, openChange: open.get(b.id) } : b))
+}
+
 type CappedList = { bookings: BookingRequest[]; truncated: boolean }
 
-/** BOOK-004 r4: the AGENT-003 replaced slots (old → new) on a capped list too. */
+/** BOOK-004 r4: the AGENT-003 replaced slots (old → new) on a capped list too; BOOK-006 open changes. */
 async function withReplacedSlotsIn(restaurantId: string, list: CappedList): Promise<CappedList> {
-  return { ...list, bookings: await withReplacedSlots(restaurantId, list.bookings) }
+  return { ...list, bookings: await withChangeSlots(restaurantId, list.bookings) }
 }
 
 /**
@@ -242,16 +286,21 @@ export async function listPendingBookingRequests(
   return withReplacedSlotsIn(restaurantId, cappedList((data ?? []) as BookingRow[], keep))
 }
 
-/** BOOK-004: every pending request of one restaurant, any date (the "need a reply" count). */
+/**
+ * BOOK-004: every pending request of one restaurant, any date (the "need a
+ * reply" count). BOOK-006: an original and its open change count once: the
+ * exact head count minus the pending originals whose change is pending.
+ */
 export async function countRestaurantPendingBookings(restaurantId: string): Promise<number> {
   const supabase = createServerSupabaseClient()
-  const { count, error } = await supabase
+  const head = supabase
     .from('booking_requests')
     .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurantId)
     .eq('status', 'pending')
+  const [{ count, error }, rows] = await Promise.all([head, readPendingRows(restaurantId)])
   if (error) throw new Error(`countRestaurantPendingBookings: ${error.message}`)
-  return count ?? 0
+  return pendingNeedingReply(count ?? 0, rows.map((r) => ({ id: r.id, replacesBookingId: r.replaces_booking_id ?? null })))
 }
 
 export async function findBookingForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null> {
