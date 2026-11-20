@@ -62,7 +62,8 @@ export function parseAgentBookingBody(body: unknown, rules: BookingSubmissionRul
   return { ok: true, submission: { ...form.submission, phone } }
 }
 
-const HOURS_REFUSALS: readonly string[] = ['closed_day', 'outside_hours', 'too_soon', 'too_far']
+// BOOK-010: 'full' (spec AC-4) gets alternatives too.
+const HOURS_REFUSALS: readonly string[] = ['closed_day', 'outside_hours', 'too_soon', 'too_far', 'full']
 
 /**
  * BOOK-009 (spec AC-12, AC-16): when the booking hours refused the requested
@@ -73,21 +74,28 @@ const HOURS_REFUSALS: readonly string[] = ['closed_day', 'outside_hours', 'too_s
 export function suggestionsForRefusal(
   hours: BookingHours | null | undefined,
   errors: BookingFieldErrors,
-  requested: { date: string; time: string; clock: BookingClock }
+  requested: { date: string; time: string; clock: BookingClock; fits?: (date: string, time: string) => boolean }
 ): SuggestedTime[] | null {
   if (!hours || !(HOURS_REFUSALS.includes(errors.date) || HOURS_REFUSALS.includes(errors.time))) return null
-  const { date, time, clock } = requested
-  if (errors.time !== 'too_far') return suggestTimes(hours, date, time, clock)
-  const last = suggestTimes(hours, windowEnd(hours, clock.today), time, clock)
-  return last.length > 0 ? last : suggestTimes(hours, clock.today, time, clock)
+  const { date, time, clock, fits } = requested
+  if (errors.time !== 'too_far') return suggestTimes(hours, date, time, clock, 3, fits)
+  const last = suggestTimes(hours, windowEnd(hours, clock.today), time, clock, 3, fits)
+  return last.length > 0 ? last : suggestTimes(hours, clock.today, time, clock, 3, fits)
 }
 
 /** BOOK-009 (spec AC-11, AC-15): the rules summary agents get, listing only the special dates inside the booking window. */
 export function summarizeForAgents(hours: BookingHours, maxPartySize: number, lang: BookingHoursLanguage, today: string): string {
   const last = windowEnd(hours, today)
   const special = hours.special.filter((s) => s.date >= today && s.date <= last)
-  return summarize({ ...hours, special }, maxPartySize, lang)
+  // BOOK-010 (spec AC-15): agents get "some times may be full" (FULL_TIMES_RULE), never the limit numbers.
+  return summarize({ ...hours, special, limits: undefined }, maxPartySize, lang)
 }
+
+/** BOOK-010 (spec AC-15): how agents learn about limits and stops: only that a time can be full. */
+export const FULL_TIMES_RULE = {
+  zh_hk: '部分時段可能已滿：每次都要先用工具查核，工具確認前不要說某個時間有位。',
+  en: 'Some times may be full: always check with the tool first, and never say a time is free before the tool confirms it.',
+} as const
 
 /** BOOK-009 (spec AC-11, threat R2): /availability answers at most this many dates, and never past the window. */
 export const AVAILABILITY_MAX_DAYS = 31

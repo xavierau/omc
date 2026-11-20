@@ -14,6 +14,8 @@
  * restaurant's times unknowable (not an object, no weekly table, a malformed
  * period) resolves the whole value to null.
  */
+import { resolveBookingLimits, type BookingLimits } from './booking-limits'
+
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 export type IntervalMinutes = 15 | 30 | 60
 export type NoticeHours = 0 | 1 | 2 | 3 | 6 | 12 | 24
@@ -48,6 +50,8 @@ export interface BookingHours {
   terms: Record<BookingHoursLanguage, string>
   /** Shown on the booking page; '' = none. */
   info: { address: string; phone: string; mapUrl: string }
+  /** BOOK-010: guest limits; absent = no limit (spec AC-3). */
+  limits?: BookingLimits
 }
 
 export const WEEKDAYS: readonly Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -149,6 +153,7 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
   const weekly = r ? resolveWeekly(r.weekly) : null
   if (!r || !weekly) return null
   const d = EMPTY_BOOKING_HOURS
+  const limits = resolveBookingLimits(r.limits)
   return {
     weekly,
     intervalMinutes: isOption(INTERVAL_OPTIONS, r.intervalMinutes) ? r.intervalMinutes : d.intervalMinutes,
@@ -158,6 +163,7 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
     tableMinutes: isOption(TABLE_MINUTES_OPTIONS, r.tableMinutes) ? r.tableMinutes : null,
     terms: resolveTexts(r.terms),
     info: resolveInfo(r.info),
+    ...(limits ? { limits } : {}),
   }
 }
 

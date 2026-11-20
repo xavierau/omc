@@ -89,14 +89,23 @@ function nearestFirst(slots: BookingSlot[], wanted: number): BookingSlot[] {
 /**
  * Up to `n` bookable times nearest the one asked for (spec AC-12): the same
  * date first, then each following date in the window, nearest first within
- * a date (ties: the earlier time).
+ * a date (ties: the earlier time). BOOK-010: `fits`, when given, skips the
+ * times that cannot take the party (full or stopped, spec AC-4).
  */
-export function suggestTimes(hours: BookingHours, date: string, time: string, clock: BookingClock, n = 3): SuggestedTime[] {
+export function suggestTimes(
+  hours: BookingHours,
+  date: string,
+  time: string,
+  clock: BookingClock,
+  n = 3,
+  fits?: (date: string, time: string) => boolean
+): SuggestedTime[] {
   const wanted = isBookingTime(time) ? toMinutes(time) : 0
   const out: SuggestedTime[] = []
   const last = windowEnd(hours, clock.today)
   for (let d = date < clock.today ? clock.today : date; d <= last && out.length < n; d = addDays(d, 1)) {
-    for (const s of nearestFirst(slotsFor(hours, d, clock), wanted).slice(0, n - out.length)) out.push({ date: d, time: s.time })
+    const open = slotsFor(hours, d, clock).filter((s) => !fits || fits(d, s.time))
+    for (const s of nearestFirst(open, wanted).slice(0, n - out.length)) out.push({ date: d, time: s.time })
   }
   return out
 }
