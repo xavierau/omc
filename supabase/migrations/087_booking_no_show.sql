@@ -4,10 +4,11 @@
 -- Additive: no existing row changes. Apply BEFORE deploying the code that
 -- writes 'no_show' (the old code never writes it).
 --
--- The move itself is a conditional UPDATE in booking-request-repository.ts:
--- confirmed + booking date/time (Asia/Hong_Kong) in the past -> no_show, and
--- no_show -> confirmed on undo. A no_show row keeps the decided_at it got when
--- it was confirmed.
+-- The mark is the RPC mark_booking_no_show below (r1 F1): confirmed + booking
+-- date/time (Asia/Hong_Kong) in the past + no open change request -> no_show.
+-- The undo is a conditional UPDATE in booking-request-repository.ts:
+-- no_show -> confirmed. A no_show row keeps the decided_at it got when it was
+-- confirmed.
 
 ALTER TABLE booking_requests DROP CONSTRAINT IF EXISTS booking_requests_status_check;
 ALTER TABLE booking_requests
@@ -34,3 +35,33 @@ ALTER TABLE booking_requests DROP CONSTRAINT IF EXISTS booking_requests_no_show_
 ALTER TABLE booking_requests
   ADD CONSTRAINT booking_requests_no_show_marker
   CHECK ((status = 'no_show') = (no_show_marked_at IS NOT NULL));
+
+-- r1 F1: mark only a confirmed, past booking that no pending change request
+-- replaces. Otherwise confirm_booking_change (085) would later confirm the
+-- change and leave the original no_show (it cancels only pending/confirmed),
+-- and an undo would bring back a second confirmed booking. The check sits in
+-- the UPDATE's own WHERE, one statement, so no read-then-write race. "Before"
+-- is the app's Hong Kong now (HH:MM), the same rule as the dashboard's
+-- canMarkNoShow. Returns the changed row, or nothing.
+CREATE OR REPLACE FUNCTION public.mark_booking_no_show(
+  p_id uuid,
+  p_restaurant_id uuid,
+  p_marked_by uuid,
+  p_marked_at timestamptz,
+  p_before_date date,
+  p_before_time time
+) RETURNS SETOF booking_requests AS $$
+  UPDATE booking_requests b
+     SET status = 'no_show', no_show_marked_by = p_marked_by, no_show_marked_at = p_marked_at
+   WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id
+     AND b.status = 'confirmed'
+     AND (b.booking_date < p_before_date OR (b.booking_date = p_before_date AND b.booking_time < p_before_time))
+     AND NOT EXISTS (
+       SELECT 1 FROM booking_requests c
+        WHERE c.replaces_booking_id = b.id AND c.restaurant_id = p_restaurant_id AND c.status = 'pending'
+     )
+  RETURNING b.*;
+$$ LANGUAGE sql;
+
+REVOKE ALL ON FUNCTION public.mark_booking_no_show(uuid, uuid, uuid, timestamptz, date, time) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_booking_no_show(uuid, uuid, uuid, timestamptz, date, time) TO service_role;

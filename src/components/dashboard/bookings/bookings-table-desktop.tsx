@@ -33,7 +33,7 @@ export interface BookingGroupsProps extends BookingActionProps {
   today: string
 }
 
-function BookingTableRow({ booking, busyId, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
+function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
   const t = useTranslations('bookings')
   return (
     <TableRow data-testid={`booking-row-${booking.id}`} className={cn(booking.status === 'pending' && 'bg-pending-soft hover:bg-pending-soft')}>
@@ -62,8 +62,8 @@ function BookingTableRow({ booking, busyId, undelivered, onDecide, onNoShow }: B
       </TableCell>
       <TableCell className="text-right">
         <span className="inline-flex justify-end">
-          <RowActions booking={booking} busy={busyId === booking.id} onDecide={onDecide} />
-          <NoShowAction booking={booking} busy={busyId === booking.id} onNoShow={onNoShow} />
+          <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} />
+          <NoShowAction booking={booking} busy={busyIds.has(booking.id)} onNoShow={onNoShow} />
         </span>
       </TableCell>
     </TableRow>

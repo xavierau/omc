@@ -4,14 +4,17 @@
  * BOOK-004: the Bookings page: header (needs-reply pill, view toggle),
  * toolbar (month nav or range; status chips + search), then the Calendar or
  * Table view over the fetched date range. Loading / error + Retry / notices
- * keep their BOOK-001 test ids. BOOK-007: rows mark / undo a no-show.
+ * keep their BOOK-001 test ids. BOOK-007: rows mark / undo a no-show; r1:
+ * one busy set and notice across both kinds of action (F4), and a minute tick
+ * so a booking whose time passes gets its Mark no-show (F5).
  */
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { BookingNoticeLine } from '@/components/dashboard/booking-list'
 import { NoShowNoticeLine } from './booking-no-show-action'
-import { useBookingNoShow } from './use-booking-no-show'
-import { useBookingActions, useBookings } from '@/hooks/use-bookings'
+import { useBookingRowActions } from './use-booking-row-actions'
+import { BookingsNow, useMinuteTick } from './bookings-clock'
+import { useBookings } from '@/hooks/use-bookings'
 import { bookingsPageLists } from './booking-groups'
 import { BookingsCalendar } from './bookings-calendar'
 import { BookingsFilters } from './bookings-filters'
@@ -40,12 +43,12 @@ export function BookingsScreen() {
   const t = useTranslations('bookings.views')
   const page = useBookingsPage()
   const { data, pendingCount, isLoading, error, refetch } = useBookings(page.range)
-  const { busyId, notice, undelivered, act } = useBookingActions(refetch)
-  const noShow = useBookingNoShow(refetch)
+  const rows = useBookingRowActions(refetch)
+  const now = useMinuteTick()
   const all = data?.bookings ?? []
   const calendar = page.view === 'calendar'
   const lists = bookingsPageLists(all, { calendar, isPhone: page.isPhone, selected: page.selected, status: page.status, query: page.query })
-  const actions = { busyId: busyId ?? noShow.busyId, undelivered, onDecide: act, onNoShow: noShow.act }
+  const actions = { busyIds: rows.busyIds, undelivered: rows.undelivered, onDecide: rows.onDecide, onNoShow: rows.onNoShow }
   const nav = calendar ? (
     <CalendarNav selected={page.selected} isPhone={page.isPhone} onShift={page.shift} onToday={page.goToday} />
   ) : (
@@ -53,35 +56,37 @@ export function BookingsScreen() {
   )
 
   return (
-    <div className="space-y-5">
-      <BookingsHeader view={page.view} pendingCount={pendingCount} onView={page.setView} onShowPending={page.showPending} />
-      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-        {nav}
-        {lists.filtersShown ? (
-          <BookingsFilters
-            status={page.status} counts={lists.counts} query={page.query} showSearch
-            onStatus={page.setStatus} onQuery={page.setQuery}
+    <BookingsNow.Provider value={now}>
+      <div className="space-y-5">
+        <BookingsHeader view={page.view} pendingCount={pendingCount} onView={page.setView} onShowPending={page.showPending} />
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+          {nav}
+          {lists.filtersShown ? (
+            <BookingsFilters
+              status={page.status} counts={lists.counts} query={page.query} showSearch
+              onStatus={page.setStatus} onQuery={page.setQuery}
+            />
+          ) : null}
+        </div>
+        <BookingNoticeLine notice={rows.decideNotice} />
+        <NoShowNoticeLine notice={rows.noShowNotice} />
+        {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
+        {error ? (
+          <LoadError onRetry={refetch} />
+        ) : isLoading && !data ? (
+          <BookingsLoading />
+        ) : calendar ? (
+          <BookingsCalendar
+            bookings={lists.shown} monthEmpty={lists.scopeEmpty} dayHidden={lists.dayHidden} selected={page.selected} today={page.today}
+            isPhone={page.isPhone} onSelect={page.select} {...actions}
           />
-        ) : null}
+        ) : (
+          <BookingsTable
+            bookings={lists.shown} rangeEmpty={lists.scopeEmpty} range={page.tableRange} today={page.today}
+            isPhone={page.isPhone} onRange={page.setTableRange} {...actions}
+          />
+        )}
       </div>
-      <BookingNoticeLine notice={notice} />
-      <NoShowNoticeLine notice={noShow.notice} />
-      {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
-      {error ? (
-        <LoadError onRetry={refetch} />
-      ) : isLoading && !data ? (
-        <BookingsLoading />
-      ) : calendar ? (
-        <BookingsCalendar
-          bookings={lists.shown} monthEmpty={lists.scopeEmpty} dayHidden={lists.dayHidden} selected={page.selected} today={page.today}
-          isPhone={page.isPhone} onSelect={page.select} {...actions}
-        />
-      ) : (
-        <BookingsTable
-          bookings={lists.shown} rangeEmpty={lists.scopeEmpty} range={page.tableRange} today={page.today}
-          isPhone={page.isPhone} onRange={page.setTableRange} {...actions}
-        />
-      )}
-    </div>
+    </BookingsNow.Provider>
   )
 }

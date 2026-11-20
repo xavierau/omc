@@ -356,27 +356,25 @@ export async function confirmBookingChange(
 }
 
 /**
- * BOOK-007 R5: a booking before `before` (Hong Kong now): an earlier date, or
- * today at an earlier time; the complement of `upcomingFilter`. Built by the
- * app (YYYY-MM-DD, HH:MM), never from input.
+ * BOOK-007 R5/R6 + r1 F1: confirmed + past + no open (pending) change request
+ * -> no_show, who and when stored. One statement in SQL (mark_booking_no_show,
+ * migration 087), scoped by restaurant, so the change check cannot race the
+ * UPDATE. `before` (Hong Kong now, YYYY-MM-DD + HH:MM) is built by the app.
  */
-export function pastFilter(before: HongKongMoment): string {
-  return `booking_date.lt.${before.date},and(booking_date.eq.${before.date},booking_time.lt.${before.time})`
-}
-
-/** BOOK-007 R5/R6: confirmed + past -> no_show, who and when stored; one conditional UPDATE scoped by restaurant. */
 export async function markBookingNoShow(args: MarkNoShowArgs): Promise<BookingRequest | null> {
   const { data, error } = await createServerSupabaseClient()
-    .from('booking_requests')
-    .update({ status: 'no_show', no_show_marked_by: args.markedBy, no_show_marked_at: args.at.toISOString() })
-    .eq('id', args.id)
-    .eq('restaurant_id', args.restaurantId)
-    .eq('status', 'confirmed')
-    .or(pastFilter(args.before))
+    .rpc('mark_booking_no_show', {
+      p_id: args.id,
+      p_restaurant_id: args.restaurantId,
+      p_marked_by: args.markedBy,
+      p_marked_at: args.at.toISOString(),
+      p_before_date: args.before.date,
+      p_before_time: args.before.time,
+    })
     .select(STAFF_COLUMNS)
-    .maybeSingle()
   if (error) throw new Error(`markBookingNoShow: ${error.message}`)
-  return data ? toBookingRequest(data as BookingRow) : null
+  const row = ((data ?? []) as BookingRow[])[0]
+  return row ? toBookingRequest(row) : null
 }
 
 /** BOOK-007 R5/R6: undo, no_show -> confirmed with both marker columns cleared; scoped by restaurant. */

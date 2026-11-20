@@ -2,7 +2,7 @@
  * BOOK-007 (R5, R6): POST marks a past confirmed booking as a no-show; DELETE
  * undoes it (back to confirmed). Tenant from the session, roles admin and
  * staff (like confirm/decline), 409 when the booking is not in the state the
- * move needs, 404 for a missing, malformed or other-tenant id. No message is
+ * move needs (already_handled; mark only: not_past, change_pending), 404 for a missing, malformed or other-tenant id. No message is
  * sent to the diner either way.
  */
 import { NextResponse } from 'next/server'
@@ -18,10 +18,8 @@ const STAFF_ROLES = ['admin', 'staff']
 
 function respond(result: NoShowResult): NextResponse {
   if (result.ok) return NextResponse.json({ booking: result.booking })
-  if (result.reason === 'already_handled') {
-    return NextResponse.json({ error: 'already_handled', status: result.status }, { status: 409 })
-  }
-  return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  if (result.reason === 'not_found') return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  return NextResponse.json({ error: result.reason, status: result.status }, { status: 409 })
 }
 
 async function handle(params: Params['params'], move: Move): Promise<NextResponse> {

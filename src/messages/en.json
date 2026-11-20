@@ -1378,6 +1378,8 @@
     "sendDecline": "Send decline",
     "markNoShow": "Mark no-show",
     "undoNoShow": "Undo",
+    "noShowNotPast": "This booking's time hasn't passed yet, so it can't be marked as a no-show.",
+    "noShowChangePending": "This booking has a change request waiting for a reply. Confirm or decline the change first.",
     "cancel": "Cancel",
     "declineReasonPlaceholder": "Reason (optional)",
     "partyOf": "{count, plural, one {# person} other {# people}}",

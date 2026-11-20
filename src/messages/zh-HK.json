@@ -1378,6 +1378,8 @@
     "sendDecline": "發送拒絕",
     "markNoShow": "標記未出席",
     "undoNoShow": "復原",
+    "noShowNotPast": "此訂座時間未到,暫時不能標記為未出席。",
+    "noShowChangePending": "此訂座有更改要求待回覆,請先確認或拒絕更改。",
     "cancel": "取消",
     "declineReasonPlaceholder": "原因(可選填)",
     "partyOf": "{count} 位",

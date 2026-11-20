@@ -145,7 +145,7 @@ describe('r1 F1: no Mark no-show while a change request is open', () => {
   it('a past confirmed original with openChange offers nothing; the same booking without it offers the mark', () => {
     const html = renderToStaticMarkup(<NoShowAction booking={withChange} busy={false} onNoShow={() => {}} />)
     expect(html).toBe('')
-    const { openChange: _drop, ...plain } = withChange
+    const plain = { ...withChange, openChange: null }
     expect(renderToStaticMarkup(<NoShowAction booking={plain} busy={false} onNoShow={() => {}} />)).toContain('booking-row-wc-no-show')
   })
 })
@@ -224,9 +224,10 @@ describe('r1 F4: one busy set and one notice across decide and no-show', () => {
       'calendar day panel': () => renderToStaticMarkup(<CalendarDayPanel date="2026-11-19" bookings={all} monthEmpty={false} {...busy} />),
     }[name]!()
     const tag = (id: string) => html.match(new RegExp(`<button[^>]*data-testid="booking-row-${id}-no-show(?:-undo)?"[^>]*>`))?.[0] ?? ''
-    expect(tag('pc')).toContain('disabled')
-    expect(tag('et')).toContain('disabled')
-    expect(tag('ns')).not.toContain('disabled')
+    expect(tag('pc')).toContain(' disabled=""')
+    expect(tag('et')).toContain(' disabled=""')
+    expect(tag('ns')).toMatch(/data-testid="booking-row-ns-no-show-undo"/)
+    expect(tag('ns')).not.toContain(' disabled=""')
   })
 
   it('starting any action clears both notices first', () => {

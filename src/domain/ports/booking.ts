@@ -72,9 +72,10 @@ export interface MarkNoShowArgs {
 }
 
 /**
- * BOOK-007: one conditional UPDATE each, scoped by id AND restaurant (R5):
- * mark only confirmed + past -> no_show (who/when stored, R6); undo only
- * no_show -> confirmed (both cleared). Null when no row changed.
+ * BOOK-007: one conditional statement each, scoped by id AND restaurant (R5):
+ * mark only confirmed + past + no pending change request replacing it (r1 F1)
+ * -> no_show (who/when stored, R6); undo only no_show -> confirmed (both
+ * cleared). Null when no row changed.
  */
 export interface BookingNoShowStore {
   markNoShow(args: MarkNoShowArgs): Promise<BookingRequest | null>

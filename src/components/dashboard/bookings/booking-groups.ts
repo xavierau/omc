@@ -4,7 +4,7 @@
  * groups, and covers (guests; declined and cancelled bookings do not come).
  * BOOK-006: pending counts count an original + its open change once (needsReply).
  * BOOK-007: no-shows are not guests either; an original with an open change
- * adds no guests, its change row's party is the one counted.
+ * adds no guests when its change row is listed too: that row's party counts.
  */
 import type { BookingItem } from '@/hooks/use-bookings'
 import { needsReply } from '@/domain/entities/booking-request'
@@ -54,9 +54,15 @@ export function statusCounts(bookings: BookingItem[]): Record<StatusFilter, numb
 
 const NOT_COMING: ReadonlySet<BookingItem['status']> = new Set(['declined', 'cancelled', 'no_show'])
 
-/** Guests: not declined, cancelled or no-show; an original with an open change counts as its change row (BOOK-007). */
+/**
+ * Guests: not declined, cancelled or no-show. An original with an open change
+ * is counted as its change row only when that row (same id) is in the same
+ * list; a status filter or another day can leave it out (r1 F2).
+ */
 export function covers(bookings: BookingItem[]): number {
-  return bookings.reduce((sum, b) => (NOT_COMING.has(b.status) || b.openChange ? sum : sum + b.partySize), 0)
+  const ids = new Set(bookings.map((b) => b.id))
+  const countedAsChange = (b: BookingItem) => !!b.openChange && ids.has(b.openChange.id)
+  return bookings.reduce((sum, b) => (NOT_COMING.has(b.status) || countedAsChange(b) ? sum : sum + b.partySize), 0)
 }
 
 export function daySummary(bookings: BookingItem[]): DaySummary {

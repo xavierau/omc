@@ -129,13 +129,16 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     return this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status !== 'unverified') ?? null
   }
 
-  /** BOOK-007: mirrors markBookingNoShow (confirmed + before `args.before`, one tick, scoped by restaurant). */
+  /** BOOK-007: mirrors mark_booking_no_show (confirmed + before `args.before` + no pending change in this restaurant, r1 F1). */
   async markNoShow(args: MarkNoShowArgs) {
     await tick()
+    const changeOpen = this.rows.some(
+      (c) => c.replacesBookingId === args.id && c.restaurantId === args.restaurantId && c.status === 'pending'
+    )
     const row = this.rows.find(
       (r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'confirmed' && !isUpcoming(r, args.before)
     )
-    if (!row) return null
+    if (!row || changeOpen) return null
     Object.assign(row, { status: 'no_show', noShowMarkedBy: args.markedBy, noShowMarkedAt: args.at.toISOString() })
     return { ...row }
   }
