@@ -1620,6 +1620,7 @@
             "kanban:BOOK-007"
           ],
           "branch": "feature/agent-005-agent-skills",
+          "pr": "216",
           "workspace_artifacts": [
             "plans/2026-11-20-agent-005-agent-skills",
             "artifacts/2026-11-20-agent-005-agent-skills-impl",
@@ -1627,7 +1628,7 @@
           ],
           "status": "review",
           "updated": "2026-11-20",
-          "notes": "PR into develop opened; not merged or released. Evidence: artifacts/evidence/2026-11-20-agent-005/ (3 rendered prompts over fake configs, settings field screenshots en + zh-HK)."
+          "notes": "PR #216 into develop opened; not merged or released. Evidence: artifacts/evidence/2026-11-20-agent-005/ (3 rendered prompts over fake configs, settings field screenshots en + zh-HK)."
         },
         {
           "id": "BOOK-004",
