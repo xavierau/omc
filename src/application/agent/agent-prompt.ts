@@ -21,6 +21,8 @@
 import type { AgentProposalKind } from '@/domain/ports/agent-booking-proposal'
 import type { AgentConfig, AgentToolName } from '@/domain/value-objects/agent-config'
 import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
+import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
 import { activeSkills, SAFETY_PREAMBLE, type SkillPromptContext } from './skills'
 
 export { SAFETY_PREAMBLE }
@@ -53,6 +55,9 @@ export interface SystemInstructionOptions {
   offeredTools?: readonly AgentToolName[]
   /** booking_config.bookingRules; read by the booking skill. */
   bookingRules?: string
+  /** BOOK-009: booking_config.bookingHours and maxPartySize; read by the booking skill (null = not set). */
+  bookingHours?: BookingHours | null
+  maxPartySize?: number
   pendingProposal?: AgentProposalKind | null
 }
 
@@ -61,7 +66,14 @@ export function buildSystemInstruction(
   now: Date,
   options: SystemInstructionOptions = {}
 ): string {
-  const ctx: SkillPromptContext = { offeredTools: options.offeredTools ?? [], bookingRules: options.bookingRules ?? '' }
+  const hours = options.bookingHours
+  const ctx: SkillPromptContext = {
+    offeredTools: options.offeredTools ?? [],
+    bookingRules: options.bookingRules ?? '',
+    bookingHours: hours
+      ? { hours, maxPartySize: options.maxPartySize ?? DEFAULT_BOOKING_CONFIG.maxPartySize, today: hongKongToday(now) }
+      : null,
+  }
   const skills = activeSkills(ctx.offeredTools)
   const sections = [...skills.map((skill) => skill.promptSection(ctx)), bookingClockLine(now)]
   if (options.pendingProposal) sections.push(pendingProposalLine(options.pendingProposal))
