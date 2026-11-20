@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../client'
+import { BOOKING_MEMBER_RELINKED_EVENT } from '@/domain/entities/member-booking'
 
 export interface EventRow {
   id: string
@@ -22,6 +23,8 @@ export async function getEvents(params: EventListParams): Promise<EventRow[]> {
     .from('events')
     .select('id, type, data_json, created_at, members(name)')
     .eq('restaurant_id', restaurantId)
+    // BOOK-008 r1 F4: the relink audit row stays in events, never in /dashboard/feed.
+    .neq('type', BOOKING_MEMBER_RELINKED_EVENT)
     .order('created_at', { ascending: false })
     .limit(limit)
 

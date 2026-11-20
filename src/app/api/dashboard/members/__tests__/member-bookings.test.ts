@@ -71,7 +71,8 @@ describe('member detail GET: bookings + stats (R8)', () => {
     expect(bookings[0]).toEqual({ id: 'b-060', bookingDate: '2026-11-04', bookingTime: '12:30', partySize: 2, status: 'pending' })
     expect(stats).toEqual({
       total: 60, confirmed: 12, noShow: 12, cancelled: 12, declined: 12, pending: 12,
-      lastBookingDate: '2026-11-04', nextBookingDate: null,
+      // r1 F2: last = the latest past confirmed or no_show date (11-01 no_show), not 11-04's pending row.
+      lastBookingDate: '2026-11-01', nextBookingDate: null,
     })
   })
 
@@ -103,6 +104,37 @@ describe('member detail GET: bookings + stats (R8)', () => {
     const { stats } = (await get()).bookingHistory
     expect(stats.lastBookingDate).toBe('2026-11-20')
     expect(stats.nextBookingDate).toBe('2026-11-24')
+  })
+
+  // r1 F2 (/code-review PR #214): stats count reservations, not rows. A confirmed change
+  // leaves the original cancelled by 'change' and the change row confirmed: one reservation.
+  it('a changed-then-confirmed booking counts 1 total, 0 cancelled; both rows stay in the list', async () => {
+    seed({ id: 'original', bookingDate: '2026-11-10', status: 'cancelled', cancelledBy: 'change' })
+    seed({ id: 'change', bookingDate: '2026-11-12', status: 'confirmed', replacesBookingId: 'original' })
+    const { bookings, stats } = (await get()).bookingHistory
+    expect(bookings.map((b: { id: string }) => b.id)).toEqual(['change', 'original'])
+    expect(stats).toEqual({
+      total: 1, confirmed: 1, cancelled: 0, declined: 0, noShow: 0, pending: 0,
+      lastBookingDate: '2026-11-12', nextBookingDate: null,
+    })
+  })
+
+  it('an open or declined change request is not a reservation; a diner cancellation still counts', async () => {
+    seed({ id: 'booking', bookingDate: '2026-11-25', status: 'confirmed' })
+    seed({ id: 'open-change', bookingDate: '2026-11-26', status: 'pending', replacesBookingId: 'booking' })
+    seed({ id: 'declined-change', bookingDate: '2026-11-27', status: 'declined', replacesBookingId: 'booking' })
+    seed({ id: 'diner-cancel', bookingDate: '2026-11-05', status: 'cancelled', cancelledBy: 'diner_ai' })
+    const { stats } = (await get()).bookingHistory
+    expect(stats).toMatchObject({ total: 2, confirmed: 1, cancelled: 1, pending: 0, declined: 0 })
+  })
+
+  it('a declined-only history has no lastBookingDate (nor a cancelled or pending one)', async () => {
+    seed({ bookingDate: '2026-11-01', status: 'declined' })
+    seed({ bookingDate: '2026-11-02', status: 'cancelled', cancelledBy: 'diner_ai' })
+    seed({ bookingDate: '2026-11-03', status: 'pending' })
+    const { stats } = (await get()).bookingHistory
+    expect(stats.lastBookingDate).toBeNull()
+    expect(stats.total).toBe(3)
   })
 
   it('a member with no bookings → empty list and zero stats', async () => {

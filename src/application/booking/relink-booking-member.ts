@@ -6,6 +6,8 @@
  * The write is one compare-and-set statement with its audit row (RPC
  * relink_booking_member), so the events row's "from" is the link the row
  * really held; if another tap changed it first, the caller gets `conflict`.
+ * r1 F5: no row changed is re-checked: a target member gone by then (deleted
+ * between the lookup and the write) is not_found, like one never there.
  * No change requested (same member, or already unlinked): ok, no events row.
  */
 import type { BookingRequest } from '@/domain/entities/booking-request'
@@ -50,5 +52,6 @@ export async function relinkBookingMember(
     toMemberId: input.memberId,
     actorUserId: input.userId,
   })
-  return changed ? { ok: true, booking: changed } : { ok: false, reason: 'conflict' }
+  if (changed) return { ok: true, booking: changed }
+  return (await targetExists(deps, input)) ? { ok: false, reason: 'conflict' } : NOT_FOUND
 }

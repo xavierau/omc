@@ -1,0 +1,404 @@
+# scratch DB: throwaway docker public.ecr.aws/supabase/postgres:17.6.1.143 on 127.0.0.1:54991 (container book008-r1-scratch), migrations 001..087 applied (87 files, as supabase_admin; storage.buckets/objects/foldername stubbed); 088 = r1 working tree on ec03b5eb; run 2026-11-20T05:47:53Z
+== BEGIN (everything below is rolled back)
+BEGIN
+INSERT 0 2
+INSERT 0 4
+INSERT 0 9
+== members before
+ members 
+---------
+       4
+(1 row)
+
+== apply 088
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+psql:supabase/migrations/088_booking_member_backfill.sql:157: NOTICE:  trigger "trg_members_link_bookings" for relation "members" does not exist, skipping
+CREATE TRIGGER
+UPDATE 5
+== after first run: id suffix, status, member suffix (expect e1 a1, e2 a2, e3 NULL, e4 NULL, e5 b1, e6 a3, e7 a2, e8 a1, e9 NULL)
+ booking |   status   | member 
+---------+------------+--------
+ e1      | pending    | a1
+ e2      | confirmed  | a2
+ e3      | unverified | 
+ e4      | pending    | 
+ e5      | pending    | b1
+ e6      | pending    | a3
+ e7      | no_show    | a2
+ e8      | cancelled  | a1
+ e9      | declined   | 
+(9 rows)
+
+SELECT 9
+== members after (expect the same count: no member created)
+ members 
+---------
+       4
+(1 row)
+
+ consent_rows 
+--------------
+            0
+(1 row)
+
+== apply 088 again (idempotent): rows changed by the second backfill (expect 0)
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/088_booking_member_backfill.sql:34: NOTICE:  relation "booking_requests_restaurant_member_date_idx" already exists, skipping
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+UPDATE 0
+ changed_on_second_run 
+-----------------------
+                     0
+(1 row)
+
+== relink_booking_member (R2, R4)
+-- link e4 (NULL -> a3): expect 1 row, member a3
+ booking | member 
+---------+--------
+ e4      | a3
+(1 row)
+
+-- relink e1 (a1 -> a2): expect 1 row
+ booking | member 
+---------+--------
+ e1      | a2
+(1 row)
+
+-- unlink e2 (a2 -> NULL): expect 1 row, member NULL
+ booking | member_id 
+---------+-----------
+ e2      | 
+(1 row)
+
+-- refused, expect 0 rows each: other tenant member (b1), other tenant booking (e5 via A), stale from (e1 still a1?), unverified e3, no-op (e6 a3 -> a3)
+ other_tenant_member 
+---------------------
+                   0
+(1 row)
+
+ other_tenant_booking 
+----------------------
+                    0
+(1 row)
+
+ stale_from 
+------------
+          0
+(1 row)
+
+ unverified 
+------------
+          0
+(1 row)
+
+ no_op 
+-------
+     0
+(1 row)
+
+-- events: expect exactly 3 booking.member_relinked rows (actor + ids only, member_id NULL)
+ restaurant | member_id |          type           | actor |                                                                              data_json                                                                              
+------------+-----------+-------------------------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e1", "toMemberId": "b0080000-0000-4000-8000-0000000000a2", "fromMemberId": "b0080000-0000-4000-8000-0000000000a1"}
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e2", "toMemberId": null, "fromMemberId": "b0080000-0000-4000-8000-0000000000a2"}
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e4", "toMemberId": "b0080000-0000-4000-8000-0000000000a3", "fromMemberId": null}
+(3 rows)
+
+-- rows after the relinks (expect e1 a2, e2 NULL, e3 NULL, e4 a3, e5 b1, e6 a3)
+ booking | member 
+---------+--------
+ e1      | a2
+ e2      | 
+ e3      | 
+ e4      | a3
+ e5      | b1
+ e6      | a3
+ e7      | a2
+ e8      | a1
+ e9      | 
+(9 rows)
+
+== r1 F1: relink moves the booking's OPEN change request (same statement, same CAS on the old member)
+INSERT 0 5
+-- relink e10 (a1 -> a2): expect 1 row (the booking only), member a2
+ booking | member 
+---------+--------
+ 10      | a2
+(1 row)
+
+-- rows (expect 10 a2, 11 a2 (moved, still pending), 12 a1 (declined: not open))
+ booking |  status   | member 
+---------+-----------+--------
+ 10      | confirmed | a2
+ 11      | pending   | a2
+ 12      | declined  | a1
+(3 rows)
+
+-- its events row: bookingId e10 + changeIds [e11]; one row
+                                                                                                         data_json                                                                                                          
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"bookingId": "b0080000-0000-4000-8000-000000000010", "changeIds": ["b0080000-0000-4000-8000-000000000011"], "toMemberId": "b0080000-0000-4000-8000-0000000000a2", "fromMemberId": "b0080000-0000-4000-8000-0000000000a1"}
+(1 row)
+
+-- staff confirm the change (085 confirm_booking_change): e11 confirmed on a2, e10 cancelled by change
+ booking |  status   | member 
+---------+-----------+--------
+ 11      | confirmed | a2
+(1 row)
+
+-- a2's list (listMemberBookings query): the live booking e11 confirmed is there
+ booking | booking_date |  status   
+---------+--------------+-----------
+ 11      | 2026-11-29   | confirmed
+ 10      | 2026-11-28   | cancelled
+(2 rows)
+
+-- relink e13 (a1 -> a3): e14 holds NULL, not a1, so it stays NULL; events row has no changeIds
+ booking | member 
+---------+--------
+ 13      | a3
+(1 row)
+
+ booking | member 
+---------+--------
+ 13      | a3
+ 14      | 
+(2 rows)
+
+                                                                              data_json                                                                              
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"bookingId": "b0080000-0000-4000-8000-000000000013", "toMemberId": "b0080000-0000-4000-8000-0000000000a3", "fromMemberId": "b0080000-0000-4000-8000-0000000000a1"}
+(1 row)
+
+-- a refused relink (stale from) moves nothing: e11 is not open any more, e10 now a2; relink e10 from a1 -> 0 rows, no new event
+ stale_from 
+------------
+          0
+(1 row)
+
+ relink_events_total 
+---------------------
+                   5
+(1 row)
+
+-- expect 5 (3 from the AC-6 part + e10 + e13)
+-- unlink with an open change: e15 booking of a3, e16 its open change of a3 -> both NULL
+INSERT 0 2
+ booking | member_id 
+---------+-----------
+ 15      | 
+(1 row)
+
+ booking | member_id 
+---------+-----------
+ 15      | 
+ 16      | 
+(2 rows)
+
+== member_booking_stats + the list query (R8): 60 bookings for member a1, now = 2026-11-20 11:00 HK
+UPDATE 2
+INSERT 0 60
+INSERT 0 3
+-- stats: total 60, 12 each (no change rows; diner cancellations count), last = latest past confirmed/no_show date, next = earliest pending/confirmed on/after now
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+    60 |        12 |        12 |       12 |      12 |      12 | 2026-11-16        | 2026-11-20
+(1 row)
+
+-- expected by hand: dates 2026-10-01..2026-11-29; i=50 is 2026-11-20 19:30 confirmed (not past at 11:00);
+--   r1 F2: last = 2026-11-16 (i=46 no_show; 47 cancelled, 48 declined, 49 pending do not count), next = 2026-11-20 (i=50, confirmed, 19:30 >= 11:00)
+-- list query as listMemberBookings sends it: 50 rows, newest first
+ listed | first_date | last_date  
+--------+------------+------------
+     50 | 2026-11-29 | 2026-10-11
+(1 row)
+
+-- the list uses the new index
+SET
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit
+   ->  Index Scan using booking_requests_restaurant_member_date_idx on booking_requests
+         Index Cond: ((restaurant_id = 'b0080000-0000-4000-8000-00000000000a'::uuid) AND (member_id = 'b0080000-0000-4000-8000-0000000000a1'::uuid))
+         Filter: (status <> 'unverified'::text)
+(4 rows)
+
+-- empty member: one row of zeros and NULLs
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+     0 |         0 |         0 |        0 |       0 |       0 |                   | 
+(1 row)
+
+== r1 F2: stats count reservations, not rows (now = 2026-11-20 11:00 HK)
+INSERT 0 3
+INSERT 0 9
+-- a4 changed-then-confirmed: expect total 1, confirmed 1, cancelled 0, last 2026-11-12, next NULL
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+     1 |         1 |         0 |        0 |       0 |       0 | 2026-11-12        | 
+(1 row)
+
+-- a5 declined-only (+ diner cancel + past pending): expect total 3, declined 1, cancelled 1, pending 1, last NULL, next NULL
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+     3 |         0 |         1 |        1 |       0 |       1 |                   | 
+(1 row)
+
+-- a6 open + declined change: expect total 2, confirmed 1, cancelled 1, declined 0, pending 0, last NULL, next 2026-11-25
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+     2 |         1 |         1 |        0 |       0 |       0 |                   | 2026-11-25
+(1 row)
+
+-- the list still shows every row: a4 2 rows, a6 4 rows
+ member | listed 
+--------+--------
+ a4     |      2
+ a6     |      4
+(2 rows)
+
+== r1 F3: a member created later links its member-less bookings (trigger trg_members_link_bookings)
+INSERT 0 5
+ members_before 
+----------------
+              7
+(1 row)
+
+ consent_before 
+----------------
+              0
+(1 row)
+
+-- insert member a7 (A, ...007)
+INSERT 0 1
+-- expect 71 a7 (linked), 72 NULL (unverified), 73 NULL (other restaurant), 74 a3 (already linked), 75 NULL (other phone)
+ booking |   status   | member 
+---------+------------+--------
+ 71      | pending    | a7
+ 72      | unverified | 
+ 73      | pending    | 
+ 74      | confirmed  | a3
+ 75      | pending    | 
+(5 rows)
+
+-- the trigger creates nothing: members +1 (the insert itself), consent rows unchanged, no events row (relink events stay 6: the 5 above + the e15 unlink)
+ members_after 
+---------------
+             8
+(1 row)
+
+ consent_after 
+---------------
+             0
+(1 row)
+
+ relink_events_total 
+---------------------
+                   6
+(1 row)
+
+-- insert member b7 (B, ...007): only B's booking 73 links, 71 stays a7
+INSERT 0 1
+ booking | member 
+---------+--------
+ 71      | a7
+ 73      | b7
+(2 rows)
+
+-- a duplicate member insert (ON CONFLICT DO NOTHING on the unique (restaurant_id, phone) index) inserts nothing: still 1 member with that phone
+INSERT 0 0
+ a7_phone_members 
+------------------
+                1
+(1 row)
+
+-- the unverified booking 72, once promoted to pending by the confirm code, is linked by the app (linkExistingMember), not by the trigger
+== apply 088 twice more (the release re-run): the second changes 0 rows, one trigger, no error
+-- (the first may link rows: the R8 section above unlinked a1's bookings by hand)
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+psql:supabase/migrations/088_booking_member_backfill.sql:34: NOTICE:  relation "booking_requests_restaurant_member_date_idx" already exists, skipping
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+UPDATE 6
+SELECT 30
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/088_booking_member_backfill.sql:34: NOTICE:  relation "booking_requests_restaurant_member_date_idx" already exists, skipping
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+UPDATE 0
+ changed_on_last_run 
+---------------------
+                   0
+(1 row)
+
+ triggers 
+----------
+        1
+(1 row)
+
+== grants: anon and authenticated may execute none of the three; service_role all (link_member_bookings is a trigger function: it cannot be called directly)
+        proname        |    rolname    | can_execute 
+-----------------------+---------------+-------------
+ link_member_bookings  | anon          | f
+ link_member_bookings  | authenticated | f
+ link_member_bookings  | service_role  | t
+ member_booking_stats  | anon          | f
+ member_booking_stats  | authenticated | f
+ member_booking_stats  | service_role  | t
+ relink_booking_member | anon          | f
+ relink_booking_member | authenticated | f
+ relink_booking_member | service_role  | t
+(9 rows)
+
+== events_type_check still accepts the 081 types and the new one, refuses others
+SAVEPOINT
+INSERT 0 1
+-- reachability_restored accepted
+ROLLBACK
+psql:.claude-workspace/artifacts/evidence/2026-11-20-book-008/r1-ac2-088-scratch.sql:273: ERROR:  new row for relation "events" violates check constraint "events_type_check"
+DETAIL:  Failing row contains (200a48a2-05bb-41fa-b627-4928f4ab4034, b0080000-0000-4000-8000-00000000000a, null, booking.unknown, {}, 2026-11-20 05:47:53.774163+00, null, null, null).
+ROLLBACK
+== ROLLBACK done
+# psql exit 0

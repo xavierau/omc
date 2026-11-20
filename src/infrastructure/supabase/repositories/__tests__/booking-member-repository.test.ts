@@ -9,12 +9,15 @@ vi.mock('@/infrastructure/supabase/client', () => ({ createServerSupabaseClient:
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import {
+  bookingMemberLinkStore,
   listMemberBookings,
   memberBookingStats,
   memberExistsForRestaurant,
   relinkBookingMember,
 } from '../booking-member-repository'
 import { linkAgentBookingMember } from '../agent-booking-repository'
+import { findMemberIdByPhoneStrict } from '../member-repository'
+import { STAFF_COLUMNS } from '../booking-request-repository'
 
 function use(results: Parameters<typeof recordingSupabase>[0]) {
   const rec = recordingSupabase(results)
@@ -104,5 +107,52 @@ describe('poppy verification link (R1)', () => {
     expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'is:member_id=null', 'neq:status=unverified'])
     use([{ data: [] }])
     expect(await linkAgentBookingMember('b-1', 'r-a', 'm-1')).toBe(false)
+  })
+})
+
+// r1 F6 (/code-review PR #214): a no-op PATCH answered the booking read with
+// the BOOK-001 columns (no replaces_booking_id / cancelled_by), a change with
+// the staff columns; both now read the staff columns.
+describe('relink store booking read (r1 F6)', () => {
+  it('reads the staff columns, scoped by id AND restaurant, never an unverified booking', async () => {
+    const rec = use([{ data: { ...ROW, replaces_booking_id: 'b-0', cancelled_by: null } }])
+    const booking = await bookingMemberLinkStore.findBooking('b-1', 'r-a')
+    const q = rec.queries[0]
+    expect(q.table).toBe('booking_requests')
+    expect(q.calls[0]).toEqual(['select', STAFF_COLUMNS])
+    expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'neq:status=unverified'])
+    expect(q.calls.at(-1)).toEqual(['maybeSingle'])
+    expect(booking).toMatchObject({ id: 'b-1', replacesBookingId: 'b-0', cancelledBy: null })
+  })
+
+  it('no row → null; a malformed id is a miss; other errors throw', async () => {
+    use([{ data: null }])
+    expect(await bookingMemberLinkStore.findBooking('b-1', 'r-b')).toBeNull()
+    use([{ error: { message: 'invalid input syntax for type uuid', code: '22P02' } as never }])
+    expect(await bookingMemberLinkStore.findBooking('nope', 'r-a')).toBeNull()
+    use([{ error: { message: 'timeout', code: '57014' } as never }])
+    await expect(bookingMemberLinkStore.findBooking('b-1', 'r-a')).rejects.toThrow('findStaffBooking')
+  })
+})
+
+// r1 F7 (/code-review PR #214): findMemberByPhone answers null on a DB error,
+// so the poppy promotion link failed silently. Its lookup now throws instead,
+// and linkExistingMember logs the failure; findMemberByPhone is unchanged.
+describe('poppy promotion member lookup (r1 F7)', () => {
+  it('scoped by restaurant AND phone; no row → null; a member → its id', async () => {
+    const rec = use([{ data: null }])
+    expect(await findMemberIdByPhoneStrict('r-a', '+85290000001')).toBeNull()
+    const q = rec.queries[0]
+    expect(q.table).toBe('members')
+    expect(q.calls[0]).toEqual(['select', 'id'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+85290000001'])
+    expect(q.calls.at(-1)).toEqual(['maybeSingle'])
+    use([{ data: { id: 'm-1' } }])
+    expect(await findMemberIdByPhoneStrict('r-a', '+85290000001')).toBe('m-1')
+  })
+
+  it('a DB error throws (never reads as "no member")', async () => {
+    use([{ error: { message: 'timeout', code: '57014' } as never }])
+    await expect(findMemberIdByPhoneStrict('r-a', '+85290000001')).rejects.toThrow('findMemberIdByPhoneStrict')
   })
 })

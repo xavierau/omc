@@ -120,6 +120,54 @@ describe('PATCH member: link, relink, unlink (R2, R4)', () => {
   })
 })
 
+// r1 F1 (/code-review PR #214): a relink left the open change request on the
+// old member, so once staff confirmed the change the live booking was in the
+// wrong person's history. The RPC moves the booking's open change requests in
+// the same statement and the same compare-and-set on the old member.
+describe('PATCH member: the open change request moves with the booking (r1 F1)', () => {
+  const changeOf = (bookingId: string, memberId: string | null, extra: Partial<Row> = {}) =>
+    seed({ memberId, replacesBookingId: bookingId, bookingDate: '2026-11-28', ...extra })
+
+  it('relink with an open change → both rows on the new member; one events row naming the booking (+ changeIds)', async () => {
+    const id = seed({ memberId: m1, status: 'confirmed', decidedAt: '2026-11-18T00:00:00Z' })
+    const change = changeOf(id, m1)
+    expect((await patch(id, { memberId: m2 })).status).toBe(200)
+    expect(rowOf(id).memberId).toBe(m2)
+    expect(rowOf(change).memberId).toBe(m2)
+    expect(world.links.events).toHaveLength(1)
+    expect(world.links.events[0].data).toEqual({ bookingId: id, fromMemberId: m1, toMemberId: m2, changeIds: [change] })
+  })
+
+  it('confirmed later → the live booking (the change row) is on the new member, the original is the cancelled one', async () => {
+    const id = seed({ memberId: m1, status: 'confirmed', decidedAt: '2026-11-18T00:00:00Z' })
+    const change = changeOf(id, m1)
+    await patch(id, { memberId: m2 })
+    await world.requests.confirmChange({ id: change, restaurantId: A, decidedBy: STAFF, decidedAt: new Date('2026-11-20T03:00:00Z') })
+    const live = world.requests.rows.filter((r) => r.memberId === m2 && r.status === 'confirmed').map((r) => r.id)
+    expect(live).toEqual([change])
+    expect(rowOf(id)).toMatchObject({ status: 'cancelled', cancelledBy: 'change', memberId: m2 })
+  })
+
+  it('unlink moves the open change too; decided changes, other bookings and other tenants are untouched', async () => {
+    const id = seed({ memberId: m1, status: 'confirmed', decidedAt: '2026-11-18T00:00:00Z' })
+    const open = changeOf(id, m1)
+    const declined = changeOf(id, m1, { status: 'declined', decidedAt: '2026-11-19T00:00:00Z' })
+    const otherBooking = seed({ memberId: m1 })
+    const otherTenant = changeOf(id, m1, { restaurantId: B })
+    expect((await patch(id, { memberId: null })).status).toBe(200)
+    expect(rowOf(open).memberId).toBeNull()
+    expect([rowOf(declined).memberId, rowOf(otherBooking).memberId, rowOf(otherTenant).memberId]).toEqual([m1, m1, m1])
+  })
+
+  it('a change row that no longer holds the old member is left alone (same compare-and-set)', async () => {
+    const id = seed({ memberId: m1, status: 'confirmed', decidedAt: '2026-11-18T00:00:00Z' })
+    const change = changeOf(id, null)
+    await patch(id, { memberId: m2 })
+    expect(rowOf(change).memberId).toBeNull()
+    expect(world.links.events[0].data).toEqual({ bookingId: id, fromMemberId: m1, toMemberId: m2 })
+  })
+})
+
 describe('PATCH member: tenant scope and validation (R2)', () => {
   const expectUnchanged = (id: string, memberId: string | null) => {
     expect(rowOf(id).memberId).toBe(memberId)
@@ -182,6 +230,37 @@ describe('PATCH member: tenant scope and validation (R2)', () => {
     expect(res.status).toBe(409)
     expect(rowOf(id).memberId).toBe(m2)
     expect(world.links.events).toEqual([])
+  })
+})
+
+// r1 F5 (/code-review PR #214): a relink that changed no row was always 409;
+// when the target member was deleted in between it is a 404, like a member
+// that was never there.
+describe('PATCH member: no row changed is re-checked (r1 F5)', () => {
+  it('the target member was deleted between the lookup and the write → 404 not_found, no event', async () => {
+    const id = seed()
+    const relink = world.links.relink.bind(world.links)
+    world.links.relink = async (args) => {
+      world.members.rows.splice(world.members.rows.findIndex((m) => m.id === m2), 1)
+      return relink(args)
+    }
+    const res = await patch(id, { memberId: m2 })
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'not_found' })
+    expect(rowOf(id).memberId).toBeNull()
+    expect(world.links.events).toEqual([])
+  })
+
+  it('the target member still exists → 409 changed', async () => {
+    const id = seed({ memberId: m1 })
+    const relink = world.links.relink.bind(world.links)
+    world.links.relink = async (args) => {
+      rowOf(id).memberId = null
+      return relink(args)
+    }
+    const res = await patch(id, { memberId: m2 })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'changed' })
   })
 })
 

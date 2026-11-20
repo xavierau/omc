@@ -88,10 +88,15 @@ export interface BookingsLanding {
  * (and its effect is still active). Review F2: a decision's refetch can outlive
  * a month change; the old month's answer arriving last must never replace the
  * new month's data, or the page shows Loading forever.
+ * BOOK-008 r1 F9 (CodeRabbit): and only while it is the latest request this
+ * settler started; a slow earlier fetch of the same query answering after a
+ * newer one never overwrites it (latest request wins). `requests` is the
+ * counter; pass the same one to every settler of a hook.
  */
-export function bookingsSettler(currentKey: () => string | null, land: BookingsLanding) {
+export function bookingsSettler(currentKey: () => string | null, land: BookingsLanding, requests = { latest: 0 }) {
   return (forKey: string, outcome: Promise<BookingsPayload>, isActive: () => boolean = () => true) => {
-    const current = () => isActive() && currentKey() === forKey
+    const request = ++requests.latest
+    const current = () => isActive() && currentKey() === forKey && request === requests.latest
     return outcome.then(
       (payload) => {
         if (current()) land.loaded(forKey, payload)
@@ -115,6 +120,9 @@ export function useBookings(query: BookingsQuery | null) {
   const key = query ? searchOf(query) : null
   const keyRef = useRef(key)
 
+  // r1 F9: one request counter for the hook's life, shared by every fetch and refetch.
+  const requestsRef = useRef({ latest: 0 })
+
   const settle = useCallback((forKey: string, outcome: Promise<BookingsPayload>, isActive?: () => boolean) => {
     const land: BookingsLanding = {
       loaded: (k, payload) => {
@@ -123,7 +131,7 @@ export function useBookings(query: BookingsQuery | null) {
       },
       failed: (k, message) => setFailed({ key: k, message }),
     }
-    return bookingsSettler(() => keyRef.current, land)(forKey, outcome, isActive)
+    return bookingsSettler(() => keyRef.current, land, requestsRef.current)(forKey, outcome, isActive)
   }, [])
 
   // Declared before the fetch effect so it runs first: a fetch always starts with keyRef current.

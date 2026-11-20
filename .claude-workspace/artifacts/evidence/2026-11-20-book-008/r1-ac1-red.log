@@ -1,0 +1,460 @@
+
+ RUN  v4.1.5 <repo>
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts (11 tests | 7 failed) 56ms
+     × is one SQL statement: the scoped compare-and-set UPDATE, then its events row from the changed rows only 26ms
+     × r1 F1: moves the booking's OPEN change requests of this restaurant, only when the booking moved, with the same CAS 8ms
+     × counts one member of one restaurant, unverified excluded; runs as the caller; service_role only 3ms
+     × a row counts unless it is an original cancelled by 'change' or a pending/declined change request 5ms
+     × last = the latest past confirmed or no_show date; next is unchanged 5ms
+     × an AFTER INSERT row trigger on members runs the link function 4ms
+     × links only member-less, non-unverified bookings of the new member's restaurant and phone; runs as the caller 0ms
+ ❯ src/application/__tests__/dashboard-feed-hides-member-relink.test.ts (2 tests | 2 failed) 13ms
+     × MiniFeed: the overview recentEvents query excludes it, scoped by restaurant, before the limit 11ms
+     × /dashboard/feed: the events API query excludes it, with and without a type filter 1ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts (11 tests | 4 failed) 19ms
+     × reads the staff columns, scoped by id AND restaurant, never an unverified booking 6ms
+     × no row → null; a malformed id is a miss; other errors throw 4ms
+     × scoped by restaurant AND phone; no row → null; a member → its id 1ms
+     × a DB error throws (never reads as "no member") 0ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts (23 tests | 4 failed) 31ms
+     × relink with an open change → both rows on the new member; one events row naming the booking (+ changeIds) 5ms
+     × confirmed later → the live booking (the change row) is on the new member, the original is the cancelled one 4ms
+     × unlink moves the open change too; decided changes, other bookings and other tenants are untouched 1ms
+     × the target member was deleted between the lookup and the write → 404 not_found, no event 1ms
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts (11 tests | 4 failed) 52ms
+     × 60 bookings → the newest 50 by date then time; stats over all 60, no_show included 35ms
+     × a changed-then-confirmed booking counts 1 total, 0 cancelled; both rows stay in the list 4ms
+     × an open or declined change request is not a reservation; a diner cancellation still counts 2ms
+     × a declined-only history has no lastBookingDate (nor a cancelled or pending one) 1ms
+ ❯ src/application/booking/__tests__/booking-deps-member-lookup.test.ts (3 tests | 2 failed) 7ms
+     × the confirm-code (poppy promotion) lookup throws on a DB error 5ms
+     × the confirm-code lookup answers the member id, or null for no member 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 23 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/__tests__/dashboard-feed-hides-member-relink.test.ts > activity feeds never show booking.member_relinked (r1 F4) > MiniFeed: the overview recentEvents query excludes it, scoped by restaurant, before the limit
+AssertionError: expected [ 'eq:restaurant_id=rest-a' ] to deeply equal [ 'eq:restaurant_id=rest-a', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=rest-a",
+-   "neq:type=booking.member_relinked",
+  ]
+
+ ❯ src/application/__tests__/dashboard-feed-hides-member-relink.test.ts:38:26
+     36|     const overview = await getDashboardOverview('rest-a')
+     37|     const q = eventsQuery(rec)
+     38|     expect(filtersOf(q)).toEqual(['eq:restaurant_id=rest-a', `neq:type…
+       |                          ^
+     39|     expect(q.calls.at(-1)).toEqual(['limit', 10])
+     40|     expect(overview.recentEvents.map((e) => e.id)).toEqual(['e-1'])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+ FAIL  src/application/__tests__/dashboard-feed-hides-member-relink.test.ts > activity feeds never show booking.member_relinked (r1 F4) > /dashboard/feed: the events API query excludes it, with and without a type filter
+AssertionError: expected [ 'eq:restaurant_id=rest-a' ] to deeply equal [ 'eq:restaurant_id=rest-a', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=rest-a",
+-   "neq:type=booking.member_relinked",
+  ]
+
+ ❯ src/application/__tests__/dashboard-feed-hides-member-relink.test.ts:46:41
+     44|     let rec = use()
+     45|     await getEvents({ restaurantId: 'rest-a', limit: 50 })
+     46|     expect(filtersOf(eventsQuery(rec))).toEqual(['eq:restaurant_id=res…
+       |                                         ^
+     47|     rec = use()
+     48|     await getEvents({ restaurantId: 'rest-a', limit: 50, type: 'join' …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+ FAIL  src/application/booking/__tests__/booking-deps-member-lookup.test.ts > member lookups in the booking composition root (r1 F7) > the confirm-code (poppy promotion) lookup throws on a DB error
+AssertionError: promise resolved "null" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+null
+
+ ❯ src/application/booking/__tests__/booking-deps-member-lookup.test.ts:21:87
+     19|   it('the confirm-code (poppy promotion) lookup throws on a DB error',…
+     20|     vi.mocked(findMemberIdByPhoneStrict).mockRejectedValue(new Error('…
+     21|     await expect(verifyAgentBookingDeps().members.findMemberId('r-a', …
+       |                                                                                       ^
+     22|     expect(findMemberByPhone).not.toHaveBeenCalled()
+     23|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/23]⎯
+
+ FAIL  src/application/booking/__tests__/booking-deps-member-lookup.test.ts > member lookups in the booking composition root (r1 F7) > the confirm-code lookup answers the member id, or null for no member
+AssertionError: expected null to be 'm-1' // Object.is equality
+
+- Expected:
+"m-1"
+
++ Received:
+null
+
+ ❯ src/application/booking/__tests__/booking-deps-member-lookup.test.ts:28:62
+     26|     vi.mocked(findMemberIdByPhoneStrict).mockResolvedValueOnce('m-1').…
+     27|     const lookup = verifyAgentBookingDeps().members
+     28|     expect(await lookup.findMemberId('r-a', '+85290000001')).toBe('m-1…
+       |                                                              ^
+     29|     expect(await lookup.findMemberId('r-a', '+85290000002')).toBeNull()
+     30|     expect(findMemberIdByPhoneStrict).toHaveBeenCalledWith('r-a', '+85…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 relink_booking_member (R2, R4) > is one SQL statement: the scoped compare-and-set UPDATE, then its events row from the changed rows only
+AssertionError: expected 'CREATE OR REPLACE FUNCTION public.rel…' to contain 'SELECT p_restaurant_id, NULL, \'booki…'
+
+Expected: "SELECT p_restaurant_id, NULL, 'booking.member_relinked', p_actor_user_id, jsonb_build_object('bookingId', c.id, 'fromMemberId', p_from_member_id, 'toMemberId', p_to_member_id) || CASE WHEN EXISTS (SELECT 1 FROM moved) THEN jsonb_build_object('changeIds', (SELECT jsonb_agg(m.id ORDER BY m.id) FROM moved m)) ELSE '{}'::jsonb END FROM changed c"
+Received: "CREATE OR REPLACE FUNCTION public.relink_booking_member( p_id uuid, p_restaurant_id uuid, p_from_member_id uuid, p_to_member_id uuid, p_actor_user_id uuid ) RETURNS SETOF booking_requests AS $$ WITH changed AS ( UPDATE booking_requests b SET member_id = p_to_member_id WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id AND b.status <> 'unverified' AND b.member_id IS NOT DISTINCT FROM p_from_member_id AND p_to_member_id IS DISTINCT FROM p_from_member_id AND (p_to_member_id IS NULL OR EXISTS ( SELECT 1 FROM members m WHERE m.id = p_to_member_id AND m.restaurant_id = p_restaurant_id )) RETURNING b.* ), audit AS ( INSERT INTO events (restaurant_id, member_id, type, actor_user_id, data_json) SELECT p_restaurant_id, NULL, 'booking.member_relinked', p_actor_user_id, jsonb_build_object('bookingId', c.id, 'fromMemberId', p_from_member_id, 'toMemberId', p_to_member_id) FROM changed c RETURNING id ) SELECT c.* FROM changed c; $$ LANGUAGE sql;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:55:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 relink_booking_member (R2, R4) > r1 F1: moves the booking's OPEN change requests of this restaurant, only when the booking moved, with the same CAS
+AssertionError: expected 'CREATE OR REPLACE FUNCTION public.rel…' to contain 'moved AS ( UPDATE booking_requests c …'
+
+Expected: "moved AS ( UPDATE booking_requests c SET member_id = p_to_member_id FROM changed b WHERE c.replaces_booking_id = b.id AND c.restaurant_id = p_restaurant_id AND c.status = 'pending' AND c.member_id IS NOT DISTINCT FROM p_from_member_id RETURNING c.id )"
+Received: "CREATE OR REPLACE FUNCTION public.relink_booking_member( p_id uuid, p_restaurant_id uuid, p_from_member_id uuid, p_to_member_id uuid, p_actor_user_id uuid ) RETURNS SETOF booking_requests AS $$ WITH changed AS ( UPDATE booking_requests b SET member_id = p_to_member_id WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id AND b.status <> 'unverified' AND b.member_id IS NOT DISTINCT FROM p_from_member_id AND p_to_member_id IS DISTINCT FROM p_from_member_id AND (p_to_member_id IS NULL OR EXISTS ( SELECT 1 FROM members m WHERE m.id = p_to_member_id AND m.restaurant_id = p_restaurant_id )) RETURNING b.* ), audit AS ( INSERT INTO events (restaurant_id, member_id, type, actor_user_id, data_json) SELECT p_restaurant_id, NULL, 'booking.member_relinked', p_actor_user_id, jsonb_build_object('bookingId', c.id, 'fromMemberId', p_from_member_id, 'toMemberId', p_to_member_id) FROM changed c RETURNING id ) SELECT c.* FROM changed c; $$ LANGUAGE sql;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:62:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 member_booking_stats (R8) > counts one member of one restaurant, unverified excluded; runs as the caller; service_role only
+AssertionError: expected 'CREATE OR REPLACE FUNCTION public.mem…' to contain 'count(*) FILTER (WHERE r.counted AND …'
+
+Expected: "count(*) FILTER (WHERE r.counted AND b.status = 'no_show')::int"
+Received: "CREATE OR REPLACE FUNCTION public.member_booking_stats( p_member_id uuid, p_restaurant_id uuid, p_now_date date, p_now_time time ) RETURNS TABLE ( total int, confirmed int, cancelled int, declined int, no_show int, pending int, last_booking_date date, next_booking_date date ) AS $$ SELECT count(*)::int, count(*) FILTER (WHERE b.status = 'confirmed')::int, count(*) FILTER (WHERE b.status = 'cancelled')::int, count(*) FILTER (WHERE b.status = 'declined')::int, count(*) FILTER (WHERE b.status = 'no_show')::int, count(*) FILTER (WHERE b.status = 'pending')::int, max(b.booking_date) FILTER ( WHERE b.booking_date < p_now_date OR (b.booking_date = p_now_date AND b.booking_time < p_now_time) ), min(b.booking_date) FILTER ( WHERE b.status IN ('pending', 'confirmed') AND (b.booking_date > p_now_date OR (b.booking_date = p_now_date AND b.booking_time >= p_now_time)) ) FROM booking_requests b WHERE b.restaurant_id = p_restaurant_id AND b.member_id = p_member_id AND b.status <> 'unverified'; $$ LANGUAGE sql STABLE;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:78:17
+     76|     const src = fnSource('member_booking_stats')
+     77|     expect(src).toContain("WHERE b.restaurant_id = p_restaurant_id AND…
+     78|     expect(src).toContain("count(*) FILTER (WHERE r.counted AND b.stat…
+       |                 ^
+     79|     expect(src).not.toMatch(/SECURITY DEFINER/i)
+     80|     expect(ALL).toContain('REVOKE ALL ON FUNCTION public.member_bookin…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 member_booking_stats counts reservations (r1 F2) > a row counts unless it is an original cancelled by 'change' or a pending/declined change request
+AssertionError: expected 'CREATE OR REPLACE FUNCTION public.mem…' to contain 'CROSS JOIN LATERAL ( SELECT b.cancell…'
+
+Expected: "CROSS JOIN LATERAL ( SELECT b.cancelled_by IS DISTINCT FROM 'change' AND NOT (b.replaces_booking_id IS NOT NULL AND b.status IN ('pending', 'declined')) AS counted ) r"
+Received: "CREATE OR REPLACE FUNCTION public.member_booking_stats( p_member_id uuid, p_restaurant_id uuid, p_now_date date, p_now_time time ) RETURNS TABLE ( total int, confirmed int, cancelled int, declined int, no_show int, pending int, last_booking_date date, next_booking_date date ) AS $$ SELECT count(*)::int, count(*) FILTER (WHERE b.status = 'confirmed')::int, count(*) FILTER (WHERE b.status = 'cancelled')::int, count(*) FILTER (WHERE b.status = 'declined')::int, count(*) FILTER (WHERE b.status = 'no_show')::int, count(*) FILTER (WHERE b.status = 'pending')::int, max(b.booking_date) FILTER ( WHERE b.booking_date < p_now_date OR (b.booking_date = p_now_date AND b.booking_time < p_now_time) ), min(b.booking_date) FILTER ( WHERE b.status IN ('pending', 'confirmed') AND (b.booking_date > p_now_date OR (b.booking_date = p_now_date AND b.booking_time >= p_now_time)) ) FROM booking_requests b WHERE b.restaurant_id = p_restaurant_id AND b.member_id = p_member_id AND b.status <> 'unverified'; $$ LANGUAGE sql STABLE;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:89:19
+     87|
+     88|   it("a row counts unless it is an original cancelled by 'change' or a…
+     89|     expect(src()).toContain(
+       |                   ^
+     90|       "CROSS JOIN LATERAL ( SELECT b.cancelled_by IS DISTINCT FROM 'ch…
+     91|     )
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 member_booking_stats counts reservations (r1 F2) > last = the latest past confirmed or no_show date; next is unchanged
+AssertionError: expected 'CREATE OR REPLACE FUNCTION public.mem…' to contain 'max(b.booking_date) FILTER ( WHERE b.…'
+
+Expected: "max(b.booking_date) FILTER ( WHERE b.status IN ('confirmed', 'no_show') AND (b.booking_date < p_now_date OR (b.booking_date = p_now_date AND b.booking_time < p_now_time)) )"
+Received: "CREATE OR REPLACE FUNCTION public.member_booking_stats( p_member_id uuid, p_restaurant_id uuid, p_now_date date, p_now_time time ) RETURNS TABLE ( total int, confirmed int, cancelled int, declined int, no_show int, pending int, last_booking_date date, next_booking_date date ) AS $$ SELECT count(*)::int, count(*) FILTER (WHERE b.status = 'confirmed')::int, count(*) FILTER (WHERE b.status = 'cancelled')::int, count(*) FILTER (WHERE b.status = 'declined')::int, count(*) FILTER (WHERE b.status = 'no_show')::int, count(*) FILTER (WHERE b.status = 'pending')::int, max(b.booking_date) FILTER ( WHERE b.booking_date < p_now_date OR (b.booking_date = p_now_date AND b.booking_time < p_now_time) ), min(b.booking_date) FILTER ( WHERE b.status IN ('pending', 'confirmed') AND (b.booking_date > p_now_date OR (b.booking_date = p_now_date AND b.booking_time >= p_now_time)) ) FROM booking_requests b WHERE b.restaurant_id = p_restaurant_id AND b.member_id = p_member_id AND b.status <> 'unverified'; $$ LANGUAGE sql STABLE;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:99:19
+     97|
+     98|   it('last = the latest past confirmed or no_show date; next is unchan…
+     99|     expect(src()).toContain(
+       |                   ^
+    100|       "max(b.booking_date) FILTER ( WHERE b.status IN ('confirmed', 'n…
+    101|     )
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 member insert links its bookings (r1 F3, R1) > an AFTER INSERT row trigger on members runs the link function
+AssertionError: expected 'ALTER TABLE events DROP CONSTRAINT IF…' to contain 'DROP TRIGGER IF EXISTS trg_members_li…'
+
+Expected: "DROP TRIGGER IF EXISTS trg_members_link_bookings ON members;"
+Received: "ALTER TABLE events DROP CONSTRAINT IF EXISTS events_type_check; ALTER TABLE events ADD CONSTRAINT events_type_check CHECK (type IN ( 'join','redeem','receipt','campaign','points', 'unsubscribe','reward_redeem', 'pos_transaction','pos_refund','pos_customer_link', 'integration_error','whatsapp_error', 'onboarding_phase_advanced', 'consent_imported','consent_granted', 'consent_revoked','consent_expired', 'stamp','stamp_reversal', 'reachability_restored', 'booking.member_relinked' )); CREATE INDEX IF NOT EXISTS booking_requests_restaurant_member_date_idx ON booking_requests (restaurant_id, member_id, booking_date DESC, booking_time DESC) WHERE member_id IS NOT NULL; CREATE OR REPLACE FUNCTION public.relink_booking_member( p_id uuid, p_restaurant_id uuid, p_from_member_id uuid, p_to_member_id uuid, p_actor_user_id uuid ) RETURNS SETOF booking_requests AS $$ WITH changed AS ( UPDATE booking_requests b SET member_id = p_to_member_id WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id AND b.status <> 'unverified' AND b.member_id IS NOT DISTINCT FROM p_from_member_id AND p_to_member_id IS DISTINCT FROM p_from_member_id AND (p_to_member_id IS NULL OR EXISTS ( SELECT 1 FROM members m WHERE m.id = p_to_member_id AND m.restaurant_id = p_restaurant_id )) RETURNING b.* ), audit AS ( INSERT INTO events (restaurant_id, member_id, type, actor_user_id, data_json) SELECT p_restaurant_id, NULL, 'booking.member_relinked', p_actor_user_id, jsonb_build_object('bookingId', c.id, 'fromMemberId', p_from_member_id, 'toMemberId', p_to_member_id) FROM changed c RETURNING id ) SELECT c.* FROM changed c; $$ LANGUAGE sql; REVOKE ALL ON FUNCTION public.relink_booking_member(uuid, uuid, uuid, uuid, uuid) FROM PUBLIC, anon, authenticated; GRANT EXECUTE ON FUNCTION public.relink_booking_member(uuid, uuid, uuid, uuid, uuid) TO service_role; CREATE OR REPLACE FUNCTION public.member_booking_stats( p_member_id uuid, p_restaurant_id uuid, p_now_date date, p_now_time time ) RETURNS TABLE ( total int, confirmed int, cancelled int, declined int, no_show int, pending int, last_booking_date date, next_booking_date date ) AS $$ SELECT count(*)::int, count(*) FILTER (WHERE b.status = 'confirmed')::int, count(*) FILTER (WHERE b.status = 'cancelled')::int, count(*) FILTER (WHERE b.status = 'declined')::int, count(*) FILTER (WHERE b.status = 'no_show')::int, count(*) FILTER (WHERE b.status = 'pending')::int, max(b.booking_date) FILTER ( WHERE b.booking_date < p_now_date OR (b.booking_date = p_now_date AND b.booking_time < p_now_time) ), min(b.booking_date) FILTER ( WHERE b.status IN ('pending', 'confirmed') AND (b.booking_date > p_now_date OR (b.booking_date = p_now_date AND b.booking_time >= p_now_time)) ) FROM booking_requests b WHERE b.restaurant_id = p_restaurant_id AND b.member_id = p_member_id AND b.status <> 'unverified'; $$ LANGUAGE sql STABLE; REVOKE ALL ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) FROM PUBLIC, anon, authenticated; GRANT EXECUTE ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) TO service_role; UPDATE booking_requests b SET member_id = m.id FROM members m WHERE b.member_id IS NULL AND b.status <> 'unverified' AND m.restaurant_id = b.restaurant_id AND m.phone = b.phone;"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:110:17
+    108| describe('088 member insert links its bookings (r1 F3, R1)', () => {
+    109|   it('an AFTER INSERT row trigger on members runs the link function', …
+    110|     expect(ALL).toContain('DROP TRIGGER IF EXISTS trg_members_link_boo…
+       |                 ^
+    111|     expect(ALL).toContain(
+    112|       'CREATE TRIGGER trg_members_link_bookings AFTER INSERT ON member…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts > 088 member insert links its bookings (r1 F3, R1) > links only member-less, non-unverified bookings of the new member's restaurant and phone; runs as the caller
+AssertionError: link_member_bookings is defined in 088: expected -1 to be greater than or equal to 0
+ ❯ fnSource src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:23:46
+     21| function fnSource(name: string): string {
+     22|   const start = SQL.indexOf(`CREATE OR REPLACE FUNCTION public.${name}…
+     23|   expect(start, `${name} is defined in 088`).toBeGreaterThanOrEqual(0)
+       |                                              ^
+     24|   const end = SQL.indexOf('$$ LANGUAGE', SQL.indexOf('$$', start) + 2)
+     25|   return squash(SQL.slice(start, SQL.indexOf(';', end) + 1))
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-migration-contract.test.ts:117:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > relink store booking read (r1 F6) > reads the staff columns, scoped by id AND restaurant, never an unverified booking
+AssertionError: expected [ 'select', …(1) ] to deeply equal [ 'select', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "select",
+-   "id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by",
++   "id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:122:24
+    120|     const q = rec.queries[0]
+    121|     expect(q.table).toBe('booking_requests')
+    122|     expect(q.calls[0]).toEqual(['select', STAFF_COLUMNS])
+       |                        ^
+    123|     expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a',…
+    124|     expect(q.calls.at(-1)).toEqual(['maybeSingle'])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > relink store booking read (r1 F6) > no row → null; a malformed id is a miss; other errors throw
+Error: findBookingForRestaurant: invalid input syntax for type uuid
+ ❯ Object.findBookingForRestaurant [as findBooking] src/infrastructure/supabase/repositories/booking-request-repository.ts:318:20
+    316|     .neq('status', 'unverified')
+    317|     .maybeSingle()
+    318|   if (error) throw new Error(`findBookingForRestaurant: ${error.messag…
+       |                    ^
+    319|   return data ? toBookingRequest(data as BookingRow) : null
+    320| }
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:132:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > poppy promotion member lookup (r1 F7) > scoped by restaurant AND phone; no row → null; a member → its id
+TypeError: findMemberIdByPhoneStrict is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:144:18
+    142|   it('scoped by restaurant AND phone; no row → null; a member → its id…
+    143|     const rec = use([{ data: null }])
+    144|     expect(await findMemberIdByPhoneStrict('r-a', '+85290000001')).toB…
+       |                  ^
+    145|     const q = rec.queries[0]
+    146|     expect(q.table).toBe('members')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/23]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > poppy promotion member lookup (r1 F7) > a DB error throws (never reads as "no member")
+TypeError: findMemberIdByPhoneStrict is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:156:18
+    154|   it('a DB error throws (never reads as "no member")', async () => {
+    155|     use([{ error: { message: 'timeout', code: '57014' } as never }])
+    156|     await expect(findMemberIdByPhoneStrict('r-a', '+85290000001')).rej…
+       |                  ^
+    157|   })
+    158| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/23]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: the open change request moves with the booking (r1 F1) > relink with an open change → both rows on the new member; one events row naming the booking (+ changeIds)
+AssertionError: expected '88aca5c0-9aa6-45e7-aa6e-817d1dac2421' to be '1569e4a1-d3df-4974-a21a-9e88b484b044' // Object.is equality
+
+Expected: "1569e4a1-d3df-4974-a21a-9e88b484b044"
+Received: "88aca5c0-9aa6-45e7-aa6e-817d1dac2421"
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:136:36
+    134|     expect((await patch(id, { memberId: m2 })).status).toBe(200)
+    135|     expect(rowOf(id).memberId).toBe(m2)
+    136|     expect(rowOf(change).memberId).toBe(m2)
+       |                                    ^
+    137|     expect(world.links.events).toHaveLength(1)
+    138|     expect(world.links.events[0].data).toEqual({ bookingId: id, fromMe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/23]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: the open change request moves with the booking (r1 F1) > confirmed later → the live booking (the change row) is on the new member, the original is the cancelled one
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- [
+-   "b3304af3-2771-4040-a100-8cd54c0e9b4f",
+- ]
++ []
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:147:18
+    145|     await world.requests.confirmChange({ id: change, restaurantId: A, …
+    146|     const live = world.requests.rows.filter((r) => r.memberId === m2 &…
+    147|     expect(live).toEqual([change])
+       |                  ^
+    148|     expect(rowOf(id)).toMatchObject({ status: 'cancelled', cancelledBy…
+    149|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/23]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: the open change request moves with the booking (r1 F1) > unlink moves the open change too; decided changes, other bookings and other tenants are untouched
+AssertionError: expected '66f2bed6-2b60-4de4-a77f-6654992a24f2' to be null
+
+- Expected:
+null
+
++ Received:
+"66f2bed6-2b60-4de4-a77f-6654992a24f2"
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:158:34
+    156|     const otherTenant = changeOf(id, m1, { restaurantId: B })
+    157|     expect((await patch(id, { memberId: null })).status).toBe(200)
+    158|     expect(rowOf(open).memberId).toBeNull()
+       |                                  ^
+    159|     expect([rowOf(declined).memberId, rowOf(otherBooking).memberId, ro…
+    160|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/23]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: no row changed is re-checked (r1 F5) > the target member was deleted between the lookup and the write → 404 not_found, no event
+AssertionError: expected 409 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 409
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:248:24
+    246|     }
+    247|     const res = await patch(id, { memberId: m2 })
+    248|     expect(res.status).toBe(404)
+       |                        ^
+    249|     expect(await res.json()).toEqual({ error: 'not_found' })
+    250|     expect(rowOf(id).memberId).toBeNull()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/23]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > 60 bookings → the newest 50 by date then time; stats over all 60, no_show included
+AssertionError: expected { total: 60, confirmed: 12, …(6) } to deeply equal { total: 60, confirmed: 12, …(6) }
+
+- Expected
++ Received
+
+  {
+    "cancelled": 12,
+    "confirmed": 12,
+    "declined": 12,
+-   "lastBookingDate": "2026-11-01",
++   "lastBookingDate": "2026-11-04",
+    "nextBookingDate": null,
+    "noShow": 12,
+    "pending": 12,
+    "total": 60,
+  }
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:72:19
+     70|     expect(keys).toEqual([...keys].sort().reverse())
+     71|     expect(bookings[0]).toEqual({ id: 'b-060', bookingDate: '2026-11-0…
+     72|     expect(stats).toEqual({
+       |                   ^
+     73|       total: 60, confirmed: 12, noShow: 12, cancelled: 12, declined: 1…
+     74|       // r1 F2: last = the latest past confirmed or no_show date (11-0…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/23]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > a changed-then-confirmed booking counts 1 total, 0 cancelled; both rows stay in the list
+AssertionError: expected { total: 2, confirmed: 1, …(6) } to deeply equal { total: 1, confirmed: 1, …(6) }
+
+- Expected
++ Received
+
+  {
+-   "cancelled": 0,
++   "cancelled": 1,
+    "confirmed": 1,
+    "declined": 0,
+    "lastBookingDate": "2026-11-12",
+    "nextBookingDate": null,
+    "noShow": 0,
+    "pending": 0,
+-   "total": 1,
++   "total": 2,
+  }
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:116:19
+    114|     const { bookings, stats } = (await get()).bookingHistory
+    115|     expect(bookings.map((b: { id: string }) => b.id)).toEqual(['change…
+    116|     expect(stats).toEqual({
+       |                   ^
+    117|       total: 1, confirmed: 1, cancelled: 0, declined: 0, noShow: 0, pe…
+    118|       lastBookingDate: '2026-11-12', nextBookingDate: null,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/23]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > an open or declined change request is not a reservation; a diner cancellation still counts
+AssertionError: expected { total: 4, confirmed: 1, …(6) } to match object { total: 2, confirmed: 1, …(3) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "cancelled": 1,
+    "confirmed": 1,
+-   "declined": 0,
+-   "pending": 0,
+-   "total": 2,
++   "declined": 1,
++   "pending": 1,
++   "total": 4,
+  }
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:128:19
+    126|     seed({ id: 'diner-cancel', bookingDate: '2026-11-05', status: 'can…
+    127|     const { stats } = (await get()).bookingHistory
+    128|     expect(stats).toMatchObject({ total: 2, confirmed: 1, cancelled: 1…
+       |                   ^
+    129|   })
+    130|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/23]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > a declined-only history has no lastBookingDate (nor a cancelled or pending one)
+AssertionError: expected '2026-11-03' to be null
+
+- Expected:
+null
+
++ Received:
+"2026-11-03"
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:136:35
+    134|     seed({ bookingDate: '2026-11-03', status: 'pending' })
+    135|     const { stats } = (await get()).bookingHistory
+    136|     expect(stats.lastBookingDate).toBeNull()
+       |                                   ^
+    137|     expect(stats.total).toBe(3)
+    138|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/23]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  23 failed | 38 passed (61)
+   Start at  13:42:58
+   Duration  1.05s (transform 1.25s, setup 0ms, import 2.26s, tests 178ms, environment 0ms)
+

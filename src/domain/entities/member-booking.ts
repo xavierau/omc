@@ -23,7 +23,11 @@ export interface MemberBookingItem {
   status: Exclude<BookingStatus, 'unverified'>
 }
 
-/** R8: over every booking of the member (unverified excluded), computed in SQL. */
+/**
+ * R8: over every booking of the member (unverified excluded), computed in SQL.
+ * r1 F2: the counts are reservations, not rows: an original cancelled by a
+ * confirmed change, and a pending or declined change request, are not counted.
+ */
 export interface MemberBookingStats {
   total: number
   confirmed: number
@@ -31,7 +35,7 @@ export interface MemberBookingStats {
   declined: number
   noShow: number
   pending: number
-  /** The latest booking date before now (Hong Kong), any status; null when none. */
+  /** The latest date before now (Hong Kong) of a confirmed or no_show booking; null when none. */
   lastBookingDate: string | null
   /** The earliest pending or confirmed booking date from now on; null when none. */
   nextBookingDate: string | null
@@ -40,15 +44,4 @@ export interface MemberBookingStats {
 export interface MemberBookingHistory {
   bookings: MemberBookingItem[]
   stats: MemberBookingStats
-}
-
-export const EMPTY_MEMBER_BOOKING_STATS: MemberBookingStats = {
-  total: 0,
-  confirmed: 0,
-  cancelled: 0,
-  declined: 0,
-  noShow: 0,
-  pending: 0,
-  lastBookingDate: null,
-  nextBookingDate: null,
 }
