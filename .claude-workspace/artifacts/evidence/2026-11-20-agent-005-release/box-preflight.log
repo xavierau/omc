@@ -1,0 +1,20 @@
+# ssh read-only box pre-flight
+/home/forge/app.ohmyclient.io
+2026-11-20T08:35:13Z
+d74942c119e55b17bfec0961c8a319bd6e30faad
+Dy3BMrmauUbUY9gIzFdVI
+1f2b9eb44ad665ae4e0818cb6b66235d0a96f8b4 Dy3BMrmauUbUY9gIzFdVI rel-book008
+3661017       15:21 next-server (v16.3.4)
+3661081       15:16 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3661123       15:12 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3661124       15:12 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3661162       15:11 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+/dev/root          58447 31402     27029  54% /
+MemAvailable:    2400344 kB
+SwapFree:          54628 kB
+0.25 0.19 0.18 1/550 3667505
+token lines: 1
+ref lines: 1
+ M supabase/.temp/cli-latest
+22285
+53150

@@ -1623,31 +1623,32 @@
       "label": "Review",
       "tasks": [
         {
-          "id": "AGENT-005",
-          "title": "Agent skills (core / loyalty / booking) and a 訂座規則 booking-rules field the booking skill checks",
-          "description": "The reply agent's system instruction = core rules 1-5 (unchanged) + one section per skill whose tools are offered for the job (loyalty: get_member_summary, list_rewards; booking: the booking tools); rule 6 split by meaning into the two skills. The booking skill adds the check rule (requested time vs BOOKING RULES, else the opening hours in the knowledge; outside → say so, suggest times, do not propose) and a BOOKING RULES data block from booking_config.bookingRules (free text, max 2000, no migration), edited in Settings → Booking when mode is not off. Prod omc 2026-11-20: the agent proposed 11:00 and offered 10:00 although 餐廳資料 says 11:00-21:00. POC.",
+          "id": "WONB-020",
+          "title": "Imported members claim their welcome offer on first join (WhatsApp JOIN + web join form)",
+          "description": "Owner 2026-11-20: imported members scanning the join QR were told 'already a member' and could never claim the welcome promotion (imports write only consent_imported, never join). Rule: member exists AND has no 'join' event AND holds no welcome coupon (type welcome, or a coupon of the current welcome campaign) -> claimable. WhatsApp JOIN claims it once (onboardNewMember with stored name/language) under a per-member Redis lock (SET NX PX 30s, owner-checked release, re-check under the lock); no lock / Redis down / any claim failure -> welcome-back. r1 owner ruling 2026-11-20: the web join form never mints for an existing member; a claimable one gets {existing, claimOnWhatsApp, whatsappClaimUrl} and a translated link to wa.me/<number>?text=JOIN (plain alreadyMember without a usable number). Partner create-job retries write the missing join event. Lookup errors fail toward welcome-back. r2 (second review, main ruling 2026-11-20): a claim failing after the mint sends the minimal welcome text with the minted code (welcome-back only when no coupon is on file or recovery fails); a coupon of ANY welcome-type campaign blocks the claim; the public join endpoint answers every existing member identically ({existing, claimOnWhatsApp, whatsappClaimUrl} when the number is usable), copy 'open WhatsApp to see your offers and points'; a validation error clears the link; the partner create-job never fails on the join-event lookup. r3: migration 089_events_join_member_index.sql (non-unique partial index events(restaurant_id, member_id) WHERE type = 'join', review F6) MUST be applied at release; no code depends on it, apply before or after the deploy; check SELECT count(*) FROM events first and pre-create it CONCURRENTLY if large (see the migration header). Coupons already covered (uniq_coupons_welcome_member, idx_coupons_member_id). r4 (third review): the new-member paths (WhatsApp createNewMember, web createNewWebMember) hold the same per-member welcome-claim lock through mint + join event (+ sends); lock held by a concurrent claim -> no mint (that claim welcomes the member); Redis down -> onboard anyway (fail open) with a warning. Welcome provenance is stored on the coupon: migration 090_coupons_welcome_offer.sql adds coupons.welcome_offer boolean NOT NULL DEFAULT false and backfills true for type welcome and coupons of a same-restaurant welcome-type campaign; every welcome mint (createWelcomeCoupon; createCampaignCoupon with welcomeOffer from onboardNewMember and registerMemberWeb) writes true; the claim lookup matches type welcome OR welcome_offer, so deleting or retyping the campaign no longer reopens the claim. The web join race branch answers like any existing member. The partner create-job no longer emits a join event when its join-event lookup errors (warns with job + member). RELEASE ORDER: 089 and 090 are applied BEFORE the code switch. Evidence: deploy.sh (set -euo pipefail) runs `supabase db push --linked --include-all` (line 267) before `restart_daemon` app/worker (lines 381-382), and BOOK-007's Forge log shows 'Applying migration 087... Finished supabase db push' before 'Restarting daemons'; a failed push aborts before the restart. 090 must not be skipped: welcome mints write welcome_offer. r6 (final review): the partner welcome mint (mintWelcomeCouponIdempotent, both legs) writes welcome_offer true; a new member whose lock is held WAITS for it (250 ms x 20, max ~5 s) and re-checks under the lock: welcomed by the concurrent claim -> no mint, no sends (web: existing answer); not welcomed -> onboarded once under the lock; still held or the lookup errors -> WhatsApp minimal no-code welcome (member stays claimable) / web existing answer; never a mint without the lock. The createOrGetMember race branch on WhatsApp goes through the same claim gate as the pre-check. Join form error line: data-testid join-error.",
           "priority": "high",
           "labels": [
-            "ai",
-            "whatsapp",
-            "booking",
+            "onboarding",
+            "import",
+            "members",
+            "backend",
             "poc"
           ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "branch": "feature/wonb-020-imported-welcome-claim",
+          "pr": "https://github.com/xavierau/omc/pull/212",
           "related": [
-            "kanban:AGENT-003",
-            "kanban:AGENT-004",
-            "kanban:BOOK-007"
+            "kanban:WONB-004",
+            "github:212"
           ],
-          "branch": "feature/agent-005-agent-skills",
-          "pr": "216",
           "workspace_artifacts": [
-            "plans/2026-11-20-agent-005-agent-skills",
-            "artifacts/2026-11-20-agent-005-agent-skills-impl",
-            "artifacts/2026-11-20-agent-005-handoff"
-          ],
-          "status": "review",
-          "updated": "2026-11-20",
-          "notes": "PR #216 into develop opened; not merged or released. Evidence: artifacts/evidence/2026-11-20-agent-005/ (3 rendered prompts over fake configs, settings field screenshots en + zh-HK)."
+            "artifacts/2026-11-20-dev-wonb-020-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r1-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r2-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r3-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r4-handoff.md",
+            "artifacts/2026-11-20-dev-wonb-020-r6-handoff.md"
+          ]
         },
         {
           "id": "BOOK-004",
@@ -1845,6 +1846,37 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "AGENT-005",
+          "title": "Agent skills (core / loyalty / booking) and a 訂座規則 booking-rules field the booking skill checks",
+          "description": "The reply agent's system instruction = core rules 1-5 (unchanged) + one section per skill whose tools are offered for the job (loyalty: get_member_summary, list_rewards; booking: the booking tools); rule 6 split by meaning into the two skills. The booking skill adds the check rule (requested time vs BOOKING RULES, else the opening hours in the knowledge; outside → say so, suggest times, do not propose) and a BOOKING RULES data block from booking_config.bookingRules (free text, max 2000, no migration), edited in Settings → Booking when mode is not off. Prod omc 2026-11-20: the agent proposed 11:00 and offered 10:00 although 餐廳資料 says 11:00-21:00. POC.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "booking",
+            "poc"
+          ],
+          "related": [
+            "kanban:AGENT-003",
+            "kanban:AGENT-004",
+            "kanban:BOOK-007",
+            "github:216",
+            "github:219"
+          ],
+          "branch": "feature/agent-005-agent-skills",
+          "pr": "216",
+          "workspace_artifacts": [
+            "plans/2026-11-20-agent-005-agent-skills",
+            "artifacts/2026-11-20-agent-005-agent-skills-impl",
+            "artifacts/2026-11-20-agent-005-handoff",
+            "deploys/2026-11-20-agent-005-release-runbook",
+            "artifacts/2026-11-20-rel-agent005-handoff"
+          ],
+          "status": "done",
+          "updated": "2026-11-20",
+          "notes": "Released 2026-11-20 08:43Z: PR #216 → develop 11e65e6e, release PR #219 (develop → main fe1cdbfb), release d05e6470, BUILD_ID F2oHXhD6zjqi7IwuTmGfA, no migration. omc's 訂座規則 is still empty (booking_config has no bookingRules key; agent_config rev 11 unchanged): the booking skill falls back to the opening hours in 餐廳資料 until the owner fills it (deploys/2026-11-20-agent-005-release-runbook). Owner live check pending. Evidence before release: artifacts/evidence/2026-11-20-agent-005/."
+        },
         {
           "id": "BOOK-008",
           "title": "Link members and their bookings (auto by phone, manual edit), bookings + stats on the member panel",

@@ -27,6 +27,8 @@ export async function createCoupon(params: CreateCouponParams): Promise<Coupon> 
       title: params.title ?? null,
       description: params.description ?? null,
       campaign_id: params.campaignId ?? null,
+      // WONB-020 r4 H2: sent only when true, so every other insert is unchanged.
+      ...(params.welcomeOffer ? { welcome_offer: true } : {}),
     })
     .select('*')
     .single()
@@ -109,6 +111,48 @@ export async function findWelcomeCouponByMember(
 
   if (error) throw new Error(`findWelcomeCouponByMember: ${error.message}`)
   return data ? mapRowToCoupon(data) : null
+}
+
+// WONB-020 r1 F2 / r2 G3 / r4 H2: the member's most recent welcome offer --
+// a `welcome` coupon or one marked welcome_offer at mint (migration 090),
+// which holds when its campaign is later deleted or retyped; plus, as before,
+// a coupon of ANY of the restaurant's welcome-type campaigns (covers mints
+// that don't set the mark). Two tenant-scoped queries; throws on a DB error
+// so the caller can decide which way to fail.
+export async function findLatestWelcomeOfferCode(
+  restaurantId: string,
+  memberId: string
+): Promise<string | null> {
+  const supabase = createServerSupabaseClient()
+  const [plain, viaCampaign] = await Promise.all([
+    supabase
+      .from('coupons')
+      .select('code, created_at')
+      .eq('restaurant_id', restaurantId)
+      .eq('member_id', memberId)
+      .or('type.eq.welcome,welcome_offer.is.true')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('coupons')
+      .select('code, created_at, campaigns!inner(type)')
+      .eq('restaurant_id', restaurantId)
+      .eq('member_id', memberId)
+      .eq('campaigns.type', 'welcome')
+      .eq('campaigns.restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ])
+
+  const error = plain.error ?? viaCampaign.error
+  if (error) throw new Error(`findLatestWelcomeOfferCode: ${error.message}`)
+  const rows: Array<{ code: string; created_at: string }> = [...(plain.data ?? []), ...(viaCampaign.data ?? [])]
+  rows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  return rows[0]?.code ?? null
+}
+
+export async function hasWelcomeCoupon(restaurantId: string, memberId: string): Promise<boolean> {
+  return (await findLatestWelcomeOfferCode(restaurantId, memberId)) !== null
 }
 
 export async function listCoupons(params: ListCouponsParams): Promise<ListCouponsResult> {

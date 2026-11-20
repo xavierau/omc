@@ -27,6 +27,7 @@ import {
   findLatestConsentByCategory,
 } from '@/infrastructure/supabase/repositories/consent-record-repository'
 import { upsertIntegrationMemberRef } from '@/infrastructure/supabase/repositories/integration-member-ref-repository'
+import { hasJoinEvent } from '@/infrastructure/supabase/repositories/event-repository'
 import {
   getOnboardingSettings,
   getRestaurantDefaultLanguage,
@@ -318,7 +319,13 @@ export async function processMemberCreateJob(
       })
     }
 
-    if (createResult.outcome === 'created') {
+    // WONB-020 r1 F5: a retry of the job that created this member writes the
+    // join event if the earlier attempt crashed before it, so a
+    // partner-created member never looks never-welcomed (claimable).
+    if (
+      createResult.outcome === 'created' ||
+      (createdByThisJob && !(await joinEventWritten(data.jobId, data.restaurantId, createResult.memberId)))
+    ) {
       await emitEvent({
         restaurantId: data.restaurantId,
         memberId: createResult.memberId,
@@ -382,5 +389,22 @@ export async function processMemberCreateJob(
     if (terminal) {
       await releaseDepthCounter(data.integrationId)
     }
+  }
+}
+
+// WONB-020 r2 G2, reversed by r4 H4: never fail the job on this lookup, and
+// read an error as "written" (no emit). emitEvent fans out to partner join
+// listeners, so a duplicate join webhook is worse than the rare later claim,
+// which still needs the member to hold no welcome coupon.
+async function joinEventWritten(jobId: string, restaurantId: string, memberId: string): Promise<boolean> {
+  try {
+    return await hasJoinEvent(restaurantId, memberId)
+  } catch (err) {
+    console.warn('[member-create] join event lookup failed, not emitting the join event:', {
+      jobId,
+      memberId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return true
   }
 }

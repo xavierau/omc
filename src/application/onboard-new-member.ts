@@ -100,7 +100,8 @@ async function onboardViaCampaign(
       ctx.restaurantId,
       ctx.memberId,
       campaign,
-      ctx.contactName ?? ''
+      ctx.contactName ?? '',
+      { welcomeOffer: true }
     )
     await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
       console.warn('[onboarding] welcome campaign counter increment failed:', err)
