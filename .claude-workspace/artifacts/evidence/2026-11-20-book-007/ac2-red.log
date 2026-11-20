@@ -1,0 +1,210 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts (6 tests | 4 failed) 9ms
+     × excludes no_show, declined and cancelled 5ms
+     × an original + its open change count once, as the change row party 1ms
+     × the original alone (its change on another day) adds no guests to its day 0ms
+     × is one of the status filters and counts the no_show rows 1ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts (9 tests | 6 failed) 13ms
+     × past = an earlier date, or today before the Hong Kong time now 3ms
+     × mark: one UPDATE from confirmed + past only, scoped by id and restaurant, storing who and when 1ms
+     × mark: no row changed → null 0ms
+     × undo: one UPDATE from no_show only, back to confirmed, clearing both marker columns 0ms
+     × surfaces a database error 0ms
+     × the default list and the date-range list return no_show rows 4ms
+ ❯ src/app/api/poppy/__tests__/agent-booking-no-show.test.ts (3 tests | 2 failed) 32ms
+     × the status read of a no_show booking answers confirmed 29ms
+     × the agent status mapping turns no_show into confirmed and passes the others through 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > excludes no_show, declined and cancelled
+AssertionError: expected 10 to be 5 // Object.is equality
+
+- Expected
++ Received
+
+- 5
++ 10
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:23:26
+     21|       b('p', 'pending', { partySize: 2 }),
+     22|     ]
+     23|     expect(covers(list)).toBe(5)
+       |                          ^
+     24|     expect(daySummary(list).guests).toBe(5)
+     25|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > an original + its open change count once, as the change row party
+AssertionError: expected 8 to be 6 // Object.is equality
+
+- Expected
++ Received
+
+- 6
++ 8
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:31:40
+     29|     const original = b('orig', 'confirmed', { partySize: 2, openChange…
+     30|     const change = b('chg', 'pending', { partySize: 6, replacesBooking…
+     31|     expect(covers([original, change])).toBe(6)
+       |                                        ^
+     32|     expect(covers([b('orig', 'pending', { partySize: 2, openChange }),…
+     33|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 guest count > the original alone (its change on another day) adds no guests to its day
+AssertionError: expected 6 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 6
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:37:72
+     35|   it('the original alone (its change on another day) adds no guests to…
+     36|     const original = b('orig', 'confirmed', { partySize: 2, openChange…
+     37|     expect(covers([original, b('o2', 'confirmed', { partySize: 4 })]))…
+       |                                                                        ^
+     38|   })
+     39|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-counts.test.ts > BOOK-007 no_show filter chip > is one of the status filters and counts the no_show rows
+AssertionError: expected [ 'all', 'pending', 'confirmed', …(2) ] to include 'no_show'
+ ❯ src/components/dashboard/__tests__/booking-no-show-counts.test.ts:49:28
+     47|
+     48|   it('is one of the status filters and counts the no_show rows', () =>…
+     49|     expect(STATUS_FILTERS).toContain('no_show')
+       |                            ^
+     50|     expect(statusCounts(list)).toMatchObject({ all: 4, confirmed: 1, n…
+     51|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-no-show.test.ts > BOOK-007 R7: poppy never shows no_show > the status read of a no_show booking answers confirmed
+AssertionError: expected 'no_show' to be 'confirmed' // Object.is equality
+
+Expected: "confirmed"
+Received: "no_show"
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-no-show.test.ts:69:39
+     67|     const res = await GET_STATUS(req, { params: Promise.resolve({ publ…
+     68|     expect(res.status).toBe(200)
+     69|     expect((await res.json()).status).toBe('confirmed')
+       |                                       ^
+     70|   })
+     71|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-no-show.test.ts > BOOK-007 R7: poppy never shows no_show > the agent status mapping turns no_show into confirmed and passes the others through
+AssertionError: expected 'no_show' to be 'confirmed' // Object.is equality
+
+Expected: "confirmed"
+Received: "no_show"
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-no-show.test.ts:74:54
+     72|   it('the agent status mapping turns no_show into confirmed and passes…
+     73|     const now = new Date('2026-11-19T02:00:00.000Z')
+     74|     expect(agentBookingStatus('no_show', null, now)).toBe('confirmed')
+       |                                                      ^
+     75|     for (const s of ['pending', 'confirmed', 'declined', 'cancelled'] …
+     76|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > past = an earlier date, or today before the Hong Kong time now
+TypeError: pastFilter is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:42:12
+     40| describe('no-show mark / undo (R5, R6)', () => {
+     41|   it('past = an earlier date, or today before the Hong Kong time now',…
+     42|     expect(pastFilter(BEFORE)).toBe('booking_date.lt.2026-11-20,and(bo…
+       |            ^
+     43|   })
+     44|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > mark: one UPDATE from confirmed + past only, scoped by id and restaurant, storing who and when
+TypeError: markBookingNoShow is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:47:27
+     45|   it('mark: one UPDATE from confirmed + past only, scoped by id and re…
+     46|     const rec = use([{ data: ROW }])
+     47|     const booking = await markBookingNoShow({ id: 'b-1', restaurantId:…
+       |                           ^
+     48|     const q = rec.queries[0]
+     49|     expect(q.table).toBe('booking_requests')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > mark: no row changed → null
+TypeError: markBookingNoShow is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:58:18
+     56|   it('mark: no row changed → null', async () => {
+     57|     use([{ data: null }])
+     58|     expect(await markBookingNoShow({ id: 'b-1', restaurantId: 'r-a', m…
+       |                  ^
+     59|   })
+     60|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > undo: one UPDATE from no_show only, back to confirmed, clearing both marker columns
+TypeError: undoBookingNoShow is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:63:27
+     61|   it('undo: one UPDATE from no_show only, back to confirmed, clearing …
+     62|     const rec = use([{ data: { ...ROW, status: 'confirmed' } }])
+     63|     const booking = await undoBookingNoShow({ id: 'b-1', restaurantId:…
+       |                           ^
+     64|     const q = rec.queries[0]
+     65|     expect(q.calls[0]).toEqual(['update', { status: 'confirmed', no_sh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no-show mark / undo (R5, R6) > surfaces a database error
+TypeError: undoBookingNoShow is not a function
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:72:18
+     70|   it('surfaces a database error', async () => {
+     71|     use([{ error: { message: 'boom' } }])
+     72|     await expect(undoBookingNoShow({ id: 'b-1', restaurantId: 'r-a' })…
+       |                  ^
+     73|   })
+     74| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts > no_show in the other booking queries (R9, R7) > the default list and the date-range list return no_show rows
+AssertionError: expected [ 'eq:restaurant_id=r-a', …(1) ] to deeply equal [ 'eq:restaurant_id=r-a', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=r-a",
+-   "in:status=confirmed,declined,cancelled,no_show",
++   "in:status=confirmed,declined,cancelled",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-no-show-repository.test.ts:80:39
+     78|     const rec = use([{ data: [] }, { data: [ROW] }])
+     79|     const list = await listBookingRequests('r-a', 200)
+     80|     expect(filtersOf(rec.queries[1])).toEqual(['eq:restaurant_id=r-a',…
+       |                                       ^
+     81|     expect(list.map((b) => b.status)).toEqual(['no_show'])
+     82|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/12]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  12 failed | 6 passed (18)
+   Start at  11:11:52
+   Duration  426ms (transform 314ms, setup 0ms, import 491ms, tests 54ms, environment 0ms)
+
