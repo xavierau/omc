@@ -60,3 +60,24 @@ Entry path: dashboard nav → 訂座 / Bookings → Table view (Past) or Calenda
 ## Deferred / Tech Debt
 - No Playwright spec / layout harness in this repo (no `harness.md`); render tests + static renders instead (POC, as BOOK-006).
 - `events` audit row for mark/undo not added (not required by R6; the columns record who/when, cleared on undo).
+
+## r1: /code-review findings on PR #210 (2026-11-20)
+
+| file | purpose |
+|---|---|
+| `supabase/migrations/087_booking_no_show.sql` | F1: `mark_booking_no_show(uuid, uuid, uuid, timestamptz, date, time)`, LANGUAGE sql, one UPDATE: confirmed + past + `NOT EXISTS` pending change with `replaces_booking_id = b.id` in `p_restaurant_id`; invoker, REVOKE PUBLIC/anon/authenticated, GRANT service_role (as 085) |
+| `booking-request-repository.ts` | `markBookingNoShow` calls the RPC; `pastFilter` removed (its only caller) |
+| `application/booking/booking-no-show.ts` | refusal reason: not confirmed → `already_handled`; confirmed + not past by the same `before` → `not_past`; confirmed + past → `change_pending` (the only remaining WHERE term) |
+| `no-show/route.ts` | 409 `{ error: reason, status }` for every refusal |
+| `domain/services/booking-no-show.ts` | `canMarkNoShow` false when `openChange` is set |
+| `booking-groups.ts` | F2: an original is skipped in `covers` only when the row with id `openChange.id` is in the same array |
+| `use-booking-no-show.ts`, `booking-no-show-action.tsx`, `en.json`, `zh-HK.json` | F3: `not_past` / `change_pending` outcomes and notices (`noShowNotPast`, `noShowChangePending`) |
+| `use-booking-row-actions.ts` (new), `bookings-screen.tsx`, `booking-list.tsx`, `bookings-table-{cards,desktop}.tsx` | F4: one `busyIds` set for decide + no-show (prop `busyId` → `busyIds`); starting any action clears the no-show notice and hides the decide hook's current notice |
+| `bookings-clock.ts` (new) | F5: `startMinuteTick` (one `setTimeout` to each minute boundary, re-armed, cleared on unmount), `useMinuteTick`, `BookingsNow` context read by `NoShowAction` |
+
+Key decisions:
+- The refusal reason is derived after the fact from the re-read row and the same `before`, not returned by the RPC: the WHERE has exactly three terms, so a still-confirmed, past row was refused by the change check.
+- `src/hooks/use-bookings.ts` (outside files_allowed) is unchanged: the coordinator wraps `useBookingActions().act` and tracks its own busy set; the decide hook's internal `busyId` is now unread. Its notice cannot be cleared from outside, so it is hidden by identity until a newer one arrives (`visibleNotice`).
+- "Open change" = a `pending` row, as the brief and 085's one-pending-change index define it; an `unverified` change row does not block the mark.
+
+Residual (not fixed, flagged): a change request INSERT does not lock its original, so a change inserted concurrently with a mark on a just-past booking can still land on a no_show original. Agent change requests target upcoming bookings (list_my_bookings), so the window is the minute a booking turns past during a chat.
