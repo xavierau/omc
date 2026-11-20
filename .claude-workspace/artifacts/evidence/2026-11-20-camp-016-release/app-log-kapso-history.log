@@ -1,0 +1,18 @@
+# forge command 14451466 status finished
+total lines 22113
+Kapso 'Error listing templates' total: 9121
+== per run segment (segment = after each 'Ready in' banner): ready_line kapso_count
+11029 2946
+15166 1092
+16885 358
+17752 1424
+19752 4
+20042 12
+20143 1242
+21964 36
+22010 40
+22061 10
+22081 18
+22109 2
+-rw-r--r-- 1 root root 1843733 2026-11-19 17:00:14.602186150 +0000 /home/forge/.forge/daemon-746791.log
+

@@ -1,0 +1,29 @@
+# forge command 14451779 status finished
+2026-11-19T17:10:42Z
+3321221       10:47 next-server (v16.3.4)
+3321288       10:40 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3321439       10:34 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3321440       10:34 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3321452       10:33 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+== daemon-746791 log
+start banner at line 22109; lines after banner: 4
+✓ Ready in 1809ms
+error/warn lines after banner: 2
+of which [Kapso] Error listing templates (pre-existing): 2
+of which the known standalone warning: 1
+-- distinct lines after banner (counts):
+      2 [Kapso] Error listing templates: WhatsApp configuration not found
+      1 ✓ Running next.config.ts took 1646ms
+      1 ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+== daemon-801730 log
+start banner at line 53082; lines after banner: 0
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+error/warn lines after banner: 0
+of which [Kapso] Error listing templates (pre-existing): 0
+of which the known standalone warning: 0
+-- distinct lines after banner (counts):
+MemAvailable:    2511692 kB
+SwapFree:          36292 kB
+/dev/root          58447 31098     27333  54% /
+ 17:10:42 up 55 days, 11:52,  1 user,  load average: 0.20, 0.25, 0.20
+
