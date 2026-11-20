@@ -70,6 +70,8 @@ Entry path: dashboard nav → 訂座 / Bookings (table or calendar day panel) �
 
 ## Review Hand-off
 - Migration 088 must be applied before the code ships (the relink writes the new event type and calls the RPC; stats degrade to null without it).
+- Release window (CodeRabbit PR #214): a poppy booking verified by the OLD code between 088 and the new deploy is not linked. 088 is idempotent, so the release re-runs it once after the new code is live (its backfill links exactly those rows, nothing else changes).
+- CodeRabbit PR #214 (minor, not fixed): `useBookings` (`src/hooks/use-bookings.ts`, outside files_allowed) can land an older refetch over a newer one for the same range; the member-link actions add refetches. Pre-existing in the shared hook; fix = a generation counter in its settle path.
 - `relink_booking_member` is a data-modifying CTE: the events INSERT reads `changed`, so it writes only for a changed row (scratch log: 3 rows for 3 changes, 0 for 5 refusals).
 - The picker reuses the members list endpoint, which any tenant role can read (as today); the PATCH requires admin/staff.
 
