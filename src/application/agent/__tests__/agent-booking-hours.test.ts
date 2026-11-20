@@ -34,7 +34,7 @@ const lunchDinner = [
   { label: '晚市', first: '18:00', last: '21:30' },
 ]
 const SPECIAL_IN = { date: '2026-11-25', label: '冬至', periods: [] }
-const SPECIAL_OUT = { date: '2027-03-01', label: '遠', periods: [] }
+const SPECIAL_OUT = { date: '2027-03-01', label: 'OUTSIDE-WINDOW', periods: [] }
 const HOURS: BookingHours = {
   ...EMPTY_BOOKING_HOURS,
   weekly: { mon: [], tue: lunchDinner, wed: lunchDinner, thu: lunchDinner, fri: lunchDinner, sat: lunchDinner, sun: lunchDinner },
@@ -209,7 +209,8 @@ describe('AC-15 BOOKING RULES section', () => {
       `訂座須知 Booking terms:\n${SNAPSHOT}\n` +
       `Other booking notes:\n${NOTES}`
     )).toBe(true)
-    expect(text).not.toContain('遠')
+    expect(text).not.toContain('OUTSIDE-WINDOW')
+    expect(text).not.toContain('3月1日')
   })
 
   it('AC-15 hours set, no terms, no notes → no terms block; notes say none provided', () => {
