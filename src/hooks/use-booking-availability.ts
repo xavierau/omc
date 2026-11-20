@@ -7,6 +7,8 @@
  * the settings section. Fetched once per mount; null until loaded or on error.
  * BOOK-002: plus the message editor's slot views and whether this member may
  * edit them.
+ * BOOK-009: plus the booking-hours rules summary per language (the text the
+ * agents get), refetched when the caller bumps `version` (after a save).
  */
 import { useEffect, useState } from 'react'
 import { BOOKING_MODES, TEMPLATE_KINDS, TEMPLATE_LANGUAGES, type BookingMode } from '@/domain/value-objects/booking-config'
@@ -25,10 +27,23 @@ export interface BookingTemplateEditorAccess {
   slots: BookingTemplateSlotViews
 }
 
+/** BOOK-009 S1.9: null when booking hours are not set. */
+export interface BookingHoursSummaryText {
+  zh_hk: string
+  en: string
+}
+
 export interface BookingSettingsSummary {
   availability: BookingAvailability
   templates: BookingTemplateStatuses | null
   editor: BookingTemplateEditorAccess | null
+  /** Absent when booking hours are not set. */
+  hoursSummary?: BookingHoursSummaryText
+}
+
+function parseHoursSummary(raw: unknown): BookingHoursSummaryText | null {
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  return r && typeof r.zh_hk === 'string' && typeof r.en === 'string' ? { zh_hk: r.zh_hk, en: r.en } : null
 }
 
 const STATUSES: readonly BookingTemplateStatus[] = ['approved', 'pending', 'rejected', 'failed', 'not_submitted']
@@ -64,7 +79,13 @@ export function parseBookingSettingsSummary(raw: unknown): BookingSettingsSummar
   if (!BOOKING_MODES.includes(r.mode as BookingMode)) return null
   const externalUrl = typeof r.externalUrl === 'string' ? r.externalUrl : null
   const availability = { mode: r.mode as BookingMode, externalUrl, canEditBookingUrl: r.canEditBookingUrl === true }
-  return { availability, templates: parseTemplateStatuses(r.templates), editor: parseEditorAccess(r.templateEditor) }
+  const hoursSummary = parseHoursSummary(r.summary)
+  return {
+    availability,
+    templates: parseTemplateStatuses(r.templates),
+    editor: parseEditorAccess(r.templateEditor),
+    ...(hoursSummary ? { hoursSummary } : {}),
+  }
 }
 
 function parseEditorAccess(raw: unknown): BookingTemplateEditorAccess | null {
@@ -80,7 +101,8 @@ export interface BookingSettingsSummaryState {
   summary: BookingSettingsSummary | null
 }
 
-export function useBookingSettingsSummaryState(): BookingSettingsSummaryState {
+/** `version`: bump it to fetch again (BOOK-009: the summary after a save); loading stays false on a refetch. */
+export function useBookingSettingsSummaryState(version = 0): BookingSettingsSummaryState {
   const [state, setState] = useState<BookingSettingsSummaryState>({ loading: true, summary: null })
   useEffect(() => {
     let live = true
@@ -91,7 +113,7 @@ export function useBookingSettingsSummaryState(): BookingSettingsSummaryState {
     return () => {
       live = false
     }
-  }, [])
+  }, [version])
   return state
 }
 

@@ -4,8 +4,10 @@
  * BOOK-001: the admin booking settings form state and its save call
  * (AC-1/AC-2/AC-3). Lifetimes are edited as hours plus a "no expiry" switch;
  * the payload sends null for no expiry.
+ * BOOK-009 S1: the structured booking hours ride in the same form and Save.
  */
 import { useState } from 'react'
+import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
 import {
   BOOKING_RULES_MAX_CHARS,
   isPartyMax,
@@ -28,6 +30,10 @@ export interface BookingSettingsForm {
   maxPartySize: string
   /** AGENT-005: 訂座規則, shown unless mode is off. */
   bookingRules: string
+  /** BOOK-009: the hours being edited; the empty table when none are stored. */
+  bookingHours: BookingHours
+  /** BOOK-009: whether the stored config has hours (null = not configured, AC-5). */
+  hoursConfigured: boolean
 }
 
 export type SaveBookingSettingsOutcome =
@@ -46,6 +52,8 @@ export function toForm(config: BookingConfig): BookingSettingsForm {
     campaignLinkNoExpiry: config.campaignLinkTtlHours === null,
     maxPartySize: String(config.maxPartySize),
     bookingRules: config.bookingRules,
+    bookingHours: config.bookingHours ?? EMPTY_BOOKING_HOURS,
+    hoursConfigured: config.bookingHours !== null,
   }
 }
 
@@ -70,6 +78,19 @@ function simpleOnly(form: BookingSettingsForm, value: unknown, valid: (v: unknow
 
 const isTtlOrNone = (v: unknown) => v === null || isTtl(v)
 
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * BOOK-009 (AC-5): hours are opt-in. Only Simple mode shows the blocks, and an
+ * untouched empty table on a restaurant without hours stays "not configured",
+ * so saving any other setting never turns hours on. Omitted = keep stored.
+ */
+export function hoursPayload(form: BookingSettingsForm): BookingHours | undefined {
+  if (form.mode !== 'simple') return undefined
+  if (!form.hoursConfigured && sameValue(form.bookingHours, EMPTY_BOOKING_HOURS)) return undefined
+  return form.bookingHours
+}
+
 export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
   return {
     mode: form.mode,
@@ -79,6 +100,7 @@ export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
     maxPartySize: simpleOnly(form, toInt(form.maxPartySize), isPartyMax),
     // AGENT-005: Off hides the field, so there an over-long draft is left out (same idea as F1).
     bookingRules: form.mode !== 'off' || form.bookingRules.trim().length <= BOOKING_RULES_MAX_CHARS ? form.bookingRules : undefined,
+    bookingHours: hoursPayload(form),
   }
 }
 
@@ -108,8 +130,14 @@ export async function saveBookingSettings(form: BookingSettingsForm): Promise<Sa
   }
 }
 
+/** BOOK-009: the form differs from what is stored (Preview then shows the last saved settings). */
+export function hasUnsavedChanges(form: BookingSettingsForm, saved: BookingSettingsForm): boolean {
+  return !sameValue(toPayload(form), toPayload(saved))
+}
+
 export function useBookingSettings(initial: BookingConfig) {
   const [form, setForm] = useState<BookingSettingsForm>(() => toForm(initial))
+  const [saved, setSaved] = useState<BookingSettingsForm>(() => toForm(initial))
   const [outcome, setOutcome] = useState<SaveBookingSettingsOutcome | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -118,15 +146,24 @@ export function useBookingSettings(initial: BookingConfig) {
     setOutcome(null)
   }
 
+  /** BOOK-009: an edit of the hours (a pure function from hours-model). */
+  function updateHours(edit: (hours: BookingHours) => BookingHours) {
+    setForm((prev) => ({ ...prev, bookingHours: edit(prev.bookingHours) }))
+    setOutcome(null)
+  }
+
   async function save() {
     setSaving(true)
     const result = await saveBookingSettings(form)
-    if (result.kind === 'saved') setForm(toForm(result.config))
+    if (result.kind === 'saved') {
+      setForm(toForm(result.config))
+      setSaved(toForm(result.config))
+    }
     setOutcome(result)
     setSaving(false)
   }
 
-  return { form, update, save, saving, outcome }
+  return { form, update, updateHours, save, saving, outcome, dirty: hasUnsavedChanges(form, saved) }
 }
 
 /**
