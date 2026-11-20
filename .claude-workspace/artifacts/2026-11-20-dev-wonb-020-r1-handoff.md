@@ -4,8 +4,9 @@ type: handoff
 contract: handoff-file-v1
 author: dev
 created: 2026-11-20
-status: active
+status: superseded
 supersedes: artifacts/2026-11-20-dev-wonb-020-handoff
+superseded_by: artifacts/2026-11-20-dev-wonb-020-r2-handoff
 item: WONB-020
 round: r1
 stage: POC
