@@ -1,0 +1,3 @@
+module.exports=[916555,a=>{"use strict";var b=a.i(907997);a.s(["default",0,function({children:a}){return(0,b.jsx)("div",{className:"min-h-screen bg-gradient-to-b from-background to-muted/30",children:a})}])},160266,function(a){a.n(a.i(916555))}];
+
+//# sourceMappingURL=src_app_coupon_layout_tsx_13rk7nf._.js.map

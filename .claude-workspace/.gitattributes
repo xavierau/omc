@@ -1,0 +1,4 @@
+# Evidence logs (*.log) committed under artifacts/*-evidence/ are dev records, not
+# runtime output. Keep them out of `git archive` so scripts/release.sh's
+# stray-log gate (runtime logs carry PII) stays meaningful for the bundle.
+*.log export-ignore

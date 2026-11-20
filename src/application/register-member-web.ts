@@ -1,0 +1,205 @@
+import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import {
+  createWelcomeCoupon,
+  createCampaignCoupon,
+} from '@/infrastructure/supabase/repositories/coupon-factory'
+import { emitEvent } from '@/application/emit-event'
+import {
+  getCampaignById,
+  incrementCampaignSent,
+} from '@/infrastructure/supabase/repositories/campaign-repository'
+import { getOnboardingSettings } from '@/infrastructure/supabase/repositories/restaurant-onboarding-repository'
+import { getRestaurantEmailContext } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { buildContactUrl } from '@/domain/services/contact-redirect'
+import { PhoneNumber } from '@/domain/value-objects/phone-number'
+import type { E164Phone } from '@/domain/value-objects/e164-phone'
+import type { Campaign } from '@/domain/entities/campaign'
+import { createOrGetMember } from './create-or-get-member'
+import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+import { attemptWelcomeClaimLock, waitForWelcomeClaimLock } from '@/infrastructure/redis/welcome-claim-lock'
+import { isAlreadyWelcomed } from './has-join-event'
+
+interface WebRegisterResult {
+  isNew: boolean
+  memberId: string
+  couponCode?: string
+  /** WONB-020: any existing member -> JOIN here (claims if never welcomed). */
+  whatsappClaimUrl?: string
+}
+
+// G-3 / N-8: the strict-then-fallback E.164 resolver itself now lives in
+// resolve-legacy-member-e164.ts (shared with register-member.ts and, as of
+// N-8, import-contacts-batch-row-member.ts). Re-exported under this
+// module's own name so existing importers -- including
+// resolve-legacy-member-e164.property.test.ts's
+// `resolveLegacyMemberE164 as resolveWebLegacyE164` import -- are
+// unaffected by the extraction.
+export { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+
+export async function registerMemberWeb(
+  rawPhone: string,
+  contactName: string,
+  restaurantId: string
+): Promise<WebRegisterResult> {
+  const phone = PhoneNumber.create(rawPhone)
+  // N-9 (WI-17 confirmation review): resolved ONCE and used for the
+  // pre-check below -- was `phone.value` (the un-repaired legacy format),
+  // so a member first created via the fallback (stored normalised) missed
+  // its own pre-check on a second join with the same raw dotted/legacy
+  // input, fell into the seam, and only avoided a 500 because the seam's
+  // OWN re-select (member-create-repository.ts, fed this SAME resolved
+  // value) already found the row correctly.
+  const resolvedPhone = resolveLegacyMemberE164(phone)
+  const supabase = createServerSupabaseClient()
+
+  const { data: existing } = await supabase
+    .from('members')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', resolvedPhone.value)
+    .single()
+
+  if (existing) {
+    return respondToExistingWebMember(restaurantId, existing.id)
+  }
+
+  return createNewWebMember(resolvedPhone, contactName, restaurantId)
+}
+
+// WONB-020 r1 F1 (owner ruling 2026-11-20): the web form can't prove phone
+// ownership, so it never mints for an existing member; a WhatsApp message
+// proves the number, and JOIN there claims the welcome if never welcomed.
+// r2 G5: every existing member gets the same wa.me JOIN link, so this
+// public answer never reveals who was imported or welcomed. No usable
+// number -> plain.
+async function respondToExistingWebMember(
+  restaurantId: string,
+  memberId: string
+): Promise<WebRegisterResult> {
+  const { whatsappNumber } = await getRestaurantEmailContext(restaurantId)
+  const whatsappClaimUrl = whatsappNumber ? buildContactUrl(whatsappNumber, 'JOIN') : null
+  return whatsappClaimUrl ? { isNew: false, memberId, whatsappClaimUrl } : { isNew: false, memberId }
+}
+
+async function createNewWebMember(
+  resolvedPhone: E164Phone,
+  name: string,
+  restaurantId: string
+): Promise<WebRegisterResult> {
+  // INT-001 T-H6: creation routes through the single member-creation seam
+  // (member.created fans out to enabled integrations with source:'web'). A
+  // 23505 on (restaurant_id, phone) now resolves to outcome:'existing'
+  // rather than an insert failure -- the pre-check above already covers the
+  // common case, so this only bites on a genuine race between two
+  // near-simultaneous submissions for the same number, which previously
+  // threw and now degrades gracefully to the same isNew:false result.
+  const result = await createOrGetMember({
+    restaurantId,
+    phoneE164: resolvedPhone,
+    name,
+    preferredLanguage: null,
+    source: 'web',
+  })
+
+  if (result.outcome === 'existing') {
+    // r4 H3: the race lands on the same answer as the pre-check.
+    return respondToExistingWebMember(restaurantId, result.memberId)
+  }
+
+  // r4 H1: the web path never claims, but a WhatsApp claim can race this
+  // signup; hold the claim lock through the mint and join event. Held -> that
+  // claim is welcoming this member on WhatsApp (r6 J2: wait for it). Redis
+  // down -> fail open.
+  const lock = await attemptWelcomeClaimLock(restaurantId, result.memberId)
+  if (lock.kind === 'held') return welcomeAfterConcurrentClaim(restaurantId, result.memberId, name)
+  if (lock.kind === 'unavailable') {
+    console.warn('[onboarding/web] welcome lock unavailable for a new member, minting without it:', result.memberId)
+  }
+  try {
+    return await welcomeNewWebMember(restaurantId, result.memberId, name)
+  } finally {
+    if (lock.kind === 'acquired') await lock.lease.release()
+  }
+}
+
+// WONB-020 r6 J2: wait (<= ~5 s) for the WhatsApp claim holding this new
+// member's lock, then re-check under the lock: not welcomed -> mint as usual.
+// Welcomed, still held, or the lookup fails -> the existing-member answer
+// (the WhatsApp JOIN link); never a mint without the lock.
+async function welcomeAfterConcurrentClaim(
+  restaurantId: string,
+  memberId: string,
+  name: string
+): Promise<WebRegisterResult> {
+  const lease = await waitForWelcomeClaimLock(restaurantId, memberId)
+  if (!lease) {
+    console.warn('[onboarding/web] welcome lock still held after the wait, answering as an existing member:', memberId)
+    return respondToExistingWebMember(restaurantId, memberId)
+  }
+  try {
+    const welcomed = await isAlreadyWelcomed(restaurantId, memberId).catch((err: Error) => {
+      console.warn('[onboarding/web] welcomed lookup failed after the wait, answering as an existing member:', err.message)
+      return null
+    })
+    if (welcomed === false) return await welcomeNewWebMember(restaurantId, memberId, name)
+    return await respondToExistingWebMember(restaurantId, memberId)
+  } finally {
+    await lease.release()
+  }
+}
+
+async function welcomeNewWebMember(
+  restaurantId: string,
+  memberId: string,
+  name: string
+): Promise<WebRegisterResult> {
+  const campaign = await resolveWelcomeCampaign(restaurantId)
+  const coupon = campaign
+    ? await mintCampaignCoupon(restaurantId, memberId, campaign, name)
+    : await createWelcomeCoupon(restaurantId, memberId)
+
+  await emitEvent({
+    restaurantId,
+    memberId,
+    type: 'join',
+    dataJson: {
+      source: 'web',
+      coupon_code: coupon.code,
+      campaign_id: campaign?.id ?? null,
+    },
+  })
+
+  return { isNew: true, memberId, couponCode: coupon.code }
+}
+
+async function resolveWelcomeCampaign(
+  restaurantId: string
+): Promise<Campaign | null> {
+  const settings = await getOnboardingSettings(restaurantId).catch((err) => {
+    console.warn('[onboarding/web] welcome settings load failed:', err)
+    return null
+  })
+  if (!settings?.welcomeCampaignId) return null
+  return getCampaignById(settings.welcomeCampaignId).catch((err) => {
+    console.warn('[onboarding/web] welcome campaign lookup failed:', err)
+    return null
+  })
+}
+
+async function mintCampaignCoupon(
+  restaurantId: string,
+  memberId: string,
+  campaign: Campaign,
+  name: string
+): Promise<{ code: string; id: string }> {
+  try {
+    const coupon = await createCampaignCoupon(restaurantId, memberId, campaign, name, { welcomeOffer: true })
+    await incrementCampaignSent(campaign.id, campaign.isChargeable).catch((err) => {
+      console.warn('[onboarding] welcome campaign counter increment failed:', err)
+    })
+    return coupon
+  } catch {
+    // Campaign mapping exists but is broken (no coupon_config). Fall back.
+    return createWelcomeCoupon(restaurantId, memberId)
+  }
+}

@@ -1,0 +1,53 @@
+{
+ "url": "http://localhost:3040/dashboard/campaigns",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 900,
+  "scrollable": false,
+  "overlaysOpen": [
+   "div.fixed.inset-0 @0,0 1440x900",
+   "div#radix-_r_6_.fixed.z-50 \"建立推廣活動 名稱 類型 歡迎 回訪推廣 推廣 目標對象 所有會員 指定會員 按\" @1056,0 384x900"
+  ]
+ },
+ "scanned": {
+  "elements": 162,
+  "domNodes": 299,
+  "capped": false
+ },
+ "cls": 0.00016705246913580247,
+ "summary": {
+  "blocking": 0,
+  "warning": 2,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 Cafe Poppy (C\" @0,0 1440x900",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 252px / bottom 536px)",
+   "items": [
+    "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient WhatsApp 智能客戶管理 Cafe Poppy (C\" @0,0 240x900",
+    "main.flex-1.bg-background \"推廣活動 建立推廣活動 Monthly: 0 / 1000 sends Dail\" @240,0 1200x900"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

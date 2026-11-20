@@ -1,0 +1,54 @@
+{
+  "url": "http://localhost:3022/dashboard/agent",
+  "viewport": {
+    "w": 1280,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1280,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1280,
+    "scrollH": 900,
+    "scrollable": false,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 85,
+    "domNodes": 159,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 2,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.flex.min-h-screen \"OhMyClient Powered by WhatsApp A3 Test C\" @0,0 1280x900",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 160px / bottom 352px)",
+      "items": [
+        "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient Powered by WhatsApp A3 Test C\" @0,0 240x900",
+        "main.flex-1.bg-background \"AI agent Each diner conversation of the \" @240,0 1040x900"
+      ]
+    },
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.grid.gap-6 \"•••• 0003 Sent 19 Nov, 16:51 · 4 message\" @272,116 976x432",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 16px / center 187px / bottom 358px)",
+      "items": [
+        "ul[data-testid=\"agent-log-thread-list\"].space-y-2 \"•••• 0003 Sent 19 Nov, 16:51 · 4 message\" @272,116 288x432",
+        "div[data-testid=\"agent-log-detail\"].group/card.flex \"•••• 0003 Diner 19 Nov, 16:50 我想訂枱，聽日7點4\" @584,116 664x432"
+      ]
+    }
+  ]
+}

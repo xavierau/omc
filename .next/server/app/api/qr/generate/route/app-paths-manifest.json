@@ -1,0 +1,3 @@
+{
+  "/api/qr/generate/route": "app/api/qr/generate/route.js"
+}

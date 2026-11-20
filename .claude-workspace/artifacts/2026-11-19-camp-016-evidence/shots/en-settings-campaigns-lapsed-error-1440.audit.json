@@ -1,0 +1,60 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/campaigns",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 1091,
+  "scrollable": true,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 170,
+  "domNodes": 282,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 3,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"Campaigns New Audience quality, win-back\" @272,346 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 43px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Campaigns New Audience quality, win-back\" @317,357 174x64",
+    "svg @285,359 20x20"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"Join QR & welcome Welcome message, QR co\" @272,436 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 44px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Join QR & welcome Welcome message, QR co\" @317,447 174x64",
+    "svg @285,449 20x20"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

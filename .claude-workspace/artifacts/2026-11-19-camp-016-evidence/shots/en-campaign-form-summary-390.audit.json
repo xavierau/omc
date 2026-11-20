@@ -1,0 +1,99 @@
+{
+ "url": "http://localhost:3040/dashboard/campaigns",
+ "viewport": {
+  "w": 390,
+  "h": 844,
+  "dpr": 2,
+  "mobile": true,
+  "consistent": true,
+  "inner": [
+   390,
+   844
+  ]
+ },
+ "page": {
+  "scrollW": 390,
+  "scrollH": 844,
+  "scrollable": false,
+  "overlaysOpen": [
+   "div.fixed.inset-0 @0,0 390x844",
+   "div#radix-_r_3_.fixed.z-50 \"Create Campaign Name Type Welcome Win-ba\" @98,0 293x844"
+  ]
+ },
+ "scanned": {
+  "elements": 92,
+  "domNodes": 298,
+  "capped": false
+ },
+ "cls": 0.02740049495513209,
+ "summary": {
+  "blocking": 0,
+  "warning": 6,
+  "info": 3
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "content-spill",
+   "sev": "warning",
+   "el": "fieldset.rounded-lg.border \"Filters Only lapsed customers Win-back c\" @110,-383 265x673",
+   "detail": "extends past its parent's right edge by 5px (parent: div.space-y-4.mt-4 \"Name Type Welcome Win-back Promo Target \" @110,-836 260x2341)"
+  },
+  {
+   "check": "inconsistent-spacing",
+   "sev": "warning",
+   "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 Insert {{contactName}} In\" @123,649 234x291",
+   "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+   "items": [
+    "div.group/tabs-list.inline-flex \"EN 繁中\" @123,649 81x32",
+    "div#radix-_r_6_-content-en.flex-1.text-sm \"0 / 1024\" @123,689 234x123",
+    "div.mt-2.flex \"Insert {{contactName}} Insert {{couponCo\" @123,828 234x112"
+   ]
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "a.font-medium.text-primary \"Change\" @127,253 52x20",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "input \"inline\" @123,611 13x13",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "input \"wa_template\" @217,611 13x13",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "button.rounded-full.border \"Insert {{contactName}}\" @123,828 154x22",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "horizontal-scroll-region",
+   "sev": "info",
+   "el": "div#radix-_r_3_.fixed.z-50 \"Create Campaign Name Type Welcome Win-ba\" @98,0 293x844",
+   "detail": "horizontally scrollable by 5px (verify intentional; on mobile check the affordance is discoverable)"
+  },
+  {
+   "check": "layout-shift",
+   "sev": "info",
+   "el": null,
+   "detail": "cumulative layout shift 0.027 since load",
+   "sources": [
+    "div \"Active CAMP-016 walk en active Promo Sen\" @64,160 302x232"
+   ]
+  },
+  {
+   "check": "touch-target-under-44",
+   "sev": "info",
+   "el": null,
+   "detail": "7 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+  }
+ ]
+}

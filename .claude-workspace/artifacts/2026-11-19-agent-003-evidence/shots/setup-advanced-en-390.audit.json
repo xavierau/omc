@@ -1,0 +1,117 @@
+{
+  "url": "http://localhost:3022/dashboard/setup",
+  "viewport": {
+    "w": 390,
+    "h": 844,
+    "dpr": 1,
+    "mobile": true,
+    "consistent": true,
+    "inner": [
+      390,
+      844
+    ]
+  },
+  "page": {
+    "scrollW": 390,
+    "scrollH": 8351,
+    "scrollable": true,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 353,
+    "domNodes": 472,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 12,
+    "info": 1
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "inconsistent-spacing",
+      "sev": "warning",
+      "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 Insert {{greeting}} Inser\" @80,6972 270x261",
+      "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+      "items": [
+        "div.group/tabs-list.inline-flex \"EN 繁中\" @80,6972 81x32",
+        "div#radix-_r_0_-content-en.flex-1.text-sm \"0 / 1024\" @80,7012 270x123",
+        "div.mt-2.flex \"Insert {{greeting}} Insert {{points}} In\" @80,7151 270x82"
+      ]
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,637 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,665 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,1020 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,1048 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,1076 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,1104 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input \"on\" @80,1132 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-off\"].mt-1 \"off\" @80,2265 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-simple\"].mt-1 \"simple\" @80,2313 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-external\"].mt-1 \"external\" @80,2381 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": null,
+      "detail": "…and 17 more interactive targets below 24x24px"
+    },
+    {
+      "check": "touch-target-under-44",
+      "sev": "info",
+      "el": null,
+      "detail": "39 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+    }
+  ]
+}

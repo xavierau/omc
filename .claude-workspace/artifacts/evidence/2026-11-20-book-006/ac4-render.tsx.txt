@@ -1,0 +1,54 @@
+// BOOK-006 AC-4: the real Bookings table components over fake bookings (no prod data), as static HTML.
+import { writeFileSync } from 'node:fs'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { NextIntlClientProvider } from 'next-intl'
+import en from '@/messages/en.json'
+import zhHK from '@/messages/zh-HK.json'
+import { BookingsHeader } from '@/components/dashboard/bookings/bookings-header'
+import { BookingsFilters } from '@/components/dashboard/bookings/bookings-filters'
+import { BookingsTableDesktop } from '@/components/dashboard/bookings/bookings-table-desktop'
+import { BookingsTableCards } from '@/components/dashboard/bookings/bookings-table-cards'
+import { groupByDay, statusCounts } from '@/components/dashboard/bookings/booking-groups'
+import { pendingNeedingReply } from '@/domain/entities/booking-request'
+import type { BookingItem } from '@/hooks/use-bookings'
+
+const b = (id: string, time: string, extra: Partial<BookingItem>): BookingItem => ({
+  id, restaurantId: 'r', memberId: null, phone: '+852 9000 000' + id.length, name: 'Test Diner', partySize: 2, bookingDate: '2026-11-26',
+  bookingTime: time, notes: null, status: 'pending', declineReason: null, decidedBy: null, decidedAt: null, source: 'chat',
+  campaignId: null, createdAt: '2026-11-19T00:00:00Z', decisionMessageStatus: null, ...extra,
+})
+const list: BookingItem[] = [
+  b('orig', '18:00', { name: 'Diner A', partySize: 2, source: 'agent', openChange: { id: 'chg', bookingDate: '2026-11-26', bookingTime: '18:30', partySize: 4 } }),
+  b('chg', '18:30', { name: 'Diner A', partySize: 4, source: 'agent', replacesBookingId: 'orig', replaces: { bookingDate: '2026-11-26', bookingTime: '18:00', partySize: 2 } }),
+  b('other', '19:30', { name: 'Diner B', partySize: 3 }),
+  b('done', '20:00', { name: 'Diner C', partySize: 5, status: 'confirmed' }),
+]
+const pendingCount = pendingNeedingReply(3, list.map((x) => ({ id: x.id, replacesBookingId: x.replacesBookingId ?? null })))
+const groups = groupByDay(list, 'asc')
+const actions = { busyId: null, undelivered: new Set<string>(), onDecide: () => {} }
+const noop = () => {}
+
+function Page({ phone }: { phone: boolean }) {
+  return (
+    <main className="mx-auto max-w-7xl space-y-5 p-4 md:p-8">
+      <BookingsHeader view="table" pendingCount={pendingCount} onView={noop} onShowPending={noop} />
+      <BookingsFilters status="all" counts={statusCounts(list)} query="" showSearch onStatus={noop} onQuery={noop} />
+      {phone ? (
+        <BookingsTableCards groups={groups} today="2026-11-20" {...actions} />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card"><BookingsTableDesktop groups={groups} today="2026-11-20" {...actions} /></div>
+      )}
+    </main>
+  )
+}
+
+for (const [locale, messages] of [['en', en], ['zh-HK', zhHK]] as const) {
+  for (const phone of [false, true]) {
+    const body = renderToStaticMarkup(
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Hong_Kong"><Page phone={phone} /></NextIntlClientProvider>
+    )
+    const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="app.css"></head><body class="bg-background text-foreground antialiased" style="font-family:system-ui,'PingFang HK',sans-serif">${body}</body></html>`
+    writeFileSync(`out/book006/${locale}-${phone ? 'phone' : 'desktop'}.html`, html)
+  }
+}
+console.log('pendingCount', pendingCount, 'counts', JSON.stringify(statusCounts(list)))

@@ -1,0 +1,3 @@
+{
+  "/api/dashboard/agent/conversations/[threadKey]/route": "app/api/dashboard/agent/conversations/[threadKey]/route.js"
+}

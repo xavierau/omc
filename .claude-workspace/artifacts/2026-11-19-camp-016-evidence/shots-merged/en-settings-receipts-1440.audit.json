@@ -1,0 +1,70 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/receipts",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 900,
+  "scrollable": false,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 105,
+  "domNodes": 210,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 4,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Cafe Popp\" @0,0 1440x900",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 32px / bottom 95px)",
+   "items": [
+    "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient Powered by WhatsApp Cafe Popp\" @0,0 240x900",
+    "main.flex-1.bg-background \"Settings Manage your restaurant settings\" @240,0 1200x900"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"Campaigns New Audience quality, win-back\" @272,346 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 43px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Campaigns New Audience quality, win-back\" @317,357 174x64",
+    "svg @285,359 20x20"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"Join QR & welcome Welcome message, QR co\" @272,436 232x86",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 20px / bottom 44px)",
+   "items": [
+    "span.min-w-0.flex-1 \"Join QR & welcome Welcome message, QR co\" @317,447 174x64",
+    "svg @285,449 20x20"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

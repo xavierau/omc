@@ -1,0 +1,25 @@
+// AGENT-005 AC-6: the real BookingSettingsSection with the real en / zh-HK messages over a fake config, as static HTML.
+// Run from the repo root: npx tsx <this file as .tsx> <outDir>. Not the running app (needs an authenticated tenant).
+import { writeFileSync } from 'node:fs'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { NextIntlClientProvider } from 'next-intl'
+import en from '@/messages/en.json'
+import zhHK from '@/messages/zh-HK.json'
+import { BookingSettingsSection } from '@/components/dashboard/booking-settings-section'
+import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
+
+const RULES = {
+  en: 'Bookings 11:30-20:00 (fake). Last booking 20:00, last order 20:30.\nNo bookings on Mondays. Groups over 8: please call.',
+  'zh-HK': '訂座時段 11:30-20:00（示範）。最後訂座 20:00，最後點餐 20:30。\n逢星期一不設訂座。8 位以上請致電。',
+}
+const outDir = process.argv[2]
+for (const [locale, messages] of [['en', en], ['zh-HK', zhHK]] as const) {
+  const config = { ...DEFAULT_BOOKING_CONFIG, mode: 'simple' as const, bookingRules: RULES[locale] }
+  const body = renderToStaticMarkup(
+    <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Hong_Kong">
+      <main className="mx-auto max-w-3xl space-y-5 p-4 md:p-8"><BookingSettingsSection initialConfig={config} /></main>
+    </NextIntlClientProvider>
+  )
+  const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="app.css"></head><body class="bg-background text-foreground antialiased" style="font-family:system-ui,'PingFang HK',sans-serif">${body}</body></html>`
+  writeFileSync(`${outDir}/${locale}.html`, html)
+}

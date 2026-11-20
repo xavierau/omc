@@ -1,0 +1,9 @@
+{
+  "source_ref": "release-wonb020",
+  "source_commit": "660f82df15ce4db1c299930f1682d8c36f907c70",
+  "source_subject": "Merge pull request #221 from xavierau/develop",
+  "build_id": "xk8QzLQHF8mIsyZ55BQSi",
+  "built_at": "2026-11-20T13:26:48Z",
+  "built_by": "xavier.au@gmail.com",
+  "node": "v22.21.1"
+}

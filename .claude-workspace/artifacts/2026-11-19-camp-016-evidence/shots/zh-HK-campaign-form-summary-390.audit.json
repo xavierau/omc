@@ -1,0 +1,93 @@
+{
+ "url": "http://localhost:3040/dashboard/campaigns",
+ "viewport": {
+  "w": 390,
+  "h": 844,
+  "dpr": 2,
+  "mobile": true,
+  "consistent": true,
+  "inner": [
+   390,
+   844
+  ]
+ },
+ "page": {
+  "scrollW": 390,
+  "scrollH": 844,
+  "scrollable": false,
+  "overlaysOpen": [
+   "div.fixed.inset-0 @0,0 390x844",
+   "div#radix-_r_6_.fixed.z-50 \"建立推廣活動 名稱 類型 歡迎 回訪推廣 推廣 目標對象 所有會員 指定會員 按\" @98,0 293x844"
+  ]
+ },
+ "scanned": {
+  "elements": 122,
+  "domNodes": 320,
+  "capped": false
+ },
+ "cls": 0.0456091305802678,
+ "summary": {
+  "blocking": 0,
+  "warning": 6,
+  "info": 2
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "inconsistent-spacing",
+   "sev": "warning",
+   "el": "div.group/tabs.flex \"EN 繁中 0 / 1024 插入 {{contactName}} 插入 {{c\" @128,611 234x261",
+   "detail": "3 sibling <div> items have uneven vertical gaps: [8, 16]px",
+   "items": [
+    "div.group/tabs-list.inline-flex \"EN 繁中\" @128,611 81x32",
+    "div#radix-_r_9_-content-en.flex-1.text-sm \"0 / 1024\" @128,651 234x123",
+    "div.mt-2.flex \"插入 {{contactName}} 插入 {{couponCode}} 插入 \" @128,790 234x82"
+   ]
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "a.font-medium.text-primary \"更改\" @325,271 28x20",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "input \"inline\" @128,583 13x13",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "input \"wa_template\" @219,583 13x13",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "button.rounded-full.border \"插入 {{contactName}}\" @128,790 146x22",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "touch-target-small",
+   "sev": "warning",
+   "el": "button.rounded-full.border \"插入 {{couponCode}}\" @128,820 143x22",
+   "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+  },
+  {
+   "check": "layout-shift",
+   "sev": "info",
+   "el": null,
+   "detail": "cumulative layout shift 0.046 since load",
+   "sources": [
+    "div \"進行中 CAMP-016 walk zh-HK active Promo 已發送\" @64,160 302x440"
+   ]
+  },
+  {
+   "check": "touch-target-under-44",
+   "sev": "info",
+   "el": null,
+   "detail": "9 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+  }
+ ]
+}
