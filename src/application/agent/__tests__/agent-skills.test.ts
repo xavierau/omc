@@ -12,8 +12,10 @@ import { AGENT_TOOL_NAMES, type AgentToolName } from '@/domain/value-objects/age
 const NOW = new Date('2026-11-20T04:00:00Z')
 const CONFIG = { instructions: '', knowledge: 'Open daily 11:00-21:00.' }
 const LOYALTY: AgentToolName[] = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
-const SIMPLE = offeredTools([...AGENT_TOOL_NAMES], 'simple', 'auto')
-const EXTERNAL = offeredTools([...AGENT_TOOL_NAMES], 'external', 'auto')
+/** Every booking tool enabled (no loyalty tool): what the booking mode then offers. */
+const BOOKING_ENABLED = AGENT_TOOL_NAMES.filter((t) => !LOYALTY.includes(t))
+const SIMPLE = offeredTools(BOOKING_ENABLED, 'simple', 'auto')
+const EXTERNAL = offeredTools(BOOKING_ENABLED, 'external', 'auto')
 const SAMPLE_RULES = 'Bookings 12:00-20:00. Last order 20:30. Closed Mondays.'
 
 /** Today's rules 1–5 (before AGENT-005), byte for byte. */
@@ -147,7 +149,7 @@ describe('AGENT-005 AC-1 booking skill', () => {
   })
 
   it('shadow (no change/cancel tools) → the new-booking flow and check rule name only propose_booking', () => {
-    const shadow = offeredTools([...AGENT_TOOL_NAMES], 'simple', 'shadow')
+    const shadow = offeredTools(BOOKING_ENABLED, 'simple', 'shadow')
     const text = build(shadow)
     expect(text).toContain('call propose_booking')
     expect(text).toContain('Before you call propose_booking, check the requested date and time')

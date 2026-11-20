@@ -1,0 +1,12 @@
+resource-lock: waiting for 'heavy' (held by PID 75778 CWD /Users/xavierau/Code/js/whatsapp-crm--wonb-020 CMD sh -c npx vitest run > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-vitest.log 2>&1; echo "vitest exit $?" > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-summary.txt; npx tsc --noEmit > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-tsc.log 2>&1; echo "tsc exit $?" >> /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-summary.txt; npx eslint src > /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-lint.log 2>&1; echo "lint exit $?" >> /private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/29e1d11b-4cdc-46e6-8954-17896bb1b088/scratchpad/gate-summary.txt)
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--agent-005
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  674 passed | 14 skipped (688)
+      Tests  7697 passed | 127 skipped | 2 todo (7826)
+   Start at  13:41:24
+   Duration  32.83s (transform 23.87s, setup 0ms, import 91.97s, tests 22.37s, environment 49ms)
+
+exit 0

@@ -337,7 +337,8 @@ async function callModel(
     booking,
   })
   const tools = config.maxToolCalls === 0 ? [] : declarationsFor(config.enabledTools, bookingMode, mode)
-  const offered = offeredTools(config.enabledTools, bookingMode, mode)
+  // AGENT-005: the tools the model really gets (none when maxToolCalls is 0) also pick the prompt's skills.
+  const offered = tools.length === 0 ? [] : offeredTools(config.enabledTools, bookingMode, mode)
   // F5: any proposing tool (a cancel-only set included) needs the WAITING line on the diner's "yes".
   const offersProposal = tools.length > 0 && offered.some((t) => (PROPOSING_TOOLS as readonly string[]).includes(t))
   // R15/R22: tell the model a read-back is waiting (kind only); a failed read just leaves the line out.
@@ -346,7 +347,11 @@ async function callModel(
   const result = await deps.model.respond({
     model,
     fallbackModel: effectiveFallbackModel(config, deps.envFallbackModel),
-    systemInstruction: buildSystemInstruction(config, now, pending),
+    systemInstruction: buildSystemInstruction(config, now, {
+      offeredTools: offered,
+      bookingRules: booking?.config.bookingRules ?? '',
+      pendingProposal: pending,
+    }),
     history: toAgentTurns(rows),
     // No tool calls allowed → declare none, so the model answers in text (a points question included).
     tools,

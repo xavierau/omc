@@ -356,12 +356,15 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     expect(h.store.modelRows().map((r) => r.outcome)).toEqual(['sent'])
   })
 
-  it('AC-MODE booking mode off → the model is offered no booking tool; the instruction is preamble + clock + knowledge', async () => {
+  it('AC-MODE booking mode off → the model is offered no booking tool; the instruction is preamble + loyalty skill + clock + knowledge', async () => {
     const model = new FakeAgentModel([okModel('Hi')])
     const h = workerHarness({ model })
     await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))
-    expect(model.requests[0].tools.map((t) => t.name)).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff'])
-    expect(model.requests[0].systemInstruction).toBe(buildSystemInstruction(h.currentConfig(), h.clock.now()))
+    const offered = ['get_member_summary', 'list_rewards', 'handoff_to_staff'] as const
+    expect(model.requests[0].tools.map((t) => t.name)).toEqual(offered)
+    // AGENT-005: the prompt is built from the offered tools (loyalty skill on, booking skill off).
+    expect(model.requests[0].systemInstruction).toBe(buildSystemInstruction(h.currentConfig(), h.clock.now(), { offeredTools: offered }))
+    expect(model.requests[0].systemInstruction).not.toContain('TABLE BOOKINGS')
   })
 
   it('AC-MODE an unreadable booking config → no booking tool, the reply still goes out', async () => {
