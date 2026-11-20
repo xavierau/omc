@@ -19,7 +19,7 @@ import { handleContact } from './contact-handler'
 import { handleContactFormSubmission } from './contact-form-handler'
 import { handleBookCommand, maybeReplyToBookingIntent } from './book-handler'
 import { maybeHandleBookingConfirmCode } from './booking-confirm-code-handler'
-import { maybeQueueAgentReply } from './agent-handler'
+import { agentOwnsBookings, maybeQueueAgentReply } from './agent-handler'
 import { handleMyCard } from './my-card-handler'
 import { handleJoin, handleReceiptImage, handlePoints } from './join-and-image-handlers'
 import { handleReceiptConfirmation } from './receipt-confirmation'
@@ -198,8 +198,9 @@ async function dispatchConfirmation(
 
   // BOOK-001 (AC-4, AC-8): only genuinely unmatched text reaches the booking
   // classifier — never a YES/NO that receipt/opt-in did not claim, and never
-  // a gated route that fell back.
-  if (route === null && (await maybeReplyToBookingIntent(ctx))) return
+  // a gated route that fell back. AGENT-004: not when the auto agent is
+  // offered a booking tool; it owns the conversation (the text goes to it below).
+  if (route === null && !(await agentOwnsBookings(ctx)) && (await maybeReplyToBookingIntent(ctx))) return
 
   // AGENT-001 (R1): text the booking router declined goes to the reply agent
   // (stored + queued, no model call here). Auto mode answers from the worker,
