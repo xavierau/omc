@@ -1,0 +1,12 @@
+# r1 AC-5 gate, 2026-11-20T03:56:17Z: python3 ~/.claude/bin/resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run'
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  669 passed | 14 skipped (683)
+      Tests  7658 passed | 127 skipped | 2 todo (7787)
+   Start at  11:56:25
+   Duration  29.98s (transform 22.44s, setup 0ms, import 79.95s, tests 23.99s, environment 47ms)
+
+# exit 0

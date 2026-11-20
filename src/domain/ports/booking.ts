@@ -61,6 +61,29 @@ export interface BookingRequestStore {
   recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
 }
 
+/** BOOK-007 (R5, R6): staff mark a past confirmed booking as a no-show. */
+export interface MarkNoShowArgs {
+  id: string
+  restaurantId: string
+  markedBy: string
+  at: Date
+  /** Hong Kong now: only a booking before it can be marked. */
+  before: HongKongMoment
+}
+
+/**
+ * BOOK-007: one conditional statement each, scoped by id AND restaurant (R5):
+ * mark only confirmed + past + no pending change request replacing it (r1 F1)
+ * -> no_show (who/when stored, R6); undo only no_show -> confirmed (both
+ * cleared). Null when no row changed.
+ */
+export interface BookingNoShowStore {
+  markNoShow(args: MarkNoShowArgs): Promise<BookingRequest | null>
+  undoNoShow(args: { id: string; restaurantId: string }): Promise<BookingRequest | null>
+  /** Staff lookup: never returns an unverified agent booking (R41). */
+  findForRestaurant(id: string, restaurantId: string): Promise<BookingRequest | null>
+}
+
 export interface BookingRestaurantContext {
   name: string
   logoUrl: string | null
@@ -182,6 +205,12 @@ export interface AgentBookingStore {
    * changed (none on a replay, any mismatch or a full cap).
    */
   promote(args: PromoteAgentBookingArgs): Promise<BookingRequest[]>
+  /**
+   * BOOK-008 R1: after promotion, link a booking to an EXISTING member found
+   * by phone. One conditional UPDATE scoped by id AND restaurant, only while
+   * member_id is null and the row is no longer unverified; true when it changed.
+   */
+  linkMember(id: string, restaurantId: string, memberId: string): Promise<boolean>
 }
 
 export interface AgentBookingTenant {

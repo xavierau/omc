@@ -1,0 +1,14 @@
+# BOOK-008 AC-7 gate, 2026-11-20T04:29:50Z: python3 ~/.claude/bin/resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run' -> exit 0
+
+ Test Files  676 passed | 14 skipped (690)
+      Tests  7734 passed | 127 skipped | 2 todo (7863)
+   Start at  12:29:10
+   Duration  31.82s (transform 21.87s, setup 0ms, import 87.17s, tests 21.55s, environment 49ms)
+
+# BOOK-008 AC-7 gate (r2, after AC-8 polish), 2026-11-20T04:34:47Z: python3 ~/.claude/bin/resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run' -> exit 0
+
+ Test Files  676 passed | 14 skipped (690)
+      Tests  7734 passed | 127 skipped | 2 todo (7863)
+   Start at  12:34:16
+   Duration  30.40s (transform 23.60s, setup 0ms, import 84.26s, tests 22.96s, environment 48ms)
+

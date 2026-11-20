@@ -1,0 +1,72 @@
+// BOOK-008 AC-8: the real member panel Bookings section and the real Bookings views (desktop table, phone cards)
+// with the member link controls, over fake data (no prod data), as static HTML.
+// Run from the repo root: npx tsx --tsconfig tsconfig.json <this file> <outDir>.
+import { writeFileSync } from 'node:fs'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { NextIntlClientProvider } from 'next-intl'
+import en from '@/messages/en.json'
+import zhHK from '@/messages/zh-HK.json'
+import { BookingsTableDesktop } from '@/components/dashboard/bookings/bookings-table-desktop'
+import { BookingsTableCards } from '@/components/dashboard/bookings/bookings-table-cards'
+import { groupByDay } from '@/components/dashboard/bookings/booking-groups'
+import { MemberBookingsSection } from '@/components/dashboard/member-bookings-section'
+import { BookingMemberContext } from '@/components/dashboard/bookings/use-booking-member'
+import type { BookingItem } from '@/hooks/use-bookings'
+import type { MemberBookingHistory } from '@/domain/entities/member-booking'
+
+const M = '5d1b0c2e-0000-4000-8000-000000000001'
+const b = (id: string, date: string, time: string, extra: Partial<BookingItem>): BookingItem => ({
+  id, restaurantId: 'r', memberId: null, phone: '+852 9000 000' + id.length, name: 'Test Diner', partySize: 2, bookingDate: date,
+  bookingTime: time, notes: null, status: 'confirmed', declineReason: null, decidedBy: 'u', decidedAt: '2026-11-18T00:00:00Z',
+  source: 'chat', campaignId: null, createdAt: '2026-11-17T00:00:00Z', decisionMessageStatus: 'delivered', ...extra,
+})
+const list: BookingItem[] = [
+  b('linked', '2026-11-21', '18:00', { name: 'Diner A', partySize: 4, memberId: M }),
+  b('unlinked', '2026-11-21', '19:30', { name: 'Diner B', partySize: 2 }),
+  b('pending', '2026-11-21', '20:30', { name: 'Diner C', partySize: 2, status: 'pending', decidedBy: null, decidedAt: null, decisionMessageStatus: null, memberId: M }),
+]
+const groups = groupByDay(list, 'asc')
+const actions = { busyIds: new Set<string>(), undelivered: new Set<string>(), onDecide: () => {}, onNoShow: () => {} }
+const member = { openMember: () => {}, link: async () => {}, busyIds: new Set<string>() }
+const history: MemberBookingHistory = {
+  bookings: [
+    { id: 'h1', bookingDate: '2026-11-21', bookingTime: '18:00', partySize: 4, status: 'confirmed' },
+    { id: 'h2', bookingDate: '2026-11-21', bookingTime: '20:30', partySize: 2, status: 'pending' },
+    { id: 'h3', bookingDate: '2026-11-12', bookingTime: '19:30', partySize: 2, status: 'no_show' },
+    { id: 'h4', bookingDate: '2026-11-02', bookingTime: '12:30', partySize: 3, status: 'cancelled' },
+    { id: 'h5', bookingDate: '2026-10-18', bookingTime: '19:00', partySize: 6, status: 'declined' },
+    { id: 'h6', bookingDate: '2026-10-04', bookingTime: '19:30', partySize: 2, status: 'confirmed' },
+  ],
+  stats: { total: 57, confirmed: 41, cancelled: 6, declined: 3, noShow: 2, pending: 5, lastBookingDate: '2026-11-12', nextBookingDate: '2026-11-21' },
+}
+
+function Page({ phone }: { phone: boolean }) {
+  return (
+    <BookingMemberContext.Provider value={member}>
+      <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+        {phone ? (
+          <BookingsTableCards groups={groups} today="2026-11-20" {...actions} />
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-border bg-card"><BookingsTableDesktop groups={groups} today="2026-11-20" {...actions} /></div>
+        )}
+        {/* The member panel (a Sheet, w-[400px] sm:w-[540px]) is client-fetched; its Bookings section is rendered at the same width. */}
+        <aside className="w-full rounded-xl border border-border bg-background p-4 sm:w-[540px]" data-testid="ac8-member-panel">
+          <h2 className="mb-4 font-semibold text-foreground">Diner A</h2>
+          <MemberBookingsSection history={history} />
+        </aside>
+      </main>
+    </BookingMemberContext.Provider>
+  )
+}
+
+const outDir = process.argv[2]
+for (const [locale, messages] of [['en', en], ['zh-HK', zhHK]] as const) {
+  for (const phone of [false, true]) {
+    const body = renderToStaticMarkup(
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Hong_Kong"><Page phone={phone} /></NextIntlClientProvider>
+    )
+    const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="app.css"></head><body class="bg-background text-foreground antialiased" style="font-family:system-ui,'PingFang HK',sans-serif">${body}</body></html>`
+    writeFileSync(`${outDir}/${locale}-${phone ? 'phone' : 'desktop'}.html`, html)
+  }
+}
+console.log('rendered 4 pages')

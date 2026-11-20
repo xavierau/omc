@@ -1,6 +1,9 @@
 'use client'
 
-/** BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. */
+/**
+ * BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. BOOK-007: full-width Mark no-show / Undo.
+ * BOOK-008: the name opens the linked member; the member link control sits under the party/phone line.
+ */
 import { useTranslations } from 'next-intl'
 import {
   BookingNotes,
@@ -16,11 +19,13 @@ import {
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { cn } from '@/lib/utils'
+import { NoShowAction } from './booking-no-show-action'
+import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
 import type { BookingGroupsProps } from './bookings-table-desktop'
 
-function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionProps & { booking: BookingItem }) {
+function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
   const t = useTranslations('bookings')
   return (
     <li
@@ -30,7 +35,7 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
       <div className="flex items-start justify-between gap-2">
         <p className={cn('min-w-0 text-base font-semibold break-words text-foreground', cancelledText(booking))}>
           <span className="mr-2 tabular-nums">{booking.bookingTime}</span>
-          {booking.name ?? t('nameRemoved')}
+          <BookingGuestName booking={booking} />
         </p>
         <BookingStatusBadge booking={booking} />
       </div>
@@ -41,6 +46,7 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
           <BookingSource source={booking.source} />
         </span>
       </p>
+      <MemberLinkControl booking={booking} />
       <div className="flex empty:hidden">
         <CancelledByBadge booking={booking} />
       </div>
@@ -49,7 +55,8 @@ function BookingCard({ booking, busyId, undelivered, onDecide }: BookingActionPr
       <BookingNotes booking={booking} />
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
       <div className="pt-1 empty:hidden">
-        <RowActions booking={booking} busy={busyId === booking.id} onDecide={onDecide} stretch />
+        <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} stretch />
+        <NoShowAction booking={booking} busy={busyIds.has(booking.id)} onNoShow={onNoShow} stretch />
       </div>
     </li>
   )

@@ -216,6 +216,56 @@ describe('useBookings settle (F2): only the current query may land', () => {
   })
 })
 
+// BOOK-008 r1 F9 (CodeRabbit PR #214): two fetches of the SAME query (the mount fetch and a
+// refetch after a decision or a member link, or two quick refetches) settled in arrival order,
+// so a slow earlier answer landing last overwrote the newer data. Latest request wins.
+describe('useBookings settle (r1 F9): the latest request for a query wins', () => {
+  it('a slow earlier response arriving after a newer one does not overwrite the newer data', async () => {
+    const key = 'from=2026-11-01&to=2026-12-05'
+    const loaded: Array<{ key: string; payload: BookingsPayload }> = []
+    const settle = bookingsSettler(() => key, { loaded: (k, p) => loaded.push({ key: k, payload: p }), failed: () => {} })
+    const slow = deferred<BookingsPayload>()
+    const first = settle(key, slow.promise)
+    await settle(key, Promise.resolve(payload('after-link')))
+    slow.resolve(payload('before-link'))
+    await first
+    expect(loaded).toEqual([{ key, payload: payload('after-link') }])
+  })
+
+  it("an earlier request's failure after a newer success never shows the error state", async () => {
+    const failed = vi.fn()
+    const loaded = vi.fn()
+    const settle = bookingsSettler(() => 'a', { loaded, failed })
+    const slow = deferred<BookingsPayload>()
+    const first = settle('a', slow.promise)
+    await settle('a', Promise.resolve(payload('new')))
+    slow.reject(new Error('boom'))
+    await first
+    expect(failed).not.toHaveBeenCalled()
+    expect(loaded).toHaveBeenCalledTimes(1)
+  })
+
+  it('settlers sharing one counter (the hook makes one per fetch) still let only the latest land', async () => {
+    const loaded = vi.fn()
+    const requests = { latest: 0 }
+    const land = { loaded, failed: () => {} }
+    const slow = deferred<BookingsPayload>()
+    const first = bookingsSettler(() => 'a', land, requests)('a', slow.promise)
+    await bookingsSettler(() => 'a', land, requests)('a', Promise.resolve(payload('new')))
+    slow.resolve(payload('old'))
+    await first
+    expect(loaded.mock.calls.map((c) => c[1])).toEqual([payload('new')])
+  })
+
+  it('requests that answer in order all land, the newest last', async () => {
+    const loaded = vi.fn()
+    const settle = bookingsSettler(() => 'a', { loaded, failed: () => {} })
+    await settle('a', Promise.resolve(payload('one')))
+    await settle('a', Promise.resolve(payload('two')))
+    expect(loaded.mock.calls.map((c) => c[1])).toEqual([payload('one'), payload('two')])
+  })
+})
+
 // F4 (review 2026-11-19, pre-existing): busyId was cleared before the refetch, so the decided row's
 // buttons re-enabled while it still showed Pending.
 describe('runDecision (F4): the row stays busy until the list has reloaded', () => {

@@ -1,0 +1,25 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-007
+
+ ❯ src/components/dashboard/__tests__/booking-no-show-ui.test.tsx (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/__tests__/booking-no-show-ui.test.tsx [ src/components/dashboard/__tests__/booking-no-show-ui.test.tsx ]
+Error: Cannot find module '/src/components/dashboard/bookings/use-booking-no-show' imported from /Users/xavierau/Code/js/whatsapp-crm--book-007/src/components/dashboard/__tests__/booking-no-show-ui.test.tsx
+ ❯ src/components/dashboard/__tests__/booking-no-show-ui.test.tsx:23:1
+     21| import { BookingsTableCards } from '../bookings/bookings-table-cards'
+     22| import { BookingsFilters } from '../bookings/bookings-filters'
+     23| import { noShowOutcome, requestNoShow } from '../bookings/use-booking-…
+       | ^
+     24| import type { BookingItem } from '@/hooks/use-bookings'
+     25|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  11:12:29
+   Duration  937ms (transform 359ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

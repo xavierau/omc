@@ -1628,6 +1628,33 @@
           ]
         },
         {
+          "id": "BOOK-008",
+          "title": "Link members and their bookings (auto by phone, manual edit), bookings + stats on the member panel",
+          "description": "Owner 2026-11-20: 'we also need to link member with their bookings'. Bookings link to an EXISTING same-restaurant member by phone at creation (BOOK-001 page, agent tool: unchanged) and when a poppy booking's confirm code promotes it to pending (unverified stays member-less); migration 088 backfills member-less, non-unverified rows once. PATCH /api/dashboard/bookings/[id]/member (admin/staff, tenant-scoped booking AND member, 404 on any miss, 409 when the link changed first) links/relinks/unlinks with one events row booking.member_relinked (actor + ids only), in one RPC. Member detail GET returns bookingHistory: newest 50 bookings + stats over all (total, confirmed, cancelled, declined, no_show, pending, last/next date) via RPC member_booking_stats; null when unreadable. Member panel Bookings section; in 訂座 the diner name opens the member panel, Link member / Change member / Unlink member with an inline member search. member_id never decides who is messaged (R3). No member is ever created from a booking.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "members",
+            "dashboard",
+            "frontend",
+            "backend",
+            "poc"
+          ],
+          "related": [
+            "kanban:BOOK-007",
+            "threats/2026-11-20-book-007-008-member-bookings",
+            "plans/2026-11-20-book-007-008-member-bookings"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-book-008-member-bookings-impl.md",
+            "artifacts/2026-11-20-book-008-handoff.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "branch": "feature/book-008-member-bookings",
+          "notes": "Apply migration 088 before deploying (events type CHECK + index + 2 service_role RPCs + one-off backfill; idempotent). Validated on a scratch DB built from 001..087 in a rolled-back txn (artifacts/evidence/2026-11-20-book-008/ac6-088-scratch.log). Never run 088 against a shared DB outside the release."
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
@@ -1823,6 +1850,38 @@
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "BOOK-007",
+          "title": "Staff mark a past confirmed booking as no-show (and undo)",
+          "description": "Owner 2026-11-20: no-show tracking so BOOK-008 can show per-member booking stats. New booking status no_show (migration 087: status CHECK, no_show_marked_by/at, decision/marker CHECKs), POST/DELETE /api/dashboard/bookings/[id]/no-show (admin/staff, tenant-scoped conditional UPDATE: confirmed + past in Asia/Hong_Kong -> no_show; undo -> confirmed), no diner message. 'Mark no-show' / 'Undo' in the table, phone cards and calendar day panel, no_show badge + filter chip. Guests exclude no_show; an original with an open change counts once as its change row (BOOK-006 follow-up). Poppy/agent outputs show no_show as confirmed; published enums unchanged.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "dashboard",
+            "frontend",
+            "backend",
+            "poc"
+          ],
+          "related": [
+            "kanban:BOOK-006",
+            "kanban:BOOK-008",
+            "threats/2026-11-20-book-007-008-member-bookings",
+            "plans/2026-11-20-book-007-008-member-bookings",
+            "github:210",
+            "github:211"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-book-007-no-show-impl.md",
+            "artifacts/2026-11-20-book-007-handoff.md",
+            "deploys/2026-11-20-book-007-release-runbook",
+            "artifacts/2026-11-20-rel-book007-handoff"
+          ],
+          "status": "done",
+          "updated": "2026-11-20",
+          "branch": "feature/book-007-no-show",
+          "notes": "Apply migration 087 before deploying (additive). Validated on a scratch DB built from 001..086 in a rolled-back txn (artifacts/evidence/2026-11-20-book-007/ac4-087-scratch.log). Released 2026-11-20 04:28Z: PR #210 → develop 460d9490, release PR #211 (develop → main 23dc635f), release ca44103a, BUILD_ID 2X-ml2OJycTIYik4jAYvg; migration 087 applied by supabase db push before the daemon restarts; post-deploy catalog as in 087, 0 no_show rows (deploys/2026-11-20-book-007-release-runbook). One pre-existing [Kapso] template-list warn line after restart pending main's ruling. Owner's live no-show check pending.",
+          "pr": "210, 211"
+        },
         {
           "id": "BOOK-006",
           "title": "A booking with an open change request is decided only through its change row",

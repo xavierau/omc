@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { BOOKING_MEMBER_RELINKED_EVENT } from '@/domain/entities/member-booking'
 
 export interface RecentEvent {
   id: string
@@ -101,6 +102,8 @@ async function fetchRecentEvents(
     .from('events')
     .select('id, type, data_json, created_at, members(name)')
     .eq('restaurant_id', restaurantId)
+    // BOOK-008 r1 F4: the relink audit row is staff bookkeeping, not feed activity.
+    .neq('type', BOOKING_MEMBER_RELINKED_EVENT)
     .order('created_at', { ascending: false })
     .limit(10)
 

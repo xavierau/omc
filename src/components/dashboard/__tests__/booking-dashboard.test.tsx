@@ -25,7 +25,7 @@ const row = (id: string, status: BookingItem['status'], extra: Partial<BookingIt
   decisionMessageStatus: null, ...extra,
 })
 
-const actions = { busyId: null, undelivered: new Set<string>(), onDecide: () => {} }
+const actions = { busyIds: new Set<string>(), undelivered: new Set<string>(), onDecide: () => {} }
 const html = (el: ReactElement) => renderToStaticMarkup(el)
 const occurrences = (markup: string, needle: string) => markup.split(needle).length - 1
 

@@ -10,8 +10,11 @@
  */
 import type { BookingLinkSource } from '@/domain/services/booking-token'
 
-/** AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change. */
-export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled'
+/**
+ * AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change.
+ * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
+ */
+export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show'
 /** AGENT-003 R24/R23: who cancelled a booking. */
 export type BookingCancelledBy = 'diner_ai' | 'change'
 /** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. */

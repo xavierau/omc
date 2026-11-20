@@ -27,7 +27,7 @@ export function BookingsFilters({ status, counts, query, showSearch, onStatus, o
             type="button"
             aria-pressed={s === status}
             onClick={() => onStatus(s)}
-            data-testid={`bookings-filter-${s}`}
+            data-testid={`bookings-filter-${s.replace('_', '-')}`}
             className={cn(
               'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
               s === status ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-foreground hover:bg-muted'

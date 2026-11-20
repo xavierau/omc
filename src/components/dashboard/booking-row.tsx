@@ -14,6 +14,10 @@
  * BOOK-004: the day-list row (calendar day panel, phone day list): time and
  * party on the left; the badges and actions are shared with the table views.
  * A cancelled booking is greyed and struck through, like a declined chip.
+ * BOOK-007: a past confirmed booking offers "Mark no-show"; a no-show is
+ * muted like declined and offers "Undo".
+ * BOOK-008: a linked booking's name opens the member panel; the row offers
+ * Link member / Change member / Unlink member.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -23,6 +27,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
+import { NoShowAction } from './bookings/booking-no-show-action'
+import type { NoShowFn } from './bookings/use-booking-no-show'
+import { BookingGuestName, MemberLinkControl } from './bookings/booking-member'
 
 export type DecideFn = (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 
@@ -31,15 +38,17 @@ export interface BookingRowProps {
   busy: boolean
   undelivered: boolean
   onDecide: DecideFn
+  onNoShow?: NoShowFn
 }
 
-/** BOOK-004: pending = the accent amber family, confirmed = primary, declined and cancelled = muted. */
+/** BOOK-004: pending = the accent amber family, confirmed = primary, declined, cancelled and no-show = muted. */
 export const STATUS_TONE: Record<BookingItem['status'], string> = {
   unverified: 'border-border text-muted-foreground',
   pending: 'border-accent/40 bg-pending-soft text-pending-foreground',
   confirmed: 'border-primary/25 bg-primary/10 text-primary',
   declined: 'border-border bg-muted text-muted-foreground',
   cancelled: 'border-border bg-muted text-muted-foreground',
+  no_show: 'border-border bg-muted text-muted-foreground',
 }
 
 /** A cancelled booking's time and guest are greyed and struck through (owner 2026-11-19). */
@@ -188,7 +197,7 @@ export function PhoneLink({ phone }: { phone: string }) {
   )
 }
 
-export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowProps) {
+export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: BookingRowProps) {
   const t = useTranslations('bookings')
   return (
     <li data-testid={`booking-row-${booking.id}`} className={cn('flex gap-4 px-4 py-4 sm:px-5', booking.status === 'pending' && 'bg-pending-soft')}>
@@ -198,7 +207,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('font-semibold break-words text-foreground', cancelledText(booking))}>{booking.name ?? t('nameRemoved')}</span>
+          <BookingGuestName booking={booking} className={cn('font-semibold break-words text-foreground', cancelledText(booking))} />
           <BookingStatusBadge booking={booking} />
           <AgentBadge booking={booking} />
           <CancelledByBadge booking={booking} />
@@ -208,10 +217,12 @@ export function BookingRow({ booking, busy, undelivered, onDecide }: BookingRowP
         <p className="text-sm text-muted-foreground">
           <PhoneLink phone={booking.phone} />
         </p>
+        <MemberLinkControl booking={booking} />
         <BookingNotes booking={booking} />
         <NotDeliveredBadge booking={booking} undelivered={undelivered} />
         <div className="pt-1 empty:hidden max-md:[&>div]:w-full max-md:[&>div>button]:flex-1">
           <RowActions booking={booking} busy={busy} onDecide={onDecide} />
+          <NoShowAction booking={booking} busy={busy} onNoShow={onNoShow} />
         </div>
       </div>
     </li>

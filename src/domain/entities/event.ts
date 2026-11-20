@@ -19,6 +19,8 @@ export type EventType =
   | 'stamp'
   | 'stamp_reversal'
   | 'reachability_restored'
+  /** BOOK-008 R4 (migration 088): staff linked, relinked or unlinked a booking's member. */
+  | 'booking.member_relinked'
 
 export interface CrmEvent {
   id: string

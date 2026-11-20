@@ -86,6 +86,22 @@ export async function findMemberByPhone(
 }
 
 /**
+ * BOOK-008 r1 F7: the member id for this phone at this restaurant, or null when
+ * there is none; a DB error THROWS (findMemberByPhone reads it as "no member").
+ * Used by the poppy-promotion link, which logs the failure; never creates one.
+ */
+export async function findMemberIdByPhoneStrict(restaurantId: string, phone: string): Promise<string | null> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('members')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('phone', phone)
+    .maybeSingle()
+  if (error) throw new Error(`findMemberIdByPhoneStrict: ${error.code}`)
+  return (data?.id as string | undefined) ?? null
+}
+
+/**
  * Tenant-scoped lookup of a single member's preferred-language code. Used by
  * the receipt-processing flow (which only has the memberId in context) to
  * localize the confirmation prompt and rejection reasons.

@@ -1,0 +1,140 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-008
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts (8 tests | 6 failed) 18ms
+     × 60 bookings → the newest 50 by date then time; stats over all 60, no_show included 7ms
+     × another member's, another tenant's and unverified bookings are never included 1ms
+     × reads with the caller tenant, the member id, the cap of 50 and the Hong Kong now 5ms
+     × last = latest date before now (earlier today counts); next = earliest pending/confirmed from now on 1ms
+     × a member with no bookings → empty list and zero stats 2ms
+     × a failed read → 200 with bookingHistory null; the rest of the member still loads 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > 60 bookings → the newest 50 by date then time; stats over all 60, no_show included
+TypeError: Cannot destructure property 'bookings' of 'json.bookingHistory' as it is undefined.
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:67:13
+     65|     }
+     66|     const json = await get()
+     67|     const { bookings, stats } = json.bookingHistory
+       |             ^
+     68|     expect(bookings).toHaveLength(50)
+     69|     const keys = bookings.map((b: { bookingDate: string; bookingTime: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > another member's, another tenant's and unverified bookings are never included
+TypeError: Cannot read properties of undefined (reading 'bookings')
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:85:27
+     83|     seed({ id: 'unlinked', memberId: null })
+     84|     const { bookingHistory } = await get()
+     85|     expect(bookingHistory.bookings.map((b: { id: string }) => b.id)).t…
+       |                           ^
+     86|     expect(bookingHistory.stats).toMatchObject({ total: 1, pending: 1,…
+     87|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > reads with the caller tenant, the member id, the cap of 50 and the Hong Kong now
+AssertionError: expected [] to deeply equal [ [ 'list', …(3) ], [ 'stats', …(3) ] ]
+
+- Expected
++ Received
+
+- [
+-   [
+-     "list",
+-     "5d1b0c2e-0000-4000-8000-000000000001",
+-     "rest-b",
+-     50,
+-   ],
+-   [
+-     "stats",
+-     "5d1b0c2e-0000-4000-8000-000000000001",
+-     "rest-b",
+-     {
+-       "date": "2026-11-20",
+-       "time": "11:00",
+-     },
+-   ],
+- ]
++ []
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:92:32
+     90|     vi.mocked(getTenantContext).mockResolvedValue({ userId: 'u-1', res…
+     91|     await get()
+     92|     expect(world.reader.calls).toEqual([
+       |                                ^
+     93|       ['list', MEMBER, B, 50],
+     94|       ['stats', MEMBER, B, { date: '2026-11-20', time: '11:00' }],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > last = latest date before now (earlier today counts); next = earliest pending/confirmed from now on
+TypeError: Cannot destructure property 'stats' of '(intermediate value).bookingHistory' as it is undefined.
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:103:13
+    101|     seed({ bookingDate: '2026-11-22', bookingTime: '19:00', status: 'c…
+    102|     seed({ bookingDate: '2026-11-24', bookingTime: '19:00', status: 'c…
+    103|     const { stats } = (await get()).bookingHistory
+       |             ^
+    104|     expect(stats.lastBookingDate).toBe('2026-11-20')
+    105|     expect(stats.nextBookingDate).toBe('2026-11-24')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > a member with no bookings → empty list and zero stats
+AssertionError: expected undefined to deeply equal { bookings: [], stats: { …(8) } }
+
+- Expected:
+{
+  "bookings": [],
+  "stats": {
+    "cancelled": 0,
+    "confirmed": 0,
+    "declined": 0,
+    "lastBookingDate": null,
+    "nextBookingDate": null,
+    "noShow": 0,
+    "pending": 0,
+    "total": 0,
+  },
+}
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:109:42
+    107|
+    108|   it('a member with no bookings → empty list and zero stats', async ()…
+    109|     expect((await get()).bookingHistory).toEqual({
+       |                                          ^
+    110|       bookings: [],
+    111|       stats: { total: 0, confirmed: 0, cancelled: 0, declined: 0, noSh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/app/api/dashboard/members/__tests__/member-bookings.test.ts > member detail GET: bookings + stats (R8) > a failed read → 200 with bookingHistory null; the rest of the member still loads
+AssertionError: expected undefined to be null
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/members/__tests__/member-bookings.test.ts:121:33
+    119|     expect(res.status).toBe(200)
+    120|     const json = await res.json()
+    121|     expect(json.bookingHistory).toBeNull()
+       |                                 ^
+    122|     expect(json.phone).toBe(detail.phone)
+    123|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 9 passed (15)
+   Start at  12:20:26
+   Duration  392ms (transform 196ms, setup 0ms, import 353ms, tests 25ms, environment 0ms)
+

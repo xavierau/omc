@@ -1,15 +1,20 @@
 /**
  * BOOK-001 AC-13: the result notice of the last confirm/decline.
  * BOOK-004: the day list (calendar day panel, phone day list), rows by time.
+ * BOOK-007: rows also carry the mark / undo no-show action.
  */
 import { useTranslations } from 'next-intl'
 import { BookingRow, type DecideFn } from './booking-row'
 import type { BookingItem, BookingNotice } from '@/hooks/use-bookings'
+import type { NoShowFn } from './bookings/use-booking-no-show'
 
 export interface BookingActionProps {
-  busyId: string | null
+  /** Rows with a call in flight (BOOK-007 r1 F4: decide and no-show share it). */
+  busyIds: ReadonlySet<string>
   undelivered: ReadonlySet<string>
   onDecide: DecideFn
+  /** BOOK-007: mark / undo a no-show; without it no row offers the action. */
+  onNoShow?: NoShowFn
 }
 
 export interface BookingListProps extends BookingActionProps {
@@ -32,16 +37,17 @@ export function BookingNoticeLine({ notice }: { notice: BookingNotice | null }) 
   )
 }
 
-export function BookingList({ bookings, busyId, undelivered, onDecide }: BookingListProps) {
+export function BookingList({ bookings, busyIds, undelivered, onDecide, onNoShow }: BookingListProps) {
   return (
     <ul data-testid="booking-list" className="divide-y divide-border">
       {bookings.map((booking) => (
         <BookingRow
           key={booking.id}
           booking={booking}
-          busy={busyId === booking.id}
+          busy={busyIds.has(booking.id)}
           undelivered={undelivered.has(booking.id)}
           onDecide={onDecide}
+          onNoShow={onNoShow}
         />
       ))}
     </ul>
