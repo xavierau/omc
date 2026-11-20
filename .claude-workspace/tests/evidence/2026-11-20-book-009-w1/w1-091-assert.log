@@ -1,0 +1,41 @@
+BEGIN
+INSERT 0 1
+ ?column? | terms_accepted_at | terms_text 
+----------+-------------------+------------
+ A1 ok    |                   | 
+(1 row)
+
+INSERT 0 1
+ ?column? | ?column? | terms_text 
+----------+----------+------------
+ A2 ok    | t        | 請準時    +
+          |          |           +
+          |          | Be on time
+(1 row)
+
+INSERT 0 1
+ ?column? | char_length 
+----------+-------------
+ A3 ok    |        2002
+(1 row)
+
+INSERT 0 1
+SAVEPOINT
+psql:/private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0d902816-9d38-4609-bce5-efd0cee23df0/scratchpad/w1-091-assert.sql:13: ERROR:  new row for relation "booking_requests" violates check constraint "booking_requests_terms_acceptance"
+DETAIL:  Failing row contains (f1182bce-3b83-4701-8965-f1274f903875, 00000000-0000-0000-0000-0000000000a1, null, +852, null, 2, 2026-11-24, 19:30:00, null, pending, null, null, null, null, chat, null, null, null, null, 2026-11-20 14:49:26.308304+00, 2026-11-20 14:49:26.308304+00, null, null, null, null, null, null, null, null, null, null, null, 2026-11-20 14:49:26.308304+00, null).
+ROLLBACK
+psql:/private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0d902816-9d38-4609-bce5-efd0cee23df0/scratchpad/w1-091-assert.sql:16: ERROR:  new row for relation "booking_requests" violates check constraint "booking_requests_terms_acceptance"
+DETAIL:  Failing row contains (3ec58304-acfd-479b-9403-2372b880ca1e, 00000000-0000-0000-0000-0000000000a1, null, +852, null, 2, 2026-11-24, 19:30:00, null, pending, null, null, null, null, chat, null, null, null, null, 2026-11-20 14:49:26.308304+00, 2026-11-20 14:49:26.308304+00, null, null, null, null, null, null, null, null, null, null, null, null, x).
+ROLLBACK
+psql:/private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0d902816-9d38-4609-bce5-efd0cee23df0/scratchpad/w1-091-assert.sql:19: ERROR:  new row for relation "booking_requests" violates check constraint "booking_requests_terms_acceptance"
+DETAIL:  Failing row contains (9d409555-ef36-412b-82c7-97bb13bc2e82, 00000000-0000-0000-0000-0000000000a1, null, +852, null, 2, 2026-11-24, 19:30:00, null, pending, null, null, null, null, chat, null, null, null, null, 2026-11-20 14:49:26.308304+00, 2026-11-20 14:49:26.308304+00, null, null, null, null, null, null, null, null, null, null, null, 2026-11-20 14:49:26.308304+00, ).
+ROLLBACK
+psql:/private/tmp/claude-501/-Users-xavierau-Code-js-whatsapp-crm/0d902816-9d38-4609-bce5-efd0cee23df0/scratchpad/w1-091-assert.sql:22: ERROR:  new row for relation "booking_requests" violates check constraint "booking_requests_terms_acceptance"
+DETAIL:  Failing row contains (f369b8d8-631b-49cb-b899-5816d54ca00a, 00000000-0000-0000-0000-0000000000a1, null, +852, null, 2, 2026-11-24, 19:30:00, null, pending, null, null, null, null, chat, null, null, null, null, 2026-11-20 14:49:26.308304+00, 2026-11-20 14:49:26.308304+00, null, null, null, null, null, null, null, null, null, null, null, 2026-11-20 14:49:26.308304+00, xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...).
+ROLLBACK
+ ?column?  | count 
+-----------+-------
+ rows kept |     3
+(1 row)
+
+ROLLBACK
