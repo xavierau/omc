@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-20-agent-005-release-runbook](deploys/2026-11-20-agent-005-release-runbook.md) — AGENT-005 to prod: #219 → main fe1cdbf → release d05e647, no migration (dev)
 - [2026-11-20-book-008-release-runbook](deploys/2026-11-20-book-008-release-runbook.md) — BOOK-008 to prod: #217 → main 1f2b9eb → release d74942c, mig 088 (dev)
 - [2026-11-20-book-007-release-runbook](deploys/2026-11-20-book-007-release-runbook.md) — BOOK-007 to prod: #211 → main 23dc635 → release ca44103, mig 087 (dev)
 - [2026-11-20-book-006-release-runbook](deploys/2026-11-20-book-006-release-runbook.md) — BOOK-006 to prod: #208 → main 99f8173 → release 8de9aea, no migration (dev)
@@ -105,6 +106,9 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**AGENT-005 — agent skills + 訂座規則 (2026-11-20)**
+- [2026-11-20-rel-agent005-handoff](artifacts/2026-11-20-rel-agent005-handoff.md) — AGENT-005 release handoff: prod on d05e647, no migration, omc config unchanged (dev)
 
 **BOOK-008 — member ↔ booking linking (2026-11-20)**
 - [2026-11-20-rel-book008-handoff](artifacts/2026-11-20-rel-book008-handoff.md) — BOOK-008 release handoff: prod on d74942c, mig 088 applied, backfill re-run 0 rows (dev)
