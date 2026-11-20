@@ -115,6 +115,18 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     return hits.map((r) => ({ ...r }))
   }
 
+  /** BOOK-008 R1: mirrors linkAgentBookingMember (member_id null, not unverified, scoped by restaurant). */
+  failLinkMember = false
+  async linkMember(id: string, restaurantId: string, memberId: string) {
+    this.calls.push('linkMember')
+    await tick()
+    if (this.failLinkMember) throw new Error('link failed')
+    const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.memberId === null && r.status !== 'unverified')
+    if (!row) return false
+    row.memberId = memberId
+    return true
+  }
+
   async purgeUnverified(createdBefore: Date) {
     this.calls.push('purgeUnverified')
     const doomed = this.rows.filter((r) => r.status === 'unverified' && Date.parse(r.createdAt) < createdBefore.getTime())

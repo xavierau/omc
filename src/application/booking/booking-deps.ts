@@ -131,6 +131,7 @@ export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agent
 export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
   return {
     store: agentBookingStore,
+    members,
     settings: bookingSettingsReader,
     sender: bookingMessageSender(),
     async sendText(restaurantId, phone, text) {

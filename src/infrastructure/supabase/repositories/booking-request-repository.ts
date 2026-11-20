@@ -37,7 +37,7 @@ const BOOKING_COLUMNS =
  * dashboard list and the staff decision, so the BOOK-001 paths (booking page,
  * webhook) do not depend on 085's columns.
  */
-const STAFF_COLUMNS =
+export const STAFF_COLUMNS =
   'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */

@@ -184,7 +184,8 @@ describe('GET /api/dashboard/members?id=', () => {
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json).toEqual({ ...memberDetail, qualityEvidence: null })
+    // BOOK-008: plus bookingHistory (null here: MEMBER_ID is not a UUID; member-bookings.test.ts covers it).
+    expect(json).toEqual({ ...memberDetail, qualityEvidence: null, bookingHistory: null })
   })
 
   it('attaches qualityEvidence, fetched with the caller tenant and the member id', async () => {

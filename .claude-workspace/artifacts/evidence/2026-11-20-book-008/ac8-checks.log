@@ -1,0 +1,17 @@
+BOOK-008 AC-8: the real BookingsTableDesktop / BookingsTableCards (with BookingMemberContext, as BookingsScreen provides it)
+and the real MemberBookingsSection, with the real en / zh-HK messages and the app's globals.css compiled by
+@tailwindcss/postcss, over fake data (ac8-render.tsx.txt), served on 127.0.0.1 and captured with Chrome
+(chrome-devtools MCP), plain viewport 1440x900x1 and 390x844x2, light scheme.
+Not the running app: the pages need an authenticated tenant and no local stack with the app schema was up. The member
+panel is a client-fetched Sheet (w-[400px] sm:w-[540px]); its Bookings section is rendered at that width, not inside the Sheet.
+Rows: Diner A (linked, confirmed), Diner B (unlinked), Diner C (linked, pending). Stats: 57 total, 2 no-show, 6 listed.
+390 zh-HK: innerWidth 390, scrollWidth 390 (no horizontal overflow)
+  booking-row-linked-member "Diner A" h24 cursor pointer; booking-row-linked-member-link "更改會員" h28 pointer;
+  booking-row-linked-member-unlink "取消連結" h28 pointer; booking-row-unlinked-member-link "連結會員" h28 pointer;
+  no booking-row-unlinked-member (plain text name)
+  stats: total=57 confirmed=41 noShow=2 cancelled=6 declined=3 pending=5 last=2026年11月12日 next=2026年11月21日
+390 en: innerWidth 390, scrollWidth 390
+1440 zh-HK: scrollWidth 1440; Last/Next sit in the stats grid columns (x 129 / 303, = Total / Confirmed)
+Fixes made from these renders: link-control buttons muted + cursor-pointer; Last/Next aligned to the 3-column grid
+on sm+ and given full rows on phones (zh-HK dates wrapped in a third of 390).
+Files: ac8-{en,zh-HK}-desktop-1440.png, ac8-{en,zh-HK}-phone-390.png

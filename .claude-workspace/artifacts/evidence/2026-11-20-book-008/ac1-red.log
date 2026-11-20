@@ -1,0 +1,86 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-008
+
+ ❯ src/application/booking/__tests__/booking-member-linking.test.ts (11 tests | 4 failed) 41ms
+     × R7: a member id in the diner body never reaches member_id 3ms
+     × unverified → member_id null even when a member has that phone; the promotion links it 7ms
+     × no member with that phone → stays null after promotion, and no member is created 2ms
+     × R7: a member id in the agent API body never reaches member_id, before or after verification 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/booking/__tests__/booking-member-linking.test.ts > BOOK-001 page submission links at creation (R1, unchanged path) > R7: a member id in the diner body never reaches member_id
+TypeError: Cannot read properties of undefined (reading 'memberId')
+ ❯ src/application/booking/__tests__/booking-member-linking.test.ts:68:29
+     66|   it('R7: a member id in the diner body never reaches member_id', asyn…
+     67|     await submit({ ...BODY, memberId: MEMBER_UUID, member_id: MEMBER_U…
+     68|     expect(requests.rows[0].memberId).toBeNull()
+       |                             ^
+     69|   })
+     70| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/application/booking/__tests__/booking-member-linking.test.ts > poppy (agent API) booking links at verification only (R1, R7) > unverified → member_id null even when a member has that phone; the promotion links it
+AssertionError: expected { …(23) } to match object { status: 'pending', …(1) }
+(21 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "memberId": "766188ce-8097-4873-bef1-ea89cf548e48",
++   "memberId": null,
+    "status": "pending",
+  }
+
+ ❯ src/application/booking/__tests__/booking-member-linking.test.ts:115:27
+    113|
+    114|     expect(await verify(created.confirm_code)).toEqual({ handled: true…
+    115|     expect(store.rows[0]).toMatchObject({ status: 'pending', memberId:…
+       |                           ^
+    116|     // The "received" acknowledgement still goes to the booking phone.
+    117|     expect(sender.sent.map((m) => [m.kind, m.phone])).toEqual([['recei…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/application/booking/__tests__/booking-member-linking.test.ts > poppy (agent API) booking links at verification only (R1, R7) > no member with that phone → stays null after promotion, and no member is created
+AssertionError: expected [] to deeply equal [ 'findMemberId' ]
+
+- Expected
++ Received
+
+- [
+-   "findMemberId",
+- ]
++ []
+
+ ❯ src/application/booking/__tests__/booking-member-linking.test.ts:125:27
+    123|     expect(store.rows[0]).toMatchObject({ status: 'pending', memberId:…
+    124|     expect(members.rows).toEqual([])
+    125|     expect(members.calls).toEqual(['findMemberId'])
+       |                           ^
+    126|     expect(store.calls).not.toContain('linkMember')
+    127|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/application/booking/__tests__/booking-member-linking.test.ts > poppy (agent API) booking links at verification only (R1, R7) > R7: a member id in the agent API body never reaches member_id, before or after verification
+Error: create failed
+ ❯ create src/application/booking/__tests__/booking-member-linking.test.ts:101:70
+     99|   async function create(body: Record<string, unknown> = BODY) {
+    100|     const result = await createAgentBooking(createDeps, { publicId: PI…
+    101|     if (!result.ok || result.kind !== 'awaiting_confirmation') throw n…
+       |                                                                      ^
+    102|     return result.body
+    103|   }
+ ❯ src/application/booking/__tests__/booking-member-linking.test.ts:157:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 7 passed (11)
+   Start at  12:16:32
+   Duration  1.35s (transform 137ms, setup 0ms, import 172ms, tests 41ms, environment 0ms)
+
