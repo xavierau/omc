@@ -1,0 +1,76 @@
+
+ RUN  v4.1.5 <repo>
+
+ ❯ src/hooks/__tests__/booking-hooks.test.ts (28 tests | 2 failed) 69ms
+     × a slow earlier response arriving after a newer one does not overwrite the newer data 6ms
+     × an earlier request's failure after a newer success never shows the error state 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > useBookings settle (r1 F9): the latest request for a query wins > a slow earlier response arriving after a newer one does not overwrite the newer data
+AssertionError: expected [ { …(2) }, { …(2) } ] to deeply equal [ { …(2) } ]
+
+- Expected
++ Received
+
+@@ -9,6 +9,18 @@
+        ],
+        "pendingCount": 1,
+        "truncated": false,
+      },
+    },
++   {
++     "key": "from=2026-11-01&to=2026-12-05",
++     "payload": {
++       "bookings": [
++         {
++           "id": "before-link",
++         },
++       ],
++       "pendingCount": 1,
++       "truncated": false,
++     },
++   },
+  ]
+
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:232:20
+    230|     slow.resolve(payload('before-link'))
+    231|     await first
+    232|     expect(loaded).toEqual([{ key, payload: payload('after-link') }])
+       |                    ^
+    233|   })
+    234|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/hooks/__tests__/booking-hooks.test.ts > useBookings settle (r1 F9): the latest request for a query wins > an earlier request's failure after a newer success never shows the error state
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "a",
+      "boom",
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/hooks/__tests__/booking-hooks.test.ts:244:24
+    242|     slow.reject(new Error('boom'))
+    243|     await first
+    244|     expect(failed).not.toHaveBeenCalled()
+       |                        ^
+    245|     expect(loaded).toHaveBeenCalledTimes(1)
+    246|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 26 passed (28)
+   Start at  13:43:05
+   Duration  435ms (transform 126ms, setup 0ms, import 120ms, tests 69ms, environment 0ms)
+

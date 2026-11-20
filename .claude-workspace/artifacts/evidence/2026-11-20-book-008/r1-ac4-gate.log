@@ -1,0 +1,9 @@
+# r1 AC-4 gate (r1 first attempt 05:48Z failed: 3 files mocked member-repository without the new export, booking-deps read it at load; fixed by a lazy wrapper)
+# start 2026-11-20T05:49:39Z
+
+ Test Files  678 passed | 14 skipped (692)
+      Tests  7761 passed | 127 skipped | 2 todo (7890)
+   Start at  13:49:44
+   Duration  32.55s (transform 24.51s, setup 0ms, import 91.06s, tests 22.59s, environment 48ms)
+
+# exit 0 end 2026-11-20T05:50:17Z

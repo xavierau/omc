@@ -147,6 +147,24 @@ export async function promoteAgentBooking(args: PromoteAgentBookingArgs) {
   return ((data ?? []) as AgentBookingRow[]).map(toBookingRequest)
 }
 
+/**
+ * BOOK-008 R1: link a promoted booking to an existing member (found by the
+ * caller by phone in the same restaurant). Scoped by id AND restaurant, only
+ * while member_id is still null and the row is past unverified.
+ */
+export async function linkAgentBookingMember(id: string, restaurantId: string, memberId: string): Promise<boolean> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .update({ member_id: memberId })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .is('member_id', null)
+    .neq('status', 'unverified')
+    .select('id')
+  if (error) throw new Error(`linkAgentBookingMember: ${error.code}`)
+  return (data ?? []).length === 1
+}
+
 /** R41: unverified rows created before `createdBefore` are deleted outright. */
 export async function purgeUnverifiedBookings(createdBefore: Date): Promise<number> {
   const { data, error } = await createServerSupabaseClient()
@@ -180,6 +198,7 @@ export const agentBookingStore: AgentBookingStore = {
   find: findAgentBooking,
   replaceStatusToken: replaceAgentStatusToken,
   promote: promoteAgentBooking,
+  linkMember: linkAgentBookingMember,
 }
 
 export const agentBookingDirectory: AgentBookingDirectory = { findByPublicId: findRestaurantByAgentPublicId }

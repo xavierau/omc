@@ -9,7 +9,7 @@ import {
   bookingRequestStore,
 } from '@/infrastructure/supabase/repositories/booking-request-repository'
 import { bookingSettingsReader, promoteBookingTemplateCandidate } from '@/infrastructure/supabase/repositories/booking-config-repository'
-import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import { findMemberByPhone, findMemberIdByPhoneStrict } from '@/infrastructure/supabase/repositories/member-repository'
 import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { isWindowOpen } from '@/infrastructure/supabase/repositories/conversation-window-repository'
@@ -48,6 +48,13 @@ const appUrl = () => resolveAgentAppUrl(process.env.NEXT_PUBLIC_APP_URL, process
 export const members: BookingMemberLookup = {
   async findMemberId(restaurantId, phone) {
     return (await findMemberByPhone(restaurantId, phone))?.id ?? null
+  },
+}
+
+/** BOOK-008 r1 F7: the poppy-promotion link's lookup throws on a DB error, so linkExistingMember logs it. */
+const membersOrThrow: BookingMemberLookup = {
+  async findMemberId(restaurantId, phone) {
+    return findMemberIdByPhoneStrict(restaurantId, phone)
   },
 }
 
@@ -131,6 +138,7 @@ export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agent
 export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
   return {
     store: agentBookingStore,
+    members: membersOrThrow,
     settings: bookingSettingsReader,
     sender: bookingMessageSender(),
     async sendText(restaurantId, phone, text) {

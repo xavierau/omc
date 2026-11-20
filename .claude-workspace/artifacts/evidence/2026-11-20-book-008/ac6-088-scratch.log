@@ -1,0 +1,187 @@
+# scratch DB: throwaway docker public.ecr.aws/supabase/postgres:17.6.1.143 on 127.0.0.1:54989, migrations 001..087 applied (87 files, as supabase_admin; storage.buckets/objects/foldername stubbed); run 2026-11-20T04:23:33Z
+== BEGIN (everything below is rolled back)
+BEGIN
+INSERT 0 2
+INSERT 0 4
+INSERT 0 9
+== members before
+ members 
+---------
+       4
+(1 row)
+
+== apply 088
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+UPDATE 5
+== after first run: id suffix, status, member suffix (expect e1 a1, e2 a2, e3 NULL, e4 NULL, e5 b1, e6 a3, e7 a2, e8 a1, e9 NULL)
+ booking |   status   | member 
+---------+------------+--------
+ e1      | pending    | a1
+ e2      | confirmed  | a2
+ e3      | unverified | 
+ e4      | pending    | 
+ e5      | pending    | b1
+ e6      | pending    | a3
+ e7      | no_show    | a2
+ e8      | cancelled  | a1
+ e9      | declined   | 
+(9 rows)
+
+SELECT 9
+== members after (expect the same count: no member created)
+ members 
+---------
+       4
+(1 row)
+
+ consent_rows 
+--------------
+            0
+(1 row)
+
+== apply 088 again (idempotent): rows changed by the second backfill (expect 0)
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/088_booking_member_backfill.sql:31: NOTICE:  relation "booking_requests_restaurant_member_date_idx" already exists, skipping
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+UPDATE 0
+ changed_on_second_run 
+-----------------------
+                     0
+(1 row)
+
+== relink_booking_member (R2, R4)
+-- link e4 (NULL -> a3): expect 1 row, member a3
+ booking | member 
+---------+--------
+ e4      | a3
+(1 row)
+
+-- relink e1 (a1 -> a2): expect 1 row
+ booking | member 
+---------+--------
+ e1      | a2
+(1 row)
+
+-- unlink e2 (a2 -> NULL): expect 1 row, member NULL
+ booking | member_id 
+---------+-----------
+ e2      | 
+(1 row)
+
+-- refused, expect 0 rows each: other tenant member (b1), other tenant booking (e5 via A), stale from (e1 still a1?), unverified e3, no-op (e6 a3 -> a3)
+ other_tenant_member 
+---------------------
+                   0
+(1 row)
+
+ other_tenant_booking 
+----------------------
+                    0
+(1 row)
+
+ stale_from 
+------------
+          0
+(1 row)
+
+ unverified 
+------------
+          0
+(1 row)
+
+ no_op 
+-------
+     0
+(1 row)
+
+-- events: expect exactly 3 booking.member_relinked rows (actor + ids only, member_id NULL)
+ restaurant | member_id |          type           | actor |                                                                              data_json                                                                              
+------------+-----------+-------------------------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e1", "toMemberId": "b0080000-0000-4000-8000-0000000000a2", "fromMemberId": "b0080000-0000-4000-8000-0000000000a1"}
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e2", "toMemberId": null, "fromMemberId": "b0080000-0000-4000-8000-0000000000a2"}
+ 0a         |           | booking.member_relinked | f1    | {"bookingId": "b0080000-0000-4000-8000-0000000000e4", "toMemberId": "b0080000-0000-4000-8000-0000000000a3", "fromMemberId": null}
+(3 rows)
+
+-- rows after the relinks (expect e1 a2, e2 NULL, e3 NULL, e4 a3, e5 b1, e6 a3)
+ booking | member 
+---------+--------
+ e1      | a2
+ e2      | 
+ e3      | 
+ e4      | a3
+ e5      | b1
+ e6      | a3
+ e7      | a2
+ e8      | a1
+ e9      | 
+(9 rows)
+
+== member_booking_stats + the list query (R8): 60 bookings for member a1, now = 2026-11-20 11:00 HK
+UPDATE 1
+INSERT 0 60
+INSERT 0 3
+-- stats: total 60, 12 each, last = latest date before 2026-11-20 11:00, next = earliest pending/confirmed on/after it
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+    60 |        12 |        12 |       12 |      12 |      12 | 2026-11-19        | 2026-11-20
+(1 row)
+
+-- expected by hand: dates 2026-10-01..2026-11-29; i=50 is 2026-11-20 19:30 confirmed (not past at 11:00);
+--   last = 2026-11-19 (i=49), next = 2026-11-20 (i=50, confirmed, 19:30 >= 11:00)
+-- list query as listMemberBookings sends it: 50 rows, newest first
+ listed | first_date | last_date  
+--------+------------+------------
+     50 | 2026-11-29 | 2026-10-11
+(1 row)
+
+-- the list uses the new index
+SET
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit
+   ->  Index Scan using booking_requests_restaurant_member_date_idx on booking_requests
+         Index Cond: ((restaurant_id = 'b0080000-0000-4000-8000-00000000000a'::uuid) AND (member_id = 'b0080000-0000-4000-8000-0000000000a1'::uuid))
+         Filter: (status <> 'unverified'::text)
+(4 rows)
+
+-- empty member: one row of zeros and NULLs
+ total | confirmed | cancelled | declined | no_show | pending | last_booking_date | next_booking_date 
+-------+-----------+-----------+----------+---------+---------+-------------------+-------------------
+     0 |         0 |         0 |        0 |       0 |       0 |                   | 
+(1 row)
+
+== grants: only service_role may execute either RPC
+        proname        |    rolname    | can_execute 
+-----------------------+---------------+-------------
+ member_booking_stats  | anon          | f
+ member_booking_stats  | authenticated | f
+ member_booking_stats  | service_role  | t
+ relink_booking_member | anon          | f
+ relink_booking_member | authenticated | f
+ relink_booking_member | service_role  | t
+(6 rows)
+
+== events_type_check still accepts the 081 types and the new one, refuses others
+SAVEPOINT
+INSERT 0 1
+-- reachability_restored accepted
+ROLLBACK
+psql:.claude-workspace/artifacts/evidence/2026-11-20-book-008/ac6-088-scratch.sql:147: ERROR:  new row for relation "events" violates check constraint "events_type_check"
+DETAIL:  Failing row contains (0444180e-29ae-4d68-a413-799ea9590c62, b0080000-0000-4000-8000-00000000000a, null, booking.unknown, {}, 2026-11-20 04:23:33.391673+00, null, null, null).
+ROLLBACK
+== ROLLBACK done

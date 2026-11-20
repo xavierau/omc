@@ -9,6 +9,8 @@ import { MEMBERS_PAGE_SIZE } from '@/lib/constants'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { isValidUUID } from '@/infrastructure/validation/validators'
+import { getMemberBookingHistory } from '@/application/booking/get-member-booking-history'
+import { memberBookingHistoryDeps } from '@/application/booking/member-booking-deps'
 
 // Upper bound for a caller-supplied ?pageSize=. Lets high-volume consumers
 // (e.g. the campaign member picker, GH #103; the members table's 250 option, MEM-001) request a larger single page
@@ -52,16 +54,18 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleMemberDetail(memberId: string, restaurantId: string) {
-  // Evidence is tenant-scoped in its own queries and never throws, so it runs
-  // in parallel with the detail lookup; a 404 simply discards it.
-  const [member, qualityEvidence] = await Promise.all([
+  // Evidence and booking history (BOOK-008 R8) are tenant-scoped in their own
+  // queries and never throw, so they run in parallel with the detail lookup;
+  // a 404 simply discards them.
+  const [member, qualityEvidence, bookingHistory] = await Promise.all([
     getMemberDetailForRestaurant(memberId, restaurantId),
     getMemberQualityEvidenceSafe(memberId, restaurantId),
+    isValidUUID(memberId) ? getMemberBookingHistory(memberBookingHistoryDeps(), memberId, restaurantId) : null,
   ])
   if (!member) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }
-  return NextResponse.json({ ...member, qualityEvidence })
+  return NextResponse.json({ ...member, qualityEvidence, bookingHistory })
 }
 
 async function handleMemberList(searchParams: URLSearchParams, restaurantId: string) {

@@ -10,9 +10,12 @@ function createChainable(overrides: Record<string, unknown> = {}) {
   chain.limit = vi.fn().mockResolvedValue({ data: [], count: 0, ...overrides })
   chain.order = vi.fn().mockReturnValue({ limit: chain.limit })
   chain.gte = vi.fn().mockResolvedValue({ data: [], count: 0, ...overrides })
+  // BOOK-008 r1 F4: recentEvents filters out the relink audit row before ordering.
+  chain.neq = vi.fn().mockReturnValue({ order: chain.order })
   chain.eq = vi.fn().mockImplementation(() => ({
     eq: chain.eq,
     gte: chain.gte,
+    neq: chain.neq,
     order: chain.order,
     ...({ data: [], count: 0, ...overrides }),
   }))
