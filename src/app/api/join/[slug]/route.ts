@@ -49,7 +49,8 @@ export async function POST(
     // (see restaurants.welcome_campaign_id), NOT from the QR's query string.
     const result = await registerMemberWeb(phone, name, restaurant.id)
 
-    if (result.isNew) {
+    // WONB-020: an existing member who just claimed the welcome also gets a code.
+    if (result.isNew || result.couponCode) {
       return NextResponse.json({ couponCode: result.couponCode })
     }
 

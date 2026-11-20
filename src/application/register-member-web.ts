@@ -14,6 +14,7 @@ import type { E164Phone } from '@/domain/value-objects/e164-phone'
 import type { Campaign } from '@/domain/entities/campaign'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+import { canClaimWelcome } from './has-join-event'
 
 interface WebRegisterResult {
   isNew: boolean
@@ -48,12 +49,17 @@ export async function registerMemberWeb(
 
   const { data: existing } = await supabase
     .from('members')
-    .select('id')
+    .select('id, name')
     .eq('restaurant_id', restaurantId)
     .eq('phone', resolvedPhone.value)
     .single()
 
   if (existing) {
+    // WONB-020: never welcomed (no join event, e.g. imported) -> claim once.
+    if (await canClaimWelcome(restaurantId, existing.id)) {
+      const couponCode = await mintWelcome(restaurantId, existing.id, existing.name ?? contactName)
+      return { isNew: false, memberId: existing.id, couponCode }
+    }
     return { isNew: false, memberId: existing.id }
   }
 
@@ -84,14 +90,25 @@ async function createNewWebMember(
     return { isNew: false, memberId: result.memberId }
   }
 
+  const couponCode = await mintWelcome(restaurantId, result.memberId, name)
+  return { isNew: true, memberId: result.memberId, couponCode }
+}
+
+// Mints the welcome coupon, then writes the join event (which marks the
+// member as welcomed). Shared by new members and WONB-020 claims.
+async function mintWelcome(
+  restaurantId: string,
+  memberId: string,
+  name: string
+): Promise<string> {
   const campaign = await resolveWelcomeCampaign(restaurantId)
   const coupon = campaign
-    ? await mintCampaignCoupon(restaurantId, result.memberId, campaign, name)
-    : await createWelcomeCoupon(restaurantId, result.memberId)
+    ? await mintCampaignCoupon(restaurantId, memberId, campaign, name)
+    : await createWelcomeCoupon(restaurantId, memberId)
 
   await emitEvent({
     restaurantId,
-    memberId: result.memberId,
+    memberId,
     type: 'join',
     dataJson: {
       source: 'web',
@@ -100,7 +117,7 @@ async function createNewWebMember(
     },
   })
 
-  return { isNew: true, memberId: result.memberId, couponCode: coupon.code }
+  return coupon.code
 }
 
 async function resolveWelcomeCampaign(

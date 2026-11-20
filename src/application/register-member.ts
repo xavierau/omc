@@ -12,6 +12,7 @@ import { onboardNewMember } from './onboard-new-member'
 import { sendReturningWelcome } from './send-returning-welcome'
 import { createOrGetMember } from './create-or-get-member'
 import { resolveLegacyMemberE164 } from './resolve-legacy-member-e164'
+import { canClaimWelcome } from './has-join-event'
 
 interface RegisterResult {
   isNew: boolean
@@ -49,10 +50,21 @@ export async function registerMember(
 
   const existing = await findExistingMember(supabase, restaurantId, resolvedPhone.value)
   if (existing) {
+    // WONB-020: never welcomed (no join event, e.g. imported) -> claim once.
+    if (await canClaimWelcome(restaurantId, existing.id)) {
+      return claimWelcomeForExisting(restaurantId, phoneNumberId, phone, existing, contactName)
+    }
     return respondToReturningMember(restaurantId, phoneNumberId, phone, existing, contactName)
   }
 
   return createNewMember(restaurantId, phoneNumberId, phone, resolvedPhone, contactName, inboundText)
+}
+
+interface ExistingMember {
+  id: string
+  points_balance: number
+  name: string | null
+  preferred_language?: string | null
 }
 
 async function findExistingMember(
@@ -74,7 +86,7 @@ async function respondToReturningMember(
   restaurantId: string,
   phoneNumberId: string,
   phone: PhoneNumber,
-  existing: { id: string; points_balance: number; name: string | null; preferred_language?: string | null },
+  existing: ExistingMember,
   contactName?: string
 ): Promise<RegisterResult> {
   const name = existing.name ?? contactName
@@ -87,6 +99,22 @@ async function respondToReturningMember(
     name,
   })
   return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance }
+}
+
+async function claimWelcomeForExisting(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: PhoneNumber,
+  existing: ExistingMember,
+  contactName?: string
+): Promise<RegisterResult> {
+  const memberPreferredLanguage = existing.preferred_language ?? null
+  const couponCode = await runOnboarding(restaurantId, phoneNumberId, phone.value, {
+    memberId: existing.id,
+    contactName: existing.name ?? contactName,
+    memberPreferredLanguage,
+  })
+  return { isNew: false, memberId: existing.id, pointsBalance: existing.points_balance, couponCode }
 }
 
 async function createNewMember(
@@ -139,27 +167,35 @@ async function createNewMember(
     )
   }
 
-  let couponCode: string | undefined
+  const couponCode = await runOnboarding(restaurantId, phoneNumberId, phone.value, {
+    memberId: result.memberId,
+    contactName,
+    memberPreferredLanguage,
+  })
+
+  return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }
+}
+
+// Welcome flow (coupon + join event + sends) shared by new members and
+// WONB-020 claims; on failure sends the minimal welcome text instead.
+async function runOnboarding(
+  restaurantId: string,
+  phoneNumberId: string,
+  phone: string,
+  member: { memberId: string; contactName?: string; memberPreferredLanguage: string | null }
+): Promise<string | undefined> {
   try {
-    couponCode = await onboardNewMember({
-      restaurantId,
-      memberId: result.memberId,
-      phoneNumberId,
-      phone: phone.value,
-      contactName,
-      memberPreferredLanguage,
-    })
+    return await onboardNewMember({ restaurantId, phoneNumberId, phone, ...member })
   } catch (err) {
     console.warn('[register] Post-insert step failed:', (err as Error).message)
     await sendFallbackMinimalWelcome(
       restaurantId,
       phoneNumberId,
-      phone.value,
-      memberPreferredLanguage
+      phone,
+      member.memberPreferredLanguage
     )
+    return undefined
   }
-
-  return { isNew: true, memberId: result.memberId, pointsBalance: 0, couponCode }
 }
 
 async function sendFallbackMinimalWelcome(
