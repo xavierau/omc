@@ -1604,6 +1604,29 @@
       "label": "Review",
       "tasks": [
         {
+          "id": "WONB-020",
+          "title": "Imported members claim their welcome offer on first join (WhatsApp JOIN + web join form)",
+          "description": "Owner 2026-11-20: imported members scanning the join QR were told 'already a member' and could never claim the welcome promotion (imports write only consent_imported, never join). Rule: member exists AND has zero 'join' events -> runs the welcome flow once (WhatsApp: onboardNewMember with stored name/language; web: same mint + join event, route returns {couponCode}). The claim's join event makes later joins welcome-back. Lookup error fails toward welcome-back. No migration.",
+          "priority": "high",
+          "labels": [
+            "onboarding",
+            "import",
+            "members",
+            "backend",
+            "poc"
+          ],
+          "sprint": "whatsapp_onboarding_and_contact_lifecycle",
+          "branch": "feature/wonb-020-imported-welcome-claim",
+          "pr": "https://github.com/xavierau/omc/pull/212",
+          "related": [
+            "kanban:WONB-004",
+            "github:212"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-20-dev-wonb-020-handoff.md"
+          ]
+        },
+        {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
           "description": "POC: /dashboard/bookings gets a month Calendar (weeks start Sunday, covers per day, status chips, day panel with Confirm/Decline) as the default view and a Table view (Upcoming soonest first grouped by day; Past = 90 days newest first), phone layouts (week strip + day list; cards). ?view= wins over the remembered choice. GET /api/dashboard/bookings gains from/to (inclusive, capped 1000 + truncated) and pendingCount; no params keeps the BOOK-001 list. No migration.",
