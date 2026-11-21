@@ -1,0 +1,37 @@
+# BOOK-010 W1 AC-3: migration 092 on real Postgres (scratch container public.ecr.aws/supabase/postgres:17.6.1.143 via scripts/book-010/scratch-db.sh: migrations 001..092 applied with ON_ERROR_STOP), 2026-11-21T03:04:20Z
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-010
+
+stdout | src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-5: two calls for the last 4 seats at once → exactly one insert (the second waits for the lock, then counts the first)
+[race] A={"ok": true, "row": {"id": "3a60f6df-7057-47eb-a864-66346bdc99d8", "name": "race-A", "notes": null, "phone": "+85291234567", "token": null, "source": "agent", "status": "pending", "member_id": null, "created_at": "2026-11-21T03:04:22.447001+00:00", "decided_at": null, "decided_by": null, "party_size": 4, "terms_text": null, "updated_at": "2026-11-21T03:04:22.447001+00:00", "campaign_id": null, "verified_at": null, "booking_date": "2026-11-21", "booking_time": "19:00:00", "cancelled_at": null, "cancelled_by": null, "confirm_code": null, "pii_purged_at": null, "restaurant_id": "d72fc56e-3571-457d-a2b9-5da152fbb1cd", "decline_reason": null, "verified_wamid": null, "idempotency_key": null, "reminder_sent_at": null, "no_show_marked_at": null, "no_show_marked_by": null, "status_token_hash": null, "terms_accepted_at": null, "verify_expires_at": null, "replaces_booking_id": null, "decision_message_status": null}} | B={"ok": false, "refusal": {"kind": "full", "limit": 30, "scope": "slot", "guests": 30}} | B waited 1260 ms (A held its lock ~1.5 s from 305 ms)
+
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-5: two calls for the last 4 seats at once → exactly one insert (the second waits for the lock, then counts the first) 1877ms
+stdout | src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-5: 12 concurrent calls with room for exactly 3 parties of 4 → exactly 3 inserts
+[fuzz] 3 of 12 inserted; slot guests now 30
+
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-5: 12 concurrent calls with room for exactly 3 parties of 4 → exactly 3 inserts 349ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-5: the meal limit holds across different slots of one period (the lock is per date) 245ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > counting: unverified and declined rows never count; a stop refuses before any count 367ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > the inserted row is the plain insert’s row: pending, every passed column, nothing else allowed 194ms
+stdout | src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > R5: anon and authenticated cannot execute any 092 function (permission denied)
+[grants] anon: ERROR:  permission denied for function insert_booking_request_if_room
+[grants] anon: ERROR:  permission denied for function booking_guest_counts
+[grants] anon: ERROR:  permission denied for function booking_room_refusal
+[grants] anon: ERROR:  permission denied for function booking_room_lock
+[grants] anon: ERROR:  permission denied for function promote_agent_booking_with_room
+[grants] authenticated: ERROR:  permission denied for function insert_booking_request_if_room
+[grants] authenticated: ERROR:  permission denied for function booking_guest_counts
+[grants] authenticated: ERROR:  permission denied for function booking_room_refusal
+[grants] authenticated: ERROR:  permission denied for function booking_room_lock
+[grants] authenticated: ERROR:  permission denied for function promote_agent_booking_with_room
+
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > AC-6: the code step declines a candidate whose slot filled ("full") and promotes one that fits 323ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > R5: anon and authenticated cannot execute any 092 function (permission denied) 436ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room.db.test.ts > BOOK-010 migration 092 on real Postgres > R3: anon and authenticated read no booking_stops rows (RLS on, no policies) 316ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  11:04:22
+   Duration  4.27s (transform 28ms, setup 0ms, import 40ms, tests 4.11s, environment 0ms)
+
+exit 0

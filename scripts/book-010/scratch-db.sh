@@ -2,6 +2,7 @@
 # BOOK-010: a throwaway Postgres with every migration applied (memory:
 # validate migrations on a scratch DB). Never DEV or prod Supabase.
 #   scripts/book-010/scratch-db.sh up    -> prints BOOK010_PG_URL=...
+#   scripts/book-010/scratch-db.sh rest  -> PostgREST on 127.0.0.1:55493 over it (JWT secret below)
 #   scripts/book-010/scratch-db.sh down
 # Then: BOOK010_PG_URL=... npx vitest run src/infrastructure/supabase/__tests__/booking-room-race.pg.test.ts
 set -eu
@@ -11,9 +12,28 @@ IMAGE=public.ecr.aws/supabase/postgres:17.6.1.143
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 URL="postgresql://postgres:postgres@127.0.0.1:$PORT/postgres"
 
+REST=book010-scratch-rest
+# A throwaway secret for the scratch PostgREST only (no real project uses it).
+JWT_SECRET=book010-scratch-postgrest-jwt-secret-000000
+
 if [ "${1:-up}" = "down" ]; then
-  docker rm -f "$NAME" >/dev/null 2>&1 || true
-  echo "removed $NAME"
+  docker rm -f "$NAME" "$REST" >/dev/null 2>&1 || true
+  echo "removed $NAME $REST"
+  exit 0
+fi
+
+if [ "${1:-up}" = "rest" ]; then
+  docker rm -f "$REST" >/dev/null 2>&1 || true
+  docker run -d --name "$REST" -p 127.0.0.1:55493:3000 \
+    -e PGRST_DB_URI="postgres://postgres:postgres@host.docker.internal:$PORT/postgres" \
+    -e PGRST_DB_SCHEMAS=public -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$JWT_SECRET" \
+    -e PGRST_DB_MAX_ROWS=1000 public.ecr.aws/supabase/postgrest:v14.14 >/dev/null
+  i=0
+  until curl -s -o /dev/null http://127.0.0.1:55493/; do
+    i=$((i + 1)); [ "$i" -gt 30 ] && { echo "postgrest did not start" >&2; exit 1; }
+    sleep 1
+  done
+  echo "BOOK010_POSTGREST_URL=http://127.0.0.1:55493 BOOK010_POSTGREST_JWT_SECRET=$JWT_SECRET"
   exit 0
 fi
 
