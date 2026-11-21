@@ -1,0 +1,46 @@
+# Forge deployment 83563044 (site 3123752), GET …/deployments/83563044/log; created 13:27:03Z, started 13:27:04Z, ended 13:27:54Z, commit c353dea9
+# redacted: built_by email, seeded admin email and user id
+Fri Nov 20 13:27:29 UTC 2026
+From github.com:xavierau/omc
+ * branch              release    -> FETCH_HEAD
+ + d05e6470...c353dea9 release    -> origin/release  (forced update)
+→ Syncing checkout with origin/release
+  already at c353dea
+→ Checking free disk space
+  26962MB free (minimum 1500MB)
+→ Verifying prebuilt bundle
+→ Installing runtime env for the standalone server
+  site .env → .next/standalone/.env
+  BUILD_ID xk8QzLQHF8mIsyZ55BQSi
+  from release-wonb020 @ 660f82d — Merge pull request #221 from xavierau/develop
+  built 2026-11-20T13:26:48Z by <redacted> on node v22.21.1
+→ Installing dependencies
+  lockfile unchanged (5b141452304d) — node_modules is current, skipping npm ci
+→ Verifying supabase CLI
+  supabase 2.98.2
+→ Applying pending migrations
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 089_events_join_member_index.sql
+ • 090_coupons_welcome_offer.sql
+
+ [Y/n] 
+Applying migration 089_events_join_member_index.sql...
+Applying migration 090_coupons_welcome_offer.sql...
+Finished supabase db push.
+A new version of Supabase CLI is available: v3.2.0 (currently installed v2.98.2)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+→ Seeding platform admin (idempotent)
+Admin <redacted> already exists (user_id=<redacted>)
+→ Restarting daemons
+  restarting app → daemon-746791
+daemon-746791:daemon-746791_00: stopped
+daemon-746791:daemon-746791_00: started
+  app is RUNNING
+  restarting worker → daemon-801730
+daemon-801730:daemon-801730_00: stopped
+daemon-801730:daemon-801730_00: started
+  worker is RUNNING
+✓ Deploy complete
+=> Deployment complete

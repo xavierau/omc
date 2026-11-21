@@ -1,0 +1,19 @@
+# forge site command 14485032 (read-only), 2026-11-20T13:21:14Z
+cwd /home/forge/app.ohmyclient.io
+2026-11-20T13:21:14Z
+HEAD d05e64708ee04b39a8613e7158f2e519786e6981
+.next/BUILD_ID F2oHXhD6zjqi7IwuTmGfA
+RELEASE.json source_ref rel-agent005 source_commit fe1cdbfbb4749cad91e298c95a14336a904a1f6f build_id F2oHXhD6zjqi7IwuTmGfA
+ M supabase/.temp/cli-latest
+3671054    04:37:51 next-server (v16.3.4)
+3671113    04:37:48 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3671129    04:37:47 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3671130    04:37:47 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts/start-wor
+3671141    04:37:46 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs --import f
+disk /: 26965 MB free (54% used)
+MemAvailable:    2337164 kB SwapFree:           1752 kB 
+0.43 0.27 0.21 1/558 3770882
+site .env: SUPABASE_ACCESS_TOKEN non-empty lines 1; lines naming project uzimqndenngebzgndlhd 1
+REDIS_URL set lines 1
+drwx------ 12 forge forge 4096 Nov 20 06:06 /home/forge/back
+

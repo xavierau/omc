@@ -1,0 +1,21 @@
+# forge site command 14485298 (read-only), 2026-11-20T13:28:19Z (Forge deployment 83563044 ended 13:27:54Z)
+2026-11-20T13:28:19Z
+HEAD c353dea911810fb79275c00bd4215d7399f0ab2c
+.next/BUILD_ID xk8QzLQHF8mIsyZ55BQSi
+RELEASE.json {'source_ref': 'release-wonb020', 'source_commit': '660f82df15ce4db1c299930f1682d8c36f907c70', 'build_id': 'xk8QzLQHF8mIsyZ55BQSi', 'built_at': '2026-11-20T13:26:48Z'}
+git status:  M supabase/.temp/cli-latest;
+3773305 Fri Nov 20 13:27:48 2026       00:30 next-server (v16.3.4)
+3773365 Fri Nov 20 13:27:52 2026       00:26 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+daemon-746791:daemon-746791_00   RUNNING   pid 3773292, uptime 0:00:31
+daemon-801730:daemon-801730_00   RUNNING   pid 3773365, uptime 0:00:27
+/api/health 200 ; /login 200
+/login body: new BUILD_ID x1, old F2oHXhD6zjqi7IwuTmGfA x0
+bundle marker join-claim-whatsapp in .next/static: 1 files: .next/static/chunks/210vzazpahfrr.js 
+bundle marker in .next/server: 2 files
+welcome-claim-lock in .next/server: 6 files
+-rw-r--r-- 1 root  root  1858009 Nov 20 13:27 daemon-746791.log
+-rw-r--r-- 1 root  root  4873307 Nov 20 13:27 daemon-801730.log
+MemAvailable:    2293492 kB SwapFree:          74760 kB 
+0.33 0.18 0.17 5/568 3773740
+disk /: 26962 MB free
+
