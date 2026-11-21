@@ -104,6 +104,7 @@ no artifact files were lost._
 - [evidence/2026-11-20-book-009-i](tests/evidence/2026-11-20-book-009-i/walk-log.md) — I-009 walk on local Supabase 001–091 + PAP curl, suite/tsc logs (dev)
 - [evidence/2026-11-20-book-010-w1](tests/evidence/2026-11-20-book-010-w1/ac3-race.log) — 092 on scratch Postgres: last-seat race, fuzz, grants; PostgREST smoke; red/green, tsc, eslint, full suite (dev)
 - [evidence/2026-11-21-book-010-w2](tests/evidence/2026-11-21-book-010-w2/walk-log.md) — W2 local-stack walk 1440/390, layout audit 0 blocking, red/green, tsc (dev)
+- [evidence/2026-11-21-book-010-i](tests/evidence/2026-11-21-book-010-i/walk-log.md) — I-010 walk: 3-way consistency, schedule off, code step on local stack (dev)
 - [evidence/2026-11-20-book-009-f1](tests/evidence/2026-11-20-book-009-f1/red-run.log) — F1 red run 47/89 failing at base, green, scopes, tsc, full suite (dev)
 - [2026-09-10-int-001-ui-walk](tests/2026-09-10-int-001-ui-walk.md) — WI-12: BLOCKED by DEV PostgREST schema-cache gap; list/create/inbound-rotate PASS, 2 frontend defects found (ui-test-runner)
 - [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
@@ -127,6 +128,8 @@ no artifact files were lost._
 - [2026-11-20-book-010-w1-handoff](artifacts/2026-11-20-book-010-w1-handoff.md) — W1 handoff: done, not pushed, 092 not on DEV/prod (dev)
 - [2026-11-21-book-010-w2-impl](artifacts/2026-11-21-book-010-w2-impl.md) — W2 UI: limits settings, capacity + stops, month badges, over-limit prompt, diner 已滿 (dev)
 - [2026-11-21-book-010-w2-handoff](artifacts/2026-11-21-book-010-w2-handoff.md) — W2 handoff: done, not pushed, walked on local stack (dev)
+- [2026-11-21-book-010-i-impl](artifacts/2026-11-21-book-010-i-impl.md) — I-010: BOOK-009 F1 merged, room rules follow schedule switch, meal-full display (dev)
+- [2026-11-21-book-010-i-handoff](artifacts/2026-11-21-book-010-i-handoff.md) — I-010 handoff: done, PR #223 stacked on #222, not merged (dev)
 - [2026-11-20-book-009-i-handoff](artifacts/2026-11-20-book-009-i-handoff.md) — I-009 handoff: W4 merged, suite green, walked locally, PR #222 (dev)
 - [2026-11-20-book-009-f1-handoff](artifacts/2026-11-20-book-009-f1-handoff.md) — F1 review fixes P2-1/P2-2 + 4 P3: schedule switch, confirm re-check (dev)
 
