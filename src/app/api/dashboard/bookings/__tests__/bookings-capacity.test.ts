@@ -226,3 +226,40 @@ describe('AC-10 confirm over a limit asks first, never blocks', () => {
     expect((await confirmReq(id)).status).toBe(200)
   })
 })
+
+describe('F1 review fixes on stops and badges', () => {
+  it('P3-3: a repeated stop answers with the stored stop (first stopper, first time)', async () => {
+    room.seedStop(A, { date: DAY, scope: 'slot', time: '19:00', stoppedById: 'u-amy', stoppedByName: 'Amy', stoppedAt: '2026-11-20T02:02:00.000Z' })
+    holder.capacity = { ...holder.capacity!, staffName: async () => 'Ben' }
+    const res = await stop(stopsReq('POST', { date: DAY, scope: 'slot', time: '19:00' }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).stop).toEqual({
+      date: DAY, scope: 'slot', periodLabel: null, time: '19:00', stoppedBy: 'Amy', stoppedAt: '2026-11-20T02:02:00.000Z',
+    })
+    expect(room.stops).toHaveLength(1)
+  })
+
+  it('P3-2: DELETE removes a stored stop whose period label is no longer in the hours', async () => {
+    room.seedStop(A, { date: DAY, scope: 'period', periodLabel: '晚餐' })
+    room.seedStop(A, { date: DAY, scope: 'slot', time: '19:15' })
+    expect((await resume(stopsReq('DELETE', { date: DAY, scope: 'period', periodLabel: '晚餐' }))).status).toBe(200)
+    expect((await resume(stopsReq('DELETE', { date: DAY, scope: 'slot', time: '19:15' }))).status).toBe(200)
+    expect(room.stops).toHaveLength(0)
+  })
+
+  it('P3-2: DELETE still refuses a malformed body', async () => {
+    expect((await resume(stopsReq('DELETE', { date: DAY, scope: 'period' }))).status).toBe(400)
+    expect((await resume(stopsReq('DELETE', { date: DAY, scope: 'slot', time: '7pm' }))).status).toBe(400)
+    expect((await resume(stopsReq('DELETE', { date: DAY, scope: 'week' }))).status).toBe(400)
+  })
+
+  it('P3-5: today is judged over the times a diner can still pick (notice), as the diner page', async () => {
+    const today = '2026-11-20' // 11:00 HK, 2 h notice: 12:00 and 12:30 are no longer bookable
+    settings.setConfig(A, { mode: 'simple', bookingHours: { ...HOURS, limits: { perSlot: 30, perMeal: null } } })
+    for (const time of ['13:00', '13:30', '14:00']) seed({ bookingDate: today, bookingTime: time, partySize: 30 })
+    room.seedStop(A, { date: today, scope: 'period', periodLabel: '晚市' })
+    const month = await (await get('from=2026-11-01&to=2026-11-30')).json()
+    expect(month.days[today]).toEqual({ full: true, stopped: false })
+    expect((await (await get(`date=${today}`)).json()).full).toBe(true)
+  })
+})

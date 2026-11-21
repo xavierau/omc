@@ -215,3 +215,60 @@ describe('AC-6 the WhatsApp code arrives after the slot filled', () => {
     expect(sender.sent).toHaveLength(1)
   })
 })
+
+// BOOK-010 F1 (review P2-1): a slot the booking HOURS refuse gets alternatives
+// that also fit the party (limits, stops), on POST /bookings and at the code step.
+describe('F1 P2-1 rules-refusal suggestions skip full and stopped times', () => {
+  const closedDay = { ...HOURS, special: [{ date: DAY, periods: [] }] }
+  const NEXT = '2026-11-22'
+
+  it('POST on a closed day: suggested_times never hold a full or stopped time', async () => {
+    tenant({ bookingHours: closedDay })
+    seedGuests('19:00', 30, 'confirmed', NEXT)
+    room.seedStop(A, { date: NEXT, scope: 'slot', time: '18:30' })
+    const res = await post({})
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.fields).toEqual({ date: 'closed_day' })
+    expect(body.suggested_times).toHaveLength(3)
+    expect(body.suggested_times).not.toContainEqual({ date: NEXT, time: '19:00' })
+    expect(body.suggested_times).not.toContainEqual({ date: NEXT, time: '18:30' })
+    expect(body.suggested_times).toContainEqual({ date: NEXT, time: '19:30' })
+  })
+
+  it('too_far: the window-end suggestions skip a full time there', async () => {
+    const last = '2026-12-20' // today + 30
+    seedGuests('19:00', 30, 'confirmed', last)
+    const res = await post({ date: '2027-01-05' })
+    const body = await res.json()
+    expect(body.fields).toEqual({ time: 'too_far' })
+    expect(body.suggested_times.length).toBeGreaterThan(0)
+    expect(body.suggested_times).not.toContainEqual({ date: last, time: '19:00' })
+  })
+
+  it('code step: the day closed after the POST → the reply never offers a full time', async () => {
+    const code = (await (await post({})).json()).confirm_code as string
+    tenant({ bookingHours: closedDay })
+    seedGuests('19:00', 30, 'confirmed', NEXT)
+    const texts: string[] = []
+    const deps: VerifyAgentBookingDeps = {
+      store, members: { findMemberId: async () => null }, settings, sender: new FakeBookingSender(),
+      sendText: async (_r, _p, text) => void texts.push(text), privacyUrl: PRIVACY, now: () => clock.now(),
+      room: { reader: room, bookingLink: async () => null },
+    }
+    await verifyAgentBooking(deps, { restaurantId: A, phone: PHONE, text: code, wamid: 'wamid.f1' })
+    expect(store.rows.find((r) => r.phone === PHONE)).toMatchObject({ status: 'declined', declineReason: 'rules' })
+    expect(texts).toHaveLength(1)
+    expect(texts[0]).toContain(`${NEXT} 19:30`)
+    expect(texts[0]).not.toContain(`${NEXT} 19:00`)
+  })
+})
+
+// BOOK-010 F1 (review P3-1, plan budget): a `full` answer reads the window once.
+describe('F1 P3-1 one room read per refusal', () => {
+  it('a full slot on POST → readRoom called once', async () => {
+    seedGuests('19:00', 30)
+    expect((await (await post({})).json()).fields).toEqual({ time: 'full' })
+    expect(room.calls.filter((c) => c.startsWith('readRoom'))).toHaveLength(1)
+  })
+})

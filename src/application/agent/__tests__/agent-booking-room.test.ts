@@ -167,3 +167,63 @@ describe('AC-15 BOOKING RULES', () => {
     expect(bookingSkill.dataSection?.(ctx(null)) ?? '').not.toContain(FULL_TIMES_RULE.en)
   })
 })
+
+// BOOK-010 F1 (review P2-1): a slot the booking HOURS refuse gets suggestedTimes
+// that also fit the party, on propose, create and confirm-change.
+describe('F1 P2-1 rules-refusal suggestions skip full times', () => {
+  const NEXT = '2026-11-22'
+  const closed = (date: string) => ({ ...HOURS, special: [{ date, periods: [] }] })
+  const notFull = (out: Record<string, unknown>) => {
+    expect(out).toMatchObject({ error: 'invalid' })
+    expect(out.suggestedTimes).toEqual(expect.arrayContaining([{ date: NEXT, time: '19:30' }]))
+    expect(out.suggestedTimes).not.toContainEqual({ date: NEXT, time: '19:00' })
+  }
+
+  it('propose_booking on a closed day', async () => {
+    const { world, job, guests } = setup({ bookingHours: closed(DAY) })
+    await guests('19:00', 30, NEXT)
+    const out = await (await job())('propose_booking', GOOD)
+    expect(out.fields).toEqual({ date: 'closed_day' })
+    notFull(out)
+    expect(world.proposals.entries.size).toBe(0)
+  })
+
+  it('create_booking_request after the day closed', async () => {
+    const { world, job, guests, agentRows } = setup()
+    expect(await (await job())('propose_booking', GOOD)).toMatchObject({ proposed: true })
+    world.settings.setConfig(R, { mode: 'simple', maxPartySize: 8, bookingHours: closed(DAY) })
+    await guests('19:00', 30, NEXT)
+    notFull(await (await job())('create_booking_request', {}))
+    expect(agentRows()).toHaveLength(0)
+  })
+
+  it('confirm_booking_change after the new day closed', async () => {
+    const t = setup()
+    const mine = await t.world.requests.insert({
+      restaurantId: R, memberId: null, phone: PHONE, name: '陳生', partySize: 4, bookingDate: DAY, bookingTime: '12:00',
+      notes: null, source: 'chat', campaignId: null, token: 'tok-mine',
+    })
+    mine.status = 'confirmed'
+    const ref = ((await (await t.job())('list_my_bookings', {})).bookings as Array<{ ref: string }>)[0].ref
+    expect(await (await t.job())('propose_booking_change', { bookingRef: ref, time: '19:00' })).toMatchObject({ proposed: true })
+    t.world.settings.setConfig(R, { mode: 'simple', maxPartySize: 8, bookingHours: closed(DAY) })
+    await t.guests('19:00', 30, NEXT)
+    notFull(await (await t.job())('confirm_booking_change', {}))
+    expect(t.world.requests.rows.filter((r) => r.replacesBookingId)).toHaveLength(0)
+  })
+
+  it('schedule off → no room read, suggestions as BOOK-009 (none)', async () => {
+    const { world, job } = setup({ bookingHours: { ...closed(DAY), scheduleEnabled: false } })
+    expect(await (await job())('propose_booking', GOOD)).toMatchObject({ proposed: true })
+    expect(world.room.calls.filter((c) => c.startsWith('readRoom'))).toHaveLength(0)
+  })
+})
+
+describe('F1 P3-1 one room read per refusal (AI propose)', () => {
+  it('propose_booking on a full slot reads the window once', async () => {
+    const { world, job, guests } = setup()
+    await guests('19:00', 30)
+    expect(await (await job())('propose_booking', GOOD)).toMatchObject({ fields: { time: 'full' } })
+    expect(world.room.calls.filter((c) => c.startsWith('readRoom'))).toHaveLength(1)
+  })
+})
