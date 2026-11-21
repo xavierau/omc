@@ -1,0 +1,466 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-010
+
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts (8 tests | 6 failed) 9ms
+     × schedule off → no room rules, even with limits stored 4ms
+     × meal limit reached with 0 at a slot → that slot reads meal full, never full 1ms
+     × a slot at its own limit reads full, also when the meal is full 0ms
+     × a stopped slot reads full 0ms
+     × room left in the slot and the meal → no badge 0ms
+     × no meal limit → never meal full 0ms
+ ❯ src/app/api/b/__tests__/booking-submit-schedule-off.test.ts (2 tests | 1 failed) 32ms
+     × a full slot and a stopped day are not checked: the booking is stored, without the room check 29ms
+ ❯ src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx (7 tests | 4 failed) 59ms
+     × the period reads full: Full badge on the period and the bar in the full colour 41ms
+     × a slot with 0 / 30 reads "0 / 30" with Meal full, never Full 10ms
+     × copy: Meal full / 餐已滿 and Booking hours are off in both languages 1ms
+     × shows "Booking hours are off" and no switches 1ms
+ ❯ src/app/api/poppy/__tests__/agent-booking-schedule-room.test.ts (5 tests | 2 failed) 43ms
+     × POST a slot over its stored limit, or under a stored stop → accepted (202) 30ms
+     × the code arrives after the slot filled, schedule switched off meanwhile → promoted (no room check) 5ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts (5 tests | 4 failed) 39ms
+     × day read → hours set but off, no periods (the block says "Booking hours are off") 16ms
+     × a stop stored while on is not reported while off; month badges are empty 2ms
+     × stopping is refused while off (hours_not_set), nothing stored 17ms
+     × confirming over a stored limit never asks while off 2ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 17 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > roomApplies follows the schedule switch > schedule off → no room rules, even with limits stored
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:36:30
+     34|
+     35|   it('schedule off → no room rules, even with limits stored', () => {
+     36|     expect(roomApplies(OFF)).toBe(false)
+       |                              ^
+     37|   })
+     38| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > staff slot badge: slot full vs meal full > meal limit reached with 0 at a slot → that slot reads meal full, never full
+TypeError: mealReached is not a function
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:46:12
+     44|   it('meal limit reached with 0 at a slot → that slot reads meal full,…
+     45|     const p = dinner({ [DAY]: { '18:00': 30, '19:00': 30 } })
+     46|     expect(mealReached(p)).toBe(true)
+       |            ^
+     47|     const empty = p.slots.find((s) => s.time === '20:00')!
+     48|     expect(empty.guests).toBe(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/17]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > staff slot badge: slot full vs meal full > a slot at its own limit reads full, also when the meal is full
+TypeError: slotBadge is not a function
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:54:12
+     52|   it("a slot at its own limit reads full, also when the meal is full",…
+     53|     const p = dinner({ [DAY]: { '18:00': 30, '19:00': 30 } })
+     54|     expect(slotBadge(p, p.slots.find((s) => s.time === '19:00')!)).toB…
+       |            ^
+     55|   })
+     56|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/17]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > staff slot badge: slot full vs meal full > a stopped slot reads full
+TypeError: mealReached is not a function
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:59:12
+     57|   it('a stopped slot reads full', () => {
+     58|     const p = dinner({ [DAY]: { '19:00': 2 } }, [stopAt('19:30')])
+     59|     expect(mealReached(p)).toBe(false)
+       |            ^
+     60|     expect(slotBadge(p, p.slots.find((s) => s.time === '19:30')!)).toB…
+     61|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/17]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > staff slot badge: slot full vs meal full > room left in the slot and the meal → no badge
+TypeError: mealReached is not a function
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:65:12
+     63|   it('room left in the slot and the meal → no badge', () => {
+     64|     const p = dinner({ [DAY]: { '19:00': 12 } })
+     65|     expect(mealReached(p)).toBe(false)
+       |            ^
+     66|     expect(slotBadge(p, p.slots.find((s) => s.time === '19:00')!)).toB…
+     67|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/17]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-schedule-switch.test.ts > staff slot badge: slot full vs meal full > no meal limit → never meal full
+TypeError: mealReached is not a function
+ ❯ src/domain/services/__tests__/booking-room-schedule-switch.test.ts:72:12
+     70|     const hours = { ...LIMITED, limits: { perSlot: 30, perMeal: null }…
+     71|     const p = capacityDay(hours, DAY, room({ [DAY]: { '19:00': 500 } }…
+     72|     expect(mealReached(p)).toBe(false)
+       |            ^
+     73|   })
+     74| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/17]⎯
+
+ FAIL  src/app/api/b/__tests__/booking-submit-schedule-off.test.ts > POST /api/b/[token] with the schedule switch off > a full slot and a stopped day are not checked: the booking is stored, without the room check
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/b/__tests__/booking-submit-schedule-off.test.ts:71:39
+     69|     seedGuests('19:00', 30)
+     70|     room.seedStop(A, { date: DAY, scope: 'day' })
+     71|     expect((await post(BODY)).status).toBe(200)
+       |                                       ^
+     72|     expect(requests.rows.filter((r) => r.name === 'Chan Tai Man')).toH…
+     73|     expect(room.calls.some((c) => c.startsWith('insertIfRoom'))).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/17]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-schedule-room.test.ts > schedule switch off: no limits, no stops (PAP) > POST a slot over its stored limit, or under a stored stop → accepted (202)
+AssertionError: expected 400 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 400
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-schedule-room.test.ts:109:35
+    107|     seedGuests('19:00', 30)
+    108|     room.seedStop(A, { date: DAY, scope: 'day' })
+    109|     expect((await post()).status).toBe(202)
+       |                                   ^
+    110|   })
+    111|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/17]⎯
+
+ FAIL  src/app/api/poppy/__tests__/agent-booking-schedule-room.test.ts > schedule switch off: no limits, no stops (PAP) > the code arrives after the slot filled, schedule switched off meanwhile → promoted (no room check)
+AssertionError: expected 'declined' to be 'pending' // Object.is equality
+
+Expected: "pending"
+Received: "declined"
+
+ ❯ src/app/api/poppy/__tests__/agent-booking-schedule-room.test.ts:127:63
+    125|     const sender = new FakeBookingSender()
+    126|     await verifyAgentBooking(verifyDeps(texts, sender), { restaurantId…
+    127|     expect(store.rows.find((r) => r.phone === PHONE)?.status).toBe('pe…
+       |                                                               ^
+    128|     expect(sender.sent).toHaveLength(1)
+    129|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/17]⎯
+
+ FAIL  src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx > meal limit reached (main review of W2 evidence 05r) > the period reads full: Full badge on the period and the bar in the full colour
+AssertionError: expected '<section data-testid="bookings-capaci…' to contain 'data-testid="bookings-capacity-period…'
+
+Expected: "data-testid="bookings-capacity-period-Dinner-full""
+Received: "<section data-testid="bookings-capacity" aria-labelledby="bookings-capacity-title" class="space-y-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5"><div class="flex items-center gap-3"><h3 id="bookings-capacity-title" class="font-semibold text-foreground">bookings.capacity.title</h3><span class="ml-auto text-sm text-muted-foreground">bookings.capacity.wholeDay</span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.acceptDay" data-testid="bookings-capacity-day-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div class="space-y-2"><div data-testid="bookings-capacity-period-Lunch" data-state="open" class="space-y-2 rounded-lg border border-border bg-card px-3 py-2.5"><div class="flex items-center gap-2"><button type="button" aria-expanded="false" aria-label="bookings.capacity.showSlots:{&quot;name&quot;:&quot;Lunch&quot;}" data-testid="bookings-capacity-period-Lunch-toggle" class="-ml-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right size-4 transition-transform" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><span class="font-semibold text-foreground">Lunch</span><span class="truncate text-sm tabular-nums text-muted-foreground">bookings.capacity.guestsOf:{&quot;guests&quot;:14,&quot;limit&quot;:60}</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;Lunch&quot;}" data-testid="bookings-capacity-period-Lunch-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div data-testid="bookings-capacity-period-Lunch-bar" aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-muted"><div class="h-full rounded-full bg-primary" style="width:23%"></div></div></div><div data-testid="bookings-capacity-period-Dinner" data-state="full" class="space-y-2 rounded-lg border border-border bg-card px-3 py-2.5"><div class="flex items-center gap-2"><button type="button" aria-expanded="true" aria-label="bookings.capacity.showSlots:{&quot;name&quot;:&quot;Dinner&quot;}" data-testid="bookings-capacity-period-Dinner-toggle" class="-ml-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right size-4 transition-transform rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><span class="font-semibold text-foreground">Dinner</span><span class="truncate text-sm tabular-nums text-muted-foreground">bookings.capacity.guestsOf:{&quot;guests&quot;:60,&quot;limit&quot;:60}</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;Dinner&quot;}" data-testid="bookings-capacity-period-Dinner-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div data-testid="bookings-capacity-period-Dinner-bar" aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-muted"><div class="h-full rounded-full bg-primary" style="width:100%"></div></div><ul class="pl-7"><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">18:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:30,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1800-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;18:00&quot;}" data-testid="bookings-capacity-slot-1800-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">19:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:30,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1900-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;19:00&quot;}" data-testid="bookings-capacity-slot-1900-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">19:30</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:0,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1930-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="false" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-input" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;19:30&quot;}" data-testid="bookings-capacity-slot-1930-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-0.5"></span></button></div><p data-testid="bookings-capacity-slot-1930-stopped" class="flex items-center gap-1.5 text-xs text-destructive"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-pause size-3.5 shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="10" x2="10" y1="15" y2="9"></line><line x1="14" x2="14" y1="15" y2="9"></line></svg>bookings.capacity.stoppedBy:{&quot;name&quot;:&quot;Amy&quot;,&quot;time&quot;:&quot;14:02&quot;}</p></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">20:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:0,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-2000-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;20:00&quot;}" data-testid="bookings-capacity-slot-2000-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li></ul></div></div></section>"
+
+ ❯ src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx:48:17
+     46|     const out = html(DAY)
+     47|     expect(out).toMatch(/data-testid="bookings-capacity-period-Dinner"…
+     48|     expect(out).toContain('data-testid="bookings-capacity-period-Dinne…
+       |                 ^
+     49|     expect(out).toMatch(/data-testid="bookings-capacity-period-Dinner-…
+     50|     expect(out).not.toContain('bookings-capacity-period-Lunch-full')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/17]⎯
+
+ FAIL  src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx > meal limit reached (main review of W2 evidence 05r) > a slot with 0 / 30 reads "0 / 30" with Meal full, never Full
+AssertionError: expected '<section data-testid="bookings-capaci…' to contain 'data-testid="bookings-capacity-slot-2…'
+
+Expected: "data-testid="bookings-capacity-slot-2000-meal-full""
+Received: "<section data-testid="bookings-capacity" aria-labelledby="bookings-capacity-title" class="space-y-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5"><div class="flex items-center gap-3"><h3 id="bookings-capacity-title" class="font-semibold text-foreground">bookings.capacity.title</h3><span class="ml-auto text-sm text-muted-foreground">bookings.capacity.wholeDay</span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.acceptDay" data-testid="bookings-capacity-day-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div class="space-y-2"><div data-testid="bookings-capacity-period-Lunch" data-state="open" class="space-y-2 rounded-lg border border-border bg-card px-3 py-2.5"><div class="flex items-center gap-2"><button type="button" aria-expanded="false" aria-label="bookings.capacity.showSlots:{&quot;name&quot;:&quot;Lunch&quot;}" data-testid="bookings-capacity-period-Lunch-toggle" class="-ml-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right size-4 transition-transform" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><span class="font-semibold text-foreground">Lunch</span><span class="truncate text-sm tabular-nums text-muted-foreground">bookings.capacity.guestsOf:{&quot;guests&quot;:14,&quot;limit&quot;:60}</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;Lunch&quot;}" data-testid="bookings-capacity-period-Lunch-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div data-testid="bookings-capacity-period-Lunch-bar" aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-muted"><div class="h-full rounded-full bg-primary" style="width:23%"></div></div></div><div data-testid="bookings-capacity-period-Dinner" data-state="full" class="space-y-2 rounded-lg border border-border bg-card px-3 py-2.5"><div class="flex items-center gap-2"><button type="button" aria-expanded="true" aria-label="bookings.capacity.showSlots:{&quot;name&quot;:&quot;Dinner&quot;}" data-testid="bookings-capacity-period-Dinner-toggle" class="-ml-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right size-4 transition-transform rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><span class="font-semibold text-foreground">Dinner</span><span class="truncate text-sm tabular-nums text-muted-foreground">bookings.capacity.guestsOf:{&quot;guests&quot;:60,&quot;limit&quot;:60}</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;Dinner&quot;}" data-testid="bookings-capacity-period-Dinner-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div><div data-testid="bookings-capacity-period-Dinner-bar" aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-muted"><div class="h-full rounded-full bg-primary" style="width:100%"></div></div><ul class="pl-7"><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">18:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:30,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1800-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;18:00&quot;}" data-testid="bookings-capacity-slot-1800-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">19:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:30,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1900-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;19:00&quot;}" data-testid="bookings-capacity-slot-1900-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">19:30</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:0,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-1930-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="false" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-input" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;19:30&quot;}" data-testid="bookings-capacity-slot-1930-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-0.5"></span></button></div><p data-testid="bookings-capacity-slot-1930-stopped" class="flex items-center gap-1.5 text-xs text-destructive"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-pause size-3.5 shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="10" x2="10" y1="15" y2="9"></line><line x1="14" x2="14" y1="15" y2="9"></line></svg>bookings.capacity.stoppedBy:{&quot;name&quot;:&quot;Amy&quot;,&quot;time&quot;:&quot;14:02&quot;}</p></li><li class="space-y-1 py-1.5"><div class="flex items-center gap-3"><span class="w-12 text-sm font-semibold tabular-nums text-foreground">20:00</span><span class="text-sm tabular-nums text-muted-foreground">bookings.capacity.slotOf:{&quot;guests&quot;:0,&quot;limit&quot;:30}</span><span data-testid="bookings-capacity-slot-2000-full" class="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">bookings.capacity.full</span><span class="ml-auto"></span><button type="button" role="switch" aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary" aria-label="bookings.capacity.accept:{&quot;name&quot;:&quot;20:00&quot;}" data-testid="bookings-capacity-slot-2000-stop"><span class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform translate-x-[22px]"></span></button></div></li></ul></div></div></section>"
+
+ ❯ src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx:57:17
+     55|     const out = html(DAY)
+     56|     expect(out).toContain('bookings.capacity.slotOf:{&quot;guests&quot…
+     57|     expect(out).toContain('data-testid="bookings-capacity-slot-2000-me…
+       |                 ^
+     58|     expect(out).not.toContain('bookings-capacity-slot-2000-full"')
+     59|     expect(out).toContain('bookings.capacity.mealFull')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/17]⎯
+
+ FAIL  src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx > meal limit reached (main review of W2 evidence 05r) > copy: Meal full / 餐已滿 and Booking hours are off in both languages
+AssertionError: expected undefined to be 'Meal full' // Object.is equality
+
+- Expected:
+"Meal full"
+
++ Received:
+undefined
+
+ ❯ src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx:76:43
+     74|
+     75|   it('copy: Meal full / 餐已滿 and Booking hours are off in both language…
+     76|     expect(en.bookings.capacity.mealFull).toBe('Meal full')
+       |                                           ^
+     77|     expect(zhHK.bookings.capacity.mealFull).toBe('餐已滿')
+     78|     expect(en.bookings.capacity.hoursOff).toMatch(/Booking hours are o…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/17]⎯
+
+ FAIL  src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx > schedule switch off (BOOK-009 scheduleEnabled) > shows "Booking hours are off" and no switches
+AssertionError: expected '' to contain 'data-testid="bookings-capacity-off"'
+
+- Expected
++ Received
+
+- data-testid="bookings-capacity-off"
+
+ ❯ src/components/dashboard/bookings/__tests__/capacity-meal-full-and-off.test.tsx:86:17
+     84|   it('shows "Booking hours are off" and no switches', () => {
+     85|     const out = html({ ...DAY, hoursOff: true, periods: [] })
+     86|     expect(out).toContain('data-testid="bookings-capacity-off"')
+       |                 ^
+     87|     expect(out).toContain('bookings.capacity.hoursOff')
+     88|     expect(out).not.toContain('role="switch"')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/17]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts > schedule switch off: staff capacity > day read → hours set but off, no periods (the block says "Booking hours are off")
+AssertionError: expected { date: '2026-11-21', …(6) } to match object { date: '2026-11-21', …(5) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "date": "2026-11-21",
+    "full": false,
+-   "hoursOff": true,
+    "hoursSet": true,
+-   "periods": [],
++   "periods": [
++     {
++       "first": "12:00",
++       "full": false,
++       "guests": 0,
++       "key": "午市",
++       "label": "午市",
++       "last": "14:00",
++       "limit": 60,
++       "slots": [
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "12:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "12:30",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "13:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "13:30",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "14:00",
++         },
++       ],
++       "stopped": false,
++       "stoppedAt": null,
++       "stoppedBy": null,
++     },
++     {
++       "first": "18:00",
++       "full": false,
++       "guests": 30,
++       "key": "晚市",
++       "label": "晚市",
++       "last": "21:30",
++       "limit": 60,
++       "slots": [
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "18:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "18:30",
++         },
++         {
++           "full": true,
++           "guests": 30,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "19:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "19:30",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "20:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "20:30",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "21:00",
++         },
++         {
++           "full": false,
++           "guests": 0,
++           "limit": 30,
++           "stopped": false,
++           "stoppedAt": null,
++           "stoppedBy": null,
++           "time": "21:30",
++         },
++       ],
++       "stopped": false,
++       "stoppedAt": null,
++       "stoppedBy": null,
++     },
++   ],
+    "stopped": false,
+  }
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts:84:18
+     82|     seed({ partySize: 30 })
+     83|     const body = await (await get(`date=${DAY}`)).json()
+     84|     expect(body).toMatchObject({ date: DAY, hoursSet: true, hoursOff: …
+       |                  ^
+     85|   })
+     86|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/17]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts > schedule switch off: staff capacity > a stop stored while on is not reported while off; month badges are empty
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts:90:63
+     88|     room.seedStop(A, { date: DAY, scope: 'day' })
+     89|     seed({ partySize: 30 })
+     90|     expect((await (await get(`date=${DAY}`)).json()).stopped).toBe(fal…
+       |                                                               ^
+     91|     const month = await (await get(`from=${DAY}&to=2026-11-23`)).json()
+     92|     expect(Object.values(month.days)).toEqual([{ full: false, stopped:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/17]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts > schedule switch off: staff capacity > stopping is refused while off (hours_not_set), nothing stored
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts:97:24
+     95|   it('stopping is refused while off (hours_not_set), nothing stored', …
+     96|     const res = await stop(stopReq({ date: DAY, scope: 'day' }))
+     97|     expect(res.status).toBe(400)
+       |                        ^
+     98|     expect(room.stops).toHaveLength(0)
+     99|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/17]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts > schedule switch off: staff capacity > confirming over a stored limit never asks while off
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-capacity-schedule-off.test.ts:104:43
+    102|     seed({ partySize: 30 })
+    103|     const id = seed({ partySize: 4, status: 'pending' })
+    104|     expect((await confirmReq(id)).status).toBe(200)
+       |                                           ^
+    105|   })
+    106|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/17]⎯
+
+
+ Test Files  5 failed (5)
+      Tests  17 failed | 10 passed (27)
+   Start at  11:38:57
+   Duration  684ms (transform 898ms, setup 0ms, import 1.50s, tests 181ms, environment 0ms)
+
