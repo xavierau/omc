@@ -30,7 +30,7 @@ import type { AgentMode, AgentToolName } from '@/domain/value-objects/agent-conf
 import type { BookingMode } from '@/domain/value-objects/booking-config'
 import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
-import { acceptedTerms, parseAgreed, parseProposal, termsForReadBack } from './agent-booking-rules'
+import { acceptedTerms, insertRequest, parseAgreed, parseProposal, proposalFull, termsForReadBack } from './agent-booking-rules'
 import {
   CHANGE_TOOL_DECLARATIONS,
   CHANGE_TOOL_NAMES,
@@ -120,8 +120,10 @@ const PROPOSED_NOTE =
 async function proposeBooking(call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
   const { booking } = call
   const body = Object.fromEntries(PROPOSAL_FIELDS.filter((f) => args[f] !== undefined).map((f) => [f, args[f]]))
-  const parsed = parseProposal(call, body, { maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' })
+  const parsed = await parseProposal(call, body, { maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' })
   if (!parsed.ok) return parsed.output
+  const full = await proposalFull(call, parsed.submission)
+  if (full) return full
   if (await atOpenCap(call)) return TOO_MANY_PENDING
   const { terms, note } = termsForReadBack(call)
   if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }))) {
@@ -140,13 +142,13 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
   const taken = await takeProposal(call, 'create')
   if (!taken.ok) return taken.output
   // Re-checked now: the proposed time may have passed (or left the hours) while the diner answered.
-  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  const parsed = await parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
   if (!parsed.ok) return parsed.output
   if (await atOpenCap(call)) return TOO_MANY_PENDING
 
   const s = parsed.submission
   const memberId = await booking.members.findMemberId(key.restaurantId, key.phone)
-  const created = await booking.requests.insert({
+  const inserted = await insertRequest(call, {
     restaurantId: key.restaurantId,
     memberId,
     phone: key.phone,
@@ -160,8 +162,9 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
     token: null,
     ...acceptedTerms(call, s),
   })
+  if (!inserted.ok) return inserted.output
   // R16: best effort; a failed "received" message never fails the booking.
-  await notifyReceived(booking, created).catch(() => false)
+  await notifyReceived(booking, inserted.booking).catch(() => false)
   return {
     booked: true,
     status: 'pending',

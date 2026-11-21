@@ -111,7 +111,7 @@ const ERROR_SCHEMA = {
 const SUGGESTED_TIMES_SCHEMA = {
   type: 'array',
   maxItems: 3,
-  description: 'Bookable alternatives, nearest first (invalid_request on closed_day, outside_hours, too_soon or too_far). Offer these to the diner.',
+  description: 'Bookable alternatives that fit the party, nearest first (invalid_request on closed_day, outside_hours, too_soon, too_far or full). Offer these to the diner.',
   items: {
     type: 'object',
     required: ['date', 'time'],
@@ -145,11 +145,13 @@ function detailsLines(hours: BookingHours): string[] {
 /** BOOK-009 (spec AC-11, AC-12, AC-13): the rules agents must follow, between the flow and the collection statement. */
 function rulesLines(input: AgentOpenApiInput, { hours, today }: AgentOpenApiBooking): string[] {
   if (!hours.scheduleEnabled) return detailsLines(hours)
-  const codes = `date: closed_day; time: outside_hours, too_soon or too_far${termsRequired(hours) ? '; accept_terms: terms_required' : ''}`
+  const codes = `date: closed_day; time: outside_hours, too_soon, too_far or full${termsRequired(hours) ? '; accept_terms: terms_required' : ''}`
   return [
     '',
     `Booking rules: ${summarizeForAgents(hours, input.maxPartySize, 'en', today)}`,
     'Call GET /availability first: it lists the open dates and the times the restaurant takes; only those times are accepted.',
+    // BOOK-010 (spec AC-14): times fill up; agents learn that, never the limit numbers.
+    'Some times may be full: pass the party size as `party_size` to GET /availability to see only the times that still fit it. A time that filled up (or that the restaurant stopped taking) is refused with `time: full`.',
     `A request outside the rules gets 400 invalid_request with per-field codes in \`fields\` (${codes}) and up to 3 \`suggested_times\` ({date, time}, nearest first) the restaurant does take: offer those to the diner.`,
     ...(termsRequired(hours) ? termsLines(hours) : []),
   ]

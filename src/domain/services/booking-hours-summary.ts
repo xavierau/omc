@@ -8,6 +8,7 @@
  */
 import type { BookingHours, BookingHoursLanguage, BookingPeriod, Weekday } from '@/domain/value-objects/booking-hours'
 import { WEEKDAYS } from '@/domain/value-objects/booking-hours'
+import { hasLimits, limitsOf } from '@/domain/value-objects/booking-limits'
 
 interface Copy {
   day: Record<Weekday, string>
@@ -20,6 +21,8 @@ interface Copy {
   closed(list: string): string
   special(list: string): string
   table(minutes: number): string
+  /** BOOK-010 (spec AC-1): the guest limits, either may be null. */
+  limits(perSlot: number | null, perMeal: number | null): string
   none: string
   space: string
 }
@@ -38,6 +41,13 @@ const EN: Copy = {
   closed: (list) => `Closed: ${list}.`,
   special: (list) => `Special hours: ${list}.`,
   table: (m) => `Tables are for ${enTable(m)}.`,
+  limits: (slot, meal) => {
+    const parts = [
+      ...(slot !== null ? [`up to ${plural(slot, 'guest', 'guests')} per time slot`] : []),
+      ...(meal !== null ? [`up to ${plural(meal, 'guest', 'guests')} per meal`] : []),
+    ].join(', ')
+    return `${parts.charAt(0).toUpperCase()}${parts.slice(1)}.`
+  },
   none: 'Diners cannot book any time.',
 }
 
@@ -51,6 +61,8 @@ const ZH: Copy = {
   closed: (list) => `休息：${list}。`,
   special: (list) => `特別時間：${list}。`,
   table: (m) => `每枱用餐時間 ${m % 60 === 0 ? `${m / 60} 小時` : `${m} 分鐘`}。`,
+  limits: (slot, meal) =>
+    `${[slot !== null ? `每個時段最多 ${slot} 位` : null, meal !== null ? `每餐最多 ${meal} 位` : null].filter(Boolean).join('，')}。`,
   none: '目前沒有可訂座時間。',
 }
 
@@ -101,6 +113,11 @@ function specialSentences(c: Copy, hours: BookingHours): string[] {
   ]
 }
 
+function limitsSentence(c: Copy, hours: BookingHours): string[] {
+  const limits = limitsOf(hours)
+  return hasLimits(limits) ? [c.limits(limits.perSlot, limits.perMeal)] : []
+}
+
 /** The booking rules in one paragraph, in `lang` (spec S1.9). */
 export function summarize(hours: BookingHours, maxPartySize: number, lang: BookingHoursLanguage): string {
   const c = COPY[lang]
@@ -110,6 +127,7 @@ export function summarize(hours: BookingHours, maxPartySize: number, lang: Booki
     c.rules(weekly, hours.intervalMinutes, hours.noticeHours, hours.aheadDays, maxPartySize),
     ...specialSentences(c, hours),
     ...(hours.tableMinutes ? [c.table(hours.tableMinutes)] : []),
+    ...limitsSentence(c, hours),
   ]
   return sentences.join(c.space)
 }

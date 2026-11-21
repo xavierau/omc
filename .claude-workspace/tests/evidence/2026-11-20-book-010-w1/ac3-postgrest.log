@@ -1,0 +1,14 @@
+# BOOK-010 W1 AC-3: repositories through a real PostgREST (public.ecr.aws/supabase/postgrest:v14.14) over the scratch DB, 2026-11-21T03:05:33Z
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-010
+
+ ✓ src/infrastructure/supabase/__tests__/booking-room-postgrest.db.test.ts > BOOK-010 repositories through a real PostgREST > insertIfRoom writes the row (terms included) while it fits, then refuses full 107ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room-postgrest.db.test.ts > BOOK-010 repositories through a real PostgREST > readRoom returns grouped counts and the stops; add is idempotent; remove deletes 80ms
+ ✓ src/infrastructure/supabase/__tests__/booking-room-postgrest.db.test.ts > BOOK-010 repositories through a real PostgREST > promote with room through the repository: a full candidate comes back declined "full" 66ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  11:05:34
+   Duration  819ms (transform 106ms, setup 0ms, import 194ms, tests 408ms, environment 0ms)
+
+exit 0

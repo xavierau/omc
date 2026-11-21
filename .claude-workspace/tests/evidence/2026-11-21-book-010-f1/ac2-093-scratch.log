@@ -1,0 +1,31 @@
+NOTICE:  schema "storage" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/001_create_tables.sql:2: NOTICE:  extension "uuid-ossp" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/024_require_webhook_secret.sql:2: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/025_commission_dual_revenue.sql:12: NOTICE:  constraint "referrers_commission_per_redemption_hkd_check" of relation "referrers" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/047_consent_records_v2.sql:45: NOTICE:  trigger "trg_consent_records_default_expires_at" for relation "consent_records" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/050_stamp_collection.sql:14: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/078_tenant_campaign_settings_seed_on_create.sql:64: NOTICE:  trigger "trg_restaurant_seed_campaign_settings" for relation "restaurants" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/087_booking_no_show.sql:34: NOTICE:  constraint "booking_requests_no_show_marker" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/088_booking_member_backfill.sql:157: NOTICE:  trigger "trg_members_link_bookings" for relation "members" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-010/supabase/migrations/091_booking_terms_acceptance.sql:14: NOTICE:  constraint "booking_requests_terms_acceptance" of relation "booking_requests" does not exist, skipping
+applied 93 migrations
+BOOK010_PG_URL=postgresql://postgres:postgres@127.0.0.1:55492/postgres
+--- last migrations applied in order:
+supabase/migrations/091_booking_terms_acceptance.sql
+supabase/migrations/092_booking_guest_limits.sql
+supabase/migrations/093_booking_room_search_path.sql
+--- pg_proc proconfig:
+             proname             | prosecdef |            proconfig            
+---------------------------------+-----------+---------------------------------
+ booking_guest_counts            | f         | {search_path=public}
+ booking_room_lock               | f         | {search_path=public}
+ booking_room_refusal            | f         | {search_path=public}
+ insert_booking_request_if_room  | t         | {"search_path=public, pg_temp"}
+ promote_agent_booking_with_room | t         | {"search_path=public, pg_temp"}
+(5 rows)
+
+--- re-apply 093 (idempotent):
+ALTER FUNCTION
+ALTER FUNCTION
+exit 0

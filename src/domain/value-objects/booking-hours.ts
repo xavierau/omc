@@ -19,6 +19,7 @@
  * BOOK-001), while terms, info and table time still apply. Stored without it
  * (before F1) → on only when some weekday or special date has a period.
  */
+import { resolveBookingLimits, type BookingLimits } from './booking-limits'
 import { isSafeHttpsUrl } from './safe-https-url'
 
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
@@ -57,6 +58,8 @@ export interface BookingHours {
   terms: Record<BookingHoursLanguage, string>
   /** Shown on the booking page; '' = none. */
   info: { address: string; phone: string; mapUrl: string }
+  /** BOOK-010: guest limits; absent = no limit (spec AC-3). */
+  limits?: BookingLimits
 }
 
 export const WEEKDAYS: readonly Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -167,6 +170,7 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
   if (!r || !weekly) return null
   const d = EMPTY_BOOKING_HOURS
   const special = resolveSpecial(r.special)
+  const limits = resolveBookingLimits(r.limits)
   return {
     scheduleEnabled: typeof r.scheduleEnabled === 'boolean' ? r.scheduleEnabled : hasAnyPeriod({ weekly, special }),
     weekly,
@@ -177,6 +181,7 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
     tableMinutes: isOption(TABLE_MINUTES_OPTIONS, r.tableMinutes) ? r.tableMinutes : null,
     terms: resolveTexts(r.terms),
     info: resolveInfo(r.info),
+    ...(limits ? { limits } : {}),
   }
 }
 

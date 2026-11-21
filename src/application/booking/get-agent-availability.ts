@@ -9,6 +9,10 @@
  * The answer holds restaurant settings only, never PII.
  * F1: times only while the schedule switch is on (P2-1); terms and table time
  * either way. `from` past today + max(aheadDays, 90) is too_far (P3-4).
+ *
+ * BOOK-010 (spec AC-14, AC-9): with the schedule on, only the times that fit
+ * `party_size` (default 1) under the guest limits and staff stops are
+ * listed, and a date with none is `open: false`.
  */
 import { availabilityFromReach, availabilityMaxDays } from '@/domain/services/agent-booking'
 import { slotsFor, type BookingClock } from '@/domain/services/booking-hours'
@@ -20,11 +24,16 @@ import type { AgentBookingDirectory } from '@/domain/ports/booking'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import { resolveAgentBookingTenant } from './resolve-agent-booking-tenant'
 import { IP_RETRY_AFTER_SEC, withinAgentIpLimit } from './create-agent-booking'
+import { availableTimes, roomApplies, type SlotFits } from '@/domain/services/booking-room'
+import type { BookingRoomReader } from '@/domain/ports/booking'
+import { fitsInRange } from './booking-room-check'
 
 export interface GetAgentAvailabilityDeps {
   directory: AgentBookingDirectory
   limiter: RateLimiterPort
   now(): Date
+  /** BOOK-010: guest counts and stops; absent = no room filter. */
+  room?: BookingRoomReader
 }
 
 /** The raw query values (null = absent). */
@@ -68,7 +77,7 @@ function wholeNumber(raw: string, min: number, max: number): 'invalid' | 'too_sm
 export function parseAvailabilityQuery(
   query: AvailabilityQuery,
   limits: { today: string; config: AvailabilityConfig }
-): { ok: true; from: string; days: number } | { ok: false; errors: BookingFieldErrors } {
+): { ok: true; from: string; days: number; partySize: number } | { ok: false; errors: BookingFieldErrors } {
   const errors: BookingFieldErrors = {}
   const schedule = activeSchedule(limits.config.bookingHours)
   if (query.from === null || query.from === '') errors.from = 'required'
@@ -79,17 +88,22 @@ export function parseAvailabilityQuery(
   if (typeof days === 'string') errors.days = days
   const party = query.partySize === null ? 1 : wholeNumber(query.partySize, 1, limits.config.maxPartySize)
   if (typeof party === 'string') errors.party_size = party
-  if (Object.keys(errors).length > 0 || typeof days === 'string') return { ok: false, errors }
-  return { ok: true, from: query.from as string, days }
+  if (Object.keys(errors).length > 0 || typeof days === 'string' || typeof party === 'string') return { ok: false, errors }
+  return { ok: true, from: query.from as string, days, partySize: party }
 }
 
-/** Every date from `from` for `days` days, with its bookable times now. */
-export function availabilityBody(config: AvailabilityConfig, range: { from: string; days: number }, clock: BookingClock): AvailabilityBody {
+/** Every date from `from` for `days` days, with its bookable times now (BOOK-010: only those `fits` allows). */
+export function availabilityBody(
+  config: AvailabilityConfig,
+  range: { from: string; days: number },
+  clock: BookingClock,
+  fits?: SlotFits
+): AvailabilityBody {
   const hours = config.bookingHours
   const schedule = activeSchedule(hours)
   const dates = Array.from({ length: range.days }, (_, i) => addDays(range.from, i)).map((date): AvailabilityDate => {
     if (!schedule) return { date, open: true, times: null }
-    const times = slotsFor(schedule, date, clock).map((slot) => slot.time)
+    const times = fits ? availableTimes(schedule, date, clock, fits) : slotsFor(schedule, date, clock).map((slot) => slot.time)
     return { date, open: times.length > 0, times }
   })
   return {
@@ -112,5 +126,18 @@ export async function getAgentAvailability(
   const clock = { today: hongKongToday(now), nowTime: hongKongTime(now) }
   const parsed = parseAvailabilityQuery(input.query, { today: clock.today, config: tenant.config })
   if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors }
-  return { ok: true, body: availabilityBody(tenant.config, parsed, clock) }
+  return { ok: true, body: availabilityBody(tenant.config, parsed, clock, await roomFits(deps, tenant, parsed, clock)) }
+}
+
+/** BOOK-010: the party-size predicate over the asked dates (one counts read), when room rules apply. */
+async function roomFits(
+  deps: GetAgentAvailabilityDeps,
+  tenant: { restaurantId: string; config: AvailabilityConfig },
+  range: { from: string; days: number; partySize: number },
+  clock: BookingClock
+): Promise<SlotFits | undefined> {
+  const hours = tenant.config.bookingHours
+  if (!deps.room || !roomApplies(hours)) return undefined
+  const to = addDays(range.from, range.days - 1)
+  return fitsInRange(deps.room, { restaurantId: tenant.restaurantId, hours, clock }, { from: range.from, to }, range.partySize)
 }

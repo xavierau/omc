@@ -1,0 +1,259 @@
+# BOOK-010 W1 AC-1 red run: the new domain tests against base ea989937 domain code (implementation files hidden)
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-010
+
+ ❯ src/domain/services/__tests__/booking-room.test.ts (0 test)
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts (15 tests | 12 failed) 20ms
+     × field by field: a bad value is no limit, the other stands 5ms
+     × AC-1: 30 per slot and 60 per meal save 3ms
+     × empty fields (null or "") = no limit 2ms
+     × AC-2: 0 is refused on its own field 1ms
+     × AC-2: -1 is refused on its own field 0ms
+     × AC-2: 2.5 is refused on its own field 1ms
+     × AC-2: 30 is refused on its own field 0ms
+     × AC-2: 1000 is refused on its own field 1ms
+     × AC-2: a slot limit above the meal limit is refused on the slot field 1ms
+     × a malformed limits object or an unknown key is refused 1ms
+     × zh-HK and en name both limits 1ms
+     × one limit only; none → BOOK-009 text unchanged 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/booking-room.test.ts [ src/domain/services/__tests__/booking-room.test.ts ]
+Error: Cannot find package '@/domain/services/booking-room' imported from /Users/xavierau/Code/js/whatsapp-crm--book-010/src/domain/services/__tests__/booking-room.test.ts
+ ❯ src/domain/services/__tests__/booking-room.test.ts:8:1
+      6| import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value…
+      7| import { slotsFor, suggestTimes } from '@/domain/services/booking-hour…
+      8| import {
+       | ^
+      9|   EMPTY_ROOM,
+     10|   availableTimes,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > limits resolve (stored value) > field by field: a bad value is no limit, the other stands
+AssertionError: expected undefined to deeply equal { perSlot: 30, perMeal: null }
+
+- Expected:
+{
+  "perMeal": null,
+  "perSlot": 30,
+}
+
++ Received:
+undefined
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:15:92
+     13| describe('limits resolve (stored value)', () => {
+     14|   it('field by field: a bad value is no limit, the other stands', () =…
+     15|     expect(resolveBookingHours({ ...HOURS, limits: { perSlot: 30, perM…
+       |                                                                                            ^
+     16|     expect(resolveBookingHours({ ...HOURS, limits: { perSlot: 'x', per…
+     17|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-1: 30 per slot and 60 per meal save
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, hours: { …(9) } }
+
+- Expected
++ Received
+
+  {
+-   "hours": {
+-     "aheadDays": 30,
+-     "info": {
+-       "address": "",
+-       "mapUrl": "",
+-       "phone": "",
+-     },
+-     "intervalMinutes": 30,
+-     "limits": {
+-       "perMeal": 60,
+-       "perSlot": 30,
++   "errors": {
++     "bookingHours": "unknown_field:limits",
+    },
+-     "noticeHours": 2,
+-     "special": [],
+-     "tableMinutes": null,
+-     "terms": {
+-       "en": "",
+-       "zh_hk": "",
+-     },
+-     "weekly": {
+-       "fri": [],
+-       "mon": [],
+-       "sat": [
+-         {
+-           "first": "18:00",
+-           "label": "晚市",
+-           "last": "21:30",
+-         },
+-       ],
+-       "sun": [],
+-       "thu": [],
+-       "tue": [],
+-       "wed": [],
+-     },
+-   },
+-   "ok": true,
++   "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:28:48
+     26|
+     27|   it('AC-1: 30 per slot and 60 per meal save', () => {
+     28|     expect(save({ perSlot: 30, perMeal: 60 })).toEqual({ ok: true, hou…
+       |                                                ^
+     29|   })
+     30|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > empty fields (null or "") = no limit
+AssertionError: expected { ok: false, …(1) } to match object { ok: true, …(1) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "hours": {
+-     "limits": {
+-       "perMeal": null,
+-       "perSlot": null,
+-     },
+-   },
+-   "ok": true,
++   "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:32:50
+     30|
+     31|   it('empty fields (null or "") = no limit', () => {
+     32|     expect(save({ perSlot: null, perMeal: '' })).toMatchObject({ ok: t…
+       |                                                  ^
+     33|   })
+     34|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: 0 is refused on its own field
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: -1 is refused on its own field
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: 2.5 is refused on its own field
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: 30 is refused on its own field
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: 1000 is refused on its own field
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: false, errors: { …(1) } }
+
+- Expected
++ Received
+
+  {
+    "errors": {
+-     "bookingHours.limits.perSlot": "invalid",
++     "bookingHours": "unknown_field:limits",
+    },
+    "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:36:49
+     34|
+     35|   it.each([0, -1, 2.5, '30', 1000])('AC-2: %s is refused on its own fi…
+     36|     expect(save({ perSlot: bad, perMeal: 60 })).toEqual({ ok: false, e…
+       |                                                 ^
+     37|     expect(save({ perSlot: 30, perMeal: bad })).toMatchObject({ ok: fa…
+     38|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > AC-2: a slot limit above the meal limit is refused on the slot field
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: false, errors: { …(1) } }
+
+- Expected
++ Received
+
+  {
+    "errors": {
+-     "bookingHours.limits.perSlot": "above_meal",
++     "bookingHours": "unknown_field:limits",
+    },
+    "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:41:48
+     39|
+     40|   it('AC-2: a slot limit above the meal limit is refused on the slot f…
+     41|     expect(save({ perSlot: 70, perMeal: 60 })).toEqual({ ok: false, er…
+       |                                                ^
+     42|   })
+     43|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-2 limits save validation > a malformed limits object or an unknown key is refused
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: false, errors: { …(1) } }
+
+- Expected
++ Received
+
+  {
+    "errors": {
+-     "bookingHours.limits": "invalid",
++     "bookingHours": "unknown_field:limits",
+    },
+    "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:45:22
+     43|
+     44|   it('a malformed limits object or an unknown key is refused', () => {
+     45|     expect(save([])).toEqual({ ok: false, errors: { 'bookingHours.limi…
+       |                      ^
+     46|     expect(save({ perDay: 3 })).toEqual({ ok: false, errors: { 'bookin…
+     47|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-1 summary line > zh-HK and en name both limits
+AssertionError: expected '可訂座時間：星期六 晚市 18:00–21:30，每 30 分鐘一節，最少…' to contain '每個時段最多 30 位，每餐最多 60 位'
+
+Expected: "每個時段最多 30 位，每餐最多 60 位"
+Received: "可訂座時間：星期六 晚市 18:00–21:30，每 30 分鐘一節，最少提前 2 小時、最遠 30 日內預約，每枱最多 8 位。"
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:58:44
+     56|
+     57|   it('zh-HK and en name both limits', () => {
+     58|     expect(summarize(limited, 8, 'zh_hk')).toContain('每個時段最多 30 位，每餐最多…
+       |                                            ^
+     59|     expect(summarize(limited, 8, 'en')).toContain('Up to 30 guests per…
+     60|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  src/domain/services/__tests__/booking-room-limits.test.ts > AC-1 summary line > one limit only; none → BOOK-009 text unchanged
+AssertionError: expected '可訂座時間：星期六 晚市 18:00–21:30，每 30 分鐘一節，最少…' to contain '每餐最多 60 位。'
+
+Expected: "每餐最多 60 位。"
+Received: "可訂座時間：星期六 晚市 18:00–21:30，每 30 分鐘一節，最少提前 2 小時、最遠 30 日內預約，每枱最多 8 位。"
+
+ ❯ src/domain/services/__tests__/booking-room-limits.test.ts:63:89
+     61|
+     62|   it('one limit only; none → BOOK-009 text unchanged', () => {
+     63|     expect(summarize({ ...HOURS, limits: { perSlot: null, perMeal: 60 …
+       |                                                                                         ^
+     64|     expect(summarize({ ...HOURS, limits: { perSlot: null, perMeal: nul…
+     65|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  12 failed | 3 passed (15)
+   Start at  02:56:14
+   Duration  408ms (transform 157ms, setup 0ms, import 114ms, tests 20ms, environment 0ms)
+
+exit 1

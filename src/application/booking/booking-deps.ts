@@ -3,6 +3,7 @@
  * their dependencies from here; tests pass in-memory fakes instead.
  */
 import { bookingTokenStore, findLiveChatToken, mintBookingToken } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { bookingRoomStore, bookingStopStore, findStaffDisplayName } from '@/infrastructure/supabase/repositories/booking-room-repository'
 import {
   bookingCronStore,
   bookingNoShowStore,
@@ -39,6 +40,8 @@ import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
 import type { GetAgentAvailabilityDeps } from './get-agent-availability'
 import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
+import type { BookingCapacityDeps } from './booking-capacity'
+import type { AgentBookingRoomDeps } from './agent-booking-full-reply'
 
 const now = () => new Date()
 
@@ -82,12 +85,37 @@ export function submitBookingDeps(): SubmitBookingDeps {
     sender: bookingMessageSender(),
     limiter: getInboundRateLimiter(),
     now,
+    // BOOK-010: guest limits and stops (atomic insert, migration 092).
+    room: bookingRoomStore,
   }
 }
 
 export function decideBookingDeps(): DecideBookingDeps {
-  return { requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now }
+  return {
+    requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now,
+    // BOOK-010 (spec AC-10): ask before a confirm goes over a guest limit.
+    overLimit: { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore },
+  }
 }
+
+/** BOOK-010 (spec S3): staff capacity block, month badges, stop / resume. */
+export function bookingCapacityDeps(): BookingCapacityDeps {
+  return { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore, stops: bookingStopStore, staffName: findStaffDisplayName, now }
+}
+
+/** BOOK-010 (spec AC-6): the PAP code step's room check and the full reply's booking link (the diner's chat link). */
+/** The diner's booking link in a code-step reply (BOOK-009 F1 refusal, BOOK-010 full), as the BOOK keyword reply builds it. */
+const chatBookingLink: AgentBookingRoomDeps['bookingLink'] = async (restaurantId, phone, config) => {
+  const tokens = {
+    findLiveChatToken,
+    mint: ({ restaurantId: r, phone: p, ttlHours }: { restaurantId: string; phone: string; ttlHours: number | null }) =>
+      mintBookingToken({ restaurantId: r, phone: p, source: 'chat', campaignId: null, ttlHours }),
+  }
+  const target = await resolveBookingReplyTarget({ tokens, appUrl: appUrl() ?? undefined }, { restaurantId, phone, config })
+  return target?.url ?? null
+}
+
+const agentBookingRoom: AgentBookingRoomDeps = { reader: bookingRoomStore, bookingLink: chatBookingLink }
 
 /** BOOK-007 (R5): mark / undo a no-show. No message sender: the diner is never told. */
 export function noShowBookingDeps(): BookingNoShowDeps {
@@ -95,7 +123,8 @@ export function noShowBookingDeps(): BookingNoShowDeps {
 }
 
 export function resolveBookingLinkDeps(): ResolveBookingLinkDeps {
-  return { tokens: bookingTokenStore, settings: bookingSettingsReader, now }
+  // BOOK-010 (spec AC-12): the page's 已滿 states come from the guest counts and stops.
+  return { tokens: bookingTokenStore, settings: bookingSettingsReader, now, room: bookingRoomStore }
 }
 
 /** W3 (AC-15): the reminder cron. */
@@ -123,6 +152,7 @@ export function createAgentBookingDeps(): CreateAgentBookingDeps {
     secrets: agentBookingSecrets,
     privacyUrl: PRIVACY_URL,
     now,
+    room: bookingRoomStore,
   }
 }
 
@@ -138,7 +168,7 @@ export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agent
 
 /** BOOK-009 W4: the public agent API (availability), on the create path's limiter. */
 export function getAgentAvailabilityDeps(): GetAgentAvailabilityDeps {
-  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now }
+  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now, room: bookingRoomStore }
 }
 
 /** BOOK-003: the webhook's confirm-code check. */
@@ -157,17 +187,10 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
       }
     },
     // BOOK-009 F1 (P2-2): the refusal reply's booking link, as the BOOK keyword reply builds it.
-    async bookingLink(restaurantId, phone, config) {
-      const tokens = {
-        findLiveChatToken,
-        mint: ({ restaurantId: r, phone: p, ttlHours }: { restaurantId: string; phone: string; ttlHours: number | null }) =>
-          mintBookingToken({ restaurantId: r, phone: p, source: 'chat', campaignId: null, ttlHours }),
-      }
-      const target = await resolveBookingReplyTarget({ tokens, appUrl: appUrl() ?? undefined }, { restaurantId, phone, config })
-      return target?.url ?? null
-    },
+    bookingLink: chatBookingLink,
     privacyUrl: PRIVACY_URL,
     now,
+    room: agentBookingRoom,
   }
 }
 

@@ -14,6 +14,10 @@
  * new slot. Decline leaves the original booking as it was and sends nothing,
  * so the diner never reads "declined" about a booking that still stands.
  * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
+ *
+ * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
+ * guest limit answers `over_limit` with the facts and changes nothing,
+ * unless `confirmAnyway` is set; limits never block staff.
  */
 import {
   normalizeDeclineReason,
@@ -22,12 +26,15 @@ import {
   type DecisionMessageStatus,
 } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingRequestStore, BookingSettingsReader } from '@/domain/ports/booking'
+import { overLimitFor, type OverLimit, type OverLimitDeps } from './booking-over-limit'
 
 export interface DecideBookingDeps {
   requests: BookingRequestStore
   settings: Pick<BookingSettingsReader, 'getRestaurant'>
   sender: BookingMessageSender
   now(): Date
+  /** BOOK-010: the over-limit question before a confirm; absent = never asked. */
+  overLimit?: OverLimitDeps
 }
 
 export interface DecideBookingInput {
@@ -36,6 +43,8 @@ export interface DecideBookingInput {
   bookingId: string
   decision: BookingDecision
   reason?: unknown
+  /** BOOK-010 (spec AC-10): staff saw the over-limit facts and confirm anyway. */
+  confirmAnyway?: boolean
 }
 
 /**
@@ -47,6 +56,7 @@ export type DecideBookingResult =
   | { ok: true; booking: BookingRequest; delivered: boolean | null }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'already_handled'; status: BookingRequest['status'] }
+  | { ok: false; reason: 'over_limit'; overLimit: OverLimit }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -86,8 +96,19 @@ async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promis
   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
 }
 
+/** BOOK-010 (spec AC-10): the facts when this confirm would go over a limit; null otherwise. */
+async function overLimitOf(deps: DecideBookingDeps, input: DecideBookingInput): Promise<OverLimit | null> {
+  if (!deps.overLimit || input.decision !== 'confirmed' || input.confirmAnyway === true) return null
+  const booking = await deps.requests.findForRestaurant(input.bookingId, input.restaurantId)
+  if (!booking) return null
+  const original = booking.replacesBookingId ? await deps.requests.findForRestaurant(booking.replacesBookingId, input.restaurantId) : null
+  return overLimitFor(deps.overLimit, booking, original)
+}
+
 export async function decideBookingRequest(deps: DecideBookingDeps, input: DecideBookingInput): Promise<DecideBookingResult> {
   if (!UUID.test(input.bookingId)) return { ok: false, reason: 'not_found' }
+  const overLimit = await overLimitOf(deps, input)
+  if (overLimit) return { ok: false, reason: 'over_limit', overLimit }
   if (input.decision === 'confirmed') {
     const change = await deps.requests.confirmChange({
       id: input.bookingId,

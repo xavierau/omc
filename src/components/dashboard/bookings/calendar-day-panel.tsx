@@ -5,7 +5,10 @@
  * reply", and its rows by time (Confirm/Decline on pending ones). An empty
  * month shows the page's empty state here; an empty day says so; a day whose
  * bookings the filter hid says nothing matches, like the table (review F5).
+ * BOOK-010 (S3, AC-10): the Capacity block sits above the rows, and the
+ * over-limit prompt below them.
  */
+import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { BookingList, type BookingActionProps } from '@/components/dashboard/booking-list'
@@ -19,6 +22,10 @@ export interface CalendarDayPanelProps extends BookingActionProps {
   monthEmpty: boolean
   dayHidden?: boolean
   className?: string
+  /** BOOK-010: the Capacity block, above the rows. */
+  capacity?: ReactNode
+  /** BOOK-010: the over-limit prompt, below the rows. */
+  footer?: ReactNode
 }
 
 export function DaySummaryLine({ bookings }: { bookings: BookingItem[] }) {
@@ -46,7 +53,7 @@ function PanelEmpty({ monthEmpty, dayHidden }: { monthEmpty: boolean; dayHidden:
   )
 }
 
-export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false, className, ...actions }: CalendarDayPanelProps) {
+export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false, className, capacity, footer, ...actions }: CalendarDayPanelProps) {
   const locale = useLocale()
   return (
     <section data-testid="bookings-day-panel" className={cn('overflow-hidden rounded-xl border border-border bg-card', className)}>
@@ -58,7 +65,9 @@ export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false
           <DaySummaryLine bookings={bookings} />
         </p>
       </header>
+      {capacity}
       {bookings.length === 0 ? <PanelEmpty monthEmpty={monthEmpty} dayHidden={dayHidden} /> : <BookingList bookings={bookings} {...actions} />}
+      {footer}
     </section>
   )
 }

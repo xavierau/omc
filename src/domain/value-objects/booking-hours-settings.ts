@@ -30,12 +30,14 @@ import {
   type SpecialBookingDate,
 } from './booking-hours'
 import { isSafeHttpsUrl } from './safe-https-url'
+import { parseBookingLimits } from './booking-limits'
 
 export type BookingHoursErrors = Record<`bookingHours${string}`, string>
 export type ParseBookingHoursResult = { ok: true; hours: BookingHours | null } | { ok: false; errors: BookingHoursErrors }
 
 const P = 'bookingHours'
-const KEYS = Object.keys(EMPTY_BOOKING_HOURS)
+// BOOK-010: `limits` is optional, so it is not part of the empty form value.
+const KEYS = [...Object.keys(EMPTY_BOOKING_HOURS), 'limits']
 const asRecord = (raw: unknown) => (raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null)
 
 /** Collects errors by path while the value is parsed. */
@@ -158,6 +160,7 @@ function parseFields(r: Record<string, unknown>, today: string, errors: Errors):
   const tableMinutes = r.tableMinutes === null ? null : option(TABLE_MINUTES_OPTIONS, r.tableMinutes, null, 'tableMinutes', errors)
   const weekly = parseWeekly(r.weekly, errors)
   const special = parseSpecial(r.special, today, errors)
+  const limits = parseBookingLimits(r.limits, (path, code) => errors.add(path === '' ? 'limits' : `limits.${path}`, code))
   return {
     scheduleEnabled: parseScheduleEnabled(r.scheduleEnabled, { weekly, special }, errors),
     weekly,
@@ -168,6 +171,7 @@ function parseFields(r: Record<string, unknown>, today: string, errors: Errors):
     tableMinutes,
     terms: parseTerms(r.terms, errors),
     info: parseInfo(r.info, errors),
+    ...(limits ? { limits } : {}),
   }
 }
 

@@ -18,6 +18,7 @@ import { bookingRequestStore, dinerBookingStore } from '@/infrastructure/supabas
 import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { agentBookingStore } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { bookingMessageSender, members } from '@/application/booking/booking-deps'
+import { bookingRoomStore } from '@/infrastructure/supabase/repositories/booking-room-repository'
 import type { AdmitAgentDeps, AgentLogFn } from './admit-inbound-for-agent'
 import type { AgentBookingWorkerDeps, AgentWorkerDeps } from './process-agent-reply'
 import type { PurgeAgentDeps } from './purge-agent-messages'
@@ -52,6 +53,8 @@ function agentBookingWorkerDeps(): AgentBookingWorkerDeps {
     settings: bookingSettingsReader,
     sender: bookingMessageSender(),
     diner: dinerBookingStore,
+    // BOOK-010: limits and stops bind the AI tools too (atomic insert, migration 092).
+    room: bookingRoomStore,
     // R24: the diner just wrote, so the service window is open; a closed one is a failed send.
     notifyText: async (restaurantId, phone, text) => {
       const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)

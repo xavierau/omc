@@ -29,7 +29,7 @@ import type { AgentToolName } from '@/domain/value-objects/agent-config'
 import { withDisclosure } from '@/domain/services/agent-reply-text'
 import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { hkNow, saveProposal, takeProposal, type BookingCall } from './agent-booking-gate'
-import { acceptedTerms, parseAgreed, parseProposal, termsForReadBack } from './agent-booking-rules'
+import { acceptedTerms, insertRequest, parseAgreed, parseProposal, proposalFull, termsForReadBack } from './agent-booking-rules'
 
 export type AgentChangeToolName = Extract<
   AgentToolName,
@@ -158,9 +158,11 @@ async function proposeChange(call: BookingCall, args: Record<string, unknown>): 
   if (all.some((b) => isOpenChangeRequest(b) && b.replacesBookingId === target.id)) {
     return { error: 'change_already_pending', note: 'A change of this booking is already waiting for staff.' }
   }
-  const parsed = changedSubmission(call, target, args)
+  const parsed = await changedSubmission(call, target, args)
   if (!parsed.ok) return parsed.output
   if (sameSlot(parsed.submission, target)) return { error: 'nothing_to_change', note: 'Ask the diner what they want to change.' }
+  const full = await proposalFull(call, parsed.submission)
+  if (full) return full
   const { terms, note } = termsForReadBack(call)
   const action = { kind: 'change' as const, bookingId: target.id, booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }
   if (!(await saveProposal(call, action))) return { error: 'lookup_failed' }
@@ -182,12 +184,12 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
   // The original must still be the diner's open, upcoming booking.
   const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !isOpenChangeRequest(b))
   if (!target) return NOT_FOUND
-  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  const parsed = await parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
   if (!parsed.ok) return parsed.output
   const s = parsed.submission
-  let created
+  let inserted
   try {
-    created = await booking.requests.insert({
+    inserted = await insertRequest(call, {
       restaurantId: key.restaurantId,
       memberId: target.memberId,
       phone: key.phone,
@@ -209,7 +211,8 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
     }
     throw err
   }
-  await notifyReceived(booking, created).catch(() => false)
+  if (!inserted.ok) return inserted.output
+  await notifyReceived(booking, inserted.booking).catch(() => false)
   return {
     changeRequested: true,
     status: 'pending',

@@ -10,6 +10,7 @@
  * BOOK-009 S1: in Simple mode the booking-hours blocks come first (party size
  * moves into them), then the rules summary with Preview, then the old rules
  * textarea relabelled "Other booking notes (AI assistant only)".
+ * BOOK-010 S1: the guest limits ride in the same form and Save.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -134,6 +135,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
         ) : null}
         {form.mode === 'simple' ? (
           <BookingHoursBlocks form={form} errors={errors} onEdit={(edit) => update('bookingHours', edit(form.bookingHours))} onMaxPartySize={(v) => update('maxPartySize', v)}
+            onLimit={(field, v) => update(field, v)}
             summary={summary?.hoursSummary ?? null} dirty={dirty} />
         ) : null}
         {form.mode !== 'off' ? <BookingRulesField form={form} update={update} error={errors.bookingRules} /> : null}

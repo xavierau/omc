@@ -13,7 +13,10 @@
 import { recheckAgentBooking, termsNowRequiredText, timeUnavailableText } from '@/domain/services/agent-booking-recheck'
 import type { AgentBooking } from '@/domain/entities/booking-request'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
-import type { AgentBookingStore } from '@/domain/ports/booking'
+import type { AgentBookingStore, BookingRoomReader } from '@/domain/ports/booking'
+import { fitsFor, roomApplies, type RoomState, type SlotFits } from '@/domain/services/booking-room'
+import { windowEnd } from '@/domain/services/booking-hours'
+import { hongKongToday } from '@/domain/services/booking-submission'
 import { bookingRulesAt } from './submit-booking-request'
 
 export interface RecheckAgentBookingsDeps {
@@ -23,6 +26,8 @@ export interface RecheckAgentBookingsDeps {
   /** The diner's booking-page link (`/b/<token>`), or null; optional so tests can leave it out. */
   bookingLink?(restaurantId: string, phone: string, config: BookingConfig): Promise<string | null>
   now(): Date
+  /** BOOK-010 F1 (review P2-1): counts and stops, so the alternatives fit; absent = rules-only alternatives. */
+  room?: { reader: BookingRoomReader }
 }
 
 export interface RecheckMessage {
@@ -51,6 +56,19 @@ async function refuse(deps: RecheckAgentBookingsDeps, row: AgentBooking, text: (
   await deps.sendText(row.restaurantId, row.phone, text(link))
 }
 
+/** "Fits the party now" for a row's alternatives: one room read per message, only once a row is refused by the rules. */
+function roomFitsFor(deps: RecheckAgentBookingsDeps, restaurantId: string, config: BookingConfig, at: Date) {
+  const hours = config.bookingHours
+  const reader = deps.room?.reader
+  if (!reader || !roomApplies(hours)) return async () => undefined
+  const today = hongKongToday(at)
+  let room: Promise<RoomState> | null = null
+  return async (partySize: number): Promise<SlotFits> => {
+    room ??= reader.readRoom(restaurantId, today, windowEnd(hours, today))
+    return fitsFor(hours, await room, partySize)
+  }
+}
+
 export async function recheckAgentBookings(
   deps: RecheckAgentBookingsDeps,
   message: RecheckMessage & { codes: string[] },
@@ -60,8 +78,10 @@ export async function recheckAgentBookings(
   const rules = bookingRulesAt(at, config)
   const rows = await deps.store.findPromotable({ restaurantId: message.restaurantId, phone: message.phone, codes: message.codes, at })
   const result: RecheckResult = { codes: [], refused: 0 }
+  const fitsOf = roomFitsFor(deps, message.restaurantId, config, at)
   for (const row of rows) {
-    const check = recheckAgentBooking(row, rules)
+    let check = recheckAgentBooking(row, rules)
+    if (check.kind === 'rules') check = recheckAgentBooking(row, rules, await fitsOf(row.partySize))
     if (check.kind === 'ok') {
       if (row.confirmCode) result.codes.push(row.confirmCode)
       continue

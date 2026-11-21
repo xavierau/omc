@@ -1,0 +1,19 @@
+# BOOK-010 I-010 PAP code step on local Supabase (001..092, real PostgREST + promote_agent_booking_with_room), 2026-11-21T03:47:43Z
+## Case A: passes the rules, slot filled before the code (expect declined 'full', one full reply)
+POST 30 Nov 20:00 party 4 -> {'status': 'awaiting_confirmation', 'confirm_code': 'SDP9EL'}
+filled 20:00 with 27 pending (27 + 4 > 30)
+verify -> {"result":{"handled":true},"replies":[<full reply, below>],"templates":[]} (first run failed on top-level await in the script; fixed and re-run with the same code)
+row -> declined full decided_by=null
+
+## Case B: the rules no longer allow the date AND the slot filled (expect declined 'rules', one rules reply, no full reply)
+POST 1 Dec 19:00 party 4 -> {'status': 'awaiting_confirmation', 'confirm_code': '467Z8B'}
+filled 1 Dec 19:00 with 30 pending; then 1 Dec made a closed special date
+verify -> {"result":{"handled":true},"replies":["你要求的 2026-12-01 19:00 已不能預訂，這個訂座請求沒有送出給餐廳。\n仍可預訂：2026-12-02 19:00, 2026-12-02 18:30, 2026-12-02 19:30\n重新預訂：http://localhost:3030/b/<chat-token>\n\n2026-12-01 19:00 can no longer be booked, so this request was not sent to the restaurant.\nYou can still book: 2026-12-02 19:00, 2026-12-02 18:30, 2026-12-02 19:30\nBook again: http://localhost:3030/b/<chat-token>"],"templates":[]}
+row -> declined rules decided_by=null
+
+## Case A full reply (as sent through sendText)
+抱歉，11月30日 20:00（4 位）剛剛滿了，訂座沒有送出。
+仍有位的時間：12月2日 20:00、12月2日 19:30、12月2日 20:30
+Sorry, 2026-11-30 at 20:00 for 4 just filled up, so the booking was not sent to the restaurant.
+Times with room: 2026-12-02 20:00, 2026-12-02 19:30, 2026-12-02 20:30
+訂座 Book: http://localhost:3030/b/<chat-token>

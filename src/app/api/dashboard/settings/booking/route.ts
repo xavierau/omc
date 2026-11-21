@@ -34,20 +34,21 @@ import {
 } from '@/application/booking/booking-template-deps'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { hongKongToday } from '@/domain/services/booking-submission'
-import { summarizeForAgents } from '@/domain/services/agent-booking'
+import { summarizeInWindow } from '@/domain/services/agent-booking'
 import { activeSchedule, withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
 
 /**
  * BOOK-009: the hours as the form loads them, and their summary in both
- * languages. F1: the window-filtered text agents get (P3-5), only while the
- * schedule switch is on (P2-1; off = any time, no summary).
+ * languages. F1: window-filtered as agents get it (P3-5), only while the
+ * schedule switch is on (P2-1; off = any time, no summary). BOOK-010: staff
+ * also see the guest limits, which agents never get (spec AC-1, AC-15).
  */
 function hoursView(config: BookingConfig) {
   const today = hongKongToday(new Date())
   const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, today) : null
   const schedule = activeSchedule(hours)
   const summary = schedule
-    ? { zh_hk: summarizeForAgents(schedule, config.maxPartySize, 'zh_hk', today), en: summarizeForAgents(schedule, config.maxPartySize, 'en', today) }
+    ? { zh_hk: summarizeInWindow(schedule, config.maxPartySize, 'zh_hk', today), en: summarizeInWindow(schedule, config.maxPartySize, 'en', today) }
     : null
   return { bookingHours: hours, summary }
 }

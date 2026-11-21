@@ -2,6 +2,8 @@
  * BOOK-001 AC-14: shared handler for confirm and decline. Tenant from the
  * session (R6), acting user recorded (R5), 409 when another tap already
  * decided (R4), 404 for a missing or other-tenant id.
+ * BOOK-010 (spec AC-10): a confirm over a guest limit → 409 over_limit with
+ * the facts; the same call with `{confirmAnyway: true}` confirms.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -10,12 +12,13 @@ import { decideBookingRequest } from '@/application/booking/decide-booking-reque
 import { decideBookingDeps } from '@/application/booking/booking-deps'
 import type { BookingDecision } from '@/domain/entities/booking-request'
 
-async function readReason(request: NextRequest): Promise<unknown> {
+/** The optional JSON body: `reason` (decline) and BOOK-010 `confirmAnyway` (confirm). */
+async function readBody(request: NextRequest): Promise<{ reason?: unknown; confirmAnyway?: unknown }> {
   try {
-    const body = (await request.json()) as { reason?: unknown } | null
-    return body?.reason
+    const body = (await request.json()) as { reason?: unknown; confirmAnyway?: unknown } | null
+    return body ?? {}
   } catch {
-    return undefined
+    return {}
   }
 }
 
@@ -27,9 +30,13 @@ export async function handleBookingDecision(
   try {
     const { restaurantId, userId } = await getTenantContext()
     const { id } = await params
-    const reason = decision === 'declined' ? await readReason(request) : undefined
-    const result = await decideBookingRequest(decideBookingDeps(), { restaurantId, userId, bookingId: id, decision, reason })
+    const body = await readBody(request)
+    const reason = decision === 'declined' ? body.reason : undefined
+    const confirmAnyway = decision === 'confirmed' && body.confirmAnyway === true
+    const result = await decideBookingRequest(decideBookingDeps(), { restaurantId, userId, bookingId: id, decision, reason, confirmAnyway })
     if (result.ok) return NextResponse.json({ booking: result.booking, delivered: result.delivered })
+    // BOOK-010 (spec AC-10): nothing changed; the staff UI asks "Confirm anyway?" and sends confirmAnyway: true.
+    if (result.reason === 'over_limit') return NextResponse.json({ error: 'over_limit', overLimit: result.overLimit }, { status: 409 })
     if (result.reason === 'already_handled') {
       return NextResponse.json({ error: 'already_handled', status: result.status }, { status: 409 })
     }

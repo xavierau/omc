@@ -20,11 +20,15 @@
  * carries the terms the booking stored. No new Meta template (inside the 24 h window).
  * BOOK-009 F1 (P2-2): each candidate is re-checked against the rules now
  * (`recheckAgentBookings`); only the codes that still pass are promoted.
+ * BOOK-010 (spec AC-6): promotion then checks room under the date lock (rules
+ * first, then room); a booking whose slot filled comes back declined 'full'
+ * and the diner gets the full reply instead (agent-booking-full-reply.ts).
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText, termsReplyText } from '@/domain/services/poppy-documents'
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
+import { promoteRoom, tellFull, type AgentBookingRoomDeps } from './agent-booking-full-reply'
 import { recheckAgentBookings, type RecheckAgentBookingsDeps } from './recheck-agent-bookings'
 
 export interface VerifyAgentBookingDeps extends Pick<RecheckAgentBookingsDeps, 'bookingLink'> {
@@ -36,6 +40,8 @@ export interface VerifyAgentBookingDeps extends Pick<RecheckAgentBookingsDeps, '
   sendText(restaurantId: string, phone: string, text: string): Promise<void>
   privacyUrl: string
   now(): Date
+  /** BOOK-010: room check at promotion and the full reply; absent = BOOK-009 promotion. */
+  room?: AgentBookingRoomDeps
 }
 
 export interface InboundCodeMessage {
@@ -80,9 +86,13 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
   const recheck = await recheckAgentBookings(deps, { ...message, codes }, config)
   const promoted = await deps.store.promote({
     restaurantId: message.restaurantId, phone: message.phone, codes: recheck.codes, wamid: message.wamid, at: deps.now(),
-    maxPending: MAX_PENDING_PER_PHONE,
+    maxPending: MAX_PENDING_PER_PHONE, ...promoteRoom(deps.room, config),
   })
   for (const row of promoted) {
+    if (row.status === 'declined') {
+      await tellFull(deps, row, config)
+      continue
+    }
     const booking = await linkExistingMember(deps, row)
     try {
       await acknowledge(deps, booking)
