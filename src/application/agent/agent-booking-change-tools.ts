@@ -158,7 +158,7 @@ async function proposeChange(call: BookingCall, args: Record<string, unknown>): 
   if (all.some((b) => isOpenChangeRequest(b) && b.replacesBookingId === target.id)) {
     return { error: 'change_already_pending', note: 'A change of this booking is already waiting for staff.' }
   }
-  const parsed = changedSubmission(call, target, args)
+  const parsed = await changedSubmission(call, target, args)
   if (!parsed.ok) return parsed.output
   if (sameSlot(parsed.submission, target)) return { error: 'nothing_to_change', note: 'Ask the diner what they want to change.' }
   const full = await proposalFull(call, parsed.submission)
@@ -184,7 +184,7 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
   // The original must still be the diner's open, upcoming booking.
   const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !isOpenChangeRequest(b))
   if (!target) return NOT_FOUND
-  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  const parsed = await parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
   if (!parsed.ok) return parsed.output
   const s = parsed.submission
   let inserted

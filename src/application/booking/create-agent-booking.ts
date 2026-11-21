@@ -45,6 +45,7 @@ import {
   agentBookingStatusView,
   hasConfirmableWhatsAppNumber,
   isSameAgentSubmission,
+  isHoursRefusal,
   isValidIdempotencyKey,
   parseAgentBookingBody,
   suggestionsForRefusal,
@@ -71,7 +72,7 @@ import { resolveAgentBookingTenant } from './resolve-agent-booking-tenant'
 import { roomApplies } from '@/domain/services/booking-room'
 import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
 import type { BookingRoomReader } from '@/domain/ports/booking'
-import { earlyFull } from './booking-room-check'
+import { earlyFull, suggestionFits, suggestionParty } from './booking-room-check'
 import { bookingRulesAt, type BookingRulesConfig } from './submit-booking-request'
 
 export const AGENT_SUBMIT_LIMIT_PER_MINUTE = 10
@@ -254,15 +255,24 @@ async function fullCheck(ctx: Context, s: AgentBookingSubmission): Promise<Creat
   return full ? { ok: false, reason: 'invalid', errors: full.errors, suggestedTimes: full.suggestedTimes } : null
 }
 
+/** BOOK-010 F1 (review P2-1): alternatives to a slot the hours refuse fit the party too, when room rules apply. */
+async function refusalFits(ctx: Context, errors: BookingFieldErrors, b: Record<string, unknown>) {
+  const hours = ctx.config.bookingHours
+  if (!ctx.deps.room || !roomApplies(hours) || !isHoursRefusal(errors)) return undefined
+  const clock = { today: hongKongToday(ctx.now), nowTime: hongKongTime(ctx.now) }
+  return suggestionFits(ctx.deps.room, { restaurantId: ctx.restaurantId, hours, clock }, { date: String(b.date), partySize: suggestionParty(b.party_size) })
+}
+
 /** BOOK-009: the tenant's booking hours and terms bind agents too (`bookingRulesAt`, spec AC-12/13). */
-function parseInput(ctx: Context, input: CreateAgentBookingInput) {
+async function parseInput(ctx: Context, input: CreateAgentBookingInput) {
   const rules = bookingRulesAt(ctx.now, ctx.config)
   const parsed = parseAgentBookingBody(input.body, rules)
   const keyError = input.idempotencyKey !== null && !isValidIdempotencyKey(input.idempotencyKey)
   if (!parsed.ok || keyError) {
     const errors = { ...(parsed.ok ? {} : parsed.errors), ...(keyError ? { 'Idempotency-Key': 'invalid' } : {}) }
     const b = (input.body ?? {}) as Record<string, unknown>
-    const suggested = suggestionsForRefusal(rules.hours, errors, { date: String(b.date), time: String(b.time), clock: rules })
+    const fits = await refusalFits(ctx, errors, b)
+    const suggested = suggestionsForRefusal(rules.hours, errors, { date: String(b.date), time: String(b.time), clock: rules, fits })
     return { ok: false as const, errors, ...(suggested ? { suggestedTimes: suggested } : {}) }
   }
   return parsed
@@ -277,10 +287,10 @@ export async function createAgentBooking(
   const ctx = tenant ? await contextFor(deps, tenant) : null
   if (!tenant || !ctx) return { ok: false, reason: 'not_found' }
 
-  const parsed = parseInput(ctx, input)
-  if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors, ...('suggestedTimes' in parsed ? { suggestedTimes: parsed.suggestedTimes } : {}) }
-  const s = parsed.submission
   try {
+    const parsed = await parseInput(ctx, input)
+    if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors, ...('suggestedTimes' in parsed ? { suggestedTimes: parsed.suggestedTimes } : {}) }
+    const s = parsed.submission
     if (input.idempotencyKey) {
       const replayed = await replayIfKnown(ctx, input.idempotencyKey, s)
       if (replayed) return replayed

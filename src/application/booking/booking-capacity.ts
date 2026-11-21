@@ -7,13 +7,18 @@
  * that date under the booking hours (a period key, a grid slot), so a typo
  * never silently stops nothing. Past dates are refused (spec: a stop in the
  * past is ignored). Add and remove are idempotent.
+ *
+ * F1 (review P3-2, main ruling): resume removes any stored stop matching the
+ * key, checked for shape only, not against the current hours: a stop whose
+ * period was renamed (or slot moved off the grid) no longer applies, and
+ * staff can still delete it.
  */
 import type { BookingRoomReader, BookingStopStore } from '@/domain/ports/booking'
 import { addDays, dayNumber } from '@/domain/services/booking-calendar'
 import { capacityBadge, capacityDay, type CapacityBadge, type CapacityDay } from '@/domain/services/booking-capacity'
 import { periodsOn } from '@/domain/services/booking-hours'
 import { EMPTY_ROOM, periodKey, periodSlotTimes, roomApplies, type StopScope, type StopTarget } from '@/domain/services/booking-room'
-import { hongKongToday, type BookingFieldErrors } from '@/domain/services/booking-submission'
+import { hongKongTime, hongKongToday, type BookingFieldErrors } from '@/domain/services/booking-submission'
 import { isBookingTime, isCalendarDate, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 
@@ -60,13 +65,15 @@ export async function getBookingCapacity(deps: BookingCapacityDeps, input: { res
   const parsed = parseRange(input.query)
   if (!parsed.ok) return parsed
   const range = parsed.value
+  const now = deps.now()
+  const clock = { today: hongKongToday(now), nowTime: hongKongTime(now) }
   const hours = (await deps.getConfig(input.restaurantId)).bookingHours
   const room = roomApplies(hours) ? await deps.room.readRoom(input.restaurantId, range.from, range.to) : EMPTY_ROOM
   if (input.query.date !== null) {
-    if (roomApplies(hours)) return { ok: true, body: { ...capacityDay(hours, range.from, room), hoursSet: true } }
+    if (roomApplies(hours)) return { ok: true, body: { ...capacityDay(hours, range.from, room, clock), hoursSet: true } }
     return { ok: true, body: hours ? { ...NO_CAPACITY(range.from), hoursSet: true, hoursOff: true } : NO_CAPACITY(range.from) }
   }
-  const badge = (date: string): CapacityBadge => (roomApplies(hours) ? capacityBadge(hours, date, room) : { full: false, stopped: false })
+  const badge = (date: string): CapacityBadge => (roomApplies(hours) ? capacityBadge(hours, date, room, clock) : { full: false, stopped: false })
   return { ok: true, body: { ...range, days: Object.fromEntries(datesIn(range.from, range.to).map((d) => [d, badge(d)])) } }
 }
 
@@ -89,11 +96,24 @@ function targetOn(hours: BookingHours, date: string, b: Record<string, unknown>)
   return known ? valid({ date, scope, periodLabel: null, time }) : invalid({ time: 'unknown_slot' })
 }
 
+/** F1 (review P3-2): what a resume names, by shape only (any stored key may be removed). */
+function storedTarget(date: string, b: Record<string, unknown>): Parsed<StopTarget> {
+  const scope = b.scope as StopScope
+  if (!SCOPES.includes(scope)) return invalid({ scope: 'invalid' })
+  if (scope === 'day') return valid({ date, scope, periodLabel: null, time: null })
+  if (scope === 'period') {
+    const label = typeof b.periodLabel === 'string' ? b.periodLabel : ''
+    return label ? valid({ date, scope, periodLabel: label, time: null }) : invalid({ periodLabel: 'invalid' })
+  }
+  return isBookingTime(b.time) ? valid({ date, scope, periodLabel: null, time: b.time }) : invalid({ time: 'invalid' })
+}
+
 /** Spec AC-8/AC-9: the body as a stop target, or per-field errors. */
-function parseStop(config: BookingConfig, body: unknown, today: string): Parsed<StopTarget> {
+function parseStop(config: BookingConfig, body: unknown, today: string, action: 'stop' | 'resume'): Parsed<StopTarget> {
   const b = asRecord(body)
   if (!isCalendarDate(b.date)) return invalid({ date: 'invalid' })
   if (b.date < today) return invalid({ date: 'past' })
+  if (action === 'resume') return storedTarget(b.date, b)
   if (!roomApplies(config.bookingHours)) return invalid({ form: 'hours_not_set' })
   return targetOn(config.bookingHours, b.date, b)
 }
@@ -108,7 +128,7 @@ export async function changeBookingStop(
 ): Promise<ChangeStopResult> {
   const now = deps.now()
   const config = await deps.getConfig(input.restaurantId)
-  const parsed = parseStop(config, input.body, hongKongToday(now))
+  const parsed = parseStop(config, input.body, hongKongToday(now), input.action)
   if (!parsed.ok) return parsed
   const target = parsed.value
   if (input.action === 'resume') {
@@ -116,7 +136,6 @@ export async function changeBookingStop(
     return { ok: true, stop: null }
   }
   const stoppedByName = await deps.staffName(input.userId)
-  const stoppedAt = now.toISOString()
-  await deps.stops.add(input.restaurantId, { ...target, stoppedById: input.userId, stoppedByName, stoppedAt })
-  return { ok: true, stop: { ...target, stoppedBy: stoppedByName, stoppedAt } }
+  const stored = await deps.stops.add(input.restaurantId, { ...target, stoppedById: input.userId, stoppedByName, stoppedAt: now.toISOString() })
+  return { ok: true, stop: { ...target, stoppedBy: stored.stoppedByName, stoppedAt: stored.stoppedAt } }
 }

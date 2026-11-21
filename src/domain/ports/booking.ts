@@ -257,8 +257,11 @@ export interface BookingRoomStore extends BookingRoomReader {
   insertIfRoom(request: NewBookingRequest, check: RoomCheck): Promise<InsertIfRoomResult>
 }
 
-/** BOOK-010 (spec S3, threat R3): staff stops, every write scoped by restaurant; both idempotent. */
+/**
+ * BOOK-010 (spec S3, threat R3): staff stops, every write scoped by restaurant; both idempotent.
+ * `add` answers with the stop as stored: on a repeat, the first stop (who, when), not the caller's (F1, review P3-3).
+ */
 export interface BookingStopStore {
-  add(restaurantId: string, stop: BookingStop): Promise<void>
+  add(restaurantId: string, stop: BookingStop): Promise<BookingStop>
   remove(restaurantId: string, target: StopTarget): Promise<void>
 }

@@ -21,13 +21,18 @@ export type AgentBookingRecheck = { kind: 'ok' } | { kind: 'rules'; suggested: S
 
 export type RecheckedBooking = Pick<AgentBooking, 'bookingDate' | 'bookingTime' | 'partySize' | 'name' | 'notes' | 'termsText'>
 
-export function recheckAgentBooking(b: RecheckedBooking, rules: BookingSubmissionRules): AgentBookingRecheck {
+/** `fits` (BOOK-010 F1, review P2-1): the alternatives must also fit the party now; absent = rules only. */
+export function recheckAgentBooking(
+  b: RecheckedBooking,
+  rules: BookingSubmissionRules,
+  fits?: (date: string, time: string) => boolean
+): AgentBookingRecheck {
   const body = { date: b.bookingDate, time: b.bookingTime, partySize: b.partySize, name: b.name, notes: b.notes, ...(b.termsText ? { acceptTerms: true } : {}) }
   const parsed = parseBookingSubmission(body, rules)
   if (parsed.ok) return { kind: 'ok' }
   const { errors } = parsed
   if (errors.date || errors.time) {
-    const requested = { date: b.bookingDate, time: b.bookingTime, clock: rules }
+    const requested = { date: b.bookingDate, time: b.bookingTime, clock: rules, fits }
     return { kind: 'rules', suggested: suggestionsForRefusal(rules.hours, errors, requested) ?? [] }
   }
   return errors.acceptTerms ? { kind: 'terms' } : { kind: 'ok' }

@@ -83,9 +83,15 @@ export class FakeBookingRoom implements BookingRoomStore, BookingStopStore {
     return { ok: true, booking: await this.insertRow(request) }
   }
 
-  async add(restaurantId: string, stop: BookingStop) {
+  async add(restaurantId: string, stop: BookingStop): Promise<BookingStop> {
     this.calls.push(`addStop ${restaurantId}`)
-    if (!this.stops.some((s) => s.restaurantId === restaurantId && same(s, stop))) this.stops.push({ ...stop, restaurantId })
+    const stored = this.stops.find((s) => s.restaurantId === restaurantId && same(s, stop))
+    if (!stored) this.stops.push({ ...stop, restaurantId })
+    const row = stored ?? stop
+    return {
+      date: row.date, scope: row.scope, periodLabel: row.periodLabel, time: row.time,
+      stoppedById: row.stoppedById, stoppedByName: row.stoppedByName, stoppedAt: row.stoppedAt,
+    }
   }
 
   async remove(restaurantId: string, target: StopTarget) {

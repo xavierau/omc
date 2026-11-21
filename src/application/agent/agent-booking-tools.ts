@@ -120,7 +120,7 @@ const PROPOSED_NOTE =
 async function proposeBooking(call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
   const { booking } = call
   const body = Object.fromEntries(PROPOSAL_FIELDS.filter((f) => args[f] !== undefined).map((f) => [f, args[f]]))
-  const parsed = parseProposal(call, body, { maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' })
+  const parsed = await parseProposal(call, body, { maxPartySize: booking.config.maxPartySize, note: 'Ask the diner to correct these details.' })
   if (!parsed.ok) return parsed.output
   const full = await proposalFull(call, parsed.submission)
   if (full) return full
@@ -142,7 +142,7 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
   const taken = await takeProposal(call, 'create')
   if (!taken.ok) return taken.output
   // Re-checked now: the proposed time may have passed (or left the hours) while the diner answered.
-  const parsed = parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
+  const parsed = await parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
   if (!parsed.ok) return parsed.output
   if (await atOpenCap(call)) return TOO_MANY_PENDING
 

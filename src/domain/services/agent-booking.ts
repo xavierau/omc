@@ -65,6 +65,10 @@ export function parseAgentBookingBody(body: unknown, rules: BookingSubmissionRul
 // BOOK-010: 'full' (spec AC-4) gets alternatives too.
 const HOURS_REFUSALS: readonly string[] = ['closed_day', 'outside_hours', 'too_soon', 'too_far', 'full']
 
+/** The booking hours refused the slot, so `suggestionsForRefusal` will answer (BOOK-010 F1: read the room only then). */
+export const isHoursRefusal = (errors: BookingFieldErrors): boolean =>
+  HOURS_REFUSALS.includes(errors.date) || HOURS_REFUSALS.includes(errors.time)
+
 /**
  * BOOK-009 (spec AC-12, AC-16): when the booking hours refused the requested
  * slot, up to 3 bookable alternatives from W1's `suggestTimes` (same date
@@ -76,7 +80,7 @@ export function suggestionsForRefusal(
   errors: BookingFieldErrors,
   requested: { date: string; time: string; clock: BookingClock; fits?: (date: string, time: string) => boolean }
 ): SuggestedTime[] | null {
-  if (!hours || !(HOURS_REFUSALS.includes(errors.date) || HOURS_REFUSALS.includes(errors.time))) return null
+  if (!hours || !isHoursRefusal(errors)) return null
   const { date, time, clock, fits } = requested
   if (errors.time !== 'too_far') return suggestTimes(hours, date, time, clock, 3, fits)
   const last = suggestTimes(hours, windowEnd(hours, clock.today), time, clock, 3, fits)

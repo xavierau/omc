@@ -92,8 +92,11 @@ d('BOOK-010 repositories through a real PostgREST', () => {
 
   it('readRoom returns grouped counts and the stops; add is idempotent; remove deletes', async () => {
     const stop = { date: DAY, scope: 'period' as const, periodLabel: '晚市', time: null, stoppedById: null, stoppedByName: 'Amy', stoppedAt: '2026-11-20T06:02:00.000Z' }
-    await addBookingStop(rid, stop)
-    await addBookingStop(rid, stop)
+    expect(await addBookingStop(rid, stop)).toMatchObject({ scope: 'period', periodLabel: '晚市', stoppedByName: 'Amy' })
+    // F1 (review P3-3): a repeat answers with the stored row (Amy at 06:02), not the caller's.
+    const again = await addBookingStop(rid, { ...stop, stoppedByName: 'Ben', stoppedAt: '2026-11-20T06:10:00.000Z' })
+    expect(again).toMatchObject({ scope: 'period', periodLabel: '晚市', time: null, stoppedByName: 'Amy' })
+    expect(Date.parse(again.stoppedAt)).toBe(Date.parse(stop.stoppedAt))
     await addBookingStop(rid, { ...stop, scope: 'slot', periodLabel: null, time: '12:30' })
     const room = await readBookingRoom(rid, '2026-11-01', '2026-11-30')
     expect(room.counts).toEqual({ [DAY]: { '19:00': 28 } })

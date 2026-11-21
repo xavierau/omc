@@ -11,7 +11,7 @@
  */
 import type { BookingHours, BookingPeriod } from '@/domain/value-objects/booking-hours'
 import { limitsOf } from '@/domain/value-objects/booking-limits'
-import { periodsOn } from './booking-hours'
+import { periodsOn, slotsFor, type BookingClock } from './booking-hours'
 import {
   fitsFor,
   periodGuests,
@@ -91,10 +91,10 @@ function capacityPeriod(hours: BookingHours, date: string, p: BookingPeriod, roo
 }
 
 /** The day panel's capacity block (spec S3, AC-8). */
-export function capacityDay(hours: BookingHours, date: string, room: RoomState): CapacityDay {
+export function capacityDay(hours: BookingHours, date: string, room: RoomState, clock?: BookingClock): CapacityDay {
   return {
     date,
-    full: capacityBadge(hours, date, room).full,
+    full: capacityBadge(hours, date, room, clock).full,
     periods: periodsOn(hours, date).map((p) => capacityPeriod(hours, date, p, room)),
     ...stopInfo(stopOf(room.stops, target(date, 'day', null, null))),
   }
@@ -117,10 +117,16 @@ export function slotBadge(period: Pick<CapacityPeriod, 'guests' | 'limit'>, slot
   return mealReached(period) ? 'meal_full' : null
 }
 
-/** The month cell's badge (spec S3, AC-9): no slot fits a party of 1 → full; the whole day stopped → stopped. */
-export function capacityBadge(hours: BookingHours, date: string, room: RoomState): CapacityBadge {
+/**
+ * The month cell's badge (spec S3, AC-9): no slot fits a party of 1 → full; the whole day stopped → stopped.
+ * F1 (review P3-5): today is judged over the times a diner can still pick (`slotsFor`: past and
+ * inside-notice times left out), as the diner page and /availability judge it.
+ */
+export function capacityBadge(hours: BookingHours, date: string, room: RoomState, clock?: BookingClock): CapacityBadge {
   const fits = fitsFor(hours, room, 1)
-  const times = periodsOn(hours, date).flatMap((p) => periodSlotTimes(hours, p))
+  const times = clock && date === clock.today
+    ? slotsFor(hours, date, clock).map((s) => s.time)
+    : periodsOn(hours, date).flatMap((p) => periodSlotTimes(hours, p))
   return {
     full: times.length > 0 && !times.some((time) => fits(date, time)),
     stopped: !!stopOf(room.stops, target(date, 'day', null, null)),

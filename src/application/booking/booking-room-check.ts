@@ -13,7 +13,7 @@
 import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingRoomReader, BookingRoomStore } from '@/domain/ports/booking'
 import { suggestTimes, windowEnd, type BookingClock, type SuggestedTime } from '@/domain/services/booking-hours'
-import { fitsFor, roomCheckFor, roomFor, type RoomRefusal, type RoomRequest } from '@/domain/services/booking-room'
+import { fitsFor, roomCheckFor, roomFor, type RoomRefusal, type RoomRequest, type RoomState, type SlotFits } from '@/domain/services/booking-room'
 import type { BookingHours } from '@/domain/value-objects/booking-hours'
 
 export interface RoomContext {
@@ -35,23 +35,41 @@ function readWindow(reader: BookingRoomReader, ctx: RoomContext, date: string) {
   return reader.readRoom(ctx.restaurantId, from, to < from ? from : to)
 }
 
-/** Up to 3 times that fit the party now, the requested time excluded (spec AC-4, AC-6). */
-export async function fittingSuggestions(reader: BookingRoomReader, ctx: RoomContext, req: RoomRequest): Promise<SuggestedTime[]> {
-  const room = await readWindow(reader, ctx, req.date)
+/** Up to 3 times in `room` that fit the party now, the requested time excluded (spec AC-4, AC-6). */
+function suggestionsIn(ctx: RoomContext, room: RoomState, req: RoomRequest): SuggestedTime[] {
   const fits = fitsFor(ctx.hours, room, req.partySize)
   const other = (date: string, time: string) => !(date === req.date && time === req.time) && fits(date, time)
   return suggestTimes(ctx.hours, req.date, req.time, ctx.clock, 3, other)
 }
 
-async function fullWith(reader: BookingRoomReader, ctx: RoomContext, req: RoomRequest, refusal: RoomRefusal): Promise<FullRefusal> {
-  return { errors: { time: 'full' }, suggestedTimes: await fittingSuggestions(reader, ctx, req), refusal }
+/** Up to 3 times that fit the party now, the requested time excluded (spec AC-4, AC-6). */
+export async function fittingSuggestions(reader: BookingRoomReader, ctx: RoomContext, req: RoomRequest): Promise<SuggestedTime[]> {
+  return suggestionsIn(ctx, await readWindow(reader, ctx, req.date), req)
 }
 
-/** Spec AC-4: `full` + suggestions when the request does not fit now; null when it does. */
+/** Spec AC-4: `full` + suggestions when the request does not fit now; null when it does. One room read (review P3-1). */
 export async function earlyFull(reader: BookingRoomReader, ctx: RoomContext, req: RoomRequest): Promise<FullRefusal | null> {
   const room = await readWindow(reader, ctx, req.date)
   const refusal = roomFor(ctx.hours, req, room)
-  return refusal ? fullWith(reader, ctx, req, refusal) : null
+  return refusal ? { errors: { time: 'full' }, suggestedTimes: suggestionsIn(ctx, room, req), refusal } : null
+}
+
+/**
+ * BOOK-010 F1 (review P2-1): "fits the party now" for the alternatives to a
+ * slot the booking HOURS refuse. One read of every date a suggestion can fall
+ * on: from the asked date when it is inside the window, else from today
+ * (too_far suggests the window's last times, or the earliest).
+ */
+export async function suggestionFits(reader: BookingRoomReader, ctx: RoomContext, req: { date: string; partySize: number }): Promise<SlotFits> {
+  const end = windowEnd(ctx.hours, ctx.clock.today)
+  const from = req.date > ctx.clock.today && req.date <= end ? req.date : ctx.clock.today
+  return fitsFor(ctx.hours, await reader.readRoom(ctx.restaurantId, from, end), req.partySize)
+}
+
+/** A party size for `suggestionFits` from a raw body value: a positive integer, else 1 (any room at all). */
+export const suggestionParty = (raw: unknown): number => {
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : 1
 }
 
 export type InsertWithRoomResult = { ok: true; booking: BookingRequest } | { ok: false; full: FullRefusal }
@@ -62,7 +80,7 @@ export async function insertWithRoom(store: BookingRoomStore, ctx: RoomContext, 
   const result = await store.insertIfRoom(request, check)
   if (result.ok) return result
   const req = { date: request.bookingDate, time: request.bookingTime, partySize: request.partySize }
-  return { ok: false, full: await fullWith(store, ctx, req, result.refusal) }
+  return { ok: false, full: { errors: { time: 'full' }, suggestedTimes: await fittingSuggestions(store, ctx, req), refusal: result.refusal } }
 }
 
 /** A party-size predicate over the window's counts and stops (availability). */

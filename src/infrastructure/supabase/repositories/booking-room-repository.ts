@@ -10,7 +10,7 @@
  *   counts, checks stops and inserts, or refuses; the row is the plain
  *   insert's row (`bookingInsertRow`).
  * - stops: add is idempotent (the unique constraint makes a second stop a
- *   no-op), remove deletes the one matching row.
+ *   no-op) and answers with the stored row; remove deletes the one matching row.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { BookingRoomStore, BookingStopStore, InsertIfRoomResult } from '@/domain/ports/booking'
@@ -72,12 +72,31 @@ const targetFilter = (restaurantId: string, t: StopTarget) => ({
   restaurant_id: restaurantId, booking_date: t.date, scope: t.scope, period_label: t.periodLabel, slot_time: t.time,
 })
 
-export async function addBookingStop(restaurantId: string, stop: BookingStop): Promise<void> {
-  const { error } = await createServerSupabaseClient()
+/** The stop row that matches `target` for the restaurant (NULL-aware on label and time). */
+async function findStop(restaurantId: string, target: StopTarget): Promise<BookingStop> {
+  let query = createServerSupabaseClient()
+    .from('booking_stops')
+    .select(STOP_COLUMNS)
+    .eq('restaurant_id', restaurantId)
+    .eq('booking_date', target.date)
+    .eq('scope', target.scope)
+  query = target.periodLabel === null ? query.is('period_label', null) : query.eq('period_label', target.periodLabel)
+  query = target.time === null ? query.is('slot_time', null) : query.eq('slot_time', target.time)
+  const { data, error } = await query.maybeSingle()
+  if (error || !data) throw new Error(`addBookingStop: stored stop not found${error ? `: ${error.message}` : ''}`)
+  return toStop(data as StopRow)
+}
+
+export async function addBookingStop(restaurantId: string, stop: BookingStop): Promise<BookingStop> {
+  const { data, error } = await createServerSupabaseClient()
     .from('booking_stops')
     .insert({ ...targetFilter(restaurantId, stop), stopped_by: stop.stoppedById, stopped_by_name: stop.stoppedByName, stopped_at: stop.stoppedAt })
-  // booking_stops_one: already stopped, so the stop stands (idempotent).
-  if (error && error.code !== '23505') throw new Error(`addBookingStop: ${error.message}`)
+    .select(STOP_COLUMNS)
+    .single()
+  // booking_stops_one: already stopped, so the stop stands (idempotent); answer with the stored row (F1, review P3-3).
+  if (error?.code === '23505') return findStop(restaurantId, stop)
+  if (error || !data) throw new Error(`addBookingStop: ${error?.message ?? 'no row'}`)
+  return toStop(data as StopRow)
 }
 
 export async function removeBookingStop(restaurantId: string, target: StopTarget): Promise<void> {
