@@ -31,7 +31,7 @@ export function StoppedLine({ info, testId }: { info: StopInfo; testId: string }
   )
 }
 
-const BADGE = 'rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground'
+const BADGE = 'shrink-0 whitespace-nowrap rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground'
 
 function FullBadge({ badge, testId }: { badge: SlotBadge; testId: string }) {
   const t = useTranslations('bookings.capacity')
@@ -46,14 +46,17 @@ function SlotRow({ slot, badge, onToggle }: { slot: CapacitySlot; badge: SlotBad
   return (
     <li className="space-y-1 py-1.5">
       <div className="flex items-center gap-3">
-        <span className="w-12 text-sm font-semibold tabular-nums text-foreground">{slot.time}</span>
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {slot.limit === null ? t('slotGuests', { guests: slot.guests }) : t('slotOf', { guests: slot.guests, limit: slot.limit })}
+        <span className="w-12 shrink-0 text-sm font-semibold tabular-nums text-foreground">{slot.time}</span>
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="min-w-16 text-sm tabular-nums text-muted-foreground">
+            {slot.limit === null ? t('slotGuests', { guests: slot.guests }) : t('slotOf', { guests: slot.guests, limit: slot.limit })}
+          </span>
+          <FullBadge badge={badge} testId={id} />
         </span>
-        <FullBadge badge={badge} testId={id} />
-        <span className="ml-auto" />
-        <Switch checked={!slot.stopped} onCheckedChange={(on) => onToggle({ scope: 'slot', time: slot.time }, !on)}
-          aria-label={t('accept', { name: slot.time })} data-testid={`${id}-stop`} />
+        <span className="inline-flex shrink-0">
+          <Switch checked={!slot.stopped} onCheckedChange={(on) => onToggle({ scope: 'slot', time: slot.time }, !on)}
+            aria-label={t('accept', { name: slot.time })} data-testid={`${id}-stop`} />
+        </span>
       </div>
       <StoppedLine info={slot} testId={`${id}-stopped`} />
     </li>
@@ -88,14 +91,17 @@ export function CapacityPeriodCard({ period, note, pending, onToggle }: Capacity
           className="-ml-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
           <ChevronRight className={cn('size-4 transition-transform', open && 'rotate-90')} aria-hidden />
         </button>
-        <span className="font-semibold text-foreground">{name}</span>
-        <span className="truncate text-sm tabular-nums text-muted-foreground">
-          {period.limit === null ? t('guests', { guests: period.guests }) : t('guestsOf', { guests: period.guests, limit: period.limit })}
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="whitespace-nowrap font-semibold text-foreground">{name}</span>
+          <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+            {period.limit === null ? t('guests', { guests: period.guests }) : t('guestsOf', { guests: period.guests, limit: period.limit })}
+          </span>
+          {period.full && !period.stopped ? <span data-testid={`${id}-full`} className={BADGE}>{t('full')}</span> : null}
         </span>
-        {period.full && !period.stopped ? <span data-testid={`${id}-full`} className={cn(BADGE, 'shrink-0')}>{t('full')}</span> : null}
-        <span className="ml-auto" />
-        <Switch checked={!period.stopped} onCheckedChange={(on) => onToggle({ scope: 'period', periodLabel: period.key }, !on, pending)}
-          aria-label={t('accept', { name })} data-testid={`${id}-stop`} />
+        <span className="inline-flex shrink-0">
+          <Switch checked={!period.stopped} onCheckedChange={(on) => onToggle({ scope: 'period', periodLabel: period.key }, !on, pending)}
+            aria-label={t('accept', { name })} data-testid={`${id}-stop`} />
+        </span>
       </div>
       {period.limit !== null ? <GuestsBar guests={period.guests} limit={period.limit} full={period.full} testId={`${id}-bar`} /> : null}
       <StoppedLine info={period} testId={`${id}-stopped`} />
