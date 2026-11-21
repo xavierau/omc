@@ -101,7 +101,7 @@ function DayCell({ date, inMonth, props }: { date: string; inMonth: boolean; pro
         >
           {Number(date.slice(8))}
         </span>
-        <span className="flex min-w-0 items-center gap-1">
+        <span className="flex min-w-0 flex-wrap items-center justify-end gap-x-1 gap-y-0.5">
           {guests > 0 ? <span className="truncate text-xs text-muted-foreground">{t('guests', { count: guests })}</span> : null}
           <CapacityBadge date={date} badges={props.badges} />
         </span>
