@@ -105,26 +105,31 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
   }
 }
 
+/** The row a new booking request writes (BOOK-010: the plain insert and insert_booking_request_if_room share it). */
+export function bookingInsertRow(request: NewBookingRequest) {
+  return {
+    restaurant_id: request.restaurantId,
+    member_id: request.memberId,
+    phone: request.phone,
+    name: request.name,
+    party_size: request.partySize,
+    booking_date: request.bookingDate,
+    booking_time: request.bookingTime,
+    notes: request.notes,
+    source: request.source,
+    campaign_id: request.campaignId,
+    token: request.token,
+    ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
+    // BOOK-009: only a booking with accepted terms writes 091's columns.
+    ...(request.termsAcceptedAt ? { terms_accepted_at: request.termsAcceptedAt, terms_text: request.termsText } : {}),
+  }
+}
+
 export async function insertBookingRequest(request: NewBookingRequest): Promise<BookingRequest> {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('booking_requests')
-    .insert({
-      restaurant_id: request.restaurantId,
-      member_id: request.memberId,
-      phone: request.phone,
-      name: request.name,
-      party_size: request.partySize,
-      booking_date: request.bookingDate,
-      booking_time: request.bookingTime,
-      notes: request.notes,
-      source: request.source,
-      campaign_id: request.campaignId,
-      token: request.token,
-      ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
-      // BOOK-009: only a booking with accepted terms writes 091's columns.
-      ...(request.termsAcceptedAt ? { terms_accepted_at: request.termsAcceptedAt, terms_text: request.termsText } : {}),
-    })
+    .insert(bookingInsertRow(request))
     .select(BOOKING_COLUMNS)
     .single()
   if (error || !data) throw new Error(`insertBookingRequest: ${error?.message ?? 'no row'}`)

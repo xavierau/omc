@@ -14,6 +14,10 @@
  * BOOK-009: the restaurant's booking hours and terms are part of step 2
  * (`bookingRulesAt`); accepted terms are stored on the booking with the exact
  * text the diner saw (spec AC-10).
+ *
+ * BOOK-010: when room rules apply (`roomApplies`), step 2 also answers `full`
+ * early (counts + stops), and step 5 writes through the atomic
+ * check-and-insert; a refusal there gives the token back (spec AC-5, AC-13).
  */
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import {
@@ -28,10 +32,14 @@ import type { BookingTokenState } from '@/domain/services/booking-token'
 import { termsRequired, termsSnapshot } from '@/domain/value-objects/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
+import { roomApplies } from '@/domain/services/booking-room'
+import type { SuggestedTime } from '@/domain/services/booking-hours'
+import { earlyFull, insertWithRoom, type FullRefusal, type RoomContext } from './booking-room-check'
 import type {
   BookingMemberLookup,
   BookingMessageSender,
   BookingRequestStore,
+  BookingRoomStore,
   BookingSettingsReader,
   BookingTokenOwner,
   BookingTokenStore,
@@ -47,6 +55,8 @@ export interface SubmitBookingDeps {
   sender: BookingMessageSender
   limiter: RateLimiterPort
   now(): Date
+  /** BOOK-010: guest counts, stops and the atomic insert; absent = no room check (BOOK-001..009 callers). */
+  room?: BookingRoomStore
 }
 
 export type SubmitBookingResult =
@@ -54,7 +64,7 @@ export type SubmitBookingResult =
   | { ok: false; reason: 'rate_limited' }
   | { ok: false; reason: 'token_unusable'; state: BookingTokenState }
   | { ok: false; reason: 'booking_unavailable' }
-  | { ok: false; reason: 'invalid'; errors: BookingFieldErrors }
+  | { ok: false; reason: 'invalid'; errors: BookingFieldErrors; suggestedTimes?: SuggestedTime[] }
   | { ok: false; reason: 'too_many_pending' }
   | { ok: false; reason: 'failed' }
 
@@ -84,19 +94,36 @@ function termsAcceptance(s: BookingSubmission, config: BookingConfig, at: Date) 
   return text ? { termsAcceptedAt: at.toISOString(), termsText: text } : {}
 }
 
+/** BOOK-010: the room context when room rules apply and a room store is wired; else null (BOOK-009 path). */
+function roomContext(deps: SubmitBookingDeps, restaurantId: string, config: BookingConfig): (RoomContext & { store: BookingRoomStore }) | null {
+  if (!deps.room || !roomApplies(config.bookingHours)) return null
+  const now = deps.now()
+  return { restaurantId, hours: config.bookingHours, clock: { today: hongKongToday(now), nowTime: hongKongTime(now) }, store: deps.room }
+}
+
+const fullResult = (full: FullRefusal): SubmitBookingResult => ({
+  ok: false, reason: 'invalid', errors: full.errors, suggestedTimes: full.suggestedTimes,
+})
+
 async function store(
   deps: SubmitBookingDeps,
   claim: { token: string; owner: BookingTokenOwner; claimedAt: Date; config: BookingConfig },
   s: BookingSubmission
-): Promise<BookingRequest | null> {
+): Promise<BookingRequest | FullRefusal | null> {
   const { token, owner, claimedAt } = claim
   try {
     const memberId = await deps.members.findMemberId(owner.restaurantId, owner.phone)
-    return await deps.requests.insert({
+    const request = {
       restaurantId: owner.restaurantId, memberId, phone: owner.phone, name: s.name, partySize: s.partySize,
       bookingDate: s.date, bookingTime: s.time, notes: s.notes, source: owner.source, campaignId: owner.campaignId, token,
       ...termsAcceptance(s, claim.config, claimedAt),
-    })
+    }
+    const room = roomContext(deps, owner.restaurantId, claim.config)
+    if (!room) return await deps.requests.insert(request)
+    const inserted = await insertWithRoom(room.store, room, request)
+    if (inserted.ok) return inserted.booking
+    await deps.tokens.release(token, claimedAt)
+    return inserted.full
   } catch (err) {
     console.error('[Booking] insert failed:', { to: maskPhone(owner.phone), error: (err as Error).message })
     await deps.tokens.release(token, claimedAt)
@@ -147,6 +174,10 @@ export async function submitBookingRequest(
 
   const result = parseBookingSubmission(input.body, bookingRulesAt(deps.now(), config))
   if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
+  const room = roomContext(deps, peeked.owner.restaurantId, config)
+  const s = result.submission
+  const early = room ? await earlyFull(room.store, room, { date: s.date, time: s.time, partySize: s.partySize }) : null
+  if (early) return fullResult(early)
   if ((await deps.requests.countPending(peeked.owner.restaurantId, peeked.owner.phone)) >= MAX_PENDING_PER_PHONE) {
     return { ok: false, reason: 'too_many_pending' }
   }
@@ -156,5 +187,6 @@ export async function submitBookingRequest(
   if (!claim.owner) return { ok: false, reason: 'token_unusable', state: claim.state }
   const booking = await store(deps, { token: input.token, owner: claim.owner, claimedAt, config }, result.submission)
   if (!booking) return { ok: false, reason: 'failed' }
+  if ('refusal' in booking) return fullResult(booking)
   return { ok: true, bookingId: booking.id, delivered: await notifyReceived(deps, booking) }
 }

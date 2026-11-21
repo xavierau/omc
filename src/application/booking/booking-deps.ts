@@ -2,7 +2,8 @@
  * BOOK-001: composition root for the booking use cases. Routes and pages take
  * their dependencies from here; tests pass in-memory fakes instead.
  */
-import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { bookingTokenStore, findLiveChatToken, mintBookingToken } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { bookingRoomStore, bookingStopStore, findStaffDisplayName } from '@/infrastructure/supabase/repositories/booking-room-repository'
 import {
   bookingCronStore,
   bookingNoShowStore,
@@ -38,6 +39,9 @@ import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
 import type { GetAgentAvailabilityDeps } from './get-agent-availability'
 import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
+import type { BookingCapacityDeps } from './booking-capacity'
+import type { AgentBookingRoomDeps } from './agent-booking-full-reply'
+import { resolveBookingReplyTarget } from './resolve-booking-reply-target'
 
 const now = () => new Date()
 
@@ -81,11 +85,36 @@ export function submitBookingDeps(): SubmitBookingDeps {
     sender: bookingMessageSender(),
     limiter: getInboundRateLimiter(),
     now,
+    // BOOK-010: guest limits and stops (atomic insert, migration 092).
+    room: bookingRoomStore,
   }
 }
 
 export function decideBookingDeps(): DecideBookingDeps {
-  return { requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now }
+  return {
+    requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now,
+    // BOOK-010 (spec AC-10): ask before a confirm goes over a guest limit.
+    overLimit: { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore },
+  }
+}
+
+/** BOOK-010 (spec S3): staff capacity block, month badges, stop / resume. */
+export function bookingCapacityDeps(): BookingCapacityDeps {
+  return { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore, stops: bookingStopStore, staffName: findStaffDisplayName, now }
+}
+
+/** BOOK-010 (spec AC-6): the PAP code step's room check and the full reply's booking link (the diner's chat link). */
+const agentBookingRoom: AgentBookingRoomDeps = {
+  reader: bookingRoomStore,
+  async bookingLink(restaurantId, phone, config) {
+    const tokens = {
+      findLiveChatToken,
+      mint: (input: { restaurantId: string; phone: string; ttlHours: number | null }) =>
+        mintBookingToken({ ...input, source: 'chat', campaignId: null }),
+    }
+    const target = await resolveBookingReplyTarget({ tokens, appUrl: process.env.NEXT_PUBLIC_APP_URL }, { restaurantId, phone, config })
+    return target?.url ?? null
+  },
 }
 
 /** BOOK-007 (R5): mark / undo a no-show. No message sender: the diner is never told. */
@@ -122,6 +151,7 @@ export function createAgentBookingDeps(): CreateAgentBookingDeps {
     secrets: agentBookingSecrets,
     privacyUrl: PRIVACY_URL,
     now,
+    room: bookingRoomStore,
   }
 }
 
@@ -137,7 +167,7 @@ export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agent
 
 /** BOOK-009 W4: the public agent API (availability), on the create path's limiter. */
 export function getAgentAvailabilityDeps(): GetAgentAvailabilityDeps {
-  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now }
+  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now, room: bookingRoomStore }
 }
 
 /** BOOK-003: the webhook's confirm-code check. */
@@ -157,6 +187,7 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
     },
     privacyUrl: PRIVACY_URL,
     now,
+    room: agentBookingRoom,
   }
 }
 

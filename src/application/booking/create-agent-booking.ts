@@ -24,6 +24,11 @@
  * BOOK-009 W4: a slot the booking hours refuse answers with up to 3
  * `suggestedTimes` (spec AC-12); accepted terms are stored on the row with
  * the exact text, when it is created (spec AC-13, W1 snapshot rule).
+ *
+ * BOOK-010 (spec AC-4): a slot that cannot take the party now (limits or
+ * stops) answers `time: full` with suggestions that fit; nothing is written.
+ * The row is unverified and holds no seats; the code step re-checks room
+ * atomically (verify-agent-booking, spec AC-6).
  */
 import {
   AGENT_CREATES_PER_IP_WINDOW_SEC,
@@ -63,6 +68,10 @@ import type {
 } from '@/domain/ports/booking'
 import { hashStatusToken, type AgentBookingSecrets } from './agent-booking-secrets'
 import { resolveAgentBookingTenant } from './resolve-agent-booking-tenant'
+import { roomApplies } from '@/domain/services/booking-room'
+import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
+import type { BookingRoomReader } from '@/domain/ports/booking'
+import { earlyFull } from './booking-room-check'
 import { bookingRulesAt, type BookingRulesConfig } from './submit-booking-request'
 
 export const AGENT_SUBMIT_LIMIT_PER_MINUTE = 10
@@ -79,6 +88,8 @@ export interface CreateAgentBookingDeps {
   secrets: AgentBookingSecrets
   privacyUrl: string
   now(): Date
+  /** BOOK-010: guest counts and stops; absent = no room check. */
+  room?: BookingRoomReader
 }
 
 export interface CreateAgentBookingInput {
@@ -234,6 +245,15 @@ async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTena
   }
 }
 
+/** BOOK-010 (spec AC-4): `full` + suggestions when the party does not fit now; null when it does or room rules do not apply. */
+async function fullCheck(ctx: Context, s: AgentBookingSubmission): Promise<CreateAgentBookingResult | null> {
+  const hours = ctx.config.bookingHours
+  if (!ctx.deps.room || !roomApplies(hours)) return null
+  const clock = { today: hongKongToday(ctx.now), nowTime: hongKongTime(ctx.now) }
+  const full = await earlyFull(ctx.deps.room, { restaurantId: ctx.restaurantId, hours, clock }, { date: s.date, time: s.time, partySize: s.partySize })
+  return full ? { ok: false, reason: 'invalid', errors: full.errors, suggestedTimes: full.suggestedTimes } : null
+}
+
 /** BOOK-009: the tenant's booking hours and terms bind agents too (`bookingRulesAt`, spec AC-12/13). */
 function parseInput(ctx: Context, input: CreateAgentBookingInput) {
   const rules = bookingRulesAt(ctx.now, ctx.config)
@@ -265,6 +285,8 @@ export async function createAgentBooking(
       const replayed = await replayIfKnown(ctx, input.idempotencyKey, s)
       if (replayed) return replayed
     }
+    const full = await fullCheck(ctx, s)
+    if (full) return full
     if (await overCap(ctx, s.phone)) return { ok: false, reason: 'rate_limited', retryAfterSec: CAP_RETRY_AFTER_SEC }
     if (!(await withinIpRestaurantWindow(ctx, input.clientIp))) {
       return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RESTAURANT_RETRY_AFTER_SEC }

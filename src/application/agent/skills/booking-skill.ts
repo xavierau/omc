@@ -11,11 +11,17 @@
  * the terms, then the free text as "Other booking notes"; the rules add
  * "offer suggestedTimes" and "read the terms back". Without hours both
  * sections are exactly the AGENT-005 text.
+ *
+ * BOOK-010 (spec AC-15): with booking hours, the rules say some times may be
+ * full and must be checked with the tool (stops can apply to any time); when
+ * the restaurant set guest limits BOOKING RULES says it too. Never the limit
+ * numbers: the tools enforce the limits and stops.
  */
 import type { AgentToolName } from '@/domain/value-objects/agent-config'
-import { summarizeForAgents } from '@/domain/services/agent-booking'
+import { FULL_TIMES_RULE, summarizeForAgents } from '@/domain/services/agent-booking'
 import { termsReplyText } from '@/domain/services/poppy-documents'
 import { termsSnapshot } from '@/domain/value-objects/booking-hours'
+import { hasLimits, limitsOf } from '@/domain/value-objects/booking-limits'
 import { AGENT_BOOKING_TOOL_NAMES } from '../agent-booking-tools'
 import { offersAnyOf, skillHeader, type AgentSkill, type SkillPromptContext } from './agent-skill'
 
@@ -33,13 +39,15 @@ const LINK = '- To book, share the link from get_booking_link.'
 const NO_PROMISE = '- Never promise that a table is available.'
 const SUGGESTED =
   '- When a propose tool returns suggestedTimes, the restaurant does not take the requested time: tell the diner, offer those times (or ask for another time), and never propose or book the refused time.'
+// BOOK-010 (spec AC-15): staff can stop any time and limits fill slots; the tools decide, never the model.
+const FULL_RULE = `- ${FULL_TIMES_RULE.en} A tool answer with fields.time "full" means that time cannot be booked: offer its suggestedTimes.`
 const TERMS_READ_BACK =
   '- When a propose tool returns terms, read them back with the details ("請注意: …") and ask the diner to agree to both; their agreement to your read-back accepts the terms.'
 
 /** BOOK-009: the hours rules, only when the tenant set booking hours and a propose tool is offered. */
 function hoursRules(ctx: SkillPromptContext): string[] {
   if (!ctx.bookingHours || !has(ctx, 'propose_booking', 'propose_booking_change')) return []
-  return [SUGGESTED, ...(termsSnapshot(ctx.bookingHours.hours) ? [TERMS_READ_BACK] : [])]
+  return [SUGGESTED, FULL_RULE, ...(termsSnapshot(ctx.bookingHours.hours) ? [TERMS_READ_BACK] : [])]
 }
 
 function checkRule(ctx: SkillPromptContext): string | null {
@@ -71,7 +79,8 @@ function dataSection({ bookingRules, bookingHours }: SkillPromptContext): string
   const { hours, maxPartySize, today } = bookingHours
   const terms = termsSnapshot(hours)
   const summary = summarizeForAgents(hours, maxPartySize, 'zh_hk', today)
-  return [RULES_HEADER, summary, ...(terms ? [termsReplyText(terms)] : []), 'Other booking notes:', notes].join('\n')
+  const full = hasLimits(limitsOf(hours)) ? [FULL_TIMES_RULE.zh_hk, FULL_TIMES_RULE.en] : []
+  return [RULES_HEADER, summary, ...full, ...(terms ? [termsReplyText(terms)] : []), 'Other booking notes:', notes].join('\n')
 }
 
 export const bookingSkill: AgentSkill = {

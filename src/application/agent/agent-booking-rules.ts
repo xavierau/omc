@@ -10,6 +10,11 @@
  * - create / confirm: the diner's agreeing message is the acceptance, so the
  *   stored proposal is re-parsed with `acceptTerms: true`. It must carry the
  *   same terms text that was read back; changed terms → `terms_changed`.
+ *
+ * BOOK-010 (spec AC-4, AC-7): when room rules apply, a propose tool answers
+ * `full` early (fields.time full + suggestedTimes that fit), and create /
+ * confirm write through the atomic check-and-insert, so a slot that filled
+ * while the diner answered comes back `full` and nothing is created.
  */
 import { suggestionsForRefusal } from '@/domain/services/agent-booking'
 import { parseBookingSubmission, type BookingSubmission, type BookingSubmissionRules } from '@/domain/services/booking-submission'
@@ -17,6 +22,11 @@ import { termsSnapshot } from '@/domain/value-objects/booking-hours'
 import type { AgentToolOutput } from '@/domain/ports/agent-model'
 import { bookingRulesAt } from '@/application/booking/submit-booking-request'
 import type { BookingCall } from './agent-booking-gate'
+import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
+import { roomApplies } from '@/domain/services/booking-room'
+import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
+import type { BookingRoomStore } from '@/domain/ports/booking'
+import { earlyFull, insertWithRoom, type FullRefusal, type RoomContext } from '@/application/booking/booking-room-check'
 
 export type ParsedProposal = { ok: true; submission: BookingSubmission } | { ok: false; output: AgentToolOutput }
 
@@ -76,4 +86,36 @@ export function termsForReadBack(call: BookingCall): { terms?: string; note?: st
   return terms
     ? { terms, note: 'Also read the booking terms back ("請注意: …"); the diner agreeing to your read-back accepts them.' }
     : {}
+}
+
+const FULL_NOTE =
+  'That time is full (or the restaurant stopped taking bookings for it): tell the diner and offer these suggestedTimes, or ask for another time; never propose or book the full time.'
+
+const fullOutput = (full: FullRefusal): AgentToolOutput => ({
+  error: 'invalid', fields: full.errors, suggestedTimes: full.suggestedTimes, note: FULL_NOTE,
+})
+
+function roomContext(call: BookingCall): (RoomContext & { store: BookingRoomStore }) | null {
+  const hours = call.booking.config.bookingHours
+  if (!call.booking.room || !roomApplies(hours)) return null
+  const now = call.now()
+  return { restaurantId: call.key.restaurantId, hours, clock: { today: hongKongToday(now), nowTime: hongKongTime(now) }, store: call.booking.room }
+}
+
+/** BOOK-010 (spec AC-4): a propose tool's early room check; null when the party fits (or no room rules). */
+export async function proposalFull(call: BookingCall, s: BookingSubmission): Promise<AgentToolOutput | null> {
+  const ctx = roomContext(call)
+  const full = ctx ? await earlyFull(ctx.store, ctx, { date: s.date, time: s.time, partySize: s.partySize }) : null
+  return full ? fullOutput(full) : null
+}
+
+/** BOOK-010 (spec AC-5, AC-7): create / confirm-change write; through the atomic check-and-insert when room rules apply. */
+export async function insertRequest(
+  call: BookingCall,
+  request: NewBookingRequest
+): Promise<{ ok: true; booking: BookingRequest } | { ok: false; output: AgentToolOutput }> {
+  const ctx = roomContext(call)
+  if (!ctx) return { ok: true, booking: await call.booking.requests.insert(request) }
+  const inserted = await insertWithRoom(ctx.store, ctx, request)
+  return inserted.ok ? inserted : { ok: false, output: fullOutput(inserted.full) }
 }

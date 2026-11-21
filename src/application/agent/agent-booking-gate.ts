@@ -25,6 +25,7 @@ import type {
   BookingMemberLookup,
   BookingMessageSender,
   BookingRequestStore,
+  BookingRoomStore,
   BookingSettingsReader,
   DinerBookingStore,
   HongKongMoment,
@@ -57,6 +58,8 @@ export interface AgentBookingToolContext {
   diner: DinerBookingStore
   /** R24: a free-form text inside the open service window; true when it went out. */
   notifyText(restaurantId: string, phone: string, text: string): Promise<boolean>
+  /** BOOK-010: guest counts, stops and the atomic insert; absent = no room check. */
+  room?: BookingRoomStore
 }
 
 export interface BookingCall {

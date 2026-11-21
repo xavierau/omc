@@ -63,8 +63,17 @@ export class FakeBookingRoom implements BookingRoomStore, BookingStopStore {
     return null
   }
 
-  async insertIfRoom(request: NewBookingRequest, check: RoomCheck): Promise<InsertIfRoomResult> {
+  /** The advisory lock: one insertIfRoom at a time, check and insert together. */
+  private lock: Promise<unknown> = Promise.resolve()
+
+  insertIfRoom(request: NewBookingRequest, check: RoomCheck): Promise<InsertIfRoomResult> {
     this.calls.push(`insertIfRoom ${request.restaurantId} ${request.bookingDate} ${request.bookingTime}`)
+    const run = this.lock.then(() => this.checkAndInsert(request, check))
+    this.lock = run.catch(() => undefined)
+    return run
+  }
+
+  private async checkAndInsert(request: NewBookingRequest, check: RoomCheck): Promise<InsertIfRoomResult> {
     if (!this.insertRow) throw new Error('FakeBookingRoom: no insert')
     const refusal = this.refusal(request.restaurantId, { date: request.bookingDate, time: request.bookingTime, partySize: request.partySize }, check)
     if (refusal) return { ok: false, refusal }

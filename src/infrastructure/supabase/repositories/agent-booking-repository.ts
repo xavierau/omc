@@ -134,8 +134,51 @@ export async function replaceAgentStatusToken(id: string, restaurantId: string, 
   if (error) throw new Error(`replaceAgentStatusToken: ${error.code}`)
 }
 
+/**
+ * BOOK-010 (spec AC-6): the same promotion with room. The candidates' slots
+ * are read first (same filter as the function), so the app can compute each
+ * one's period and limits; promote_agent_booking_with_room (092) then
+ * re-selects them under the phone and date locks and decides. A candidate
+ * that appears in between is checked against stops only (missing from the map).
+ */
+async function promoteWithRoom(args: PromoteAgentBookingArgs, room: NonNullable<PromoteAgentBookingArgs['room']>) {
+  const supabase = createServerSupabaseClient()
+  const { data: candidates, error: readError } = await supabase
+    .from('booking_requests')
+    .select('id, booking_date, booking_time')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('phone', args.phone)
+    .eq('status', 'unverified')
+    .in('confirm_code', args.codes)
+    .gt('verify_expires_at', args.at.toISOString())
+  if (readError) throw new Error(`promoteAgentBooking candidates: ${readError.code}`)
+  const rooms = Object.fromEntries(
+    ((candidates ?? []) as Array<{ id: string; booking_date: string; booking_time: string }>).map((c) => {
+      const check = room({ date: c.booking_date, time: c.booking_time.slice(0, 5) })
+      return [c.id, {
+        period_key: check.periodKey, period_first: check.periodFirst, period_last: check.periodLast,
+        slot_limit: check.perSlot, meal_limit: check.perMeal,
+      }]
+    })
+  )
+  const { data, error } = await supabase
+    .rpc('promote_agent_booking_with_room', {
+      p_restaurant_id: args.restaurantId,
+      p_phone: args.phone,
+      p_codes: args.codes,
+      p_wamid: args.wamid,
+      p_at: args.at.toISOString(),
+      p_max_pending: args.maxPending,
+      p_rooms: rooms,
+    })
+    .select(AGENT_BOOKING_COLUMNS)
+  if (error) throw new Error(`promoteAgentBooking: ${error.code}`)
+  return ((data ?? []) as AgentBookingRow[]).map(toBookingRequest)
+}
+
 export async function promoteAgentBooking(args: PromoteAgentBookingArgs) {
   if (args.codes.length === 0) return []
+  if (args.room) return promoteWithRoom(args, args.room)
   const { data, error } = await createServerSupabaseClient()
     .rpc('promote_agent_booking', {
       p_restaurant_id: args.restaurantId,
