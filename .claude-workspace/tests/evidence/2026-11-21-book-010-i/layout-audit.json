@@ -1,0 +1,245 @@
+{
+  "staff-capacity-1440": {
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 6,
+      "info": 0
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch A 已確認 +85290000201 連結會員\" @1133,1085 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch B 已確認 +85290000202 連結會員\" @1133,1206 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch C 已確認 +85290000203 連結會員\" @1133,1327 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Tea 待確認 +85290000204 連結會員 確認 拒絕\" @1133,1448 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner Full 已確認 +85290000205 連結會員\" @1133,1607 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner 27 待確認 +85290000206 連結會員 確認 \" @1133,1728 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      }
+    ]
+  },
+  "diner-390": {
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "findings": []
+  },
+  "staff-hours-off-1440": {
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 6,
+      "info": 0
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch A 已確認 +85290000201 連結會員\" @1133,345 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch B 已確認 +85290000202 連結會員\" @1133,466 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch C 已確認 +85290000203 連結會員\" @1133,587 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Tea 待確認 +85290000204 連結會員 確認 拒絕\" @1133,708 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner Full 已確認 +85290000205 連結會員\" @1133,867 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner 27 待確認 +85290000206 連結會員 確認 \" @1133,988 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      }
+    ]
+  },
+  "staff-capacity-1440-r2": {
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 6,
+      "info": 0
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch A 已確認 +85290000201 連結會員\" @1133,1061 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch B 已確認 +85290000202 連結會員\" @1133,1182 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch C 已確認 +85290000203 連結會員\" @1133,1303 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Tea 待確認 +85290000204 連結會員 確認 拒絕\" @1133,1424 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner Full 已確認 +85290000205 連結會員\" @1133,1583 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner 27 待確認 +85290000206 連結會員 確認 \" @1133,1704 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      }
+    ]
+  },
+  "staff-capacity-390-r2": {
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 6,
+      "info": 1
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch A 已確認 +85290000201 連結會員\" @145,1313 204x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch B 已確認 +85290000202 連結會員\" @145,1434 204x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Lunch C 已確認 +85290000203 連結會員\" @145,1555 204x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Tea 待確認 +85290000204 連結會員 確認 拒絕\" @145,1676 204x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner Full 已確認 +85290000205 連結會員\" @145,1835 204x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"I010 Dinner 27 待確認 +85290000206 連結會員 確認 \" @145,1956 204x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      }
+    ]
+  }
+}

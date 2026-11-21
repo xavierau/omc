@@ -1,0 +1,352 @@
+[
+  {
+    "n": 1,
+    "text": "login (real UI) as the fake tenant admin",
+    "result": "on /dashboard"
+  },
+  {
+    "n": 2,
+    "text": "Settings → 訂座: meal limit 80 (slot stays 30), 儲存",
+    "result": "stored limits {\"perMeal\": 80, \"perSlot\": 30}"
+  },
+  {
+    "n": 3,
+    "text": "Bookings → calendar → 30 Nov (special date, 午市 80/80, 晚市 19:00 30/30)",
+    "result": {
+      "lunch": {
+        "state": "full",
+        "periodFull": true,
+        "bar": "full",
+        "slot1200": "12:0027 / 30餐已滿",
+        "mealFull1330": true,
+        "full1330": false
+      },
+      "dinnerFull1900": true
+    }
+  },
+  {
+    "n": 4,
+    "text": "stop 下午茶 on 30 Nov",
+    "result": "line \"walk-admin 已停止 · 11:43\"; note \"仍有 1 個要求待回覆\"; DB period 下午茶 2026-11-30"
+  },
+  {
+    "n": 5,
+    "text": "staff capacity read for 30 Nov (API + rendered badges)",
+    "result": {
+      "monthBadge": null,
+      "rows": {
+        "1200": {
+          "period": "午市",
+          "periodStopped": false,
+          "guests": 27,
+          "slotLimit": 30,
+          "periodGuests": 80,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Meal full"
+        },
+        "1230": {
+          "period": "午市",
+          "periodStopped": false,
+          "guests": 27,
+          "slotLimit": 30,
+          "periodGuests": 80,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Meal full"
+        },
+        "1300": {
+          "period": "午市",
+          "periodStopped": false,
+          "guests": 26,
+          "slotLimit": 30,
+          "periodGuests": 80,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Meal full"
+        },
+        "1330": {
+          "period": "午市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 80,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Meal full"
+        },
+        "1400": {
+          "period": "午市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 80,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Meal full"
+        },
+        "1500": {
+          "period": "下午茶",
+          "periodStopped": true,
+          "guests": 2,
+          "slotLimit": 30,
+          "periodGuests": 2,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "1530": {
+          "period": "下午茶",
+          "periodStopped": true,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 2,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "1600": {
+          "period": "下午茶",
+          "periodStopped": true,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 2,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "1800": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "1830": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "1900": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 30,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": "Full"
+        },
+        "1930": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 27,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "2000": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "2030": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "2100": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        },
+        "2130": {
+          "period": "晚市",
+          "periodStopped": false,
+          "guests": 0,
+          "slotLimit": 30,
+          "periodGuests": 57,
+          "mealLimit": 80,
+          "slotStopped": false,
+          "badge": null
+        }
+      }
+    }
+  },
+  {
+    "n": 6,
+    "text": "staff phone 390: calendar → 30 Nov capacity block",
+    "result": "not reached on phone layout"
+  },
+  {
+    "n": 7,
+    "text": "diner /b/<token> (signed out): 30 Nov, party 1 then party 4",
+    "result": {
+      "diner1": {
+        "day": "open",
+        "slots": {
+          "1200": "full",
+          "1230": "full",
+          "1300": "full",
+          "1330": "full",
+          "1400": "full",
+          "1500": "full",
+          "1530": "full",
+          "1600": "full",
+          "1800": "open",
+          "1830": "open",
+          "1900": "full",
+          "1930": "open",
+          "2000": "open",
+          "2030": "open",
+          "2100": "open",
+          "2130": "open"
+        }
+      },
+      "diner4": {
+        "day": "open",
+        "slots": {
+          "1200": "full",
+          "1230": "full",
+          "1300": "full",
+          "1330": "full",
+          "1400": "full",
+          "1500": "full",
+          "1530": "full",
+          "1600": "full",
+          "1800": "open",
+          "1830": "open",
+          "1900": "full",
+          "1930": "full",
+          "2000": "open",
+          "2030": "open",
+          "2100": "open",
+          "2130": "open"
+        }
+      }
+    }
+  },
+  {
+    "n": 8,
+    "text": "PAP GET /availability party_size 1 and 4; POST 19:00 party 4",
+    "result": {
+      "av1": [
+        {
+          "date": "2026-11-30",
+          "open": true,
+          "times": [
+            "18:00",
+            "18:30",
+            "19:30",
+            "20:00",
+            "20:30",
+            "21:00",
+            "21:30"
+          ]
+        }
+      ],
+      "av4": [
+        {
+          "date": "2026-11-30",
+          "open": true,
+          "times": [
+            "18:00",
+            "18:30",
+            "20:00",
+            "20:30",
+            "21:00",
+            "21:30"
+          ]
+        }
+      ],
+      "post": {
+        "status": 400,
+        "fields": {
+          "time": "full"
+        },
+        "suggested_times": [
+          {
+            "date": "2026-11-30",
+            "time": "18:30"
+          },
+          {
+            "date": "2026-11-30",
+            "time": "18:00"
+          },
+          {
+            "date": "2026-11-30",
+            "time": "20:00"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "n": 9,
+    "text": "three-way consistency (staff numbers → fits; diner page; /availability), party 1 and 4",
+    "result": "AGREE on 16 times"
+  },
+  {
+    "n": 10,
+    "text": "Settings → 訂座: switch 使用訂座時段 off, 儲存",
+    "result": "limits block hidden: true; stored scheduleEnabled false"
+  },
+  {
+    "n": 11,
+    "text": "staff 30 Nov with the schedule off",
+    "result": "\"接受訂座訂座時段已關閉，人數上限及停止訂座不適用。\"; capacity switches: 0; month badge: none"
+  },
+  {
+    "n": 12,
+    "text": "schedule off: diner page, PAP /availability party 4, POST 19:00 party 4",
+    "result": {
+      "formVariant": null,
+      "avail": [
+        {
+          "date": "2026-11-30",
+          "open": true,
+          "times": null
+        }
+      ],
+      "post": 202
+    }
+  },
+  {
+    "n": 13,
+    "text": "switch back on, 儲存: limits and the 下午茶 stop come back; PAP 19:00 party 4 refused again",
+    "result": "limits 30/80; 下午茶 stopped shown; POST 400 {\"time\":\"full\"}"
+  },
+  {
+    "n": 14,
+    "text": "console errors",
+    "result": {
+      "staff": [],
+      "diner": []
+    }
+  }
+]

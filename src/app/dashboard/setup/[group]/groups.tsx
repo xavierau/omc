@@ -14,6 +14,8 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { resolveReplyConfig } from '@/domain/services/reply-config'
 import { resolveContactConfig } from '@/domain/services/contact-config'
 import { getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
+import { hongKongToday } from '@/domain/services/booking-submission'
 import { getAgentSettings } from '@/infrastructure/supabase/repositories/agent-config-repository'
 
 // CAMP-016: the sections that were stacked on /dashboard/setup, moved
@@ -72,12 +74,19 @@ export async function MessagesGroup({ restaurantId }: GroupProps) {
   )
 }
 
+/** BOOK-009 (spec S1.4): special dates already past drop out of the form, so a re-save never fails on them. */
+async function bookingSettingsFormConfig(restaurantId: string) {
+  const config = await getBookingConfig(restaurantId)
+  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, hongKongToday(new Date())) : null
+  return { ...config, bookingHours: hours }
+}
+
 /** Admin-only; the page refuses the group for other roles before this renders. */
 export async function BookingsGroup({ restaurantId }: GroupProps) {
   return (
     <div className="space-y-6">
       <GroupTitle id="bookings" />
-      <BookingSettingsSection initialConfig={await getBookingConfig(restaurantId)} />
+      <BookingSettingsSection initialConfig={await bookingSettingsFormConfig(restaurantId)} />
       <Separator />
       {/* AGENT-001: a read error renders the section's error state, never a form primed with defaults. */}
       <AgentSettingsSection initial={await getAgentSettings(restaurantId).catch(() => null)} />

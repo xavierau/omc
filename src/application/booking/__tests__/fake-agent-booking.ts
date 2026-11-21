@@ -7,6 +7,7 @@
 import { randomUUID } from 'crypto'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { AgentBooking, BookingRequest, NewAgentBooking } from '@/domain/entities/booking-request'
+import type { RoomCheck, RoomRefusal } from '@/domain/services/booking-room'
 import type {
   AgentBookingDirectory,
   AgentBookingStore,
@@ -22,6 +23,8 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
   /** Every call, by method name, so tests can prove what was (not) written (R42). */
   readonly calls: string[] = []
   createdAt: () => Date = () => new Date()
+  /** BOOK-010: the room check promote_agent_booking_with_room runs per candidate (set by tests that use room). */
+  roomRefusal?: (restaurantId: string, slot: { date: string; time: string; partySize: number }, check: RoomCheck) => RoomRefusal | null
 
   async insert(b: NewAgentBooking): Promise<InsertAgentBookingResult> {
     this.calls.push('insert')
@@ -39,6 +42,7 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
       decidedBy: null, decidedAt: null, source: 'agent', campaignId: null, createdAt: this.createdAt().toISOString(),
       decisionMessageStatus: null, confirmCode: b.confirmCode, verifyExpiresAt: b.verifyExpiresAt, verifiedAt: null,
       verifiedWamid: null, statusTokenHash: b.statusTokenHash, idempotencyKey: b.idempotencyKey,
+      ...(b.termsAcceptedAt ? { termsAcceptedAt: b.termsAcceptedAt, termsText: b.termsText } : {}),
     }
     this.rows.push(row)
     return { ok: true, booking: { ...row } }
@@ -104,15 +108,59 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
       (r) => r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'pending'
     ).length
     const room = Math.max(0, args.maxPending - pending)
-    const hits = this.rows
+    const candidates = this.rows.filter(
+      (r) =>
+        r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
+        r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
+    )
+    if (!args.room) {
+      const hits = candidates.slice(0, room)
+      for (const r of hits) Object.assign(r, { status: 'pending', verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
+      return hits.map((r) => ({ ...r }))
+    }
+    return this.promoteWithRoom(args, candidates, room)
+  }
+
+  /** BOOK-010: mirrors promote_agent_booking_with_room (092): no room → declined 'full'; else pending while the cap allows. */
+  private promoteWithRoom(args: PromoteAgentBookingArgs, candidates: AgentBooking[], cap: number): BookingRequest[] {
+    const at = args.at.toISOString()
+    const changed: AgentBooking[] = []
+    for (const r of candidates) {
+      const check = args.room?.({ date: r.bookingDate, time: r.bookingTime })
+      const refusal = check ? this.roomRefusal?.(r.restaurantId, { date: r.bookingDate, time: r.bookingTime, partySize: r.partySize }, check) : null
+      if (refusal) {
+        Object.assign(r, { status: 'declined', declineReason: 'full', decidedAt: at, decidedBy: null, verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
+        changed.push(r)
+      } else if (cap > 0) {
+        Object.assign(r, { status: 'pending', verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
+        cap--
+        changed.push(r)
+      }
+    }
+    return changed.map((r) => ({ ...r }))
+  }
+
+  /** BOOK-009 F1: mirrors findPromotableAgentBookings (read only). */
+  async findPromotable(args: Pick<PromoteAgentBookingArgs, 'restaurantId' | 'phone' | 'codes' | 'at'>): Promise<AgentBooking[]> {
+    this.calls.push('findPromotable')
+    await tick()
+    return this.rows
       .filter(
         (r) =>
           r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
           r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
       )
-      .slice(0, room)
-    for (const r of hits) Object.assign(r, { status: 'pending', verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
-    return hits.map((r) => ({ ...r }))
+      .map((r) => ({ ...r }))
+  }
+
+  /** BOOK-009 F1: mirrors declineUnverifiedAgentBooking (unverified only, scoped by restaurant). */
+  async declineUnverified(id: string, restaurantId: string, at: Date, reason: string) {
+    this.calls.push('declineUnverified')
+    await tick()
+    const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status === 'unverified')
+    if (!row) return false
+    Object.assign(row, { status: 'declined', declineReason: reason, decidedAt: at.toISOString(), confirmCode: null })
+    return true
   }
 
   /** BOOK-008 R1: mirrors linkAgentBookingMember (member_id null, not unverified, scoped by restaurant). */

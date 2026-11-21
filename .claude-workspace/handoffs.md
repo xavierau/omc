@@ -2,6 +2,15 @@
 
 | date | agent | item | status | artifact | next | blocker |
 |---|---|---|---|---|---|---|
+| 2026-11-21 | dev | BOOK-010 F1 | done | artifacts/2026-11-21-book-010-f1-handoff · tests/evidence/2026-11-21-book-010-f1/red-run | main: re-review PR #223; 091 → 092 → 093 before deploy | none |
+| 2026-11-21 | dev | BOOK-010 I-010 | done | artifacts/2026-11-21-book-010-i-handoff · artifacts/2026-11-21-book-010-i-impl | main: review PR #223; merge #222 first, then retarget #223 to develop; 092 after 091 before deploy | none |
+| 2026-11-21 | dev | BOOK-010 W2 | done | artifacts/2026-11-21-book-010-w2-handoff · artifacts/2026-11-21-book-010-w2-impl | main: review W2, then I-010 | none |
+| 2026-11-21 | dev | BOOK-010 W1 | done | artifacts/2026-11-20-book-010-w1-handoff · artifacts/2026-11-20-book-010-w1-impl | main: review ea989937..74398f92, then W2 UI | none |
+| 2026-11-21 | dev | BOOK-009 F1 | done | artifacts/2026-11-20-book-009-f1-handoff · tests/evidence/2026-11-20-book-009-f1/red-run | main: re-review the 6 findings, then merge PR #222 | none |
+| 2026-11-20 | dev | BOOK-009 I-009 | done | artifacts/2026-11-20-book-009-i-handoff · tests/evidence/2026-11-20-book-009-i/walk-log | main: review PR #222; then W5 BOOK-010 from its head | none |
+| 2026-11-20 | dev | BOOK-009 W2+W3 | done | artifacts/2026-11-20-book-009-w23-impl · artifacts/2026-11-20-book-009-w23-handoff | main: W4, then I-009 DB walk + PR | none |
+| 2026-11-20 | dev | BOOK-009 W4 | blocked | artifacts/2026-11-20-book-009-w4-impl · artifacts/2026-11-20-book-009-w4-handoff | main: rule on 42949788; I-009 merge | NewAgentBooking terms fields outside files_allowed (own commit) — main |
+| 2026-11-20 | dev | BOOK-009 W1 | blocked | artifacts/2026-11-20-book-009-w1-impl · artifacts/2026-11-20-book-009-w1-handoff | main: rule on AI tool call sites (W4?); dispatch W2/W3 + W4 | AI tools still pass maxPartySize (outside files_allowed) — main |
 | 2026-11-20 | dev | WONB-020 release | done | deploys/2026-11-20-wonb-020-release-runbook | owner: real imported-member JOIN scan on prod | — |
 | 2026-11-20 | dev | AGENT-005 release | done | deploys/2026-11-20-agent-005-release-runbook · artifacts/2026-11-20-rel-agent005-handoff | main: merge records PR; owner fills omc 訂座規則 and live-checks an out-of-hours booking ask | — |
 | 2026-11-20 | dev | BOOK-008 release | done | deploys/2026-11-20-book-008-release-runbook · artifacts/2026-11-20-rel-book008-handoff | main: merge records PR; owner live member-panel / relink check | — |

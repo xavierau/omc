@@ -15,6 +15,7 @@ import type {
 import type { BookingLinkSource, BookingTokenState } from '@/domain/services/booking-token'
 import type { BookingMessageDetails, BookingMessageKind } from '@/domain/services/booking-message'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
+import type { BookingStop, RoomCheck, RoomRefusal, RoomState, StopTarget } from '@/domain/services/booking-room'
 
 /** Identity a booking gets: only ever from the token row (R2). */
 export interface BookingTokenOwner {
@@ -182,6 +183,12 @@ export interface PromoteAgentBookingArgs {
   at: Date
   /** BOOK-001 R11 (review F1): promote only while the phone holds fewer pending requests here than this. */
   maxPending: number
+  /**
+   * BOOK-010 (spec AC-6): when given, each candidate is checked for room under
+   * its date lock (promote_agent_booking_with_room, migration 092); one that
+   * no longer fits comes back `declined` with reason 'full'.
+   */
+  room?: (slot: { date: string; time: string }) => RoomCheck
 }
 
 /** BOOK-003: agent bookings (`booking_requests` rows with source 'agent'). */
@@ -206,6 +213,16 @@ export interface AgentBookingStore {
    */
   promote(args: PromoteAgentBookingArgs): Promise<BookingRequest[]>
   /**
+   * BOOK-009 F1 (P2-2): read only. The unverified rows `promote` would match
+   * (sender phone, code, unexpired), so the caller re-checks the rules first.
+   */
+  findPromotable(args: Pick<PromoteAgentBookingArgs, 'restaurantId' | 'phone' | 'codes' | 'at'>): Promise<AgentBooking[]>
+  /**
+   * BOOK-009 F1 (P2-2): one conditional UPDATE unverified -> declined with
+   * `reason`, no staff (decided_by null), scoped by id AND restaurant; true when it changed.
+   */
+  declineUnverified(id: string, restaurantId: string, at: Date, reason: string): Promise<boolean>
+  /**
    * BOOK-008 R1: after promotion, link a booking to an EXISTING member found
    * by phone. One conditional UPDATE scoped by id AND restaurant, only while
    * member_id is null and the row is no longer unverified; true when it changed.
@@ -221,4 +238,30 @@ export interface AgentBookingTenant {
 /** BOOK-003 (R33): the only way the agent API learns its restaurant. */
 export interface AgentBookingDirectory {
   findByPublicId(publicId: string): Promise<AgentBookingTenant | null>
+}
+
+/** BOOK-010: the outcome of the atomic check-and-insert (insert_booking_request_if_room, migration 092). */
+export type InsertIfRoomResult = { ok: true; booking: BookingRequest } | { ok: false; refusal: RoomRefusal }
+
+/** BOOK-010: guest counts (pending + confirmed) and stops for a date range, scoped by restaurant. */
+export interface BookingRoomReader {
+  readRoom(restaurantId: string, from: string, to: string): Promise<RoomState>
+}
+
+/**
+ * BOOK-010 (spec AC-5): every channel that creates a pending row writes it
+ * through here when room rules apply: the check and the insert are one
+ * atomic step in the database, not a read-then-write in the app.
+ */
+export interface BookingRoomStore extends BookingRoomReader {
+  insertIfRoom(request: NewBookingRequest, check: RoomCheck): Promise<InsertIfRoomResult>
+}
+
+/**
+ * BOOK-010 (spec S3, threat R3): staff stops, every write scoped by restaurant; both idempotent.
+ * `add` answers with the stop as stored: on a repeat, the first stop (who, when), not the caller's (F1, review P3-3).
+ */
+export interface BookingStopStore {
+  add(restaurantId: string, stop: BookingStop): Promise<BookingStop>
+  remove(restaurantId: string, target: StopTarget): Promise<void>
 }

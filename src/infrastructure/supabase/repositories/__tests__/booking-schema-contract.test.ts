@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { columnsForTable } from './schema-contract/parse-schema'
 import { repositoryColumnsByTable } from './schema-contract/parse-repository-columns'
+import { bookingInsertRow } from '../booking-request-repository'
 
 const REPOS_DIR = path.join(process.cwd(), 'src/infrastructure/supabase/repositories')
 
@@ -18,6 +19,8 @@ const CASES = [
   { table: 'inbound_classifications', file: 'inbound-classification-repository.ts' },
   // BOOK-003 (084): agent bookings.
   { table: 'booking_requests', file: 'agent-booking-repository.ts' },
+  // BOOK-010 (092): staff stops.
+  { table: 'booking_stops', file: 'booking-room-repository.ts' },
 ]
 
 /** Columns used in WHERE/ORDER clauses too (`.eq('col'`, `.is('col'`, ...). */
@@ -42,6 +45,30 @@ describe('BOOK-001 schema contract: booking repositories match migration 082', (
     for (const c of filterColumns('booking-token-repository.ts')) expect(tokens.has(c), c).toBe(true)
     for (const c of filterColumns('booking-request-repository.ts')) expect(requests.has(c), c).toBe(true)
     for (const c of filterColumns('agent-booking-repository.ts')) expect(requests.has(c), c).toBe(true)
+    const stops = columnsForTable('booking_stops')
+    for (const c of filterColumns('booking-room-repository.ts')) expect(stops.has(c), c).toBe(true)
+  })
+
+  it('BOOK-010: every column the shared insert row writes exists (plain insert and insert_booking_request_if_room)', () => {
+    const requests = columnsForTable('booking_requests')
+    const row = bookingInsertRow({
+      restaurantId: 'r', memberId: null, phone: '+85290000000', name: 'n', partySize: 2, bookingDate: '2026-11-21',
+      bookingTime: '19:00', notes: null, source: 'agent', campaignId: null, token: null, replacesBookingId: 'b',
+      termsAcceptedAt: '2026-11-20T00:00:00Z', termsText: 't',
+    })
+    expect(Object.keys(row).filter((c) => !requests.has(c))).toEqual([])
+    expect(Object.keys(row)).toContain('terms_text')
+  })
+
+  it('BOOK-010: the 092 function allows exactly the shared insert row columns', () => {
+    const sql = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/092_booking_guest_limits.sql'), 'utf8')
+    const allowed = /v_allowed text\[\] := ARRAY\[([^\]]+)\]/.exec(sql)?.[1].match(/'([a-z_]+)'/g)?.map((c) => c.slice(1, -1)) ?? []
+    const row = bookingInsertRow({
+      restaurantId: 'r', memberId: null, phone: '+85290000000', name: 'n', partySize: 2, bookingDate: '2026-11-21',
+      bookingTime: '19:00', notes: null, source: 'agent', campaignId: null, token: null, replacesBookingId: 'b',
+      termsAcceptedAt: '2026-11-20T00:00:00Z', termsText: 't',
+    })
+    expect([...allowed].sort()).toEqual(Object.keys(row).sort())
   })
 
   it('084 adds the agent booking columns (R31, R35, R36, R46)', () => {

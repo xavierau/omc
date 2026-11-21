@@ -16,14 +16,23 @@
  * restaurant with the booking phone (never before: the phone is unproven
  * while unverified). Best effort: a failed link is logged by error name and
  * staff can link by hand; no member is ever created.
+ * BOOK-009 W4 (spec AC-13): when terms are set, the same free-form text also
+ * carries the terms the booking stored. No new Meta template (inside the 24 h window).
+ * BOOK-009 F1 (P2-2): each candidate is re-checked against the rules now
+ * (`recheckAgentBookings`); only the codes that still pass are promoted.
+ * BOOK-010 (spec AC-6): promotion then checks room under the date lock (rules
+ * first, then room); a booking whose slot filled comes back declined 'full'
+ * and the diner gets the full reply instead (agent-booking-full-reply.ts).
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
-import { buildCollectionStatement, collectionStatementText } from '@/domain/services/poppy-documents'
+import { buildCollectionStatement, collectionStatementText, termsReplyText } from '@/domain/services/poppy-documents'
 import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
+import { promoteRoom, tellFull, type AgentBookingRoomDeps } from './agent-booking-full-reply'
+import { recheckAgentBookings, type RecheckAgentBookingsDeps } from './recheck-agent-bookings'
 
-export interface VerifyAgentBookingDeps {
-  store: Pick<AgentBookingStore, 'promote' | 'linkMember'>
+export interface VerifyAgentBookingDeps extends Pick<RecheckAgentBookingsDeps, 'bookingLink'> {
+  store: Pick<AgentBookingStore, 'promote' | 'linkMember' | 'findPromotable' | 'declineUnverified'>
   members: BookingMemberLookup
   settings: Pick<BookingSettingsReader, 'getConfig' | 'getRestaurant'>
   sender: BookingMessageSender
@@ -31,6 +40,8 @@ export interface VerifyAgentBookingDeps {
   sendText(restaurantId: string, phone: string, text: string): Promise<void>
   privacyUrl: string
   now(): Date
+  /** BOOK-010: room check at promotion and the full reply; absent = BOOK-009 promotion. */
+  room?: AgentBookingRoomDeps
 }
 
 export interface InboundCodeMessage {
@@ -40,13 +51,19 @@ export interface InboundCodeMessage {
   wamid: string
 }
 
+/** The collection statement, then (BOOK-009 AC-13) the terms the diner accepted, only when the booking stored them (F1). */
+function confirmedText(statement: string, booking: BookingRequest): string {
+  return booking.termsText ? `${statement}\n\n${termsReplyText(booking.termsText)}` : statement
+}
+
 async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest): Promise<void> {
   const restaurantName = (await deps.settings.getRestaurant(booking.restaurantId))?.name ?? ''
   await deps.sender.send({
     restaurantId: booking.restaurantId, phone: booking.phone, memberId: booking.memberId, kind: 'received',
     details: { restaurantName, name: booking.name, date: booking.bookingDate, time: booking.bookingTime, partySize: booking.partySize },
   })
-  await deps.sendText(booking.restaurantId, booking.phone, collectionStatementText(buildCollectionStatement(restaurantName, deps.privacyUrl)))
+  const statement = collectionStatementText(buildCollectionStatement(restaurantName, deps.privacyUrl))
+  await deps.sendText(booking.restaurantId, booking.phone, confirmedText(statement, booking))
 }
 
 /** R1: only now, after promotion, does the booking phone count as the diner's. */
@@ -64,13 +81,18 @@ async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: Booking
 export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<{ handled: boolean }> {
   const codes = extractConfirmCodeCandidates(message.text)
   if (codes.length === 0) return { handled: false }
-  const { mode, agentBooking } = await deps.settings.getConfig(message.restaurantId)
-  if (!agentBooking.enabled || mode !== 'simple') return { handled: false }
+  const config = await deps.settings.getConfig(message.restaurantId)
+  if (!config.agentBooking.enabled || config.mode !== 'simple') return { handled: false }
+  const recheck = await recheckAgentBookings(deps, { ...message, codes }, config)
   const promoted = await deps.store.promote({
-    restaurantId: message.restaurantId, phone: message.phone, codes, wamid: message.wamid, at: deps.now(),
-    maxPending: MAX_PENDING_PER_PHONE,
+    restaurantId: message.restaurantId, phone: message.phone, codes: recheck.codes, wamid: message.wamid, at: deps.now(),
+    maxPending: MAX_PENDING_PER_PHONE, ...promoteRoom(deps.room, config),
   })
   for (const row of promoted) {
+    if (row.status === 'declined') {
+      await tellFull(deps, row, config)
+      continue
+    }
     const booking = await linkExistingMember(deps, row)
     try {
       await acknowledge(deps, booking)
@@ -78,5 +100,5 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
       console.error('[AgentBooking] acknowledge failed:', { error: (err as Error).name, bookingId: booking.id })
     }
   }
-  return { handled: promoted.length > 0 }
+  return { handled: promoted.length > 0 || recheck.refused > 0 }
 }

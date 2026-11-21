@@ -1,0 +1,100 @@
+// BOOK-009 W4 AC-4 evidence harness (temporary; source kept in the evidence folder).
+// Real route handlers, in-memory ports. Clock 2026-11-19T02:00Z = Thu 10:00 HK.
+import { it, vi } from 'vitest'
+import { appendFileSync, writeFileSync } from 'node:fs'
+import { NextRequest } from 'next/server'
+import { FakeBookingSettings } from '@/test-utils/fake-booking'
+import { FakeRateLimiter } from '@/test-utils/fake-rate-limiter'
+import { FakeClock } from '@/test-utils/fake-clock'
+import { FakeAgentBookingStore, FakeAgentDirectory, scriptedSecrets } from '@/application/booking/__tests__/fake-agent-booking'
+import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
+
+const holder: Record<string, unknown> = {}
+vi.mock('@/application/booking/booking-deps', () => ({
+  createAgentBookingDeps: () => holder.create,
+  getAgentAvailabilityDeps: () => holder.availability,
+  agentOpenApiDeps: () => holder.openapi,
+}))
+import { POST } from '../[publicId]/bookings/route'
+import { GET as GET_AVAILABILITY } from '../[publicId]/availability/route'
+import { GET as GET_OPENAPI } from '../[publicId]/openapi.json/route'
+
+const LOG = process.env.W4_EVIDENCE_LOG as string
+const PID = 'A'.repeat(32)
+const PID_NULL = 'N'.repeat(32)
+const ld = [{ label: '午市', first: '12:00', last: '14:00' }, { label: '晚市', first: '18:00', last: '21:30' }]
+const HOURS: BookingHours = {
+  ...EMPTY_BOOKING_HOURS,
+  weekly: { mon: [], tue: ld, wed: ld, thu: ld, fri: ld, sat: ld, sun: ld },
+  intervalMinutes: 30, noticeHours: 2, aheadDays: 30, tableMinutes: 120,
+  special: [{ date: '2026-11-25', label: '冬至', periods: [] }],
+  terms: { zh_hk: '訂座保留 15 分鐘。', en: 'Tables are held for 15 minutes.' },
+}
+
+async function show(label: string, method: string, url: string, res: Response, body?: unknown) {
+  const json = await res.json()
+  const headers = ['Retry-After', 'Cache-Control'].map((h) => `${h}: ${res.headers.get(h)}`).join(' | ')
+  appendFileSync(LOG, `\n### ${label}\n${method} ${url}${body ? `\nbody: ${JSON.stringify(body)}` : ''}\n→ ${res.status} (${headers})\n${JSON.stringify(json, null, 2)}\n`)
+  return json
+}
+
+it('W4 evidence', async () => {
+  writeFileSync(LOG, `# BOOK-009 W4 route-level evidence (route handlers + in-memory ports)\n# generated ${new Date().toISOString()}; fake clock 2026-11-19T02:00Z = Thu 19 Nov 10:00 HK\n# tenant A: hours Tue-Sun 12:00-14:00 & 18:00-21:30, Mon closed, 25 Nov closed, 30 min, 2 h notice, 30 days, table 120, terms set\n# tenant N: booking hours null (pre-BOOK-009)\n`)
+  const clock = new FakeClock(new Date('2026-11-19T02:00:00.000Z'))
+  const store = new FakeAgentBookingStore()
+  store.createdAt = () => clock.now()
+  const directory = new FakeAgentDirectory()
+  directory.add('rest-a', PID, { maxPartySize: 8, bookingHours: HOURS })
+  directory.add('rest-n', PID_NULL, { maxPartySize: 8, bookingHours: null })
+  const settings = new FakeBookingSettings()
+  settings.restaurants.set('rest-a', { name: 'Cafe A', logoUrl: null, whatsappNumber: '+85230001111' })
+  settings.restaurants.set('rest-n', { name: 'Cafe N', logoUrl: null, whatsappNumber: '+85230002222' })
+  const limiter = new FakeRateLimiter(clock)
+  holder.create = { directory, store, settings, limiter, secrets: scriptedSecrets(['K7PX3M', 'Q2W3E4', 'Z9Y8X7']), privacyUrl: 'https://ohmyclient.io/privacy-policy.html', now: () => clock.now() }
+  holder.availability = { directory, limiter, now: () => clock.now() }
+  holder.openapi = { directory, settings, appUrl: 'https://app.ohmyclient.io', privacyUrl: 'https://ohmyclient.io/privacy-policy.html', now: () => clock.now() }
+
+  const get = (pid: string, q: string, ip = '203.0.113.9') => {
+    const url = `https://app.ohmyclient.io/api/poppy/${pid}/availability?${q}`
+    return [url, GET_AVAILABILITY(new NextRequest(url, { headers: { 'x-real-ip': ip } }), { params: Promise.resolve({ publicId: pid }) })] as const
+  }
+  const post = (pid: string, body: unknown, ip = '198.51.100.20') => {
+    const url = `https://app.ohmyclient.io/api/poppy/${pid}/bookings`
+    return [url, POST(new NextRequest(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-real-ip': ip }, body: JSON.stringify(body) }), { params: Promise.resolve({ publicId: pid }) })] as const
+  }
+  const b = (p: Record<string, unknown>) => ({ date: '2026-11-20', time: '19:00', party_size: 4, name: 'Chan', phone: '+85291234567', ...p })
+
+  for (const [label, pid, q] of [
+    ['GET /availability, hours set (Mon 23 closed, special 25 closed)', PID, 'from=2026-11-19&days=7&party_size=4'],
+    ['GET /availability, days above the 30-day window → 400', PID, 'from=2026-11-20&days=31'],
+    ['GET /availability, unknown publicId → 404', 'C'.repeat(32), 'from=2026-11-20&days=3'],
+    ['GET /availability, hours null → any time', PID_NULL, 'from=2026-11-19&days=3'],
+  ] as const) {
+    const [url, res] = get(pid, q)
+    await show(label, 'GET', url, await res)
+  }
+  for (const [label, pid, body] of [
+    ['POST /bookings 15:00 → outside_hours + suggested_times', PID, b({ time: '15:00', accept_terms: true })],
+    ['POST /bookings Mon 23 Nov → closed_day + suggested_times', PID, b({ date: '2026-11-23', accept_terms: true })],
+    ['POST /bookings 30 Dec → too_far + suggested_times', PID, b({ date: '2026-12-30', accept_terms: true })],
+    ['POST /bookings without accept_terms → terms_required', PID, b({})],
+    ['POST /bookings on the grid with accept_terms → 202', PID, b({ accept_terms: true })],
+    ['POST /bookings hours null, 03:00, no accept_terms → 202 (unchanged)', PID_NULL, b({ time: '03:00' })],
+  ] as const) {
+    const [url, res] = post(pid, body)
+    await show(label, 'POST', url, await res, body)
+  }
+  appendFileSync(LOG, `\n### Stored rows (terms columns)\n${JSON.stringify(store.rows.map((r) => ({ restaurantId: r.restaurantId, date: r.bookingDate, time: r.bookingTime, status: r.status, termsAcceptedAt: r.termsAcceptedAt ?? null, termsText: r.termsText ?? null })), null, 2)}\n`)
+  const statuses: number[] = []
+  for (let i = 0; i < 10; i++) statuses.push((await get(PID, 'from=2026-11-20&days=1', '192.0.2.50')[1]).status)
+  appendFileSync(LOG, `\n### GET /availability x10 from 192.0.2.50 within one minute: statuses ${JSON.stringify(statuses)}\n`)
+  const [u429, r429] = get(PID, 'from=2026-11-20&days=1', '192.0.2.50')
+  await show('GET /availability, 11th call from that IP in the minute → 429', 'GET', u429, await r429)
+  const [uPost, rPost] = post(PID, b({ accept_terms: true }), '192.0.2.50')
+  await show('POST /bookings from that IP right after → 429 (same limiter as /availability)', 'POST', uPost, await rPost, b({ accept_terms: true }))
+  const docRes = await GET_OPENAPI(new Request('https://x'), { params: Promise.resolve({ publicId: PID }) })
+  const doc = await docRes.json()
+  appendFileSync(LOG, `\n### GET /openapi.json, hours set: paths and description\npaths: ${JSON.stringify(Object.keys(doc.paths))}\n${doc.info.description}\n`)
+  const nullDoc = await (await GET_OPENAPI(new Request('https://x'), { params: Promise.resolve({ publicId: PID_NULL }) })).json()
+  appendFileSync(LOG, `\n### GET /openapi.json, hours null: paths\n${JSON.stringify(Object.keys(nullDoc.paths))}\n`)
+})

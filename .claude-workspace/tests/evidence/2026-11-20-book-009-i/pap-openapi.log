@@ -1,0 +1,11 @@
+paths: ['/availability', '/bookings', '/bookings/{booking_id}']
+info.description excerpt: Request a table at Walk Test Kitchen. No sign-in.
+
+How it works:
+1. POST /bookings with the diner's details. The answer has a `confirm_code` and a `confirm_url` (a WhatsApp link).
+2. The diner opens `confirm_url` and sends the prefilled message from THE SAME phone number as `phone`, within 30 minutes (`expires_at`).
+   Until then the request is not sent to the restaurant. A code sent from another number does nothing.
+3. The restaurant then accepts or declines it, and tells the diner on WhatsApp.
+   Poll GET /bookings/{booking_id} with the `X-Booking-Status-Token` header to follow it.
+
+At most 

@@ -13,8 +13,18 @@
  * AGENT-005: `bookingRules` (訂座規則) is the restaurant's free text on booking
  * hours, last booking, last order and closed days. The settings form owns it;
  * the reply agent's booking skill checks a requested time against it.
+ *
+ * BOOK-009: `bookingHours` is the structured schedule, window, terms and
+ * restaurant info (booking-hours.ts); null = not configured (AC-5). The
+ * settings form owns it; an omitted value keeps the stored one.
  */
 import type { LanguageCode } from './language'
+import { isSafeHttpsUrl } from './safe-https-url'
+import { resolveBookingHours, type BookingHours } from './booking-hours'
+import { parseBookingHoursSettings, type BookingHoursErrors } from './booking-hours-settings'
+import { hongKongToday } from '@/domain/services/booking-submission'
+
+export { EXTERNAL_URL_MAX, isSafeHttpsUrl } from './safe-https-url'
 
 export type BookingMode = 'off' | 'simple' | 'external'
 export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder'
@@ -53,6 +63,8 @@ export interface BookingConfig {
   agentBooking: AgentBookingConfig
   /** AGENT-005: free text, trimmed, at most BOOKING_RULES_MAX_CHARS; '' = none. */
   bookingRules: string
+  /** BOOK-009: structured booking hours; null = not configured (spec AC-5). */
+  bookingHours: BookingHours | null
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -60,7 +72,6 @@ export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'conf
 export const TEMPLATE_LANGUAGES: readonly LanguageCode[] = ['zh_hk', 'en']
 export const MAX_TTL_HOURS = 8760
 export const MAX_PARTY_SIZE_LIMIT = 100
-export const EXTERNAL_URL_MAX = 2048
 export const BOOKING_RULES_MAX_CHARS = 2000
 
 export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
@@ -80,6 +91,7 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {} },
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
   bookingRules: '',
+  bookingHours: null,
 }
 
 /** BOOK-003: 128-384 bits as base64url. */
@@ -114,17 +126,6 @@ function resolveAgentBooking(raw: unknown): AgentBookingConfig {
   const r = asRecord(raw)
   const publicId = isAgentPublicId(r.publicId) ? r.publicId : null
   return { enabled: r.enabled === true && publicId !== null, publicId, websiteHost: normalizeWebsiteHost(r.websiteHost) }
-}
-
-/** `https:` with a host, no credentials, no whitespace, ≤ 2,048 chars (R14). */
-export function isSafeHttpsUrl(value: unknown): value is string {
-  if (typeof value !== 'string' || value.length > EXTERNAL_URL_MAX || /\s/.test(value)) return false
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' && url.hostname.length > 0 && !url.username && !url.password
-  } catch {
-    return false
-  }
 }
 
 export const isTtl = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_TTL_HOURS
@@ -187,18 +188,21 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     templateCandidates: resolveTexts(r.templateCandidates),
     agentBooking: resolveAgentBooking(r.agentBooking),
     bookingRules: typeof r.bookingRules === 'string' ? r.bookingRules.trim().slice(0, BOOKING_RULES_MAX_CHARS) : '',
+    bookingHours: resolveBookingHours(r.bookingHours),
   }
 }
 
+/** BOOK-009: booking-hours errors are keyed by path (`bookingHours.weekly.wed.0`, spec AC-2). */
 export type BookingSettingsErrors = Partial<
   Record<'mode' | 'externalUrl' | 'chatLinkTtlHours' | 'campaignLinkTtlHours' | 'maxPartySize' | 'bookingRules' | 'form', string>
->
+> &
+  Partial<BookingHoursErrors>
 
 export type ParseBookingSettingsResult =
   | { ok: true; config: BookingConfig }
   | { ok: false; errors: BookingSettingsErrors }
 
-const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize', 'bookingRules']
+const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize', 'bookingRules', 'bookingHours']
 
 /** AGENT-005: omitted keeps the stored rules; a string is trimmed and at most BOOKING_RULES_MAX_CHARS. */
 function parseBookingRules(raw: unknown, current: string, errors: BookingSettingsErrors): string {
@@ -210,6 +214,15 @@ function parseBookingRules(raw: unknown, current: string, errors: BookingSetting
   const value = raw.trim()
   if (value.length > BOOKING_RULES_MAX_CHARS) errors.bookingRules = 'too_long'
   return value
+}
+
+/** BOOK-009: omitted keeps the stored hours; null turns them off; an object is validated per path. */
+function parseHoursField(raw: unknown, current: BookingHours | null, today: string, errors: BookingSettingsErrors) {
+  if (raw === undefined) return current
+  const result = parseBookingHoursSettings(raw, today)
+  if (result.ok) return result.hours
+  Object.assign(errors, result.errors)
+  return current
 }
 
 function parseExternalUrl(raw: unknown, mode: BookingMode, errors: BookingSettingsErrors): string | null {
@@ -238,12 +251,19 @@ function parseTtlField(raw: unknown, current: number | null, key: keyof BookingS
  * template ids, edits or candidates it read earlier.
  */
 export function applyBookingSettings(current: BookingConfig, settings: BookingConfig): BookingConfig {
-  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules } = settings
-  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules }
+  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours } = settings
+  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours }
 }
 
-/** Validates an admin's booking settings save against the current config. */
-export function parseBookingSettings(body: unknown, current: BookingConfig): ParseBookingSettingsResult {
+/**
+ * Validates an admin's booking settings save against the current config.
+ * `today` (Hong Kong, YYYY-MM-DD) bounds BOOK-009's special dates.
+ */
+export function parseBookingSettings(
+  body: unknown,
+  current: BookingConfig,
+  today: string = hongKongToday(new Date())
+): ParseBookingSettingsResult {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, errors: { form: 'invalid_body' } }
   const b = body as Record<string, unknown>
   const unknownKey = Object.keys(b).find((k) => !SETTINGS_FIELDS.includes(k))
@@ -258,11 +278,12 @@ export function parseBookingSettings(body: unknown, current: BookingConfig): Par
   const maxPartySize = b.maxPartySize === undefined ? current.maxPartySize : b.maxPartySize
   if (!isPartyMax(maxPartySize)) errors.maxPartySize = 'invalid_party_size'
   const bookingRules = parseBookingRules(b.bookingRules, current.bookingRules, errors)
+  const bookingHours = parseHoursField(b.bookingHours, current.bookingHours, today, errors)
 
   if (Object.keys(errors).length > 0 || !mode) return { ok: false, errors }
   return {
     ok: true,
-    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number, bookingRules },
+    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number, bookingRules, bookingHours },
   }
 }
 

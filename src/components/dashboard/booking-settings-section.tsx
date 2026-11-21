@@ -7,17 +7,24 @@
  * inline editor under the message list.
  * BOOK-003: under Simple booking, "Allow AI agents" with its own save.
  * AGENT-005: 訂座規則 (booking rules) unless mode is off; saved with the section.
+ * BOOK-009 S1: in Simple mode the booking-hours blocks come first (party size
+ * moves into them), then the rules summary with Preview, then the old rules
+ * textarea relabelled "Other booking notes (AI assistant only)".
+ * BOOK-010 S1: the guest limits ride in the same form and Save.
  */
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { needsExternalUrl, useAgentBookingSettings, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
+import { hasUnsavedChanges, needsExternalUrl, toForm, useAgentBookingSettings, useBookingSettings, type BookingSettingsForm } from '@/hooks/use-booking-settings'
 import { useBookingSettingsSummaryState } from '@/hooks/use-booking-availability'
 import { useBookingTemplateOverview } from '@/hooks/use-booking-template-overview'
 import { BookingTemplateStatusList } from './booking-template-status-list'
 import { BookingTemplateEditor } from './booking-template-editor'
 import { BookingAgentSettings } from './booking-agent-settings'
+import { BookingHoursBlocks } from './booking-settings/booking-hours-blocks'
+import { errorCount } from './booking-settings/hours-errors'
 import { BOOKING_RULES_MAX_CHARS, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
 
 const MODES: BookingMode[] = ['off', 'simple', 'external']
@@ -81,16 +88,32 @@ function ModePicker({ form, update }: { form: BookingSettingsForm; update: Updat
   )
 }
 
+function NotSavedNotice({ errors }: { errors: Record<string, string> }) {
+  const t = useTranslations('bookingSettings.bookingHours')
+  const count = errorCount(errors)
+  return count > 0 ? <p data-testid="booking-settings-not-saved" role="alert" className="text-xs text-destructive">{t('notSaved', { count })}</p> : null
+}
+
 export function BookingSettingsSection({ initialConfig }: { initialConfig: BookingConfig }) {
   const t = useTranslations('bookingSettings')
-  const { form, update, save, saving, outcome } = useBookingSettings(initialConfig)
+  const { form, update, save: saveForm, saving, outcome } = useBookingSettings(initialConfig)
+  // BOOK-009: Preview shows the last SAVED settings; track them to warn about unsaved edits.
+  const [savedConfig, setSavedConfig] = useState(initialConfig)
+  if (outcome?.kind === 'saved' && outcome.config !== savedConfig) setSavedConfig(outcome.config)
+  const dirty = hasUnsavedChanges(form, toForm(savedConfig))
+  // BOOK-009: the rules summary comes from GET; fetch it again after a save.
+  const [summaryVersion, setSummaryVersion] = useState(0)
+  const save = async () => {
+    await saveForm()
+    setSummaryVersion((v) => v + 1)
+  }
   // BOOK-003 review F4: held here, above the mode switch, so the agent block's
   // saved state survives Simple → External → Simple without a save.
   const agent = useAgentBookingSettings(initialConfig.agentBooking)
   const errors = outcome?.kind === 'fields' ? outcome.errors : {}
   const missingUrl = needsExternalUrl(form)
   // W3: statuses from GET on load, then from each save's response.
-  const { loading, summary } = useBookingSettingsSummaryState()
+  const { loading, summary } = useBookingSettingsSummaryState(summaryVersion)
   const saved = outcome?.kind === 'saved'
   const messages = useBookingTemplateOverview(summary, outcome)
   return (
@@ -110,17 +133,16 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
             <FieldError code={errors.externalUrl} testId="booking-settings-url-error" />
           </div>
         ) : null}
+        {form.mode === 'simple' ? (
+          <BookingHoursBlocks form={form} errors={errors} onEdit={(edit) => update('bookingHours', edit(form.bookingHours))} onMaxPartySize={(v) => update('maxPartySize', v)}
+            onLimit={(field, v) => update(field, v)}
+            summary={summary?.hoursSummary ?? null} dirty={dirty} />
+        ) : null}
         {form.mode !== 'off' ? <BookingRulesField form={form} update={update} error={errors.bookingRules} /> : null}
         {form.mode === 'simple' ? (
           <>
             <LifetimeField kind="chat" form={form} update={update} error={errors.chatLinkTtlHours} />
             <LifetimeField kind="campaign" form={form} update={update} error={errors.campaignLinkTtlHours} />
-            <div className="space-y-1.5">
-              <label htmlFor="booking-settings-max" className="text-sm font-medium">{t('maxPartySize')}</label>
-              <Input id="booking-settings-max" type="number" min={1} max={100} className="w-28" value={form.maxPartySize}
-                onChange={(e) => update('maxPartySize', e.target.value)} data-testid="booking-settings-max-party" />
-              <FieldError code={errors.maxPartySize} testId="booking-settings-max-party-error" />
-            </div>
             <BookingTemplateStatusList statuses={messages.templates} loading={loading && !saved}
               editor={messages.editor} editingKind={messages.editingKind} onEdit={messages.toggle} />
             {messages.editor && messages.editingKind ? (
@@ -132,6 +154,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
         {form.mode === 'simple' ? <BookingAgentSettings agent={agent} /> : null}
         <div className="flex items-center gap-3">
           <Button onClick={save} disabled={saving || missingUrl} data-testid="booking-settings-save">{saving ? t('saving') : t('save')}</Button>
+          <NotSavedNotice errors={errors} />
           {outcome?.kind === 'saved' ? <p data-testid="booking-settings-saved" role="status" className="text-xs text-muted-foreground">{t('saved')}</p> : null}
           {outcome?.kind === 'forbidden' || outcome?.kind === 'error' ? (
             <p data-testid="booking-settings-error" role="alert" className="text-xs text-destructive">{t(outcome.kind === 'forbidden' ? 'forbidden' : 'saveFailed')}</p>

@@ -5,6 +5,8 @@
  * BOOK-004: the list is fetched for a date range (calendar month / table range).
  * `decideBooking` maps each API answer to what the row shows (spec UI
  * Feedback States): done (+ not-delivered warning), already handled, gone.
+ * BOOK-010 (spec AC-10): a confirm over a guest limit answers over_limit;
+ * the page asks "Confirm anyway?" and re-sends with `confirmAnyway: true`.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTenant } from '@/hooks/use-tenant'
@@ -12,9 +14,15 @@ import type { BookingDateRange, BookingRequest } from '@/domain/entities/booking
 
 export type BookingItem = BookingRequest
 
+/** BOOK-010: what the 409 over_limit names; `guests` = the count after confirming. */
+export type OverLimit =
+  | { scope: 'slot'; time: string; guests: number; limit: number }
+  | { scope: 'meal'; period: string; guests: number; limit: number }
+
 /** `delivered: null`: no message by design (a declined change request), so no "not delivered" badge (F8). */
 export type BookingDecisionOutcome =
   | { kind: 'done'; booking: BookingItem; delivered: boolean | null }
+  | { kind: 'over_limit'; overLimit: OverLimit }
   | { kind: 'already_handled'; status: BookingItem['status'] }
   | { kind: 'not_found' }
   | { kind: 'error' }
@@ -24,10 +32,13 @@ export function bookingDecisionOutcome(status: number, body: unknown): BookingDe
     booking?: BookingItem
     delivered?: boolean | null
     status?: BookingItem['status']
+    error?: unknown
+    overLimit?: OverLimit
   }
   if (status === 200 && b.booking) {
     return { kind: 'done', booking: b.booking, delivered: b.delivered === null ? null : b.delivered === true }
   }
+  if (status === 409 && b.error === 'over_limit' && b.overLimit) return { kind: 'over_limit', overLimit: b.overLimit }
   if (status === 409 && b.status) return { kind: 'already_handled', status: b.status }
   if (status === 404) return { kind: 'not_found' }
   return { kind: 'error' }
@@ -36,13 +47,15 @@ export function bookingDecisionOutcome(status: number, body: unknown): BookingDe
 export async function decideBooking(
   id: string,
   decision: 'confirm' | 'decline',
-  reason?: string
+  reason?: string,
+  options: { confirmAnyway?: boolean } = {}
 ): Promise<BookingDecisionOutcome> {
+  const body = decision === 'decline' ? { reason: reason ?? '' } : options.confirmAnyway ? { confirmAnyway: true } : {}
   try {
     const res = await fetch(`/api/dashboard/bookings/${encodeURIComponent(id)}/${decision}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(decision === 'decline' ? { reason: reason ?? '' } : {}),
+      body: JSON.stringify(body),
     })
     return bookingDecisionOutcome(res.status, await res.json().catch(() => null))
   } catch {
@@ -175,6 +188,8 @@ export type BookingNotice =
  */
 export function noticeFor(decision: 'confirm' | 'decline', outcome: BookingDecisionOutcome): BookingNotice | null {
   if (outcome.kind === 'done') return outcome.delivered ? { kind: 'sent', decision } : null
+  // BOOK-010: the over-limit prompt says it; nothing changed yet.
+  if (outcome.kind === 'over_limit') return null
   if (outcome.kind === 'already_handled') return { kind: 'already_handled', status: outcome.status }
   return { kind: 'error' }
 }
@@ -195,22 +210,32 @@ export interface DecisionRequest {
   id: string
   decision: 'confirm' | 'decline'
   reason?: string
+  /** BOOK-010 (AC-10): staff answered "Confirm anyway". */
+  confirmAnyway?: boolean
 }
 
 /** Review F4: the row stays busy until the list has reloaded, so its buttons never re-enable on a row still shown as Pending. */
-export async function runDecision(steps: DecisionSteps, { id, decision, reason }: DecisionRequest): Promise<void> {
+export async function runDecision(steps: DecisionSteps, { id, decision, reason, confirmAnyway }: DecisionRequest): Promise<void> {
   steps.setBusyId(id)
   try {
-    steps.onOutcome(await steps.decide(id, decision, reason))
+    steps.onOutcome(await steps.decide(id, decision, reason, confirmAnyway ? { confirmAnyway } : undefined))
     await steps.refetch()
   } finally {
     steps.setBusyId(null)
   }
 }
 
+/** BOOK-010 (AC-10): the confirm the page is asking about. */
+export interface OverLimitAsk {
+  id: string
+  overLimit: OverLimit
+}
+
 export interface DecisionSinks {
   setNotice: (notice: BookingNotice | null) => void
   addUndelivered: (id: string) => void
+  /** BOOK-010: opens the "Confirm anyway?" prompt for this row. */
+  askOverLimit?: (ask: OverLimitAsk) => void
 }
 
 /** What a decision outcome does to the page: its notice, and the row's "not delivered" badge only per F8. */
@@ -218,6 +243,7 @@ export function decisionOutcomeHandler(id: string, decision: 'confirm' | 'declin
   return (outcome: BookingDecisionOutcome) => {
     sinks.setNotice(noticeFor(decision, outcome))
     if (showsUndelivered(outcome)) sinks.addUndelivered(id)
+    if (outcome.kind === 'over_limit') sinks.askOverLimit?.({ id, overLimit: outcome.overLimit })
   }
 }
 
@@ -225,12 +251,14 @@ export function useBookingActions(refetch: () => Promise<void>) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [notice, setNotice] = useState<BookingNotice | null>(null)
   const [undelivered, setUndelivered] = useState<ReadonlySet<string>>(new Set())
+  const [overLimit, setOverLimit] = useState<OverLimitAsk | null>(null)
 
-  async function act(id: string, decision: 'confirm' | 'decline', reason?: string) {
+  async function act(id: string, decision: 'confirm' | 'decline', reason?: string, confirmAnyway = false) {
+    setOverLimit(null)
     const addUndelivered = (rowId: string) => setUndelivered((prev) => new Set(prev).add(rowId))
-    const onOutcome = decisionOutcomeHandler(id, decision, { setNotice, addUndelivered })
-    await runDecision({ setBusyId, decide: decideBooking, onOutcome, refetch }, { id, decision, reason })
+    const onOutcome = decisionOutcomeHandler(id, decision, { setNotice, addUndelivered, askOverLimit: setOverLimit })
+    await runDecision({ setBusyId, decide: decideBooking, onOutcome, refetch }, { id, decision, reason, confirmAnyway })
   }
 
-  return { busyId, notice, undelivered, act }
+  return { busyId, notice, undelivered, overLimit, cancelOverLimit: () => setOverLimit(null), act }
 }

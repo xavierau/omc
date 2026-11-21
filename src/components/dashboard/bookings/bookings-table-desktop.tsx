@@ -20,6 +20,7 @@ import {
   NotDeliveredBadge,
   PhoneLink,
   RowActions,
+  TermsAccepted,
 } from '@/components/dashboard/booking-row'
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
@@ -64,6 +65,7 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
         {booking.status === 'declined' && booking.declineReason ? (
           <span className="block text-xs">{t('declinedBecause', { reason: booking.declineReason })}</span>
         ) : null}
+        <TermsAccepted booking={booking} />
       </TableCell>
       <TableCell className="text-right">
         <span className="inline-flex justify-end">

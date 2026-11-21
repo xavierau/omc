@@ -1,0 +1,28 @@
+# BOOK-009 I-009 PAP probes against next dev :3010 on local Supabase (migrations 001-091), 2026-11-20T15:25:42Z
+# tenant: Walk Test Kitchen (fake), hours Mon-Sat 午市 12:00-14:00 + 晚市 18:00-21:30, Sun closed, 30 min, 2 h notice, 30 days, terms set
+# HK now: Fri 2026-11-20 23:25
+
+### GET /availability 7 days from today
+curl http://localhost:3010/api/poppy/<publicId>/availability?from=2026-11-20&days=7&party_size=2
+{"dates":[{"date":"2026-11-20","open":false,"times":[]},{"date":"2026-11-21","open":true,"times":["12:00","12:30","13:00","13:30","14:00","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"]},{"date":"2026-11-22","open":false,"times":[]},{"date":"2026-11-23","open":true,"times":["12:00","12:30","13:00","13:30","14:00","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"]},{"date":"2026-11-24","open":true,"times":["12:00","12:30","13:00","13:30","14:00","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"]},{"date":"2026-11-25","open":true,"times":["12:00","12:30","13:00","13:30","14:00","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"]},{"date":"2026-11-26","open":true,"times":["12:00","12:30","13:00","13:30","14:00","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30"]}],"interval_minutes":30,"table_minutes":null,"max_party_size":8,"terms":{"zh-HK":"訂座保留 15 分鐘。每枝用餐時間大約 90 分鐘。","en":"Tables are held for 15 minutes. Each table has about 90 minutes."}}
+-> HTTP 200
+
+### GET /availability days=32 (over 31)
+curl http://localhost:3010/api/poppy/<publicId>/availability?from=2026-11-20&days=32
+{"error":"invalid_request","error_description":"from, days or party_size is missing or invalid.","fields":{"days":"too_large"}}
+-> HTTP 400
+
+### POST /bookings Sun 22 Nov 19:00 -> closed_day
+curl -X POST http://localhost:3010/api/poppy/<publicId>/bookings -H Content-Type: application/json -d {"date":"2026-11-22","time":"19:00","party_size":2,"name":"Walk Agent","phone":"+85291234567","accept_terms":true}
+{"error":"invalid_request","error_description":"A field is missing or invalid.","fields":{"date":"closed_day"},"suggested_times":[{"date":"2026-11-23","time":"19:00"},{"date":"2026-11-23","time":"18:30"},{"date":"2026-11-23","time":"19:30"}]}
+-> HTTP 400
+
+### POST /bookings Sat 21 Nov 15:30 -> outside_hours
+curl -X POST http://localhost:3010/api/poppy/<publicId>/bookings -H Content-Type: application/json -d {"date":"2026-11-21","time":"15:30","party_size":2,"name":"Walk Agent","phone":"+85291234567","accept_terms":true}
+{"error":"invalid_request","error_description":"A field is missing or invalid.","fields":{"time":"outside_hours"},"suggested_times":[{"date":"2026-11-21","time":"14:00"},{"date":"2026-11-21","time":"13:30"},{"date":"2026-11-21","time":"13:00"}]}
+-> HTTP 400
+
+### POST /bookings Sat 21 Nov 19:00 without accept_terms -> terms_required
+curl -X POST http://localhost:3010/api/poppy/<publicId>/bookings -H Content-Type: application/json -d {"date":"2026-11-21","time":"19:00","party_size":2,"name":"Walk Agent","phone":"+85291234567"}
+{"error":"invalid_request","error_description":"A field is missing or invalid.","fields":{"accept_terms":"terms_required"}}
+-> HTTP 400

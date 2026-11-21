@@ -15,6 +15,7 @@ import {
   NotDeliveredBadge,
   PhoneLink,
   RowActions,
+  TermsAccepted,
 } from '@/components/dashboard/booking-row'
 import type { BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
@@ -53,6 +54,7 @@ function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: Book
       <ChangeFromLine booking={booking} />
       <ChangePendingLine booking={booking} />
       <BookingNotes booking={booking} />
+      <TermsAccepted booking={booking} />
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
       <div className="pt-1 empty:hidden">
         <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} stretch />

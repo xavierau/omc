@@ -1,0 +1,6 @@
+
+/Users/xavierau/Code/js/whatsapp-crm--book-010/src/application/booking/__tests__/fake-booking-room.ts
+  42:29  warning  '_r' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+

@@ -25,7 +25,8 @@ function toResponse(result: SubmitBookingResult): NextResponse {
       // F11: booking was switched off after the page loaded → the off page.
       return json({ error: 'booking_unavailable', state: 'off' }, 410)
     case 'invalid':
-      return json({ error: 'invalid', fields: result.errors }, 400)
+      // BOOK-010 (spec AC-4): a `full` time carries up to 3 times that fit the party.
+      return json({ error: 'invalid', fields: result.errors, ...(result.suggestedTimes ? { suggestedTimes: result.suggestedTimes } : {}) }, 400)
     case 'too_many_pending':
       return json({ error: 'too_many_pending' }, 409)
     default:

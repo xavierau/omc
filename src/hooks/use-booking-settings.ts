@@ -4,8 +4,13 @@
  * BOOK-001: the admin booking settings form state and its save call
  * (AC-1/AC-2/AC-3). Lifetimes are edited as hours plus a "no expiry" switch;
  * the payload sends null for no expiry.
+ * BOOK-009 S1: the structured booking hours ride in the same form and Save.
  */
 import { useState } from 'react'
+import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
+
+/** F1 (P2-1): what the form shows a restaurant without hours: the schedule switch off, nothing set. */
+export const UNSET_BOOKING_HOURS: BookingHours = { ...EMPTY_BOOKING_HOURS, scheduleEnabled: false }
 import {
   BOOKING_RULES_MAX_CHARS,
   isPartyMax,
@@ -28,6 +33,13 @@ export interface BookingSettingsForm {
   maxPartySize: string
   /** AGENT-005: 訂座規則, shown unless mode is off. */
   bookingRules: string
+  /** BOOK-009: the hours being edited; UNSET_BOOKING_HOURS when none are stored. */
+  bookingHours: BookingHours
+  /** BOOK-009: whether the stored config has hours (null = not configured, AC-5). */
+  hoursConfigured: boolean
+  /** BOOK-010: guest limits as typed ('' = no limit); they ride in `bookingHours.limits` on save. */
+  limitPerSlot: string
+  limitPerMeal: string
 }
 
 export type SaveBookingSettingsOutcome =
@@ -36,7 +48,10 @@ export type SaveBookingSettingsOutcome =
   | { kind: 'forbidden' }
   | { kind: 'error' }
 
+const limitText = (value: number | null | undefined) => (value == null ? '' : String(value))
+
 export function toForm(config: BookingConfig): BookingSettingsForm {
+  const { limits, ...bookingHours } = config.bookingHours ?? UNSET_BOOKING_HOURS
   return {
     mode: config.mode,
     externalUrl: config.externalUrl ?? '',
@@ -46,6 +61,10 @@ export function toForm(config: BookingConfig): BookingSettingsForm {
     campaignLinkNoExpiry: config.campaignLinkTtlHours === null,
     maxPartySize: String(config.maxPartySize),
     bookingRules: config.bookingRules,
+    bookingHours,
+    hoursConfigured: config.bookingHours !== null,
+    limitPerSlot: limitText(limits?.perSlot),
+    limitPerMeal: limitText(limits?.perMeal),
   }
 }
 
@@ -70,6 +89,36 @@ function simpleOnly(form: BookingSettingsForm, value: unknown, valid: (v: unknow
 
 const isTtlOrNone = (v: unknown) => v === null || isTtl(v)
 
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * BOOK-009 (AC-5): hours are opt-in. Only Simple mode shows the blocks, and an
+ * untouched form on a restaurant without hours stays "not configured", so
+ * saving any other setting never turns hours on. Omitted = keep stored.
+ * F1 (P2-1): terms, info or table time alone save with the schedule switch
+ * off, so they never close booking.
+ */
+export function hoursPayload(form: BookingSettingsForm): BookingHours | undefined {
+  if (form.mode !== 'simple') return undefined
+  if (!form.hoursConfigured && sameValue(form.bookingHours, UNSET_BOOKING_HOURS)) return undefined
+  return form.bookingHours
+}
+
+/** BOOK-010: the booking-hours schedule switch is on (stored, or being set up); the guest limits apply only then. */
+export function scheduleInUse(form: BookingSettingsForm): boolean {
+  return form.bookingHours.scheduleEnabled
+}
+
+// BOOK-010 (spec AC-2): '' = no limit; anything else goes as typed, so the server names the field's error.
+const toLimit = (value: string) => (value.trim() === '' ? null : toInt(value))
+
+/** BOOK-010: the hours with `limits` when either limit is set; both empty = no limits (left out). */
+function withLimits(hours: BookingHours | undefined, form: BookingSettingsForm): BookingHours | (Omit<BookingHours, 'limits'> & { limits: Record<string, unknown> }) | undefined {
+  if (!hours) return undefined
+  const limits = { perSlot: toLimit(form.limitPerSlot), perMeal: toLimit(form.limitPerMeal) }
+  return limits.perSlot === null && limits.perMeal === null ? hours : { ...hours, limits }
+}
+
 export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
   return {
     mode: form.mode,
@@ -79,6 +128,7 @@ export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
     maxPartySize: simpleOnly(form, toInt(form.maxPartySize), isPartyMax),
     // AGENT-005: Off hides the field, so there an over-long draft is left out (same idea as F1).
     bookingRules: form.mode !== 'off' || form.bookingRules.trim().length <= BOOKING_RULES_MAX_CHARS ? form.bookingRules : undefined,
+    bookingHours: withLimits(hoursPayload(form), form),
   }
 }
 
@@ -106,6 +156,11 @@ export async function saveBookingSettings(form: BookingSettingsForm): Promise<Sa
   } catch {
     return { kind: 'error' }
   }
+}
+
+/** BOOK-009: the form differs from what is stored (Preview then shows the last saved settings). */
+export function hasUnsavedChanges(form: BookingSettingsForm, saved: BookingSettingsForm): boolean {
+  return !sameValue(toPayload(form), toPayload(saved))
 }
 
 export function useBookingSettings(initial: BookingConfig) {

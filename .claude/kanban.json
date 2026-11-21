@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-20",
+  "updated_at": "2026-11-21",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1508,6 +1508,25 @@
           ],
           "status": "backlog",
           "updated": "2026-11-20"
+        },
+        {
+          "id": "BOOK-011",
+          "title": "Seating types (用餐桌型) with their own capacity and attributes, on every channel",
+          "description": "Later phase, after BOOK-010. Owner rules 2026-11-21: seating types (e.g. Sushi Counter, Main Dining Table, VIP room) are OPTIONAL in admin booking config; with none set, BOOK-010's restaurant-wide limits apply unchanged. When set, each type carries its own capacity (guests per slot / per meal) plus further attributes such as an extra charge (more to be specced). Diner page: people -> date -> seating type -> times, times filtered by that type's room (as inline / 釧 Kushiro: counter lunch full while main dining lunch open). Booking records the type; room check, stops and staff capacity block become per type. APIs updated/added for our agents: PAP (poppy.json OpenAPI, /availability, POST /bookings) and the AI agent tools take and report the type. Reference: https://inline.app/booking/-Mi5nyGhJZL48KHDN43M:inline-live-2/-Mi5nyjy20bLUXLq1sci",
+          "priority": "low",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack"
+          ],
+          "related": [
+            "kanban:BOOK-010",
+            "kanban:BOOK-009"
+          ],
+          "workspace_artifacts": [],
+          "status": "backlog",
+          "updated": "2026-11-21"
         }
       ]
     },
@@ -1622,6 +1641,78 @@
     "review": {
       "label": "Review",
       "tasks": [
+        {
+          "id": "BOOK-009",
+          "title": "Booking hours, slot picker and booking terms on every channel (page, PAP, AI agent)",
+          "description": "POC: booking_config.bookingHours (weekly periods, interval, notice, ahead window, special dates, table time, terms zh-HK/en, restaurant info) set in Settings -> Booking (Simple), with a rules summary and an admin Preview. One check (booking-hours.ts via parseBookingSubmission) for the diner page (party chips, closed-day calendar, slots by period, terms tick, times-changed recovery), PAP (GET /availability, refusal codes + suggested_times, accept_terms, terms in confirm reply) and the AI agent (BOOKING RULES section, refusals with suggestedTimes, terms read-back + acceptance). Staff see a Terms accepted badge. Migration 091 (terms_accepted_at, terms_text) must run before deploy. Hours not set = today's behaviour.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-009-booking-hours",
+          "pr": "https://github.com/xavierau/omc/pull/222",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-003",
+            "kanban:BOOK-004",
+            "kanban:AGENT-005",
+            "github:222"
+          ],
+          "workspace_artifacts": [
+            "specs/2026-11-20-book-009-booking-hours-and-form.md",
+            "plans/2026-11-20-book-009-010-plan.md",
+            "artifacts/2026-11-20-book-009-w1-impl.md",
+            "artifacts/2026-11-20-book-009-w1-handoff.md",
+            "artifacts/2026-11-20-book-009-w23-impl.md",
+            "artifacts/2026-11-20-book-009-w23-handoff.md",
+            "artifacts/2026-11-20-book-009-w4-impl.md",
+            "artifacts/2026-11-20-book-009-w4-handoff.md",
+            "artifacts/2026-11-20-book-009-i-handoff.md",
+            "tests/evidence/2026-11-20-book-009-i/walk-log.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-20",
+          "notes": "I-009 (2026-11-20): W4 merged (keeps 42949788), full suite + tsc green, walked on the local Supabase stack (migrations 001-091): settings -> preview -> diner submit -> staff terms badge, times-changed recovery, PAP curl. AI agent not walked (no model call locally). PR #222 into develop, not merged, not deployed. BOOK-010 branches from this head."
+        },
+        {
+          "id": "BOOK-010",
+          "title": "Guest limits per slot / per meal and staff stop-booking, full on every channel (page, PAP, AI agent)",
+          "description": "POC: bookingHours.limits (perSlot, perMeal; empty = none) in Settings -> Booking; staff Capacity block on the Bookings calendar (guests / limit per period and slot, stop/resume day, period, slot; month 已滿 / 已停止 badges; over-limit confirm asks, never blocks). Every channel refuses a time without room with 'full' + fitting suggestions: diner page 已滿 states and recovery, PAP POST/availability/code step (declined 'full' + WhatsApp reply), AI agent tools. Atomic check-and-insert in Postgres (migration 092, service-role only). Room rules apply only while BOOK-009's schedule switch is on. Migration 092 must run after 091 and before deploy.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-010-guest-limits",
+          "pr": "https://github.com/xavierau/omc/pull/223",
+          "related": [
+            "kanban:BOOK-009",
+            "kanban:BOOK-004",
+            "kanban:BOOK-003",
+            "github:223",
+            "github:222"
+          ],
+          "workspace_artifacts": [
+            "specs/2026-11-20-book-010-guest-limits-and-stop.md",
+            "artifacts/2026-11-20-book-010-w1-impl.md",
+            "artifacts/2026-11-20-book-010-w1-handoff.md",
+            "artifacts/2026-11-21-book-010-w2-impl.md",
+            "artifacts/2026-11-21-book-010-w2-handoff.md",
+            "artifacts/2026-11-21-book-010-i-impl.md",
+            "artifacts/2026-11-21-book-010-i-handoff.md",
+            "tests/evidence/2026-11-21-book-010-i/walk-log.md"
+          ],
+          "status": "review",
+          "updated": "2026-11-21",
+          "notes": "I-010 (2026-11-21): BOOK-009 F1 (#222 head a45f24d8) merged; room rules follow scheduleEnabled; staff meal-full display; full suite + tsc green; walked on the local Supabase stack 001..092 incl. three-way consistency and the PAP code step. PR #223 stacked on #222 (retarget to develop after #222 merges), not merged, not deployed."
+        },
         {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",

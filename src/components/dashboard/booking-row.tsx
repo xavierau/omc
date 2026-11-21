@@ -18,11 +18,13 @@
  * muted like declined and offers "Undo".
  * BOOK-008: a linked booking's name opens the member panel; the row offers
  * Link member / Change member / Unlink member.
+ * BOOK-009 AC-10: a booking whose diner accepted the booking terms shows
+ * "Terms accepted"; hovering shows the text, tapping expands it (plain text).
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Bot } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Bot, FileCheck } from 'lucide-react'
+import { Badge, badgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -100,6 +102,24 @@ export function CancelledByBadge({ booking }: { booking: BookingItem }) {
     <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-cancelled-by-${byDiner ? 'diner' : 'change'}`}>
       {t(byDiner ? 'cancelledByDiner' : 'replacedByChange')}
     </Badge>
+  )
+}
+
+/** BOOK-009 AC-10: the terms the diner accepted, as accepted (rendered as text, R3). */
+export function TermsAccepted({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings')
+  if (!booking.termsAcceptedAt || !booking.termsText) return null
+  return (
+    <details className="group text-sm" data-testid={`booking-row-${booking.id}-terms`}>
+      <summary
+        title={booking.termsText}
+        className={cn(badgeVariants({ variant: 'outline' }), 'cursor-pointer list-none text-muted-foreground [&::-webkit-details-marker]:hidden')}
+      >
+        <FileCheck aria-hidden />
+        {t('termsAccepted')}
+      </summary>
+      <p className="mt-1.5 whitespace-pre-wrap text-xs text-muted-foreground">{booking.termsText}</p>
+    </details>
   )
 }
 
@@ -219,6 +239,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
         </p>
         <MemberLinkControl booking={booking} />
         <BookingNotes booking={booking} />
+        <TermsAccepted booking={booking} />
         <NotDeliveredBadge booking={booking} undelivered={undelivered} />
         <div className="pt-1 empty:hidden max-md:[&>div]:w-full max-md:[&>div>button]:flex-1">
           <RowActions booking={booking} busy={busy} onDecide={onDecide} />

@@ -166,7 +166,8 @@ describe('BOOK-003 confirm code in routeMessage (AC-4)', () => {
 
   it('a REDEEM code that looks like a confirm code still redeems when no booking matches', async () => {
     await routeMessage(msg({ text: 'REDEEM AB23CD' }), R)
-    expect(store.calls).toEqual(['promote'])
+    // BOOK-009 F1 (P2-2): the read-only rules re-check runs before promote.
+    expect(store.calls).toEqual(['findPromotable', 'promote'])
     expect(handleRedeem).toHaveBeenCalledWith('pn-a', PHONE, 'AB23CD', R)
   })
 

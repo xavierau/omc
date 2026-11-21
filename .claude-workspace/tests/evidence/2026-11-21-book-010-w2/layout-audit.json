@@ -1,0 +1,223 @@
+{
+  "settings-1440": {
+    "url": "http://localhost:3030/dashboard/setup/bookings",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 3,
+      "info": 1
+    },
+    "findings": [
+      {
+        "check": "row-misaligned",
+        "sev": "warning",
+        "el": "div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 Walk Test Kit\" @0,0 1440x4244",
+        "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 603px / bottom 1173px)"
+      },
+      {
+        "check": "row-misaligned",
+        "sev": "warning",
+        "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"推廣活動 新 受眾質素、喚回顧客\" @272,326 232x66",
+        "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 23px)"
+      },
+      {
+        "check": "row-misaligned",
+        "sev": "warning",
+        "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @272,396 232x66",
+        "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 24px)"
+      }
+    ]
+  },
+  "staff-bookings-1440": {
+    "url": "http://localhost:3030/dashboard/bookings",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 10,
+      "info": 1
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Yip Chun 已確認 +85290000108 連結會員\" @1133,797 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Ng Mei 已確認 +85290000105 連結會員\" @1133,918 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Lam Ho 已確認 +85290000106 連結會員\" @1133,1039 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Lee Ka Yan 已確認 +85290000102 連結會員\" @1133,1160 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Ho Wing 已確認 +85290000103 連結會員\" @1133,1281 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Chan Tai Man 待確認 +85290000104 連結會員 確認 拒絕\" @1133,1402 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Wong Siu Ming 已確認 +85290000101 連結會員\" @1133,1561 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Tse Yan 待確認 +85290000107 連結會員 確認 拒絕\" @1133,1682 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "text-truncated",
+        "sev": "warning",
+        "el": "span.truncate.text-xs \"120 位客人\" @624,544 35x16",
+        "detail": "ellipsis truncation, 24px hidden (no tooltip); full text: \"120 位客人\""
+      },
+      {
+        "check": "text-truncated",
+        "sev": "warning",
+        "el": "span.truncate.text-xs \"3 位客人\" @732,544 24x16",
+        "detail": "ellipsis truncation, 23px hidden (no tooltip); full text: \"3 位客人\""
+      }
+    ]
+  },
+  "staff-over-limit-1440": {
+    "url": "http://localhost:3030/dashboard/bookings",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 10,
+      "info": 1
+    },
+    "findings": [
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Yip Chun 已確認 +85290000108 連結會員\" @1133,797 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Ng Mei 已確認 +85290000105 連結會員\" @1133,918 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Lam Ho 已確認 +85290000106 連結會員\" @1133,1039 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Lee Ka Yan 已確認 +85290000102 連結會員\" @1133,1160 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Ho Wing 已確認 +85290000103 連結會員\" @1133,1281 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Chan Tai Man 待確認 +85290000104 連結會員 確認 拒絕\" @1133,1402 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Wong Siu Ming 已確認 +85290000101 連結會員\" @1133,1561 254x88",
+        "detail": "1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "column-indent",
+        "sev": "warning",
+        "el": "div.flex.min-w-0 \"Tse Yan 待確認 +85290000107 連結會員 確認 拒絕\" @1133,1682 254x126",
+        "detail": "1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      },
+      {
+        "check": "text-truncated",
+        "sev": "warning",
+        "el": "span.truncate.text-xs \"120 位客人\" @624,544 35x16",
+        "detail": "ellipsis truncation, 24px hidden (no tooltip); full text: \"120 位客人\""
+      },
+      {
+        "check": "text-truncated",
+        "sev": "warning",
+        "el": "span.truncate.text-xs \"3 位客人\" @732,544 24x16",
+        "detail": "ellipsis truncation, 23px hidden (no tooltip); full text: \"3 位客人\""
+      }
+    ]
+  },
+  "diner-390": {
+    "url": "http://localhost:3030/b/7eIIAw8kb5rcTJ854a2afqnk0wt-hf-6DantjC-ZlLM",
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "summary": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "findings": []
+  }
+}
