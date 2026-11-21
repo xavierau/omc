@@ -5,6 +5,8 @@
  * / undo no-show) share one busy set, so every row with a call in flight stays
  * disabled until its list reload is done, and starting any action clears the
  * notice the other kind left behind.
+ * BOOK-010 (AC-10): a confirm over a guest limit opens the "Confirm anyway?"
+ * prompt; Confirm anyway runs as one more tracked decide on that row.
  */
 import { useState } from 'react'
 import { useBookingActions, type BookingNotice } from '@/hooks/use-bookings'
@@ -18,7 +20,7 @@ export interface RowActionSinks {
 }
 
 export interface RowActionRuns {
-  decide(id: string, decision: Decision, reason?: string): Promise<void>
+  decide(id: string, decision: Decision, reason?: string, confirmAnyway?: boolean): Promise<void>
   noShow(id: string, move: NoShowMove): Promise<void>
 }
 
@@ -38,6 +40,7 @@ export function rowActions(sinks: RowActionSinks, runs: RowActionRuns) {
   return {
     onDecide: (id: string, decision: Decision, reason?: string) => track(id, () => runs.decide(id, decision, reason)),
     onNoShow: (id: string, move: NoShowMove) => track(id, () => runs.noShow(id, move)),
+    onConfirmAnyway: (id: string) => track(id, () => runs.decide(id, 'confirm', undefined, true)),
   }
 }
 
@@ -55,7 +58,7 @@ export function useBookingRowActions(refetch: () => Promise<void>) {
     setHidden(decide.notice)
     noShow.clearNotice()
   }
-  const { onDecide, onNoShow } = rowActions({ setBusy, clearNotices }, { decide: decide.act, noShow: noShow.act })
+  const { onDecide, onNoShow, onConfirmAnyway } = rowActions({ setBusy, clearNotices }, { decide: decide.act, noShow: noShow.act })
   return {
     busyIds,
     undelivered: decide.undelivered,
@@ -63,5 +66,8 @@ export function useBookingRowActions(refetch: () => Promise<void>) {
     noShowNotice: noShow.notice,
     onDecide,
     onNoShow,
+    overLimit: decide.overLimit,
+    confirmAnyway: onConfirmAnyway,
+    cancelOverLimit: decide.cancelOverLimit,
   }
 }

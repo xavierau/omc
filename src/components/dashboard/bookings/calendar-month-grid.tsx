@@ -4,12 +4,15 @@
  * BOOK-004: the desktop month grid. Weeks start Sunday; days of other months
  * are greyed; each day shows its guests (declined, cancelled and no-shows left out), up to three
  * chips by time coloured by status, then "+N more". Clicking selects the day.
+ * BOOK-010 (S3, AC-9): a 已滿 Full badge when no slot fits a party of 1, or
+ * 已停止 Stopped when staff stopped the whole day.
  */
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { addDays, formatDate, monthGrid, monthKey } from './booking-dates'
 import { bookingsOn, chipName, covers } from './booking-groups'
+import type { CapacityBadges } from './use-booking-capacity'
 
 const MAX_CHIPS = 3
 
@@ -36,6 +39,8 @@ export interface CalendarDaysProps {
   selected: string
   today: string
   onSelect: (date: string) => void
+  /** BOOK-010: per-date full / stopped (absent = no badges). */
+  badges?: CapacityBadges
 }
 
 function DayChips({ bookings }: { bookings: BookingItem[] }) {
@@ -52,6 +57,19 @@ function DayChips({ bookings }: { bookings: BookingItem[] }) {
       ))}
       {extra > 0 ? <span className="px-1.5 text-xs text-muted-foreground">{t('more', { count: extra })}</span> : null}
     </div>
+  )
+}
+
+function CapacityBadge({ date, badges }: { date: string; badges?: CapacityBadges }) {
+  const t = useTranslations('bookings.capacity')
+  const badge = badges?.[date]
+  if (!badge || (!badge.full && !badge.stopped)) return null
+  const kind = badge.stopped ? 'stopped' : 'full'
+  return (
+    <span data-testid={`bookings-calendar-day-${date}-full`} data-kind={kind}
+      className={cn('shrink-0 rounded-full px-1.5 text-[11px] font-semibold', kind === 'stopped' ? 'bg-destructive/10 text-destructive' : 'bg-pending-soft text-pending-foreground')}>
+      {t(kind === 'stopped' ? 'badgeStopped' : 'badgeFull')}
+    </span>
   )
 }
 
@@ -83,7 +101,10 @@ function DayCell({ date, inMonth, props }: { date: string; inMonth: boolean; pro
         >
           {Number(date.slice(8))}
         </span>
-        {guests > 0 ? <span className="truncate text-xs text-muted-foreground">{t('guests', { count: guests })}</span> : null}
+        <span className="flex min-w-0 items-center gap-1">
+          {guests > 0 ? <span className="truncate text-xs text-muted-foreground">{t('guests', { count: guests })}</span> : null}
+          <CapacityBadge date={date} badges={props.badges} />
+        </span>
       </span>
       {day.length > 0 ? <DayChips bookings={day} /> : null}
     </button>

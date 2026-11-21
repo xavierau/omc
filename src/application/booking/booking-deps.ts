@@ -123,7 +123,8 @@ export function noShowBookingDeps(): BookingNoShowDeps {
 }
 
 export function resolveBookingLinkDeps(): ResolveBookingLinkDeps {
-  return { tokens: bookingTokenStore, settings: bookingSettingsReader, now }
+  // BOOK-010 (spec AC-12): the page's 已滿 states come from the guest counts and stops.
+  return { tokens: bookingTokenStore, settings: bookingSettingsReader, now, room: bookingRoomStore }
 }
 
 /** W3 (AC-15): the reminder cron. */

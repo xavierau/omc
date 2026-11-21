@@ -5,10 +5,11 @@
  * interval and window, special dates, party size and table time, terms,
  * restaurant info, then the rules summary with Preview. Saved with the
  * section's Save; errors come back keyed by path (AC-2).
+ * BOOK-010 S1: 人數上限 Guest limits after party size, while the schedule is in use.
  */
 import { useTranslations } from 'next-intl'
 import { AlertTriangle } from 'lucide-react'
-import { hoursPayload, type BookingSettingsForm } from '@/hooks/use-booking-settings'
+import { hoursPayload, scheduleInUse, type BookingSettingsForm } from '@/hooks/use-booking-settings'
 import type { BookingHoursSummaryText } from '@/hooks/use-booking-availability'
 import type { BookingHours } from '@/domain/value-objects/booking-hours'
 import { noBookableTimes } from './hours-model'
@@ -21,12 +22,14 @@ import { SpecialDates } from './special-dates'
 import { PartyTableFields } from './party-table-fields'
 import { InfoFields, TermsFields } from './terms-info-fields'
 import { HoursSummaryBox } from './hours-summary-box'
+import { GuestLimitFields, type LimitField } from './guest-limit-fields'
 
 export interface BookingHoursBlocksProps {
   form: BookingSettingsForm
   errors: SettingsErrors
   onEdit: (edit: (hours: BookingHours) => BookingHours) => void
   onMaxPartySize: (value: string) => void
+  onLimit: (field: LimitField, value: string) => void
   summary: BookingHoursSummaryText | null
   dirty: boolean
 }
@@ -49,7 +52,7 @@ function HoursStatus({ form, errors }: Pick<BookingHoursBlocksProps, 'form' | 'e
   )
 }
 
-export function BookingHoursBlocks({ form, errors, onEdit, onMaxPartySize, summary, dirty }: BookingHoursBlocksProps) {
+export function BookingHoursBlocks({ form, errors, onEdit, onMaxPartySize, onLimit, summary, dirty }: BookingHoursBlocksProps) {
   const t = useTranslations('bookingSettings.bookingHours')
   const edit = { hours: form.bookingHours, errors, onEdit }
   return (
@@ -64,6 +67,11 @@ export function BookingHoursBlocks({ form, errors, onEdit, onMaxPartySize, summa
         <PartyTableFields hours={form.bookingHours} onEdit={onEdit} maxPartySize={form.maxPartySize} onMaxPartySize={onMaxPartySize}
           maxPartyError={errors.maxPartySize} />
       </SettingsBlock>
+      {scheduleInUse(form) ? (
+        <SettingsBlock title={t('limits.title')} hint={t('limits.hint')} testId="booking-settings-limits">
+          <GuestLimitFields perSlot={form.limitPerSlot} perMeal={form.limitPerMeal} errors={errors} onChange={onLimit} />
+        </SettingsBlock>
+      ) : null}
       <SettingsBlock title={t('termsTitle')} hint={t('termsHint')}><TermsFields {...edit} /></SettingsBlock>
       <SettingsBlock title={t('infoTitle')} hint={t('infoHint')}><InfoFields {...edit} /></SettingsBlock>
       <HoursSummaryBox summary={summary} dirty={dirty} />

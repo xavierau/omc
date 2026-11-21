@@ -3,12 +3,18 @@
  * domain helpers the server checks with (`slotsFor`, `periodsOn`,
  * `windowEnd`), so a day or slot the page offers is one the server accepts
  * at that clock (spec AC-6). Presentation grouping only lives here.
+ * BOOK-010 (spec AC-12, AC-13): whether a slot can take the party comes from
+ * the server's per-slot room (`SlotRoom`); the page only compares, so it
+ * cannot disagree with the server's counting rule.
  */
 import { periodsOn, slotsFor, windowEnd, type BookingClock, type BookingSlot } from '@/domain/services/booking-hours'
 import { toMinutes, weekdayOf } from '@/domain/services/booking-calendar'
 import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import type { SlotFits } from '@/domain/services/booking-room'
+import type { SlotRoom } from '@/application/booking/resolve-booking-link'
 
-export type DayState = 'past' | 'beyond' | 'closed' | 'full' | 'open'
+/** `booked` (BOOK-010): open, but no slot can take the party (shown 已滿). */
+export type DayState = 'past' | 'beyond' | 'closed' | 'full' | 'booked' | 'open'
 
 /** past: before today; beyond: after the window; closed: weekly or special; full: no slot left (minimum notice). */
 export function dayState(hours: BookingHours, date: string, clock: BookingClock): DayState {
@@ -16,6 +22,31 @@ export function dayState(hours: BookingHours, date: string, clock: BookingClock)
   if (date > windowEnd(hours, clock.today)) return 'beyond'
   if (periodsOn(hours, date).length === 0) return 'closed'
   return slotsFor(hours, date, clock).length > 0 ? 'open' : 'full'
+}
+
+/** BOOK-010: a slot fits when the server's room for it is at least the party (no party yet = 1); unlisted = fits. */
+export function slotFits(room: SlotRoom | undefined, party: number | null): SlotFits {
+  const size = party ?? 1
+  return (date, time) => (room?.[date]?.[time] ?? Number.POSITIVE_INFINITY) >= size
+}
+
+/** BOOK-010 AC-12: the day state with the party taken into account. */
+export function dinerDayState(hours: BookingHours, date: string, clock: BookingClock, fits: SlotFits): DayState {
+  const state = dayState(hours, date, clock)
+  if (state !== 'open') return state
+  return slotsFor(hours, date, clock).some((s) => fits(date, s.time)) ? 'open' : 'booked'
+}
+
+/** BOOK-010 AC-12: after a party change, clear a chosen day or time that can no longer take it. */
+export function refitChoice(
+  values: { date: string; time: string },
+  hours: BookingHours,
+  clock: BookingClock,
+  fits: SlotFits
+): { date?: ''; time?: '' } {
+  if (values.date && dinerDayState(hours, values.date, clock, fits) === 'booked') return { date: '' }
+  if (values.date && values.time && !fits(values.date, values.time)) return { time: '' }
+  return {}
 }
 
 export interface MonthRef {
@@ -90,7 +121,8 @@ export function missingStep(s: { partySize: number | null; date: string; time: s
 }
 
 /** Codes that mean the page's times are out of date (spec AC-9): the admin changed hours, or the clock moved on. */
-const TIMES_CHANGED = new Set(['closed_day', 'outside_hours', 'too_soon', 'too_far', 'past', 'past_time'])
+// BOOK-010 AC-13: `full` too (the slot filled while the page was open).
+const TIMES_CHANGED = new Set(['closed_day', 'outside_hours', 'too_soon', 'too_far', 'past', 'past_time', 'full'])
 
 export function timesChanged(errors: Record<string, string>): boolean {
   return TIMES_CHANGED.has(errors.date) || TIMES_CHANGED.has(errors.time)
