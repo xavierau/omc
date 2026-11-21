@@ -21,7 +21,7 @@
 import type { AgentProposalKind } from '@/domain/ports/agent-booking-proposal'
 import type { AgentConfig, AgentToolName } from '@/domain/value-objects/agent-config'
 import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
-import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import { bookingHoursInEffect, type BookingHours } from '@/domain/value-objects/booking-hours'
 import { DEFAULT_BOOKING_CONFIG } from '@/domain/value-objects/booking-config'
 import { activeSkills, SAFETY_PREAMBLE, type SkillPromptContext } from './skills'
 
@@ -66,7 +66,8 @@ export function buildSystemInstruction(
   now: Date,
   options: SystemInstructionOptions = {}
 ): string {
-  const hours = options.bookingHours
+  // F1 (P2-1, AC-5): hours with no effect give the pre-BOOK-009 prompt.
+  const hours = bookingHoursInEffect(options.bookingHours)
   const ctx: SkillPromptContext = {
     offeredTools: options.offeredTools ?? [],
     bookingRules: options.bookingRules ?? '',

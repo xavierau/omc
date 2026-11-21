@@ -68,6 +68,9 @@ const ZH: Copy = {
 
 const COPY: Record<BookingHoursLanguage, Copy> = { en: EN, zh_hk: ZH }
 
+/** F1 (P2-1): the table-time sentence on its own, for when the schedule switch is off. */
+export const tableTimeSentence = (minutes: number, lang: BookingHoursLanguage) => COPY[lang].table(minutes)
+
 const periodText = (p: BookingPeriod) => `${p.label ? `${p.label} ` : ''}${p.first}–${p.last}`
 const periodsText = (c: Copy, periods: BookingPeriod[]) => periods.map(periodText).join(c.periodJoin)
 

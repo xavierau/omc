@@ -34,14 +34,21 @@ import {
 } from '@/application/booking/booking-template-deps'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { hongKongToday } from '@/domain/services/booking-submission'
-import { summarize } from '@/domain/services/booking-hours'
-import { withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
+import { summarizeInWindow } from '@/domain/services/agent-booking'
+import { activeSchedule, withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
 
-/** BOOK-009: the hours as the form loads them, and their summary in both languages. */
+/**
+ * BOOK-009: the hours as the form loads them, and their summary in both
+ * languages. F1: window-filtered as agents get it (P3-5), only while the
+ * schedule switch is on (P2-1; off = any time, no summary). BOOK-010: staff
+ * also see the guest limits, which agents never get (spec AC-1, AC-15).
+ */
 function hoursView(config: BookingConfig) {
-  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, hongKongToday(new Date())) : null
-  const summary = hours
-    ? { zh_hk: summarize(hours, config.maxPartySize, 'zh_hk'), en: summarize(hours, config.maxPartySize, 'en') }
+  const today = hongKongToday(new Date())
+  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, today) : null
+  const schedule = activeSchedule(hours)
+  const summary = schedule
+    ? { zh_hk: summarizeInWindow(schedule, config.maxPartySize, 'zh_hk', today), en: summarizeInWindow(schedule, config.maxPartySize, 'en', today) }
     : null
   return { bookingHours: hours, summary }
 }

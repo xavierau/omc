@@ -140,6 +140,29 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     return changed.map((r) => ({ ...r }))
   }
 
+  /** BOOK-009 F1: mirrors findPromotableAgentBookings (read only). */
+  async findPromotable(args: Pick<PromoteAgentBookingArgs, 'restaurantId' | 'phone' | 'codes' | 'at'>): Promise<AgentBooking[]> {
+    this.calls.push('findPromotable')
+    await tick()
+    return this.rows
+      .filter(
+        (r) =>
+          r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
+          r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
+      )
+      .map((r) => ({ ...r }))
+  }
+
+  /** BOOK-009 F1: mirrors declineUnverifiedAgentBooking (unverified only, scoped by restaurant). */
+  async declineUnverified(id: string, restaurantId: string, at: Date, reason: string) {
+    this.calls.push('declineUnverified')
+    await tick()
+    const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status === 'unverified')
+    if (!row) return false
+    Object.assign(row, { status: 'declined', declineReason: reason, decidedAt: at.toISOString(), confirmCode: null })
+    return true
+  }
+
   /** BOOK-008 R1: mirrors linkAgentBookingMember (member_id null, not unverified, scoped by restaurant). */
   failLinkMember = false
   async linkMember(id: string, restaurantId: string, memberId: string) {

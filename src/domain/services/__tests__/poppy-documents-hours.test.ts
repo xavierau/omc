@@ -69,12 +69,12 @@ describe('AC-11 hours set: rules, availability and refusal codes are described',
     for (const code of ['closed_day', 'outside_hours', 'too_soon', 'too_far', 'suggested_times']) expect(text).toContain(code)
   })
 
-  it('AC-11 /availability is a listed signed-out GET with from, days (≤ min(31, aheadDays)) and party_size', () => {
+  it('AC-11 /availability is a listed signed-out GET with from, days (≤ min(31, aheadDays + 1), F1 P3-4) and party_size', () => {
     const op = (doc.paths as Record<string, Record<string, { operationId: string; parameters: Array<{ name: string; in: string; required: boolean; schema: { maximum?: number } }> }>>)['/availability'].get
     expect(op.operationId).toBe('getAvailability')
     const params = Object.fromEntries(op.parameters.map((p) => [p.name, p]))
     expect(params.from).toMatchObject({ in: 'query', required: true })
-    expect(params.days).toMatchObject({ in: 'query', required: true, schema: { maximum: 30 } })
+    expect(params.days).toMatchObject({ in: 'query', required: true, schema: { maximum: 31 } })
     expect(params.party_size).toMatchObject({ in: 'query', required: false, schema: { maximum: 8 } })
   })
 

@@ -235,6 +235,33 @@ export async function findRestaurantByAgentPublicId(publicId: string) {
   const row = data as { id: string; booking_config: unknown }
   return { restaurantId: row.id, config: resolveBookingConfig(row.booking_config) }
 }
+/** BOOK-009 F1 (P2-2): the rows promote_agent_booking would match, read only. */
+export async function findPromotableAgentBookings(args: Pick<PromoteAgentBookingArgs, 'restaurantId' | 'phone' | 'codes' | 'at'>) {
+  if (args.codes.length === 0) return []
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select(AGENT_BOOKING_COLUMNS)
+    .eq('restaurant_id', args.restaurantId)
+    .eq('phone', args.phone)
+    .eq('status', 'unverified')
+    .in('confirm_code', args.codes)
+    .gt('verify_expires_at', args.at.toISOString())
+  if (error) throw new Error(`findPromotableAgentBookings: ${error.code}`)
+  return ((data ?? []) as AgentBookingRow[]).map(toAgentBooking)
+}
+
+/** BOOK-009 F1 (P2-2): refused at the confirm step by the booking rules; no staff decided it. */
+export async function declineUnverifiedAgentBooking(id: string, restaurantId: string, at: Date, reason: string): Promise<boolean> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .update({ status: 'declined', decline_reason: reason, decided_at: at.toISOString(), confirm_code: null })
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'unverified')
+    .select('id')
+  if (error) throw new Error(`declineUnverifiedAgentBooking: ${error.code}`)
+  return (data ?? []).length === 1
+}
 
 export const agentBookingStore: AgentBookingStore = {
   insert: insertAgentBooking,
@@ -244,6 +271,8 @@ export const agentBookingStore: AgentBookingStore = {
   find: findAgentBooking,
   replaceStatusToken: replaceAgentStatusToken,
   promote: promoteAgentBooking,
+  findPromotable: findPromotableAgentBookings,
+  declineUnverified: declineUnverifiedAgentBooking,
   linkMember: linkAgentBookingMember,
 }
 

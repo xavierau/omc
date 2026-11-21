@@ -213,6 +213,16 @@ export interface AgentBookingStore {
    */
   promote(args: PromoteAgentBookingArgs): Promise<BookingRequest[]>
   /**
+   * BOOK-009 F1 (P2-2): read only. The unverified rows `promote` would match
+   * (sender phone, code, unexpired), so the caller re-checks the rules first.
+   */
+  findPromotable(args: Pick<PromoteAgentBookingArgs, 'restaurantId' | 'phone' | 'codes' | 'at'>): Promise<AgentBooking[]>
+  /**
+   * BOOK-009 F1 (P2-2): one conditional UPDATE unverified -> declined with
+   * `reason`, no staff (decided_by null), scoped by id AND restaurant; true when it changed.
+   */
+  declineUnverified(id: string, restaurantId: string, at: Date, reason: string): Promise<boolean>
+  /**
    * BOOK-008 R1: after promotion, link a booking to an EXISTING member found
    * by phone. One conditional UPDATE scoped by id AND restaurant, only while
    * member_id is null and the row is no longer unverified; true when it changed.

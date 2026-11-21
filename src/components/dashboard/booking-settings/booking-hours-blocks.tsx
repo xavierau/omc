@@ -5,7 +5,10 @@
  * interval and window, special dates, party size and table time, terms,
  * restaurant info, then the rules summary with Preview. Saved with the
  * section's Save; errors come back keyed by path (AC-2).
- * BOOK-010 S1: 人數上限 Guest limits after party size, while the schedule is in use.
+ * F1 (P2-1): the schedule switch heads the hours block; hours, window and
+ * special dates show only while it is on. Party/table time, terms and info
+ * always show: they apply with the schedule on or off.
+ * BOOK-010 S1: 人數上限 Guest limits after party size, while the schedule is in use (switch on).
  */
 import { useTranslations } from 'next-intl'
 import { AlertTriangle } from 'lucide-react'
@@ -23,6 +26,7 @@ import { PartyTableFields } from './party-table-fields'
 import { InfoFields, TermsFields } from './terms-info-fields'
 import { HoursSummaryBox } from './hours-summary-box'
 import { GuestLimitFields, type LimitField } from './guest-limit-fields'
+import { ScheduleSwitch } from './schedule-switch'
 
 export interface BookingHoursBlocksProps {
   form: BookingSettingsForm
@@ -37,11 +41,12 @@ export interface BookingHoursBlocksProps {
 function HoursStatus({ form, errors }: Pick<BookingHoursBlocksProps, 'form' | 'errors'>) {
   const t = useTranslations('bookingSettings.bookingHours')
   const code = blockError(errors)
-  // Warn only when this save would store hours that offer no time (AC-5: an untouched empty table stays "not set").
-  const warn = hoursPayload(form) !== undefined && noBookableTimes(form.bookingHours)
+  const on = form.bookingHours.scheduleEnabled
+  // Warn only when this save would switch on hours that offer no time (AC-5: an untouched form stays "not set").
+  const warn = on && hoursPayload(form) !== undefined && noBookableTimes(form.bookingHours)
   return (
     <>
-      {!form.hoursConfigured ? <p data-testid="booking-settings-hours-not-set" className="text-xs text-muted-foreground">{t('notConfigured')}</p> : null}
+      {!on ? <p data-testid="booking-settings-hours-not-set" className="text-xs text-muted-foreground">{t('notConfigured')}</p> : null}
       {warn ? (
         <p data-testid="booking-settings-hours-warning" className="flex items-center gap-1.5 text-xs text-pending-foreground">
           <AlertTriangle className="size-3.5" aria-hidden />{t('noTimesWarning')}
@@ -55,14 +60,20 @@ function HoursStatus({ form, errors }: Pick<BookingHoursBlocksProps, 'form' | 'e
 export function BookingHoursBlocks({ form, errors, onEdit, onMaxPartySize, onLimit, summary, dirty }: BookingHoursBlocksProps) {
   const t = useTranslations('bookingSettings.bookingHours')
   const edit = { hours: form.bookingHours, errors, onEdit }
+  const on = form.bookingHours.scheduleEnabled
   return (
     <div className="space-y-5" data-testid="booking-settings-hours">
-      <SettingsBlock title={t('title')} hint={t('hint')}>
+      <SettingsBlock title={t('title')} hint={on ? t('hint') : undefined}>
+        <ScheduleSwitch on={on} onChange={(v) => onEdit((h) => ({ ...h, scheduleEnabled: v }))} />
         <HoursStatus form={form} errors={errors} />
-        <WeeklyHoursTable {...edit} />
+        {on ? <WeeklyHoursTable {...edit} /> : null}
       </SettingsBlock>
-      <SettingsBlock title={t('windowTitle')}><WindowFields hours={form.bookingHours} onEdit={onEdit} /></SettingsBlock>
-      <SettingsBlock title={t('specialTitle')} hint={t('specialHint')}><SpecialDates {...edit} /></SettingsBlock>
+      {on ? (
+        <>
+          <SettingsBlock title={t('windowTitle')}><WindowFields hours={form.bookingHours} onEdit={onEdit} /></SettingsBlock>
+          <SettingsBlock title={t('specialTitle')} hint={t('specialHint')}><SpecialDates {...edit} /></SettingsBlock>
+        </>
+      ) : null}
       <SettingsBlock title={t('partyTitle')}>
         <PartyTableFields hours={form.bookingHours} onEdit={onEdit} maxPartySize={form.maxPartySize} onMaxPartySize={onMaxPartySize}
           maxPartyError={errors.maxPartySize} />

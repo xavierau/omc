@@ -1759,7 +1759,8 @@
     "bookingHours": {
       "title": "Booking hours",
       "hint": "Diners can only pick times in these periods. \"Last booking\" is the latest seating time, not closing time.",
-      "notConfigured": "No booking hours set: diners can pick any time, as today. Once set, diners can only pick these times.",
+      "scheduleSwitch": "Use booking hours",
+      "notConfigured": "Off: diners can pick any date and time. The table time, booking terms and restaurant info below still apply.",
       "noTimesWarning": "Diners cannot pick any time.",
       "day": {
         "mon": "Monday",

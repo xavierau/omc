@@ -25,6 +25,7 @@ import {
 } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { agentBookingSecrets } from './agent-booking-secrets'
 import { resolveAgentAppUrl } from './agent-booking-settings'
+import { resolveBookingReplyTarget } from './resolve-booking-reply-target'
 import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
@@ -41,7 +42,6 @@ import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 import type { BookingCapacityDeps } from './booking-capacity'
 import type { AgentBookingRoomDeps } from './agent-booking-full-reply'
-import { resolveBookingReplyTarget } from './resolve-booking-reply-target'
 
 const now = () => new Date()
 
@@ -104,18 +104,18 @@ export function bookingCapacityDeps(): BookingCapacityDeps {
 }
 
 /** BOOK-010 (spec AC-6): the PAP code step's room check and the full reply's booking link (the diner's chat link). */
-const agentBookingRoom: AgentBookingRoomDeps = {
-  reader: bookingRoomStore,
-  async bookingLink(restaurantId, phone, config) {
-    const tokens = {
-      findLiveChatToken,
-      mint: (input: { restaurantId: string; phone: string; ttlHours: number | null }) =>
-        mintBookingToken({ ...input, source: 'chat', campaignId: null }),
-    }
-    const target = await resolveBookingReplyTarget({ tokens, appUrl: process.env.NEXT_PUBLIC_APP_URL }, { restaurantId, phone, config })
-    return target?.url ?? null
-  },
+/** The diner's booking link in a code-step reply (BOOK-009 F1 refusal, BOOK-010 full), as the BOOK keyword reply builds it. */
+const chatBookingLink: AgentBookingRoomDeps['bookingLink'] = async (restaurantId, phone, config) => {
+  const tokens = {
+    findLiveChatToken,
+    mint: ({ restaurantId: r, phone: p, ttlHours }: { restaurantId: string; phone: string; ttlHours: number | null }) =>
+      mintBookingToken({ restaurantId: r, phone: p, source: 'chat', campaignId: null, ttlHours }),
+  }
+  const target = await resolveBookingReplyTarget({ tokens, appUrl: appUrl() ?? undefined }, { restaurantId, phone, config })
+  return target?.url ?? null
 }
+
+const agentBookingRoom: AgentBookingRoomDeps = { reader: bookingRoomStore, bookingLink: chatBookingLink }
 
 /** BOOK-007 (R5): mark / undo a no-show. No message sender: the diner is never told. */
 export function noShowBookingDeps(): BookingNoShowDeps {
@@ -186,6 +186,8 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
         console.warn('[AgentBooking] collection statement not sent:', (err as Error).name)
       }
     },
+    // BOOK-009 F1 (P2-2): the refusal reply's booking link, as the BOOK keyword reply builds it.
+    bookingLink: chatBookingLink,
     privacyUrl: PRIVACY_URL,
     now,
     room: agentBookingRoom,

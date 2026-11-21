@@ -4,6 +4,9 @@
  * BOOK-001: the booking page form (AC-9..AC-12 UI states). The diner's
  * WhatsApp number is shown masked and never sent: the server takes it from
  * the token (R2, R10). Text is rendered as text only, never as HTML (R3).
+ * BOOK-009 F1 (P2-1): with the schedule switch off, the restaurant's terms
+ * (with their required tick) and table time still show here. P3-3: a field
+ * error the form has no place for shows in the notice.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -11,6 +14,10 @@ import { Button } from '@/components/ui/button'
 import { BookingFormFields } from './booking-form-fields'
 import { BookingUnavailable } from './booking-unavailable'
 import { postBooking, type BookingFormValues, type BookingSubmitOutcome } from './booking-form-client'
+import { TermsBlock } from './terms-block'
+import { TableTime } from './slot-list'
+import { termsRequired } from '@/domain/value-objects/booking-hours'
+import type { BookingPageDetails } from '@/application/booking/resolve-booking-link'
 
 export interface BookingFormProps {
   token: string
@@ -20,7 +27,11 @@ export interface BookingFormProps {
   retryUrl: string | null
   /** BOOK-009 S1.10: the admin Preview; submit stays disabled. */
   preview?: boolean
+  /** F1: terms, info and table time when the schedule switch is off (absent = BOOK-001 exactly). */
+  details?: BookingPageDetails
 }
+
+const LEGACY_FIELDS = ['date', 'time', 'partySize', 'name', 'notes']
 
 const EMPTY: BookingFormValues = { date: '', time: '', partySize: '2', name: '', notes: '' }
 
@@ -34,22 +45,32 @@ export function BookingSent() {
   )
 }
 
-export function BookingFormNotice({ outcome }: { outcome: BookingSubmitOutcome | null }) {
+/** P3-3: field errors whose field the form does not render (e.g. terms switched on after the page loaded). */
+export function unplacedErrors(outcome: BookingSubmitOutcome | null, placed: readonly string[]): string[] {
+  if (outcome?.kind !== 'fields') return []
+  return Object.entries(outcome.errors).filter(([field]) => !placed.includes(field)).map(([, code]) => code)
+}
+
+export function BookingFormNotice({ outcome, placed = [] }: { outcome: BookingSubmitOutcome | null; placed?: readonly string[] }) {
   const t = useTranslations('booking')
   const key = outcome?.kind === 'too_many' ? 'tooManyPending' : outcome?.kind === 'rate_limited' ? 'rateLimited' : outcome?.kind === 'error' ? 'submitFailed' : null
-  if (!key) return null
+  const unplaced = unplacedErrors(outcome, placed)
+  if (!key && unplaced.length === 0) return null
   return (
     <p data-testid="booking-form-error" role="alert" className="text-sm text-destructive">
-      {t(key)}
+      {key ? t(key) : unplaced.map((code) => t(`errors.${code}`)).join(' ')}
     </p>
   )
 }
 
-export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl, preview = false }: BookingFormProps) {
+export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl, preview = false, details }: BookingFormProps) {
   const t = useTranslations('booking')
   const [values, setValues] = useState<BookingFormValues>(EMPTY)
+  const [accepted, setAccepted] = useState(false)
   const [outcome, setOutcome] = useState<BookingSubmitOutcome | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const terms = termsRequired(details)
+  const errors = outcome?.kind === 'fields' ? outcome.errors : {}
 
   if (outcome?.kind === 'sent') return <BookingSent />
   if (outcome?.kind === 'gone') return <BookingUnavailable reason={outcome.state} retryUrl={retryUrl} />
@@ -58,7 +79,7 @@ export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl,
     e.preventDefault()
     if (preview) return
     setSubmitting(true)
-    setOutcome(await postBooking(token, values))
+    setOutcome(await postBooking(token, values, terms ? { acceptTerms: accepted } : {}))
     setSubmitting(false)
   }
 
@@ -69,12 +90,14 @@ export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl,
       </p>
       <BookingFormFields
         values={values}
-        errors={outcome?.kind === 'fields' ? outcome.errors : {}}
+        errors={errors}
         today={today}
         maxPartySize={maxPartySize}
         onChange={(field, value) => setValues((v) => ({ ...v, [field]: value }))}
       />
-      <BookingFormNotice outcome={outcome} />
+      <TableTime minutes={details?.tableMinutes ?? null} />
+      {terms && details ? <TermsBlock terms={details.terms} accepted={accepted} onChange={setAccepted} error={errors.acceptTerms} /> : null}
+      <BookingFormNotice outcome={outcome} placed={terms ? [...LEGACY_FIELDS, 'acceptTerms'] : LEGACY_FIELDS} />
       <Button type="submit" disabled={submitting || preview} className="h-11 w-full" data-testid="booking-submit">
         {submitting ? t('submitting') : t('submit')}
       </Button>

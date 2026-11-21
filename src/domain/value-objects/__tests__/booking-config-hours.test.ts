@@ -13,6 +13,7 @@ import { resolveBookingHours, termsRequired, termsSnapshot, withoutPastSpecialDa
 const TODAY = '2026-11-20'
 const OPEN = [{ label: '午市', first: '12:00', last: '14:00' }, { first: '18:00', last: '21:30' }]
 const HOURS: BookingHours = {
+  scheduleEnabled: true,
   weekly: { mon: [], tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: OPEN, sun: OPEN },
   intervalMinutes: 30,
   noticeHours: 2,
@@ -68,6 +69,8 @@ describe('resolveBookingConfig bookingHours (AC-5)', () => {
       info: null,
     })
     expect(resolved).toEqual({
+      // F1: no stored switch + a Tuesday period → on
+      scheduleEnabled: true,
       weekly: { mon: [], tue: OPEN, wed: [], thu: [], fri: [], sat: [], sun: [] },
       intervalMinutes: 30,
       noticeHours: 2,

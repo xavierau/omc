@@ -8,6 +8,9 @@
  */
 import { useState } from 'react'
 import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
+
+/** F1 (P2-1): what the form shows a restaurant without hours: the schedule switch off, nothing set. */
+export const UNSET_BOOKING_HOURS: BookingHours = { ...EMPTY_BOOKING_HOURS, scheduleEnabled: false }
 import {
   BOOKING_RULES_MAX_CHARS,
   isPartyMax,
@@ -30,7 +33,7 @@ export interface BookingSettingsForm {
   maxPartySize: string
   /** AGENT-005: 訂座規則, shown unless mode is off. */
   bookingRules: string
-  /** BOOK-009: the hours being edited; the empty table when none are stored. */
+  /** BOOK-009: the hours being edited; UNSET_BOOKING_HOURS when none are stored. */
   bookingHours: BookingHours
   /** BOOK-009: whether the stored config has hours (null = not configured, AC-5). */
   hoursConfigured: boolean
@@ -48,7 +51,7 @@ export type SaveBookingSettingsOutcome =
 const limitText = (value: number | null | undefined) => (value == null ? '' : String(value))
 
 export function toForm(config: BookingConfig): BookingSettingsForm {
-  const { limits, ...bookingHours } = config.bookingHours ?? EMPTY_BOOKING_HOURS
+  const { limits, ...bookingHours } = config.bookingHours ?? UNSET_BOOKING_HOURS
   return {
     mode: config.mode,
     externalUrl: config.externalUrl ?? '',
@@ -90,17 +93,20 @@ const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringi
 
 /**
  * BOOK-009 (AC-5): hours are opt-in. Only Simple mode shows the blocks, and an
- * untouched empty table on a restaurant without hours stays "not configured",
- * so saving any other setting never turns hours on. Omitted = keep stored.
+ * untouched form on a restaurant without hours stays "not configured", so
+ * saving any other setting never turns hours on. Omitted = keep stored.
+ * F1 (P2-1): terms, info or table time alone save with the schedule switch
+ * off, so they never close booking.
  */
 export function hoursPayload(form: BookingSettingsForm): BookingHours | undefined {
-  if (form.mode !== 'simple' || !scheduleInUse(form)) return undefined
+  if (form.mode !== 'simple') return undefined
+  if (!form.hoursConfigured && sameValue(form.bookingHours, UNSET_BOOKING_HOURS)) return undefined
   return form.bookingHours
 }
 
-/** BOOK-010: the booking-hours schedule is stored, or being set up (the guest limits apply only then). */
+/** BOOK-010: the booking-hours schedule switch is on (stored, or being set up); the guest limits apply only then. */
 export function scheduleInUse(form: BookingSettingsForm): boolean {
-  return form.hoursConfigured || !sameValue(form.bookingHours, EMPTY_BOOKING_HOURS)
+  return form.bookingHours.scheduleEnabled
 }
 
 // BOOK-010 (spec AC-2): '' = no limit; anything else goes as typed, so the server names the field's error.

@@ -7,16 +7,18 @@
  * (400). Times come from W1's `slotsFor`, the same rule check every channel
  * uses; without booking hours every date is open at any time (`times: null`).
  * The answer holds restaurant settings only, never PII.
+ * F1: times only while the schedule switch is on (P2-1); terms and table time
+ * either way. `from` past today + max(aheadDays, 90) is too_far (P3-4).
  *
- * BOOK-010 (spec AC-14, AC-9): with booking hours, only the times that fit
+ * BOOK-010 (spec AC-14, AC-9): with the schedule on, only the times that fit
  * `party_size` (default 1) under the guest limits and staff stops are
  * listed, and a date with none is `open: false`.
  */
-import { availabilityMaxDays } from '@/domain/services/agent-booking'
+import { availabilityFromReach, availabilityMaxDays } from '@/domain/services/agent-booking'
 import { slotsFor, type BookingClock } from '@/domain/services/booking-hours'
 import { addDays } from '@/domain/services/booking-calendar'
 import { hongKongTime, hongKongToday, type BookingFieldErrors } from '@/domain/services/booking-submission'
-import { isCalendarDate, termsRequired } from '@/domain/value-objects/booking-hours'
+import { activeSchedule, isCalendarDate, termsRequired } from '@/domain/value-objects/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { AgentBookingDirectory } from '@/domain/ports/booking'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
@@ -77,10 +79,12 @@ export function parseAvailabilityQuery(
   limits: { today: string; config: AvailabilityConfig }
 ): { ok: true; from: string; days: number; partySize: number } | { ok: false; errors: BookingFieldErrors } {
   const errors: BookingFieldErrors = {}
+  const schedule = activeSchedule(limits.config.bookingHours)
   if (query.from === null || query.from === '') errors.from = 'required'
   else if (!isCalendarDate(query.from)) errors.from = 'invalid'
   else if (query.from < limits.today) errors.from = 'past'
-  const days = query.days === null || query.days === '' ? 'required' : wholeNumber(query.days, 1, availabilityMaxDays(limits.config.bookingHours))
+  else if (query.from > addDays(limits.today, availabilityFromReach(schedule))) errors.from = 'too_far'
+  const days = query.days === null || query.days === '' ? 'required' : wholeNumber(query.days, 1, availabilityMaxDays(schedule))
   if (typeof days === 'string') errors.days = days
   const party = query.partySize === null ? 1 : wholeNumber(query.partySize, 1, limits.config.maxPartySize)
   if (typeof party === 'string') errors.party_size = party
@@ -96,14 +100,15 @@ export function availabilityBody(
   fits?: SlotFits
 ): AvailabilityBody {
   const hours = config.bookingHours
+  const schedule = activeSchedule(hours)
   const dates = Array.from({ length: range.days }, (_, i) => addDays(range.from, i)).map((date): AvailabilityDate => {
-    if (!hours) return { date, open: true, times: null }
-    const times = fits ? availableTimes(hours, date, clock, fits) : slotsFor(hours, date, clock).map((slot) => slot.time)
+    if (!schedule) return { date, open: true, times: null }
+    const times = fits ? availableTimes(schedule, date, clock, fits) : slotsFor(schedule, date, clock).map((slot) => slot.time)
     return { date, open: times.length > 0, times }
   })
   return {
     dates,
-    interval_minutes: hours?.intervalMinutes ?? null,
+    interval_minutes: schedule?.intervalMinutes ?? null,
     table_minutes: hours?.tableMinutes ?? null,
     max_party_size: config.maxPartySize,
     terms: hours && termsRequired(hours) ? { 'zh-HK': hours.terms.zh_hk, en: hours.terms.en } : null,
