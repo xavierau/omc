@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-20",
+  "updated_at": "2026-11-21",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1508,6 +1508,25 @@
           ],
           "status": "backlog",
           "updated": "2026-11-20"
+        },
+        {
+          "id": "BOOK-011",
+          "title": "Seating types (用餐桌型) with their own capacity and attributes, on every channel",
+          "description": "Later phase, after BOOK-010. Owner rules 2026-11-21: seating types (e.g. Sushi Counter, Main Dining Table, VIP room) are OPTIONAL in admin booking config; with none set, BOOK-010's restaurant-wide limits apply unchanged. When set, each type carries its own capacity (guests per slot / per meal) plus further attributes such as an extra charge (more to be specced). Diner page: people -> date -> seating type -> times, times filtered by that type's room (as inline / 釧 Kushiro: counter lunch full while main dining lunch open). Booking records the type; room check, stops and staff capacity block become per type. APIs updated/added for our agents: PAP (poppy.json OpenAPI, /availability, POST /bookings) and the AI agent tools take and report the type. Reference: https://inline.app/booking/-Mi5nyGhJZL48KHDN43M:inline-live-2/-Mi5nyjy20bLUXLq1sci",
+          "priority": "low",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack"
+          ],
+          "related": [
+            "kanban:BOOK-010",
+            "kanban:BOOK-009"
+          ],
+          "workspace_artifacts": [],
+          "status": "backlog",
+          "updated": "2026-11-21"
         }
       ]
     },
