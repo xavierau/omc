@@ -13,7 +13,14 @@
  * resolves the stored blob field by field, and anything that leaves the
  * restaurant's times unknowable (not an object, no weekly table, a malformed
  * period) resolves the whole value to null.
+ *
+ * BOOK-009 F1 (P2-1 ruling, 2026-11-20): `scheduleEnabled` is the "Use
+ * booking hours" switch. Off → the slot rules bind no channel (any time, as
+ * BOOK-001), while terms, info and table time still apply. Stored without it
+ * (before F1) → on only when some weekday or special date has a period.
  */
+import { isSafeHttpsUrl } from './safe-https-url'
+
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 export type IntervalMinutes = 15 | 30 | 60
 export type NoticeHours = 0 | 1 | 2 | 3 | 6 | 12 | 24
@@ -38,6 +45,8 @@ export interface SpecialBookingDate {
 }
 
 export interface BookingHours {
+  /** P2-1: the schedule switch; false = any time (slot rules skipped on every channel). */
+  scheduleEnabled: boolean
   weekly: Record<Weekday, BookingPeriod[]>
   intervalMinutes: IntervalMinutes
   noticeHours: NoticeHours
@@ -68,6 +77,7 @@ export const LATEST_BOOKING_TIME = '23:45'
 
 /** The starting point the settings form offers when hours are first turned on (spec Open Question 2: empty). */
 export const EMPTY_BOOKING_HOURS: BookingHours = {
+  scheduleEnabled: true,
   weekly: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
   intervalMinutes: 30,
   noticeHours: 2,
@@ -141,7 +151,14 @@ function resolveTexts(raw: unknown): BookingHours['terms'] {
 
 function resolveInfo(raw: unknown): BookingHours['info'] {
   const r = asRecord(raw) ?? {}
-  return { address: text(r.address, ADDRESS_MAX_CHARS), phone: text(r.phone, PHONE_MAX_CHARS), mapUrl: text(r.mapUrl, 2048) }
+  const mapUrl = text(r.mapUrl, 2048)
+  // P3-1: re-checked on read, like externalUrl (BOOK-001 R14): only an https link reaches the page.
+  return { address: text(r.address, ADDRESS_MAX_CHARS), phone: text(r.phone, PHONE_MAX_CHARS), mapUrl: isSafeHttpsUrl(mapUrl) ? mapUrl : '' }
+}
+
+/** Some weekday or special date has a period (the pre-F1 meaning of "hours are on"). */
+export function hasAnyPeriod(hours: Pick<BookingHours, 'weekly' | 'special'>): boolean {
+  return WEEKDAYS.some((d) => hours.weekly[d].length > 0) || hours.special.some((s) => s.periods.length > 0)
 }
 
 export function resolveBookingHours(raw: unknown): BookingHours | null {
@@ -149,12 +166,14 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
   const weekly = r ? resolveWeekly(r.weekly) : null
   if (!r || !weekly) return null
   const d = EMPTY_BOOKING_HOURS
+  const special = resolveSpecial(r.special)
   return {
+    scheduleEnabled: typeof r.scheduleEnabled === 'boolean' ? r.scheduleEnabled : hasAnyPeriod({ weekly, special }),
     weekly,
     intervalMinutes: isOption(INTERVAL_OPTIONS, r.intervalMinutes) ? r.intervalMinutes : d.intervalMinutes,
     noticeHours: isOption(NOTICE_OPTIONS, r.noticeHours) ? r.noticeHours : d.noticeHours,
     aheadDays: isOption(AHEAD_OPTIONS, r.aheadDays) ? r.aheadDays : d.aheadDays,
-    special: resolveSpecial(r.special),
+    special,
     tableMinutes: isOption(TABLE_MINUTES_OPTIONS, r.tableMinutes) ? r.tableMinutes : null,
     terms: resolveTexts(r.terms),
     info: resolveInfo(r.info),
@@ -162,7 +181,7 @@ export function resolveBookingHours(raw: unknown): BookingHours | null {
 }
 
 /** Spec S1.7: either language set → the diner must accept the terms. */
-export function termsRequired(hours: BookingHours | null): boolean {
+export function termsRequired(hours: Pick<BookingHours, 'terms'> | null | undefined): boolean {
   return !!hours && (hours.terms.zh_hk !== '' || hours.terms.en !== '')
 }
 
@@ -178,4 +197,23 @@ export function termsSnapshot(hours: BookingHours | null): string | null {
 /** Spec S1.4: dates before `today` drop out of the list the admin sees. */
 export function withoutPastSpecialDates(hours: BookingHours, today: string): BookingHours {
   return { ...hours, special: hours.special.filter((s) => s.date >= today) }
+}
+
+/** P2-1: the hours whose slot rules bind every channel now; null when unset or the schedule switch is off. */
+export function activeSchedule(hours: BookingHours | null | undefined): BookingHours | null {
+  return hours && hours.scheduleEnabled ? hours : null
+}
+
+/** P2-1: terms, restaurant info or table time, which apply with the schedule on or off. */
+export function hasBookingDetails(hours: BookingHours): boolean {
+  const { info } = hours
+  return termsRequired(hours) || hours.tableMinutes !== null || info.address !== '' || info.phone !== '' || info.mapUrl !== ''
+}
+
+/**
+ * P2-1 (spec AC-5): null when nothing in the value has an effect (schedule
+ * off and no terms, info or table time), so it behaves exactly as unset.
+ */
+export function bookingHoursInEffect(hours: BookingHours | null | undefined): BookingHours | null {
+  return hours && (hours.scheduleEnabled || hasBookingDetails(hours)) ? hours : null
 }

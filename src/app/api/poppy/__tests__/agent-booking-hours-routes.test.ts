@@ -148,7 +148,8 @@ describe('AC-11 GET /availability with booking hours', () => {
     ['from in the past', 'from=2026-11-18&days=3', 'from'],
     ['days missing', 'from=2026-11-20', 'days'],
     ['days 0', 'from=2026-11-20&days=0', 'days'],
-    ['days above the 30-day window', 'from=2026-11-20&days=31', 'days'],
+    // F1 (P3-4): the 30-day window is 31 dates (today … today + 30), so 31 is the cap.
+    ['days above the 31-date window', 'from=2026-11-20&days=32', 'days'],
     ['days not a number', 'from=2026-11-20&days=x', 'days'],
     ['party_size above the max', 'from=2026-11-20&days=3&party_size=9', 'party_size'],
     ['party_size 0', 'from=2026-11-20&days=3&party_size=0', 'party_size'],
@@ -286,5 +287,63 @@ describe('AC-11 OpenAPI route carries the hours only when set', () => {
     const doc = await openapi()
     expect(Object.keys(doc.paths)).toEqual(['/bookings', '/bookings/{booking_id}'])
     expect(doc.info.description).not.toContain('Diners can book')
+  })
+})
+
+describe('F1 P3-4: /availability query edges', () => {
+  it('days = aheadDays + 1 covers the whole window in one call', async () => {
+    tenant({ bookingHours: { ...HOURS, aheadDays: 7 } })
+    const res = await availability('from=2026-11-19&days=8')
+    expect(res.status).toBe(200)
+    const dates = (await res.json()).dates as DateRow[]
+    expect(dates.at(-1)).toMatchObject({ date: '2026-11-26', open: true })
+    expect((await availability('from=2026-11-19&days=9')).status).toBe(400)
+  })
+
+  it('from past today + max(aheadDays, 90) → 400 too_far; the reach itself is fine', async () => {
+    const far = await (await availability('from=9999-12-31&days=3')).json()
+    expect(far).toMatchObject({ error: 'invalid_request', fields: { from: 'too_far' } })
+    expect((await availability('from=2027-02-17&days=1')).status).toBe(200) // today + 90
+    expect((await (await availability('from=2027-02-18&days=1')).json()).fields).toEqual({ from: 'too_far' })
+    tenant({ bookingHours: null })
+    expect((await (await availability('from=2027-02-18&days=1')).json()).fields).toEqual({ from: 'too_far' })
+  })
+})
+
+describe('F1 P2-1: the schedule switch off', () => {
+  const OFF = { ...HOURS, scheduleEnabled: false }
+  const openapi = async () => (await GET_OPENAPI(new Request('https://x'), { params: Promise.resolve({ publicId: PID }) })).json()
+
+  it('PAP POST takes any time again; terms still need accept_terms', async () => {
+    tenant({ bookingHours: OFF })
+    expect((await post(booking({ date: '2026-11-23', time: '03:00' }))).status).toBe(202)
+    tenant({ bookingHours: { ...OFF, terms: TERMS } })
+    expect((await (await post(booking({ time: '03:15' }))).json()).fields).toEqual({ accept_terms: 'terms_required' })
+    expect((await post(booking({ time: '03:15', accept_terms: true }))).status).toBe(202)
+  })
+
+  it('/availability: every date open at any time, with the table time and terms', async () => {
+    tenant({ bookingHours: { ...OFF, terms: TERMS } })
+    const body = await (await availability('from=2026-11-23&days=3')).json()
+    expect(body.dates).toEqual(['2026-11-23', '2026-11-24', '2026-11-25'].map((date) => ({ date, open: true, times: null })))
+    expect(body).toMatchObject({ interval_minutes: null, table_minutes: 120, terms: { 'zh-HK': TERMS.zh_hk, en: TERMS.en } })
+  })
+
+  it('OpenAPI: no schedule summary, no /availability, no suggested_times; the terms and table time are stated', async () => {
+    tenant({ bookingHours: { ...OFF, terms: TERMS } })
+    const doc = await openapi()
+    expect(Object.keys(doc.paths)).toEqual(['/bookings', '/bookings/{booking_id}'])
+    expect(doc.info.description).not.toContain('Diners can book')
+    expect(doc.info.description).toContain('Tables are for 2 hours.')
+    expect(doc.info.description).toContain(`Terms: ${TERMS.en}`)
+    expect(doc.paths['/bookings'].post.requestBody.content['application/json'].schema.required).toContain('accept_terms')
+    expect(doc.components.schemas.Error.properties.suggested_times).toBeUndefined()
+  })
+
+  it('AC-5: switch off and nothing else set → the same document as hours null', async () => {
+    tenant({ bookingHours: { ...OFF, tableMinutes: null } })
+    const off = await openapi()
+    tenant({ bookingHours: null })
+    expect(off).toEqual(await openapi())
   })
 })

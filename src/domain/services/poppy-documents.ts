@@ -23,6 +23,7 @@ import { termsRequired, type BookingHours } from '@/domain/value-objects/booking
 import { NAME_MAX, NOTES_MAX } from './booking-submission'
 import { sanitizeTemplateParam } from './booking-message'
 import { availabilityMaxDays, summarizeForAgents } from './agent-booking'
+import { tableTimeSentence } from './booking-hours-summary'
 
 export const POPPY_PROTOCOL_VERSION = '1.0'
 
@@ -118,8 +119,11 @@ const SUGGESTED_TIMES_SCHEMA = {
   },
 }
 
+/** F1 (P2-1): the booking value only while its schedule switch is on (slot rules, /availability, suggestions). */
+const scheduleOf = (booking: AgentOpenApiBooking | null | undefined) => (booking?.hours.scheduleEnabled ? booking : null)
+
 const errorSchema = (booking: AgentOpenApiBooking | null) =>
-  booking ? { ...ERROR_SCHEMA, properties: { ...ERROR_SCHEMA.properties, suggested_times: SUGGESTED_TIMES_SCHEMA } } : ERROR_SCHEMA
+  scheduleOf(booking) ? { ...ERROR_SCHEMA, properties: { ...ERROR_SCHEMA.properties, suggested_times: SUGGESTED_TIMES_SCHEMA } } : ERROR_SCHEMA
 
 function termsLines({ terms }: BookingHours): string[] {
   return [
@@ -130,8 +134,17 @@ function termsLines({ terms }: BookingHours): string[] {
   ]
 }
 
+/** F1 (P2-1): schedule off → any time; only the table time and the terms bind. */
+function detailsLines(hours: BookingHours): string[] {
+  return [
+    ...(hours.tableMinutes ? ['', tableTimeSentence(hours.tableMinutes, 'en')] : []),
+    ...(termsRequired(hours) ? termsLines(hours) : []),
+  ]
+}
+
 /** BOOK-009 (spec AC-11, AC-12, AC-13): the rules agents must follow, between the flow and the collection statement. */
 function rulesLines(input: AgentOpenApiInput, { hours, today }: AgentOpenApiBooking): string[] {
+  if (!hours.scheduleEnabled) return detailsLines(hours)
   const codes = `date: closed_day; time: outside_hours, too_soon or too_far${termsRequired(hours) ? '; accept_terms: terms_required' : ''}`
   return [
     '',
@@ -231,7 +244,7 @@ function createBookingOperation(input: AgentOpenApiInput) {
           'Idempotency-Key replay of a booking that is no longer awaiting confirmation (expired, pending, confirmed or declined): its current status and a new status token. A replay while still awaiting confirmation answers 202 as above.',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/ReplayedBooking' } } },
       },
-      '400': errorResponse(input.booking ? INVALID_REQUEST_HOURS : INVALID_REQUEST),
+      '400': errorResponse(scheduleOf(input.booking) ? INVALID_REQUEST_HOURS : INVALID_REQUEST),
       '404': errorResponse('not_found: this restaurant does not take bookings through agents.'),
       '409': errorResponse('idempotency_conflict: the Idempotency-Key was used with another body.'),
       '429': errorResponse('rate_limited: wait for Retry-After seconds.', {
@@ -377,6 +390,7 @@ function schemas(booking: AgentOpenApiBooking | null) {
 }
 
 export function buildAgentBookingOpenApi(input: AgentOpenApiInput) {
+  const schedule = scheduleOf(input.booking)
   return {
     openapi: '3.1.0',
     info: { title: `${input.restaurantName} table booking`, version: '1.0.0', description: description(input) },
@@ -386,8 +400,8 @@ export function buildAgentBookingOpenApi(input: AgentOpenApiInput) {
     paths: {
       '/bookings': { post: createBookingOperation(input) },
       '/bookings/{booking_id}': { get: getBookingOperation() },
-      ...(input.booking ? { '/availability': { get: availabilityOperation(input, input.booking.hours) } } : {}),
+      ...(schedule ? { '/availability': { get: availabilityOperation(input, schedule.hours) } } : {}),
     },
-    components: { schemas: { ...schemas(input.booking ?? null), ...(input.booking ? { Availability: AVAILABILITY_SCHEMA } : {}) } },
+    components: { schemas: { ...schemas(input.booking ?? null), ...(schedule ? { Availability: AVAILABILITY_SCHEMA } : {}) } },
   }
 }

@@ -25,7 +25,7 @@ import {
   type BookingSubmissionRules,
 } from '@/domain/services/booking-submission'
 import type { BookingTokenState } from '@/domain/services/booking-token'
-import { termsRequired, termsSnapshot } from '@/domain/value-objects/booking-hours'
+import { activeSchedule, termsRequired, termsSnapshot } from '@/domain/value-objects/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import type {
@@ -113,12 +113,13 @@ export type BookingRulesConfig = Pick<BookingConfig, 'maxPartySize' | 'bookingHo
  * BOOK-009: given the config, also its booking hours and whether its terms
  * must be accepted. A bare party cap (callers not yet passing the config)
  * keeps the BOOK-001 rules only.
+ * F1 (P2-1): the slot rules only while the schedule switch is on; the terms either way.
  */
 export function bookingRulesAt(now: Date, config: number | BookingRulesConfig): BookingSubmissionRules {
   const base = { today: hongKongToday(now), nowTime: hongKongTime(now) }
   if (typeof config === 'number') return { ...base, maxPartySize: config }
   const hours = config.bookingHours
-  return { ...base, maxPartySize: config.maxPartySize, hours, termsRequired: termsRequired(hours) }
+  return { ...base, maxPartySize: config.maxPartySize, hours: activeSchedule(hours), termsRequired: termsRequired(hours) }
 }
 
 /** The diner's "received" message, best effort (shared with AGENT-003 R16). */

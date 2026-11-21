@@ -10,6 +10,7 @@ import {
   AHEAD_OPTIONS,
   charLength,
   EMPTY_BOOKING_HOURS,
+  hasAnyPeriod,
   HOURS_LANGUAGES,
   INTERVAL_OPTIONS,
   isBookingTime,
@@ -145,15 +146,25 @@ function option<T>(options: readonly T[], raw: unknown, fallback: T, path: strin
   return errors.add(path, 'invalid'), fallback
 }
 
+/** P2-1: the schedule switch; absent (a pre-F1 client) = on only when some day has a period. */
+function parseScheduleEnabled(raw: unknown, schedule: Pick<BookingHours, 'weekly' | 'special'>, errors: Errors): boolean {
+  if (raw === undefined) return hasAnyPeriod(schedule)
+  if (typeof raw === 'boolean') return raw
+  return errors.add('scheduleEnabled', 'invalid'), false
+}
+
 function parseFields(r: Record<string, unknown>, today: string, errors: Errors): BookingHours {
   const d = EMPTY_BOOKING_HOURS
   const tableMinutes = r.tableMinutes === null ? null : option(TABLE_MINUTES_OPTIONS, r.tableMinutes, null, 'tableMinutes', errors)
+  const weekly = parseWeekly(r.weekly, errors)
+  const special = parseSpecial(r.special, today, errors)
   return {
-    weekly: parseWeekly(r.weekly, errors),
+    scheduleEnabled: parseScheduleEnabled(r.scheduleEnabled, { weekly, special }, errors),
+    weekly,
     intervalMinutes: option(INTERVAL_OPTIONS, r.intervalMinutes, d.intervalMinutes, 'intervalMinutes', errors),
     noticeHours: option(NOTICE_OPTIONS, r.noticeHours, d.noticeHours, 'noticeHours', errors),
     aheadDays: option(AHEAD_OPTIONS, r.aheadDays, d.aheadDays, 'aheadDays', errors),
-    special: parseSpecial(r.special, today, errors),
+    special,
     tableMinutes,
     terms: parseTerms(r.terms, errors),
     info: parseInfo(r.info, errors),

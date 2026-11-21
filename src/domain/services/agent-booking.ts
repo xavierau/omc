@@ -89,10 +89,19 @@ export function summarizeForAgents(hours: BookingHours, maxPartySize: number, la
   return summarize({ ...hours, special }, maxPartySize, lang)
 }
 
-/** BOOK-009 (spec AC-11, threat R2): /availability answers at most this many dates, and never past the window. */
+/**
+ * BOOK-009 (spec AC-11, threat R2): /availability answers at most this many
+ * dates. F1 (P3-4): the window is today … today + aheadDays, aheadDays + 1
+ * dates, so one call can cover it. `schedule` = the active schedule (null = any time).
+ */
 export const AVAILABILITY_MAX_DAYS = 31
-export const availabilityMaxDays = (hours: BookingHours | null) =>
-  hours ? Math.min(AVAILABILITY_MAX_DAYS, hours.aheadDays) : AVAILABILITY_MAX_DAYS
+export const availabilityMaxDays = (schedule: BookingHours | null) =>
+  schedule ? Math.min(AVAILABILITY_MAX_DAYS, schedule.aheadDays + 1) : AVAILABILITY_MAX_DAYS
+
+/** F1 (P3-4): `from` may be at most this many days after today (the window, and never less than 90). */
+export const AVAILABILITY_FROM_MIN_REACH_DAYS = 90
+export const availabilityFromReach = (schedule: BookingHours | null) =>
+  Math.max(schedule?.aheadDays ?? 0, AVAILABILITY_FROM_MIN_REACH_DAYS)
 
 /** R46: an Idempotency-Key replay must carry the same booking. */
 export function isSameAgentSubmission(booking: AgentBooking, s: AgentBookingSubmission): boolean {

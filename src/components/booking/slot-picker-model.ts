@@ -95,3 +95,8 @@ const TIMES_CHANGED = new Set(['closed_day', 'outside_hours', 'too_soon', 'too_f
 export function timesChanged(errors: Record<string, string>): boolean {
   return TIMES_CHANGED.has(errors.date) || TIMES_CHANGED.has(errors.time)
 }
+
+/** P3-3: the page's settings are out of date: its times changed, or terms were switched on after it loaded. */
+export function needsRefresh(errors: Record<string, string>): boolean {
+  return timesChanged(errors) || errors.acceptTerms === 'terms_required'
+}

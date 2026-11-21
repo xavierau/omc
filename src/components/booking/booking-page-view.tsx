@@ -5,6 +5,8 @@
  * BOOK-009: with booking hours, the restaurant info under the name and the
  * slot form (S2); without them, the BOOK-001 form exactly (AC-5). `preview`
  * (S1.10) shows the admin's banner and keeps submit disabled.
+ * F1 (P2-1): schedule off with terms/info/table time set → the BOOK-001 form
+ * with the info header, table time and the terms tick.
  */
 import { useTranslations } from 'next-intl'
 import { Eye } from 'lucide-react'
@@ -46,7 +48,14 @@ function PreviewBanner() {
 
 function FormContent({ view, token, preview }: { view: FormViewModel; token: string; preview: boolean }) {
   const shared = { token, maskedPhone: view.maskedPhone, maxPartySize: view.maxPartySize, retryUrl: view.retryUrl, today: view.today, preview }
-  if (!view.schedule) return <BookingForm {...shared} />
+  if (!view.schedule) {
+    return (
+      <>
+        {view.details ? <RestaurantInfo info={view.details.info} /> : null}
+        <BookingForm {...shared} details={view.details} />
+      </>
+    )
+  }
   return (
     <>
       <RestaurantInfo info={view.schedule.hours.info} />

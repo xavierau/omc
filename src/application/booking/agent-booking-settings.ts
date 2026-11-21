@@ -16,7 +16,7 @@ import {
 import { buildAgentBookingOpenApi, buildCollectionStatement, buildPoppyJson } from '@/domain/services/poppy-documents'
 import { hasConfirmableWhatsAppNumber } from '@/domain/services/agent-booking'
 import { hongKongToday } from '@/domain/services/booking-submission'
-import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import { bookingHoursInEffect, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
 import type { AgentBookingSecrets } from './agent-booking-secrets'
 
@@ -133,12 +133,14 @@ export async function agentOpenApiFor(
   tenant: { restaurantId: string; publicId: string; maxPartySize: number; bookingHours?: BookingHours | null }
 ) {
   const apiBaseUrl = agentApiBaseUrl(deps.appUrl, tenant.publicId)
+  // F1 (P2-1, AC-5): hours with no effect (schedule off, no terms/info/table time) give the pre-BOOK-009 document.
+  const hours = bookingHoursInEffect(tenant.bookingHours)
   const name = (await deps.settings.getRestaurant(tenant.restaurantId))?.name ?? ''
   return buildAgentBookingOpenApi({
     restaurantName: name,
     apiBaseUrl,
     maxPartySize: tenant.maxPartySize,
     statement: buildCollectionStatement(name, deps.privacyUrl),
-    booking: tenant.bookingHours ? { hours: tenant.bookingHours, today: hongKongToday(deps.now()) } : null,
+    booking: hours ? { hours, today: hongKongToday(deps.now()) } : null,
   })
 }

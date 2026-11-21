@@ -21,6 +21,7 @@ import { GET, PUT } from '../route'
 const RID = 'rest-1'
 const OPEN = [{ label: '午市', first: '12:00', last: '14:00' }, { label: '晚市', first: '18:00', last: '21:30' }]
 const HOURS: BookingHours = {
+  scheduleEnabled: true,
   weekly: { mon: [], tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: OPEN, sun: OPEN },
   intervalMinutes: 30,
   noticeHours: 2,
@@ -111,6 +112,13 @@ describe('PUT booking settings with bookingHours', () => {
 })
 
 describe('GET booking settings with bookingHours', () => {
+  // F1 (P3-5): the summary lists only special dates inside the window, so "today" is pinned (25 Dec is inside it).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-12-01T02:00:00.000Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
   it('AC-1/AC-4: returns the hours and the summary in both languages', async () => {
     use([read({ ...STORED, bookingHours: HOURS })])
     const body = await (await GET()).json()
@@ -124,6 +132,22 @@ describe('GET booking settings with bookingHours', () => {
   it('S1.4: special dates already past drop out of what the form loads', async () => {
     use([read({ ...STORED, bookingHours: { ...HOURS, special: [{ date: '2026-11-19', periods: [] }, ...HOURS.special] } })])
     expect((await (await GET()).json()).bookingHours.special).toEqual(HOURS.special)
+  })
+
+  it('F1 P3-5: a special date past the window is left out of the summary, as agents read it', async () => {
+    vi.setSystemTime(new Date('2026-11-20T02:00:00.000Z')) // window ends 20 Dec
+    use([read({ ...STORED, bookingHours: HOURS })])
+    const body = await (await GET()).json()
+    expect(body.bookingHours.special).toEqual(HOURS.special)
+    expect(body.summary.en).not.toContain('25 Dec')
+    expect(body.summary.zh_hk).not.toContain('12月25日')
+  })
+
+  it('F1 P2-1: schedule switched off → the hours load, no summary (diners pick any time)', async () => {
+    use([read({ ...STORED, bookingHours: { ...HOURS, scheduleEnabled: false } })])
+    const body = await (await GET()).json()
+    expect(body.bookingHours.scheduleEnabled).toBe(false)
+    expect(body.summary).toBeNull()
   })
 
   it('AC-5: never configured → bookingHours and summary are null', async () => {

@@ -82,9 +82,11 @@ describe('BOOK-009 settings blocks render (S1)', () => {
     expect(html).toContain('value="2026-12-25"')
   })
 
-  it('AC-5: hours not set → an all-closed table with the not-configured hint, no warning', () => {
+  // F1 (P2-1 ruling): the weekly table shows only while the schedule switch is on.
+  it('AC-5: hours not set → the schedule switch off with the not-configured hint, no table, no warning', () => {
     const html = render(simple())
-    for (const day of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) expect(html).toContain(`data-testid="booking-settings-hours-${day}" data-open="false"`)
+    expect(html).toMatch(/aria-checked="false"[^>]*data-testid="booking-settings-schedule-switch"/)
+    for (const day of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) expect(html).not.toContain(`data-testid="booking-settings-hours-${day}"`)
     expect(html).toContain('data-testid="booking-settings-hours-not-set"')
     expect(html).not.toContain('booking-settings-hours-warning')
   })

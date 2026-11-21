@@ -15,12 +15,14 @@
  * page computes days and slots with the same pure `slotsFor` the server
  * checks with. Hours that leave no bookable time in the window → the off page.
  * `previewBookingView` builds the admin Preview from the SAVED config (S1.10).
+ * F1 (P2-1): with the schedule switch off the page is the BOOK-001 date/time
+ * form, plus `details` (terms with their tick, info, table time) when set.
  */
 import { buildContactUrl } from '@/domain/services/contact-redirect'
 import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
 import { slotsFor, windowEnd } from '@/domain/services/booking-hours'
 import { addDays } from '@/domain/services/booking-calendar'
-import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import { activeSchedule, bookingHoursInEffect, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingTokenState } from '@/domain/services/booking-token'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { BookingRestaurantContext, BookingSettingsReader, BookingTokenOwner, BookingTokenStore } from '@/domain/ports/booking'
@@ -39,6 +41,8 @@ export interface BookingPageRestaurant {
   logoUrl: string | null
 }
 
+export type BookingPageDetails = Pick<BookingHours, 'terms' | 'info' | 'tableMinutes'>
+
 export type BookingLinkView =
   | {
       kind: 'form'
@@ -51,6 +55,8 @@ export type BookingLinkView =
        * BOOK-001 date/time form, unchanged, AC-5), with Hong Kong now (HH:MM).
        */
       schedule?: { hours: BookingHours; nowTime: string }
+      /** F1 (P2-1): schedule off but terms, info or table time set; the BOOK-001 form shows them. */
+      details?: BookingPageDetails
       retryUrl: string | null
     }
   | { kind: 'redirect'; url: string }
@@ -100,7 +106,9 @@ type FormView = Extract<BookingLinkView, { kind: 'form' }>
 function formView(deps: Pick<ResolveBookingLinkDeps, 'now'>, restaurant: BookingRestaurantContext, config: BookingConfig, maskedPhone: string): BookingLinkView {
   const now = deps.now()
   const clock = { today: hongKongToday(now), nowTime: hongKongTime(now) }
-  if (config.bookingHours && !anyBookableTime(config.bookingHours, clock)) return unavailable('off', restaurant)
+  const schedule = activeSchedule(config.bookingHours)
+  const inEffect = bookingHoursInEffect(config.bookingHours)
+  if (schedule && !anyBookableTime(schedule, clock)) return unavailable('off', restaurant)
   const view: FormView = {
     kind: 'form',
     restaurant: { name: restaurant.name, logoUrl: restaurant.logoUrl },
@@ -108,7 +116,8 @@ function formView(deps: Pick<ResolveBookingLinkDeps, 'now'>, restaurant: Booking
     maxPartySize: config.maxPartySize,
     today: clock.today,
     retryUrl: retryUrlOf(restaurant),
-    ...(config.bookingHours ? { schedule: { hours: config.bookingHours, nowTime: clock.nowTime } } : {}),
+    ...(schedule ? { schedule: { hours: schedule, nowTime: clock.nowTime } } : {}),
+    ...(!schedule && inEffect ? { details: { terms: inEffect.terms, info: inEffect.info, tableMinutes: inEffect.tableMinutes } } : {}),
   }
   return view
 }

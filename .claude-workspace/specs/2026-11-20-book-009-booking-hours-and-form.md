@@ -239,6 +239,24 @@ The repo has no PRODUCT.md. For the `ux-design` step:
    (explicit "我同意" reply), or is agreeing to the read-back enough (AC-17 assumes enough)?
 5. Which tenant pilots it first (Bicho uses inline today; omc is the demo)?
 
+### Rulings 2026-11-20 (main thread, on review `reviews/2026-11-20-book-009-review`)
+
+- **R-1 (P2-1): terms, restaurant info and table time work without the schedule.** Settings → Booking
+  gets a switch at the top of the hours block, "使用訂座時段 / Use booking hours", stored as
+  `bookingHours.scheduleEnabled` (absent in a stored value → on when any weekday or special date has a
+  period, else off). Off → no slot rules on any channel (any time, as BOOK-001: the date/time form on
+  the page, `/availability` times `null`, no schedule lines for the AI agent), while the terms (tick
+  required), restaurant info and table time still apply. On → the S1–S4 rules above. The hours,
+  interval/window and special-date blocks show only while it is on. Off with no terms, info or table
+  time behaves exactly as hours not set (AC-5).
+- **R-2 (P2-2): the PAP confirm-code step re-checks the rules.** Before a code promotes a booking,
+  the shared check runs again at that moment. A slot that no longer passes is not promoted: it is
+  declined with reason `rules` (no staff action) and the diner gets a WhatsApp reply (free-form, inside
+  the 24 h window) that the time is no longer available, with up to 3 suggested times and the booking
+  link. Terms required now and none stored on the booking → not promoted (left unverified until it
+  expires), and the reply asks the diner to book again through their agent or the link. The
+  post-confirm reply carries terms only when the booking stored them.
+
 ## Suggested work items (for plan-architecture; POC stage)
 
 1. Domain: booking-hours value + shared rule check + summary generator + suggestions; settings API

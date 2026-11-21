@@ -34,14 +34,20 @@ import {
 } from '@/application/booking/booking-template-deps'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import { hongKongToday } from '@/domain/services/booking-submission'
-import { summarize } from '@/domain/services/booking-hours'
-import { withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
+import { summarizeForAgents } from '@/domain/services/agent-booking'
+import { activeSchedule, withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
 
-/** BOOK-009: the hours as the form loads them, and their summary in both languages. */
+/**
+ * BOOK-009: the hours as the form loads them, and their summary in both
+ * languages. F1: the window-filtered text agents get (P3-5), only while the
+ * schedule switch is on (P2-1; off = any time, no summary).
+ */
 function hoursView(config: BookingConfig) {
-  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, hongKongToday(new Date())) : null
-  const summary = hours
-    ? { zh_hk: summarize(hours, config.maxPartySize, 'zh_hk'), en: summarize(hours, config.maxPartySize, 'en') }
+  const today = hongKongToday(new Date())
+  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, today) : null
+  const schedule = activeSchedule(hours)
+  const summary = schedule
+    ? { zh_hk: summarizeForAgents(schedule, config.maxPartySize, 'zh_hk', today), en: summarizeForAgents(schedule, config.maxPartySize, 'en', today) }
     : null
   return { bookingHours: hours, summary }
 }

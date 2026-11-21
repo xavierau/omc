@@ -9,7 +9,7 @@
  */
 import { useState } from 'react'
 import { postBooking, type BookingSubmitOutcome } from '@/components/booking/booking-form-client'
-import { missingStep, timesChanged } from '@/components/booking/slot-picker-model'
+import { missingStep, needsRefresh, timesChanged } from '@/components/booking/slot-picker-model'
 
 export interface SlotFormValues {
   partySize: number | null
@@ -36,12 +36,16 @@ export interface SubmitStep {
   values: SlotFormValues
   /** The time the diner had picked when the times changed, else null. */
   changedTime: string | null
+  /** P3-3: re-read the page's server data (times changed, or terms now required). */
+  refresh: boolean
 }
 
 /** What a submit answer does to the form (pure; AC-9 keeps party, day, name and notes). */
 export function applySubmitOutcome(values: SlotFormValues, outcome: BookingSubmitOutcome): SubmitStep {
-  if (outcome.kind !== 'fields' || !timesChanged(outcome.errors)) return { outcome, values, changedTime: null }
-  return { outcome, values: { ...values, time: '' }, changedTime: values.time }
+  if (outcome.kind !== 'fields') return { outcome, values, changedTime: null, refresh: false }
+  const refresh = needsRefresh(outcome.errors)
+  if (!timesChanged(outcome.errors)) return { outcome, values, changedTime: null, refresh }
+  return { outcome, values: { ...values, time: '' }, changedTime: values.time, refresh }
 }
 
 /** Sends a complete form (BOOK-001 page API, plus acceptTerms when terms are set) and applies the answer. */
@@ -70,7 +74,7 @@ export function useBookingSlotForm({ token, termsRequired, preview, refresh }: S
     setValues(step.values)
     setOutcome(step.outcome)
     setChangedTime(step.changedTime)
-    if (step.changedTime !== null) refresh()
+    if (step.refresh) refresh()
     setSubmitting(false)
   }
 

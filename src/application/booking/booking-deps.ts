@@ -2,7 +2,7 @@
  * BOOK-001: composition root for the booking use cases. Routes and pages take
  * their dependencies from here; tests pass in-memory fakes instead.
  */
-import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { bookingTokenStore, findLiveChatToken, mintBookingToken } from '@/infrastructure/supabase/repositories/booking-token-repository'
 import {
   bookingCronStore,
   bookingNoShowStore,
@@ -24,6 +24,7 @@ import {
 } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { agentBookingSecrets } from './agent-booking-secrets'
 import { resolveAgentAppUrl } from './agent-booking-settings'
+import { resolveBookingReplyTarget } from './resolve-booking-reply-target'
 import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
@@ -154,6 +155,16 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
       } catch (err) {
         console.warn('[AgentBooking] collection statement not sent:', (err as Error).name)
       }
+    },
+    // BOOK-009 F1 (P2-2): the refusal reply's booking link, as the BOOK keyword reply builds it.
+    async bookingLink(restaurantId, phone, config) {
+      const tokens = {
+        findLiveChatToken,
+        mint: ({ restaurantId: r, phone: p, ttlHours }: { restaurantId: string; phone: string; ttlHours: number | null }) =>
+          mintBookingToken({ restaurantId: r, phone: p, source: 'chat', campaignId: null, ttlHours }),
+      }
+      const target = await resolveBookingReplyTarget({ tokens, appUrl: appUrl() ?? undefined }, { restaurantId, phone, config })
+      return target?.url ?? null
     },
     privacyUrl: PRIVACY_URL,
     now,

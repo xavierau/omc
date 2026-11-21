@@ -11,6 +11,7 @@ const CLOSED_WEEK = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun:
 
 function hours(patch: Partial<BookingHours> = {}): BookingHours {
   return {
+    scheduleEnabled: true,
     weekly: { mon: [], tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: OPEN, sun: OPEN },
     intervalMinutes: 30,
     noticeHours: 2,

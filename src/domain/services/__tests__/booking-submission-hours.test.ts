@@ -7,6 +7,7 @@ import type { BookingHours } from '@/domain/value-objects/booking-hours'
 
 const OPEN = [{ first: '12:00', last: '14:00' }, { first: '18:00', last: '21:30' }]
 const HOURS: BookingHours = {
+  scheduleEnabled: true,
   weekly: { mon: [], tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: OPEN, sun: OPEN },
   intervalMinutes: 30,
   noticeHours: 2,

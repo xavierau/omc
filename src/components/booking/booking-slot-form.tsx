@@ -33,6 +33,9 @@ export interface BookingSlotFormProps {
   preview?: boolean
 }
 
+/** Fields this form places an error next to (date/time refusals show as the times-changed notice). */
+const SLOT_FIELDS = ['partySize', 'date', 'time', 'name', 'notes']
+
 function Heading({ title, aside }: { title: string; aside?: string }) {
   return (
     <div className="flex items-baseline justify-between">
@@ -83,7 +86,7 @@ export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, to
       </section>
       <SlotTextFields name={values.name} notes={values.notes} errors={errors} onChange={(k, v) => set(k, v)} />
       {termsRequired ? <TermsBlock terms={hours.terms} accepted={values.accepted} onChange={(a) => set('accepted', a)} error={errors.acceptTerms} /> : null}
-      <BookingFormNotice outcome={outcome} />
+      <BookingFormNotice outcome={outcome} placed={termsRequired ? [...SLOT_FIELDS, 'acceptTerms'] : SLOT_FIELDS} />
       <SummaryBar values={values} missing={form.missing} submitting={form.submitting} preview={preview} />
     </form>
   )
