@@ -2,10 +2,11 @@
  * BOOK-009 W4 (spec AC-11, AC-14, threat R2): a personal agent reads which
  * dates are open and which times the restaurant takes, before it books.
  *
- * Signed out, like POST /bookings: the same per-IP limit first (before any
- * database read), then the same agent-booking-id gate (404), then the query
- * (400). Times come from W1's `slotsFor`, the same rule check every channel
- * uses; without booking hours every date is open at any time (`times: null`).
+ * Signed out, like POST /bookings: a per-IP limit first (before any
+ * database read; its own 30/min bucket, BOOK-010-RL), then the same
+ * agent-booking-id gate (404), then the query (400). Times come from W1's
+ * `slotsFor`, the same rule check every channel uses; without booking hours
+ * every date is open at any time (`times: null`).
  * The answer holds restaurant settings only, never PII.
  * F1: times only while the schedule switch is on (P2-1); terms and table time
  * either way. `from` past today + max(aheadDays, 90) is too_far (P3-4).
@@ -23,7 +24,7 @@ import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { AgentBookingDirectory } from '@/domain/ports/booking'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import { resolveAgentBookingTenant } from './resolve-agent-booking-tenant'
-import { IP_RETRY_AFTER_SEC, withinAgentIpLimit } from './create-agent-booking'
+import { IP_RETRY_AFTER_SEC, withinAgentAvailabilityIpLimit } from './create-agent-booking'
 import { availableTimes, roomApplies, type SlotFits } from '@/domain/services/booking-room'
 import type { BookingRoomReader } from '@/domain/ports/booking'
 import { fitsInRange } from './booking-room-check'
@@ -119,7 +120,7 @@ export async function getAgentAvailability(
   deps: GetAgentAvailabilityDeps,
   input: { publicId: string; clientIp: string; query: AvailabilityQuery }
 ): Promise<GetAgentAvailabilityResult> {
-  if (!(await withinAgentIpLimit(deps.limiter, input.clientIp))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
+  if (!(await withinAgentAvailabilityIpLimit(deps.limiter, input.clientIp))) return { ok: false, reason: 'rate_limited', retryAfterSec: IP_RETRY_AFTER_SEC }
   const tenant = await resolveAgentBookingTenant(deps.directory, input.publicId)
   if (!tenant) return { ok: false, reason: 'not_found' }
   const now = deps.now()

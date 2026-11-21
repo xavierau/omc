@@ -2,9 +2,10 @@
  * BOOK-009 W4: GET /api/poppy/{publicId}/availability?from=YYYY-MM-DD&days=N[&party_size=],
  * a personal agent reads the open dates and bookable times (spec AC-11, AC-14).
  *
- * Signed out like POST /bookings (threat R2): the same per-IP limit (429 +
- * Retry-After), the agent booking id in the path as the only source of the
- * restaurant (404), and a bounded query (400). Poppy-Session is never read.
+ * Signed out like POST /bookings (threat R2): a per-IP limit of its own,
+ * 30/min (BOOK-010-RL; 429 + Retry-After), the agent booking id in the path
+ * as the only source of the restaurant (404), and a bounded query (400).
+ * Poppy-Session is never read.
  */
 import { NextRequest } from 'next/server'
 import { getAgentAvailability, type GetAgentAvailabilityResult } from '@/application/booking/get-agent-availability'
