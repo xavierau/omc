@@ -39,7 +39,10 @@ export class FakeBookingRoom implements BookingRoomStore, BookingStopStore {
     }
     const stops = this.stops
       .filter((s) => s.restaurantId === restaurantId && s.date >= from && s.date <= to)
-      .map(({ restaurantId: _r, ...stop }) => stop)
+      .map((s): BookingStop => ({
+        date: s.date, scope: s.scope, periodLabel: s.periodLabel, time: s.time,
+        stoppedById: s.stoppedById, stoppedByName: s.stoppedByName, stoppedAt: s.stoppedAt,
+      }))
     return { counts, stops }
   }
 
