@@ -350,6 +350,8 @@ async function callModel(
     systemInstruction: buildSystemInstruction(config, now, {
       offeredTools: offered,
       bookingRules: booking?.config.bookingRules ?? '',
+      bookingHours: booking?.config.bookingHours ?? null,
+      maxPartySize: booking?.config.maxPartySize,
       pendingProposal: pending,
     }),
     history: toAgentTurns(rows),

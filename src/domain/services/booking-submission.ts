@@ -7,7 +7,16 @@
  * from the token row). Any other unknown field is rejected, as is any value
  * outside the form's rules. Errors are per field so the page can show them
  * next to the input.
+ *
+ * BOOK-009 (plan D2): when the restaurant set booking hours, the slot must be
+ * bookable (`checkSlot`: closed_day on date; outside_hours, too_soon, too_far
+ * on time); when it set booking terms, `acceptTerms: true` is required
+ * (terms_required). Without either, results are exactly BOOK-001's (AC-5).
+ * Every channel (booking page, personal agents, AI agent tools) parses here.
  */
+import type { BookingHours } from '@/domain/value-objects/booking-hours'
+import { checkSlot } from './booking-hours'
+
 export interface BookingSubmission {
   /** YYYY-MM-DD, today or later in Asia/Hong_Kong. */
   date: string
@@ -16,6 +25,8 @@ export interface BookingSubmission {
   partySize: number
   name: string
   notes: string | null
+  /** BOOK-009: present only when the restaurant's terms were required and accepted. */
+  termsAccepted?: true
 }
 
 export type BookingFieldErrors = Record<string, string>
@@ -26,7 +37,7 @@ export type ParseBookingSubmissionResult =
 
 export const NAME_MAX = 60
 export const NOTES_MAX = 500
-const FORM_FIELDS = ['date', 'time', 'partySize', 'name', 'notes']
+const FORM_FIELDS = ['date', 'time', 'partySize', 'name', 'notes', 'acceptTerms']
 const IGNORED_IDENTITY_FIELDS = ['restaurantId', 'restaurant_id', 'restaurantSlug', 'slug', 'phone', 'token']
 
 /** Today's date in Hong Kong as YYYY-MM-DD. */
@@ -102,6 +113,10 @@ export interface BookingSubmissionRules {
   /** Hong Kong now, HH:MM: a booking today must start later than this (F6). */
   nowTime: string
   maxPartySize: number
+  /** BOOK-009: the restaurant's booking hours; null/absent = any time (BOOK-001). */
+  hours?: BookingHours | null
+  /** BOOK-009: the restaurant set booking terms, so the diner must accept them. */
+  termsRequired?: boolean
 }
 
 // F6 (review #4): today at a time already past is refused on the time field.
@@ -109,6 +124,21 @@ export interface BookingSubmissionRules {
 function checkNotPastToday(s: BookingSubmission, rules: BookingSubmissionRules, errors: BookingFieldErrors): void {
   if (errors.date || errors.time) return
   if (s.date === rules.today && s.time <= rules.nowTime) errors.time = 'past_time'
+}
+
+/** BOOK-009: a well-formed slot must also be one the restaurant takes now. */
+function checkBookingHours(s: BookingSubmission, rules: BookingSubmissionRules, errors: BookingFieldErrors): void {
+  if (errors.date || errors.time || !rules.hours) return
+  const refusal = checkSlot(rules.hours, s.date, s.time, rules)
+  if (refusal === 'closed_day') errors.date = refusal
+  else if (refusal) errors.time = refusal
+}
+
+/** BOOK-009: true only when terms are required and the diner ticked them. */
+function parseAcceptTerms(raw: unknown, required: boolean, errors: BookingFieldErrors): boolean {
+  if (raw !== undefined && typeof raw !== 'boolean') return (errors.acceptTerms = 'invalid'), false
+  if (required && raw !== true) return (errors.acceptTerms = 'terms_required'), false
+  return required
 }
 
 export function parseBookingSubmission(
@@ -128,6 +158,8 @@ export function parseBookingSubmission(
     name: parseName(b.name, errors),
     notes: parseNotes(b.notes, errors),
   }
+  if (parseAcceptTerms(b.acceptTerms, rules.termsRequired === true, errors)) submission.termsAccepted = true
   checkNotPastToday(submission, rules, errors)
+  checkBookingHours(submission, rules, errors)
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, submission }
 }

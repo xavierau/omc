@@ -2,7 +2,7 @@
  * BOOK-001: composition root for the booking use cases. Routes and pages take
  * their dependencies from here; tests pass in-memory fakes instead.
  */
-import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { bookingTokenStore, findLiveChatToken, mintBookingToken } from '@/infrastructure/supabase/repositories/booking-token-repository'
 import {
   bookingCronStore,
   bookingNoShowStore,
@@ -24,6 +24,7 @@ import {
 } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { agentBookingSecrets } from './agent-booking-secrets'
 import { resolveAgentAppUrl } from './agent-booking-settings'
+import { resolveBookingReplyTarget } from './resolve-booking-reply-target'
 import { createBookingMessageSender, languageOf } from './send-booking-message'
 import type { BookingMemberLookup, BookingMessageSender } from '@/domain/ports/booking'
 import type { SubmitBookingDeps } from './submit-booking-request'
@@ -35,6 +36,7 @@ import type { PurgeBookingPiiDeps } from './purge-booking-pii'
 import type { PurgeUnverifiedBookingsDeps } from './purge-unverified-bookings'
 import type { CreateAgentBookingDeps } from './create-agent-booking'
 import type { GetAgentBookingStatusDeps } from './get-agent-booking-status'
+import type { GetAgentAvailabilityDeps } from './get-agent-availability'
 import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 
@@ -131,7 +133,12 @@ export function getAgentBookingStatusDeps(): GetAgentBookingStatusDeps {
 
 /** BOOK-003: the OpenAPI description an agent reads. */
 export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agentBookingDirectory } {
-  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL }
+  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL, now }
+}
+
+/** BOOK-009 W4: the public agent API (availability), on the create path's limiter. */
+export function getAgentAvailabilityDeps(): GetAgentAvailabilityDeps {
+  return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now }
 }
 
 /** BOOK-003: the webhook's confirm-code check. */
@@ -148,6 +155,16 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
       } catch (err) {
         console.warn('[AgentBooking] collection statement not sent:', (err as Error).name)
       }
+    },
+    // BOOK-009 F1 (P2-2): the refusal reply's booking link, as the BOOK keyword reply builds it.
+    async bookingLink(restaurantId, phone, config) {
+      const tokens = {
+        findLiveChatToken,
+        mint: ({ restaurantId: r, phone: p, ttlHours }: { restaurantId: string; phone: string; ttlHours: number | null }) =>
+          mintBookingToken({ restaurantId: r, phone: p, source: 'chat', campaignId: null, ttlHours }),
+      }
+      const target = await resolveBookingReplyTarget({ tokens, appUrl: appUrl() ?? undefined }, { restaurantId, phone, config })
+      return target?.url ?? null
     },
     privacyUrl: PRIVACY_URL,
     now,

@@ -16,6 +16,10 @@
  * text and the allowed placeholders — and whether this member may edit it.
  * F1: the save writes only the form's fields onto the stored config (a
  * compare-and-swap, C2), and GET reads booking_config once (C10).
+ * BOOK-009: PUT accepts `bookingHours` (admin only, validated per path, R1);
+ * GET returns it, without special dates already past (spec S1.4), and its
+ * rules `summary` per language (null when hours are not set), the same text
+ * the agents get.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -29,6 +33,24 @@ import {
   provisionBookingTemplatesFor,
 } from '@/application/booking/booking-template-deps'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
+import { hongKongToday } from '@/domain/services/booking-submission'
+import { summarizeForAgents } from '@/domain/services/agent-booking'
+import { activeSchedule, withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
+
+/**
+ * BOOK-009: the hours as the form loads them, and their summary in both
+ * languages. F1: the window-filtered text agents get (P3-5), only while the
+ * schedule switch is on (P2-1; off = any time, no summary).
+ */
+function hoursView(config: BookingConfig) {
+  const today = hongKongToday(new Date())
+  const hours = config.bookingHours ? withoutPastSpecialDates(config.bookingHours, today) : null
+  const schedule = activeSchedule(hours)
+  const summary = schedule
+    ? { zh_hk: summarizeForAgents(schedule, config.maxPartySize, 'zh_hk', today), en: summarizeForAgents(schedule, config.maxPartySize, 'en', today) }
+    : null
+  return { bookingHours: hours, summary }
+}
 
 function authError(error: unknown) {
   return error instanceof AuthError ? NextResponse.json({ error: error.message }, { status: error.statusCode }) : null
@@ -47,6 +69,7 @@ export async function GET() {
       templates,
       canEditBookingUrl: admin,
       templateEditor: { canEdit: admin, slots },
+      ...hoursView(config),
     })
   } catch (error) {
     const denied = authError(error)
@@ -77,7 +100,7 @@ export async function PUT(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
     }
-    const result = parseBookingSettings(body, await getBookingConfig(ctx.restaurantId))
+    const result = parseBookingSettings(body, await getBookingConfig(ctx.restaurantId), hongKongToday(new Date()))
     if (!result.ok) return NextResponse.json({ error: 'invalid', fields: result.errors }, { status: 400 })
     await saveBookingSettings(ctx.restaurantId, result.config)
     const templates = await templatesAfterSave(ctx.restaurantId, result.config)

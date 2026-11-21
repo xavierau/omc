@@ -1,0 +1,97 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-009
+
+ ✓ src/application/booking/__tests__/booking-page-schedule-switch.test.ts > resolveBookingLink with the schedule switch off > terms only (every day "closed" underneath) → the form, not the off page, with the terms as details 19ms
+ ✓ src/application/booking/__tests__/booking-page-schedule-switch.test.ts > resolveBookingLink with the schedule switch off > nothing set → exactly the hours-null view (no schedule, no details) 1ms
+ ✓ src/application/booking/__tests__/booking-page-schedule-switch.test.ts > resolveBookingLink with the schedule switch off > switch on with no bookable time is still the off page 2ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > resolveBookingHours: scheduleEnabled > stored before F1 (no switch) and no period anywhere → off, so terms alone no longer close booking 1ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > resolveBookingHours: scheduleEnabled > stored before F1 with a weekday period → on (pre-F1 behaviour kept) 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > resolveBookingHours: scheduleEnabled > stored before F1 with only a special-date period → on 2ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > resolveBookingHours: scheduleEnabled > an explicit switch wins, either way 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > resolveBookingHours: scheduleEnabled > P3-1: a stored mapUrl that is not a safe https link resolves to "" 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > parseBookingHoursSettings: scheduleEnabled > round-trips the switch both ways 1ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > parseBookingHoursSettings: scheduleEnabled > absent (an older client) → derived from the periods, like the resolver 1ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > parseBookingHoursSettings: scheduleEnabled > not a boolean → its own path error, nothing saved 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > the shared rule check with the switch off > terms only, switch off → any time is accepted, the terms tick is required 16ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > the shared rule check with the switch off > info only, switch off → any time, no tick 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > the shared rule check with the switch off > table time only, switch off → any time, no tick 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > the shared rule check with the switch off > switching off a real schedule returns to any time; switching it on refuses again 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > AC-5: what counts as set > switch off with no terms, info or table time behaves as unset 0ms
+ ✓ src/domain/value-objects/__tests__/booking-hours-schedule-switch.test.ts > AC-5: what counts as set > switch off with any detail, or switch on, is in effect; only switch on is a schedule 0ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 the confirm step re-checks hours > code sent after the minimum notice passed → declined "rules", not promoted, reply with alternatives and the link 26ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 the confirm step re-checks hours > the admin closed that day between POST and code → declined "rules" with the next open day suggested 8ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 the confirm step re-checks hours > still bookable → promoted and acknowledged exactly as before 6ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 the confirm step re-checks hours > the schedule switched off after POST → any time is fine, promoted 2ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 terms at the confirm step > terms added after a no-terms POST → not promoted (stays unverified), reply asks to rebook via the agent or the link 2ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 terms at the confirm step > the confirmed reply carries terms only when the booking stored them 2ms
+ ✓ src/application/booking/__tests__/agent-booking-confirm-recheck.test.ts > P2-2 terms at the confirm step > no terms on the booking and none now → the statement only (current terms are never appended) 1ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > PUT booking settings with bookingHours > AC-1: saves the hours with the rev guard on the session tenant, keeping fields the form does not own 28ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > PUT booking settings with bookingHours > a save without bookingHours (today’s form) keeps the stored hours 2ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > PUT booking settings with bookingHours > AC-2: bad hours → 400 with per-path field errors, nothing written 2ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > PUT booking settings with bookingHours > R1: staff cannot save booking hours 1ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > GET booking settings with bookingHours > AC-1/AC-4: returns the hours and the summary in both languages 2ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > GET booking settings with bookingHours > S1.4: special dates already past drop out of what the form loads 1ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > GET booking settings with bookingHours > F1 P3-5: a special date past the window is left out of the summary, as agents read it 1ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > GET booking settings with bookingHours > F1 P2-1: schedule switched off → the hours load, no summary (diners pick any time) 1ms
+ ✓ src/app/api/dashboard/settings/booking/__tests__/booking-hours.route.test.ts > GET booking settings with bookingHours > AC-5: never configured → bookingHours and summary are null 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > AC-11 per date: closed weekday and special date are not open; times on the grid; minimum notice applies today 28ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > AC-11 a day whose every slot is inside the minimum notice is not open 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > AC-11 dates past the window are not open 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > AC-11 party_size within the limit is accepted 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > AC-11 terms are returned in both languages when set 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 from missing → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 from not a date → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 from in the past → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 days missing → 400 invalid_request 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 days 0 → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 days above the 31-date window → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 days not a number → 400 invalid_request 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 party_size above the max → 400 invalid_request 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 party_size 0 → 400 invalid_request 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 days cap is 31 even when the window is longer 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 unknown publicId, agent booking off → 404 like POST /bookings 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 GET /availability with booking hours > R2 same per-IP limiter as POST /bookings: the 11th call in a minute → 429 with Retry-After 4ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-14 GET /availability without booking hours > AC-14 every date open, times null (any time); interval, table time and terms null 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-14 GET /availability without booking hours > AC-14 days 32 → 400 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 outside_hours 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 closed_day (Monday) 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 closed_day (special date) 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 too_soon (3 h notice) 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 too_far → 400 with suggested_times inside the window 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 a non-hours error carries no suggested_times 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-12 POST /bookings outside the rules → field code + suggested_times, nothing stored > AC-12 a time on the grid books as before (202) 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-13 terms: required, stored on the row > AC-13 without accept_terms → 400 fields.accept_terms terms_required, nothing stored 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-13 terms: required, stored on the row > AC-13 accept_terms not a boolean → 400 invalid 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-13 terms: required, stored on the row > AC-13 accept_terms: true → 202 and the row stores when and the exact text (zh-HK, blank line, en) 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-14 hours not set: POST unchanged, accept_terms accepted but not required > AC-14 any time books; accept_terms true is accepted and stores nothing 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 OpenAPI route carries the hours only when set > AC-11 hours set → /availability listed and the summary in the description 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > AC-11 OpenAPI route carries the hours only when set > AC-14 hours null → no /availability path, no summary 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P3-4: /availability query edges > days = aheadDays + 1 covers the whole window in one call 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P3-4: /availability query edges > from past today + max(aheadDays, 90) → 400 too_far; the reach itself is fine 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P2-1: the schedule switch off > PAP POST takes any time again; terms still need accept_terms 2ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P2-1: the schedule switch off > /availability: every date open at any time, with the table time and terms 0ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P2-1: the schedule switch off > OpenAPI: no schedule summary, no /availability, no suggested_times; the terms and table time are stated 1ms
+ ✓ src/app/api/poppy/__tests__/agent-booking-hours-routes.test.ts > F1 P2-1: the schedule switch off > AC-5: switch off and nothing else set → the same document as hours null 1ms
+ ✓ src/application/agent/__tests__/agent-booking-schedule-switch.test.ts > AI prompt with the schedule switch off > nothing else set → exactly the hours-null instruction 2ms
+ ✓ src/application/agent/__tests__/agent-booking-schedule-switch.test.ts > AI prompt with the schedule switch off > terms and table time → no schedule summary or suggestedTimes rule; table time, terms and read-back present 1ms
+ ✓ src/application/agent/__tests__/agent-booking-schedule-switch.test.ts > AI prompt with the schedule switch off > switch on → the schedule summary and the suggestedTimes rule come back 1ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > schedule off: the BOOK-001 form with terms, info and table time > terms only → legacy date/time inputs, the terms text and the required tick 17ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > schedule off: the BOOK-001 form with terms, info and table time > info only → the info header above the legacy form, no terms block 3ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > schedule off: the BOOK-001 form with terms, info and table time > table time only → the table time line on the legacy form 2ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > schedule off: the BOOK-001 form with terms, info and table time > AC-5: no details → none of the BOOK-009 blocks 1ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > P3-3: refusals the page cannot place > an error on a field the form does not render goes to the notice; placed ones do not 1ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > P3-3: refusals the page cannot place > terms_required refreshes the slot page and keeps every value (the time too) 1ms
+ ✓ src/components/booking/__tests__/booking-form-details.test.tsx > P3-3: refusals the page cannot place > a times-changed refusal still refreshes and clears only the time 0ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > render > a restaurant without hours: switch off, schedule blocks hidden, details editable 20ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > render > switch on: every block shows, the off hint does not 18ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > render > a switched-off schedule keeps its periods stored but hides them 5ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > save payload > terms only saves with the switch off 1ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > save payload > info only saves with the switch off 0ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > save payload > table time only saves with the switch off 0ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > save payload > an untouched form still sends no bookingHours (AC-5) 1ms
+ ✓ src/components/dashboard/__tests__/booking-settings-schedule-switch.test.tsx > save payload > the switch round-trips: on, then off, then on again with the periods kept 1ms
+
+ Test Files  8 passed (8)
+      Tests  89 passed (89)
+   Start at  09:57:17
+   Duration  791ms (transform 1.60s, setup 0ms, import 2.69s, tests 282ms, environment 1ms)

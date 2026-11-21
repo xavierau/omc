@@ -5,6 +5,7 @@
  */
 import { NextResponse } from 'next/server'
 import { applyBookingHeaders } from '@/app/b/booking-security-headers'
+import type { SuggestedTime } from '@/domain/services/booking-hours'
 
 export type AgentApiError = 'invalid_request' | 'rate_limited' | 'not_found' | 'idempotency_conflict' | 'server_error'
 
@@ -16,9 +17,15 @@ export function agentError(
   error: AgentApiError,
   status: number,
   description: string,
-  extra: { fields?: Record<string, string>; retryAfterSec?: number } = {}
+  extra: { fields?: Record<string, string>; retryAfterSec?: number; suggestedTimes?: SuggestedTime[] } = {}
 ): NextResponse {
-  const body = { error, error_description: description, ...(extra.fields ? { fields: extra.fields } : {}) }
+  const body = {
+    error,
+    error_description: description,
+    ...(extra.fields ? { fields: extra.fields } : {}),
+    // BOOK-009 (spec AC-12): bookable alternatives when the booking hours refused the slot.
+    ...(extra.suggestedTimes ? { suggested_times: extra.suggestedTimes } : {}),
+  }
   return agentJson(body, status, extra.retryAfterSec ? { 'Retry-After': String(extra.retryAfterSec) } : undefined)
 }
 

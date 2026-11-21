@@ -23,7 +23,7 @@ function toResponse(result: CreateAgentBookingResult) {
     case 'not_found':
       return notFound()
     case 'invalid':
-      return agentError('invalid_request', 400, 'A field is missing or invalid.', { fields: result.errors })
+      return agentError('invalid_request', 400, 'A field is missing or invalid.', { fields: result.errors, suggestedTimes: result.suggestedTimes })
     case 'idempotency_conflict':
       return agentError('idempotency_conflict', 409, result.description)
     default:

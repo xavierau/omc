@@ -38,7 +38,7 @@ const BOOKING_COLUMNS =
  * webhook) do not depend on 085's columns.
  */
 export const STAFF_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
 const POSTGREST_MAX_ROWS = 1000
@@ -76,6 +76,8 @@ interface BookingRow {
   decision_message_status: DecisionMessageStatus | null
   replaces_booking_id?: string | null
   cancelled_by?: BookingCancelledBy | null
+  terms_accepted_at?: string | null
+  terms_text?: string | null
 }
 
 export function toBookingRequest(row: BookingRow): BookingRequest {
@@ -99,6 +101,7 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
     decisionMessageStatus: row.decision_message_status ?? null,
     ...(row.replaces_booking_id !== undefined ? { replacesBookingId: row.replaces_booking_id } : {}),
     ...(row.cancelled_by !== undefined ? { cancelledBy: row.cancelled_by } : {}),
+    ...(row.terms_accepted_at !== undefined ? { termsAcceptedAt: row.terms_accepted_at, termsText: row.terms_text ?? null } : {}),
   }
 }
 
@@ -119,6 +122,8 @@ export async function insertBookingRequest(request: NewBookingRequest): Promise<
       campaign_id: request.campaignId,
       token: request.token,
       ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
+      // BOOK-009: only a booking with accepted terms writes 091's columns.
+      ...(request.termsAcceptedAt ? { terms_accepted_at: request.termsAcceptedAt, terms_text: request.termsText } : {}),
     })
     .select(BOOKING_COLUMNS)
     .single()

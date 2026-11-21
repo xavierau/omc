@@ -3,6 +3,8 @@
  * description the restaurant's poppy.json lists (PAP section 7). Its
  * description explains the confirm-on-WhatsApp flow and carries the
  * collection statement (R44). 404 when agent booking is off (R43).
+ * BOOK-009 W4: with booking hours it also describes the rules, the terms and
+ * GET /availability (spec AC-11, AC-13); without them it is unchanged.
  */
 import { resolveAgentBookingTenant } from '@/application/booking/resolve-agent-booking-tenant'
 import { agentOpenApiFor } from '@/application/booking/agent-booking-settings'
@@ -17,7 +19,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pub
     const deps = agentOpenApiDeps()
     const tenant = await resolveAgentBookingTenant(deps.directory, publicId)
     if (!tenant) return notFound()
-    const document = await agentOpenApiFor(deps, { restaurantId: tenant.restaurantId, publicId, maxPartySize: tenant.config.maxPartySize })
+    const { maxPartySize, bookingHours } = tenant.config
+    const document = await agentOpenApiFor(deps, { restaurantId: tenant.restaurantId, publicId, maxPartySize, bookingHours })
     return agentJson(document, 200)
   } catch (err) {
     console.error('[AgentBooking] openapi failed:', (err as Error).name)

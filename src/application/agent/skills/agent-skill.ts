@@ -6,6 +6,15 @@
  * never reads instructions for a tool it does not have. Core is always active.
  */
 import type { AgentToolName } from '@/domain/value-objects/agent-config'
+import type { BookingHours } from '@/domain/value-objects/booking-hours'
+
+/** BOOK-009: the tenant's structured booking hours for this job; null = not set (the pre-BOOK-009 prompt). */
+export interface SkillBookingHours {
+  hours: BookingHours
+  maxPartySize: number
+  /** Hong Kong today: only special dates inside the booking window are listed. */
+  today: string
+}
 
 export type AgentSkillId = 'core' | 'loyalty' | 'booking'
 
@@ -14,6 +23,8 @@ export interface SkillPromptContext {
   offeredTools: readonly AgentToolName[]
   /** booking_config.bookingRules (tenant text, trimmed; '' when none). */
   bookingRules: string
+  /** BOOK-009: absent or null = no booking hours. */
+  bookingHours?: SkillBookingHours | null
 }
 
 export interface AgentSkill {

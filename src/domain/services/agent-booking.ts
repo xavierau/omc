@@ -6,9 +6,16 @@
  * booking page, identity fields are REJECTED, not dropped (R33): the tenant
  * comes only from the agent booking id in the path. Field names are the API's
  * snake_case; `party_size` maps to the form's `partySize`.
+ *
+ * BOOK-009 W4: `accept_terms` maps to the form's `acceptTerms` (the shared
+ * parser decides whether it is required). Agents of both kinds (personal
+ * agents through PAP, our AI reply agent) get the same alternatives for a
+ * slot the booking hours refuse, and the same rules summary.
  */
 import type { AgentBooking, BookingStatus } from '@/domain/entities/booking-request'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
+import type { BookingHours, BookingHoursLanguage } from '@/domain/value-objects/booking-hours'
+import { suggestTimes, summarize, windowEnd, type BookingClock, type SuggestedTime } from './booking-hours'
 import {
   parseBookingSubmission,
   type BookingFieldErrors,
@@ -25,7 +32,7 @@ export type ParseAgentBookingResult =
   | { ok: true; submission: AgentBookingSubmission }
   | { ok: false; errors: BookingFieldErrors }
 
-export const AGENT_BOOKING_FIELDS = ['date', 'time', 'party_size', 'name', 'phone', 'notes'] as const
+export const AGENT_BOOKING_FIELDS = ['date', 'time', 'party_size', 'name', 'phone', 'notes', 'accept_terms'] as const
 const E164 = /^\+[1-9]\d{7,14}$/
 
 function parsePhone(raw: unknown, errors: BookingFieldErrors): string {
@@ -44,16 +51,57 @@ export function parseAgentBookingBody(body: unknown, rules: BookingSubmissionRul
   }
   const phone = parsePhone(b.phone, errors)
   const form = parseBookingSubmission(
-    { date: b.date, time: b.time, partySize: b.party_size, name: b.name, notes: b.notes },
+    { date: b.date, time: b.time, partySize: b.party_size, name: b.name, notes: b.notes, acceptTerms: b.accept_terms },
     rules
   )
   if (!form.ok) {
-    const { partySize, ...rest } = form.errors
-    Object.assign(errors, rest, partySize ? { party_size: partySize } : {})
+    const { partySize, acceptTerms, ...rest } = form.errors
+    Object.assign(errors, rest, partySize ? { party_size: partySize } : {}, acceptTerms ? { accept_terms: acceptTerms } : {})
   }
   if (Object.keys(errors).length > 0 || !form.ok) return { ok: false, errors }
   return { ok: true, submission: { ...form.submission, phone } }
 }
+
+const HOURS_REFUSALS: readonly string[] = ['closed_day', 'outside_hours', 'too_soon', 'too_far']
+
+/**
+ * BOOK-009 (spec AC-12, AC-16): when the booking hours refused the requested
+ * slot, up to 3 bookable alternatives from W1's `suggestTimes` (same date
+ * first, nearest first). A date past the window gets the window's last
+ * bookable times, else the earliest ones. null when no hours code is present.
+ */
+export function suggestionsForRefusal(
+  hours: BookingHours | null | undefined,
+  errors: BookingFieldErrors,
+  requested: { date: string; time: string; clock: BookingClock }
+): SuggestedTime[] | null {
+  if (!hours || !(HOURS_REFUSALS.includes(errors.date) || HOURS_REFUSALS.includes(errors.time))) return null
+  const { date, time, clock } = requested
+  if (errors.time !== 'too_far') return suggestTimes(hours, date, time, clock)
+  const last = suggestTimes(hours, windowEnd(hours, clock.today), time, clock)
+  return last.length > 0 ? last : suggestTimes(hours, clock.today, time, clock)
+}
+
+/** BOOK-009 (spec AC-11, AC-15): the rules summary agents get, listing only the special dates inside the booking window. */
+export function summarizeForAgents(hours: BookingHours, maxPartySize: number, lang: BookingHoursLanguage, today: string): string {
+  const last = windowEnd(hours, today)
+  const special = hours.special.filter((s) => s.date >= today && s.date <= last)
+  return summarize({ ...hours, special }, maxPartySize, lang)
+}
+
+/**
+ * BOOK-009 (spec AC-11, threat R2): /availability answers at most this many
+ * dates. F1 (P3-4): the window is today … today + aheadDays, aheadDays + 1
+ * dates, so one call can cover it. `schedule` = the active schedule (null = any time).
+ */
+export const AVAILABILITY_MAX_DAYS = 31
+export const availabilityMaxDays = (schedule: BookingHours | null) =>
+  schedule ? Math.min(AVAILABILITY_MAX_DAYS, schedule.aheadDays + 1) : AVAILABILITY_MAX_DAYS
+
+/** F1 (P3-4): `from` may be at most this many days after today (the window, and never less than 90). */
+export const AVAILABILITY_FROM_MIN_REACH_DAYS = 90
+export const availabilityFromReach = (schedule: BookingHours | null) =>
+  Math.max(schedule?.aheadDays ?? 0, AVAILABILITY_FROM_MIN_REACH_DAYS)
 
 /** R46: an Idempotency-Key replay must carry the same booking. */
 export function isSameAgentSubmission(booking: AgentBooking, s: AgentBookingSubmission): boolean {
