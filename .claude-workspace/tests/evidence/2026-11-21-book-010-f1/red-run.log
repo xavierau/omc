@@ -1,0 +1,26 @@
+# red run: F1 tests (5cae2c47) over the pre-fix implementation (a4416924)
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/application/agent/__tests__/agent-booking-room.test.ts > F1 P2-1 rules-refusal suggestions skip full times > propose_booking on a closed day
+AssertionError: expected [ { date: '2026-11-22', …(1) }, …(2) ] to not deep equally contain { date: '2026-11-22', time: '19:00' }
+ FAIL  src/application/agent/__tests__/agent-booking-room.test.ts > F1 P2-1 rules-refusal suggestions skip full times > create_booking_request after the day closed
+AssertionError: expected [ { date: '2026-11-22', …(1) }, …(2) ] to not deep equally contain { date: '2026-11-22', time: '19:00' }
+ FAIL  src/application/agent/__tests__/agent-booking-room.test.ts > F1 P2-1 rules-refusal suggestions skip full times > confirm_booking_change after the new day closed
+AssertionError: expected [ { date: '2026-11-22', …(1) }, …(2) ] to not deep equally contain { date: '2026-11-22', time: '19:00' }
+ FAIL  src/application/agent/__tests__/agent-booking-room.test.ts > F1 P3-1 one room read per refusal (AI propose) > propose_booking on a full slot reads the window once
+AssertionError: expected [ …(2) ] to have a length of 1 but got 2
+ FAIL  src/app/api/poppy/__tests__/agent-booking-room-routes.test.ts > F1 P2-1 rules-refusal suggestions skip full and stopped times > POST on a closed day: suggested_times never hold a full or stopped time
+AssertionError: expected [ { date: '2026-11-22', …(1) }, …(2) ] to not deep equally contain { date: '2026-11-22', time: '19:00' }
+ FAIL  src/app/api/poppy/__tests__/agent-booking-room-routes.test.ts > F1 P2-1 rules-refusal suggestions skip full and stopped times > too_far: the window-end suggestions skip a full time there
+AssertionError: expected [ { date: '2026-12-20', …(1) }, …(2) ] to not deep equally contain { date: '2026-12-20', time: '19:00' }
+ FAIL  src/app/api/poppy/__tests__/agent-booking-room-routes.test.ts > F1 P2-1 rules-refusal suggestions skip full and stopped times > code step: the day closed after the POST → the reply never offers a full time
+AssertionError: expected '你要求的 2026-11-21 19:00 已不能預訂，這個訂座請求沒有送…' not to contain '2026-11-22 19:00'
+ FAIL  src/app/api/poppy/__tests__/agent-booking-room-routes.test.ts > F1 P3-1 one room read per refusal > a full slot on POST → readRoom called once
+AssertionError: expected [ …(2) ] to have a length of 1 but got 2
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity.test.ts > F1 review fixes on stops and badges > P3-3: a repeated stop answers with the stored stop (first stopper, first time)
+AssertionError: expected { date: '2026-11-21', …(5) } to deeply equal { date: '2026-11-21', …(5) }
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity.test.ts > F1 review fixes on stops and badges > P3-2: DELETE removes a stored stop whose period label is no longer in the hours
+AssertionError: expected 400 to be 200 // Object.is equality
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-capacity.test.ts > F1 review fixes on stops and badges > P3-5: today is judged over the times a diner can still pick (notice), as the diner page
+AssertionError: expected { full: false, stopped: false } to deeply equal { full: true, stopped: false }
+ Test Files  3 failed (3)
+      Tests  11 failed | 44 passed (55)

@@ -54,6 +54,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-21-book-010-review](reviews/2026-11-21-book-010-review.md) — PR #223 substitute review: CONDITIONAL, 0 P0/P1, 1 P2, 5 P3 (verifier)
 - [2026-11-20-book-009-review](reviews/2026-11-20-book-009-review.md) — PR #222 substitute review: CONDITIONAL, 0 P0/P1, 2 P2, 6 P3 (verifier)
 - [2026-11-20-wonb-020-r6-re-review](reviews/2026-11-20-wonb-020-r6-re-review.md) — PR #212 r6 re-review: APPROVED, J1–J4 fixed, 4 minor (verifier)
 - [2026-11-19-agent-003-rereview](reviews/2026-11-19-agent-003-rereview.md) — PR #195 fix round r4 re-review: APPROVED — F1–F10 closed, 1 Important (N1 job-error claim throw → no response), 2 Minor (verifier)
@@ -129,6 +130,7 @@ no artifact files were lost._
 - [2026-11-21-book-010-w2-impl](artifacts/2026-11-21-book-010-w2-impl.md) — W2 UI: limits settings, capacity + stops, month badges, over-limit prompt, diner 已滿 (dev)
 - [2026-11-21-book-010-w2-handoff](artifacts/2026-11-21-book-010-w2-handoff.md) — W2 handoff: done, not pushed, walked on local stack (dev)
 - [2026-11-21-book-010-i-impl](artifacts/2026-11-21-book-010-i-impl.md) — I-010: BOOK-009 F1 merged, room rules follow schedule switch, meal-full display (dev)
+- [2026-11-21-book-010-f1-handoff](artifacts/2026-11-21-book-010-f1-handoff.md) — F1 review fixes (P2-1, P3-1..5, migration 093): done, PR #223 updated, not merged (dev)
 - [2026-11-21-book-010-i-handoff](artifacts/2026-11-21-book-010-i-handoff.md) — I-010 handoff: done, PR #223 stacked on #222, not merged (dev)
 - [2026-11-20-book-009-i-handoff](artifacts/2026-11-20-book-009-i-handoff.md) — I-009 handoff: W4 merged, suite green, walked locally, PR #222 (dev)
 - [2026-11-20-book-009-f1-handoff](artifacts/2026-11-20-book-009-f1-handoff.md) — F1 review fixes P2-1/P2-2 + 4 P3: schedule switch, confirm re-check (dev)

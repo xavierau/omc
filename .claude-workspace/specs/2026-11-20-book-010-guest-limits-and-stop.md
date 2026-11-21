@@ -141,6 +141,7 @@ WhatsApp alert to staff; waitlist.
 - Phone layout of the capacity block beyond stacking it above the day's bookings list.
 - A stop set on a date in the past: ignored.
 - Expired `unverified` agent bookings never counted, so nothing to release.
+- Renaming a period or changing the interval after a stop: the old stop no longer applies; staff can still delete it (BOOK-010 F1, review P3-2, main ruling 2026-11-21).
 
 ## Dependencies & Risks
 
