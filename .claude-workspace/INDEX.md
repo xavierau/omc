@@ -101,6 +101,7 @@ no artifact files were lost._
 - [evidence/2026-11-20-book-009-w23](tests/evidence/2026-11-20-book-009-w23/) — W2/W3 harness screenshots D1–D3, A1–A2 + layout audits (dev)
 - [evidence/2026-11-20-book-009-w4](tests/evidence/2026-11-20-book-009-w4/w4-routes.log) — PAP availability + refused POST route-level log (dev)
 - [evidence/2026-11-20-book-009-i](tests/evidence/2026-11-20-book-009-i/walk-log.md) — I-009 walk on local Supabase 001–091 + PAP curl, suite/tsc logs (dev)
+- [evidence/2026-11-20-book-010-w1](tests/evidence/2026-11-20-book-010-w1/ac3-race.log) — 092 on scratch Postgres: last-seat race, fuzz, grants; PostgREST smoke; red/green, tsc, eslint, full suite (dev)
 - [2026-09-10-int-001-ui-walk](tests/2026-09-10-int-001-ui-walk.md) — WI-12: BLOCKED by DEV PostgREST schema-cache gap; list/create/inbound-rotate PASS, 2 frontend defects found (ui-test-runner)
 - [2026-09-09-tpl-011-video-header-ui](tests/2026-09-09-tpl-011-video-header-ui.md) — I-1 wiring walk PASS, 0 blocking layout (ui-test-runner)
 - [2026-08-28-tag-001-issues-138-139-acceptance](tests/2026-08-28-tag-001-issues-138-139-acceptance.md) — #138/#139 acceptance: **PASSED WITH GAPS** — 1 blocking (CSV tag feedback, fixed in review round 1), 11 non-blocking; mutation-tested; code-level only, no browser env (qa-engineer)
@@ -119,6 +120,8 @@ no artifact files were lost._
 - [2026-11-20-book-009-w23-handoff](artifacts/2026-11-20-book-009-w23-handoff.md) — W2/W3 handoff: done, not DB-walked (I-009) (dev)
 - [2026-11-20-book-009-w4-impl](artifacts/2026-11-20-book-009-w4-impl.md) — W4 PAP /availability, suggested_times, accept_terms; AI rules + terms (dev)
 - [2026-11-20-book-009-w4-handoff](artifacts/2026-11-20-book-009-w4-handoff.md) — W4 handoff: done, entity type edit outside scope awaits ruling (dev)
+- [2026-11-20-book-010-w1-impl](artifacts/2026-11-20-book-010-w1-impl.md) — W1 guest limits + stops: migration 092 atomic room check, every channel, capacity/stops APIs, over-limit confirm; API table for W2 (dev)
+- [2026-11-20-book-010-w1-handoff](artifacts/2026-11-20-book-010-w1-handoff.md) — W1 handoff: done, not pushed, 092 not on DEV/prod (dev)
 - [2026-11-20-book-009-i-handoff](artifacts/2026-11-20-book-009-i-handoff.md) — I-009 handoff: W4 merged, suite green, walked locally, PR #222 (dev)
 
 **AGENT-005 — agent skills + 訂座規則 (2026-11-20)**
