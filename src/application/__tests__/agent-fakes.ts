@@ -25,6 +25,7 @@ import type {
   TakeProposalResult,
 } from '@/domain/ports/agent-booking-proposal'
 import { FakeBookingRequests, FakeBookingSender, FakeBookingSettings } from '@/test-utils/fake-booking'
+import { FakeBookingRoom } from '@/application/booking/__tests__/fake-booking-room'
 import type { AgentLogFn } from '@/application/agent/admit-inbound-for-agent'
 import type { SendResult } from '@/domain/value-objects/send-result'
 
@@ -229,6 +230,8 @@ export interface FakeBookingWorld {
   memberIds: Map<string, string>
   /** R24 texts the tools sent. */
   texts: Array<{ restaurantId: string; phone: string; text: string }>
+  /** BOOK-010: a room store over `requests` (not in `deps`: tests opt in). */
+  room: FakeBookingRoom
 }
 
 /** BOOK-001 fakes behind the agent's booking tools (booking mode off until a test sets it). */
@@ -248,6 +251,7 @@ export function fakeBookingWorld(clock: FakeClock): FakeBookingWorld {
     proposals,
     unverified,
     memberIds,
+    room: new FakeBookingRoom(() => requests.rows, (r) => requests.insert(r)),
     deps: {
       getConfig: (restaurantId) => settings.getConfig(restaurantId),
       proposals,
