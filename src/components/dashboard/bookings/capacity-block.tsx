@@ -5,7 +5,8 @@
  * above the booking rows: "Accepting bookings" with the whole-day switch,
  * then one card per period. A switch that is on accepts bookings; turning it
  * off stops them for diners and agents (never staff). Nothing renders when
- * the restaurant has no booking hours.
+ * the restaurant has no booking hours; with hours kept but the schedule
+ * switch off it says "Booking hours are off" instead of switches.
  */
 import { useTranslations } from 'next-intl'
 import { Switch } from '@/components/ui/switch'
@@ -23,8 +24,19 @@ export interface CapacityBlockProps {
   pendingIn?: (period: CapacityPeriod) => number
 }
 
+function HoursOff() {
+  const t = useTranslations('bookings.capacity')
+  return (
+    <section data-testid="bookings-capacity-off" aria-labelledby="bookings-capacity-title" className="space-y-1 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
+      <h3 id="bookings-capacity-title" className="font-semibold text-foreground">{t('title')}</h3>
+      <p className="text-sm text-muted-foreground">{t('hoursOff')}</p>
+    </section>
+  )
+}
+
 export function CapacityBlock({ day, error, note, onToggle, pendingIn = () => 0 }: CapacityBlockProps) {
   const t = useTranslations('bookings.capacity')
+  if (day.hoursOff) return <HoursOff />
   if (!day.hoursSet || day.periods.length === 0) return null
   return (
     <section data-testid="bookings-capacity" aria-labelledby="bookings-capacity-title" className="space-y-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">

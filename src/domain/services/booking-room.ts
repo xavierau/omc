@@ -69,11 +69,13 @@ export type SlotFits = (date: string, time: string) => boolean
 
 /**
  * Whether room rules (limits and stops) apply to this restaurant at all:
- * only when booking hours are set, since periods and slots come from them.
- * Without hours every channel is exactly BOOK-009 (spec AC-3).
+ * only when booking hours are set and the schedule is in use (BOOK-009's
+ * `scheduleEnabled` switch on), since periods and slots come from them.
+ * Without hours, or with the switch off, every channel is exactly BOOK-009
+ * (spec AC-3); stored limits and stops come back when it is switched on.
  */
 export function roomApplies(hours: BookingHours | null | undefined): hours is BookingHours {
-  return !!hours
+  return !!hours && hours.scheduleEnabled
 }
 
 export const periodKey = (p: BookingPeriod): string => p.label ?? `${p.first}-${p.last}`

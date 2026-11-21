@@ -31,7 +31,8 @@ export const CAPACITY_MAX_DAYS = 62
 
 export type CapacityQuery = { date: string | null; from: string | null; to: string | null }
 
-export type DayCapacityBody = CapacityDay & { hoursSet: boolean }
+/** `hoursOff`: hours stored with BOOK-009's schedule switch off (no limits or stops apply; the block says so). */
+export type DayCapacityBody = CapacityDay & { hoursSet: boolean; hoursOff?: boolean }
 export type CapacityResult =
   | { ok: true; body: DayCapacityBody | { from: string; to: string; days: Record<string, CapacityBadge> } }
   | { ok: false; errors: BookingFieldErrors }
@@ -62,7 +63,8 @@ export async function getBookingCapacity(deps: BookingCapacityDeps, input: { res
   const hours = (await deps.getConfig(input.restaurantId)).bookingHours
   const room = roomApplies(hours) ? await deps.room.readRoom(input.restaurantId, range.from, range.to) : EMPTY_ROOM
   if (input.query.date !== null) {
-    return { ok: true, body: roomApplies(hours) ? { ...capacityDay(hours, range.from, room), hoursSet: true } : NO_CAPACITY(range.from) }
+    if (roomApplies(hours)) return { ok: true, body: { ...capacityDay(hours, range.from, room), hoursSet: true } }
+    return { ok: true, body: hours ? { ...NO_CAPACITY(range.from), hoursSet: true, hoursOff: true } : NO_CAPACITY(range.from) }
   }
   const badge = (date: string): CapacityBadge => (roomApplies(hours) ? capacityBadge(hours, date, room) : { full: false, stopped: false })
   return { ok: true, body: { ...range, days: Object.fromEntries(datesIn(range.from, range.to).map((d) => [d, badge(d)])) } }

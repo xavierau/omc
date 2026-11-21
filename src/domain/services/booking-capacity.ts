@@ -100,6 +100,23 @@ export function capacityDay(hours: BookingHours, date: string, room: RoomState):
   }
 }
 
+/** The period's meal limit is reached (its slots then read "Meal full", not "Full"). */
+export function mealReached(period: Pick<CapacityPeriod, 'guests' | 'limit'>): boolean {
+  return period.limit !== null && period.guests >= period.limit
+}
+
+export type SlotBadge = 'full' | 'meal_full' | null
+
+/**
+ * The staff slot badge: "Full" only when the slot itself is full (its own
+ * limit) or stopped; "Meal full" when only the period's meal limit is
+ * reached, so "0 / 30" never reads as a full slot.
+ */
+export function slotBadge(period: Pick<CapacityPeriod, 'guests' | 'limit'>, slot: CapacitySlot): SlotBadge {
+  if (slot.stopped || (slot.limit !== null && slot.guests >= slot.limit)) return 'full'
+  return mealReached(period) ? 'meal_full' : null
+}
+
 /** The month cell's badge (spec S3, AC-9): no slot fits a party of 1 → full; the whole day stopped → stopped. */
 export function capacityBadge(hours: BookingHours, date: string, room: RoomState): CapacityBadge {
   const fits = fitsFor(hours, room, 1)

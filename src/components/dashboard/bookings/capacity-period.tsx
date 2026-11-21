@@ -4,14 +4,17 @@
  * BOOK-010 S3 (S1 mockup): one period of the Capacity block, "26 / 60
  * guests" with a bar (only with a meal limit), its stop switch, and its slots
  * when expanded ("19:00 · 30 / 30 · Full", a stop switch each). A period
- * with a full or stopped slot starts expanded.
+ * with a full or stopped slot starts expanded. A full period says so (Full,
+ * bar in the full colour); when only its meal limit is reached its slots
+ * read "N / limit · Meal full", and "Full" stays for a slot that is itself
+ * full or stopped (I-010).
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronRight, CirclePause } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
-import type { CapacityPeriod, CapacitySlot, StopInfo } from '@/domain/services/booking-capacity'
+import { slotBadge, type CapacityPeriod, type CapacitySlot, type SlotBadge, type StopInfo } from '@/domain/services/booking-capacity'
 import { capacityTestKey, hkClock, type PendingNote, type StopChoice } from './use-booking-capacity'
 
 export type ToggleStop = (choice: StopChoice, stopped: boolean, pending?: number) => void
@@ -28,7 +31,16 @@ export function StoppedLine({ info, testId }: { info: StopInfo; testId: string }
   )
 }
 
-function SlotRow({ slot, onToggle }: { slot: CapacitySlot; onToggle: ToggleStop }) {
+const BADGE = 'rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground'
+
+function FullBadge({ badge, testId }: { badge: SlotBadge; testId: string }) {
+  const t = useTranslations('bookings.capacity')
+  if (badge === 'full') return <span data-testid={`${testId}-full`} className={BADGE}>{t('full')}</span>
+  if (badge === 'meal_full') return <span data-testid={`${testId}-meal-full`} className={BADGE}>{t('mealFull')}</span>
+  return null
+}
+
+function SlotRow({ slot, badge, onToggle }: { slot: CapacitySlot; badge: SlotBadge; onToggle: ToggleStop }) {
   const t = useTranslations('bookings.capacity')
   const id = `bookings-capacity-slot-${capacityTestKey(slot.time)}`
   return (
@@ -38,7 +50,7 @@ function SlotRow({ slot, onToggle }: { slot: CapacitySlot; onToggle: ToggleStop 
         <span className="text-sm tabular-nums text-muted-foreground">
           {slot.limit === null ? t('slotGuests', { guests: slot.guests }) : t('slotOf', { guests: slot.guests, limit: slot.limit })}
         </span>
-        {slot.full ? <span data-testid={`${id}-full`} className="rounded-full bg-pending-soft px-2 py-0.5 text-xs font-semibold text-pending-foreground">{t('full')}</span> : null}
+        <FullBadge badge={badge} testId={id} />
         <span className="ml-auto" />
         <Switch checked={!slot.stopped} onCheckedChange={(on) => onToggle({ scope: 'slot', time: slot.time }, !on)}
           aria-label={t('accept', { name: slot.time })} data-testid={`${id}-stop`} />
@@ -48,11 +60,11 @@ function SlotRow({ slot, onToggle }: { slot: CapacitySlot; onToggle: ToggleStop 
   )
 }
 
-function GuestsBar({ guests, limit, testId }: { guests: number; limit: number; testId: string }) {
+function GuestsBar({ guests, limit, full, testId }: { guests: number; limit: number; full: boolean; testId: string }) {
   const width = Math.min(100, Math.round((guests / limit) * 100))
   return (
-    <div data-testid={testId} aria-hidden className="h-1.5 overflow-hidden rounded-full bg-muted">
-      <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+    <div data-testid={testId} data-state={full ? 'full' : 'open'} aria-hidden className="h-1.5 overflow-hidden rounded-full bg-muted">
+      <div className={cn('h-full rounded-full', full ? 'bg-pending-foreground' : 'bg-primary')} style={{ width: `${width}%` }} />
     </div>
   )
 }
@@ -80,18 +92,19 @@ export function CapacityPeriodCard({ period, note, pending, onToggle }: Capacity
         <span className="truncate text-sm tabular-nums text-muted-foreground">
           {period.limit === null ? t('guests', { guests: period.guests }) : t('guestsOf', { guests: period.guests, limit: period.limit })}
         </span>
+        {period.full && !period.stopped ? <span data-testid={`${id}-full`} className={cn(BADGE, 'shrink-0')}>{t('full')}</span> : null}
         <span className="ml-auto" />
         <Switch checked={!period.stopped} onCheckedChange={(on) => onToggle({ scope: 'period', periodLabel: period.key }, !on, pending)}
           aria-label={t('accept', { name })} data-testid={`${id}-stop`} />
       </div>
-      {period.limit !== null ? <GuestsBar guests={period.guests} limit={period.limit} testId={`${id}-bar`} /> : null}
+      {period.limit !== null ? <GuestsBar guests={period.guests} limit={period.limit} full={period.full} testId={`${id}-bar`} /> : null}
       <StoppedLine info={period} testId={`${id}-stopped`} />
       {note && note.key === period.key ? (
         <p data-testid="bookings-capacity-pending-note" role="status" className="text-xs text-pending-foreground">{t('pendingNote', { count: note.count })}</p>
       ) : null}
       {open ? (
         <ul className="pl-7">
-          {period.slots.map((s) => <SlotRow key={s.time} slot={s} onToggle={onToggle} />)}
+          {period.slots.map((s) => <SlotRow key={s.time} slot={s} badge={slotBadge(period, s)} onToggle={onToggle} />)}
         </ul>
       ) : null}
     </div>
