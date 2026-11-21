@@ -121,12 +121,17 @@ export type CreateAgentBookingResult =
   | { ok: false; reason: 'idempotency_conflict'; description: string }
   | { ok: false; reason: 'failed' }
 
-/**
- * R39: the per-IP limit every agent API call shares (POST /bookings and,
- * BOOK-009 threat R2, GET /availability), before any database read.
- */
+/** R39: the per-IP limit on POST /bookings, before any database read. */
 export function withinAgentIpLimit(limiter: RateLimiterPort, clientIp: string): Promise<boolean> {
   return withinWindow(limiter, `book003:agent:${clientIp}`, AGENT_SUBMIT_LIMIT_PER_MINUTE, 60)
+}
+
+/** BOOK-010-RL: agents poll while browsing times, so GET /availability gets its own, larger bucket. */
+export const AGENT_AVAILABILITY_LIMIT_PER_MINUTE = 30
+
+/** BOOK-009 threat R2: the per-IP limit on GET /availability, apart from POST's, before any database read. */
+export function withinAgentAvailabilityIpLimit(limiter: RateLimiterPort, clientIp: string): Promise<boolean> {
+  return withinWindow(limiter, `book010:agent-availability:${clientIp}`, AGENT_AVAILABILITY_LIMIT_PER_MINUTE, 60)
 }
 
 /** The per-IP-per-restaurant window is fixed, so the wait is at most one full window. */

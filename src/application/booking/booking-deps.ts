@@ -166,7 +166,7 @@ export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agent
   return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL, now }
 }
 
-/** BOOK-009 W4: the public agent API (availability), on the create path's limiter. */
+/** BOOK-009 W4: the public agent API (availability); same limiter, its own key and limit (BOOK-010-RL). */
 export function getAgentAvailabilityDeps(): GetAgentAvailabilityDeps {
   return { directory: agentBookingDirectory, limiter: getInboundRateLimiter(), now, room: bookingRoomStore }
 }

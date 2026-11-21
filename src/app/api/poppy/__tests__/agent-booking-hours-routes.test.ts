@@ -173,13 +173,30 @@ describe('AC-11 GET /availability with booking hours', () => {
     expect((await availability('from=2026-11-20&days=3')).status).toBe(404)
   })
 
-  it('R2 same per-IP limiter as POST /bookings: the 11th call in a minute → 429 with Retry-After', async () => {
-    for (let i = 0; i < 10; i++) expect((await availability('from=2026-11-20&days=1')).status).toBe(200)
+  // BOOK-010-RL (owner default 2026-11-21): availability has its own per-IP bucket
+  // of 30/min, apart from POST /bookings' 10/min, so browsing times never locks out booking.
+  it('R2 own per-IP limit: the 31st availability call in a minute → 429 with Retry-After; the 30th → 200', async () => {
+    for (let i = 0; i < 29; i++) expect((await availability('from=2026-11-20&days=1')).status).toBe(200)
+    expect((await availability('from=2026-11-20&days=1')).status).toBe(200)
     const res = await availability('from=2026-11-20&days=1')
     expect(res.status).toBe(429)
     expect(res.headers.get('Retry-After')).toBe('60')
-    expect((await post(booking())).status).toBe(429)
+    expect((await res.json()).error).toBe('rate_limited')
     expect((await availability('from=2026-11-20&days=1', { ip: '198.51.100.7' })).status).toBe(200)
+  })
+
+  it('R2 30 availability calls leave POST /bookings its full 10 per minute', async () => {
+    for (let i = 0; i < 30; i++) expect((await availability('from=2026-11-20&days=1')).status).toBe(200)
+    // An empty body passes the IP limit and stops at validation (400), so no other cap is touched.
+    for (let i = 0; i < 10; i++) expect((await post({})).status).toBe(400)
+    expect((await post({})).status).toBe(429)
+  })
+
+  it('R2 10 POST /bookings calls leave availability its full 30 per minute', async () => {
+    for (let i = 0; i < 10; i++) expect((await post({})).status).toBe(400)
+    expect((await post({})).status).toBe(429)
+    for (let i = 0; i < 30; i++) expect((await availability('from=2026-11-20&days=1')).status).toBe(200)
+    expect((await availability('from=2026-11-20&days=1')).status).toBe(429)
   })
 })
 
