@@ -1,0 +1,22 @@
+# forge site command 14542757 (read-only backup verification)
+# status finished
+2026-11-22T13:38:25Z
+total 36
+drwx------ ge 4096 Nov 21 16:20 .
+drwx------ ge 4096 Nov 21 16:20 ..
+-rw------- ge 5393 Nov 21 16:20 baseline-catalog.json
+-rw------- ge  545 Nov 21 16:20 baseline-ids.json
+-rw------- ge 7184 Nov 21 16:20 booking_requests.json
+-rw------- ge 1048 Nov 21 16:20 managed-backups.json
+-rw------- ge 2828 Nov 21 16:20 restaurants-booking-config.json
+93f426b0de12d6a8be5b8a7867e37c5639a9713da3e6015898eae0e682ca47cb  /home/forge/backups/2026-11-22-book-009-010/baseline-catalog.json
+ecabc075e8af6ebc81536817e90eb2898c5605e38098afe4a46fa91199389f1f  /home/forge/backups/2026-11-22-book-009-010/baseline-ids.json
+17932eb1458fb4bbe418bed4ad5330dd0abee8b19d4bf6945e645f05367ea0d2  /home/forge/backups/2026-11-22-book-009-010/booking_requests.json
+d6f5d082da3510981670613275382d48d42b0da1f45e32245426a94ab5ee5054  /home/forge/backups/2026-11-22-book-009-010/managed-backups.json
+7622032ee9305f09a7c5b40a53d99ee0b5089d7620416bc54d00588e78db903e  /home/forge/backups/2026-11-22-book-009-010/restaurants-booking-config.json
+baseline-catalog.json valid JSON dict 12
+baseline-ids.json valid JSON list 7
+booking_requests.json valid JSON list 7
+managed-backups.json valid JSON dict 5
+restaurants-booking-config.json valid JSON list 7
+d2d019f372e0015533368b6d0a79ce30f9177d6eb70023c953a17b9b8477dc33  /home/forge/rel-book009-tmp/q.py
