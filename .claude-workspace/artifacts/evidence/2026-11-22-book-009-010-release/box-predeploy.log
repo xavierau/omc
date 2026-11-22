@@ -1,0 +1,30 @@
+# forge site command 14542764 (read-only pre-deploy re-check after session break)
+# status finished
+4da8f9e19b636d617e8fe5cbc294cb075b28922da786a40af1c8f377df6c1736  /home/forge/rel-book009-tmp/q2.py
+2026-11-22T13:39:07Z
+POST read-only catalog predeploy-catalog.json sha256 93f426b0de12d6a8be5b8a7867e37c5639a9713da3e6015898eae0e682ca47cb
+server_version: {'v': '17.6', 'n': 170006}
+ledger tail: 090 coupons_welcome_offer, 089 events_join_member_index, 088 booking_member_backfill, 087 booking_no_show, 086 campaign_audience_quality
+booking_requests columns: 32 ; terms columns: absent
+booking_requests constraints: booking_requests_campaign_id_fkey, booking_requests_cancel_marker, booking_requests_cancelled_by_check, booking_requests_confirm_code_check, booking_requests_decision_consistent, booking_requests_decision_message_status_check, booking_requests_decline_reason_check, booking_requests_idempotency_key_check, booking_requests_member_id_fkey, booking_requests_name_check, booking_requests_no_show_marker, booking_requests_notes_check, booking_requests_party_size_check, booking_requests_pkey, booking_requests_replaces_booking_id_fkey, booking_requests_restaurant_id_fkey, booking_requests_source_check, booking_requests_status_check, booking_requests_status_token_hash_check, booking_requests_token_fkey, booking_requests_token_key, booking_requests_unverified_has_code
+terms constraint: absent
+booking_requests indexes: booking_requests_one_pending_change_idx, booking_requests_pkey, booking_requests_reminder_due_idx, booking_requests_restaurant_confirm_code_idx, booking_requests_restaurant_created_idx, booking_requests_restaurant_idempotency_key_idx, booking_requests_restaurant_member_date_idx, booking_requests_restaurant_phone_status_idx, booking_requests_restaurant_status_created_idx, booking_requests_retention_idx, booking_requests_token_key, booking_requests_unverified_created_idx
+booking_stops: {'rel': None, 'rls': None, 'policies': 0, 'columns': 0}
+booking_stops constraints: []
+booking_stops indexes: none
+functions: none
+counts: {'booking_requests': 7, 'by_status': {'confirmed': 2, 'pending': 5}, 'restaurants': 7, 'booking_mode': {'off': 5, 'simple': 2}, 'booking_hours_set': 0, 'agent_booking_public_ids': 2}
+partial-apply check: ledger 091-093 rows [] ; objects of 091-093 present {'terms_columns': 0, 'terms_constraint': 0, 'booking_stops': 0, 'functions': 0, 'idx_restaurant_date_status': 0}
+catalog equal to baseline (all keys): True
+predeploy-ids.json sha256 ecabc075e8af6ebc81536817e90eb2898c5605e38098afe4a46fa91199389f1f
+baseline -> predeploy: rows 7 -> 7; gone 0; new 0; status changed 0
+restaurants booking_config equal to baseline: True
+q2.py exit 0
+HEAD c353dea911810fb79275c00bd4215d7399f0ab2c BUILD_ID xk8QzLQHF8mIsyZ55BQSi
+RELEASE.json 660f82df15ce4db1c299930f1682d8c36f907c70 xk8QzLQHF8mIsyZ55BQSi
+3140051 11-08:18:18 npm exec tsx /home/forge/shopline-packing-app.activedevelopm
+3824811  1-21:53:52 npm exec tsx --env-file-if-exists=.env scripts/start-worker.
+3824835  1-21:53:51 next-server (v16.3.4)
+/dev/root          58447 31687     26744  55% /
+MemAvailable:    2137576 kB SwapFree:           3028 kB 0.27 0.39 0.32 1/554 619104
+2026-11-22T13:39:21Z

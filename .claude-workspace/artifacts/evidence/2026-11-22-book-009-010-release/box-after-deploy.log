@@ -1,0 +1,94 @@
+# forge site command 14543095 (read-only post-deploy box + catalog)
+# status finished
+2026-11-22T13:59:41Z
+HEAD f495266ea111145998d4a5d0df7c1187ea85573d
+.next/BUILD_ID ByP1OESC_Ry3XVBnpk-wX
+RELEASE.json {'source_ref': 'release-book009-010', 'source_commit': '0c41a4df34e5da4d0ee9256e60fdaa22cdf7794c', 'build_id': 'ByP1OESC_Ry3XVBnpk-wX', 'built_at': '2026-11-22T13:57:59Z'}
+git status:  M supabase/.temp/cli-latest 
+pid 626892 start Sun Nov 22 13:59:00 2026 etime       00:41 next-server (v16.3.4)
+pid 626977 start Sun Nov 22 13:59:03 2026 etime       00:38 npm exec tsx --env-file-if-exists=.env scripts/start-worker.
+marker bookings-confirm-over-limit in .next/static: 1 files
+marker bookings-capacity-day-stop in .next/static: 1 files
+/api/health 200
+/login 200; BUILD_ID x1, old xk8QzLQHF8mIsyZ55BQSi x0
+MemAvailable:    2341628 kB SwapFree:         104068 kB 0.62 0.38 0.30 1/559 627367
+/dev/root          58447 31707     26724  55% /
+POST read-only catalog after-catalog.json sha256 ae9d98bb3819c7add464453abea94e24b965b79d611359e70703df725cfc1176
+server_version: {'v': '17.6', 'n': 170006}
+ledger tail: 093 booking_room_search_path, 092 booking_guest_limits, 091 booking_terms_acceptance, 090 coupons_welcome_offer, 089 events_join_member_index
+booking_requests columns: 34 ; terms columns: [{'column_name': 'terms_accepted_at', 'data_type': 'timestamp with time zone', 'is_nullable': 'YES'}, {'column_name': 'terms_text', 'data_type': 'text', 'is_nullable': 'YES'}]
+booking_requests constraints: booking_requests_campaign_id_fkey, booking_requests_cancel_marker, booking_requests_cancelled_by_check, booking_requests_confirm_code_check, booking_requests_decision_consistent, booking_requests_decision_message_status_check, booking_requests_decline_reason_check, booking_requests_idempotency_key_check, booking_requests_member_id_fkey, booking_requests_name_check, booking_requests_no_show_marker, booking_requests_notes_check, booking_requests_party_size_check, booking_requests_pkey, booking_requests_replaces_booking_id_fkey, booking_requests_restaurant_id_fkey, booking_requests_source_check, booking_requests_status_check, booking_requests_status_token_hash_check, booking_requests_terms_acceptance, booking_requests_token_fkey, booking_requests_token_key, booking_requests_unverified_has_code
+terms constraint: [{'def': 'CHECK ((((terms_accepted_at IS NULL) AND (terms_text IS NULL)) OR ((terms_accepted_at IS NOT NULL) AND (terms_text IS NOT NULL) AND ((char_length(terms_text) >= 1) AND (char_length(terms_text) <= 2002)))))'}]
+booking_requests indexes: booking_requests_one_pending_change_idx, booking_requests_pkey, booking_requests_reminder_due_idx, booking_requests_restaurant_confirm_code_idx, booking_requests_restaurant_created_idx, booking_requests_restaurant_date_status_idx, booking_requests_restaurant_idempotency_key_idx, booking_requests_restaurant_member_date_idx, booking_requests_restaurant_phone_status_idx, booking_requests_restaurant_status_created_idx, booking_requests_retention_idx, booking_requests_token_key, booking_requests_unverified_created_idx
+booking_stops: {'rel': 'booking_stops', 'rls': True, 'policies': 0, 'columns': 9}
+booking_stops constraints: [{'conname': 'booking_stops_one', 'def': 'UNIQUE NULLS NOT DISTINCT (restaurant_id, booking_date, scope, period_label, slot_time)'}, {'conname': 'booking_stops_period_label_check', 'def': 'CHECK (((period_label IS NULL) OR ((char_length(period_label) >= 1) AND (char_length(period_label) <= 40))))'}, {'conname': 'booking_stops_pkey', 'def': 'PRIMARY KEY (id)'}, {'conname': 'booking_stops_restaurant_id_fkey', 'def': 'FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE'}, {'conname': 'booking_stops_scope_check', 'def': "CHECK ((scope = ANY (ARRAY['day'::text, 'period'::text, 'slot'::text])))"}, {'conname': 'booking_stops_scope_shape', 'def': "CHECK ((((scope = 'day'::text) AND (period_label IS NULL) AND (slot_time IS NULL)) OR ((scope = 'period'::text) AND (period_label IS NOT NULL) AND (slot_time IS NULL)) OR ((scope = 'slot'::text) AND (period_label IS NULL) AND (slot_time IS NOT NULL))))"}, {'conname': 'booking_stops_slot_time_check', 'def': "CHECK (((slot_time IS NULL) OR (slot_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)))"}, {'conname': 'booking_stops_stopped_by_name_check', 'def': 'CHECK (((stopped_by_name IS NULL) OR ((char_length(stopped_by_name) >= 1) AND (char_length(stopped_by_name) <= 100))))'}]
+booking_stops indexes: booking_stops_one, booking_stops_pkey, booking_stops_restaurant_date_idx
+booking_stops rows: [{'n': 0}]
+functions: [
+ {
+  "sig": "booking_guest_counts(uuid,date,date)",
+  "lang": "sql",
+  "secdef": false,
+  "volatile": "s",
+  "config": [
+   "search_path=public"
+  ],
+  "anon": false,
+  "authenticated": false,
+  "service_role": true
+ },
+ {
+  "sig": "booking_room_lock(uuid,date)",
+  "lang": "plpgsql",
+  "secdef": false,
+  "volatile": "v",
+  "config": [
+   "search_path=public"
+  ],
+  "anon": false,
+  "authenticated": false,
+  "service_role": true
+ },
+ {
+  "sig": "booking_room_refusal(uuid,date,time without time zone,integer,text,time without time zone,time without time zone,integer,integer)",
+  "lang": "plpgsql",
+  "secdef": false,
+  "volatile": "s",
+  "config": [
+   "search_path=public"
+  ],
+  "anon": false,
+  "authenticated": false,
+  "service_role": true
+ },
+ {
+  "sig": "insert_booking_request_if_room(jsonb,text,time without time zone,time without time zone,integer,integer)",
+  "lang": "plpgsql",
+  "secdef": true,
+  "volatile": "v",
+  "config": [
+   "search_path=public, pg_temp"
+  ],
+  "anon": false,
+  "authenticated": false,
+  "service_role": true
+ },
+ {
+  "sig": "promote_agent_booking_with_room(uuid,text,text[],text,timestamp with time zone,integer,jsonb)",
+  "lang": "plpgsql",
+  "secdef": true,
+  "volatile": "v",
+  "config": [
+   "search_path=public, pg_temp"
+  ],
+  "anon": false,
+  "authenticated": false,
+  "service_role": true
+ }
+]
+counts: {'booking_requests': 7, 'by_status': {'confirmed': 2, 'pending': 5}, 'restaurants': 7, 'booking_mode': {'off': 5, 'simple': 2}, 'booking_hours_set': 0, 'agent_booking_public_ids': 2}
+partial-apply check: ledger 091-093 rows ['091', '092', '093'] ; objects of 091-093 present {'terms_columns': 2, 'terms_constraint': 1, 'booking_stops': 1, 'functions': 5, 'idx_restaurant_date_status': 1}
+catalog equal to baseline (all keys): False
+baseline -> after: rows 7 -> 7; gone 0; new 0 (statuses []); status changed 0
+restaurants booking_config: baseline 7 rows, now 7; rows whose booking_config changed: 0; set hash equal: True
+q2.py exit 0

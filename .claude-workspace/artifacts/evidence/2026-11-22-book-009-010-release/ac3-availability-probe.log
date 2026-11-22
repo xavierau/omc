@@ -1,0 +1,3 @@
+2026-11-22T14:00:22Z GET /api/poppy/<omc demo publicId, not recorded>/availability?from=2026-11-22&days=3
+HTTP 200 content-type application/json
+body shape (keys/types only): {"dates": "list[3]", "interval_minutes": "NoneType", "table_minutes": "NoneType", "max_party_size": "int", "terms": "NoneType"}

@@ -1,0 +1,26 @@
+# forge site command 14485644 (read-only), 2026-11-20T13:38:20Z (restart 13:27:48Z app / 13:27:52Z worker; uuids and HK phones masked by the script)
+2026-11-20T13:38:20Z
+=== daemon-746791 log (22366 lines)
+banner/start line 22359; lines after: 8
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://<private-ip>:3100
+✓ Ready in 526ms
+✓ Running next.config.ts took 721ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[Kapso] Error listing templates: WhatsApp configuration not found
+[Kapso] Error listing templates: WhatsApp configuration not found
+--- after start: error/warn lines 2
+--- after start: welcome-claim / redis / welcome_offer / lock lines 0
+=== daemon-801730 log (53175 lines)
+banner/start line 53172; lines after: 4
+[IntegrationInboundQueue] Worker started
+[IntegrationOutboundQueue] Worker started
+[AgentReplyQueue] Worker started
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+--- after start: error/warn lines 0
+--- after start: welcome-claim / redis / welcome_offer / lock lines 0
+3773305       10:31 next-server (v16.3.4)
+3773365       10:27 npm exec tsx --env-file-if-exists=.env scripts/start-worker.
+/api/health 200
+

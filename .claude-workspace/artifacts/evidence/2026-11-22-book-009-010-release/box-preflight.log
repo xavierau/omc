@@ -1,0 +1,20 @@
+# forge site command 14520228 (read-only box pre-flight, 2026-11-21)
+# status finished
+/home/forge/app.ohmyclient.io
+2026-11-21T16:18:33Z
+c353dea911810fb79275c00bd4215d7399f0ab2c
+xk8QzLQHF8mIsyZ55BQSi
+660f82df15ce4db1c299930f1682d8c36f907c70 xk8QzLQHF8mIsyZ55BQSi release-wonb020
+3824811  1-00:33:05 npm exec tsx --env-file-if-exists=.env scripts/start-worker.ts
+3824835  1-00:33:03 next-server (v16.3.4)
+3824864  1-00:33:03 sh -c tsx --env-file-if-exists=.env scripts/start-worker.ts
+3824865  1-00:33:03 node /home/forge/app.ohmyclient.io/node_modules/.bin/tsx --env-file-if-exists=.env scripts
+3824876  1-00:33:02 /usr/bin/node --require /home/forge/app.ohmyclient.io/node_modules/tsx/dist/preflight.cjs 
+/dev/root          58447 31699     26732  55% /
+MemAvailable:    2206600 kB
+SwapFree:          10952 kB
+0.31 0.16 0.15 1/552 160240
+token lines: 1
+ref lines: 1
+redis lines: 1
+ M supabase/.temp/cli-latest

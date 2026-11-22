@@ -1,0 +1,21 @@
+# forge site command 14543197 (read-only 5-minute log watch)
+# status finished
+2026-11-22T14:04:18Z
+app log /home/forge/.forge/daemon-746791.log; worker log /home/forge/.forge/daemon-801730.log
+--- app log after last banner line 22797 of 22805
+▲ Next.js 16.3.4
+- Local:         http://localhost:3100
+- Network:       http://10.148.0.3:3100
+✓ Ready in 506ms
+✓ Running next.config.ts took 631ms
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[AgentBooking] rate limiter unavailable, allowing: Error
+--- worker log from line 53706 of 53707
+Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+[sweepIntegrationQueues] pruneOrphanIntegrationEvents failed { error: 'pruneOrphanIntegrationEvents (deliveries): Bad Request' }
+--- counts after banner: app error-ish other than Kapso 1, kapso 2, limiter 1, worker error/warn after start 1
+pid 626892 etime       05:17
+pid 626977 etime       05:14
+/api/health 200
+MemAvailable:    2340008 kB SwapFree:         104484 kB 0.02 0.19 0.24 1/554 628902
+/dev/root          58447 31707     26724  55% /
