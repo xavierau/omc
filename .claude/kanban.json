@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-22",
+  "updated_at": "2026-11-24",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1641,6 +1641,31 @@
     "review": {
       "label": "Review",
       "tasks": [
+        {
+          "id": "TPL-012",
+          "title": "Template edit edits in place on Meta (POST /<id>), never delete + re-create",
+          "description": "Prod 2026-11-24: editing an approved template deleted it on Meta; the re-create was refused (code 100 / 2388023, name+language locked ~4 weeks), taking the live template and its campaign offline. Linked rows now edit in place via the Kapso proxy (business_account_id routing); name/language change, approved category change and pending edits refused before any Meta call; failed edit persists nothing. Unlinked rows keep the create path.",
+          "priority": "critical",
+          "labels": [
+            "templates",
+            "bug",
+            "backend",
+            "poc"
+          ],
+          "branch": "fix/tpl-012-template-edit-in-place",
+          "related": [
+            "kanban:TPL-003",
+            "kanban:TPL-011",
+            "github:#227"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-24-dev-tpl-012-handoff.md",
+            "tests/evidence/2026-11-24-tpl-012/"
+          ],
+          "status": "review",
+          "updated": "2026-11-24",
+          "notes": "PR #227 into develop. Not deployed. No prod data repair (owner recreates nov_promo_v4). Not verified: Graph accepting business_account_id on a real template node (fails safe)."
+        },
         {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
