@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--tpl-012
+
+
+ Test Files  12 passed (12)
+      Tests  184 passed (184)
+   Start at  17:44:25
+   Duration  891ms (transform 1.21s, setup 0ms, import 2.43s, tests 579ms, environment 1ms)
+

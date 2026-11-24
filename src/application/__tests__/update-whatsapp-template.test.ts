@@ -267,7 +267,11 @@ describe('updateWhatsAppTemplate', () => {
     it('a transient provider failure is not branded a Meta rejection', async () => {
       vi.mocked(editMetaTemplate).mockResolvedValue(failedSubmit('template_create_error', 'socket hang up'))
 
-      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'MARKETING', components: [] })
+      // A real change: an unchanged save is a no-op since r2 and never reaches Meta.
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        category: 'MARKETING',
+        components: [{ type: 'BODY', text: 'New copy' }],
+      })
 
       expect(updateTemplate).not.toHaveBeenCalled()
       expect(result.template).toEqual(linked)
@@ -278,7 +282,7 @@ describe('updateWhatsAppTemplate', () => {
     it('no Kapso key: nothing submitted, nothing saved', async () => {
       vi.mocked(editMetaTemplate).mockResolvedValue(failedSubmit('kapso_no_api_key'))
 
-      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: [] })
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', { components: [{ type: 'BODY', text: 'New copy' }] })
 
       expect(updateTemplate).not.toHaveBeenCalled()
       expect(result.template).toEqual(linked)
@@ -327,6 +331,163 @@ describe('updateWhatsAppTemplate', () => {
         messages.add((err as Error).message)
       }
       expect(messages.size).toBe(cases.length)
+    })
+  })
+
+  // TPL-012 r2 (review finding 2): the dashboard always PATCHes the full form, and
+  // an approved template may be edited on Meta once per 24h. An unchanged save
+  // must not spend that edit or flip the row to pending.
+  describe('a no-op edit of a linked row touches nothing', () => {
+    const BODY: TemplateComponent[] = [{ type: 'BODY', text: 'Hi {{customer_name}}' }]
+    const linked = { ...TEMPLATE_BASE, metaTemplateId: 'live-meta-id', components: BODY }
+
+    beforeEach(() => {
+      vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+      vi.mocked(getRestaurantPhoneNumberId).mockResolvedValue('phone-1')
+      vi.mocked(uploadHeaderMediaFromUrl).mockResolvedValue({ ok: true, handle: '4:minted:handle' })
+      vi.mocked(editMetaTemplate).mockResolvedValue(okSubmit('live-meta-id'))
+      vi.mocked(updateTemplate).mockResolvedValue({ ...linked, status: 'pending' })
+    })
+
+    function expectUntouched() {
+      expect(editMetaTemplate).not.toHaveBeenCalled()
+      expect(createMetaTemplate).not.toHaveBeenCalled()
+      expect(deleteMetaTemplate).not.toHaveBeenCalled()
+      expect(uploadHeaderMediaFromUrl).not.toHaveBeenCalled()
+      expect(updateTemplate).not.toHaveBeenCalled()
+    }
+
+    it('full-form PATCH with identical (structurally equal, not same-reference) content', async () => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
+
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        name: 'welcome_msg',
+        language: 'en',
+        category: 'MARKETING',
+        components: structuredClone(BODY),
+      })
+
+      expectUntouched()
+      expect(result).toEqual({ template: linked })
+      expect(result.template.status).toBe('approved')
+    })
+
+    it('full-width braces that normalize to the stored text are still a no-op', async () => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
+
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        category: 'MARKETING',
+        components: [{ type: 'BODY', text: 'Hi ｛｛customer_name｝｝' }],
+      })
+
+      expectUntouched()
+      expect(result).toEqual({ template: linked })
+    })
+
+    it('a header-image URL row compares by the stored URL, not the minted handle', async () => {
+      const imageRow = { ...linked, components: [...RAW_URL_IMAGE_HEADER, ...BODY] }
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(imageRow)
+
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        name: 'welcome_msg',
+        language: 'en',
+        category: 'MARKETING',
+        components: structuredClone(imageRow.components),
+      })
+
+      expectUntouched()
+      expect(result).toEqual({ template: imageRow })
+    })
+
+    it('a one-character body change still edits on Meta', async () => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
+
+      await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        category: 'MARKETING',
+        components: [{ type: 'BODY', text: 'Hi {{customer_name}}!' }],
+      })
+
+      expect(editMetaTemplate).toHaveBeenCalledTimes(1)
+      expect(updateTemplate).toHaveBeenCalledWith(
+        'tpl-1',
+        expect.objectContaining({ status: 'pending', metaTemplateId: 'live-meta-id' })
+      )
+    })
+
+    it('a category change on a linked rejected row still edits on Meta', async () => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({ ...linked, status: 'rejected' })
+
+      await updateWhatsAppTemplate('tpl-1', 'rest-1', { category: 'UTILITY', components: structuredClone(BODY) })
+
+      expect(editMetaTemplate).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // TPL-012 r2 (review finding 4): Meta cannot edit a disabled template; paused
+  // and rejected templates are documented as editable.
+  describe('status gate for in-place edits', () => {
+    const linked = { ...TEMPLATE_BASE, metaTemplateId: 'live-meta-id' }
+    const EDIT = { components: [{ type: 'BODY', text: 'New copy' }] as TemplateComponent[] }
+
+    beforeEach(() => {
+      vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+      vi.mocked(editMetaTemplate).mockResolvedValue(okSubmit('live-meta-id'))
+      vi.mocked(updateTemplate).mockResolvedValue(linked)
+    })
+
+    it('refuses a disabled row with a create-a-new-template message and no Meta call', async () => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({ ...linked, status: 'disabled' })
+
+      const attempt = updateWhatsAppTemplate('tpl-1', 'rest-1', EDIT)
+
+      await expect(attempt).rejects.toThrow(TemplateEditRefusedError)
+      await expect(attempt).rejects.toThrow(/disabled.*create a new template/i)
+      expect(editMetaTemplate).not.toHaveBeenCalled()
+      expect(createMetaTemplate).not.toHaveBeenCalled()
+      expect(deleteMetaTemplate).not.toHaveBeenCalled()
+      expect(updateTemplate).not.toHaveBeenCalled()
+    })
+
+    it.each(['paused', 'rejected'] as const)('a %s row still reaches editMetaTemplate', async (status) => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue({ ...linked, status })
+
+      await updateWhatsAppTemplate('tpl-1', 'rest-1', EDIT)
+
+      expect(editMetaTemplate).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // TPL-012 r2 (review finding 1): once Meta accepted the edit, a DB failure must
+  // not read as "nothing saved" — WhatsApp already has the new content.
+  describe('Meta accepted the edit but the row could not be saved', () => {
+    const linked = { ...TEMPLATE_BASE, metaTemplateId: 'live-meta-id' }
+
+    beforeEach(() => {
+      vi.mocked(findTemplateByIdForRestaurant).mockResolvedValue(linked)
+      vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+      vi.mocked(editMetaTemplate).mockResolvedValue(okSubmit('live-meta-id'))
+      vi.mocked(updateTemplate).mockRejectedValue(new Error('connection terminated'))
+    })
+
+    it('returns the existing row with a distinct code instead of throwing', async () => {
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const result = await updateWhatsAppTemplate('tpl-1', 'rest-1', {
+        components: [{ type: 'BODY', text: 'New copy' }],
+      })
+
+      expect(result.template).toEqual(linked)
+      expect(result.errorCode).toBe('meta_edited_not_saved')
+      expect(result.error).toMatch(/WhatsApp already has/i)
+      expect(result.error).toMatch(/not save/i)
+      expect(editMetaTemplate).toHaveBeenCalledTimes(1)
+      expect(deleteMetaTemplate).not.toHaveBeenCalled()
+      expect(createMetaTemplate).not.toHaveBeenCalled()
+      const logged = JSON.stringify(errorLog.mock.calls)
+      expect(logged).toContain('live-meta-id')
+      expect(logged).toContain('rest-1')
+      expect(logged).toContain('tpl-1')
+      errorLog.mockRestore()
     })
   })
 

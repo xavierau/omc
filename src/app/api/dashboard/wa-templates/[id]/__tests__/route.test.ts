@@ -188,6 +188,21 @@ describe('PATCH /api/dashboard/wa-templates/[id]', () => {
     expect(await res.json()).toEqual({ template: TEMPLATE, error })
   })
 
+  it('returns 500, not 400 "nothing saved", when Meta took the edit but the app did not save it (TPL-012 r2)', async () => {
+    const error =
+      'WhatsApp already has the new content under review, but the app did not save it. Do not edit this template again; contact support.'
+    vi.mocked(updateWhatsAppTemplate).mockResolvedValue({
+      template: TEMPLATE,
+      error,
+      errorCode: 'meta_edited_not_saved',
+    })
+
+    const res = await PATCH(req(), ctx())
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ template: TEMPLATE, error })
+  })
+
   it('returns 400 with the message when an edit cannot be made in place (TPL-012)', async () => {
     const message = 'A template that is on WhatsApp cannot be renamed. Create a new template with the new name instead.'
     vi.mocked(updateWhatsAppTemplate).mockRejectedValue(new TemplateEditRefusedError(message))

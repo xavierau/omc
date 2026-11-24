@@ -46,6 +46,19 @@ narrowed when the delete happened, never whether it should happen. The booking r
   `deleteMetaTemplate src/application/update-whatsapp-template.ts` is empty). They also assert the
   real wire request of the edit (`template-client-edit.test.ts`, real SDK client, stubbed fetch).
 
+## Review round 1 (PR #227, r2)
+`/code-review` on f50d410 found four gaps in the in-place edit, all fixed here. (1) An unchanged
+save: the dashboard PATCHes the full form, so an unchanged save spent Meta's once-per-24h edit and
+flipped the row to pending. Now a linked row whose normalized components (the stored URL form) and
+category deep-equal the row makes no Meta call and no write. (2) A `disabled` row is refused before
+any Meta call; `paused` and `rejected` stay editable. (3) If Meta accepted the edit but
+`updateTemplate` throws, the app no longer reports "nothing saved". The use case logs a
+reconciliation line (restaurant, row, Meta id) and returns `meta_edited_not_saved`, and the route
+answers 500. (4) `meta_rejected` now needs a numeric `error.code`, so an object body from Kapso
+(auth, rate limit) is a provider error. Lesson: once an irreversible or rate-limited external call
+has succeeded, every later failure must say so. A generic catch that reports "nothing changed" is
+then false.
+
 ## Not done here
 - Prod data repair: the owner recreates the template as `nov_promo_v4`.
 - The create path's `createMetaTemplate` still maps proxy route errors to `meta_rejected`. That is

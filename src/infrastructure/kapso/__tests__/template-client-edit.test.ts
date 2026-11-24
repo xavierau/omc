@@ -134,6 +134,29 @@ describe('editMetaTemplate', () => {
     expect(result.error?.details).toContain('WhatsApp configuration not found')
   })
 
+  it('maps an object error body without a numeric code (Kapso rate limit) to a provider error', async () => {
+    // TPL-012 r2 (review finding 6): only Graph's envelope carries a numeric code;
+    // a Kapso auth/rate-limit/proxy object body is not Meta's verdict.
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    fetchMock.mockResolvedValue(jsonResponse(429, { error: { message: 'Rate limit exceeded' } }))
+    const { editMetaTemplate } = await importClient()
+
+    const result = await editMetaTemplate('waba1', '1234567890', { components: [] })
+
+    expect(result.ok).toBe(false)
+    expect(result.error?.title).toBe('template_create_error')
+  })
+
+  it('maps a bare Graph envelope with a numeric code to meta_rejected', async () => {
+    vi.stubEnv('KAPSO_API_KEY', 'test-key')
+    fetchMock.mockResolvedValue(jsonResponse(400, { error: { code: 100, message: 'Invalid parameter' } }))
+    const { editMetaTemplate } = await importClient()
+
+    const result = await editMetaTemplate('waba1', '1234567890', { components: [] })
+
+    expect(result.error?.title).toBe('meta_rejected')
+  })
+
   it('maps a network failure to a provider error', async () => {
     vi.stubEnv('KAPSO_API_KEY', 'test-key')
     fetchMock.mockRejectedValue(new Error('socket hang up'))

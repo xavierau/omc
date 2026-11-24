@@ -147,11 +147,12 @@ export async function editMetaTemplate(
 
 /**
  * The SDK wraps a proxy route error (`{"error":"WhatsApp configuration not
- * found"}`) in a GraphApiError too; only an `{error: {…}}` body is Meta's verdict.
+ * found"}`) in a GraphApiError too, and Kapso's own auth/rate-limit bodies can be
+ * objects. Only Graph's envelope, `{error: {code: <number>, …}}`, is Meta's verdict.
  */
 function isGraphErrorEnvelope(err: GraphApiError): boolean {
-  const raw = err.raw as { error?: unknown } | null
-  return typeof raw?.error === 'object' && raw.error !== null
+  const raw = err.raw as { error?: { code?: unknown } | null } | null
+  return typeof raw?.error === 'object' && raw.error !== null && typeof raw.error.code === 'number'
 }
 
 function failedSubmit(

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { validateTemplateName } from '@/domain/entities/whatsapp-template'
 import type {
   WhatsAppTemplate,
@@ -34,7 +35,7 @@ interface UpdateTemplateInput {
 interface UpdateTemplateResult {
   template: WhatsAppTemplate
   error?: string
-  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error'
+  errorCode?: 'meta_rejected' | 'provider_not_configured' | 'provider_error' | 'meta_edited_not_saved'
 }
 
 // Distinguishes "no such template for this tenant" from a validation failure so the
@@ -75,6 +76,10 @@ export async function updateWhatsAppTemplate(
 
   const merged = { ...existing, ...input }
   const changes = normalizeChanges(input)
+
+  // The dashboard PATCHes the full form on every save. An unchanged save of a
+  // linked row must not spend Meta's once-per-24h edit or flip it to pending.
+  if (existing.metaTemplateId && isNoOpEdit(existing, changes)) return { template: existing }
 
   const businessAccountId = await getMetaBusinessAccountId(existing.restaurantId)
 
@@ -126,6 +131,11 @@ function assertEditableInPlace(existing: WhatsAppTemplate, input: UpdateTemplate
       'A template that is on WhatsApp cannot change its language. Create a new template in that language instead.'
     )
   }
+  if (existing.status === 'disabled') {
+    throw new TemplateEditRefusedError(
+      'WhatsApp has disabled this template, so it cannot be edited. Create a new template instead.'
+    )
+  }
   if (existing.status === 'pending') {
     throw new TemplateEditRefusedError(
       'This template is under review by WhatsApp and cannot be edited yet. Try again when the review finishes.'
@@ -136,6 +146,16 @@ function assertEditableInPlace(existing: WhatsAppTemplate, input: UpdateTemplate
       'WhatsApp does not allow changing the category of an approved template. Create a new template instead.'
     )
   }
+}
+
+/**
+ * Compares the stored URL form (`changes`, not the minted-handle copy) by
+ * structure: the form sends fresh objects, and jsonb does not keep key order.
+ */
+function isNoOpEdit(existing: WhatsAppTemplate, changes: UpdateTemplateInput): boolean {
+  const components = changes.components ?? existing.components
+  const category = changes.category ?? existing.category
+  return category === existing.category && isDeepStrictEqual(components, existing.components)
 }
 
 function categoryChanged(existing: WhatsAppTemplate, input: UpdateTemplateInput): boolean {
@@ -161,13 +181,40 @@ async function editOnMeta(
   })
   if (!result.ok) return { template: existing, ...describeEditFailure(result.error) }
 
-  const updated = await updateTemplate(existing.id, {
-    ...changes,
-    status: 'pending',
-    metaTemplateId,
-    rejectionReason: null,
+  try {
+    const updated = await updateTemplate(existing.id, {
+      ...changes,
+      status: 'pending',
+      metaTemplateId,
+      rejectionReason: null,
+    })
+    return { template: updated }
+  } catch (err) {
+    return reportEditedNotSaved(existing, err)
+  }
+}
+
+/**
+ * Meta already accepted the edit, so "nothing was changed" would be false. No
+ * retry and no compensating Meta call (the next edit is a day away); log enough
+ * to reconcile the row by hand and say plainly what happened.
+ */
+function reportEditedNotSaved(
+  existing: WhatsAppTemplate & { metaTemplateId: string },
+  err: unknown
+): UpdateTemplateResult {
+  console.error('[TPL-012] Meta edit applied but the row was not saved; reconcile by hand', {
+    restaurantId: existing.restaurantId,
+    templateId: existing.id,
+    metaTemplateId: existing.metaTemplateId,
+    error: err instanceof Error ? err.message : String(err),
   })
-  return { template: updated }
+  return {
+    template: existing,
+    error:
+      'WhatsApp already has the new content under review, but the app did not save it, so this page still shows the old version. Do not edit this template again; contact support to bring it back in sync.',
+    errorCode: 'meta_edited_not_saved',
+  }
 }
 
 function describeEditFailure(

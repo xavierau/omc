@@ -59,7 +59,7 @@ export async function PATCH(
     if (result.errorCode) {
       return NextResponse.json(
         { template: result.template, error: result.error },
-        { status: result.errorCode === 'meta_rejected' ? 422 : 502 }
+        { status: patchErrorStatus(result.errorCode) }
       )
     }
     return NextResponse.json(result.template)
@@ -77,6 +77,14 @@ export async function PATCH(
     console.error('Template PATCH error:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
+}
+
+// meta_edited_not_saved: Meta took the edit but our write failed — a server
+// fault, never 400 "nothing saved".
+function patchErrorStatus(errorCode: string): number {
+  if (errorCode === 'meta_rejected') return 422
+  if (errorCode === 'meta_edited_not_saved') return 500
+  return 502
 }
 
 export async function DELETE(
