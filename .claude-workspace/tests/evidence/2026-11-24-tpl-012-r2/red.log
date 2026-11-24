@@ -1,0 +1,239 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--tpl-012
+
+ ❯ src/infrastructure/kapso/__tests__/template-client-edit.test.ts (9 tests | 1 failed) 137ms
+     × maps an object error body without a numeric code (Kapso rate limit) to a provider error 5ms
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts (34 tests | 5 failed) 25ms
+       × full-form PATCH with identical (structurally equal, not same-reference) content 4ms
+       × full-width braces that normalize to the stored text are still a no-op 1ms
+       × a header-image URL row compares by the stored URL, not the minted handle 1ms
+       × refuses a disabled row with a create-a-new-template message and no Meta call 3ms
+       × returns the existing row with a distinct code instead of throwing 1ms
+ ❯ src/app/api/dashboard/wa-templates/[id]/__tests__/route.test.ts (16 tests | 1 failed) 23ms
+     × returns 500, not 400 "nothing saved", when Meta took the edit but the app did not save it (TPL-012 r2) 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a no-op edit of a linked row touches nothing > full-form PATCH with identical (structurally equal, not same-reference) content
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "biz-1",
+      "live-meta-id",
+      Object {
+        "components": Array [
+          Object {
+            "example": Object {
+              "bodyTextNamedParams": Array [
+                Object {
+                  "example": "John",
+                  "paramName": "customer_name",
+                },
+              ],
+            },
+            "text": "Hi {{customer_name}}",
+            "type": "BODY",
+          },
+        ],
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ expectUntouched src/application/__tests__/update-whatsapp-template.test.ts:349:36
+    347|
+    348|     function expectUntouched() {
+    349|       expect(editMetaTemplate).not.toHaveBeenCalled()
+       |                                    ^
+    350|       expect(createMetaTemplate).not.toHaveBeenCalled()
+    351|       expect(deleteMetaTemplate).not.toHaveBeenCalled()
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts:366:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a no-op edit of a linked row touches nothing > full-width braces that normalize to the stored text are still a no-op
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "biz-1",
+      "live-meta-id",
+      Object {
+        "components": Array [
+          Object {
+            "example": Object {
+              "bodyTextNamedParams": Array [
+                Object {
+                  "example": "John",
+                  "paramName": "customer_name",
+                },
+              ],
+            },
+            "text": "Hi {{customer_name}}",
+            "type": "BODY",
+          },
+        ],
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ expectUntouched src/application/__tests__/update-whatsapp-template.test.ts:349:36
+    347|
+    348|     function expectUntouched() {
+    349|       expect(editMetaTemplate).not.toHaveBeenCalled()
+       |                                    ^
+    350|       expect(createMetaTemplate).not.toHaveBeenCalled()
+    351|       expect(deleteMetaTemplate).not.toHaveBeenCalled()
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts:379:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a no-op edit of a linked row touches nothing > a header-image URL row compares by the stored URL, not the minted handle
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "biz-1",
+      "live-meta-id",
+      Object {
+        "components": Array [
+          Object {
+            "example": Object {
+              "headerHandle": Array [
+                "4:minted:handle",
+              ],
+            },
+            "format": "IMAGE",
+            "type": "HEADER",
+          },
+          Object {
+            "example": Object {
+              "bodyTextNamedParams": Array [
+                Object {
+                  "example": "John",
+                  "paramName": "customer_name",
+                },
+              ],
+            },
+            "text": "Hi {{customer_name}}",
+            "type": "BODY",
+          },
+        ],
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ expectUntouched src/application/__tests__/update-whatsapp-template.test.ts:349:36
+    347|
+    348|     function expectUntouched() {
+    349|       expect(editMetaTemplate).not.toHaveBeenCalled()
+       |                                    ^
+    350|       expect(createMetaTemplate).not.toHaveBeenCalled()
+    351|       expect(deleteMetaTemplate).not.toHaveBeenCalled()
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts:394:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > status gate for in-place edits > refuses a disabled row with a create-a-new-template message and no Meta call
+AssertionError: promise resolved "{ template: { id: 'tpl-1', …(11) } }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "template": {
++     "category": "MARKETING",
++     "components": [],
++     "createdAt": "2025-01-01T00:00:00Z",
++     "id": "tpl-1",
++     "language": "en",
++     "metaTemplateId": "live-meta-id",
++     "name": "welcome_msg",
++     "parameterFormat": "NAMED",
++     "rejectionReason": null,
++     "restaurantId": "rest-1",
++     "status": "approved",
++     "updatedAt": "2025-01-01T00:00:00Z",
++   },
+  }
+
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts:439:28
+    437|       const attempt = updateWhatsAppTemplate('tpl-1', 'rest-1', EDIT)
+    438|
+    439|       await expect(attempt).rejects.toThrow(TemplateEditRefusedError)
+       |                            ^
+    440|       await expect(attempt).rejects.toThrow(/disabled.*create a new te…
+    441|       expect(editMetaTemplate).not.toHaveBeenCalled()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > Meta accepted the edit but the row could not be saved > returns the existing row with a distinct code instead of throwing
+Error: connection terminated
+ ❯ src/application/__tests__/update-whatsapp-template.test.ts:465:51
+    463|       vi.mocked(getMetaBusinessAccountId).mockResolvedValue('biz-1')
+    464|       vi.mocked(editMetaTemplate).mockResolvedValue(okSubmit('live-met…
+    465|       vi.mocked(updateTemplate).mockRejectedValue(new Error('connectio…
+       |                                                   ^
+    466|     })
+    467|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > maps an object error body without a numeric code (Kapso rate limit) to a provider error
+AssertionError: expected 'meta_rejected' to be 'template_create_error' // Object.is equality
+
+Expected: "template_create_error"
+Received: "meta_rejected"
+
+ ❯ src/infrastructure/kapso/__tests__/template-client-edit.test.ts:147:33
+    145|
+    146|     expect(result.ok).toBe(false)
+    147|     expect(result.error?.title).toBe('template_create_error')
+       |                                 ^
+    148|   })
+    149|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/app/api/dashboard/wa-templates/[id]/__tests__/route.test.ts > PATCH /api/dashboard/wa-templates/[id] > returns 500, not 400 "nothing saved", when Meta took the edit but the app did not save it (TPL-012 r2)
+AssertionError: expected 502 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 502
+
+ ❯ src/app/api/dashboard/wa-templates/[id]/__tests__/route.test.ts:202:24
+    200|     const res = await PATCH(req(), ctx())
+    201|
+    202|     expect(res.status).toBe(500)
+       |                        ^
+    203|     expect(await res.json()).toEqual({ template: TEMPLATE, error })
+    204|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  7 failed | 52 passed (59)
+   Start at  17:43:52
+   Duration  522ms (transform 409ms, setup 0ms, import 800ms, tests 185ms, environment 0ms)
+

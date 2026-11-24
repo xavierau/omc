@@ -105,6 +105,68 @@ export async function createMetaTemplate(
   }
 }
 
+/**
+ * Edit an existing Meta template in place (TPL-012): `POST /<template id>`.
+ * Only components and category are editable; name and language never are, and
+ * Meta re-reviews the template automatically. Raw request because the SDK's
+ * `templates` resource has only list/create/delete/get.
+ *
+ * The bare template id gives the Kapso proxy no WhatsApp config to route by
+ * (404 "WhatsApp configuration not found", live probe 2026-11-24), so the WABA
+ * rides along as `business_account_id`, which the proxy forwards to Graph.
+ */
+export async function editMetaTemplate(
+  businessAccountId: string,
+  metaTemplateId: string,
+  edit: {
+    components: Array<{ type: string; [k: string]: unknown }>
+    category?: string
+  }
+): Promise<TemplateSubmitResult> {
+  const client = getClient()
+  if (!client) return failedSubmit('kapso_no_api_key')
+
+  try {
+    const res = await client.request<{ success?: boolean }>('POST', `/${metaTemplateId}`, {
+      query: { businessAccountId },
+      body: edit,
+      responseType: 'json',
+    })
+    if (res?.success !== true) {
+      return failedSubmit('template_create_error', `Meta did not confirm the edit: ${JSON.stringify(res)}`)
+    }
+    return { ok: true, templateId: metaTemplateId, status: null }
+  } catch (err) {
+    console.warn('[Kapso] Error editing template:', (err as Error).message)
+    if (err instanceof GraphApiError && isGraphErrorEnvelope(err)) {
+      return failedSubmit('meta_rejected', describeGraphError(err))
+    }
+    return failedSubmit('template_create_error', err instanceof Error ? err.message : String(err))
+  }
+}
+
+/**
+ * The SDK wraps a proxy route error (`{"error":"WhatsApp configuration not
+ * found"}`) in a GraphApiError too, and Kapso's own auth/rate-limit bodies can be
+ * objects. Only Graph's envelope, `{error: {code: <number>, …}}`, is Meta's verdict.
+ */
+function isGraphErrorEnvelope(err: GraphApiError): boolean {
+  const raw = err.raw as { error?: { code?: unknown } | null } | null
+  return typeof raw?.error === 'object' && raw.error !== null && typeof raw.error.code === 'number'
+}
+
+function failedSubmit(
+  title: NonNullable<TemplateSubmitResult['error']>['title'],
+  details?: string
+): TemplateSubmitResult {
+  return {
+    ok: false,
+    templateId: null,
+    status: null,
+    error: details === undefined ? { title } : { title, details },
+  }
+}
+
 export async function listMetaTemplates(
   businessAccountId: string
 ): Promise<MetaTemplateListItem[] | null> {

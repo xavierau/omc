@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/infrastructure/kapso/template-client', () => ({
   createMetaTemplate: vi.fn(),
+  editMetaTemplate: vi.fn(),
   listMetaTemplates: vi.fn(),
   getMetaTemplate: vi.fn(),
   deleteMetaTemplate: vi.fn(),
@@ -12,6 +13,7 @@ vi.mock('@/infrastructure/kapso/template-client', () => ({
 import { kapsoTemplateAdapter } from '../template-adapter'
 import {
   createMetaTemplate,
+  editMetaTemplate,
   listMetaTemplates,
   getMetaTemplate,
   deleteMetaTemplate,
@@ -43,6 +45,14 @@ describe('kapsoTemplateAdapter', () => {
     const result = await kapsoTemplateAdapter.createTemplate('waba1', {
       name: 'tpl', language: 'en', category: 'MARKETING', components: [],
     })
+    expect(result).toEqual(failed)
+  })
+
+  it('editTemplate delegates to editMetaTemplate and passes the result through', async () => {
+    const failed = failedSubmit('meta_rejected', 'edit limit reached (code 100)')
+    vi.mocked(editMetaTemplate).mockResolvedValue(failed)
+    const result = await kapsoTemplateAdapter.editTemplate('waba1', 'meta-1', { components: [] })
+    expect(editMetaTemplate).toHaveBeenCalledWith('waba1', 'meta-1', { components: [] })
     expect(result).toEqual(failed)
   })
 

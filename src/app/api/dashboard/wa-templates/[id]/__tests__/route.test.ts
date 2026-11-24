@@ -15,6 +15,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import {
   updateWhatsAppTemplate,
   TemplateNotFoundError,
+  TemplateEditRefusedError,
 } from '@/application/update-whatsapp-template'
 import { deleteWhatsAppTemplate } from '@/application/delete-whatsapp-template'
 import { findTemplateByIdForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
@@ -175,6 +176,45 @@ describe('PATCH /api/dashboard/wa-templates/[id]', () => {
 
     expect(res.status).toBe(502)
     expect(await res.json()).toEqual({ template: TEMPLATE, error: 'socket hang up' })
+  })
+
+  it('returns 422 with the UNCHANGED live template when Meta refuses an in-place edit (TPL-012)', async () => {
+    const error = 'WhatsApp did not accept the edit, so nothing was changed and the live template is unchanged: edit limit (code 100)'
+    vi.mocked(updateWhatsAppTemplate).mockResolvedValue({ template: TEMPLATE, error, errorCode: 'meta_rejected' })
+
+    const res = await PATCH(req(), ctx())
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ template: TEMPLATE, error })
+  })
+
+  it('returns 500, not 400 "nothing saved", when Meta took the edit but the app did not save it (TPL-012 r2)', async () => {
+    const error =
+      'WhatsApp already has the new content under review, but the app did not save it. Do not edit this template again; contact support.'
+    vi.mocked(updateWhatsAppTemplate).mockResolvedValue({
+      template: TEMPLATE,
+      error,
+      errorCode: 'meta_edited_not_saved',
+    })
+
+    const res = await PATCH(req(), ctx())
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ template: TEMPLATE, error })
+  })
+
+  it('returns 400 with the message when an edit cannot be made in place (TPL-012)', async () => {
+    const message = 'A template that is on WhatsApp cannot be renamed. Create a new template with the new name instead.'
+    vi.mocked(updateWhatsAppTemplate).mockRejectedValue(new TemplateEditRefusedError(message))
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await PATCH(req(), ctx())
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: message })
+    // An expected refusal is not a server error.
+    expect(errorLog).not.toHaveBeenCalled()
+    errorLog.mockRestore()
   })
 
   it('returns 400 with the message when the use case throws a validation error', async () => {

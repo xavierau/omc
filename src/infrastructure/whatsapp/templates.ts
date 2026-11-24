@@ -22,6 +22,14 @@ export function createMetaTemplate(
   return getTemplateProvider().createTemplate(wabaId, params)
 }
 
+export function editMetaTemplate(
+  wabaId: string,
+  metaTemplateId: string,
+  edit: { components: TemplateComponent[]; category?: string }
+) {
+  return getTemplateProvider().editTemplate(wabaId, metaTemplateId, edit)
+}
+
 export function listMetaTemplates(wabaId: string) {
   return getTemplateProvider().listTemplates(wabaId)
 }

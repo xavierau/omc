@@ -1,0 +1,55 @@
+     × editTemplate delegates to editMetaTemplate and passes the result through 3ms
+     × returns kapso_no_api_key and sends nothing when no API key 110ms
+     × POSTs {components} to /<template id> with the WABA as the proxy routing key 13ms
+     × sends category only when given 1ms
+     × maps a Graph error to meta_rejected with Meta’s own words and codes 1ms
+     × maps a proxy route error (non-Graph body) to a provider error, not a rejection 1ms
+     × maps a network failure to a provider error 0ms
+     × treats a 200 without success:true as a provider error 0ms
+     × scopes the lookup by restaurant so another tenant cannot edit the row 4ms
+     × edits a linked approved template in place on Meta and never deletes it (TPL-012) 0ms
+     × sends a changed category in the edit body for a linked REJECTED template 0ms
+     × submits prepared components but persists them without examples 0ms
+       × Meta refuses the edit (24h edit limit) 1ms
+       × Meta rejects the content 0ms
+       × a transient provider failure is not branded a Meta rejection 0ms
+       × no Kapso key: nothing submitted, nothing saved 0ms
+       × a name change 4ms
+       × a language change 1ms
+       × a category change on an approved template 1ms
+       × any edit while Meta is reviewing it 1ms
+       × gives each refusal a distinct message 1ms
+     × refuses a URL image header WITHOUT touching the live Meta template when upload is unconfigured 0ms
+     × aborts BEFORE the edit when the header image upload fails 0ms
+     × mints the handle and edits an image header in place when configured 0ms
+       × submits a fresh create and links the new Meta id 0ms
+     × returns 400 with the message when an edit cannot be made in place (TPL-012) 2ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 26 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > scopes the lookup by restaurant so another tenant cannot edit the row
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > edits a linked approved template in place on Meta and never deletes it (TPL-012)
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > sends a changed category in the edit body for a linked REJECTED template
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > submits prepared components but persists them without examples
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a failed in-place edit persists nothing and keeps the live template > Meta refuses the edit (24h edit limit)
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a failed in-place edit persists nothing and keeps the live template > Meta rejects the content
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a failed in-place edit persists nothing and keeps the live template > a transient provider failure is not branded a Meta rejection
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > a failed in-place edit persists nothing and keeps the live template > no Kapso key: nothing submitted, nothing saved
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses edits Meta cannot make in place, before any Meta call > a name change
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses edits Meta cannot make in place, before any Meta call > a language change
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses edits Meta cannot make in place, before any Meta call > a category change on an approved template
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses edits Meta cannot make in place, before any Meta call > any edit while Meta is reviewing it
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses edits Meta cannot make in place, before any Meta call > gives each refusal a distinct message
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > refuses a URL image header WITHOUT touching the live Meta template when upload is unconfigured
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > aborts BEFORE the edit when the header image upload fails
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > mints the handle and edits an image header in place when configured
+ FAIL  src/application/__tests__/update-whatsapp-template.test.ts > updateWhatsAppTemplate > unlinked row: create path unchanged > submits a fresh create and links the new Meta id
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > returns kapso_no_api_key and sends nothing when no API key
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > POSTs {components} to /<template id> with the WABA as the proxy routing key
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > sends category only when given
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > maps a Graph error to meta_rejected with Meta’s own words and codes
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > maps a proxy route error (non-Graph body) to a provider error, not a rejection
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > maps a network failure to a provider error
+ FAIL  src/infrastructure/kapso/__tests__/template-client-edit.test.ts > editMetaTemplate > treats a 200 without success:true as a provider error
+ FAIL  src/infrastructure/whatsapp/kapso/__tests__/template-adapter.test.ts > kapsoTemplateAdapter > editTemplate delegates to editMetaTemplate and passes the result through
+ FAIL  src/app/api/dashboard/wa-templates/[id]/__tests__/route.test.ts > PATCH /api/dashboard/wa-templates/[id] > returns 400 with the message when an edit cannot be made in place (TPL-012)
+ Test Files  4 failed | 2 passed (6)
+      Tests  26 failed | 41 passed (67)
