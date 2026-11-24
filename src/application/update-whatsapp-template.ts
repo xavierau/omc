@@ -14,7 +14,7 @@ import {
 } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import {
   createMetaTemplate,
-  deleteMetaTemplate,
+  editMetaTemplate,
 } from '@/infrastructure/whatsapp/templates'
 import {
   normalizeTemplateComponents,
@@ -22,6 +22,7 @@ import {
 } from '@/domain/services/prepare-template-components'
 import { validateTemplateComponents } from '@/domain/services/validate-template-components'
 import { resolveHeaderMedia, mapMediaHandleError } from '@/application/resolve-header-media'
+import type { TemplateSubmitResult } from '@/domain/value-objects/template-submit-result'
 
 interface UpdateTemplateInput {
   name?: string
@@ -45,9 +46,20 @@ export class TemplateNotFoundError extends Error {
   }
 }
 
+// An edit Meta cannot apply in place to a live template (TPL-012). Thrown before
+// any Meta call; the route answers 400 with the message, as for an invalid name.
+// The only alternative would be delete + re-create, which locks the template's
+// name+language on Meta for ~4 weeks and takes it offline (prod, 2026-11-24).
+export class TemplateEditRefusedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TemplateEditRefusedError'
+  }
+}
+
 // restaurantId scopes the lookup rather than being compared afterwards: a template
 // belonging to another tenant is simply not found, so its live Meta template can
-// never be deleted and re-created with this caller's payload.
+// never be edited with this caller's payload.
 export async function updateWhatsAppTemplate(
   templateId: string,
   restaurantId: string,
@@ -59,6 +71,7 @@ export async function updateWhatsAppTemplate(
   if (input.name !== undefined && !validateTemplateName(input.name)) {
     throw new Error('Invalid template name: must be lowercase alphanumeric and underscores only')
   }
+  if (existing.metaTemplateId) assertEditableInPlace(existing, input)
 
   const merged = { ...existing, ...input }
   const changes = normalizeChanges(input)
@@ -79,10 +92,10 @@ export async function updateWhatsAppTemplate(
     return { template: await updateTemplate(templateId, changes) }
   }
 
-  // Mint header-image handles and validate the payload BEFORE the destructive
-  // delete: a mint failure, or a payload Meta is certain to refuse, must never
-  // cost the caller their live template. Both run on a copy — the stored row
-  // keeps the image URL (changes), not the ~24h handle.
+  // Mint header-image handles and validate the payload BEFORE any Meta call: a
+  // mint failure, or a payload Meta is certain to refuse, must change nothing.
+  // Both run on a copy — the stored row keeps the image URL (changes), not the
+  // ~24h handle.
   const phoneNumberId = await getRestaurantPhoneNumberId(existing.restaurantId)
   const resolved = await resolveHeaderMedia(merged.components, phoneNumberId ?? '')
   if (!resolved.ok) {
@@ -95,20 +108,80 @@ export async function updateWhatsAppTemplate(
   }
 
   if (existing.metaTemplateId) {
-    // Meta requires delete before re-create for templates with the same name.
-    // If it fails the create would fail on uniqueness anyway, and clearing the link
-    // afterwards would orphan a template that is still live and still sendable.
-    const deleted = await deleteMetaTemplate(businessAccountId, existing.name)
-    if (!deleted) {
-      return {
-        template: existing,
-        error: 'The existing template could not be removed from Meta, so no changes were saved',
-        errorCode: 'provider_error',
-      }
-    }
+    const linked = { ...existing, metaTemplateId: existing.metaTemplateId }
+    return editOnMeta(linked, changes, businessAccountId, resolved.components)
   }
-
   return resubmitToMeta(templateId, merged, changes, businessAccountId, resolved.components)
+}
+
+/** Refuses, before any Meta call, every edit Meta cannot make to a live template. */
+function assertEditableInPlace(existing: WhatsAppTemplate, input: UpdateTemplateInput): void {
+  if (input.name !== undefined && input.name !== existing.name) {
+    throw new TemplateEditRefusedError(
+      'A template that is on WhatsApp cannot be renamed. Create a new template with the new name instead.'
+    )
+  }
+  if (input.language !== undefined && input.language !== existing.language) {
+    throw new TemplateEditRefusedError(
+      'A template that is on WhatsApp cannot change its language. Create a new template in that language instead.'
+    )
+  }
+  if (existing.status === 'pending') {
+    throw new TemplateEditRefusedError(
+      'This template is under review by WhatsApp and cannot be edited yet. Try again when the review finishes.'
+    )
+  }
+  if (existing.status === 'approved' && categoryChanged(existing, input)) {
+    throw new TemplateEditRefusedError(
+      'WhatsApp does not allow changing the category of an approved template. Create a new template instead.'
+    )
+  }
+}
+
+function categoryChanged(existing: WhatsAppTemplate, input: UpdateTemplateInput): boolean {
+  return input.category !== undefined && input.category !== existing.category
+}
+
+/**
+ * Edits the live template on Meta (POST /<meta_template_id>) and never deletes
+ * it. Success: Meta re-reviews it, so the row goes pending and keeps its link.
+ * Any failure (edit limit, rejection, outage): nothing is persisted, so the row
+ * stays consistent with the template that is still live on Meta.
+ */
+async function editOnMeta(
+  existing: WhatsAppTemplate & { metaTemplateId: string },
+  changes: UpdateTemplateInput,
+  businessAccountId: string,
+  submitComponents: TemplateComponent[]
+): Promise<UpdateTemplateResult> {
+  const { metaTemplateId } = existing
+  const result = await editMetaTemplate(businessAccountId, metaTemplateId, {
+    components: prepareTemplateComponents(submitComponents),
+    ...(categoryChanged(existing, changes) ? { category: changes.category } : {}),
+  })
+  if (!result.ok) return { template: existing, ...describeEditFailure(result.error) }
+
+  const updated = await updateTemplate(existing.id, {
+    ...changes,
+    status: 'pending',
+    metaTemplateId,
+    rejectionReason: null,
+  })
+  return { template: updated }
+}
+
+function describeEditFailure(
+  error: TemplateSubmitResult['error']
+): Pick<UpdateTemplateResult, 'error' | 'errorCode'> {
+  if (error?.title === 'kapso_no_api_key') {
+    return { error: 'WhatsApp provider not configured', errorCode: 'provider_not_configured' }
+  }
+  const reason = error?.details ?? 'Failed to send the edit to WhatsApp'
+  const errorCode = error?.title === 'meta_rejected' ? 'meta_rejected' : 'provider_error'
+  return {
+    error: `WhatsApp did not accept the edit, so nothing was changed and the live template is unchanged: ${reason}`,
+    errorCode,
+  }
 }
 
 function normalizeChanges(input: UpdateTemplateInput): UpdateTemplateInput {
@@ -141,8 +214,7 @@ async function resubmitToMeta(
     return { template: updated }
   }
 
-  // Meta refused the content: the old template is gone and the new one was judged
-  // and failed. Record both facts.
+  // Meta judged the new template and refused it. Record that.
   if (metaResult.error?.title === 'meta_rejected') {
     const details = metaResult.error.details ?? 'Meta rejected the template'
     const updated = await updateTemplate(templateId, {
@@ -154,9 +226,8 @@ async function resubmitToMeta(
     return { template: updated, error: details, errorCode: 'meta_rejected' }
   }
 
-  // No client, so nothing was submitted and nothing was deleted. Guarded on the
-  // link rather than trusting that a linked template already aborted at the delete:
-  // an unlinked row has no live counterpart its local edit could diverge from.
+  // No client, so nothing was submitted. Guarded on the link: only an unlinked
+  // row has no live counterpart its local edit could diverge from.
   if (metaResult.error?.title === 'kapso_no_api_key' && !merged.metaTemplateId) {
     const updated = await updateTemplate(templateId, changes)
     return {
@@ -166,8 +237,7 @@ async function resubmitToMeta(
     }
   }
 
-  // The submit failed before Meta could judge it. Any old template is already gone,
-  // so unlink honestly — but this is not a content rejection.
+  // The submit failed before Meta could judge it: not a content rejection.
   const details = metaResult.error?.details ?? 'Failed to submit template to Meta'
   const updated = await updateTemplate(templateId, {
     ...changes,

@@ -1,5 +1,6 @@
 import {
   createMetaTemplate,
+  editMetaTemplate,
   listMetaTemplates,
   getMetaTemplate,
   deleteMetaTemplate,
@@ -16,6 +17,8 @@ export const kapsoTemplateAdapter: WhatsAppTemplatePort = {
   async createTemplate(wabaId, params): Promise<TemplateSubmitResult> {
     return createMetaTemplate(wabaId, params)
   },
+
+  editTemplate: editMetaTemplate,
 
   async listTemplates(wabaId): Promise<TemplateListItem[] | null> {
     const list = await listMetaTemplates(wabaId)

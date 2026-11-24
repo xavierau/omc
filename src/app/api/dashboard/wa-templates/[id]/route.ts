@@ -4,6 +4,7 @@ import { deleteWhatsAppTemplate } from '@/application/delete-whatsapp-template'
 import {
   updateWhatsAppTemplate,
   TemplateNotFoundError,
+  TemplateEditRefusedError,
 } from '@/application/update-whatsapp-template'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -68,6 +69,9 @@ export async function PATCH(
     }
     if (error instanceof TemplateNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+    if (error instanceof TemplateEditRefusedError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     const message = error instanceof Error ? error.message : 'Failed to update template'
     console.error('Template PATCH error:', error)
