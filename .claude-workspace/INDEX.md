@@ -123,6 +123,7 @@ no artifact files were lost._
 
 **TPL-012 — template edit in place on Meta (2026-11-24)**
 - [2026-11-24-dev-tpl-012-handoff](artifacts/2026-11-24-dev-tpl-012-handoff.md) — TPL-012: edit via POST /<id>, never delete; refusals, probe, AC table (dev)
+- [2026-11-24-dev-tpl-012-r2-handoff](artifacts/2026-11-24-dev-tpl-012-r2-handoff.md) — TPL-012 r2: PR #227 review fixes F1-F4 (no-op, disabled, post-Meta save, Graph code) (dev)
 
 **BOOK-009 — booking hours, slot form, terms (2026-11-20)**
 - [2026-11-20-book-009-w1-impl](artifacts/2026-11-20-book-009-w1-impl.md) — W1 booking-hours domain, shared slot check, settings API, terms acceptance (091) (dev)
