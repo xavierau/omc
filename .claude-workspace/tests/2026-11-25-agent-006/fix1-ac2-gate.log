@@ -1,0 +1,12 @@
+TSC_EXIT_0
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--agent-006
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  728 passed | 17 skipped (745)
+      Tests  8406 passed | 140 skipped | 2 todo (8548)
+   Start at  12:07:25
+   Duration  50.88s (transform 42.82s, setup 0ms, import 152.39s, tests 42.24s, environment 62ms)
+
+GATE_EXIT=0

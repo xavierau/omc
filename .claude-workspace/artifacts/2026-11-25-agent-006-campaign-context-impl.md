@@ -79,3 +79,25 @@ Stage: **POC**. The repo does not import `stages/mature.md`, and no `WT_STAGE` i
 - **Scoping:** check the four queries in `agent-campaign-repository.ts`. Identity comes only from `ctx.key`, and the tool test asserts that model args are ignored.
 - **Prompt injection:** campaign text is restaurant-written. The skill marks it as data. Tenants write their own templates, so the trust level matches the knowledge sheet.
 - **Default-on:** a new tenant, or a stored config without `enabledTools`, gets the tool. Stored arrays are not migrated: the owner ticks the box.
+
+## Fix round 1 (2026-11-25, /code-review high PR #229, F1–F5)
+
+| file | purpose |
+|---|---|
+| `src/domain/ports/agent-reply.ts` | `AgentCampaignSend` = `{sentAt, content}`; `content` is `{kind:'template', components, editedAfterSend}` or `{kind:'text', text}`; no `campaignName` |
+| `src/infrastructure/supabase/repositories/agent-campaign-repository.ts` | template only from the send's own `template_id` (F2); inline text in the send's language (F1); `updated_at` compared with the queued time of the send that carried the template (F2); no `campaigns.name` / `whatsapp_template_id` read (F2, F4) |
+| `src/application/agent/agent-campaign-tool.ts` | output `{sentAt, templateText, editedAfterSend}` (F4); placeholder URL button → note (F3); code-point truncation (F5) |
+| `src/application/agent/skills/campaigns-skill.ts` | editedAfterSend rule (F2) |
+| `src/application/agent/agent-tools.ts` | tool description: no campaign name, names editedAfterSend |
+| `__tests__/schema-contract/parse-schema.ts` | reads every `ADD COLUMN` of one `ALTER TABLE` (029 adds `template_en` and `template_zh_hk` in one statement; only the first was seen) |
+
+**Decisions**
+- **F1 language:** the same chain as the send in `execute-campaign-broadcast`. The language is the member's `preferred_language`, else the restaurant's `default_language`, else zh_hk (`resolvePreferredLanguage`). The text is then picked with `resolveLocalizedTemplate`: that language, else the other one, else the legacy `template` column.
+  - The brief says "else zh_hk then en". That differs only when a restaurant's default is en, and all 7 prod restaurants are zh_hk today.
+  - `restaurants` is read (scoped by id) only when an inline campaign is present and the member has no language.
+- **F2:** the reference time is the `queued_at` of the newest send that carried that template, not the QR row after it.
+  - `updated_at` is moved by every UPDATE, status-only ones included. That makes the flag conservative.
+  - Prod shows 0 of 6,568 accepted sends in 90 days with the template updated after the send (`tests/2026-11-25-agent-006/fix1-ac3-README.md`), so it is not noise.
+- **F3:** a URL is "personal" when it contains `{{`; phone buttons are unchanged.
+
+**Tests:** RED 10 failing in 4 files (`fix1-ac1-red.log`), GREEN 45/45 (`fix1-ac1-green.log`). Gate: tsc 0; vitest 728 files passed, 8406 tests passed (`fix1-ac2-gate.log`). The earlier round-1 cases were rewritten to the new shape (no name, content union). No case was dropped.
