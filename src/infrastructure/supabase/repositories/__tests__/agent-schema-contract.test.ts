@@ -26,6 +26,9 @@ const CASES = [
   { table: 'whatsapp_messages', file: 'agent-campaign-repository.ts' },
   { table: 'campaigns', file: 'agent-campaign-repository.ts' },
   { table: 'whatsapp_templates', file: 'agent-campaign-repository.ts' },
+  // AGENT-006 fix 1: inline text in the diner's language, template edited after the send.
+  { table: 'members', file: 'agent-campaign-repository.ts' },
+  { table: 'restaurants', file: 'agent-campaign-repository.ts' },
 ]
 
 /** Filter columns per `.from('table')` chunk (`.eq('col'`, `.gte('col'`, ...). */

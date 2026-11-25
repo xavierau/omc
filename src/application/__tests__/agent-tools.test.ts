@@ -83,52 +83,83 @@ describe('AGENT-006 get_recent_campaigns', () => {
 
   it('AC-1 takes no parameters; bound to the job diner, the model args are ignored; window 30 days, at most 3', async () => {
     expect(Object.keys(AGENT_TOOL_DECLARATIONS.get_recent_campaigns).sort()).toEqual(['description', 'name'])
+    // F4: the internal campaign name is not offered; F2: the description names the edited-after-send flag.
+    expect(AGENT_TOOL_DECLARATIONS.get_recent_campaigns.description).not.toMatch(/campaign name/i)
+    expect(AGENT_TOOL_DECLARATIONS.get_recent_campaigns.description).toContain('editedAfterSend')
     const { execute, data } = executor()
     const out = await execute('get_recent_campaigns', { phone: '+85298887777', restaurantId: 'rest-b', member_id: 'm-other', limit: 50 })
     expect(data.calls).toEqual(['campaigns:rest-a:+85291234567:2026-10-20T10:00:00.000Z:3'])
     expect(out).toEqual({ campaigns: [] })
   })
 
-  it('AC-1 returns {campaignName, sentAt, templateText}: header text + body + URL/phone buttons, placeholders left as-is', async () => {
+  it('AC-1 returns {sentAt, templateText, editedAfterSend}: header text + body + URL/phone buttons, placeholders left as-is; no campaign name', async () => {
     const { execute, data } = executor()
     data.campaignSends.push({
-      campaignName: 'Sake night',
       sentAt: '2026-11-18T09:00:00.000Z',
-      components: [
-        { type: 'HEADER', format: 'TEXT', text: 'Sake pairing night' },
-        { type: 'HEADER', format: 'IMAGE' },
-        BODY('Hi {{customer_name}}, 30 Nov 7pm, HK$680 per person.'),
-        { type: 'FOOTER', text: 'Reply STOP to opt out' },
-        {
-          type: 'BUTTONS',
-          buttons: [
-            { type: 'URL', text: 'Book now', url: 'https://example.test/book/{{1}}' },
-            { type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85221234567' },
-            { type: 'QUICK_REPLY', text: 'Not interested' },
-          ],
-        },
-      ],
+      content: {
+        kind: 'template',
+        editedAfterSend: false,
+        components: [
+          { type: 'HEADER', format: 'TEXT', text: 'Sake pairing night' },
+          { type: 'HEADER', format: 'IMAGE' },
+          BODY('Hi {{customer_name}}, 30 Nov 7pm, HK$680 per person.'),
+          { type: 'FOOTER', text: 'Reply STOP to opt out' },
+          {
+            type: 'BUTTONS',
+            buttons: [
+              { type: 'URL', text: 'Menu', url: 'https://example.test/menu' },
+              { type: 'URL', text: 'Book now', url: 'https://example.test/book/{{1}}' },
+              { type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85221234567' },
+              { type: 'QUICK_REPLY', text: 'Not interested' },
+            ],
+          },
+        ],
+      },
     })
-    const out = (await execute('get_recent_campaigns', {})) as { campaigns: Array<Record<string, string>> }
+    const out = (await execute('get_recent_campaigns', {})) as { campaigns: Array<Record<string, unknown>> }
     expect(out.campaigns).toEqual([
       {
-        campaignName: 'Sake night',
         sentAt: '2026-11-18T09:00:00.000Z',
         templateText: [
           'Sake pairing night',
           'Hi {{customer_name}}, 30 Nov 7pm, HK$680 per person.',
-          'Button "Book now": https://example.test/book/{{1}}',
+          'Button "Menu": https://example.test/menu',
+          'Button "Book now": personal link in the diner\'s message',
           'Button "Call us": +85221234567',
         ].join('\n'),
+        editedAfterSend: false,
       },
+    ])
+    expect(JSON.stringify(out)).not.toContain('campaignName')
+  })
+
+  it('AC-1 F1 an inline-text campaign returns its own text; F2 a template edited after the send is flagged', async () => {
+    const { execute, data } = executor()
+    data.campaignSends.push(
+      { sentAt: '2026-11-18T09:00:00.000Z', content: { kind: 'text', text: 'Sake night, HK$680 pp. Reply to book.' } },
+      { sentAt: '2026-11-10T09:00:00.000Z', content: { kind: 'template', components: [BODY('Oysters HK$38 each')], editedAfterSend: true } }
+    )
+    const out = (await execute('get_recent_campaigns', {})) as { campaigns: unknown[] }
+    expect(out.campaigns).toEqual([
+      { sentAt: '2026-11-18T09:00:00.000Z', templateText: 'Sake night, HK$680 pp. Reply to book.', editedAfterSend: false },
+      { sentAt: '2026-11-10T09:00:00.000Z', templateText: 'Oysters HK$38 each', editedAfterSend: true },
     ])
   })
 
-  it('AC-1 templateText is truncated at 1500 characters', async () => {
+  it('AC-1 templateText is truncated at 1500 characters (code points), never splitting a surrogate pair', async () => {
     const { execute, data } = executor()
-    data.campaignSends.push({ campaignName: 'Long', sentAt: '2026-11-18T09:00:00.000Z', components: [BODY('x'.repeat(4000))] })
+    const template = (text: string) => ({ sentAt: '2026-11-18T09:00:00.000Z', content: { kind: 'template' as const, components: [BODY(text)], editedAfterSend: false } })
+    data.campaignSends.push(
+      template('x'.repeat(4000)),
+      template('x'.repeat(1499) + '🍶' + 'tail'),
+      { sentAt: '2026-11-18T09:00:00.000Z', content: { kind: 'text', text: '酒'.repeat(1499) + '🍶🍶' } }
+    )
     const out = (await execute('get_recent_campaigns', {})) as { campaigns: Array<{ templateText: string }> }
     expect(out.campaigns[0].templateText).toHaveLength(1500)
+    expect(out.campaigns[1].templateText).toBe('x'.repeat(1499) + '🍶')
+    expect(Array.from(out.campaigns[1].templateText)).toHaveLength(1500)
+    expect(out.campaigns[2].templateText).toBe('酒'.repeat(1499) + '🍶')
+    expect(out.campaigns[2].templateText).not.toMatch(/[\uD800-\uDBFF]$/)
   })
 
   it('AC-1 not offered when not enabled: error, no lookup', async () => {
