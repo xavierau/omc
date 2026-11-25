@@ -193,7 +193,8 @@ const NOTES = 'Large groups: set menu only.'
 
 describe('AC-15 BOOKING RULES section', () => {
   it('AC-15 hours null → the whole system instruction is exactly today’s (fixture from e89ef859)', () => {
-    const all = [...AGENT_TOOL_NAMES]
+    // The fixture predates AGENT-006: every tool it knew (the campaigns skill adds its own section).
+    const all = AGENT_TOOL_NAMES.filter((t) => t !== 'get_recent_campaigns')
     expect(buildSystemInstruction(AGENT, NOW, { offeredTools: all, bookingRules: NOTES, bookingHours: null, maxPartySize: 8 })).toBe(FIXTURE.withRules)
     expect(buildSystemInstruction(AGENT, NOW, { offeredTools: all, bookingRules: '' })).toBe(FIXTURE.noRules)
   })

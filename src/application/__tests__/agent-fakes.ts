@@ -28,6 +28,7 @@ import { FakeBookingRequests, FakeBookingSender, FakeBookingSettings } from '@/t
 import { FakeBookingRoom } from '@/application/booking/__tests__/fake-booking-room'
 import type { AgentLogFn } from '@/application/agent/admit-inbound-for-agent'
 import type { SendResult } from '@/domain/value-objects/send-result'
+import type { AgentCampaignSend } from '@/domain/ports/agent-reply'
 
 export interface FakeAgentRow {
   id: string
@@ -292,10 +293,16 @@ export const failedModel = (reason: Extract<AgentModelResult, { ok: false }>['re
   usage: { promptTokens: 0, outputTokens: 0 },
 })
 
-export const fakeToolData = (): AgentToolData & { calls: string[] } => {
+export const fakeToolData = (): AgentToolData & { calls: string[]; campaignSends: AgentCampaignSend[] } => {
   const calls: string[] = []
+  const campaignSends: AgentCampaignSend[] = []
   return {
     calls,
+    campaignSends,
+    async listRecentCampaigns(key, query) {
+      calls.push(`campaigns:${key.restaurantId}:${key.phone}:${query.sinceIso}:${query.limit}`)
+      return campaignSends
+    },
     async getMemberSummary(key) {
       calls.push(`member:${key.restaurantId}:${key.phone}`)
       return { member: true, pointsBalance: 120, stampCards: [] }

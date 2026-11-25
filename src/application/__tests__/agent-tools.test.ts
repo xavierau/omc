@@ -77,3 +77,63 @@ describe('AC-R3 only enabled, known, read-only tools run', () => {
     expect(out).toMatchObject({ handedOff: true, contactUrl: 'https://wa.me/85290000000', contactLabel: 'Chat with us' })
   })
 })
+
+describe('AGENT-006 get_recent_campaigns', () => {
+  const BODY = (text: string) => ({ type: 'BODY' as const, text })
+
+  it('AC-1 takes no parameters; bound to the job diner, the model args are ignored; window 30 days, at most 3', async () => {
+    expect(Object.keys(AGENT_TOOL_DECLARATIONS.get_recent_campaigns).sort()).toEqual(['description', 'name'])
+    const { execute, data } = executor()
+    const out = await execute('get_recent_campaigns', { phone: '+85298887777', restaurantId: 'rest-b', member_id: 'm-other', limit: 50 })
+    expect(data.calls).toEqual(['campaigns:rest-a:+85291234567:2026-10-20T10:00:00.000Z:3'])
+    expect(out).toEqual({ campaigns: [] })
+  })
+
+  it('AC-1 returns {campaignName, sentAt, templateText}: header text + body + URL/phone buttons, placeholders left as-is', async () => {
+    const { execute, data } = executor()
+    data.campaignSends.push({
+      campaignName: 'Sake night',
+      sentAt: '2026-11-18T09:00:00.000Z',
+      components: [
+        { type: 'HEADER', format: 'TEXT', text: 'Sake pairing night' },
+        { type: 'HEADER', format: 'IMAGE' },
+        BODY('Hi {{customer_name}}, 30 Nov 7pm, HK$680 per person.'),
+        { type: 'FOOTER', text: 'Reply STOP to opt out' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'URL', text: 'Book now', url: 'https://example.test/book/{{1}}' },
+            { type: 'PHONE_NUMBER', text: 'Call us', phoneNumber: '+85221234567' },
+            { type: 'QUICK_REPLY', text: 'Not interested' },
+          ],
+        },
+      ],
+    })
+    const out = (await execute('get_recent_campaigns', {})) as { campaigns: Array<Record<string, string>> }
+    expect(out.campaigns).toEqual([
+      {
+        campaignName: 'Sake night',
+        sentAt: '2026-11-18T09:00:00.000Z',
+        templateText: [
+          'Sake pairing night',
+          'Hi {{customer_name}}, 30 Nov 7pm, HK$680 per person.',
+          'Button "Book now": https://example.test/book/{{1}}',
+          'Button "Call us": +85221234567',
+        ].join('\n'),
+      },
+    ])
+  })
+
+  it('AC-1 templateText is truncated at 1500 characters', async () => {
+    const { execute, data } = executor()
+    data.campaignSends.push({ campaignName: 'Long', sentAt: '2026-11-18T09:00:00.000Z', components: [BODY('x'.repeat(4000))] })
+    const out = (await execute('get_recent_campaigns', {})) as { campaigns: Array<{ templateText: string }> }
+    expect(out.campaigns[0].templateText).toHaveLength(1500)
+  })
+
+  it('AC-1 not offered when not enabled: error, no lookup', async () => {
+    const { execute, data } = executor(['list_rewards'])
+    expect(await execute('get_recent_campaigns', {})).toEqual({ error: 'tool_not_available' })
+    expect(data.calls).toEqual([])
+  })
+})

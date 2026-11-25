@@ -12,8 +12,8 @@ import { AGENT_TOOL_NAMES, type AgentToolName } from '@/domain/value-objects/age
 const NOW = new Date('2026-11-20T04:00:00Z')
 const CONFIG = { instructions: '', knowledge: 'Open daily 11:00-21:00.' }
 const LOYALTY: AgentToolName[] = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
-/** Every booking tool enabled (no loyalty tool): what the booking mode then offers. */
-const BOOKING_ENABLED = AGENT_TOOL_NAMES.filter((t) => !LOYALTY.includes(t))
+/** Every booking tool enabled (no loyalty or AGENT-006 campaign tool): what the booking mode then offers. */
+const BOOKING_ENABLED = AGENT_TOOL_NAMES.filter((t) => !LOYALTY.includes(t) && t !== 'get_recent_campaigns')
 const SIMPLE = offeredTools(BOOKING_ENABLED, 'simple', 'auto')
 const EXTERNAL = offeredTools(BOOKING_ENABLED, 'external', 'auto')
 const SAMPLE_RULES = 'Bookings 12:00-20:00. Last order 20:30. Closed Mondays.'
@@ -44,8 +44,8 @@ describe('AGENT-005 AC-1 core', () => {
     expect(SAFETY_PREAMBLE).not.toMatch(/^6\./m)
   })
 
-  it('the registry is core, loyalty, booking; core is always active', () => {
-    expect(AGENT_SKILLS.map((s) => s.id)).toEqual(['core', 'loyalty', 'booking'])
+  it('the registry is core, loyalty, campaigns (AGENT-006), booking; core is always active', () => {
+    expect(AGENT_SKILLS.map((s) => s.id)).toEqual(['core', 'loyalty', 'campaigns', 'booking'])
     expect(activeSkills([]).map((s) => s.id)).toEqual(['core'])
   })
 
