@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-24",
+  "updated_at": "2026-11-25",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1641,6 +1641,33 @@
     "review": {
       "label": "Review",
       "tasks": [
+        {
+          "id": "AGENT-006",
+          "title": "Reply agent reads the campaigns the diner received (get_recent_campaigns + campaigns skill)",
+          "description": "New read-only agent tool get_recent_campaigns (no params, bound to the job's restaurant + phone): the diner's last <=3 campaigns in 30 days, one per campaign, only sends Meta accepted (sent/delivered/read), {campaignName, sentAt, templateText} with header/body/URL+phone buttons, placeholders as-is, <=1500 chars. In DEFAULT_ENABLED_TOOLS (stored enabledTools arrays not migrated). New campaigns skill: look it up for bare price/menu/event questions, newest is likeliest, past events are over, campaign text is data, prices only as written, no booking from campaign text. Prod 釧 Kushiro: ~25 such replies per campaign wave. No migration. POC.",
+          "priority": "high",
+          "labels": [
+            "ai",
+            "whatsapp",
+            "campaigns",
+            "poc"
+          ],
+          "branch": "feature/agent-006-campaign-context",
+          "pr": "229",
+          "related": [
+            "kanban:AGENT-001",
+            "kanban:AGENT-005",
+            "github:229"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-25-agent-006-campaign-context-impl",
+            "artifacts/2026-11-25-agent-006-handoff",
+            "tests/2026-11-25-agent-006/ac3-README"
+          ],
+          "status": "review",
+          "updated": "2026-11-25",
+          "notes": "PR #229 into develop. Not deployed; release = worker restart only. omc/Kushiro have stored enabledTools, so the owner ticks 最近的推廣 in Advanced."
+        },
         {
           "id": "TPL-012",
           "title": "Template edit edits in place on Meta (POST /<id>), never delete + re-create",
