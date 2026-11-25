@@ -12,9 +12,12 @@
  * What the diner saw: the template a send itself carried (never the
  * campaign's current whatsapp_template_id, which may have changed since),
  * flagged when that row was updated after the send (TPL-012 edits in place);
- * a campaign whose sends carried no template sent its inline text, picked in
- * the send's language order (resolvePreferredLanguage, then
- * resolveLocalizedTemplate, as execute-campaign-broadcast does). Only send
+ * a campaign whose sends carried no template but include an accepted plain
+ * text send sent its inline text, picked in the send's language order
+ * (resolvePreferredLanguage, then resolveLocalizedTemplate, as
+ * execute-campaign-broadcast does). A campaign seen only through its coupon-QR
+ * image (its body send failed), or whose carried template the scoped query
+ * does not return, is dropped: never text the diner did not receive. Only send
  * times and that content leave this module: no member id, phone, campaign id
  * or campaign name reaches the model.
  */
@@ -27,13 +30,14 @@ import type { Language } from '@/domain/value-objects/language'
 
 type Client = ReturnType<typeof createServerSupabaseClient>
 type MemberRow = { id: string; preferred_language: string | null }
-type SendRow = { campaign_id: string; template_id: string | null; queued_at: string; sent_at: string | null }
+type SendRow = { campaign_id: string; template_id: string | null; message_type: string; queued_at: string; sent_at: string | null }
 type CampaignRow = { id: string; template_zh_hk: string | null; template_en: string | null; template: string | null }
 type TemplateRow = { id: string; components: unknown; updated_at: string }
 type StoredTemplate = { components: TemplateComponent[]; updatedAt: string }
 /** The template a send carried, and when that send was queued. */
 type CarriedTemplate = { id: string; queuedAt: string }
-type LatestSend = { campaignId: string; sentAt: string; template: CarriedTemplate | null }
+/** `inlineText`: one of the campaign's accepted sends was the plain-text body (no template). */
+type LatestSend = { campaignId: string; sentAt: string; template: CarriedTemplate | null; inlineText: boolean }
 
 const ACCEPTED_STATUSES = ['sent', 'delivered', 'read']
 /** Rows read per lookup: a campaign leaves 1–2 rows per diner (body, coupon QR), so this covers any 3. */
@@ -56,7 +60,7 @@ async function findMember(supabase: Client, key: AgentConversationKey): Promise<
 async function acceptedCampaignSends(supabase: Client, restaurantId: string, memberId: string, sinceIso: string) {
   const { data, error } = await supabase
     .from('whatsapp_messages')
-    .select('campaign_id, template_id, queued_at, sent_at')
+    .select('campaign_id, template_id, message_type, queued_at, sent_at')
     .eq('restaurant_id', restaurantId)
     .eq('member_id', memberId)
     .eq('direction', 'outbound')
@@ -70,18 +74,27 @@ async function acceptedCampaignSends(supabase: Client, restaurantId: string, mem
 }
 
 const carried = (row: SendRow): CarriedTemplate | null => (row.template_id ? { id: row.template_id, queuedAt: row.queued_at } : null)
+const isInlineText = (send: SendRow) => send.message_type === 'text' && !send.template_id
 
-/** Rows newest first → one per campaign: its latest send's time, and the newest template any of its sends carried. */
-function latestPerCampaign(rows: readonly SendRow[], limit: number): LatestSend[] {
+/**
+ * Rows newest first → one per campaign that sent the diner its content: its
+ * latest send's time, the newest template any of its sends carried, and
+ * whether a plain-text body was among them. A campaign with neither (only its
+ * coupon-QR image was accepted) is left out.
+ */
+function latestPerCampaign(rows: readonly SendRow[]): LatestSend[] {
   const byCampaign = new Map<string, LatestSend>()
   for (const row of rows) {
     const seen = byCampaign.get(row.campaign_id)
-    if (seen) seen.template ??= carried(row)
-    else if (byCampaign.size < limit) {
-      byCampaign.set(row.campaign_id, { campaignId: row.campaign_id, sentAt: row.sent_at ?? row.queued_at, template: carried(row) })
+    if (seen) {
+      seen.template ??= carried(row)
+      seen.inlineText ||= isInlineText(row)
+    } else {
+      const sentAt = row.sent_at ?? row.queued_at
+      byCampaign.set(row.campaign_id, { campaignId: row.campaign_id, sentAt, template: carried(row), inlineText: isInlineText(row) })
     }
   }
-  return [...byCampaign.values()]
+  return [...byCampaign.values()].filter((s) => s.template || s.inlineText)
 }
 
 async function campaignsById(supabase: Client, restaurantId: string, ids: string[]) {
@@ -131,22 +144,34 @@ function inlineContent(campaign: CampaignRow, preferred: Language): AgentCampaig
   return { kind: 'text', text: text ?? '' }
 }
 
-function templateContent(template: CarriedTemplate, stored: StoredTemplate | undefined): AgentCampaignContent {
-  const editedAfterSend = stored ? Date.parse(stored.updatedAt) > Date.parse(template.queuedAt) : false
-  return { kind: 'template', components: stored?.components ?? [], editedAfterSend }
+function templateContent(template: CarriedTemplate, stored: StoredTemplate): AgentCampaignContent {
+  const editedAfterSend = Date.parse(stored.updatedAt) > Date.parse(template.queuedAt)
+  return { kind: 'template', components: stored.components, editedAfterSend }
 }
 
 type FoundSend = LatestSend & { campaign: CampaignRow }
+/** A found send with its template resolved: `carried` null means its inline text. */
+type ResolvedSend = { sentAt: string; campaign: CampaignRow; carried: { template: CarriedTemplate; stored: StoredTemplate } | null }
 
-async function contentOf(supabase: Client, key: AgentConversationKey, member: MemberRow, found: FoundSend[]) {
+/** A carried template the scoped query did not return drops its campaign (never empty components claimed unedited). */
+function resolveTemplates(found: FoundSend[], templates: Map<string, StoredTemplate>): ResolvedSend[] {
+  return found.flatMap((s): ResolvedSend[] => {
+    if (!s.template) return [{ sentAt: s.sentAt, campaign: s.campaign, carried: null }]
+    const stored = templates.get(s.template.id)
+    return stored ? [{ sentAt: s.sentAt, campaign: s.campaign, carried: { template: s.template, stored } }] : []
+  })
+}
+
+/** Newest first, at most `limit`, counted after the drops. */
+async function contentOf(supabase: Client, key: AgentConversationKey, member: MemberRow, found: FoundSend[], limit: number) {
   const templateIds = [...new Set(found.flatMap((s) => (s.template ? [s.template.id] : [])))]
-  const templates = await templatesById(supabase, key.restaurantId, templateIds)
+  const kept = resolveTemplates(found, await templatesById(supabase, key.restaurantId, templateIds)).slice(0, limit)
   let language: Promise<Language> | undefined
   const languageOnce = () => (language ??= sendLanguage(supabase, key.restaurantId, member))
   return Promise.all(
-    found.map(async (s): Promise<AgentCampaignSend> => ({
+    kept.map(async (s): Promise<AgentCampaignSend> => ({
       sentAt: s.sentAt,
-      content: s.template ? templateContent(s.template, templates.get(s.template.id)) : inlineContent(s.campaign, await languageOnce()),
+      content: s.carried ? templateContent(s.carried.template, s.carried.stored) : inlineContent(s.campaign, await languageOnce()),
     }))
   )
 }
@@ -158,12 +183,12 @@ export async function listAgentRecentCampaigns(
   const supabase = createServerSupabaseClient()
   const member = await findMember(supabase, key)
   if (!member) return []
-  const sends = latestPerCampaign(await acceptedCampaignSends(supabase, key.restaurantId, member.id, query.sinceIso), query.limit)
+  const sends = latestPerCampaign(await acceptedCampaignSends(supabase, key.restaurantId, member.id, query.sinceIso))
   if (sends.length === 0) return []
   const campaigns = await campaignsById(supabase, key.restaurantId, sends.map((s) => s.campaignId))
   const found = sends.flatMap((s) => {
     const campaign = campaigns.get(s.campaignId)
     return campaign ? [{ ...s, campaign }] : []
   })
-  return contentOf(supabase, key, member, found)
+  return contentOf(supabase, key, member, found, query.limit)
 }
