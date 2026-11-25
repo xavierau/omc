@@ -1,0 +1,6 @@
+2026-11-25 02:45:43.479363+00|user|||{}|How much per person?
+2026-11-25 02:45:50.762807+00|model|sent|gemini-3.8-flash|{get_recent_campaigns}|The Omakase Night on 5 December 2026 is HK$880 per person (plus 10% service charge). Please let us know if you would like more details or help with booking!
+2026-11-25 02:46:00.773101+00|user|||{}|清酒品酒會仲有冇位？我想訂2位
+2026-11-25 02:46:08.026728+00|model|sent|gemini-3.8-flash|{get_recent_campaigns}|Sake Tasting 清酒品酒會已於 2026 年 11 月 15 日結束咗喇，唔好意思！我哋嚟緊 12 月 5 日會有 Omakase Night 廚師發辦之夜，唔知你有冇興趣呢？
+2026-11-25 02:46:18.052172+00|user|||{}|呢個Menu係咪直接訂5號？
+2026-11-25 02:46:20.752632+00|model|sent|gemini-3.8-flash|{}|係呀，Omakase Night 廚師發辦之夜係喺 2026 年 12 月 5 日舉辦。如果你想預訂 12 月 5 號嘅位，請問想預約幾多位呢？我可以同同事幫你跟進！

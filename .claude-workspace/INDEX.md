@@ -102,6 +102,7 @@ no artifact files were lost._
 - [2026-07-06-reply-001-review](reviews/2026-07-06-reply-001-review.md) — REPLY-001 per-tenant contact-redirect CTA (code-review-analyzer)
 
 ### Tests
+- [2026-11-25-agent-006/ac3-README](tests/2026-11-25-agent-006/ac3-README.md) — AGENT-006 local walk: campaign price quoted, past event refused (dev)
 - [evidence/2026-11-20-book-009-w1](tests/evidence/2026-11-20-book-009-w1/w1-091-assert.log) — migration 091 on scratch Postgres: 7/7 constraint checks (dev)
 - [evidence/2026-11-20-book-009-w23](tests/evidence/2026-11-20-book-009-w23/) — W2/W3 harness screenshots D1–D3, A1–A2 + layout audits (dev)
 - [evidence/2026-11-20-book-009-w4](tests/evidence/2026-11-20-book-009-w4/w4-routes.log) — PAP availability + refused POST route-level log (dev)
@@ -120,6 +121,8 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+- [2026-11-25-agent-006-campaign-context-impl](artifacts/2026-11-25-agent-006-campaign-context-impl.md) — AGENT-006 get_recent_campaigns tool + campaigns skill impl note (dev)
+- [2026-11-25-agent-006-handoff](artifacts/2026-11-25-agent-006-handoff.md) — AGENT-006 dev handoff (dev)
 
 **TPL-012 — template edit in place on Meta (2026-11-24)**
 - [2026-11-24-dev-tpl-012-handoff](artifacts/2026-11-24-dev-tpl-012-handoff.md) — TPL-012: edit via POST /<id>, never delete; refusals, probe, AC table (dev)

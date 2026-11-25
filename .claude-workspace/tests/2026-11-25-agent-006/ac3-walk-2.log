@@ -1,0 +1,6 @@
+{"ts":"2026-11-25T02:46:00.779Z","level":"info","event":"agent.admitted","messageId":"wamid.a6.walk.2","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","decision":"queued"}
+{"event":"walk.admitted","decision":{"kind":"queued","mode":"auto"}}
+{"event":"walk.tool.get_recent_campaigns","query":{"sinceIso":"2026-10-26T02:46:03.951Z","limit":3},"campaigns":[{"name":"Omakase Night","sentAt":"2026-11-23T02:45:00.748481+00:00"},{"name":"Sake Tasting","sentAt":"2026-11-10T02:45:00.748481+00:00"}]}
+{"event":"walk.sent","to":"+85290000006","body":"Sake Tasting 清酒品酒會已於 2026 年 11 月 15 日結束咗喇，唔好意思！我哋嚟緊 12 月 5 日會有 Omakase Night 廚師發辦之夜，唔知你有冇興趣呢？\n\n🤖 自動回覆 Automated reply"}
+{"ts":"2026-11-25T02:46:08.032Z","level":"info","event":"agent.reply","messageId":"63a6b9e4-dd9d-47e6-ae46-7589e9fa58d8","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","outcome":"sent","latencyMs":7163,"httpStatus":200,"promptTokens":2430,"outputTokens":354,"toolCalls":["get_recent_campaigns"]}
+{"event":"walk.result","result":"sent"}

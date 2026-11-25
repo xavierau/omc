@@ -6,6 +6,7 @@
  * only (RLS on, no client policies: R7).
  */
 import type { AgentConfig } from '@/domain/value-objects/agent-config'
+import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 /** `handoff` (AGENT-003 R19, migration 085): the agent failed and the diner got the handoff reply; the thread needs staff. */
 export type AgentOutcome = 'shadow_draft' | 'sent' | 'fallback' | 'handoff' | 'error' | 'rate_limited' | 'skipped'
@@ -112,9 +113,27 @@ export interface AgentContactAction {
   text: string | null
 }
 
+/** AGENT-006: one campaign the diner received: its latest send Meta accepted, and the stored template. */
+export interface AgentCampaignSend {
+  campaignName: string
+  /** ISO time of that send. */
+  sentAt: string
+  /** The template as stored (placeholders unrendered); [] when the campaign has none. */
+  components: TemplateComponent[]
+}
+
+export interface AgentRecentCampaignsQuery {
+  /** Sends queued before this are outside the window. */
+  sinceIso: string
+  /** At most this many campaigns. */
+  limit: number
+}
+
 /** Read-only data the tools expose (R3). */
 export interface AgentToolData {
   getMemberSummary(key: AgentConversationKey): Promise<AgentMemberSummary>
   listRewards(restaurantId: string): Promise<AgentRewardSummary[]>
   getContactAction(restaurantId: string): Promise<AgentContactAction>
+  /** AGENT-006: newest first, one per campaign; [] when the diner is not a member. */
+  listRecentCampaigns(key: AgentConversationKey, query: AgentRecentCampaignsQuery): Promise<AgentCampaignSend[]>
 }

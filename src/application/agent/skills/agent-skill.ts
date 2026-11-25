@@ -16,7 +16,7 @@ export interface SkillBookingHours {
   today: string
 }
 
-export type AgentSkillId = 'core' | 'loyalty' | 'booking'
+export type AgentSkillId = 'core' | 'loyalty' | 'campaigns' | 'booking'
 
 export interface SkillPromptContext {
   /** The tools offered to the model for this job. */
