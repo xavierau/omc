@@ -26,7 +26,8 @@ export type AgentFailureAction = 'handoff' | 'menu'
 export const AGENT_FAILURE_ACTIONS: readonly AgentFailureAction[] = ['handoff', 'menu']
 
 /**
- * The tools the agent may call. AGENT-001's three are read-only (R3).
+ * The tools the agent may call. AGENT-001's three are read-only (R3), and so
+ * is AGENT-006's get_recent_campaigns (the campaigns this diner received).
  * AGENT-003's booking tools write only behind the two-step gate (R15, R22):
  * a BOOK-001 pending request, a change request staff decide, or the diner's
  * own cancel; they are offered only per the tenant's booking mode.
@@ -35,6 +36,7 @@ export const AGENT_TOOL_NAMES = [
   'get_member_summary',
   'list_rewards',
   'handoff_to_staff',
+  'get_recent_campaigns',
   'propose_booking',
   'create_booking_request',
   'get_booking_link',
@@ -47,11 +49,17 @@ export const AGENT_TOOL_NAMES = [
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
 /**
- * Review F4: the default tool set is AGENT-001's three read-only tools. Every
- * booking tool (they write) is opt-in through the Advanced checkboxes, so a
- * new tenant, or a stored config without `enabledTools`, gets none.
+ * Review F4: the default tool set is the read-only tools (AGENT-001's three,
+ * AGENT-006's campaign tool). Every booking tool (they write) is opt-in
+ * through the Advanced checkboxes, so a new tenant, or a stored config without
+ * `enabledTools`, gets none. A stored `enabledTools` array is kept as is.
  */
-export const DEFAULT_ENABLED_TOOLS: readonly AgentToolName[] = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+export const DEFAULT_ENABLED_TOOLS: readonly AgentToolName[] = [
+  'get_member_summary',
+  'list_rewards',
+  'handoff_to_staff',
+  'get_recent_campaigns',
+]
 
 export const DEFAULT_AGENT_MODEL = 'gemini-3.8-flash'
 /** R18: probed 200 with tool calls on the prod key, 2026-11-19. */

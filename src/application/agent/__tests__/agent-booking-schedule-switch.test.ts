@@ -13,7 +13,8 @@ const FIXTURE = JSON.parse(readFileSync(join(__dirname, 'fixtures/system-instruc
 const NOW = new Date('2026-11-19T10:00:00.000Z')
 const AGENT = { instructions: 'Be warm.', knowledge: 'Open daily 12:00-22:00.' }
 const NOTES = 'Large groups: set menu only.'
-const all = [...AGENT_TOOL_NAMES]
+/** The hours-null fixture predates AGENT-006: every tool it knew (the campaigns skill adds its own section). */
+const all = AGENT_TOOL_NAMES.filter((t) => t !== 'get_recent_campaigns')
 const daily = [{ first: '18:00', last: '21:00' }]
 const OFF: BookingHours = {
   ...EMPTY_BOOKING_HOURS,

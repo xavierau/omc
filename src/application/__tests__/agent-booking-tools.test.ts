@@ -259,16 +259,16 @@ describe('AC-MODE booking tools follow the booking mode', () => {
     declarationsFor(enabled, mode).map((d) => d.name)
 
   it('AC-MODE off (or unreadable) → no booking tool declared', () => {
-    expect(names('off')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff'])
-    expect(names(null)).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff'])
+    expect(names('off')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns'])
+    expect(names(null)).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns'])
   })
 
   it('AC-MODE simple → propose + create; external → get_booking_link only', () => {
     expect(names('simple')).toEqual([
-      'get_member_summary', 'list_rewards', 'handoff_to_staff', 'propose_booking', 'create_booking_request',
+      'get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns', 'propose_booking', 'create_booking_request',
       'list_my_bookings', 'propose_booking_change', 'confirm_booking_change', 'propose_booking_cancel', 'confirm_booking_cancel',
     ])
-    expect(names('external')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_booking_link'])
+    expect(names('external')).toEqual(['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns', 'get_booking_link'])
   })
 
   it('AC-MODE always also gated by enabledTools', () => {
@@ -356,11 +356,11 @@ describe('AC-MODE / AC-R17 the worker passes booking tools per mode and records 
     expect(h.store.modelRows().map((r) => r.outcome)).toEqual(['sent'])
   })
 
-  it('AC-MODE booking mode off → the model is offered no booking tool; the instruction is preamble + loyalty skill + clock + knowledge', async () => {
+  it('AC-MODE booking mode off → the model is offered no booking tool; the instruction is preamble + loyalty and campaigns skills + clock + knowledge', async () => {
     const model = new FakeAgentModel([okModel('Hi')])
     const h = workerHarness({ model })
     await processAgentReply(h.deps, await inbound(h, 'hi', 'wamid.1'))
-    const offered = ['get_member_summary', 'list_rewards', 'handoff_to_staff'] as const
+    const offered = ['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns'] as const
     expect(model.requests[0].tools.map((t) => t.name)).toEqual(offered)
     // AGENT-005: the prompt is built from the offered tools (loyalty skill on, booking skill off).
     expect(model.requests[0].systemInstruction).toBe(buildSystemInstruction(h.currentConfig(), h.clock.now(), { offeredTools: offered }))

@@ -1,0 +1,7 @@
+AGENT-006 AC-2: python3 ~/.claude/bin/resource-lock.py heavy -- bash -c 'npx tsc --noEmit && npx vitest run' (run as two steps, exit codes below), 2026-11-25, tree at the implementation commit.
+tsc exit 0
+ Test Files  728 passed | 17 skipped (745)
+      Tests  8400 passed | 140 skipped | 2 todo (8542)
+   Duration  35.88s (transform 26.44s, setup 0ms, import 102.89s, tests 25.44s, environment 53ms)
+vitest exit 0
+No flaky re-run needed.

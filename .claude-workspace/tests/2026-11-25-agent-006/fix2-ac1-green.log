@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--agent-006
+
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  12:30:51
+   Duration  1.20s (transform 752ms, setup 0ms, import 960ms, tests 23ms, environment 0ms)
+

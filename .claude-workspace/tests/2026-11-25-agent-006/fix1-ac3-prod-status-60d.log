@@ -1,0 +1,33 @@
+## campaign_sends_60d_by_status_type_template
+[
+ {
+  "status": "delivered",
+  "message_type": "template",
+  "has_template_id": true,
+  "n": 3852
+ },
+ {
+  "status": "failed",
+  "message_type": "image",
+  "has_template_id": false,
+  "n": 250
+ },
+ {
+  "status": "failed",
+  "message_type": "template",
+  "has_template_id": true,
+  "n": 598
+ },
+ {
+  "status": "read",
+  "message_type": "template",
+  "has_template_id": true,
+  "n": 337
+ },
+ {
+  "status": "sent",
+  "message_type": "template",
+  "has_template_id": true,
+  "n": 113
+ }
+]

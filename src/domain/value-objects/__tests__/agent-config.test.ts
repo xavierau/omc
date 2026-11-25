@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   AGENT_NUMBER_RANGES,
+  AGENT_TOOL_NAMES,
   DEFAULT_AGENT_CONFIG,
   DEFAULT_DISCLOSURE_TEXT,
   effectiveAgentModel,
@@ -40,8 +41,8 @@ describe('AC-VO AgentConfig resolver', () => {
       debounceMs: 3000,
       maxToolCalls: 3,
       perCallTimeoutMs: 8000,
-      // Review F4: booking tools are opt-in; the default is AGENT-001's three.
-      enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff'],
+      // Review F4: booking tools are opt-in; the default is AGENT-001's three plus AGENT-006's read-only campaign tool.
+      enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns'],
       handoffSilenceHours: 12,
       maxRepliesPerPhonePerHour: 10,
       maxRepliesPerTenantPerDay: 500,
@@ -122,14 +123,19 @@ describe('AC-VO AgentConfig resolver', () => {
     expect(() => resolveAgentConfig({ enabledTools: { length: 3 } })).not.toThrow()
   })
 
-  it('AC-F4 the default (and a blob without enabledTools) enables only the 3 AGENT-001 tools: no booking tool unless ticked', () => {
-    const agent001 = ['get_member_summary', 'list_rewards', 'handoff_to_staff']
+  it('AC-F4 the default (and a blob without enabledTools) enables only the read-only tools (AGENT-001 + AGENT-006): no booking tool unless ticked', () => {
+    const agent001 = ['get_member_summary', 'list_rewards', 'handoff_to_staff', 'get_recent_campaigns']
     expect(DEFAULT_AGENT_CONFIG.enabledTools).toEqual(agent001)
     for (const raw of [{}, { mode: 'auto' }, { mode: 'auto', enabledTools: null }, null, 'junk']) {
       const tools = resolveAgentConfig(raw).enabledTools
       expect(tools).toEqual(agent001)
       expect(tools.some((t) => /booking/.test(t))).toBe(false)
     }
+    // AGENT-006: a stored enabledTools array is not migrated: the campaign tool stays off until ticked.
+    expect(resolveAgentConfig({ enabledTools: ['get_member_summary', 'list_rewards', 'handoff_to_staff'] }).enabledTools).not.toContain(
+      'get_recent_campaigns'
+    )
+    expect(AGENT_TOOL_NAMES).toContain('get_recent_campaigns')
     // Ticked in Advanced → kept.
     expect(resolveAgentConfig({ enabledTools: ['list_rewards', 'propose_booking', 'create_booking_request'] }).enabledTools).toEqual(
       ['list_rewards', 'propose_booking', 'create_booking_request']

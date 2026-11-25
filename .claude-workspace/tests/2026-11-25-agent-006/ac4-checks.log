@@ -1,0 +1,9 @@
+AGENT-006 AC-4: the running app (next dev on localhost:3061, local Supabase, this branch), zh-HK UI, invented tenant
+"A6 Test Izakaya" logged in as a local-only walk admin. Path from the app root by real nav: 總覽 → sidebar 設定 →
+訂座及 AI 助理 → 進階設定 (opened). chrome-devtools MCP, plain viewport, light scheme.
+1280 (window default): checkbox [data-testid=agent-settings-tool-get_recent_campaigns] checked (default set, tenant has no stored enabledTools);
+  label text "最近的推廣 這位顧客過去 30 日收到的推廣訊息，讓 AI 回答「幾錢一位？」之類的回覆。"
+  order: get_member_summary [x], list_rewards [x], handoff_to_staff [x], get_recent_campaigns [x], then the 8 booking tools [ ]
+  innerWidth 1280, scrollWidth 1280 (no horizontal overflow)
+390x844x2: innerWidth 390, scrollWidth 390; label x 97, w 236, h 60 (wraps to 3 lines, nothing clipped)
+Files: ac4-zh-HK-desktop-1280.png, ac4-zh-HK-phone-390.png

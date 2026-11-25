@@ -1,0 +1,32 @@
+## sends_60d
+[
+ {
+  "accepted_campaign_sends": 4302,
+  "with_template_id": 4302,
+  "without_template_id": 0,
+  "campaigns": 11,
+  "templates": 2,
+  "template_updated_after_send": 0,
+  "templates_updated_after_a_send": 0
+ }
+]
+## null_template_by_type_60d
+[]
+## updated_after_send_detail_60d
+[]
+## sends_90d
+[
+ {
+  "accepted_campaign_sends": 6568,
+  "with_template_id": 6568,
+  "without_template_id": 0,
+  "campaigns": 22,
+  "templates": 4,
+  "template_updated_after_send": 0,
+  "templates_updated_after_a_send": 0
+ }
+]
+## null_template_by_type_90d
+[]
+## updated_after_send_detail_90d
+[]

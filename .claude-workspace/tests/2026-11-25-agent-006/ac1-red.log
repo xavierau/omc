@@ -1,0 +1,25 @@
+     × AC-VO the migration default {"mode":"off"} resolves to every documented default 7ms
+     × AC-F4 the default (and a blob without enabledTools) enables only the read-only tools (AGENT-001 + AGENT-006): no booking tool unless ticked 1ms
+     × the registry is core, loyalty, campaigns (AGENT-006), booking; core is always active 5ms
+     × AC-1 takes no parameters; bound to the job diner, the model args are ignored; window 30 days, at most 3 2ms
+     × AC-1 returns {campaignName, sentAt, templateText}: header text + body + URL/phone buttons, placeholders left as-is 2ms
+     × AC-1 templateText is truncated at 1500 characters 0ms
+     × AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on whatsapp_messages 17ms
+     × AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on campaigns 21ms
+     × AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on whatsapp_templates 26ms
+     × AC-MIG filter columns exist on the tables they filter 54ms
+ FAIL  src/application/agent/__tests__/agent-campaigns-skill.test.ts [ src/application/agent/__tests__/agent-campaigns-skill.test.ts ]
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-campaign-repository.test.ts [ src/infrastructure/supabase/repositories/__tests__/agent-campaign-repository.test.ts ]
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/application/__tests__/agent-tools.test.ts > AGENT-006 get_recent_campaigns > AC-1 takes no parameters; bound to the job diner, the model args are ignored; window 30 days, at most 3
+ FAIL  src/application/__tests__/agent-tools.test.ts > AGENT-006 get_recent_campaigns > AC-1 returns {campaignName, sentAt, templateText}: header text + body + URL/phone buttons, placeholders left as-is
+ FAIL  src/application/__tests__/agent-tools.test.ts > AGENT-006 get_recent_campaigns > AC-1 templateText is truncated at 1500 characters
+ FAIL  src/domain/value-objects/__tests__/agent-config.test.ts > AC-VO AgentConfig resolver > AC-VO the migration default {"mode":"off"} resolves to every documented default
+ FAIL  src/domain/value-objects/__tests__/agent-config.test.ts > AC-VO AgentConfig resolver > AC-F4 the default (and a blob without enabledTools) enables only the read-only tools (AGENT-001 + AGENT-006): no booking tool unless ticked
+ FAIL  src/application/agent/__tests__/agent-skills.test.ts > AGENT-005 AC-1 core > the registry is core, loyalty, campaigns (AGENT-006), booking; core is always active
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-schema-contract.test.ts > AC-MIG agent schema contract: repositories match migration 083 > AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on whatsapp_messages
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-schema-contract.test.ts > AC-MIG agent schema contract: repositories match migration 083 > AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on campaigns
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-schema-contract.test.ts > AC-MIG agent schema contract: repositories match migration 083 > AC-MIG agent-campaign-repository.ts only selects/writes columns that exist on whatsapp_templates
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-schema-contract.test.ts > AC-MIG agent schema contract: repositories match migration 083 > AC-MIG filter columns exist on the tables they filter
+ Test Files  6 failed (6)
+      Tests  10 failed | 74 passed (84)

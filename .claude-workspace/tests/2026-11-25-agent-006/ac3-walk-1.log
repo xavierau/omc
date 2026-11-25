@@ -1,0 +1,6 @@
+{"ts":"2026-11-25T02:45:43.486Z","level":"info","event":"agent.admitted","messageId":"wamid.a6.walk.1","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","decision":"queued"}
+{"event":"walk.admitted","decision":{"kind":"queued","mode":"auto"}}
+{"event":"walk.tool.get_recent_campaigns","query":{"sinceIso":"2026-10-26T02:45:46.408Z","limit":3},"campaigns":[{"name":"Omakase Night","sentAt":"2026-11-23T02:45:00.748481+00:00"},{"name":"Sake Tasting","sentAt":"2026-11-10T02:45:00.748481+00:00"}]}
+{"event":"walk.sent","to":"+85290000006","body":"The Omakase Night on 5 December 2026 is HK$880 per person (plus 10% service charge). Please let us know if you would like more details or help with booking!\n\n🤖 自動回覆 Automated reply"}
+{"ts":"2026-11-25T02:45:50.773Z","level":"info","event":"agent.reply","messageId":"0607102d-bb9c-4e9d-b99f-4b1f7ca01f35","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","outcome":"sent","latencyMs":7148,"httpStatus":200,"promptTokens":2309,"outputTokens":394,"toolCalls":["get_recent_campaigns"]}
+{"event":"walk.result","result":"sent"}

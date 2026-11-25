@@ -10,6 +10,7 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { listActiveRewards } from './reward-repository'
 import { getContactConfig, getRestaurantRedirect } from './restaurant-repository'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
+import { listAgentRecentCampaigns } from './agent-campaign-repository'
 import type {
   AgentContactAction,
   AgentConversationKey,
@@ -77,4 +78,5 @@ export const agentToolData: AgentToolData = {
   getMemberSummary: getAgentMemberSummary,
   listRewards: listAgentRewards,
   getContactAction: getAgentContactAction,
+  listRecentCampaigns: listAgentRecentCampaigns,
 }

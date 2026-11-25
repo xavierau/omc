@@ -11,6 +11,9 @@
  * AGENT-003: the booking tools (agent-booking-tools.ts) are offered only when
  * enabled AND allowed by the tenant's booking mode; `propose_booking` is the
  * one tool with arguments, none of them an identity (R12).
+ *
+ * AGENT-006: get_recent_campaigns (agent-campaign-tool.ts) reads the
+ * campaigns the job's diner received; read-only and bound to `ctx.key` too.
  */
 import {
   AGENT_TOOL_NAMES,
@@ -29,6 +32,7 @@ import {
   type AgentBookingToolContext,
   type AgentRunMode,
 } from './agent-booking-tools'
+import { getRecentCampaigns } from './agent-campaign-tool'
 
 export const AGENT_TOOL_DECLARATIONS: Record<AgentToolName, AgentToolDeclaration> = {
   get_member_summary: {
@@ -44,6 +48,11 @@ export const AGENT_TOOL_DECLARATIONS: Record<AgentToolName, AgentToolDeclaration
     name: 'handoff_to_staff',
     description:
       'Hand the conversation to restaurant staff: use for complaints, allergies, dietary or medical questions, or anything you cannot answer from the knowledge. Returns how the diner can reach staff. Takes no arguments.',
+  },
+  get_recent_campaigns: {
+    name: 'get_recent_campaigns',
+    description:
+      "List the promotions the restaurant sent the diner you are talking to on WhatsApp in the last 30 days (at most 3, newest first): when it was sent, the message text, and editedAfterSend (true when the restaurant changed that message after it was sent). Use it when the diner may be replying to one. Takes no arguments; it always returns the current diner's own campaigns.",
   },
   ...AGENT_BOOKING_TOOL_DECLARATIONS,
 }
@@ -111,6 +120,8 @@ async function runTool(name: AgentToolName, ctx: AgentToolContext, args: Record<
       return { ...(await ctx.data.getMemberSummary(ctx.key)) }
     case 'list_rewards':
       return { rewards: await ctx.data.listRewards(ctx.key.restaurantId) }
+    case 'get_recent_campaigns':
+      return { ...(await getRecentCampaigns(ctx.key, ctx.now(), ctx.data)) }
     case 'handoff_to_staff': {
       const until = new Date(ctx.now().getTime() + ctx.handoffSilenceHours * 3_600_000)
       await ctx.silences.silenceUntil(ctx.key, until.toISOString())

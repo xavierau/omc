@@ -22,6 +22,13 @@ const CASES = [
   { table: 'restaurants', file: 'agent-config-repository.ts' },
   { table: 'members', file: 'agent-tool-repository.ts' },
   { table: 'member_stamp_cards', file: 'agent-tool-repository.ts' },
+  // AGENT-006: get_recent_campaigns.
+  { table: 'whatsapp_messages', file: 'agent-campaign-repository.ts' },
+  { table: 'campaigns', file: 'agent-campaign-repository.ts' },
+  { table: 'whatsapp_templates', file: 'agent-campaign-repository.ts' },
+  // AGENT-006 fix 1: inline text in the diner's language, template edited after the send.
+  { table: 'members', file: 'agent-campaign-repository.ts' },
+  { table: 'restaurants', file: 'agent-campaign-repository.ts' },
 ]
 
 /** Filter columns per `.from('table')` chunk (`.eq('col'`, `.gte('col'`, ...). */
@@ -58,7 +65,7 @@ describe('AC-MIG agent schema contract: repositories match migration 083', () =>
   })
 
   it('AC-MIG filter columns exist on the tables they filter', () => {
-    for (const file of ['agent-message-repository.ts', 'agent-tool-repository.ts', 'agent-config-repository.ts', 'agent-conversation-repository.ts']) {
+    for (const file of ['agent-message-repository.ts', 'agent-tool-repository.ts', 'agent-config-repository.ts', 'agent-conversation-repository.ts', 'agent-campaign-repository.ts']) {
       for (const [table, cols] of filterColumnsByTable(file)) {
         const schema = columnsForTable(table)
         for (const c of cols) expect(schema.has(c), `${file}: ${table}.${c}`).toBe(true)

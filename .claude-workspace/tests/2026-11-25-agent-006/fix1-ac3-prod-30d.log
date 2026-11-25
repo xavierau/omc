@@ -1,0 +1,91 @@
+## window
+[
+ {
+  "now": "2026-11-25 04:02:57.10476+00",
+  "since": "2026-10-26 04:02:57.10476+00"
+ }
+]
+## sends_30d
+[
+ {
+  "accepted_campaign_sends": 2139,
+  "with_template_id": 2139,
+  "without_template_id": 0,
+  "without_template_text": 0,
+  "without_template_image": 0,
+  "campaigns": 6,
+  "templates": 1
+ }
+]
+## template_sends_vs_updated_at
+[
+ {
+  "template_sends": 2139,
+  "template_updated_after_send": 0,
+  "pct": "0.0",
+  "templates": 1,
+  "templates_updated_after_a_send": 0,
+  "template_row_missing": 0
+ }
+]
+## updated_after_send_by_template
+[]
+## templates_by_status
+[
+ {
+  "status": "approved",
+  "n": 23,
+  "updated_last_30d": 16
+ },
+ {
+  "status": "draft",
+  "n": 1,
+  "updated_last_30d": 0
+ },
+ {
+  "status": "rejected",
+  "n": 18,
+  "updated_last_30d": 18
+ }
+]
+## inline_sends_campaign_has_template_id
+[
+ {
+  "sends_without_template_id": 0,
+  "campaign_now_links_a_template": 0,
+  "campaign_has_inline_text": 0
+ }
+]
+## campaigns_inline_shape
+[
+ {
+  "campaigns": 46,
+  "no_template": 9,
+  "no_template_has_zh": 7,
+  "no_template_has_en": 9,
+  "no_template_legacy_only": 0,
+  "no_template_no_text": 0
+ }
+]
+## members_language
+[
+ {
+  "preferred_language": "(null)",
+  "n": 276
+ },
+ {
+  "preferred_language": "en",
+  "n": 40
+ },
+ {
+  "preferred_language": "zh_hk",
+  "n": 3921
+ }
+]
+## restaurants_default_language
+[
+ {
+  "default_language": "zh_hk",
+  "n": 7
+ }
+]

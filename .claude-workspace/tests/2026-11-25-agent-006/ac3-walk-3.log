@@ -1,0 +1,5 @@
+{"ts":"2026-11-25T02:46:18.057Z","level":"info","event":"agent.admitted","messageId":"wamid.a6.walk.3","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","decision":"queued"}
+{"event":"walk.admitted","decision":{"kind":"queued","mode":"auto"}}
+{"event":"walk.sent","to":"+85290000006","body":"係呀，Omakase Night 廚師發辦之夜係喺 2026 年 12 月 5 日舉辦。如果你想預訂 12 月 5 號嘅位，請問想預約幾多位呢？我可以同同事幫你跟進！\n\n🤖 自動回覆 Automated reply"}
+{"ts":"2026-11-25T02:46:20.761Z","level":"info","event":"agent.reply","messageId":"b42fa2a8-1e4b-4921-a009-853bd5f41699","restaurantId":"aaaaaaaa-0000-4000-8000-0000000000a6","outcome":"sent","latencyMs":2635,"httpStatus":200,"promptTokens":1109,"outputTokens":63,"toolCalls":[]}
+{"event":"walk.result","result":"sent"}

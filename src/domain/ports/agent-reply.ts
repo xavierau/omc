@@ -6,6 +6,7 @@
  * only (RLS on, no client policies: R7).
  */
 import type { AgentConfig } from '@/domain/value-objects/agent-config'
+import type { TemplateComponent } from '@/domain/entities/whatsapp-template'
 
 /** `handoff` (AGENT-003 R19, migration 085): the agent failed and the diner got the handoff reply; the thread needs staff. */
 export type AgentOutcome = 'shadow_draft' | 'sent' | 'fallback' | 'handoff' | 'error' | 'rate_limited' | 'skipped'
@@ -112,9 +113,35 @@ export interface AgentContactAction {
   text: string | null
 }
 
+/**
+ * AGENT-006: what the diner was sent. `template`: the template the send itself
+ * carried, as stored now (placeholders unrendered); `editedAfterSend` when that
+ * row was modified after the send. `text`: the campaign's own inline text in
+ * the diner's language (a send with no template).
+ */
+export type AgentCampaignContent =
+  | { kind: 'template'; components: TemplateComponent[]; editedAfterSend: boolean }
+  | { kind: 'text'; text: string }
+
+/** AGENT-006: one campaign the diner received: its latest send Meta accepted, and what it said. */
+export interface AgentCampaignSend {
+  /** ISO time of that send. */
+  sentAt: string
+  content: AgentCampaignContent
+}
+
+export interface AgentRecentCampaignsQuery {
+  /** Sends queued before this are outside the window. */
+  sinceIso: string
+  /** At most this many campaigns. */
+  limit: number
+}
+
 /** Read-only data the tools expose (R3). */
 export interface AgentToolData {
   getMemberSummary(key: AgentConversationKey): Promise<AgentMemberSummary>
   listRewards(restaurantId: string): Promise<AgentRewardSummary[]>
   getContactAction(restaurantId: string): Promise<AgentContactAction>
+  /** AGENT-006: newest first, one per campaign; [] when the diner is not a member. */
+  listRecentCampaigns(key: AgentConversationKey, query: AgentRecentCampaignsQuery): Promise<AgentCampaignSend[]>
 }
