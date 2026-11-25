@@ -52,7 +52,7 @@ export const AGENT_TOOL_DECLARATIONS: Record<AgentToolName, AgentToolDeclaration
   get_recent_campaigns: {
     name: 'get_recent_campaigns',
     description:
-      "List the promotions the restaurant sent the diner you are talking to on WhatsApp in the last 30 days (at most 3, newest first): campaign name, when it was sent and the message text. Use it when the diner may be replying to one. Takes no arguments; it always returns the current diner's own campaigns.",
+      "List the promotions the restaurant sent the diner you are talking to on WhatsApp in the last 30 days (at most 3, newest first): when it was sent, the message text, and editedAfterSend (true when the restaurant changed that message after it was sent). Use it when the diner may be replying to one. Takes no arguments; it always returns the current diner's own campaigns.",
   },
   ...AGENT_BOOKING_TOOL_DECLARATIONS,
 }

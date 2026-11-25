@@ -113,13 +113,21 @@ export interface AgentContactAction {
   text: string | null
 }
 
-/** AGENT-006: one campaign the diner received: its latest send Meta accepted, and the stored template. */
+/**
+ * AGENT-006: what the diner was sent. `template`: the template the send itself
+ * carried, as stored now (placeholders unrendered); `editedAfterSend` when that
+ * row was modified after the send. `text`: the campaign's own inline text in
+ * the diner's language (a send with no template).
+ */
+export type AgentCampaignContent =
+  | { kind: 'template'; components: TemplateComponent[]; editedAfterSend: boolean }
+  | { kind: 'text'; text: string }
+
+/** AGENT-006: one campaign the diner received: its latest send Meta accepted, and what it said. */
 export interface AgentCampaignSend {
-  campaignName: string
   /** ISO time of that send. */
   sentAt: string
-  /** The template as stored (placeholders unrendered); [] when the campaign has none. */
-  components: TemplateComponent[]
+  content: AgentCampaignContent
 }
 
 export interface AgentRecentCampaignsQuery {

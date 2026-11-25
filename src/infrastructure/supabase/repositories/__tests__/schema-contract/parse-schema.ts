@@ -76,12 +76,13 @@ function columnsFromCreateTable(sql: string, table: string): string[] {
   return extractColumnsFromBody(textBetweenBalancedParens(sql, openIndex))
 }
 
+/** Every `ADD COLUMN` of every `ALTER TABLE <table> ...;` statement: one
+ * statement may add several, comma-separated (029 adds template_en AND
+ * template_zh_hk to campaigns in one ALTER). */
 function columnsFromAlterTable(sql: string, table: string): string[] {
-  const addColRe = new RegExp(
-    `ALTER TABLE\\s+${table}\\s+ADD COLUMN\\s+(?:IF NOT EXISTS\\s+)?([a-z_][a-z0-9_]*)`,
-    'gi'
-  )
-  return [...sql.matchAll(addColRe)].map((m) => m[1])
+  const alterRe = new RegExp(`ALTER TABLE\\s+(?:IF EXISTS\\s+)?${table}\\s+([^;]*)`, 'gi')
+  const addColRe = /ADD COLUMN\s+(?:IF NOT EXISTS\s+)?([a-z_][a-z0-9_]*)/gi
+  return [...sql.matchAll(alterRe)].flatMap((stmt) => [...stmt[1].matchAll(addColRe)].map((m) => m[1]))
 }
 
 /** Every column ever declared for `table` across the full migration
