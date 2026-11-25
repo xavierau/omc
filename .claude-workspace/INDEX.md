@@ -56,6 +56,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-25-agent-006-re-review](reviews/2026-11-25-agent-006-re-review.md) — PR #229 F1–F5 re-review: APPROVED, 5/5 fixed, 1 Important (N1), 4 Minor (verifier)
 - [2026-11-21-book-010-f1-rereview](reviews/2026-11-21-book-010-f1-rereview.md) — PR #223 F1 re-review: APPROVED, 6/6 resolved, 1 new P3 (verifier)
 - ~~[2026-11-21-book-010-review](reviews/2026-11-21-book-010-review.md)~~ → superseded by 2026-11-21-book-010-f1-rereview
 - [2026-11-20-book-009-review](reviews/2026-11-20-book-009-review.md) — PR #222 substitute review: CONDITIONAL, 0 P0/P1, 2 P2, 6 P3 (verifier)
@@ -125,6 +126,7 @@ no artifact files were lost._
 - [2026-11-25-agent-006-campaign-context-impl](artifacts/2026-11-25-agent-006-campaign-context-impl.md) — AGENT-006 get_recent_campaigns tool + campaigns skill impl note (dev)
 - [2026-11-25-agent-006-handoff](artifacts/2026-11-25-agent-006-handoff.md) — AGENT-006 dev handoff (dev)
 - [2026-11-25-agent-006-fix1-handoff](artifacts/2026-11-25-agent-006-fix1-handoff.md) — AGENT-006 fix 1 (PR #229 review F1–F5) dev handoff (dev)
+- [2026-11-25-agent-006-fix2-handoff](artifacts/2026-11-25-agent-006-fix2-handoff.md) — AGENT-006 fix 2 (re-review N1, M1) dev handoff (dev)
 
 **TPL-012 — template edit in place on Meta (2026-11-24)**
 - [2026-11-24-dev-tpl-012-handoff](artifacts/2026-11-24-dev-tpl-012-handoff.md) — TPL-012: edit via POST /<id>, never delete; refusals, probe, AC table (dev)
