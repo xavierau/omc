@@ -3,6 +3,9 @@
 // accepted, and returns one row per campaign (its latest send), newest first.
 // Fix round 1: the text is the send's own template (flagged when edited after
 // the send) or the campaign's inline text, never campaigns.whatsapp_template_id.
+// Fix round 2: inline text only from an accepted plain-text send; a campaign seen
+// only through its coupon-QR image, or whose carried template is not returned,
+// is dropped (never text the diner did not receive).
 // Column existence is proven against the SQL by agent-schema-contract.test.ts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordingSupabase, filtersOf, type RecordedQuery } from '@/test-utils/recording-supabase'
@@ -33,12 +36,22 @@ function use(byTable: Record<string, Result>) {
 }
 
 const query = (rec: ReturnType<typeof use>, table: string) => rec.queries.find((q) => q.table === table)!
-const send = (campaign: string, at: string, template: string | null, sentAt: string | null = at) => ({
+type MessageType = 'text' | 'image' | 'template' | 'interactive'
+const send = (
+  campaign: string,
+  at: string,
+  template: string | null,
+  sentAt: string | null = at,
+  type: MessageType = template ? 'template' : 'text'
+) => ({
   campaign_id: campaign,
   template_id: template,
+  message_type: type,
   queued_at: at,
   sent_at: sentAt,
 })
+/** The coupon-QR image a campaign sends after its body (execute-campaign-send sendCouponQr). */
+const qr = (campaign: string, at: string) => send(campaign, at, null, at, 'image')
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -77,7 +90,7 @@ describe('AGENT-006 listAgentRecentCampaigns', () => {
       members: { data: { id: 'm-1', preferred_language: 'en' } },
       whatsapp_messages: {
         data: [
-          send('c-1', '2026-11-18T09:00:05.000Z', null), // the coupon QR after the body
+          qr('c-1', '2026-11-18T09:00:05.000Z'), // the coupon QR after the body
           send('c-1', '2026-11-18T09:00:00.000Z', 't-1'),
           send('c-2', '2026-11-10T09:00:00.000Z', null, null), // inline text, advanced to delivered before sent_at was written
           send('c-1', '2026-11-01T09:00:00.000Z', 't-1'),
@@ -154,7 +167,7 @@ describe('AGENT-006 listAgentRecentCampaigns', () => {
       members: { data: { id: 'm-1', preferred_language: 'en' } },
       whatsapp_messages: {
         data: [
-          send('c-1', '2026-11-18T09:00:05.000Z', null), // QR
+          qr('c-1', '2026-11-18T09:00:05.000Z'),
           send('c-1', '2026-11-18T09:00:00.000Z', 't-1'),
           send('c-2', '2026-11-10T09:00:00.000Z', 't-2'),
         ],
@@ -171,6 +184,90 @@ describe('AGENT-006 listAgentRecentCampaigns', () => {
     const items = await listAgentRecentCampaigns(KEY, QUERY)
     expect(items.map((i) => i.content.kind === 'template' && i.content.editedAfterSend)).toEqual([true, false])
     expect(query(rec, 'whatsapp_templates').calls).toContainEqual(['select', 'id, components, updated_at'])
+  })
+
+  it('AC-1 N1 reads message_type on the sends', async () => {
+    const rec = use({
+      members: { data: { id: 'm-1', preferred_language: 'en' } },
+      whatsapp_messages: { data: [send('c-1', '2026-11-18T09:00:00.000Z', null)] },
+      campaigns: { data: [{ id: 'c-1', ...INLINE(null, 'Sake night HK$680 pp') }] },
+    })
+    await listAgentRecentCampaigns(KEY, QUERY)
+    expect(String(query(rec, 'whatsapp_messages').calls.find(([m]) => m === 'select')?.[1])).toContain('message_type')
+  })
+
+  it('AC-1 N1 a template campaign seen only through its accepted coupon-QR image is dropped, never given the inline text', async () => {
+    // The body (template) row went failed after the send, so the status filter leaves only the QR.
+    const rec = use({
+      members: { data: { id: 'm-1', preferred_language: 'en' } },
+      whatsapp_messages: { data: [qr('c-1', '2026-11-18T09:00:05.000Z')] },
+      campaigns: { data: [{ id: 'c-1', ...INLINE('每位 HK$680', 'HK$680 pp') }] },
+      restaurants: { data: { default_language: 'zh_hk' } },
+    })
+    expect(await listAgentRecentCampaigns(KEY, QUERY)).toEqual([])
+    expect(rec.queries.map((q) => q.table)).not.toContain('whatsapp_templates')
+  })
+
+  it('AC-1 N1 inline text only for an accepted text send without template_id; a QR next to that text send keeps the text', async () => {
+    use({
+      members: { data: { id: 'm-1', preferred_language: 'en' } },
+      whatsapp_messages: {
+        data: [
+          qr('c-1', '2026-11-18T09:00:05.000Z'),
+          send('c-1', '2026-11-18T09:00:00.000Z', null), // inline text body
+          send('c-2', '2026-11-12T09:00:00.000Z', null, '2026-11-12T09:00:00.000Z', 'template'), // template type, no id
+          send('c-3', '2026-11-11T09:00:00.000Z', null, '2026-11-11T09:00:00.000Z', 'interactive'),
+        ],
+      },
+      campaigns: {
+        data: [
+          { id: 'c-1', ...INLINE(null, 'Oysters HK$38 each') },
+          { id: 'c-2', ...INLINE(null, 'Sake HK$680 pp') },
+          { id: 'c-3', ...INLINE(null, 'Wagyu HK$880') },
+        ],
+      },
+    })
+    expect(await listAgentRecentCampaigns(KEY, QUERY)).toEqual([
+      { sentAt: '2026-11-18T09:00:05.000Z', content: { kind: 'text', text: 'Oysters HK$38 each' } },
+    ])
+  })
+
+  it('AC-1 M1 a carried template the scoped template query does not return drops the item, never empty components claimed unedited', async () => {
+    use({
+      members: { data: { id: 'm-1', preferred_language: 'en' } },
+      whatsapp_messages: { data: [send('c-1', '2026-11-18T09:00:00.000Z', 't-gone')] },
+      campaigns: { data: [{ id: 'c-1', ...INLINE(null, 'HK$680 pp') }] },
+      whatsapp_templates: { data: [] },
+    })
+    expect(await listAgentRecentCampaigns(KEY, QUERY)).toEqual([])
+  })
+
+  it('AC-1 N1/M1 a dropped campaign does not cost an older one its place in the `limit`', async () => {
+    use({
+      members: { data: { id: 'm-1', preferred_language: 'en' } },
+      whatsapp_messages: {
+        data: [
+          qr('c-1', '2026-11-20T09:00:05.000Z'), // QR only: dropped
+          send('c-2', '2026-11-19T09:00:00.000Z', 't-gone'), // template missing: dropped
+          send('c-3', '2026-11-15T09:00:00.000Z', 't-3'),
+          send('c-4', '2026-11-10T09:00:00.000Z', null),
+          send('c-5', '2026-11-05T09:00:00.000Z', 't-5'),
+          send('c-6', '2026-11-01T09:00:00.000Z', 't-5'),
+        ],
+      },
+      campaigns: {
+        data: ['c-1', 'c-2', 'c-3', 'c-4', 'c-5', 'c-6'].map((id) => ({ id, ...INLINE(null, `Inline ${id}`) })),
+      },
+      whatsapp_templates: {
+        data: [
+          { id: 't-3', components: BODY('Sake HK$680'), updated_at: '2026-11-01T00:00:00.000Z' },
+          { id: 't-5', components: BODY('Oysters HK$38'), updated_at: '2026-10-01T00:00:00.000Z' },
+        ],
+      },
+    })
+    const items = await listAgentRecentCampaigns(KEY, QUERY)
+    expect(items.map((i) => i.sentAt)).toEqual(['2026-11-15T09:00:00.000Z', '2026-11-10T09:00:00.000Z', '2026-11-05T09:00:00.000Z'])
+    expect(items[1].content).toEqual({ kind: 'text', text: 'Inline c-4' })
   })
 
   it('AC-1 a campaign the tenant query does not return is dropped; no sends → no campaign or template query', async () => {
