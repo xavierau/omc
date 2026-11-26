@@ -173,6 +173,15 @@ describe('POST /api/dashboard/bookings — staff create (S1)', () => {
     expect((await (await create({ ...form, time: '20:00' })).json()).booking.checkinCode).toBe('H4PN8R')
   })
 
+  it('R13: a failed status write logs the booking id only, never name, phone, notes or code', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    world.staff!.recordMessage = async () => { throw new Error('write failed for +85291234567 Chan Tai Man K7Q2MX') }
+    expect((await create()).status).toBe(201)
+    const text = JSON.stringify(logged.mock.calls)
+    expect(text).toContain('[StaffBooking]')
+    for (const secret of ['91234567', 'Chan', 'K7Q2MX', 'window seat']) expect(text).not.toContain(secret)
+  })
+
   it('a not-delivered confirmation is stored on the row and reported', async () => {
     sendResult = { delivered: false, reason: 'outside_window' }
     const { booking, message } = await (await create()).json()
@@ -264,7 +273,8 @@ describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
 
   it('expectedUpdatedAt is required on an edit', async () => {
     const row = seed()
-    const { expectedUpdatedAt: _, ...body } = editBody(row)
+    const body: Record<string, unknown> = editBody(row)
+    delete body.expectedUpdatedAt
     expect((await edit(row.id, body)).status).toBe(400)
   })
 })

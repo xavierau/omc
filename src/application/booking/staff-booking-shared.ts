@@ -73,7 +73,8 @@ async function record(deps: StaffBookingDeps, booking: BookingRequest, delivered
   try {
     await deps.recordMessage(booking.id, booking.restaurantId, delivered ? 'delivered' : 'not_delivered')
   } catch (err) {
-    console.error('[StaffBooking] message status not stored:', { bookingId: booking.id, error: (err as Error).message })
+    // R13: the booking id and the error kind only, never the diner's details.
+    console.error('[StaffBooking] message status not stored:', { bookingId: booking.id, error: (err as Error).name })
   }
 }
 
