@@ -22,11 +22,11 @@ export class FakeClassificationStore implements InboundClassificationStore {
   fail = false
 
   async record(row: InboundClassificationRow): Promise<RecordClassificationResult> {
-    if (this.fail) return 'failed'
-    const seen = this.rows.some((r) => r.restaurantId === row.restaurantId && r.messageId === row.messageId)
-    if (seen) return 'duplicate'
+    if (this.fail) return { status: 'failed' }
+    const seen = this.rows.find((r) => r.restaurantId === row.restaurantId && r.messageId === row.messageId)
+    if (seen) return { status: 'duplicate', earlierOutcome: seen.outcome }
     this.rows.push(row)
-    return 'recorded'
+    return { status: 'recorded' }
   }
 }
 

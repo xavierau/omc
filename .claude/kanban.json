@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-24",
+  "updated_at": "2026-11-26",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1856,6 +1856,29 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
+        },
+        {
+          "id": "BOOK-012",
+          "title": "Booking-intent classifier on by default (aiRoutingEnabled becomes an opt-out)",
+          "description": "Owner ruling 2026-11-26: with booking mode simple or external and no AI agent owning booking, free-text booking messages must get the Book now button without anyone setting a hidden flag. Trigger: prod tenant 釧 Kushiro (external, agent shadow, aiRoutingEnabled false) sent 想定枱 / 'i wanna make reservation' and got only the fallback menu. Change: resolveBookingConfig treats a missing/non-boolean aiRoutingEnabled as true, only explicit false turns it off, and the default is true. Migration 094 flips every stored false to true and bumps rev for the CAS writers. No UI toggle. Routing order and the AGENT-004 skip are unchanged.",
+          "priority": "high",
+          "labels": [
+            "booking",
+            "classifier",
+            "backend",
+            "migration"
+          ],
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:AGENT-004"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-26-book-012-classifier-default-on-handoff"
+          ],
+          "branch": "feature/book-012-classifier-default-on",
+          "pr": "https://github.com/xavierau/omc/pull/230",
+          "status": "review",
+          "updated": "2026-11-26"
         }
       ]
     },
