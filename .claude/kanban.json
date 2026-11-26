@@ -1527,6 +1527,25 @@
           "workspace_artifacts": [],
           "status": "backlog",
           "updated": "2026-11-21"
+        },
+        {
+          "id": "BUILD-FONT-002",
+          "title": "Move Inter off next/font/google (same build failure class as BUILD-FONT-001)",
+          "description": "Inter still loads through next/font/google, which fetches Google's css2 at build time; a response with '&' in its font URLs fails the Turbopack build exactly as Noto Sans HK did on 2026-11-26. Declare or self-host Inter so the build has no build-time Google fetch. Not urgent: Inter was not in the 2026-11-26 errors.",
+          "priority": "low",
+          "labels": [
+            "build",
+            "frontend",
+            "tech-debt"
+          ],
+          "related": [
+            "kanban:BUILD-FONT-001"
+          ],
+          "workspace_artifacts": [
+            "debugging_journals/2026-11-26-next-font-google-turbopack-build.md"
+          ],
+          "status": "backlog",
+          "updated": "2026-11-26"
         }
       ]
     },
@@ -1641,31 +1660,6 @@
     "review": {
       "label": "Review",
       "tasks": [
-        {
-          "id": "TPL-012",
-          "title": "Template edit edits in place on Meta (POST /<id>), never delete + re-create",
-          "description": "Prod 2026-11-24: editing an approved template deleted it on Meta; the re-create was refused (code 100 / 2388023, name+language locked ~4 weeks), taking the live template and its campaign offline. Linked rows now edit in place via the Kapso proxy (business_account_id routing); name/language change, approved category change and pending edits refused before any Meta call; failed edit persists nothing. Unlinked rows keep the create path.",
-          "priority": "critical",
-          "labels": [
-            "templates",
-            "bug",
-            "backend",
-            "poc"
-          ],
-          "branch": "fix/tpl-012-template-edit-in-place",
-          "related": [
-            "kanban:TPL-003",
-            "kanban:TPL-011",
-            "github:#227"
-          ],
-          "workspace_artifacts": [
-            "artifacts/2026-11-24-dev-tpl-012-handoff.md",
-            "tests/evidence/2026-11-24-tpl-012/"
-          ],
-          "status": "review",
-          "updated": "2026-11-24",
-          "notes": "PR #227 into develop. Not deployed. No prod data repair (owner recreates nov_promo_v4). Not verified: Graph accepting business_account_id on a real template node (fails safe)."
-        },
         {
           "id": "BOOK-004",
           "title": "Bookings page: Calendar view (default) + Table view",
@@ -1856,7 +1850,12 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
-        },
+        }
+      ]
+    },
+    "done": {
+      "label": "Done",
+      "tasks": [
         {
           "id": "BOOK-012",
           "title": "Booking-intent classifier on by default (aiRoutingEnabled becomes an opt-out)",
@@ -1873,18 +1872,68 @@
             "kanban:AGENT-004"
           ],
           "workspace_artifacts": [
-            "artifacts/2026-11-26-book-012-classifier-default-on-handoff"
+            "artifacts/2026-11-26-book-012-classifier-default-on-handoff",
+            "deploys/2026-11-26-book-012-release-runbook"
           ],
           "branch": "feature/book-012-classifier-default-on",
           "pr": "https://github.com/xavierau/omc/pull/230",
-          "status": "review",
-          "updated": "2026-11-26"
-        }
-      ]
-    },
-    "done": {
-      "label": "Done",
-      "tasks": [
+          "status": "done",
+          "updated": "2026-11-26",
+          "notes": "Released 2026-11-26: #231 (BUILD-FONT-001) squash 4e870cb3 → develop, #232 develop → main ffcf73ac → release b8976f99, BUILD_ID zhPLsPnYAGCuNAHqgZBzJ, Forge deploy 84057118 05:39:45Z; db push nothing pending (094 applied ahead at 04:51Z); booking_config unchanged by the deploy (deploys/2026-11-26-book-012-release-runbook)."
+        },
+        {
+          "id": "BUILD-FONT-001",
+          "title": "next build no longer depends on Google's font URLs (Noto Sans HK declared in CSS)",
+          "description": "Release blocker 2026-11-26: Turbopack (Next 16.3.4) next/font/google failed with 327 errors when Google's css2 response carried '&' in the Noto Sans HK font URLs ('next/font/google queries have exactly one entry'). Noto Sans HK is now declared in src/app/fonts/noto-sans-hk.css (Google rules verbatim, gstatic URLs, no binaries); rendered result unchanged. Inter stays on next/font/google (BUILD-FONT-002).",
+          "priority": "critical",
+          "labels": [
+            "build",
+            "bug",
+            "frontend",
+            "poc"
+          ],
+          "branch": "fix/build-noto-sans-hk-font",
+          "pr": "https://github.com/xavierau/omc/pull/231",
+          "related": [
+            "kanban:BOOK-012",
+            "kanban:BUILD-FONT-002",
+            "github:231",
+            "github:232"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-26-build-font-001-handoff.md",
+            "debugging_journals/2026-11-26-next-font-google-turbopack-build.md"
+          ],
+          "status": "done",
+          "updated": "2026-11-26",
+          "notes": "Released 2026-11-26: #231 (BUILD-FONT-001) squash 4e870cb3 → develop, #232 develop → main ffcf73ac → release b8976f99, BUILD_ID zhPLsPnYAGCuNAHqgZBzJ, Forge deploy 84057118 05:39:45Z; db push nothing pending (094 applied ahead at 04:51Z); booking_config unchanged by the deploy (deploys/2026-11-26-book-012-release-runbook)."
+        },
+        {
+          "id": "TPL-012",
+          "title": "Template edit edits in place on Meta (POST /<id>), never delete + re-create",
+          "description": "Prod 2026-11-24: editing an approved template deleted it on Meta; the re-create was refused (code 100 / 2388023, name+language locked ~4 weeks), taking the live template and its campaign offline. Linked rows now edit in place via the Kapso proxy (business_account_id routing); name/language change, approved category change and pending edits refused before any Meta call; failed edit persists nothing. Unlinked rows keep the create path.",
+          "priority": "critical",
+          "labels": [
+            "templates",
+            "bug",
+            "backend",
+            "poc"
+          ],
+          "branch": "fix/tpl-012-template-edit-in-place",
+          "related": [
+            "kanban:TPL-003",
+            "kanban:TPL-011",
+            "github:#227"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-24-dev-tpl-012-handoff.md",
+            "tests/evidence/2026-11-24-tpl-012/",
+            "deploys/2026-11-26-book-012-release-runbook"
+          ],
+          "status": "done",
+          "updated": "2026-11-26",
+          "notes": "PR #227 into develop. Not deployed. No prod data repair (owner recreates nov_promo_v4). Not verified: Graph accepting business_account_id on a real template node (fails safe). | Released 2026-11-26: #231 (BUILD-FONT-001) squash 4e870cb3 → develop, #232 develop → main ffcf73ac → release b8976f99, BUILD_ID zhPLsPnYAGCuNAHqgZBzJ, Forge deploy 84057118 05:39:45Z; db push nothing pending (094 applied ahead at 04:51Z); booking_config unchanged by the deploy (deploys/2026-11-26-book-012-release-runbook)."
+        },
         {
           "id": "BOOK-009",
           "title": "Booking hours, slot picker and booking terms on every channel (page, PAP, AI agent)",

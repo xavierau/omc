@@ -1,0 +1,10 @@
+# Management API read_only, before 04:50:29Z / after ~04:51:40Z. Full blobs kept in session scratch only (public repo).
+slug | ai before->after | rev before->after | md5 before -> after | other keys identical
+bicho | False->True | 6->7 | 3258493786ac33247fde6cd9da6c0776 -> 8a6050173684fe953f1d369ff495f050 | True
+cheung-ying-hong | None->None | None->None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | True
+kushiro | False->True | 2->3 | 8969a87fde22126d7d5995daff085a4d -> 5f7e6b15317eb8af2b6c64a251cde7dc | True
+oh-my-agent | None->None | None->None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | True
+oh-my-client | True->True | 2->2 | 540ec34c6c33cbd5277d9bf0e1a542f5 -> 540ec34c6c33cbd5277d9bf0e1a542f5 | True
+thai-ox | None->None | None->None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | True
+wall-street-bar-lounge | None->None | None->None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | True
+ledger before: n=93 tail 093,092,091 ; after: n=94 tail 094,093,092

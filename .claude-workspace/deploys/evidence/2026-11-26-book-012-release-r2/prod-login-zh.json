@@ -1,0 +1,38 @@
+{
+  "lang": "zh-HK",
+  "fontCjk": "\"Noto Sans HK\", \"Noto Sans HK Fallback\"",
+  "notoFaces": 328,
+  "title": "OhMyClient",
+  "status": 200,
+  "css": [
+    {
+      "url": "/_next/static/chunks/2wri4kji0rkkb.css",
+      "status": 200,
+      "notoFallback": false
+    },
+    {
+      "url": "/_next/static/chunks/3d7697bi5s7hj.css",
+      "status": 200,
+      "notoFallback": false
+    },
+    {
+      "url": "/_next/static/chunks/0a5yu-solyosa.css",
+      "status": 200,
+      "notoFallback": true
+    }
+  ],
+  "fontResponses": [
+    {
+      "url": "app.ohmyclient.io/_next/static/media/83afe278b6a6bb3c-s.p.2bn3s6zvc0dyp.woff2",
+      "status": 200
+    }
+  ],
+  "font404s": 0,
+  "failedRequests": [],
+  "responses4xx5xx": [
+    {
+      "url": "https://app.ohmyclient.io/favicon.ico?favicon.2vob68tjqpejf.ico",
+      "status": 404
+    }
+  ]
+}
