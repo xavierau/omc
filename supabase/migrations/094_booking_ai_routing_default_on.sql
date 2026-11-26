@@ -16,11 +16,23 @@
 -- Idempotent: a second run matches no row. Mode-off rows are flipped too;
 -- harmless, since mode off never classifies.
 --
--- Rollback (re-disables the classifier for every tenant that had false; the
--- owner would have to name them, since this migration does not record which):
+-- Rollback (re-disables the classifier for the tenants this flipped; this
+-- migration does not record them, so they are named here). On prod it flips:
+--   kushiro  id: 96676002-4ba4-46cc-966c-061adc5d26f1
+--   bicho    id: see release runbook GET-before
+-- The rollback bumps rev with the same CASE, so a writer holding the
+-- post-094 blob re-reads instead of writing true back:
 --   UPDATE public.restaurants
---   SET booking_config = booking_config || '{"aiRoutingEnabled": false}'::jsonb
---   WHERE id IN (<the tenants to turn off>);
+--   SET booking_config = booking_config || jsonb_build_object(
+--     'aiRoutingEnabled', false,
+--     'rev', CASE
+--       WHEN jsonb_typeof(booking_config->'rev') = 'number'
+--         AND (booking_config->'rev')::numeric = trunc((booking_config->'rev')::numeric)
+--       THEN to_jsonb(trunc((booking_config->'rev')::numeric) + 1)
+--       ELSE '1'::jsonb
+--     END
+--   )
+--   WHERE id IN ('96676002-4ba4-46cc-966c-061adc5d26f1', '<bicho id>');
 
 UPDATE public.restaurants
 SET booking_config = booking_config || jsonb_build_object(
