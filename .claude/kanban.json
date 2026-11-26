@@ -1880,7 +1880,8 @@
           ],
           "branch": "feature/book-013-staff-booking-crud",
           "status": "review",
-          "updated": "2026-11-26"
+          "updated": "2026-11-26",
+          "pr": "https://github.com/xavierau/omc/pull/235"
         }
       ]
     },
