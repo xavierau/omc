@@ -11,10 +11,20 @@
  * link / change / unlink their member (BookingMemberContext).
  * BOOK-010: the Calendar's Capacity block (stop / resume) and month badges,
  * and the over-limit confirm prompt; a decision also reloads the capacity.
+ * BOOK-013: staff add / edit / cancel (StaffBookingContext: the form, rules
+ * prompt, cancel dialog, toast), the Today view with search, scan and
+ * Arrived, and "Bookings are off" when the restaurant's booking mode is off.
  */
 import { useCallback, type ReactNode } from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { CalendarOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useBookingAvailability } from '@/hooks/use-booking-availability'
+import { BookingsToday } from './bookings-today'
+import { useBookingsToday } from './use-bookings-today'
+import { StaffBookingContext, useStaffBooking } from './use-staff-booking'
+import { BookingToast, CancelBookingDialog, StaffBookingFormDialog } from './staff-booking-dialogs'
 import { BookingNoticeLine } from '@/components/dashboard/booking-list'
 import { NoShowNoticeLine } from './booking-no-show-action'
 import { useBookingRowActions } from './use-booking-row-actions'
@@ -60,17 +70,44 @@ function ScreenProviders({ now, member, children }: { now: Date; member: Booking
   )
 }
 
+/** BOOK-013 S5 (frame 10, AC-15): booking mode off. */
+export function BookingsOff() {
+  const t = useTranslations('bookings.staff')
+  return (
+    <section data-testid="bookings-off" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <CalendarOff aria-hidden className="size-6" />
+      </span>
+      <h1 className="text-xl font-semibold text-foreground">{t('offTitle')}</h1>
+      <p className="text-muted-foreground">{t('offBody')}</p>
+      <Button asChild variant="outline" size="lg">
+        <Link href="/dashboard/setup/bookings">{t('offLink')}</Link>
+      </Button>
+    </section>
+  )
+}
+
 export function BookingsScreen() {
+  const availability = useBookingAvailability()
+  if (availability === null) return <BookingsLoading />
+  if (availability.mode === 'off') return <BookingsOff />
+  return <BookingsOn />
+}
+
+function BookingsOn() {
   const t = useTranslations('bookings.views')
   const page = useBookingsPage()
   const { data, pendingCount, isLoading, error, refetch } = useBookings(page.range)
   const calendar = page.view === 'calendar'
+  const todayView = useBookingsToday()
   const capacity = useBookingCapacity(calendar ? page.selected : null, calendar && !page.isPhone ? gridRange(page.selected) : null)
   const { reload: reloadCapacity } = capacity
+  const { refetch: refetchToday } = todayView
   const refetchAll = useCallback(async () => {
-    await refetch()
+    await Promise.all([refetch(), refetchToday()])
     reloadCapacity()
-  }, [refetch, reloadCapacity])
+  }, [refetch, refetchToday, reloadCapacity])
+  const staff = useStaffBooking(refetchAll)
   const rows = useBookingRowActions(refetchAll)
   const member = useBookingMemberLink(refetch)
   const now = useMinuteTick()
@@ -86,9 +123,13 @@ export function BookingsScreen() {
 
   return (
     <ScreenProviders now={now} member={member}>
+      <StaffBookingContext.Provider value={staff.actions}>
       <div className="space-y-5">
-        <BookingsHeader view={page.view} pendingCount={pendingCount} onView={page.setView} onShowPending={page.showPending} />
-        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+        <BookingsHeader
+          view={page.view} pendingCount={pendingCount} today={page.today} onView={page.setView} onShowPending={page.showPending}
+          onNew={() => staff.actions.openNew(calendar ? page.selected : page.today)}
+        />
+        <div className={page.view === 'today' ? 'hidden' : 'flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between'}>
           {nav}
           {lists.filtersShown ? (
             <BookingsFilters
@@ -101,7 +142,9 @@ export function BookingsScreen() {
         <NoShowNoticeLine notice={rows.noShowNotice} />
         <MemberLinkNoticeLine failed={member.failed} />
         {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
-        {error ? (
+        {page.view === 'today' ? (
+          <BookingsToday state={todayView} today={page.today} busyIds={rows.busyIds} onDecide={rows.onDecide} />
+        ) : error ? (
           <LoadError onRetry={refetch} />
         ) : isLoading && !data ? (
           <BookingsLoading />
@@ -121,6 +164,10 @@ export function BookingsScreen() {
           </>
         )}
       </div>
+      <StaffBookingFormDialog staff={staff} />
+      <CancelBookingDialog staff={staff} />
+      <BookingToast toast={staff.toast} onDismiss={staff.dismissToast} />
+      </StaffBookingContext.Provider>
       <MemberDetailPanel memberId={member.openMemberId} open={member.openMemberId !== null} onClose={member.closeMember} onDeleted={refetch} />
     </ScreenProviders>
   )

@@ -13,7 +13,18 @@ vi.mock('next-intl', () => ({
   useLocale: () => 'en',
 }))
 
-const state = vi.hoisted(() => ({ page: {} as Record<string, unknown>, bookings: [] as unknown[] }))
+const state = vi.hoisted(() => ({ page: {} as Record<string, unknown>, bookings: [] as unknown[], mode: 'simple' as string | null }))
+
+// BOOK-013: the page asks for the booking mode first (S5) and the Today view reads its own list.
+vi.mock('@/hooks/use-booking-availability', () => ({
+  useBookingAvailability: () => (state.mode === null ? null : { mode: state.mode, externalUrl: null, canEditBookingUrl: false }),
+}))
+vi.mock('../bookings/use-bookings-today', () => ({
+  useBookingsToday: () => ({
+    data: { date: '2026-11-19', bookings: state.bookings, truncated: false }, failed: false, loading: false, refetch: async () => {},
+    query: '', setQuery: () => {}, codeCard: null, scan: { kind: 'closed' }, openScan: () => {}, scanAgain: () => {}, closeScan: () => {}, onScanned: async () => {},
+  }),
+}))
 
 vi.mock('../bookings/use-bookings-page', () => ({ useBookingsPage: () => state.page }))
 vi.mock('@/hooks/use-bookings', () => ({
@@ -45,6 +56,7 @@ const chipCount = (markup: string, status: string) =>
   markup.match(new RegExp(`data-testid="bookings-filter-${status}"[^>]*>.*?<span[^>]*>(\\d+)</span>`))?.[1]
 
 beforeEach(() => {
+  state.mode = 'simple'
   state.bookings = [row('pend', '2026-11-21', 'pending'), row('conf', '2026-11-21', 'confirmed'), row('spill', '2026-12-02', 'pending')]
 })
 
@@ -87,5 +99,43 @@ describe('BookingsScreen (BOOK-004 r3)', () => {
     expect(markup).toContain('data-testid="bookings-no-match"')
     expect(markup).toContain('bookings.views.noMatch')
     expect(markup).not.toContain('bookings-day-empty')
+  })
+})
+
+describe('BookingsScreen (BOOK-013)', () => {
+  it('AC-15: booking mode off shows "Bookings are off" with the Settings link, and no bookings', () => {
+    state.mode = 'off'
+    state.page = page({})
+    const markup = render()
+    expect(markup).toContain('data-testid="bookings-off"')
+    expect(markup).toContain('href="/dashboard/setup/bookings"')
+    expect(markup).not.toContain('booking-row-')
+    expect(markup).not.toContain('booking-new-button')
+  })
+
+  it('waits for the mode before showing anything', () => {
+    state.mode = null
+    state.page = page({})
+    expect(render()).toContain('data-testid="booking-list-loading"')
+  })
+
+  it.each(['simple', 'external'])('mode %s: the New booking button, the day panel Add and the Today | Calendar | Table toggle', (mode) => {
+    state.mode = mode
+    state.page = page({})
+    const markup = render()
+    expect(markup).toContain('data-testid="booking-new-button"')
+    expect(markup).toContain('data-testid="booking-day-new-button"')
+    for (const v of ['today', 'calendar', 'table']) expect(markup).toContain(`data-testid="bookings-view-${v}"`)
+  })
+
+  it('?view=today renders the Today view (search, scan, counters) instead of the calendar', () => {
+    state.bookings = [row('conf', '2026-11-19', 'confirmed')]
+    state.page = page({ view: 'today' })
+    const markup = render()
+    expect(markup).toContain('data-testid="bookings-today"')
+    expect(markup).toContain('data-testid="bookings-today-search"')
+    expect(markup).toContain('data-testid="bookings-today-scan"')
+    expect(markup).toContain('data-testid="bookings-today-counter"')
+    expect(markup).not.toContain('data-testid="bookings-day-panel"')
   })
 })

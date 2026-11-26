@@ -3,6 +3,7 @@
 /**
  * BOOK-004: the phone Table view: day groups of booking cards, full-width Confirm/Decline. BOOK-007: full-width Mark no-show / Undo.
  * BOOK-008: the name opens the linked member; the member link control sits under the party/phone line.
+ * BOOK-013: the ⋯ menu by the status, "By staff · name", the check-in code, full-width Arrived / Undo.
  */
 import { useTranslations } from 'next-intl'
 import {
@@ -24,6 +25,7 @@ import { NoShowAction } from './booking-no-show-action'
 import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
+import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, CheckinCode, StaffSourceBadge } from './booking-staff-controls'
 import type { BookingGroupsProps } from './bookings-table-desktop'
 
 function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
@@ -38,13 +40,17 @@ function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: Book
           <span className="mr-2 tabular-nums">{booking.bookingTime}</span>
           <BookingGuestName booking={booking} />
         </p>
-        <BookingStatusBadge booking={booking} />
+        <span className="flex shrink-0 items-center gap-1">
+          <BookingStatusBadge booking={booking} />
+          <BookingRowMenu booking={booking} />
+        </span>
       </div>
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
         <span>{t('pax', { count: booking.partySize })}</span>
         <PhoneLink phone={booking.phone} />
+        <CheckinCode booking={booking} />
         <span data-testid={booking.source === 'agent' ? `booking-row-${booking.id}-via-agent` : undefined}>
-          <BookingSource source={booking.source} />
+          {booking.source === 'staff' ? <StaffSourceBadge booking={booking} /> : <BookingSource source={booking.source} />}
         </span>
       </p>
       <MemberLinkControl booking={booking} />
@@ -56,9 +62,11 @@ function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: Book
       <BookingNotes booking={booking} />
       <TermsAccepted booking={booking} />
       <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} />
+      <CheckInRefusedLine booking={booking} />
       <div className="pt-1 empty:hidden">
         <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} stretch />
         <NoShowAction booking={booking} busy={busyIds.has(booking.id)} onNoShow={onNoShow} stretch />
+        <ArrivedAction booking={booking} stretch />
       </div>
     </li>
   )

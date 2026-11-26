@@ -10,7 +10,8 @@ import type { BookingsQuery } from '@/hooks/use-bookings'
 import { addDays, gridRange, monthKey, shiftMonth } from './booking-dates'
 import type { DayOrder } from './booking-groups'
 
-export const BOOKINGS_VIEWS = ['calendar', 'table'] as const
+/** BOOK-013: Today joins (first; the default on a phone). */
+export const BOOKINGS_VIEWS = ['today', 'calendar', 'table'] as const
 export type BookingsView = (typeof BOOKINGS_VIEWS)[number]
 export type TableRange = 'upcoming' | 'past' | 'pending'
 
@@ -22,8 +23,9 @@ export const UPCOMING_DAYS = 365
 const asView = (value: string | null | undefined): BookingsView | null =>
   BOOKINGS_VIEWS.includes(value as BookingsView) ? (value as BookingsView) : null
 
-export function resolveView(param: string | null, stored: string | null): BookingsView {
-  return asView(param) ?? asView(stored) ?? 'calendar'
+/** `?view=` > the remembered choice > Today on a phone (BOOK-013 S7) / Calendar on desktop. */
+export function resolveView(param: string | null, stored: string | null, isPhone = false): BookingsView {
+  return asView(param) ?? asView(stored) ?? (isPhone ? 'today' : 'calendar')
 }
 
 export function tableRangeDates(range: Exclude<TableRange, 'pending'>, today: string): BookingDateRange {
@@ -39,6 +41,8 @@ export const SHOW_PENDING = { view: 'table', tableRange: 'pending', status: 'pen
 
 /** What to fetch: the visible month grid of the selected day, the table range, or every pending booking. */
 export function fetchRange(view: BookingsView, selected: string, range: TableRange, today: string): BookingsQuery {
+  // BOOK-013: Today reads its own list (/today); the pending count still comes from this one.
+  if (view === 'today') return { from: today, to: today }
   if (view === 'calendar') return gridRange(selected)
   return range === 'pending' ? { status: 'pending' } : tableRangeDates(range, today)
 }

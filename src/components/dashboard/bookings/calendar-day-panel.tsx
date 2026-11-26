@@ -7,14 +7,18 @@
  * bookings the filter hid says nothing matches, like the table (review F5).
  * BOOK-010 (S3, AC-10): the Capacity block sits above the rows, and the
  * over-limit prompt below them.
+ * BOOK-013 (frame 1): "+ Add" opens the staff form with this date filled in.
  */
 import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BookingList, type BookingActionProps } from '@/components/dashboard/booking-list'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { formatDate } from './booking-dates'
 import { daySummary } from './booking-groups'
+import { useStaffBookingActions } from './use-staff-booking'
 
 export interface CalendarDayPanelProps extends BookingActionProps {
   date: string
@@ -55,15 +59,23 @@ function PanelEmpty({ monthEmpty, dayHidden }: { monthEmpty: boolean; dayHidden:
 
 export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false, className, capacity, footer, ...actions }: CalendarDayPanelProps) {
   const locale = useLocale()
+  const t = useTranslations('bookings.staff')
+  const staff = useStaffBookingActions()
   return (
     <section data-testid="bookings-day-panel" className={cn('overflow-hidden rounded-xl border border-border bg-card', className)}>
-      <header className="border-b border-border px-4 py-4 sm:px-5">
-        <h2 className="text-lg font-semibold text-foreground">
-          {formatDate(date, locale, { weekday: 'long', day: 'numeric', month: 'long' })}
-        </h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          <DaySummaryLine bookings={bookings} />
-        </p>
+      <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-foreground">
+            {formatDate(date, locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+          </h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            <DaySummaryLine bookings={bookings} />
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => staff.openNew(date)} data-testid="booking-day-new-button" className="h-9 shrink-0">
+          <Plus aria-hidden />
+          {t('add')}
+        </Button>
       </header>
       {capacity}
       {bookings.length === 0 ? <PanelEmpty monthEmpty={monthEmpty} dayHidden={dayHidden} /> : <BookingList bookings={bookings} {...actions} />}
