@@ -19,8 +19,9 @@ import type { StaffBookingController, Toast } from './use-staff-booking'
 import { useIsPhone } from './use-media'
 
 /** Desktop: a centred dialog; phone: a bottom sheet (frame 6). */
-const DIALOG = 'max-h-[92dvh] overflow-y-auto md:inset-x-auto md:bottom-auto md:left-1/2 md:top-[6vh] md:w-[min(560px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-xl md:border'
-const SHEET = 'rounded-t-2xl'
+// `!`: the sheet's own `data-[side=bottom]:inset-x-0 bottom-0` would otherwise win on specificity.
+const DIALOG = 'max-h-[92dvh] overflow-y-auto md:right-auto! md:bottom-auto! md:left-1/2! md:top-[6vh] md:w-[min(560px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-xl md:border'
+const SHEET = 'max-h-[92dvh] overflow-y-auto rounded-t-2xl'
 
 type Translate = ReturnType<typeof useTranslations<'bookings.staff'>>
 
@@ -108,7 +109,10 @@ export function StaffBookingFormDialog({ staff }: { staff: StaffBookingControlle
                 }}
               >
                 <div className="px-4 pb-2">
-                  <StaffBookingFields mode={form.mode} values={form.values} errors={form.errors} changed={changed} onChange={staff.setValues} />
+                  <StaffBookingFields
+                    mode={form.mode} values={form.values} errors={form.errors} changed={changed} onChange={staff.setValues}
+                    own={booking ? { date: booking.bookingDate, time: booking.bookingTime, partySize: booking.partySize } : undefined}
+                  />
                 </div>
                 <SheetFooter className="sticky bottom-0 flex-col-reverse gap-2 border-t border-border bg-popover sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" size="lg" onClick={staff.closeForm}>{t(form.stale ? 'close' : 'cancel')}</Button>

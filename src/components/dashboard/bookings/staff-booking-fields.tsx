@@ -95,7 +95,17 @@ function SlotButton({ time, note, tone, selected, onPick }: { time: string; note
   )
 }
 
-function TimeSlots({ date, time, partySize, onTime }: { date: string; time: string; partySize: number; onTime: (time: string) => void }) {
+/** The booking being edited: its own guests are counted in its slot, so they go back into "left" there. */
+export interface OwnSlot { date: string; time: string; partySize: number }
+
+/** Guests left in a slot, with the edited booking's own guests given back in its own slot (null = no limit). */
+export function slotLeft(slot: { time: string; guests: number; limit: number | null }, date: string, own?: OwnSlot): number | null {
+  if (slot.limit === null) return null
+  const mine = own && own.date === date && own.time.slice(0, 5) === slot.time ? own.partySize : 0
+  return slot.limit - slot.guests + mine
+}
+
+function TimeSlots({ date, time, partySize, own, onTime }: { date: string; time: string; partySize: number; own?: OwnSlot; onTime: (time: string) => void }) {
   const t = useTranslations('bookings.staff')
   const day = useDayCapacity(date)
   const slots = (day?.periods ?? []).flatMap((p) => p.slots.map((s) => ({ ...s, stopped: s.stopped || p.stopped || !!day?.stopped, period: p })))
@@ -107,7 +117,7 @@ function TimeSlots({ date, time, partySize, onTime }: { date: string; time: stri
       {slots.length > 0 ? (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-4">
           {slots.map((s) => {
-            const left = s.limit === null ? null : s.limit - s.guests
+            const left = slotLeft(s, date, own)
             const tone = s.stopped || (left !== null && left < partySize) ? (s.stopped ? 'off' : 'low') : 'ok'
             const note = s.stopped ? t('stopped') : left === null ? null : left <= 0 ? t('full') : t('left', { count: left })
             return <SlotButton key={s.time} time={s.time} note={note} tone={tone} selected={time === s.time} onPick={() => (setOther(false), onTime(s.time))} />
@@ -161,10 +171,11 @@ export interface StaffBookingFieldsProps {
   errors: Record<string, string>
   changed: Set<keyof StaffBookingForm>
   maxPartySize?: number
+  own?: OwnSlot
   onChange: (values: StaffBookingForm) => void
 }
 
-export function StaffBookingFields({ mode, values, errors, changed, onChange }: StaffBookingFieldsProps) {
+export function StaffBookingFields({ mode, values, errors, changed, own, onChange }: StaffBookingFieldsProps) {
   const t = useTranslations('bookings.staff')
   const member = useMemberLine(values.phone)
   const set = <K extends keyof StaffBookingForm>(key: K, value: StaffBookingForm[K]) => onChange({ ...values, [key]: value })
@@ -203,7 +214,7 @@ export function StaffBookingFields({ mode, values, errors, changed, onChange }: 
         </Field>
       </div>
       <Field label={t('time')} changed={changed.has('time')} error={err('time')}>
-        <TimeSlots date={values.date} time={values.time} partySize={values.partySize} onTime={(time) => set('time', time)} />
+        <TimeSlots date={values.date} time={values.time} partySize={values.partySize} own={own} onTime={(time) => set('time', time)} />
       </Field>
       <Field label={t('notes')} htmlFor="booking-form-notes" changed={changed.has('notes')} error={err('notes')}>
         <textarea

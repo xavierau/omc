@@ -1,0 +1,324 @@
+{
+ "zh-1440": {
+  "checks_pass": 24,
+  "checks_total": 24,
+  "errors": [],
+  "console_errors": [],
+  "screens": {
+   "01-today": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "02-today-code-card": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "03-today-arrived": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "04-scan-sheet": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "05-form-new": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "06-rules-prompt": {
+    "blocking": 0,
+    "warning": 2,
+    "blocking_findings": []
+   },
+   "07-created-toast": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "08-table-staff-row": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "09-row-menu": {
+    "blocking": 1,
+    "warning": 1,
+    "blocking_findings": [
+     "occluded: button#radix-_r_n_[data-testid=\"booking-row-7ad5276f-e8d3-43dc-ad7e-a8b12239fdf5 | center point is covered by div[data-testid=\"booking-row-6a791949-e1d3-4bc7-a75d-2193574e577c-edit\"].flex.min-h"
+    ]
+   },
+   "10-form-edit": {
+    "blocking": 1,
+    "warning": 1,
+    "blocking_findings": [
+     "occluded: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @470,826 20x20 | center point is covered by div.mt-auto.flex \"取消 儲存更改\" @441,812 558x69 (fixed/sticky) — not clickable at page t"
+    ]
+   },
+   "11-form-stale": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "12-cancel-dialog": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "13-cancelled-toast": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "14-mode-off": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   }
+  }
+ },
+ "zh-390": {
+  "checks_pass": 24,
+  "checks_total": 24,
+  "errors": [],
+  "console_errors": [],
+  "screens": {
+   "01-today": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "02-today-code-card": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "03-today-arrived": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "04-scan-sheet": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "05-form-new": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "06-rules-prompt": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "07-created-toast": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "08-table-staff-row": {
+    "blocking": 0,
+    "warning": 8,
+    "blocking_findings": []
+   },
+   "09-row-menu": {
+    "blocking": 2,
+    "warning": 10,
+    "blocking_findings": [
+     "occluded: a.inline-flex.min-h-6 \"+85223456789\" @120,1797 109x24 | center point is covered by div#radix-_r_m_.z-50.min-w-44 \"修改訂座 取消訂座\" @173,1799 176x90 (fixed/sticky) — not cli",
+     "occluded: button[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-member-unli | center point is covered by div[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-cancel\"].flex.min"
+    ]
+   },
+   "10-form-edit": {
+    "blocking": 0,
+    "warning": 8,
+    "blocking_findings": []
+   },
+   "11-form-stale": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "12-cancel-dialog": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "13-cancelled-toast": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "14-mode-off": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   }
+  }
+ },
+ "en-1440": {
+  "checks_pass": 24,
+  "checks_total": 24,
+  "errors": [],
+  "console_errors": [],
+  "screens": {
+   "01-today": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "02-today-code-card": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "03-today-arrived": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "04-scan-sheet": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "05-form-new": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "06-rules-prompt": {
+    "blocking": 0,
+    "warning": 2,
+    "blocking_findings": []
+   },
+   "07-created-toast": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "08-table-staff-row": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "09-row-menu": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "10-form-edit": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "11-form-stale": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "12-cancel-dialog": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "13-cancelled-toast": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "14-mode-off": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   }
+  }
+ },
+ "en-390": {
+  "checks_pass": 24,
+  "checks_total": 24,
+  "errors": [],
+  "console_errors": [],
+  "screens": {
+   "01-today": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "02-today-code-card": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "03-today-arrived": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "04-scan-sheet": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   },
+   "05-form-new": {
+    "blocking": 0,
+    "warning": 2,
+    "blocking_findings": []
+   },
+   "06-rules-prompt": {
+    "blocking": 0,
+    "warning": 2,
+    "blocking_findings": []
+   },
+   "07-created-toast": {
+    "blocking": 0,
+    "warning": 1,
+    "blocking_findings": []
+   },
+   "08-table-staff-row": {
+    "blocking": 0,
+    "warning": 8,
+    "blocking_findings": []
+   },
+   "09-row-menu": {
+    "blocking": 2,
+    "warning": 10,
+    "blocking_findings": [
+     "occluded: a.inline-flex.min-h-6 \"+85223456789\" @130,1935 109x24 | center point is covered by div[data-testid=\"booking-row-91c5ad10-7eee-438a-af67-4589f78b99b6-edit\"].flex.min-h",
+     "occluded: button[data-testid=\"booking-row-91c5ad10-7eee-438a-af67-4589f78b99b6-member-unli | center point is covered by div[data-testid=\"booking-row-91c5ad10-7eee-438a-af67-4589f78b99b6-cancel\"].flex.min"
+    ]
+   },
+   "10-form-edit": {
+    "blocking": 0,
+    "warning": 8,
+    "blocking_findings": []
+   },
+   "11-form-stale": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "12-cancel-dialog": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "13-cancelled-toast": {
+    "blocking": 0,
+    "warning": 9,
+    "blocking_findings": []
+   },
+   "14-mode-off": {
+    "blocking": 0,
+    "warning": 0,
+    "blocking_findings": []
+   }
+  }
+ }
+}

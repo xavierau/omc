@@ -121,10 +121,13 @@ function qrUpgradeDue(config: BookingConfig, rows: Rows, language: LanguageCode)
   const liveStatus = bookingTemplateStatus(live ?? null)
   if (!live || needsSubmission(liveStatus) || hasImageHeader(live)) return []
   const candidate = slot.candidateId ? rows.get(slot.candidateId) : undefined
-  if (bookingCandidateStatus(candidate) === 'pending' && hasImageHeader(candidate)) return []
+  const candidateStatus = bookingCandidateStatus(candidate)
+  if (candidateStatus === 'pending' && hasImageHeader(candidate)) return []
   const custom = config.templateBodies.confirmed[language] ?? null
   const text = custom ? withCode(custom, language) : bookingTemplateBody('confirmed', language)
-  return [{ language, text, draftId: null, staleCandidateId: null, asCandidate: { body: custom ? text : null } }]
+  // A QR candidate that never reached Meta (a failed draft) is resubmitted in place, so retries do not pile up rows.
+  const draftId = candidateStatus === 'failed' && hasImageHeader(candidate) ? slot.candidateId : null
+  return [{ language, text, draftId, staleCandidateId: null, asCandidate: { body: custom ? text : null } }]
 }
 
 function pendingSubmissions(config: BookingConfig, rows: Rows, deps: ProvisionBookingTemplatesDeps): Submission[] {

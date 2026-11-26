@@ -327,6 +327,20 @@ describe('provisionBookingTemplates and the check-in QR (BOOK-013)', () => {
     expect(confirmedCalls()).toHaveLength(0)
   })
 
+  it('a QR candidate that never reached Meta is resubmitted in place on the next run, not created again', async () => {
+    liveOldConfirmed()
+    createdAs('draft')
+    await provision()
+    const candidates = { ...config.templateCandidates.confirmed }
+    deps.createTemplate.mockClear()
+    await provision()
+    expect(confirmedCalls()).toHaveLength(0)
+    const resubmitted = deps.resubmitTemplate.mock.calls.map((c) => c[0])
+    for (const id of Object.values(candidates)) expect(resubmitted).toContain(id)
+    expect(config.templateCandidates.confirmed).toEqual(candidates)
+    expect(config.templateIds.confirmed).toEqual({ en: 'old-en', zh_hk: 'old-zh' })
+  })
+
   it("the restaurant's own confirmed text keeps its words, with the code line added when it has none", async () => {
     liveOldConfirmed()
     config.templateBodies.confirmed.en = 'See you on {{date}} at {{time}}, {{name}}!'

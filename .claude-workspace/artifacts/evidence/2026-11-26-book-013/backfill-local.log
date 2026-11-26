@@ -1,0 +1,62 @@
+# local stack, Kapso faked by fake-kapso.cjs (also app.kapso.ai); walk tenant reseeded, its confirmed templates set to the pre-BOOK-013 body (no QR header)
+$ backfill-booking-templates.ts (dry run)
+1 restaurant(s) in Simple booking mode (dry run; pass --apply to submit)
+  11111111-1111-4111-8111-111111111111
+exit 0
+
+$ backfill-booking-templates.ts --apply (run 1)
+1 restaurant(s) in Simple booking mode
+  11111111-1111-4111-8111-111111111111 received=pending/pending confirmed=approved/approved declined=pending/pending reminder=pending/pending changed=pending/pending cancelled=pending/pending
+exit 0
+-- booking template rows:
+booking_cancelled_0d1457 en pending
+booking_cancelled_0d1457 zh_HK pending
+booking_changed_080dda en pending
+booking_changed_080dda zh_HK pending
+booking_confirmed_7895a7 en draft
+booking_confirmed_7895a7 zh_HK draft
+booking_confirmed_walk01 en approved
+booking_confirmed_walk01 zh_HK approved
+booking_declined_f864bf en pending
+booking_declined_f864bf zh_HK pending
+booking_received_7f8613 en pending
+booking_received_7f8613 zh_HK pending
+booking_reminder_46e29a en pending
+booking_reminder_46e29a zh_HK pending
+-- confirmed slot: live / candidate
+{"en": "22222222-2222-4222-8222-222222222201", "zh_hk": "22222222-2222-4222-8222-222222222202"}|{"en": "45828226-ad2e-4d07-980a-2d53c1481108", "zh_hk": "9e003947-803d-406b-971c-9172766e411d"}
+
+$ backfill-booking-templates.ts --apply (run 2)
+1 restaurant(s) in Simple booking mode
+  11111111-1111-4111-8111-111111111111 received=pending/pending confirmed=approved/approved declined=pending/pending reminder=pending/pending changed=pending/pending cancelled=pending/pending
+exit 0
+-- booking template rows:
+booking_cancelled_0d1457 en pending
+booking_cancelled_0d1457 zh_HK pending
+booking_changed_080dda en pending
+booking_changed_080dda zh_HK pending
+booking_confirmed_7895a7 en draft
+booking_confirmed_7895a7 zh_HK draft
+booking_confirmed_walk01 en approved
+booking_confirmed_walk01 zh_HK approved
+booking_declined_f864bf en pending
+booking_declined_f864bf zh_HK pending
+booking_received_7f8613 en pending
+booking_received_7f8613 zh_HK pending
+booking_reminder_46e29a en pending
+booking_reminder_46e29a zh_HK pending
+-- confirmed slot: live / candidate
+{"en": "22222222-2222-4222-8222-222222222201", "zh_hk": "22222222-2222-4222-8222-222222222202"}|{"en": "45828226-ad2e-4d07-980a-2d53c1481108", "zh_hk": "9e003947-803d-406b-971c-9172766e411d"}
+
+-- faked Kapso calls (method path name language components)
+GET /api/v1/whatsapp_configs   []
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_received_7f8613 zh_HK ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_changed_080dda en ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_declined_f864bf zh_HK ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_changed_080dda zh_HK ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_received_7f8613 en ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_reminder_46e29a zh_HK ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_cancelled_0d1457 en ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_reminder_46e29a en ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_cancelled_0d1457 zh_HK ['BODY']
+POST /meta/whatsapp/v23.0/waba-walk-fake/message_templates booking_declined_f864bf en ['BODY']

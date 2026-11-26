@@ -25,6 +25,7 @@ import { BookingsNow } from '../bookings/bookings-clock'
 import { StaffBookingContext, formAfter, toastFor, type FormState, type StaffBookingActions } from '../bookings/use-staff-booking'
 import { canCancelBooking, canEditBooking, changedFormFields, formBody, initialForm, staffSaveOutcome, checkInOutcome } from '../bookings/staff-booking-api'
 import type { BookingsTodayState } from '../bookings/use-bookings-today'
+import { slotLeft } from '../bookings/staff-booking-fields'
 import type { BookingItem } from '@/hooks/use-bookings'
 
 // Thursday 2026-11-26 19:20 in Hong Kong.
@@ -102,6 +103,20 @@ describe('menu rules (AC-10, S3)', () => {
     expect([canEditBooking(booking({ status: 'pending' })), canCancelBooking(booking({ status: 'pending' }))]).toEqual([true, false])
     expect(canEditBooking(booking({ updatedAt: undefined }))).toBe(false)
     expect(canEditBooking(booking({ openChange: { id: 'c', bookingDate: 'x', bookingTime: 'y', partySize: 1 } as never }))).toBe(false)
+  })
+})
+
+describe('slot guests left in the form (AC-8 display)', () => {
+  const slot = { time: '19:00', guests: 20, limit: 20 }
+  it('an edit gives the booking its own guests back in its own slot, not in others or on other days', () => {
+    const own = { date: '2026-11-28', time: '19:00:00', partySize: 4 }
+    expect(slotLeft(slot, '2026-11-28', own)).toBe(4)
+    expect(slotLeft({ ...slot, time: '19:30' }, '2026-11-28', own)).toBe(0)
+    expect(slotLeft(slot, '2026-11-29', own)).toBe(0)
+  })
+  it('a new booking sees the plain count; no limit is null', () => {
+    expect(slotLeft(slot, '2026-11-28')).toBe(0)
+    expect(slotLeft({ ...slot, limit: null }, '2026-11-28')).toBeNull()
   })
 })
 

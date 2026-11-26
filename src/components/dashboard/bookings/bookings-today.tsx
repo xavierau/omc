@@ -163,7 +163,7 @@ function ScanSheet({ today, state }: { today: string; state: BookingsTodayState 
   const open = scan.kind !== 'closed'
   return (
     <Sheet open={open} onOpenChange={(o) => !o && state.closeScan()}>
-      <SheetContent side="bottom" className="max-h-[92dvh] gap-3 overflow-y-auto rounded-t-2xl p-0 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-[6vh] md:w-[min(480px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-xl md:border" data-testid="bookings-today-scan-sheet">
+      <SheetContent side="bottom" className="max-h-[92dvh] gap-3 overflow-y-auto rounded-t-2xl p-0 md:right-auto! md:bottom-auto! md:left-1/2! md:top-[6vh] md:w-[min(480px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-xl md:border" data-testid="bookings-today-scan-sheet">
         <SheetHeader className="pr-12">
           <SheetTitle className="text-lg font-semibold">{t('scanTitle')}</SheetTitle>
         </SheetHeader>

@@ -45,11 +45,11 @@ function ViewToggle({ view, onView }: { view: BookingsView; onView: (view: Booki
             onClick={() => onView(v)}
             data-testid={`bookings-view-${v}`}
             className={cn(
-              'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+              'inline-flex h-8 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 text-sm sm:px-3 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
               active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Icon aria-hidden className="size-4" />
+            <Icon aria-hidden className="size-4 shrink-0" />
             {t(v)}
           </button>
         )
