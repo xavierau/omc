@@ -1,0 +1,6 @@
+
+ Test Files  725 passed | 17 skipped (742)
+      Tests  8353 passed | 140 skipped | 2 todo (8495)
+   Start at  21:48:14
+   Duration  34.84s (transform 23.14s, setup 0ms, import 95.86s, tests 23.83s, environment 53ms)
+

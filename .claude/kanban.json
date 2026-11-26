@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-21",
+  "updated_at": "2026-11-26",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1642,76 +1642,29 @@
       "label": "Review",
       "tasks": [
         {
-          "id": "BOOK-009",
-          "title": "Booking hours, slot picker and booking terms on every channel (page, PAP, AI agent)",
-          "description": "POC: booking_config.bookingHours (weekly periods, interval, notice, ahead window, special dates, table time, terms zh-HK/en, restaurant info) set in Settings -> Booking (Simple), with a rules summary and an admin Preview. One check (booking-hours.ts via parseBookingSubmission) for the diner page (party chips, closed-day calendar, slots by period, terms tick, times-changed recovery), PAP (GET /availability, refusal codes + suggested_times, accept_terms, terms in confirm reply) and the AI agent (BOOKING RULES section, refusals with suggestedTimes, terms read-back + acceptance). Staff see a Terms accepted badge. Migration 091 (terms_accepted_at, terms_text) must run before deploy. Hours not set = today's behaviour.",
-          "priority": "medium",
+          "id": "TPL-012",
+          "title": "Template edit edits in place on Meta (POST /<id>), never delete + re-create",
+          "description": "Prod 2026-11-24: editing an approved template deleted it on Meta; the re-create was refused (code 100 / 2388023, name+language locked ~4 weeks), taking the live template and its campaign offline. Linked rows now edit in place via the Kapso proxy (business_account_id routing); name/language change, approved category change and pending edits refused before any Meta call; failed edit persists nothing. Unlinked rows keep the create path.",
+          "priority": "critical",
           "labels": [
-            "booking",
-            "agents",
-            "pap",
-            "fullstack",
+            "templates",
+            "bug",
+            "backend",
             "poc"
           ],
-          "branch": "feature/book-009-booking-hours",
-          "pr": "https://github.com/xavierau/omc/pull/222",
+          "branch": "fix/tpl-012-template-edit-in-place",
           "related": [
-            "kanban:BOOK-001",
-            "kanban:BOOK-003",
-            "kanban:BOOK-004",
-            "kanban:AGENT-005",
-            "github:222"
+            "kanban:TPL-003",
+            "kanban:TPL-011",
+            "github:#227"
           ],
           "workspace_artifacts": [
-            "specs/2026-11-20-book-009-booking-hours-and-form.md",
-            "plans/2026-11-20-book-009-010-plan.md",
-            "artifacts/2026-11-20-book-009-w1-impl.md",
-            "artifacts/2026-11-20-book-009-w1-handoff.md",
-            "artifacts/2026-11-20-book-009-w23-impl.md",
-            "artifacts/2026-11-20-book-009-w23-handoff.md",
-            "artifacts/2026-11-20-book-009-w4-impl.md",
-            "artifacts/2026-11-20-book-009-w4-handoff.md",
-            "artifacts/2026-11-20-book-009-i-handoff.md",
-            "tests/evidence/2026-11-20-book-009-i/walk-log.md"
+            "artifacts/2026-11-24-dev-tpl-012-handoff.md",
+            "tests/evidence/2026-11-24-tpl-012/"
           ],
           "status": "review",
-          "updated": "2026-11-20",
-          "notes": "I-009 (2026-11-20): W4 merged (keeps 42949788), full suite + tsc green, walked on the local Supabase stack (migrations 001-091): settings -> preview -> diner submit -> staff terms badge, times-changed recovery, PAP curl. AI agent not walked (no model call locally). PR #222 into develop, not merged, not deployed. BOOK-010 branches from this head."
-        },
-        {
-          "id": "BOOK-010",
-          "title": "Guest limits per slot / per meal and staff stop-booking, full on every channel (page, PAP, AI agent)",
-          "description": "POC: bookingHours.limits (perSlot, perMeal; empty = none) in Settings -> Booking; staff Capacity block on the Bookings calendar (guests / limit per period and slot, stop/resume day, period, slot; month 已滿 / 已停止 badges; over-limit confirm asks, never blocks). Every channel refuses a time without room with 'full' + fitting suggestions: diner page 已滿 states and recovery, PAP POST/availability/code step (declined 'full' + WhatsApp reply), AI agent tools. Atomic check-and-insert in Postgres (migration 092, service-role only). Room rules apply only while BOOK-009's schedule switch is on. Migration 092 must run after 091 and before deploy.",
-          "priority": "medium",
-          "labels": [
-            "booking",
-            "agents",
-            "pap",
-            "fullstack",
-            "poc"
-          ],
-          "branch": "feature/book-010-guest-limits",
-          "pr": "https://github.com/xavierau/omc/pull/223",
-          "related": [
-            "kanban:BOOK-009",
-            "kanban:BOOK-004",
-            "kanban:BOOK-003",
-            "github:223",
-            "github:222"
-          ],
-          "workspace_artifacts": [
-            "specs/2026-11-20-book-010-guest-limits-and-stop.md",
-            "artifacts/2026-11-20-book-010-w1-impl.md",
-            "artifacts/2026-11-20-book-010-w1-handoff.md",
-            "artifacts/2026-11-21-book-010-w2-impl.md",
-            "artifacts/2026-11-21-book-010-w2-handoff.md",
-            "artifacts/2026-11-21-book-010-i-impl.md",
-            "artifacts/2026-11-21-book-010-i-handoff.md",
-            "tests/evidence/2026-11-21-book-010-i/walk-log.md"
-          ],
-          "status": "review",
-          "updated": "2026-11-21",
-          "notes": "I-010 (2026-11-21): BOOK-009 F1 (#222 head a45f24d8) merged; room rules follow scheduleEnabled; staff meal-full display; full suite + tsc green; walked on the local Supabase stack 001..092 incl. three-way consistency and the PAP code step. PR #223 stacked on #222 (retarget to develop after #222 merges), not merged, not deployed."
+          "updated": "2026-11-24",
+          "notes": "PR #227 into develop. Not deployed. No prod data repair (owner recreates nov_promo_v4). Not verified: Graph accepting business_account_id on a real template node (fails safe)."
         },
         {
           "id": "BOOK-004",
@@ -1903,12 +1856,111 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
+        },
+        {
+          "id": "BOOK-012",
+          "title": "Booking-intent classifier on by default (aiRoutingEnabled becomes an opt-out)",
+          "description": "Owner ruling 2026-11-26: with booking mode simple or external and no AI agent owning booking, free-text booking messages must get the Book now button without anyone setting a hidden flag. Trigger: prod tenant 釧 Kushiro (external, agent shadow, aiRoutingEnabled false) sent 想定枱 / 'i wanna make reservation' and got only the fallback menu. Change: resolveBookingConfig treats a missing/non-boolean aiRoutingEnabled as true, only explicit false turns it off, and the default is true. Migration 094 flips every stored false to true and bumps rev for the CAS writers. No UI toggle. Routing order and the AGENT-004 skip are unchanged.",
+          "priority": "high",
+          "labels": [
+            "booking",
+            "classifier",
+            "backend",
+            "migration"
+          ],
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:AGENT-004"
+          ],
+          "workspace_artifacts": [
+            "artifacts/2026-11-26-book-012-classifier-default-on-handoff"
+          ],
+          "branch": "feature/book-012-classifier-default-on",
+          "pr": "https://github.com/xavierau/omc/pull/230",
+          "status": "review",
+          "updated": "2026-11-26"
         }
       ]
     },
     "done": {
       "label": "Done",
       "tasks": [
+        {
+          "id": "BOOK-009",
+          "title": "Booking hours, slot picker and booking terms on every channel (page, PAP, AI agent)",
+          "description": "POC: booking_config.bookingHours (weekly periods, interval, notice, ahead window, special dates, table time, terms zh-HK/en, restaurant info) set in Settings -> Booking (Simple), with a rules summary and an admin Preview. One check (booking-hours.ts via parseBookingSubmission) for the diner page (party chips, closed-day calendar, slots by period, terms tick, times-changed recovery), PAP (GET /availability, refusal codes + suggested_times, accept_terms, terms in confirm reply) and the AI agent (BOOKING RULES section, refusals with suggestedTimes, terms read-back + acceptance). Staff see a Terms accepted badge. Migration 091 (terms_accepted_at, terms_text) must run before deploy. Hours not set = today's behaviour.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-009-booking-hours",
+          "pr": "https://github.com/xavierau/omc/pull/222",
+          "related": [
+            "kanban:BOOK-001",
+            "kanban:BOOK-003",
+            "kanban:BOOK-004",
+            "kanban:AGENT-005",
+            "github:222",
+            "github:225"
+          ],
+          "workspace_artifacts": [
+            "specs/2026-11-20-book-009-booking-hours-and-form.md",
+            "plans/2026-11-20-book-009-010-plan.md",
+            "artifacts/2026-11-20-book-009-w1-impl.md",
+            "artifacts/2026-11-20-book-009-w1-handoff.md",
+            "artifacts/2026-11-20-book-009-w23-impl.md",
+            "artifacts/2026-11-20-book-009-w23-handoff.md",
+            "artifacts/2026-11-20-book-009-w4-impl.md",
+            "artifacts/2026-11-20-book-009-w4-handoff.md",
+            "artifacts/2026-11-20-book-009-i-handoff.md",
+            "tests/evidence/2026-11-20-book-009-i/walk-log.md",
+            "deploys/2026-11-22-book-009-010-release-runbook.md"
+          ],
+          "status": "done",
+          "updated": "2026-11-22",
+          "notes": "I-009 (2026-11-20): W4 merged (keeps 42949788), full suite + tsc green, walked on the local Supabase stack (migrations 001-091): settings -> preview -> diner submit -> staff terms badge, times-changed recovery, PAP curl. AI agent not walked (no model call locally). PR #222 into develop, not merged, not deployed. BOOK-010 branches from this head. | Released 2026-11-22: PR #225 → main 0c41a4d → release f495266, BUILD_ID ByP1OESC_Ry3XVBnpk-wX; migrations 091, 092, 093 applied before restart; bookingHours unset for every tenant, so behaviour changes only once an admin configures hours (deploys/2026-11-22-book-009-010-release-runbook)."
+        },
+        {
+          "id": "BOOK-010",
+          "title": "Guest limits per slot / per meal and staff stop-booking, full on every channel (page, PAP, AI agent)",
+          "description": "POC: bookingHours.limits (perSlot, perMeal; empty = none) in Settings -> Booking; staff Capacity block on the Bookings calendar (guests / limit per period and slot, stop/resume day, period, slot; month 已滿 / 已停止 badges; over-limit confirm asks, never blocks). Every channel refuses a time without room with 'full' + fitting suggestions: diner page 已滿 states and recovery, PAP POST/availability/code step (declined 'full' + WhatsApp reply), AI agent tools. Atomic check-and-insert in Postgres (migration 092, service-role only). Room rules apply only while BOOK-009's schedule switch is on. Migration 092 must run after 091 and before deploy.",
+          "priority": "medium",
+          "labels": [
+            "booking",
+            "agents",
+            "pap",
+            "fullstack",
+            "poc"
+          ],
+          "branch": "feature/book-010-guest-limits",
+          "pr": "https://github.com/xavierau/omc/pull/223",
+          "related": [
+            "kanban:BOOK-009",
+            "kanban:BOOK-004",
+            "kanban:BOOK-003",
+            "github:223",
+            "github:222",
+            "github:225"
+          ],
+          "workspace_artifacts": [
+            "specs/2026-11-20-book-010-guest-limits-and-stop.md",
+            "artifacts/2026-11-20-book-010-w1-impl.md",
+            "artifacts/2026-11-20-book-010-w1-handoff.md",
+            "artifacts/2026-11-21-book-010-w2-impl.md",
+            "artifacts/2026-11-21-book-010-w2-handoff.md",
+            "artifacts/2026-11-21-book-010-i-impl.md",
+            "artifacts/2026-11-21-book-010-i-handoff.md",
+            "tests/evidence/2026-11-21-book-010-i/walk-log.md",
+            "deploys/2026-11-22-book-009-010-release-runbook.md"
+          ],
+          "status": "done",
+          "updated": "2026-11-22",
+          "notes": "I-010 (2026-11-21): BOOK-009 F1 (#222 head a45f24d8) merged; room rules follow scheduleEnabled; staff meal-full display; full suite + tsc green; walked on the local Supabase stack 001..092 incl. three-way consistency and the PAP code step. PR #223 stacked on #222 (retarget to develop after #222 merges), not merged, not deployed. | Released 2026-11-22: PR #225 → main 0c41a4d → release f495266, BUILD_ID ByP1OESC_Ry3XVBnpk-wX; migrations 091, 092, 093 applied before restart; bookingHours unset for every tenant, so behaviour changes only once an admin configures hours (deploys/2026-11-22-book-009-010-release-runbook)."
+        },
         {
           "id": "WONB-020",
           "title": "Imported members claim their welcome offer on first join (WhatsApp JOIN + web join form)",

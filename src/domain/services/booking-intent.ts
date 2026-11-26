@@ -29,7 +29,7 @@ export function decideBookingIntent(result: ClassifyResult): ClassificationOutco
   return result.label === 'booking' && confident ? 'booking_reply' : 'fallback'
 }
 
-/** The classifier runs only when the tenant has booking on AND passed the eval gate. */
+/** The classifier runs when the tenant has booking on, unless it opted out (BOOK-012). */
 export function isBookingIntentRoutingOn(config: BookingConfig): boolean {
   return config.mode !== 'off' && config.aiRoutingEnabled
 }

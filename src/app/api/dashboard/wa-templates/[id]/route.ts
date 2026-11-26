@@ -4,6 +4,7 @@ import { deleteWhatsAppTemplate } from '@/application/delete-whatsapp-template'
 import {
   updateWhatsAppTemplate,
   TemplateNotFoundError,
+  TemplateEditRefusedError,
 } from '@/application/update-whatsapp-template'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
@@ -58,7 +59,7 @@ export async function PATCH(
     if (result.errorCode) {
       return NextResponse.json(
         { template: result.template, error: result.error },
-        { status: result.errorCode === 'meta_rejected' ? 422 : 502 }
+        { status: patchErrorStatus(result.errorCode) }
       )
     }
     return NextResponse.json(result.template)
@@ -69,10 +70,21 @@ export async function PATCH(
     if (error instanceof TemplateNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 })
     }
+    if (error instanceof TemplateEditRefusedError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     const message = error instanceof Error ? error.message : 'Failed to update template'
     console.error('Template PATCH error:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
+}
+
+// meta_edited_not_saved: Meta took the edit but our write failed — a server
+// fault, never 400 "nothing saved".
+function patchErrorStatus(errorCode: string): number {
+  if (errorCode === 'meta_rejected') return 422
+  if (errorCode === 'meta_edited_not_saved') return 500
+  return 502
 }
 
 export async function DELETE(

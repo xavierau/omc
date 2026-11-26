@@ -5,10 +5,13 @@
  * field to safe defaults, so a malformed or missing blob behaves as mode off
  * (spec AC-3). `parseBookingSettings` validates an admin's save (R14) and
  * keeps the fields the settings form does not own (`aiRoutingEnabled`, the
- * eval gate; `templateIds`, written by template provisioning; BOOK-002's
+ * classifier opt-out; `templateIds`, written by template provisioning; BOOK-002's
  * `templateBodies` and `templateCandidates`, written by the message editor;
  * BOOK-003's `agentBooking`, written by its own admin routes) from the current
  * config, so a save can never switch them.
+ *
+ * BOOK-012 (owner ruling 2026-11-26): `aiRoutingEnabled` is an opt-out. The
+ * booking-intent classifier runs by default; only a stored `false` turns it off.
  *
  * AGENT-005: `bookingRules` (訂座規則) is the restaurant's free text on booking
  * hours, last booking, last order and closed days. The settings form owns it;
@@ -80,7 +83,7 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   chatLinkTtlHours: 24,
   campaignLinkTtlHours: 168,
   maxPartySize: 20,
-  aiRoutingEnabled: false,
+  aiRoutingEnabled: true,
   templateIds: {
     received: { en: null, zh_hk: null },
     confirmed: { en: null, zh_hk: null },
@@ -182,7 +185,7 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     chatLinkTtlHours: resolveTtl(r.chatLinkTtlHours, d.chatLinkTtlHours as number),
     campaignLinkTtlHours: resolveTtl(r.campaignLinkTtlHours, d.campaignLinkTtlHours as number),
     maxPartySize: isPartyMax(r.maxPartySize) ? r.maxPartySize : d.maxPartySize,
-    aiRoutingEnabled: r.aiRoutingEnabled === true,
+    aiRoutingEnabled: r.aiRoutingEnabled !== false,
     templateIds: resolveTemplateIds(r.templateIds),
     templateBodies: resolveTexts(r.templateBodies),
     templateCandidates: resolveTexts(r.templateCandidates),

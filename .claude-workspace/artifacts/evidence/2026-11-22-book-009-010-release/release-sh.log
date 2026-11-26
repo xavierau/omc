@@ -1,0 +1,237 @@
+→ Preflight
+→   building release-book009-010 @ 0c41a4d
+→   node v22.21.1
+→ Installing dependencies
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+added 837 packages, and audited 838 packages in 27s
+
+253 packages are looking for funding
+  run `npm fund` for details
+
+38 vulnerabilities (2 low, 18 moderate, 15 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+→ Building Next.js
+
+> whatsapp-crm-scaffold@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 2.4s
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.0s
+  Running TypeScript ...
+  Finished TypeScript in 16.6s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/100) ...
+  Generating static pages using 7 workers (25/100) 
+  Generating static pages using 7 workers (50/100) 
+  Generating static pages using 7 workers (75/100) 
+✓ Generating static pages using 7 workers (100/100) in 754ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/audit-logs
+├ ○ /admin/billing
+├ ○ /admin/login
+├ ○ /admin/quality
+├ ○ /admin/referrers
+├ ƒ /admin/referrers/[id]
+├ ○ /admin/referrers/report
+├ ○ /admin/template-reviews
+├ ○ /admin/tenants
+├ ƒ /admin/tenants/[id]
+├ ○ /admin/tenants/new
+├ ƒ /api/admin/audit-logs
+├ ƒ /api/admin/billing
+├ ƒ /api/admin/integrations/[id]/limits
+├ ƒ /api/admin/onboarding-settings
+├ ƒ /api/admin/overview
+├ ƒ /api/admin/quality
+├ ƒ /api/admin/referrers
+├ ƒ /api/admin/referrers/[id]
+├ ƒ /api/admin/referrers/[id]/commissions
+├ ƒ /api/admin/referrers/commissions/[id]/mark-paid
+├ ƒ /api/admin/referrers/report
+├ ƒ /api/admin/template-reviews
+├ ƒ /api/admin/template-reviews/[id]
+├ ƒ /api/admin/tenants
+├ ƒ /api/admin/tenants/[id]
+├ ƒ /api/admin/tenants/[id]/campaign-pause
+├ ƒ /api/admin/tenants/[id]/campaign-settings
+├ ƒ /api/admin/tenants/[id]/campaign-usage
+├ ƒ /api/admin/tenants/[id]/onboarding
+├ ƒ /api/admin/tenants/[id]/onboarding/advance
+├ ƒ /api/admin/tenants/[id]/onboarding/checklist
+├ ƒ /api/admin/tenants/[id]/onboarding/path
+├ ƒ /api/admin/tenants/[id]/plan
+├ ƒ /api/admin/tenants/[id]/referrer
+├ ƒ /api/admin/tenants/[id]/users
+├ ƒ /api/admin/tenants/[id]/users/[userId]
+├ ƒ /api/admin/tenants/send-test
+├ ƒ /api/admin/tenants/validate-number
+├ ƒ /api/b/[token]
+├ ƒ /api/contact/[slug]
+├ ƒ /api/coupons/[code]
+├ ƒ /api/coupons/redeem
+├ ƒ /api/cron/booking-reminders
+├ ƒ /api/cron/booking-retention
+├ ƒ /api/cron/campaigns
+├ ƒ /api/cron/reconcile-orphan-messages
+├ ƒ /api/cron/sync-templates
+├ ƒ /api/dashboard/agent/conversations
+├ ƒ /api/dashboard/agent/conversations/[threadKey]
+├ ƒ /api/dashboard/bookings
+├ ƒ /api/dashboard/bookings/[id]
+├ ƒ /api/dashboard/bookings/[id]/confirm
+├ ƒ /api/dashboard/bookings/[id]/decline
+├ ƒ /api/dashboard/bookings/[id]/member
+├ ƒ /api/dashboard/bookings/[id]/no-show
+├ ƒ /api/dashboard/bookings/capacity
+├ ƒ /api/dashboard/bookings/stops
+├ ƒ /api/dashboard/campaigns
+├ ƒ /api/dashboard/campaigns/[id]
+├ ƒ /api/dashboard/campaigns/[id]/execute
+├ ƒ /api/dashboard/campaigns/[id]/rerun
+├ ƒ /api/dashboard/campaigns/audience-count
+├ ƒ /api/dashboard/campaigns/guardrails
+├ ƒ /api/dashboard/campaigns/stamps
+├ ƒ /api/dashboard/coupons
+├ ƒ /api/dashboard/coupons/[id]
+├ ƒ /api/dashboard/coupons/[id]/redemptions
+├ ƒ /api/dashboard/coupons/[id]/toggle
+├ ƒ /api/dashboard/events
+├ ƒ /api/dashboard/imports
+├ ƒ /api/dashboard/imports/preview
+├ ƒ /api/dashboard/imports/proof-upload
+├ ƒ /api/dashboard/members
+├ ƒ /api/dashboard/members/[id]
+├ ƒ /api/dashboard/members/[id]/tags
+├ ƒ /api/dashboard/members/[id]/tags/[tagId]
+├ ƒ /api/dashboard/members/bulk-tags
+├ ƒ /api/dashboard/members/lookup
+├ ƒ /api/dashboard/overview
+├ ƒ /api/dashboard/pos-integrations
+├ ƒ /api/dashboard/pos-integrations/[id]
+├ ƒ /api/dashboard/pos-integrations/[id]/activity
+├ ƒ /api/dashboard/pos-integrations/[id]/deliveries
+├ ƒ /api/dashboard/pos-integrations/[id]/deliveries/[deliveryId]/retry
+├ ƒ /api/dashboard/pos-integrations/[id]/outbound-secret
+├ ƒ /api/dashboard/pos-integrations/[id]/outbound/resume
+├ ƒ /api/dashboard/pos-integrations/[id]/outbound/test
+├ ƒ /api/dashboard/pos-integrations/[id]/rotate-inbound-secret
+├ ƒ /api/dashboard/pos-integrations/[id]/settings
+├ ƒ /api/dashboard/pos-transactions
+├ ƒ /api/dashboard/qr/web
+├ ƒ /api/dashboard/receipts/flagged
+├ ƒ /api/dashboard/receipts/flagged/count
+├ ƒ /api/dashboard/rewards
+├ ƒ /api/dashboard/scan/redeem
+├ ƒ /api/dashboard/scan/stamp
+├ ƒ /api/dashboard/scan/stamp/by-member
+├ ƒ /api/dashboard/scan/stamp/reverse
+├ ƒ /api/dashboard/settings/agent
+├ ƒ /api/dashboard/settings/booking
+├ ƒ /api/dashboard/settings/booking/agent
+├ ƒ /api/dashboard/settings/booking/agent/rotate
+├ ƒ /api/dashboard/settings/booking/poppy-json
+├ ƒ /api/dashboard/settings/booking/templates
+├ ƒ /api/dashboard/settings/campaigns
+├ ƒ /api/dashboard/settings/campaigns/quality
+├ ƒ /api/dashboard/settings/contact-config
+├ ƒ /api/dashboard/settings/contact-redirect
+├ ƒ /api/dashboard/settings/logo
+├ ƒ /api/dashboard/settings/reply-config
+├ ƒ /api/dashboard/tags
+├ ƒ /api/dashboard/tags/[tagId]
+├ ƒ /api/dashboard/tags/recipient-count
+├ ƒ /api/dashboard/templates
+├ ƒ /api/dashboard/templates/upload
+├ ƒ /api/dashboard/upload
+├ ƒ /api/dashboard/wa-templates
+├ ƒ /api/dashboard/wa-templates/[id]
+├ ƒ /api/dashboard/wa-templates/resolve-waba
+├ ƒ /api/dashboard/wa-templates/resubmit
+├ ƒ /api/dashboard/wa-templates/sync
+├ ƒ /api/health
+├ ƒ /api/integrations/[integrationId]/members
+├ ƒ /api/integrations/[integrationId]/members/jobs/[jobId]
+├ ƒ /api/integrations/[integrationId]/points/add
+├ ƒ /api/integrations/[integrationId]/points/deduct
+├ ƒ /api/join
+├ ƒ /api/join/[slug]
+├ ƒ /api/me/tenants
+├ ƒ /api/poppy/[publicId]/availability
+├ ƒ /api/poppy/[publicId]/bookings
+├ ƒ /api/poppy/[publicId]/bookings/[id]
+├ ƒ /api/poppy/[publicId]/openapi.json
+├ ƒ /api/qr/generate
+├ ƒ /api/quality/[restaurantId]
+├ ƒ /api/receipts/process
+├ ƒ /api/template-reviews
+├ ƒ /api/webhooks/flowforge
+├ ƒ /api/webhooks/pos/[integrationId]
+├ ƒ /api/webhooks/whatsapp
+├ ƒ /b/[token]
+├ ƒ /contact/[slug]
+├ ƒ /coupon/[code]
+├ ○ /dashboard
+├ ○ /dashboard/agent
+├ ○ /dashboard/blocked
+├ ƒ /dashboard/booking-preview
+├ ○ /dashboard/bookings
+├ ○ /dashboard/campaigns
+├ ○ /dashboard/campaigns/stamps
+├ ○ /dashboard/coupons
+├ ○ /dashboard/feed
+├ ○ /dashboard/integrations
+├ ƒ /dashboard/integrations/[id]
+├ ○ /dashboard/members
+├ ○ /dashboard/members/import
+├ ○ /dashboard/rewards
+├ ○ /dashboard/scan
+├ ƒ /dashboard/setup
+├ ƒ /dashboard/setup/[group]
+├ ○ /dashboard/tags
+├ ○ /dashboard/wa-templates
+├ ○ /join
+├ ƒ /join/[slug]
+├ ƒ /join/[slug]/success
+├ ƒ /join/success
+└ ○ /login
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+→   BUILD_ID ByP1OESC_Ry3XVBnpk-wX
+→ Staging release tree
+→ Scrubbing secrets from the bundle
+→ Scanning bundle for inlined credentials
+→   clean
+→ Publishing to origin/release
+remote: 
+remote: GitHub found 130 vulnerabilities on xavierau/omc's default branch (4 critical, 36 high, 79 moderate, 11 low). To find out more, visit:        
+remote:      https://github.com/xavierau/omc/security/dependabot        
+remote: 
+To https://github.com/xavierau/omc.git
+ + c353dea9...f495266e f495266ea111145998d4a5d0df7c1187ea85573d -> release (forced update)
+
+✓ Released release-book009-010 @ 0c41a4d → origin/release (f495266)
+  Forge deploys this branch automatically. Watch it land:
+    curl -sf https://app.ohmyclient.io/api/health
+release.sh exit=0

@@ -2,6 +2,10 @@
 
 | date | agent | item | status | artifact | next | blocker |
 |---|---|---|---|---|---|---|
+| 2026-11-26 | dev | BOOK-012 r2 | done | artifacts/2026-11-26-book-012-r2-review-fixes-handoff | main: re-review PR #230, then release (094 first) | none |
+| 2026-11-26 | dev | BOOK-012 | done | artifacts/2026-11-26-book-012-classifier-default-on-handoff | main: review PR #230, then release (094 first) | none |
+| 2026-11-24 | dev | TPL-012 r2 | done | artifacts/2026-11-24-dev-tpl-012-r2-handoff · tests/evidence/2026-11-24-tpl-012-r2 | main: re-review PR #227 (afe1a41) | none |
+| 2026-11-24 | dev | TPL-012 | done | artifacts/2026-11-24-dev-tpl-012-handoff · tests/evidence/2026-11-24-tpl-012 | main: review PR #227 (/code-review, campaign send path) | none |
 | 2026-11-21 | dev | BOOK-010 F1 | done | artifacts/2026-11-21-book-010-f1-handoff · tests/evidence/2026-11-21-book-010-f1/red-run | main: re-review PR #223; 091 → 092 → 093 before deploy | none |
 | 2026-11-21 | dev | BOOK-010 I-010 | done | artifacts/2026-11-21-book-010-i-handoff · artifacts/2026-11-21-book-010-i-impl | main: review PR #223; merge #222 first, then retarget #223 to develop; 092 after 091 before deploy | none |
 | 2026-11-21 | dev | BOOK-010 W2 | done | artifacts/2026-11-21-book-010-w2-handoff · artifacts/2026-11-21-book-010-w2-impl | main: review W2, then I-010 | none |

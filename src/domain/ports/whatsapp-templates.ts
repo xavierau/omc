@@ -35,6 +35,16 @@ export interface WhatsAppTemplatePort {
     parameterFormat?: 'NAMED' | 'POSITIONAL'
   }): Promise<TemplateSubmitResult>
 
+  /**
+   * Edit a live Meta template in place (TPL-012). Name and language are not
+   * editable on Meta; callers must never fall back to delete + create, which
+   * locks the name+language for weeks.
+   */
+  editTemplate(wabaId: string, metaTemplateId: string, edit: {
+    components: TemplateComponent[]
+    category?: string
+  }): Promise<TemplateSubmitResult>
+
   listTemplates(wabaId: string): Promise<TemplateListItem[] | null>
   getTemplate(wabaId: string, templateId: string): Promise<Record<string, unknown> | null>
   deleteTemplate(wabaId: string, templateName: string): Promise<boolean>

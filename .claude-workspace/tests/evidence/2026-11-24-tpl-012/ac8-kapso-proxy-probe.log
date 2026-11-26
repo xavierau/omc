@@ -1,0 +1,21 @@
+probe at 2026-11-24T07:15:43.004Z
+config found: yes
+--- A bare
+POST /v23.0/999999999999999
+status 404 content-type application/json; charset=utf-8
+body {"error":"WhatsApp configuration not found"}
+--- B business_account_id
+POST /v23.0/999999999999999?business_account_id=<redacted>
+status 400 content-type application/json; charset=utf-8
+body {"error":{"message":"Unsupported post request. Object with ID '9999…999' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https:\/\/developers.facebook.com\/docs\/graph-api","type":"GraphMethodException","code":100,"error_subcode":33,"fbtrace_id":"A6pqQiWkit_Wp5lOHYBpkFb"}}
+--- C phone_number_id
+POST /v23.0/999999999999999?phone_number_id=<redacted>
+status 400 content-type application/json; charset=utf-8
+body {"error":{"message":"Unsupported post request. Object with ID '9999…999' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https:\/\/developers.facebook.com\/docs\/graph-api","type":"GraphMethodException","code":100,"error_subcode":33,"fbtrace_id":"A6FaqLabUYrYLzfE1C1rUX8"}}
+probe2 at 2026-11-24T07:16:02.222Z template found: no
+GET /<real template id>?fields=id,status (no routing) -> 404 {"error":"WhatsApp configuration not found"}
+GET /<real template id>?fields=id,status&business_account_id=<waba> -> 400 {"error":{"message":"Unsupported get request. Object with ID 'undefined' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API docu
+probe3 at 2026-11-24T07:16:13.809Z configs: 2
+waba list -> 200, templates: 0
+waba list -> 403, templates: 0
+# note (dev): probe2's '<real template id>' lines ran with id 'undefined' (the first WABA listed 0 templates), so they show only routing, not a real node; probe3 found no readable template on either WABA of the local key.

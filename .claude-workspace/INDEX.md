@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-22-book-009-010-release-runbook](deploys/2026-11-22-book-009-010-release-runbook.md) — BOOK-009/010 to prod: #225 → main 0c41a4d → release f495266, mig 091-093 (dev)
 - [2026-11-20-wonb-020-release-runbook](deploys/2026-11-20-wonb-020-release-runbook.md) — WONB-020 to prod: #221 → main 660f82d → release c353dea, mig 089 + 090 (dev)
 - [2026-11-20-agent-005-release-runbook](deploys/2026-11-20-agent-005-release-runbook.md) — AGENT-005 to prod: #219 → main fe1cdbf → release d05e647, no migration (dev)
 - [2026-11-20-book-008-release-runbook](deploys/2026-11-20-book-008-release-runbook.md) — BOOK-008 to prod: #217 → main 1f2b9eb → release d74942c, mig 088 (dev)
@@ -119,6 +120,12 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+
+**TPL-012 — template edit in place on Meta (2026-11-24)**
+- [2026-11-26-book-012-classifier-default-on-handoff](artifacts/2026-11-26-book-012-classifier-default-on-handoff.md) — BOOK-012: classifier default on, migration 094 flip + rev bump (dev)
+- [2026-11-26-book-012-r2-review-fixes-handoff](artifacts/2026-11-26-book-012-r2-review-fixes-handoff.md) — BOOK-012 r2: retry after fallback/error keeps routing; 094 rollback (dev)
+- [2026-11-24-dev-tpl-012-handoff](artifacts/2026-11-24-dev-tpl-012-handoff.md) — TPL-012: edit via POST /<id>, never delete; refusals, probe, AC table (dev)
+- [2026-11-24-dev-tpl-012-r2-handoff](artifacts/2026-11-24-dev-tpl-012-r2-handoff.md) — TPL-012 r2: PR #227 review fixes F1-F4 (no-op, disabled, post-Meta save, Graph code) (dev)
 
 **BOOK-009 — booking hours, slot form, terms (2026-11-20)**
 - [2026-11-20-book-009-w1-impl](artifacts/2026-11-20-book-009-w1-impl.md) — W1 booking-hours domain, shared slot check, settings API, terms acceptance (091) (dev)

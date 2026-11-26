@@ -1,0 +1,48 @@
+# GET .../sites/3123752/deployments/83681104/log (redacted: emails, user id)
+Sun Nov 22 13:58:37 UTC 2026
+From github.com:xavierau/omc
+ * branch              release    -> FETCH_HEAD
+ + c353dea9...f495266e release    -> origin/release  (forced update)
+→ Syncing checkout with origin/release
+  already at f495266
+→ Checking free disk space
+  26725MB free (minimum 1500MB)
+→ Verifying prebuilt bundle
+→ Installing runtime env for the standalone server
+  site .env → .next/standalone/.env
+  BUILD_ID ByP1OESC_Ry3XVBnpk-wX
+  from release-book009-010 @ 0c41a4d — Merge pull request #225 from xavierau/chore/release-book009-010
+  built 2026-11-22T13:57:59Z by <redacted-email> on node v22.21.1
+→ Installing dependencies
+  lockfile unchanged (5b141452304d) — node_modules is current, skipping npm ci
+→ Verifying supabase CLI
+  supabase 2.98.2
+→ Applying pending migrations
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 091_booking_terms_acceptance.sql
+ • 092_booking_guest_limits.sql
+ • 093_booking_room_search_path.sql
+
+ [Y/n] 
+Applying migration 091_booking_terms_acceptance.sql...
+NOTICE (00000): constraint "booking_requests_terms_acceptance" of relation "booking_requests" does not exist, skipping
+Applying migration 092_booking_guest_limits.sql...
+Applying migration 093_booking_room_search_path.sql...
+Finished supabase db push.
+A new version of Supabase CLI is available: v3.2.0 (currently installed v2.98.2)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+→ Seeding platform admin (idempotent)
+Admin <redacted-email> already exists (user_id=<redacted>)
+→ Restarting daemons
+  restarting app → daemon-746791
+daemon-746791:daemon-746791_00: stopped
+daemon-746791:daemon-746791_00: started
+  app is RUNNING
+  restarting worker → daemon-801730
+daemon-801730:daemon-801730_00: stopped
+daemon-801730:daemon-801730_00: started
+  worker is RUNNING
+✓ Deploy complete
+=> Deployment complete

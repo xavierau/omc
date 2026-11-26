@@ -62,7 +62,7 @@ import { handleContact } from '../contact-handler'
 import { inboundBookingDeps } from '@/application/booking/inbound-booking-deps'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createDecisionsClassifier } from '@/infrastructure/gemini/decisions-client'
-import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, resolveBookingConfig, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RouteBookingIntentDeps } from '@/application/booking/route-booking-intent'
 import type { IntentClassifierPort } from '@/domain/ports/intent-classifier'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
@@ -253,6 +253,30 @@ describe('W2-03 free text (AC-4)', () => {
   })
 })
 
+// BOOK-012: booking on with no aiRoutingEnabled key stored (釧 Kushiro's case) classifies.
+describe('BOOK-012 the classifier is on by default', () => {
+  it.each<[string, Record<string, unknown>]>([
+    ['simple, key absent', { mode: 'simple' }],
+    ['external, key absent', { mode: 'external', externalUrl: 'https://inline.app/r/demo' }],
+  ])('%s → classifier runs on unmatched text, Book now reply', async (_, stored) => {
+    config = resolveBookingConfig(stored)
+    await routeMessage(msg({ text: 'i wanna make reservation' }), R)
+    expect(fakeClassifier().calls).toEqual(['i wanna make reservation'])
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['mode off, key absent', { mode: 'off' }],
+    ['external, explicit false', { mode: 'external', externalUrl: 'https://inline.app/r/demo', aiRoutingEnabled: false }],
+  ])('%s → classifier not called, fallback', async (_, stored) => {
+    config = resolveBookingConfig(stored)
+    await routeMessage(msg({ text: 'i wanna make reservation' }), R)
+    expect(fakeClassifier().calls).toEqual([])
+    expect(handleUnknown).toHaveBeenCalledWith('pn-a', PHONE, R)
+  })
+})
+
 // ---- W2-04: the real adapter over a stubbed fetch -------------------------
 
 type FetchStub = (url: string, init: RequestInit) => Promise<Response>
@@ -348,6 +372,21 @@ describe('W2-07 replay (AC-7, R17)', () => {
     expect(classifications.rows).toHaveLength(1)
     expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
     expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  // BOOK-012 r2: the diner never got a Book now reply, so the retry gets the
+  // fallback menu, as it would with the classifier off.
+  it.each<[string, () => void]>([
+    ['fallback', () => (fakeClassifier().result = { ok: true, label: 'other', confidence: 0.9 })],
+    ['error', () => (fakeClassifier().result = { ok: false, reason: 'timeout' })],
+  ])('a retry after an earlier %s outcome → fallback menu again, no Book now reply', async (_, first) => {
+    first()
+    await routeMessage(msg({ text: BOOKING_TEXT }), R)
+    fakeClassifier().result = { ok: true, label: 'booking', confidence: 0.95 }
+    await routeMessage(msg({ text: BOOKING_TEXT }), R)
+    expect(classifications.rows).toHaveLength(1)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(handleUnknown).toHaveBeenCalledTimes(2)
   })
 })
 

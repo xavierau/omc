@@ -1,0 +1,13 @@
+# forge site command 14543230 (read-only log history of the two lines)
+# status finished
+2026-11-22T14:06:14Z
+worker: pruneOrphanIntegrationEvents failed lines total 566, before line 53706: 565
+worker: same 'deliveries): Bad Request' text before line 53706: 415
+worker: last 3 prior occurrences (line numbers):
+53693:[sweepIntegrationQueues] pruneOrphanIntegrationEvents failed { error: 'pruneOrphanIntegrationEvents (deliveries): Bad Request' }
+53694:[sweepIntegrationQueues] pruneOrphanIntegrationEvents failed { error: 'pruneOrphanIntegrationEvents (deliveries): Bad Request' }
+53696:[sweepIntegrationQueues] pruneOrphanIntegrationEvents failed { error: 'pruneOrphanIntegrationEvents (deliveries): Bad Request' }
+worker: Workers started lines (restart markers) near prior occurrences:
+53160 53175 53206 53706 
+app: 'rate limiter unavailable' total 9, before banner line 22797: 8
+5 2026-11-22T14:01:40Z /home/forge/.forge/daemon-801730.log

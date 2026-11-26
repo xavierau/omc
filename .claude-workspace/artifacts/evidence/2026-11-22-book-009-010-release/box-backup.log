@@ -1,0 +1,36 @@
+# forge site command 14520252 (backup + baseline catalog, read-only API, 2026-11-21)
+# status finished
+d2d019f372e0015533368b6d0a79ce30f9177d6eb70023c953a17b9b8477dc33  /home/forge/rel-book009-tmp/q.py
+2026-11-21T16:20:09Z
+GET  /database/backups HTTP 200 managed-backups.json sha256 d6f5d082da3510981670613275382d48d42b0da1f45e32245426a94ab5ee5054
+     7 backups, walg True, pitr False; newest 2327131357 COMPLETED 2026-11-20T19:32:06.390Z
+POST read-only booking_requests full rows HTTP 201 7 rows booking_requests.json sha256 17932eb1458fb4bbe418bed4ad5330dd0abee8b19d4bf6945e645f05367ea0d2
+POST read-only restaurants (id, booking_config) 7 rows restaurants-booking-config.json sha256 7622032ee9305f09a7c5b40a53d99ee0b5089d7620416bc54d00588e78db903e
+POST read-only catalog HTTP 201 baseline-catalog.json sha256 93f426b0de12d6a8be5b8a7867e37c5639a9713da3e6015898eae0e682ca47cb
+POST read-only ids baseline-ids.json sha256 ecabc075e8af6ebc81536817e90eb2898c5605e38098afe4a46fa91199389f1f (7 rows: id, status only; not printed)
+server_version: {'v': '17.6', 'n': 170006}
+ledger tail: 090 coupons_welcome_offer, 089 events_join_member_index, 088 booking_member_backfill, 087 booking_no_show, 086 campaign_audience_quality
+booking_requests columns: 32 ; terms columns: absent
+booking_requests constraints: booking_requests_campaign_id_fkey, booking_requests_cancel_marker, booking_requests_cancelled_by_check, booking_requests_confirm_code_check, booking_requests_decision_consistent, booking_requests_decision_message_status_check, booking_requests_decline_reason_check, booking_requests_idempotency_key_check, booking_requests_member_id_fkey, booking_requests_name_check, booking_requests_no_show_marker, booking_requests_notes_check, booking_requests_party_size_check, booking_requests_pkey, booking_requests_replaces_booking_id_fkey, booking_requests_restaurant_id_fkey, booking_requests_source_check, booking_requests_status_check, booking_requests_status_token_hash_check, booking_requests_token_fkey, booking_requests_token_key, booking_requests_unverified_has_code
+terms constraint: absent
+booking_requests indexes: booking_requests_one_pending_change_idx, booking_requests_pkey, booking_requests_reminder_due_idx, booking_requests_restaurant_confirm_code_idx, booking_requests_restaurant_created_idx, booking_requests_restaurant_idempotency_key_idx, booking_requests_restaurant_member_date_idx, booking_requests_restaurant_phone_status_idx, booking_requests_restaurant_status_created_idx, booking_requests_retention_idx, booking_requests_token_key, booking_requests_unverified_created_idx
+booking_stops: {'rel': None, 'rls': None, 'policies': 0, 'columns': 0}
+booking_stops constraints: []
+booking_stops indexes: none
+functions: none
+counts: {'booking_requests': 7, 'by_status': {'confirmed': 2, 'pending': 5}, 'restaurants': 7, 'booking_mode': {'off': 5, 'simple': 2}, 'booking_hours_set': 0, 'agent_booking_public_ids': 2}
+q.py exit 0
+2026-11-21T16:20:23Z
+total 36
+drwx------ 6:20 .
+drwx------ 6:20 ..
+-rw------- 6:20 baseline-catalog.json
+-rw------- 6:20 baseline-ids.json
+-rw------- 6:20 booking_requests.json
+-rw------- 6:20 managed-backups.json
+-rw------- 6:20 restaurants-booking-config.json
+93f426b0de12d6a8be5b8a7867e37c5639a9713da3e6015898eae0e682ca47cb  /home/forge/backups/2026-11-22-book-009-010/baseline-catalog.json
+ecabc075e8af6ebc81536817e90eb2898c5605e38098afe4a46fa91199389f1f  /home/forge/backups/2026-11-22-book-009-010/baseline-ids.json
+17932eb1458fb4bbe418bed4ad5330dd0abee8b19d4bf6945e645f05367ea0d2  /home/forge/backups/2026-11-22-book-009-010/booking_requests.json
+d6f5d082da3510981670613275382d48d42b0da1f45e32245426a94ab5ee5054  /home/forge/backups/2026-11-22-book-009-010/managed-backups.json
+7622032ee9305f09a7c5b40a53d99ee0b5089d7620416bc54d00588e78db903e  /home/forge/backups/2026-11-22-book-009-010/restaurants-booking-config.json
