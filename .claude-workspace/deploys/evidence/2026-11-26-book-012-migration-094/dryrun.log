@@ -1,0 +1,8 @@
+# supabase db push --linked --include-all --dry-run (CLI 2.109.1, tree at 38399078, linked uzimqndenngebzgndlhd), started 04:50:53Z, exit 0
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Initialising login role...
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Would push these migrations:
+ • 094_booking_ai_routing_default_on.sql
+Finished supabase db push.

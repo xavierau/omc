@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-26-book-012-release-runbook](deploys/2026-11-26-book-012-release-runbook.md) — BOOK-012+TPL-012+BUILD-FONT-001 to prod: main ffcf73a → release b8976f9, mig 094 (dev)
 - [2026-11-22-book-009-010-release-runbook](deploys/2026-11-22-book-009-010-release-runbook.md) — BOOK-009/010 to prod: #225 → main 0c41a4d → release f495266, mig 091-093 (dev)
 - [2026-11-20-wonb-020-release-runbook](deploys/2026-11-20-wonb-020-release-runbook.md) — WONB-020 to prod: #221 → main 660f82d → release c353dea, mig 089 + 090 (dev)
 - [2026-11-20-agent-005-release-runbook](deploys/2026-11-20-agent-005-release-runbook.md) — AGENT-005 to prod: #219 → main fe1cdbf → release d05e647, no migration (dev)
@@ -121,6 +122,9 @@ no artifact files were lost._
 
 ### Artifacts
 
+- [2026-11-26-book-012-release-r2-handoff](artifacts/2026-11-26-book-012-release-r2-handoff.md) — BOOK-012 release resumed: #231, #232, deploy 84057118 (dev)
+- [2026-11-26-book-012-migration-094-handoff](artifacts/2026-11-26-book-012-migration-094-handoff.md) — BOOK-012: migration 094 applied ahead of the code deploy (dev)
+- ~~[2026-11-26-book-012-release-handoff](artifacts/2026-11-26-book-012-release-handoff.md)~~ — first attempt, blocked at the build → release-r2 (dev)
 - [2026-11-26-build-font-001-handoff](artifacts/2026-11-26-build-font-001-handoff.md) — BUILD-FONT-001: build fix, Noto off next/font (dev)
 **TPL-012 — template edit in place on Meta (2026-11-24)**
 - [2026-11-26-book-012-classifier-default-on-handoff](artifacts/2026-11-26-book-012-classifier-default-on-handoff.md) — BOOK-012: classifier default on, migration 094 flip + rev bump (dev)

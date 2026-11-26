@@ -1,0 +1,5 @@
+# supabase migration list --linked, ~04:51:30Z, exit 0 (rtk-rendered JSON; 94 rows, last 3 shown)
+rows: 94  all local==remote: True
+{'local': '092', 'remote': '092', 'time': '092'}
+{'local': '093', 'remote': '093', 'time': '093'}
+{'local': '094', 'remote': '094', 'time': '094'}

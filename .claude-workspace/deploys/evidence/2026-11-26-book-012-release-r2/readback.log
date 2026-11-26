@@ -1,0 +1,11 @@
+# Management API read_only. before 05:30:58Z (pre-deploy) / after 05:41:28Z (post-restart). md5 of booking_config::text and agent_config::text; blobs not recorded (public repo).
+slug | aiRoutingEnabled | rev | booking md5 before -> after | agent_config md5 before -> after
+bicho | true | 7 | 8a6050173684fe953f1d369ff495f050 -> 8a6050173684fe953f1d369ff495f050 | b545fb7f0635c6fbbd4b808730d1f732 -> b545fb7f0635c6fbbd4b808730d1f732
+cheung-ying-hong | None | None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd
+kushiro | true | 3 | 5f7e6b15317eb8af2b6c64a251cde7dc -> 5f7e6b15317eb8af2b6c64a251cde7dc | 0515bc0149152858abb427194102cedd -> 0515bc0149152858abb427194102cedd
+oh-my-agent | None | None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd
+oh-my-client | true | 2 | 540ec34c6c33cbd5277d9bf0e1a542f5 -> 540ec34c6c33cbd5277d9bf0e1a542f5 | cb96e1e4a9c5514f2f6e03de98bbad0b -> cb96e1e4a9c5514f2f6e03de98bbad0b
+thai-ox | None | None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd
+wall-street-bar-lounge | None | None | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd | e035f28c04f30d6747c39087bf9109bd -> e035f28c04f30d6747c39087bf9109bd
+All 7 booking_config and agent_config byte-identical across the deploy; bicho/kushiro equal the 094 read-back (8a605017… rev 7, 5f7e6b15… rev 3).
+inbound_classifications, last 2 h at 05:41Z: booking_reply 5 (last 05:25:55Z), fallback 2 (last 05:14:22Z).

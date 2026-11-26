@@ -1,0 +1,23 @@
+# scripts/release.sh, SOURCE_REF=release-book012 (= origin/main ffcf73ac), under resource-lock heavy; 05:31:21Z start (lock wait), exit 0 05:38:57Z. Tail, ANSI stripped; built-by email redacted.
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+→   BUILD_ID zhPLsPnYAGCuNAHqgZBzJ
+→ Staging release tree
+→ Scrubbing secrets from the bundle
+→ Scanning bundle for inlined credentials
+→   clean
+→ Publishing to origin/release
+remote: 
+remote: GitHub found 130 vulnerabilities on xavierau/omc's default branch (4 critical, 36 high, 79 moderate, 11 low). To find out more, visit:        
+remote:      https://github.com/xavierau/omc/security/dependabot        
+remote: 
+To https://github.com/xavierau/omc.git
+ + f495266e...b8976f99 b8976f993642a2426324d617f83e0a48f3560b0f -> release (forced update)
+
+✓ Released release-book012 @ ffcf73a → origin/release (b8976f9)
+  Forge deploys this branch automatically. Watch it land:
+    curl -sf https://app.ohmyclient.io/api/health
+
+[exited with code 0]

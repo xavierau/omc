@@ -1,0 +1,20 @@
+# Forge site command 14679677 (05:30:06Z, read-only)
+/home/forge/app.ohmyclient.io
+0c41a4df34e5da4d0ee9256e60fdaa22cdf7794c ByP1OESC_Ry3XVBnpk-wX   (RELEASE.json source_commit, build_id)
+ByP1OESC_Ry3XVBnpk-wX   (.next/BUILD_ID)
+daemon-746791:daemon-746791_00   RUNNING   pid 626877, uptime 3 days, 15:31:16
+daemon-801730:daemon-801730_00   RUNNING   pid 626977, uptime 3 days, 15:31:12
+/dev/root        58G   32G   26G  55% /
+Mem:            3908        2182        1260          11         730        1726
+Swap:           1023        1000          23
+ 05:30:17 up 62 days, 12 min,  1 user,  load average: 0.18, 0.21, 0.27
+health 200
+release   (checkout branch)
+# supabase db push --linked --include-all --dry-run on the box (checkout 0c41a4df, no 094 file):
+Remote migration versions not found in local migrations directory.
+  (expected: the ledger has 094 since 04:51Z, the old checkout lacks the file; resolves when the new bundle lands)
+
+# Pending-migration check from the Mac (05:30Z): Management API read_only ledger vs `git ls-tree origin/main supabase/migrations`
+ledger rows 94, tail 085..094; repo files 94
+in repo not ledger: []
+in ledger not repo: []

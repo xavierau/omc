@@ -1,0 +1,10 @@
+# supabase db push --linked --include-all, 04:51:11Z -> 04:51:19Z, exit 0
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 094_booking_ai_routing_default_on.sql
+
+ [Y/n] y
+Applying migration 094_booking_ai_routing_default_on.sql...
+Finished supabase db push.
