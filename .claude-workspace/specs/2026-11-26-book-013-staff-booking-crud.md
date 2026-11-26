@@ -32,6 +32,10 @@ Owner decisions (2026-11-26):
    qr code. of course with the short code. in the staff should have a very easy way to search the
    booking by phone, code, qr or name also like today view". Staff also have a one-tap Arrived.
    Permissions: admin + staff (the two existing tenant roles; no permission table exists).
+8. **Revised 2026-11-26 (owner): no check-in code or QR.** The owner's door practice: "staff at the
+   entrance ... ask your booking info ... I say I have a reservation at what time and my surname
+   ... they look up from their list." Check-in = Today list found by surname / time / phone + the
+   Arrived tap. The code and QR (old S6) move to Future; the confirmation template is unchanged.
 
 POC learn-question: do restaurant staff move phone and walk-up bookings into OhMyClient so the
 Bookings calendar becomes their one book? From: pilot tenants' staff. Where: `/dashboard/bookings`.
@@ -123,25 +127,9 @@ already handled by Decline), with a confirm dialog holding the Notify checkbox (
 - **AC-16** Given mode `off`, when anyone calls the staff create/edit/cancel API, then it is
   refused (`booking_off`) and nothing changes. Modes `simple` and `external` behave as S1–S3.
 
-### S6. The confirmation carries a check-in QR and short code
-> "once booking confirmed, there should be a confirmation message with the qr code. of course with the short code"
-
-Every booking that becomes `confirmed` (staff Confirm on a request of any source, a confirmed change
-request, a staff-created booking with Notify on) gets a **check-in code**: 6 characters from the
-BOOK-003 confirm-code alphabet (no 0/O/1/I), unique among this restaurant's live bookings, kept
-through edits. The QR encodes only that code (no name, phone or URL), so it is useless without a
-signed-in staff session of this restaurant.
-
-- **AC-17** Given a booking is confirmed with a message to send, then the diner receives the
-  `confirmed` message with the QR as an image header and the code in the body ("入座編號 Check-in
-  code: K7Q2MX"), through the existing ladder: the approved image-header template, else (24h window
-  open) an image message with the same text as caption, else not delivered (BOOK-001 warning).
-- **AC-18** Given a restaurant whose current `confirmed` template has no QR (every live tenant
-  today), then the new version is submitted through the BOOK-002 candidate flow and the old approved
-  one keeps sending (without QR and code) until Meta approves; staff still find the booking by name
-  or phone (S7).
-- **AC-19** Given Notify is unchecked on a staff-created booking, then it still gets a check-in
-  code (shown on the booking row) but no message.
+### S6. ~~The confirmation carries a check-in QR and short code~~ Removed 2026-11-26
+Owner decision 8: no check-in code, no QR, no change to the `confirmed` template. AC-17, AC-18 and
+AC-19 are withdrawn. Moved to Future.
 
 ### S7. Staff check diners in from a Today view
 > "staff should have a very easy way to search the booking by phone, code, qr or name also like today view"
@@ -150,24 +138,29 @@ The Bookings page gains a third view, **今日 Today** (Today | Calendar | Table
 phone. It lists today's (Asia/Hong_Kong) pending and confirmed bookings by time, each with its
 arrival state (**Waiting**; **Late 18 min** once 15 minutes past the time; **Arrived 19:04**;
 **No-show**), and counters (guests arrived / expected, bookings waiting, late, no-show).
-One search box matches name, phone (digits, any spacing or +852) and check-in code; a **Scan QR**
-button opens the camera (the Scan QR page's scanner) and jumps to the scanned booking.
+One search box matches name (any part, so a surname finds "陳生" / "Chan") and phone (digits, any
+spacing or +852). The list is ordered by time, so "7:30, Chan" is found by time position plus
+surname (owner decision 8). No code, no Scan button.
 
-- **AC-20** Given today's list, when staff type part of a name, 4+ digits of a phone, or a
-  check-in code, then the list narrows to matches as they type; a full code match opens that
-  booking at once.
-- **AC-21** Given staff scan a QR of this restaurant's booking for today, then that booking opens
-  with **Arrived** ready; one tap records `checked_in_at` and the user, and the row shows "Arrived
-  HH:MM". Given the code belongs to another day, then the booking shows with its date and no
-  Arrived button; given it matches no live booking of this restaurant, then "找不到訂座 No booking
-  for this code".
+- **AC-20** Given today's list, when staff type part of a name or 4+ digits of a phone, then the
+  list narrows to matches as they type.
+- **AC-21** ~~Scan a QR~~ Withdrawn 2026-11-26 (decision 8). One tap on **Arrived** records
+  `checked_in_at` and the user, and the row shows "Arrived HH:MM".
 - **AC-22** Given a confirmed booking dated today, then **Arrived** is offered on its row (Today,
-  Calendar day panel, Table) whether or not a QR was scanned; **Undo** clears it. Arrived and
+  Calendar day panel, Table); **Undo** clears it. Arrived and
   no-show exclude each other: a checked-in booking cannot be marked no-show, and the reverse.
 - **AC-23** Given a booking was arrived, then the member panel stats (BOOK-008) count it as
   arrived ("Arrived 5 · No-show 1"); status stays `confirmed` (no new status value).
-- **AC-24** Check-in by code or scan only ever finds this restaurant's bookings (lookup scoped by
-  the session's tenant); a wrong code reveals nothing about other restaurants.
+- **AC-24** The Today list and Arrived only ever reach this restaurant's bookings (scoped by the
+  session's tenant).
+- **AC-25** (owner 2026-11-26: "today booking list/table need sortable ... help staff to locate the
+  booking even more easier") Given the Today list, staff can sort it by **Time** (default,
+  earliest first), **Name** (A–Z; zh-HK names by the locale's collation), **Guests** (largest
+  first) or **Status** (Late, Waiting, Needs reply, Arrived, No-show). Tapping the active sort again
+  reverses it. On desktop the column headers sort (`aria-sort` set); on a phone a "Sort" select
+  above the list does the same. Sorting works together with the search filter, and the choice
+  stays in the URL (`?view=today&sort=name`, `&dir=desc`) so a reload keeps it. Ties fall back to
+  time, then name.
 
 ## UI Feedback States
 
@@ -176,22 +169,22 @@ button opens the camera (the Scan QR page's scanner) and jumps to the scanned bo
 | Create (S1) | Toast "已新增訂座 Booking added"; the booking appears on its day, chip "by staff · <name>" | Rule prompt (AC-3) before save; after save, "WhatsApp 未送達 Message not delivered" on the row when the send failed (BOOK-001 warning) | Field errors (AC-4); "儲存失敗 Couldn't save" toast on server error, form kept |
 | Edit (S2) | Toast "已更新訂座 Booking updated"; row shows new values | Rule prompt (AC-8); not-delivered marker as above | Field errors; "訂座已被更改，請重新載入 This booking changed, reload" (AC-11); Edit absent with open change (AC-10) |
 | Cancel (S3) | Toast "已取消訂座 Booking cancelled"; row grey, struck through | Not-delivered marker as above | "訂座已被更改 This booking changed" (AC-13) |
-| Search (S7) | List narrows; full code opens the booking | — | "沒有相符的訂座 No matching bookings today" (empty state) |
-| Scan (S7) | Booking card opens with Arrived | Other-day booking: date shown, no Arrived | "No booking for this code"; camera denied → the Scan QR page's permission card |
+| Search (S7) | List narrows | — | "沒有相符的訂座 No matching bookings today" (empty state) |
 | Arrived / Undo (S7) | Row shows "Arrived 19:04"; counters update; Undo restores Waiting | — | "This booking changed" (cancelled meanwhile); no-show already set → Arrived not offered |
 
 Test ids (frontend-testing contract): `booking-new-button`, `booking-day-new-button`,
 `booking-form`, `booking-form-<field>`, `booking-form-notify`, `booking-form-save`,
 `booking-rules-prompt`, `booking-rules-override`, `booking-row-<id>-edit`,
 `booking-row-<id>-cancel`, `booking-cancel-dialog`, `booking-form-stale`, `booking-toast`,
-`bookings-view-today`, `bookings-today`, `bookings-today-search`, `bookings-today-scan`,
+`bookings-view-today`, `bookings-today`, `bookings-today-search`,
 `bookings-today-empty`, `bookings-today-counter`, `booking-row-<id>-arrived`,
-`booking-row-<id>-arrived-undo`, `booking-row-<id>-code`, `booking-scan-result`,
-`booking-scan-not-found`, `bookings-off`.
+`booking-row-<id>-arrived-undo`, `bookings-today-sort` (phone select; desktop headers use
+role `columnheader` + name), `bookings-off`. (Removed with decision 8:
+`bookings-today-scan`, `booking-row-<id>-code`, `booking-scan-result`, `booking-scan-not-found`.)
 
 ## Scope
 
-- **In:** S1–S7 above; check-in code + QR on confirmation; Today view with search and scan;
+- **In:** S1–S5 and S7 above; Today view with search by name/phone;
   Arrived/undo; mode-off hiding; source `staff` and its label; created_by / updated_by / cancelled-by-staff
   audit columns; a per-booking "no diner messages" flag honoured by the reminder cron; the two
   templates for new and existing tenants; zh-HK and en copy; desktop and phone layouts of the
@@ -199,7 +192,9 @@ Test ids (frontend-testing contract): `booking-new-button`, `booking-day-new-but
 - **Out:** hard delete; editing or cancelling declined/cancelled/no-show/unverified bookings;
   staff cancelling a pending booking (Decline covers it); creating members from the form.
 - **Future:** a phone-number lookup in the form that suggests the member's name; booking from the
-  member panel or the inbox conversation with phone pre-filled; walk-in entry without a phone.
+  member panel or the inbox conversation with phone pre-filled; walk-in entry without a phone;
+  check-in code and QR in the confirmation (old S6), only if staff report the door lookup is slow
+  (and only after Meta's rule on per-send template images is confirmed).
 
 ## Explicitly Not Handled
 
@@ -210,22 +205,18 @@ Test ids (frontend-testing contract): `booking-new-button`, `booking-day-new-but
 - Undo of a cancel (staff create a new booking).
 - A staff booking made within 3h of its time gets no reminder (existing BOOK-001 rule).
 - Restaurant-wide toggle to stop staff overrides of rules.
-- Automatic no-show for bookings never checked in (owner chose tap + QR, not auto).
-- QR or code in the reminder, changed or cancelled messages (confirmation only, per the ask).
+- Automatic no-show for bookings never checked in (owner chose the Arrived tap, not auto).
+- Any check-in code or QR (decision 8).
 - Diner self check-in (diner scans a table QR or replies "I'm here").
-- Check-in mode on the separate Scan QR page (the Today view's Scan button reuses its scanner).
 - Partial arrival (4 of 6 guests arrived).
 
 ## Dependencies & Risks
 
-- **Per-send QR image.** A template image header takes a media link per send. Decided (threat
-  model R10): follow the coupon QR precedent (`src/infrastructure/supabase/storage.ts`): render the
-  PNG with `qrcode`, upload to a dedicated public Storage bucket under a random path, send the link.
-  The image holds only `BK:<code>`.
-- **Template submit needs an example image** (`4:` handle): the Kapso Platform Media API path from
-  PR #68 already mints it at submit.
-- **Re-approval lag.** Live tenants send the old confirmation (no QR) until Meta approves the new
-  one (AC-18); image-header templates can be rejected more often than text ones.
+- **Template approval lag.** Live tenants have no `changed` / `cancelled` template until Meta
+  approves them; until then an edit or cancel message goes out only inside the 24h window, else
+  "not delivered". The `confirmed` template is unchanged.
+- **Dropped 2026-11-26:** a per-send QR image in the `confirmed` template. No Meta page read that
+  day says a different image per send is allowed, and the repo had never done it.
 
 ## Open Questions
 

@@ -88,5 +88,11 @@ related: [kanban:BOOK-013, specs/2026-11-26-book-013-staff-booking-crud, threats
 
 ## Verdict: APPROVED
 
+## Revision 2026-11-26 (spec decision 8: no check-in code, no QR)
+Withdrawn with the feature: R8 (code generator), R10 (QR image + public bucket), R15 (scan parse),
+the code/file half of R16 (the PII purge of name/notes stays), and the "QR link is public" open
+risk. Trust boundaries 3 (public QR bucket) and 5 (camera scan) no longer exist. The code removal
+must leave no `checkin_code` column, QR bucket, by-code route or scan UI behind.
+
 ## Required Changes (if BLOCKED/CONDITIONAL)
 None. The plan must map R1–R18 to work items, and the dev's acceptance suite must include a test per R-id.

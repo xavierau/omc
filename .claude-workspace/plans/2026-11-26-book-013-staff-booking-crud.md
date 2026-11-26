@@ -24,4 +24,6 @@ Design reference: `.claude-workspace/design/2026-11-26-book-013-staff-bookings/m
 Wiring: `bookingsNavItem` gated on mode (sidebar test), `?view=today` in bookings-view-state, i18n keys in `src/messages/en.json` + `zh-HK.json`, test ids from the spec + `.claude-workspace/ui-map/testid-registry.md`, template kinds in `TEMPLATE_KINDS` and the settings template list, kanban BOOK-013 entry (`workspace_artifacts` → spec, threat, plan) in the branch.
 Verify: route/domain tests per R-id, scratch-DB migration check, local app walk (`supabase start`) with screenshots of create → rules prompt → edit → cancel → confirm with QR message payload → Today search/scan → Arrived, at 1440 and 390, en + zh-HK. Live Meta approval of the new templates is checked after release, not in this PR.
 
+Revision 2026-11-26 (spec decision 8 + AC-25): items 4 and the QR/code parts of 1, 2, 3, 5, 6 are withdrawn (no check-in code, QR, bucket, by-code route, scan UI, confirmed-template change). Added: Today list sort (Time default / Name / Guests / Status, reversible, in the URL), mockup frames 7–8 revised. Review fixes R1–R3, R7, R8, R10 landed in 2f6e3b82.
+
 Risks: image-header `confirmed` may be rejected by Meta more often (spec Dependencies & Risks); existing-tenant template backfill mechanism to be found by the dev (where BOOK-002 resubmits), reported in the handoff if none exists.

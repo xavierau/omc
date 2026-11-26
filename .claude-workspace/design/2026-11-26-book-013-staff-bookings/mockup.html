@@ -192,8 +192,8 @@ label.f .opt { color: var(--muted-foreground); font-weight: 400; }
 .sheet .dlg-b { padding: 10px 16px; gap: 12px; }
 .sheet .slots { grid-template-columns: repeat(4, 1fr); }
 .sheet-f { padding: 12px 16px 24px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
-/* today / check-in */
-.today { display: grid; grid-template-columns: 1fr 400px; gap: 20px; }
+/* today */
+.today { display: grid; grid-template-columns: 1fr; gap: 20px; }
 .tbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
 .bigsearch { flex: 1; height: 44px; border: 1.5px solid var(--ring); box-shadow: 0 0 0 3px oklch(0.42 0.08 175 / .12); border-radius: 10px; background: var(--card); display: flex; align-items: center; padding: 0 14px; gap: 10px; font-size: 15px; }
 .bigsearch .ph-text { font-size: 14px; }
@@ -204,38 +204,31 @@ label.f .opt { color: var(--muted-foreground); font-weight: 400; }
 .ctr small { color: var(--muted-foreground); font-size: 12.5px; }
 .tlist { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .tlist .grp { padding: 8px 18px; background: var(--muted); font-size: 12px; font-weight: 650; color: oklch(0.42 0.02 260); border-bottom: 1px solid var(--border); }
-.trow { display: grid; grid-template-columns: 64px 1fr 110px 150px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
-.trow.hit { background: oklch(0.985 0.01 175); box-shadow: inset 3px 0 0 var(--primary); }
+.trow { display: grid; grid-template-columns: 72px 1fr 96px 170px 110px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.trow > .act { justify-self: end; }
+.trow .t { font-weight: 650; font-size: 15px; }
+.trow .gst { font-weight: 600; }
 .trow.done .nm { color: var(--muted-foreground); }
-.code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; letter-spacing: .08em; background: var(--muted); border-radius: 4px; padding: 1px 6px; }
+.trow.done .nm mark { color: oklch(0.38 0.02 260); }
+/* AC-25 sortable header row */
+.thead { display: grid; grid-template-columns: 72px 1fr 96px 170px 110px; gap: 12px; align-items: center; padding: 4px 18px; border-bottom: 1px solid var(--border); background: var(--card); }
+.sorth { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0; border: 0; background: none; font: 600 12.5px var(--font-sans); color: oklch(0.42 0.02 260); cursor: pointer; text-align: left; }
+.sorth .ar { color: oklch(0.62 0.01 260); font-size: 11px; }
+.sorth.on { color: var(--foreground); }
+.sorth.on .ar { color: var(--primary); }
+.thead .na { font-size: 12.5px; font-weight: 600; color: oklch(0.42 0.02 260); justify-self: end; }
+.sortsel { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); font-size: 14px; color: oklch(0.42 0.02 260); }
+.sortsel b { color: var(--foreground); }
+.sortsel b .ar { color: var(--primary); }
+.sortsel .caret { margin-left: auto; color: var(--muted-foreground); font-size: 14px; }
+.annot { width: 260px; padding: 12px 14px; border: 1px dashed oklch(0.7 0.01 260); border-radius: 10px; background: var(--card); font-size: 12.5px; line-height: 1.5; color: oklch(0.38 0.02 260); }
+.annot b { color: var(--foreground); display: block; margin-bottom: 4px; font-size: 13px; }
 mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padding: 0 1px; }
 .state { font-size: 13px; font-weight: 600; }
 .state.arr { color: var(--primary); }
 .state.wait { color: oklch(0.42 0.02 260); }
 .state.late { color: var(--pending-foreground); }
 .state.ns { color: var(--muted-foreground); }
-.card-res { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.card-res .top { padding: 16px 18px; border-bottom: 1px solid var(--border); background: var(--primary-soft); }
-.card-res .top small { color: var(--primary); font-weight: 600; font-size: 12.5px; }
-.card-res .top b { display: block; font-size: 20px; margin-top: 2px; }
-.card-res .mid { padding: 14px 18px; display: grid; gap: 8px; }
-.card-res .bot { padding: 14px 18px 18px; display: grid; gap: 8px; }
-.btn.go { height: 52px; font-size: 16px; width: 100%; }
-.cam { height: 260px; background: oklch(0.22 0.02 260); border-radius: 12px; position: relative; display: flex; align-items: center; justify-content: center; }
-.cam .reticle { width: 170px; height: 170px; border: 3px solid #fff; border-radius: 14px; opacity: .9; }
-.cam small { position: absolute; bottom: 12px; color: oklch(0.9 0 0); font-size: 13px; }
-/* whatsapp */
-.wa { width: 390px; height: 760px; background: oklch(0.93 0.02 90); display: flex; flex-direction: column; }
-.wa-top { background: oklch(0.4 0.07 165); color: #fff; padding: 14px 16px; font-weight: 600; }
-.wa-top small { display: block; font-weight: 400; opacity: .85; font-size: 12px; }
-.wa-body { padding: 16px 12px; }
-.bubble { background: #fff; border-radius: 8px; max-width: 300px; overflow: hidden; box-shadow: 0 1px 1px oklch(0 0 0 / .12); }
-.bubble .img { background: #fff; padding: 18px; display: flex; justify-content: center; border-bottom: 1px solid oklch(0.94 0 0); }
-.qr { width: 180px; height: 180px; display: grid; grid-template-columns: repeat(21, 1fr); }
-.qr i { display: block; }
-.bubble .txt { padding: 8px 10px 4px; font-size: 13.5px; line-height: 1.5; }
-.bubble .txt .big { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: .18em; display: block; margin: 4px 0; }
-.bubble .meta { text-align: right; font-size: 11px; color: oklch(0.5 0 0); padding: 0 10px 6px; }
 .notes { max-width: 1440px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; }
 .notes h2 { font-size: 16px; margin-bottom: 8px; }
 .notes ol { padding-left: 20px; display: grid; gap: 4px; }
@@ -253,8 +246,7 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
     <li>Every pending/confirmed row gets a <b>⋯</b> menu: Edit booking, Cancel booking (confirmed only; pending keeps Decline).</li>
     <li>Staff-made rows carry a <b>By staff · Mandy</b> source badge; cancelled rows are grey and struck through (BOOK-005).</li>
     <li>The time picker shows each slot's room (guests left). A full or stopped slot stays selectable; saving shows the rules prompt.</li>
-    <li><b>Today</b> view (new, default on phone): today's bookings with arrival state, one search box for name / phone / check-in code, and <b>Scan QR</b>. One tap marks <b>Arrived</b>.</li>
-    <li>Every confirmation message carries a <b>QR</b> (image header) and the 6-character <b>check-in code</b>. The QR holds only the code.</li>
+    <li><b>Today</b> view (new, default on phone): today's bookings with arrival state, one search box for name or phone, sortable by time, name, guests or status. One tap marks <b>Arrived</b>.</li>
     <li>Booking mode <b>off</b>: no Bookings entry in the sidebar; the page shows "Bookings are off".</li>
   </ol>
 </div>
@@ -526,7 +518,7 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
 
 
 <!-- 7. Today view desktop -->
-<p class="frame-label"><b>7 · Today view 1440</b>: search by code jumps to the booking; arrival states; scan result panel</p>
+<p class="frame-label"><b>7 · Today view 1440</b>: search "Chan" narrows the list; sortable columns (Time, earliest first); arrival states</p>
 <div class="frames">
 <div class="frame">
 <div class="app">
@@ -546,8 +538,7 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
       </div>
     </div>
     <div class="tbar">
-      <div class="bigsearch" data-testid="bookings-today-search"><span class="ph-text">&#9906;</span>K7Q2<span class="ph-text" style="margin-left:auto;font-size:12.5px">1 match</span></div>
-      <button class="btn lg" data-testid="bookings-today-scan">&#9638;&nbsp; Scan QR</button>
+      <div class="bigsearch" data-testid="bookings-today-search"><span class="ph-text">&#9906;</span>Chan<span class="ph-text" style="margin-left:auto;font-size:12.5px">4 of 9 today</span></div>
     </div>
     <div class="counters" data-testid="bookings-today-counter">
       <div class="ctr"><b>12 / 30</b><small>guests arrived</small></div>
@@ -556,22 +547,20 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
       <div class="ctr"><b>0</b><small>no-show</small></div>
     </div>
     <div class="today">
-      <div class="tlist" data-testid="bookings-today">
-        <div class="grp">LUNCH</div>
-        <div class="trow done"><div><div class="t">12:30</div><div class="pax">2 pax</div></div><div><span class="nm">Chat Diner</span><div class="ph">+852 9222 3333 · <span class="code">P4MX8T</span></div></div><span class="state arr">&#10003; Arrived 12:27</span><button class="btn sm">Undo</button></div>
-        <div class="trow done"><div><div class="t">13:00</div><div class="pax">4 pax</div></div><div><span class="nm">Au Ka Yan</span><div class="ph">+852 6123 4455 · <span class="code">H2RW9C</span></div></div><span class="state arr">&#10003; Arrived 12:58</span><button class="btn sm">Undo</button></div>
-        <div class="grp">DINNER</div>
-        <div class="trow"><div><div class="t">18:30</div><div class="pax">2 pax</div></div><div><span class="nm">Wu Siu Ming</span><div class="ph">+852 9876 1122 · <span class="code">ZB6N3Q</span></div></div><span class="state late">Late 18 min</span><button class="btn primary sm" data-testid="booking-row-b7-arrived">Arrived</button></div>
-        <div class="trow hit"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><span class="badge src staff">By staff · Mandy</span><div class="ph">+852 2345 6789 · <span class="code"><mark>K7Q2</mark>MX</span></div></div><span class="state wait">Waiting</span><button class="btn primary sm">Arrived</button></div>
-        <div class="trow"><div><div class="t">20:00</div><div class="pax">6 pax</div></div><div><span class="nm">Yeung Family</span><span class="badge src">AI agent</span><div class="ph">+852 6555 7788 · <span class="code">T9DK2V</span></div></div><span class="state wait">Waiting</span><button class="btn primary sm">Arrived</button></div>
-        <div class="trow"><div><div class="t">20:30</div><div class="pax">4 pax</div></div><div><span class="nm">Kan Wai</span><span class="badge pd">Pending</span><div class="ph">+852 9001 2233 · no code until confirmed</div></div><span class="state wait">Needs reply</span><button class="btn sm">Confirm</button></div>
-      </div>
-      <div class="card-res" data-testid="booking-scan-result">
-        <div class="top"><small>Code K7Q2MX · today</small><b>Mr Lam · 6 guests</b></div>
-        <div class="mid">
-          <dl class="summary"><dt>Time</dt><dd>19:00 (in 12 min)</dd><dt>Phone</dt><dd>+852 2345 6789</dd><dt>Member</dt><dd>Lam Chi Keung · 6 visits</dd><dt>Notes</dt><dd>Phoned in, window table</dd></dl>
+      <div class="tlist" data-testid="bookings-today" role="table" aria-label="Today's bookings">
+        <div class="thead" role="row">
+          <button class="sorth on" role="columnheader" aria-sort="ascending">Time <span class="ar" aria-hidden="true">&#9650;</span></button>
+          <button class="sorth" role="columnheader" aria-sort="none">Name <span class="ar" aria-hidden="true">&#8693;</span></button>
+          <button class="sorth" role="columnheader" aria-sort="none">Guests <span class="ar" aria-hidden="true">&#8693;</span></button>
+          <button class="sorth" role="columnheader" aria-sort="none">Status <span class="ar" aria-hidden="true">&#8693;</span></button>
+          <span class="na" role="columnheader">Action</span>
         </div>
-        <div class="bot"><button class="btn primary go">&#10003;&nbsp; Arrived</button><button class="btn">Edit booking</button></div>
+        <div class="grp">LUNCH</div>
+        <div class="trow done"><div class="t">12:30</div><div><span class="nm"><mark>Chan</mark> Siu Fung</span><div class="ph">+852 9222 3333</div></div><span class="gst">2</span><span class="state arr">&#10003; Arrived 12:27</span><button class="btn sm act">Undo</button></div>
+        <div class="grp">DINNER</div>
+        <div class="trow"><div class="t">18:30</div><div><span class="nm"><mark>Chan</mark> Wing Yan</span><div class="ph">+852 9876 1122</div></div><span class="gst">2</span><span class="state late">Late 18 min</span><button class="btn primary sm act" data-testid="booking-row-b7-arrived">Arrived</button></div>
+        <div class="trow"><div class="t">19:00</div><div><span class="nm">Mr <mark>Chan</mark></span><span class="badge src staff">By staff · Mandy</span><div class="ph">+852 2345 6789</div></div><span class="gst">6</span><span class="state wait">Waiting</span><button class="btn primary sm act">Arrived</button></div>
+        <div class="trow"><div class="t">20:30</div><div><span class="nm"><mark>Chan</mark> Ka Wai</span><span class="badge pd">Pending</span><div class="ph">+852 9001 2233</div></div><span class="gst">4</span><span class="state wait">Needs reply</span><button class="btn sm act">Confirm</button></div>
       </div>
     </div>
   </main>
@@ -579,59 +568,26 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
 </div>
 </div>
 
-<!-- 8. Phone today + scan; WhatsApp -->
-<p class="frame-label"><b>8 · Phone Today</b> &nbsp;·&nbsp; <b>8b · Scanning</b> &nbsp;·&nbsp; <b>8c · Other results</b> (code not found; code for another day) &nbsp;·&nbsp; <b>9 · Diner's confirmation on WhatsApp</b></p>
+<!-- 8. Phone today -->
+<p class="frame-label"><b>8 · Phone Today 390</b>: search by name or phone, Sort select, one tap Arrived</p>
 <div class="frames">
 <div class="frame"><div class="phone">
   <div class="ph-top">
     <div class="r"><h2>Bookings</h2><button class="btn primary sm">+ New</button></div>
     <div class="r" style="margin-top:10px"><span class="seg"><span class="on">Today</span><span>Calendar</span><span>Table</span></span></div>
-    <div class="tbar" style="margin:12px 0 0"><div class="bigsearch" style="height:42px"><span class="ph-text">Name, phone or code</span></div><button class="btn lg" style="padding:0 12px">&#9638; Scan</button></div>
+    <div class="tbar" style="margin:12px 0 0"><div class="bigsearch" style="height:44px" data-testid="bookings-today-search"><span class="ph-text">Name or phone</span></div></div>
+    <div class="sortsel" style="margin-top:10px" data-testid="bookings-today-sort" role="combobox" aria-label="Sort"><span>Sort:</span><b>Time <span class="ar" aria-hidden="true">&#9650;</span></b><span class="caret" aria-hidden="true">&#9662;</span></div>
   </div>
   <div class="ph-list">
     <div class="dh"><div><b>Sat, 21 Nov</b><div class="hint">12 / 30 guests arrived · 4 waiting</div></div></div>
-    <div class="row"><div><div class="t">18:30</div><div class="pax">2 pax</div></div><div><span class="nm">Wu Siu Ming</span><div class="state late">Late 18 min</div><div class="ph"><span class="code">ZB6N3Q</span></div></div><button class="btn primary sm">Arrived</button></div>
-    <div class="row"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><div class="state wait">Waiting</div><div class="ph"><span class="code">K7Q2MX</span></div></div><button class="btn primary sm">Arrived</button></div>
-    <div class="row"><div><div class="t">20:00</div><div class="pax">6 pax</div></div><div><span class="nm">Yeung Family</span><div class="state wait">Waiting</div><div class="ph"><span class="code">T9DK2V</span></div></div><button class="btn primary sm">Arrived</button></div>
     <div class="row"><div><div class="t">13:00</div><div class="pax">4 pax</div></div><div><span class="nm">Au Ka Yan</span><div class="state arr">&#10003; Arrived 12:58</div></div><button class="btn sm">Undo</button></div>
+    <div class="row"><div><div class="t">18:30</div><div class="pax">2 pax</div></div><div><span class="nm">Wu Siu Ming</span><div class="state late">Late 18 min</div></div><button class="btn primary sm">Arrived</button></div>
+    <div class="row"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><div class="state wait">Waiting</div></div><button class="btn primary sm">Arrived</button></div>
+    <div class="row"><div><div class="t">20:00</div><div class="pax">6 pax</div></div><div><span class="nm">Yeung Family</span><div class="state wait">Waiting</div></div><button class="btn primary sm">Arrived</button></div>
   </div>
 </div></div>
 
-<div class="frame"><div class="phone" style="position:relative">
-  <div class="ph-top"><div class="r"><h2>Scan check-in QR</h2><span class="x">&#10005;</span></div></div>
-  <div style="padding:16px;display:grid;gap:14px">
-    <div class="cam"><div class="reticle"></div><small>Point at the diner's QR</small></div>
-    <div class="card-res">
-      <div class="top"><small>Code K7Q2MX · today</small><b>Mr Lam · 6 guests · 19:00</b></div>
-      <div class="mid"><div class="ph">+852 2345 6789 · window table</div></div>
-      <div class="bot"><button class="btn primary go">&#10003;&nbsp; Arrived</button></div>
-    </div>
-  </div>
-</div></div>
-
-<div class="frame"><div class="phone" style="position:relative">
-  <div class="ph-top"><div class="r"><h2>Scan check-in QR</h2><span class="x">&#10005;</span></div></div>
-  <div style="padding:16px;display:grid;gap:14px">
-    <div class="cam"><div class="reticle"></div><small>Point at the diner's QR</small></div>
-    <div class="banner" data-testid="booking-scan-not-found">No booking for this code at Cafe Poppy. <button class="btn sm">Search</button></div>
-    <div class="card-res">
-      <div class="top" style="background:var(--muted)"><small style="color:oklch(0.42 0.02 260)">Code ZB6N3Q · another day</small><b>Wu Siu Ming · 2 guests</b></div>
-      <div class="mid"><div class="ph">Booked for <b>Sun 22 Nov, 18:30</b>. Arrived is only for today's bookings.</div></div>
-    </div>
-  </div>
-</div></div>
-
-<div class="frame"><div class="wa">
-  <div class="wa-top">Cafe Poppy<small>Business account</small></div>
-  <div class="wa-body">
-    <div class="bubble">
-      <div class="img"><div class="qr" id="qr"></div></div>
-      <div class="txt">Your table booking is confirmed.<br>Restaurant: Cafe Poppy<br>Date: Sat, 21 Nov 2026 · Time: 19:00 · 6 guests<br><br>Show this QR at the door, or tell staff your check-in code:<span class="big">K7Q2MX</span>If your plans change, please reply to this message.</div>
-      <div class="meta">14:32</div>
-    </div>
-    <p class="hint" style="margin-top:10px;max-width:300px;color:oklch(0.38 0.02 260)">zh-HK: 你的訂座已確認…到達時出示此 QR 碼，或告知職員入座編號 K7Q2MX。</p>
-  </div>
-</div></div>
+<div class="annot" data-note="AC-25"><b>Sorting (AC-25)</b>Tap the active sort again to reverse · Status order: Late, Waiting, Needs reply, Arrived, No-show · kept in the URL</div>
 </div>
 
 <!-- 10. Mode off -->
@@ -655,11 +611,5 @@ mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padd
 </div></div>
 </div>
 
-<script>
-(function(){var q=document.getElementById('qr');if(!q)return;var n=21,seed=7;function r(){seed=(seed*9301+49297)%233280;return seed/233280;}
-function finder(x,y){return(x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7);}
-function fon(x,y){var a=x%14,b=y%14;if(x>=n-7)a=x-(n-7);if(y>=n-7)b=y-(n-7);var ax=Math.min(a,6-a),by=Math.min(b,6-b),d=Math.min(ax,by);return d!==1;}
-for(var y=0;y<n;y++)for(var x=0;x<n;x++){var c=document.createElement('i');var on=finder(x,y)?fon(x,y):r()>0.52;c.style.background=on?'#111':'#fff';q.appendChild(c);}})();
-</script>
 </body>
 </html>
