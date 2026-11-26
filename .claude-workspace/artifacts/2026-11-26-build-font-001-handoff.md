@@ -1,13 +1,50 @@
 ---
 id: artifacts/2026-11-26-build-font-001-handoff
-type: artifact
+type: handoff
+contract: handoff-file-v1
 author: dev
 created: 2026-11-26
 status: active
 supersedes: null
 superseded_by: null
 related: [deploys/2026-11-26-book-012-release-runbook, kanban:BOOK-012, kanban:TPL-012]
+item: BUILD-FONT-001
+state: done
+brief: inline
+base: 0715b4eb
+head: 47efe920
+branch: fix/build-noto-sans-hk-font
+pushed: true
+gate: {result: none, at: none}
+next: {owner: main, action: "review and merge PR #231 into develop, then resume the BOOK-012 release from the merged tip"}
+blockers: []
+refs: [github:231, deploys/2026-11-26-book-012-release-runbook, artifacts/2026-11-26-build-font-001-evidence]
 ---
+ac:
+  AC-1: pass   # 0c41a4df builds; root cause reproduced 1:1 by mock (ac1-*.log)
+  AC-2: pass   # heavy-lock next build exit 0 on fix branch, also with the failing response mocked in (ac2-build-fix.log)
+  AC-3: fail   # as written: real CJK elements compute Inter -> PingFang (system), identical to prod; --font-cjk -> Noto shown by probe; 0 font 404s; screenshots byte-identical
+  AC-4: pass   # heavy-lock tsc --noEmit exit 0 (ac4-tsc.log)
+  AC-5: pass   # pushed (ls-remote == HEAD), PR #231 into develop
+decisions:
+  - "Declare Noto Sans HK in src/app/fonts/noto-sans-hk.css (Google rules verbatim, gstatic URLs) instead of next/font/google; no font binaries added (self-host = +5.3 MB for an unused face; <link> = 424 KB render-blocking third-party CSS)"
+  - "AC-3 not forced: applying --font-cjk to CJK text changes every zh page (PingFang -> Noto), against the brief's keep-the-render"
+  - "Inter left on next/font/google (not in the failure; same failure class) — main decides a follow-up"
+failed:
+  - "chrome-devtools MCP refused (profile in use by another agent); used playwright-core with cached Chromium 1208 in scratch instead"
+invariants:
+  - "--font-cjk on <html> is \"Noto Sans HK\", \"Noto Sans HK Fallback\" before and after"
+  - "Inter stays --font-sans via next/font/google"
+  - "No package.json, lockfile, Next or bundler change"
+unverified:
+  - "The exact css2 body Google sent Turbopack at 04:36-04:42Z was not captured; the &-URL form is inferred from the code path (only & splits the qstring) and the 1:1 mock repro"
+  - "debugging_journals/ entry not written (outside files_allowed); text is in the Journal section below"
+review_focus:
+  - "src/app/fonts/noto-sans-hk.css :root rule vs Tailwind's layered --font-cjk theme var (unlayered :root wins)"
+  - "424 KB CSS file committed (Google response verbatim)"
+scope_drift: []
+next_step: "Merge PR #231 into develop, then rerun release.sh from the merged main tip (release-book012 lacks the fix)."
+
 
 # BUILD-FONT-001: unblock `next build` (Noto Sans HK, next/font/google)
 
