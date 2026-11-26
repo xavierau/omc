@@ -98,7 +98,7 @@ Measured with the CDP platform-font check (`ac3-check.js.txt`, Chromium 1208, 14
 | AC-1 | `0c41a4df` builds (exit 0). Root cause: Turbopack's `&`-unsafe font-URL query plus a Google css2 response with `&` in the Noto URLs. Reproduced 1:1 by mock, see above |
 | AC-2 | `resource-lock.py heavy -- npx next build` on the fix branch: exit 0 (05:02:08–05:02:37Z). Also exit 0 **with the failing `&` response mocked in**, which shows the fix removes the failure class (`ac2-build-fix.log`) |
 | AC-3 | partial, by design: screenshot, 0 font 404s, `--font-cjk` → Noto shown by probe. Computed font-family of real CJK elements is Inter → PingFang, unchanged from prod (see above) |
-| AC-4 | `resource-lock.py heavy -- npx tsc --noEmit`: see `ac4-tsc.log` |
+| AC-4 | `resource-lock.py heavy -- npx tsc --noEmit` on the fix branch: exit 0 (`ac4-tsc.log`) |
 | AC-5 | PR into develop, see the handoff block |
 
 ## Journal (debugging_journals/ is outside files_allowed; the content is here for main to file)
