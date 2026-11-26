@@ -23,7 +23,8 @@ export interface StaffUpdateArgs {
   id: string
   restaurantId: string
   expectedStatus: 'pending' | 'confirmed'
-  expectedUpdatedAt: string
+  /** The edit_version the form loaded (review R1: background writes never move it). */
+  expectedVersion: number
   memberId: string | null
   input: StaffBookingInput
   clearReminder: boolean
@@ -35,7 +36,7 @@ export interface StaffUpdateArgs {
 export interface StaffCancelArgs {
   id: string
   restaurantId: string
-  expectedUpdatedAt: string
+  expectedVersion: number
   actorUserId: string
   at: Date
 }

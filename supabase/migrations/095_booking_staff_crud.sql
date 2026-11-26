@@ -4,7 +4,7 @@
 -- threats: threats/2026-11-26-book-013-staff-booking-crud.md (R1-R18);
 -- plan: plans/2026-11-26-book-013-staff-booking-crud.md.
 --
--- Additive: no existing row changes (new columns are NULL or default true).
+-- Additive: no existing row changes (new columns are NULL or a constant default).
 -- Apply BEFORE deploying the code that writes 'staff' / checkin_code (the old
 -- code never writes either; it keeps calling the 4-argument
 -- confirm_booking_change, which stays).
@@ -34,6 +34,36 @@ ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS notify_diner BOOLEAN NOT N
 
 -- R11: when the last staff-triggered diner message went out (<= 1 per 5 min).
 ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS last_staff_message_at TIMESTAMPTZ;
+
+-- R3 (review R1): the version a staff edit form / cancel dialog loads and
+-- sends back. Owned by the trigger in section 2b: it moves only when what
+-- staff edit or see changes, never on the background writes that bump
+-- updated_at (082's trigger): reminder claim, QR path, decision message
+-- status, staff message claim, check-in, member relink.
+ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS edit_version INT NOT NULL DEFAULT 0;
+
+-- ---------------------------------------------------------------------------
+-- 2b. Any writer (staff, diner AI, agent, decide, no-show, purge) that changes
+-- status, slot, party size, name, phone, notes or notify moves edit_version
+-- by one; every other UPDATE keeps it (a writer cannot set it directly).
+CREATE OR REPLACE FUNCTION public.bump_booking_edit_version() RETURNS trigger AS $$
+BEGIN
+  IF (NEW.status, NEW.booking_date, NEW.booking_time, NEW.party_size, NEW.name, NEW.phone, NEW.notes, NEW.notify_diner)
+     IS DISTINCT FROM
+     (OLD.status, OLD.booking_date, OLD.booking_time, OLD.party_size, OLD.name, OLD.phone, OLD.notes, OLD.notify_diner)
+  THEN
+    NEW.edit_version := OLD.edit_version + 1;
+  ELSE
+    NEW.edit_version := OLD.edit_version;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS booking_requests_edit_version ON booking_requests;
+CREATE TRIGGER booking_requests_edit_version
+  BEFORE UPDATE ON booking_requests
+  FOR EACH ROW EXECUTE FUNCTION public.bump_booking_edit_version();
 
 -- ---------------------------------------------------------------------------
 -- 3. Check-in code (R8) and its QR file (R10, R16).
@@ -156,15 +186,16 @@ GRANT EXECUTE ON FUNCTION public.staff_create_booking(uuid, uuid, text, text, in
 -- ---------------------------------------------------------------------------
 -- 8. Staff edit (spec S2; R3, R5, R9). One conditional UPDATE: scoped by id
 -- AND restaurant, only while the row is still p_expected_status (pending or
--- confirmed) with the updated_at the form loaded, and no open (pending)
--- change request replaces it. Status, source and code never change here.
+-- confirmed) with the edit_version the form loaded (review R1: not
+-- updated_at, which background writes move), and no open (pending) change
+-- request replaces it. Status, source and code never change here.
 -- p_clear_reminder: the date or time moved, so the reminder is due again
 -- (spec AC-7). The events row names the changed fields, never their values.
 CREATE OR REPLACE FUNCTION public.staff_update_booking(
   p_id uuid,
   p_restaurant_id uuid,
   p_expected_status text,
-  p_expected_updated_at timestamptz,
+  p_expected_version int,
   p_member_id uuid,
   p_phone text,
   p_name text,
@@ -186,7 +217,7 @@ CREATE OR REPLACE FUNCTION public.staff_update_booking(
            updated_by = p_actor
      WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id
        AND b.status = p_expected_status AND b.status IN ('pending', 'confirmed')
-       AND b.updated_at = p_expected_updated_at
+       AND b.edit_version = p_expected_version
        AND NOT EXISTS (
          SELECT 1 FROM booking_requests c
           WHERE c.replaces_booking_id = b.id AND c.restaurant_id = p_restaurant_id AND c.status = 'pending'
@@ -204,17 +235,17 @@ CREATE OR REPLACE FUNCTION public.staff_update_booking(
   SELECT c.* FROM changed c;
 $$ LANGUAGE sql SET search_path = public, pg_temp;
 
-REVOKE ALL ON FUNCTION public.staff_update_booking(uuid, uuid, text, timestamptz, uuid, text, text, int, date, time, text, boolean, boolean, uuid, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.staff_update_booking(uuid, uuid, text, timestamptz, uuid, text, text, int, date, time, text, boolean, boolean, uuid, jsonb, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.staff_update_booking(uuid, uuid, text, int, uuid, text, text, int, date, time, text, boolean, boolean, uuid, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.staff_update_booking(uuid, uuid, text, int, uuid, text, text, int, date, time, text, boolean, boolean, uuid, jsonb, jsonb) TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 9. Staff cancel (spec S3; R3, R5, R9, R16). Confirmed only (a pending one
--- is declined instead), same scope and stale checks as the edit. The QR file
+-- is declined instead), same scope and edit_version check as the edit. The QR file
 -- is deleted by the app after this returns.
 CREATE OR REPLACE FUNCTION public.staff_cancel_booking(
   p_id uuid,
   p_restaurant_id uuid,
-  p_expected_updated_at timestamptz,
+  p_expected_version int,
   p_actor uuid,
   p_at timestamptz
 ) RETURNS SETOF booking_requests AS $$
@@ -224,7 +255,7 @@ CREATE OR REPLACE FUNCTION public.staff_cancel_booking(
            updated_by = p_actor
      WHERE b.id = p_id AND b.restaurant_id = p_restaurant_id
        AND b.status = 'confirmed'
-       AND b.updated_at = p_expected_updated_at
+       AND b.edit_version = p_expected_version
        AND NOT EXISTS (
          SELECT 1 FROM booking_requests c
           WHERE c.replaces_booking_id = b.id AND c.restaurant_id = p_restaurant_id AND c.status = 'pending'
@@ -239,8 +270,8 @@ CREATE OR REPLACE FUNCTION public.staff_cancel_booking(
   SELECT c.* FROM changed c;
 $$ LANGUAGE sql SET search_path = public, pg_temp;
 
-REVOKE ALL ON FUNCTION public.staff_cancel_booking(uuid, uuid, timestamptz, uuid, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.staff_cancel_booking(uuid, uuid, timestamptz, uuid, timestamptz) TO service_role;
+REVOKE ALL ON FUNCTION public.staff_cancel_booking(uuid, uuid, int, uuid, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.staff_cancel_booking(uuid, uuid, int, uuid, timestamptz) TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 10. Check-in and undo (spec AC-21, AC-22; R14, R9). Arrived only on a
@@ -439,3 +470,20 @@ $$ LANGUAGE sql STABLE;
 
 REVOKE ALL ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 15. Retention (R16, review R3): forget the QR paths whose files the purge
+-- has just deleted, and only those (a path whose delete failed stays, so the
+-- next run deletes it). A JSON body, not an `in` filter: a page of 1000 paths
+-- in a query string overflows PostgREST's echoed URL header.
+CREATE OR REPLACE FUNCTION public.forget_checkin_qr_paths(p_paths text[]) RETURNS int AS $$
+  WITH forgotten AS (
+    UPDATE booking_requests SET checkin_qr_path = NULL
+     WHERE checkin_qr_path = ANY(p_paths)
+    RETURNING 1
+  )
+  SELECT count(*)::int FROM forgotten;
+$$ LANGUAGE sql SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.forget_checkin_qr_paths(text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.forget_checkin_qr_paths(text[]) TO service_role;

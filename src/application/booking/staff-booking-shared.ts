@@ -28,7 +28,7 @@ export interface StaffBookingDeps {
   qr: CheckinQrStore
   /** E.164, or null when not a phone number (the repo's one normaliser). */
   normalizePhone(raw: string): string | null
-  /** Stores whether the last diner message was delivered (the row's "not delivered" marker). */
+  /** Stores whether the confirmation reached the diner (the row's BOOK-001 "not delivered" badge). */
   recordMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
   /** R8: CSPRNG check-in codes, tried in order. */
   newCodes(): string[]
@@ -78,16 +78,22 @@ async function record(deps: StaffBookingDeps, booking: BookingRequest, delivered
   }
 }
 
-/** Owner decision 2 + R11: send `kind` to the diner when Notify is on and no staff message went out in the last 5 minutes. */
+/**
+ * Owner decision 2 + R11: send `kind` to the diner when Notify is on and no
+ * staff message went out in the last 5 minutes. Review R8: only a
+ * confirmation's outcome is stored (decision_message_status is the BOOK-001
+ * confirm/decline badge); a changed/cancelled outcome is only answered, so a
+ * failed later message never marks a delivered confirmation "not delivered".
+ */
 export async function messageDiner(deps: StaffBookingDeps, booking: BookingRequest, kind: BookingMessageKind, notify: boolean): Promise<StaffMessageOutcome> {
   if (!notify) return 'none'
   if (!(await deps.store.claimStaffMessage(booking.id, booking.restaurantId, deps.now(), STAFF_MESSAGE_GAP_MS))) return 'throttled'
   const result = await deps.sender.send(await bookingMessageFor(deps, booking, kind))
-  await record(deps, booking, result.delivered)
+  if (kind === 'confirmed') await record(deps, booking, result.delivered)
   return result.delivered ? 'delivered' : 'not_delivered'
 }
 
-/** The message outcome as the row's stored status, so the list shows it without a reload. */
+/** A confirmation's outcome as the row's stored status, so the list shows it without a reload (staff create only). */
 export function withOutcome(booking: BookingRequest, message: StaffMessageOutcome): BookingRequest {
   if (message === 'delivered' || message === 'not_delivered') return { ...booking, decisionMessageStatus: message }
   return booking

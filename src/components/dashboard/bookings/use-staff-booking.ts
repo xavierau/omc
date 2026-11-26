@@ -136,7 +136,7 @@ export function useStaffBooking(refetch: () => Promise<void>) {
     const outcome =
       form.mode === 'new' || !form.booking
         ? await createStaffBooking(form.values, override)
-        : await editStaffBooking(form.booking.id, form.values, form.booking.updatedAt as string, override)
+        : await editStaffBooking(form.booking.id, form.values, form.booking.editVersion as number, override)
     setForm(formAfter(form, outcome))
     if (outcome.kind === 'saved') {
       show({ kind: toastFor(form.mode === 'new' ? 'added' : 'updated', outcome.message), booking: outcome.booking })
@@ -148,7 +148,7 @@ export function useStaffBooking(refetch: () => Promise<void>) {
   async function confirmCancel() {
     if (!cancel || cancel.saving) return
     setCancel({ ...cancel, saving: true })
-    const outcome = await cancelStaffBooking(cancel.booking.id, cancel.booking.updatedAt as string, cancel.notify)
+    const outcome = await cancelStaffBooking(cancel.booking.id, cancel.booking.editVersion as number, cancel.notify)
     if (outcome.kind === 'saved') {
       setCancel(null)
       show({ kind: toastFor('cancelled', outcome.message), booking: outcome.booking })

@@ -55,6 +55,35 @@ describe('decide → confirmed mints the code and sends it with the QR (R8, AC-1
     expect(sender.sent[0]).toMatchObject({ details: { checkinCode: 'K7Q2MX' }, image: qr.url })
   })
 
+  it('review R2: Notify off → confirmed with a code, but no message and no message outcome stored', async () => {
+    const id = await seed()
+    requests.rows[0].notifyDiner = false
+    const recordSpy = vi.spyOn(requests, 'recordDecisionMessage')
+    const result = await decideBookingRequest(deps, { restaurantId: A, userId: 'u', bookingId: id, decision: 'confirmed' })
+    expect(result).toMatchObject({ ok: true, delivered: null, booking: { status: 'confirmed', checkinCode: 'K7Q2MX' } })
+    expect(sender.sent).toEqual([])
+    expect(recordSpy).not.toHaveBeenCalled()
+    expect(requests.rows[0].decisionMessageStatus).toBeNull()
+    expect(qr.ensured).toEqual([])
+  })
+
+  it('review R2: Notify off → a decline is not sent either', async () => {
+    const id = await seed()
+    requests.rows[0].notifyDiner = false
+    const result = await decideBookingRequest(deps, { restaurantId: A, userId: 'u', bookingId: id, decision: 'declined', reason: 'Full' })
+    expect(result).toMatchObject({ ok: true, delivered: null, booking: { status: 'declined' } })
+    expect(sender.sent).toEqual([])
+  })
+
+  it('review R2: Notify on (or unset on older rows) → sent and the outcome stored as before', async () => {
+    const id = await seed()
+    requests.rows[0].notifyDiner = true
+    const result = await decideBookingRequest(deps, { restaurantId: A, userId: 'u', bookingId: id, decision: 'confirmed' })
+    expect(result).toMatchObject({ ok: true, delivered: true })
+    expect(sender.sent).toHaveLength(1)
+    expect(requests.rows[0].decisionMessageStatus).toBe('delivered')
+  })
+
   it('a decline mints no code and sends no image', async () => {
     const id = await seed()
     const spy = vi.spyOn(requests, 'decide')

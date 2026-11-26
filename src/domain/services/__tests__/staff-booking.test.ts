@@ -32,7 +32,7 @@ describe('parseStaffBookingInput (R4, R7)', () => {
   it('reads the allow-listed fields, normalises phone, name and notes; notify defaults on, override off', () => {
     expect(parseStaffBookingInput(valid, ctx())).toEqual({
       ok: true,
-      expectedUpdatedAt: null,
+      expectedVersion: null,
       input: { phone: '+85291234567', name: 'Chan Tai Man', partySize: 4, date: '2026-11-28', time: '19:00', notes: 'window', notify: true, override: false },
     })
   })
@@ -67,12 +67,17 @@ describe('parseStaffBookingInput (R4, R7)', () => {
     for (const body of [null, 'x', [valid]]) expect(parseStaffBookingInput(body, ctx())).toEqual({ ok: false, errors: { form: 'invalid_body' } })
   })
 
-  it('edit: expectedUpdatedAt is required (R3) and an unchanged past slot is allowed', () => {
-    const edit = ctx({ requireExpectedUpdatedAt: true, currentSlot: { date: '2026-11-26', time: '10:00' } })
-    expect(parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:00' }, edit)).toMatchObject({ ok: false, errors: { expectedUpdatedAt: 'required' } })
-    const ok = parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:00', expectedUpdatedAt: '2026-11-26T01:00:00.123456+00:00' }, edit)
-    expect(ok).toMatchObject({ ok: true, expectedUpdatedAt: '2026-11-26T01:00:00.123456+00:00' })
-    expect(parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:30', expectedUpdatedAt: '2026-11-26T01:00:00Z' }, edit)).toMatchObject({ ok: false, errors: { time: 'past' } })
+  it('edit: expectedVersion is required (R3) and an unchanged past slot is allowed', () => {
+    const edit = ctx({ requireExpectedVersion: true, currentSlot: { date: '2026-11-26', time: '10:00' } })
+    expect(parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:00' }, edit)).toMatchObject({ ok: false, errors: { expectedVersion: 'required' } })
+    const ok = parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:00', expectedVersion: 3 }, edit)
+    expect(ok).toMatchObject({ ok: true, expectedVersion: 3 })
+    expect(parseStaffBookingInput({ ...valid, date: '2026-11-26', time: '10:30', expectedVersion: 3 }, edit)).toMatchObject({ ok: false, errors: { time: 'past' } })
+  })
+
+  it.each([-1, 1.5, '3', null, 2 ** 31])('edit: expectedVersion %s is refused (a non-negative int4)', (v) => {
+    const edit = ctx({ requireExpectedVersion: true })
+    expect(parseStaffBookingInput({ ...valid, expectedVersion: v }, edit)).toMatchObject({ ok: false, errors: { expectedVersion: 'required' } })
   })
 })
 
@@ -181,6 +186,19 @@ describe('Today rules (AC-20, AC-22, R14)', () => {
       b({ partySize: 2, status: 'pending' }),
     ]
     expect(todayCounters(list, { date: today, time: '18:30' })).toEqual({ guestsArrived: 4, guestsExpected: 11, waiting: 2, late: 1, noShow: 1 })
+  })
+
+  it('review R7: a BOOK-006 change pair (both today) counts once: the confirmed original, not its pending change', () => {
+    const list = [
+      b({ id: 'orig', partySize: 4, bookingTime: '19:00' }),
+      b({ id: 'chg', partySize: 4, bookingTime: '20:00', status: 'pending', replacesBookingId: 'orig' }),
+    ]
+    expect(todayCounters(list, { date: today, time: '12:00' }).guestsExpected).toBe(4)
+  })
+
+  it('review R7: a pending change whose original is another day still counts (the party is not otherwise in today)', () => {
+    const list = [b({ id: 'chg', partySize: 4, status: 'pending', replacesBookingId: 'orig-other-day' })]
+    expect(todayCounters(list, { date: today, time: '12:00' }).guestsExpected).toBe(4)
   })
 
   it('AC-20: one search over name, 4+ phone digits (any spacing) and code', () => {

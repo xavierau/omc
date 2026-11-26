@@ -67,7 +67,7 @@ async function save(url: string, method: string, body: unknown): Promise<StaffSa
 }
 
 /** The request body: only the allow-listed fields (R4); notes empty = none. */
-export function formBody(form: StaffBookingForm, extra: { override?: boolean; expectedUpdatedAt?: string } = {}) {
+export function formBody(form: StaffBookingForm, extra: { override?: boolean; expectedVersion?: number } = {}) {
   return {
     phone: form.phone.trim(), name: form.name, partySize: form.partySize, date: form.date, time: form.time,
     notes: form.notes.trim() === '' ? null : form.notes, notify: form.notify, ...extra,
@@ -77,11 +77,12 @@ export function formBody(form: StaffBookingForm, extra: { override?: boolean; ex
 export const createStaffBooking = (form: StaffBookingForm, override = false) =>
   save(BASE, 'POST', formBody(form, override ? { override: true } : {}))
 
-export const editStaffBooking = (id: string, form: StaffBookingForm, expectedUpdatedAt: string, override = false) =>
-  save(`${BASE}/${encodeURIComponent(id)}`, 'PATCH', formBody(form, { expectedUpdatedAt, ...(override ? { override: true } : {}) }))
+/** R3 (review R1): `expectedVersion` is the booking's `editVersion` as the form loaded it. */
+export const editStaffBooking = (id: string, form: StaffBookingForm, expectedVersion: number, override = false) =>
+  save(`${BASE}/${encodeURIComponent(id)}`, 'PATCH', formBody(form, { expectedVersion, ...(override ? { override: true } : {}) }))
 
-export const cancelStaffBooking = (id: string, expectedUpdatedAt: string, notify: boolean) =>
-  save(`${BASE}/${encodeURIComponent(id)}/cancel`, 'POST', { expectedUpdatedAt, notify })
+export const cancelStaffBooking = (id: string, expectedVersion: number, notify: boolean) =>
+  save(`${BASE}/${encodeURIComponent(id)}/cancel`, 'POST', { expectedVersion, notify })
 
 export type CheckInOutcome = { kind: 'done'; booking: BookingItem } | { kind: 'refused'; reason: string } | { kind: 'error' }
 
@@ -146,5 +147,6 @@ export function changedFormFields(booking: BookingItem, form: StaffBookingForm):
 }
 
 /** Edit and Cancel are offered on pending/confirmed rows without an open change request (AC-10); cancel on confirmed only. */
-export const canEditBooking = (b: BookingItem) => (b.status === 'pending' || b.status === 'confirmed') && !b.openChange && !!b.updatedAt
-export const canCancelBooking = (b: BookingItem) => b.status === 'confirmed' && !b.openChange && !!b.updatedAt
+const hasVersion = (b: BookingItem) => typeof b.editVersion === 'number'
+export const canEditBooking = (b: BookingItem) => (b.status === 'pending' || b.status === 'confirmed') && !b.openChange && hasVersion(b)
+export const canCancelBooking = (b: BookingItem) => b.status === 'confirmed' && !b.openChange && hasVersion(b)

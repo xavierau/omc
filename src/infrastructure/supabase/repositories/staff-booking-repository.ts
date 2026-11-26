@@ -72,7 +72,7 @@ async function updateStaffBooking(args: StaffUpdateArgs): Promise<BookingRequest
       p_id: args.id,
       p_restaurant_id: args.restaurantId,
       p_expected_status: args.expectedStatus,
-      p_expected_updated_at: args.expectedUpdatedAt,
+      p_expected_version: args.expectedVersion,
       p_member_id: args.memberId,
       p_phone: input.phone,
       p_name: input.name,
@@ -96,7 +96,7 @@ async function cancelStaffBooking(args: StaffCancelArgs): Promise<BookingRequest
     .rpc('staff_cancel_booking', {
       p_id: args.id,
       p_restaurant_id: args.restaurantId,
-      p_expected_updated_at: args.expectedUpdatedAt,
+      p_expected_version: args.expectedVersion,
       p_actor: args.actorUserId,
       p_at: args.at.toISOString(),
     })

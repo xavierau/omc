@@ -1,7 +1,7 @@
 /**
  * BOOK-013 (spec S1/S2; threat R4, R7): the staff booking form as the server
  * accepts it. An allow-list: only phone, name, partySize, date, time, notes,
- * notify, override (and expectedUpdatedAt on an edit) are read; any other key
+ * notify, override (and expectedVersion on an edit) are read; any other key
  * (status, source, member_id, checkin_code, restaurant_id …) is ignored, so
  * the server alone sets those. Field errors are never overridable: `override`
  * only answers the booking-rules prompt (owner decision 3).
@@ -27,7 +27,7 @@ export interface StaffBookingInput {
   override: boolean
 }
 
-export type StaffBookingField = 'phone' | 'name' | 'partySize' | 'date' | 'time' | 'notes' | 'notify' | 'override' | 'expectedUpdatedAt' | 'form'
+export type StaffBookingField = 'phone' | 'name' | 'partySize' | 'date' | 'time' | 'notes' | 'notify' | 'override' | 'expectedVersion' | 'form'
 export type StaffBookingErrors = Partial<Record<StaffBookingField, string>>
 
 export interface StaffBookingContext {
@@ -37,12 +37,12 @@ export interface StaffBookingContext {
   normalizePhone(raw: string): string | null
   /** Edit: the slot the booking holds now. An unchanged slot may be in the past (notes after arrival). */
   currentSlot?: { date: string; time: string }
-  /** Edit: the body must carry the `updatedAt` the form loaded (R3). */
-  requireExpectedUpdatedAt?: boolean
+  /** Edit: the body must carry the `editVersion` the form loaded (R3). */
+  requireExpectedVersion?: boolean
 }
 
 export type StaffBookingParse =
-  | { ok: true; input: StaffBookingInput; expectedUpdatedAt: string | null }
+  | { ok: true; input: StaffBookingInput; expectedVersion: number | null }
   | { ok: false; errors: StaffBookingErrors }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -96,10 +96,13 @@ function checkWhen(date: string, time: string, ctx: StaffBookingContext, errors:
   if (absoluteMinutes(date, time) < absoluteMinutes(ctx.clock.today, ctx.clock.nowTime)) errors.time = 'past'
 }
 
-function parseExpected(raw: unknown, ctx: StaffBookingContext, errors: StaffBookingErrors): string | null {
-  if (!ctx.requireExpectedUpdatedAt) return null
-  if (typeof raw === 'string' && raw.length <= 64 && !Number.isNaN(Date.parse(raw))) return raw
-  errors.expectedUpdatedAt = 'required'
+/** The edit_version column is a non-negative int4. */
+export const isEditVersion = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 2_147_483_647
+
+function parseExpected(raw: unknown, ctx: StaffBookingContext, errors: StaffBookingErrors): number | null {
+  if (!ctx.requireExpectedVersion) return null
+  if (isEditVersion(raw)) return raw
+  errors.expectedVersion = 'required'
   return null
 }
 
@@ -118,6 +121,6 @@ export function parseStaffBookingInput(body: unknown, ctx: StaffBookingContext):
     override: optionalBool(b.override, false, 'override', errors),
   }
   checkWhen(input.date, input.time, ctx, errors)
-  const expectedUpdatedAt = parseExpected(b.expectedUpdatedAt, ctx, errors)
-  return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, input, expectedUpdatedAt }
+  const expectedVersion = parseExpected(b.expectedVersion, ctx, errors)
+  return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, input, expectedVersion }
 }

@@ -16,7 +16,9 @@
  * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
  *
  * BOOK-013 (spec S6; R8): a confirm (plain or change) mints the check-in code
- * in the same write, and the confirmation carries the code and its QR.
+ * in the same write, and the confirmation carries the code and its QR. A
+ * booking whose staff unticked Notify (spec AC-2/AC-19) gets no confirm or
+ * decline message and no message outcome (review R2).
  *
  * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
  * guest limit answers `over_limit` with the facts and changes nothing,
@@ -88,6 +90,8 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
 async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
   // R23: a declined change request is not news about the diner's booking; nothing is sent (F8: nothing undelivered either).
   if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: null }
+  // BOOK-013 review R2: Notify off means no diner message from staff actions, a decision included.
+  if (booking.notifyDiner === false) return { ok: true, booking, delivered: null }
   const delivered = await notify(deps, booking)
   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
 }

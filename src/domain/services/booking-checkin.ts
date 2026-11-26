@@ -45,6 +45,9 @@ export function parseCheckinCode(raw: unknown): string | null {
 }
 
 export interface CheckinCandidate {
+  id?: string
+  /** BOOK-006: set on a change request, the booking it would replace. */
+  replacesBookingId?: string | null
   status: string
   bookingDate: string
   bookingTime: string
@@ -83,12 +86,22 @@ export interface TodayCounters {
   noShow: number
 }
 
-/** Spec S7 counters over today's pending + confirmed (+ no-show) bookings. */
+/**
+ * Review R7 (BOOK-006 rule, as member stats and the "need a reply" count): a
+ * pending change request is the same party as the booking it would replace,
+ * so with both in the list only the standing original counts.
+ */
+function pendingChangeOfListed(b: CheckinCandidate, ids: ReadonlySet<string>): boolean {
+  return b.status === 'pending' && !!b.replacesBookingId && ids.has(b.replacesBookingId)
+}
+
+/** Spec S7 counters over today's pending + confirmed (+ no-show) bookings; a change pair counts once (review R7). */
 export function todayCounters(bookings: Array<CheckinCandidate & { partySize: number }>, now: HongKongMoment): TodayCounters {
   const c: TodayCounters = { guestsArrived: 0, guestsExpected: 0, waiting: 0, late: 0, noShow: 0 }
+  const ids = new Set(bookings.flatMap((b) => (b.id ? [b.id] : [])))
   for (const b of bookings) {
     const state = arrivalState(b, now)
-    if (b.status === 'confirmed' || b.status === 'pending') c.guestsExpected += b.partySize
+    if ((b.status === 'confirmed' || b.status === 'pending') && !pendingChangeOfListed(b, ids)) c.guestsExpected += b.partySize
     if (state.kind === 'arrived') c.guestsArrived += b.partySize
     if (state.kind === 'waiting' || state.kind === 'late') c.waiting += 1
     if (state.kind === 'late') c.late += 1

@@ -111,7 +111,7 @@ const seed = (extra: Partial<StaffRow> = {}) => {
 }
 const editBody = (row: StaffRow, patch: Record<string, unknown> = {}) => ({
   phone: row.phone, name: row.name, partySize: row.partySize, date: row.bookingDate, time: row.bookingTime, notes: row.notes,
-  notify: true, expectedUpdatedAt: row.updatedAt, ...patch,
+  notify: true, expectedVersion: row.editVersion, ...patch,
 })
 
 describe('POST /api/dashboard/bookings — staff create (S1)', () => {
@@ -244,8 +244,9 @@ describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
 
   it('AC-11 / R3: a stale form → 409 changed with the current status; nothing written or sent', async () => {
     const row = seed()
-    const stale = editBody(row, { partySize: 3, expectedUpdatedAt: '2026-11-25T00:00:00.000001+00:00' })
-    const res = await edit(row.id, stale)
+    const loaded = editBody(row, { partySize: 3 })
+    fake.write(row.id, { notes: 'another staff member' })
+    const res = await edit(row.id, loaded)
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'changed', status: 'confirmed' })
     expect(fake.rows[0].partySize).toBe(2)
@@ -271,18 +272,28 @@ describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
     expect(sends).toHaveLength(1)
   })
 
-  it('expectedUpdatedAt is required on an edit', async () => {
+  it('expectedVersion is required on an edit', async () => {
     const row = seed()
     const body: Record<string, unknown> = editBody(row)
-    delete body.expectedUpdatedAt
+    delete body.expectedVersion
     expect((await edit(row.id, body)).status).toBe(400)
+  })
+
+  it('review R8: a changed message that is not delivered never overwrites the delivered confirmation badge; staff still hear it', async () => {
+    const row = seed({ decisionMessageStatus: 'delivered' })
+    sendResult = { delivered: false, reason: 'outside_window' }
+    const { booking, message } = await (await edit(row.id, editBody(row, { partySize: 3 }))).json()
+    expect(message).toBe('not_delivered')
+    expect(booking.decisionMessageStatus).toBe('delivered')
+    expect(recorded).toEqual([])
+    expect(fake.rows[0].decisionMessageStatus).toBe('delivered')
   })
 })
 
 describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () => {
   it('AC-12: soft cancel by staff with who; QR file deleted; diner told; events row', async () => {
     const row = seed({ source: 'chat' })
-    const res = await cancel(row.id, { expectedUpdatedAt: row.updatedAt, notify: true })
+    const res = await cancel(row.id, { expectedVersion: row.editVersion, notify: true })
     expect(res.status).toBe(200)
     expect(fake.rows[0]).toMatchObject({ status: 'cancelled', cancelledBy: 'staff', cancelledByUser: STAFF })
     expect(qr.removed).toEqual([row.id])
@@ -292,13 +303,13 @@ describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () =>
 
   it('AC-12: Notify off → no message', async () => {
     const row = seed()
-    expect((await (await cancel(row.id, { expectedUpdatedAt: row.updatedAt, notify: false })).json()).message).toBe('none')
+    expect((await (await cancel(row.id, { expectedVersion: row.editVersion, notify: false })).json()).message).toBe('none')
     expect(sends).toHaveLength(0)
   })
 
   it.each(['cancelled', 'declined', 'no_show', 'pending'] as const)('AC-13: a %s booking → 409 changed, nothing written', async (status) => {
     const row = seed({ status })
-    const res = await cancel(row.id, { expectedUpdatedAt: row.updatedAt })
+    const res = await cancel(row.id, { expectedVersion: row.editVersion })
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'changed', status })
     expect(fake.writes).toEqual([])
@@ -306,7 +317,9 @@ describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () =>
 
   it('AC-13: changed by someone else since the dialog opened → 409, nothing sent', async () => {
     const row = seed()
-    expect((await cancel(row.id, { expectedUpdatedAt: '2026-11-25T00:00:00Z' })).status).toBe(409)
+    const loaded = { expectedVersion: row.editVersion }
+    fake.write(row.id, { partySize: 5 })
+    expect((await cancel(row.id, loaded)).status).toBe(409)
     expect(fake.rows[0].status).toBe('confirmed')
     expect(sends).toHaveLength(0)
   })
@@ -314,7 +327,16 @@ describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () =>
   it('an open change request → 409 open_change', async () => {
     const row = seed()
     seed({ status: 'pending', replacesBookingId: row.id })
-    expect(await (await cancel(row.id, { expectedUpdatedAt: row.updatedAt })).json()).toEqual({ error: 'open_change' })
+    expect(await (await cancel(row.id, { expectedVersion: row.editVersion })).json()).toEqual({ error: 'open_change' })
+  })
+
+  it('review R8: a cancelled message that is not delivered leaves the confirmation badge as it was', async () => {
+    const row = seed({ decisionMessageStatus: 'delivered' })
+    sendResult = { delivered: false, reason: 'outside_window' }
+    const { booking, message } = await (await cancel(row.id, { expectedVersion: row.editVersion, notify: true })).json()
+    expect(message).toBe('not_delivered')
+    expect(booking.decisionMessageStatus).toBe('delivered')
+    expect(recorded).toEqual([])
   })
 
   it('no hard delete: there is no DELETE handler on the booking', async () => {
@@ -323,11 +345,61 @@ describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () =>
   })
 })
 
+describe('review R1: only a real change makes the form stale (spec AC-11, threat R3)', () => {
+  // Background writes bump updated_at (082 trigger) but never edit_version (095 trigger).
+  const background: Array<[string, Partial<StaffRow>]> = [
+    ['the reminder claim', { reminderSentAt: '2026-11-26T02:00:00Z' }],
+    ['the QR path claim', { checkinQrPath: 'AbCdEfGhIjKlMnOpQrStUvWx.png' }],
+    ['the decision message status', { decisionMessageStatus: 'not_delivered' }],
+    ['the staff message claim', { lastStaffMessageAt: '2026-11-26T02:00:00Z' }],
+    ['a check-in', { checkedInAt: '2026-11-26T02:00:00Z' }],
+  ]
+
+  it.each(background)('after %s, the loaded edit form still saves', async (_what, patch) => {
+    const row = seed()
+    const loaded = editBody(row, { partySize: 3 })
+    fake.write(row.id, patch)
+    const res = await edit(row.id, loaded)
+    expect(res.status).toBe(200)
+    expect(fake.rows[0].partySize).toBe(3)
+  })
+
+  it.each(background)('after %s, the loaded cancel dialog still cancels', async (_what, patch) => {
+    const row = seed()
+    const loaded = { expectedVersion: row.editVersion, notify: true }
+    fake.write(row.id, patch)
+    expect((await cancel(row.id, loaded)).status).toBe(200)
+    expect(fake.rows[0].status).toBe('cancelled')
+  })
+
+  const realChanges: Array<[string, (row: StaffRow) => void, unknown]> = [
+    ['another staff member edits the party', (row) => fake.write(row.id, { partySize: 5 }), { error: 'changed', status: 'confirmed' }],
+    ['the diner AI cancels', (row) => fake.write(row.id, { status: 'cancelled', cancelledBy: 'diner_ai' }), { error: 'changed', status: 'cancelled' }],
+    ['the diner AI opens a change request', (row) => void seed({ status: 'pending', replacesBookingId: row.id, bookingTime: '20:00' }), { error: 'open_change' }],
+  ]
+
+  it.each(realChanges)('when %s, edit and cancel answer 409, write nothing and send nothing', async (_what, change, answer) => {
+    const row = seed()
+    const loadedEdit = editBody(row, { partySize: 3 })
+    const loadedCancel = { expectedVersion: row.editVersion, notify: true }
+    change(row)
+    const before = JSON.stringify(fake.rows)
+    const edited = await edit(row.id, loadedEdit)
+    const cancelled = await cancel(row.id, loadedCancel)
+    expect([edited.status, cancelled.status]).toEqual([409, 409])
+    expect(await edited.json()).toEqual(answer)
+    expect(await cancelled.json()).toEqual(answer)
+    expect(JSON.stringify(fake.rows)).toBe(before)
+    expect(fake.events).toEqual([])
+    expect(sends).toHaveLength(0)
+  })
+})
+
 describe('who may call them (R1, R2, R6)', () => {
   const calls = (id: string) => [
     () => create(),
     () => edit(id, editBody(fake.rows[0])),
-    () => cancel(id, { expectedUpdatedAt: fake.rows[0].updatedAt }),
+    () => cancel(id, { expectedVersion: fake.rows[0].editVersion }),
     () => arrivedRoute(new Request(url), ctx(id)),
     () => undoRoute(new Request(url), ctx(id)),
   ]
@@ -357,7 +429,7 @@ describe('who may call them (R1, R2, R6)', () => {
     const other = staffRow({ restaurantId: B, bookingDate: '2026-11-26' })
     fake.rows.push(other)
     expect((await edit(other.id, editBody(other, { partySize: 3 }))).status).toBe(404)
-    expect((await cancel(other.id, { expectedUpdatedAt: other.updatedAt })).status).toBe(404)
+    expect((await cancel(other.id, { expectedVersion: other.editVersion })).status).toBe(404)
     expect((await arrivedRoute(new Request(url), ctx(other.id))).status).toBe(404)
     expect(fake.rows[0]).toMatchObject({ partySize: 2, status: 'confirmed', checkedInAt: null })
   })

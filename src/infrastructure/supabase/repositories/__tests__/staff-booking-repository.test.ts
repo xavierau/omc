@@ -21,7 +21,7 @@ const ROW = {
   id: 'b-1', restaurant_id: 'r-a', member_id: null, phone: '+85291234567', name: 'Chan', party_size: 2, booking_date: '2026-11-28',
   booking_time: '19:00:00', notes: null, status: 'confirmed', decline_reason: null, decided_by: 'u', decided_at: null, source: 'staff',
   campaign_id: null, created_at: '2026-11-26T00:00:00Z', decision_message_status: null, replaces_booking_id: null, cancelled_by: null,
-  terms_accepted_at: null, terms_text: null, updated_at: '2026-11-26T01:02:03.456789+00:00', created_by: 'u', notify_diner: false,
+  terms_accepted_at: null, terms_text: null, edit_version: 7, created_by: 'u', notify_diner: false,
   checkin_code: 'K7Q2MX', checked_in_at: null,
 }
 const AT = new Date('2026-11-26T03:00:00Z')
@@ -29,11 +29,13 @@ const input = { phone: '+85291234567', name: 'Chan', partySize: 2, date: '2026-1
 
 describe('staff booking repository (095)', () => {
   it('STAFF_COLUMNS carries the 095 columns; the mapper reads them', async () => {
-    for (const c of ['updated_at', 'created_by', 'notify_diner', 'checkin_code', 'checked_in_at']) expect(STAFF_COLUMNS).toContain(c)
+    for (const c of ['edit_version', 'created_by', 'notify_diner', 'checkin_code', 'checked_in_at']) expect(STAFF_COLUMNS).toContain(c)
+    // review R1: updated_at moves on background writes, so it is never the staff form's version.
+    expect(STAFF_COLUMNS).not.toContain('updated_at')
     expect(STAFF_COLUMNS).not.toContain('checkin_qr_path')
     use([{ data: [ROW] }])
     const b = await staffBookingStore.create({ restaurantId: 'r-a', memberId: null, input, actorUserId: 'u', at: AT, codes: ['K7Q2MX'], brokenRules: [] })
-    expect(b).toMatchObject({ updatedAt: ROW.updated_at, createdBy: 'u', notifyDiner: false, checkinCode: 'K7Q2MX', checkedInAt: null })
+    expect(b).toMatchObject({ editVersion: 7, createdBy: 'u', notifyDiner: false, checkinCode: 'K7Q2MX', checkedInAt: null })
   })
 
   it('create calls staff_create_booking with the session restaurant, codes and broken rule codes', async () => {
@@ -46,16 +48,17 @@ describe('staff booking repository (095)', () => {
   it('R3: edit passes the loaded status and updated_at verbatim; no row = nothing changed', async () => {
     const rec = use([{ data: [] }])
     const updated = await staffBookingStore.update({
-      id: 'b-1', restaurantId: 'r-a', expectedStatus: 'confirmed', expectedUpdatedAt: ROW.updated_at, memberId: null, input,
+      id: 'b-1', restaurantId: 'r-a', expectedStatus: 'confirmed', expectedVersion: 7, memberId: null, input,
       clearReminder: true, actorUserId: 'u', changed: ['time'], brokenRules: [],
     })
     expect(updated).toBeNull()
-    expect(rec.queries[0].calls[0][1]).toMatchObject({ p_id: 'b-1', p_restaurant_id: 'r-a', p_expected_status: 'confirmed', p_expected_updated_at: ROW.updated_at, p_clear_reminder: true, p_changed: ['time'] })
+    expect(rec.queries[0].calls[0][1]).toMatchObject({ p_id: 'b-1', p_restaurant_id: 'r-a', p_expected_status: 'confirmed', p_expected_version: 7, p_clear_reminder: true, p_changed: ['time'] })
   })
 
   it('cancel and check-in are the 095 RPCs scoped by restaurant', async () => {
     const rec = use([{ data: [] }, { data: [] }, { data: [] }])
-    await staffBookingStore.cancel({ id: 'b-1', restaurantId: 'r-a', expectedUpdatedAt: ROW.updated_at, actorUserId: 'u', at: AT })
+    await staffBookingStore.cancel({ id: 'b-1', restaurantId: 'r-a', expectedVersion: 7, actorUserId: 'u', at: AT })
+    expect(rec.queries[0].calls[0][1]).toMatchObject({ p_expected_version: 7 })
     await checkinStore.checkIn({ id: 'b-1', restaurantId: 'r-a', today: '2026-11-26', actorUserId: 'u', at: AT })
     await checkinStore.undoCheckIn({ id: 'b-1', restaurantId: 'r-a', actorUserId: 'u' })
     expect(rec.queries.map((q) => q.table)).toEqual(['rpc:staff_cancel_booking', 'rpc:booking_check_in', 'rpc:booking_check_in_undo'])

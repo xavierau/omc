@@ -1,6 +1,6 @@
 /**
  * BOOK-001: one booking request, scoped to the session's restaurant inside the query (R6).
- * BOOK-013 S2: PATCH = staff edit (admin/staff, R1; conditional on the loaded updatedAt, R3).
+ * BOOK-013 S2: PATCH = staff edit (admin/staff, R1; conditional on the loaded editVersion, R3).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { editStaffBooking } from '@/application/booking/edit-staff-booking'

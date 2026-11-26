@@ -1,7 +1,9 @@
 // BOOK-013: in-memory staff booking + check-in store with the conditions of
 // migration 095's RPCs (staff_create_booking, staff_update_booking,
 // staff_cancel_booking, booking_check_in, booking_check_in_undo), written from
-// the SQL, not from the use cases. The SQL itself is proven on a scratch DB
+// the SQL, not from the use cases. `write` stands for any other writer and
+// mirrors 095's edit_version trigger: the version moves only when status,
+// slot, party, name, phone, notes or notify change; updated_at on every write. The SQL itself is proven on a scratch DB
 // (.claude-workspace/artifacts/evidence/2026-11-26-book-013/scratch-db-095.log).
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import type {
@@ -15,7 +17,10 @@ import type {
 } from '@/domain/ports/staff-booking'
 
 export type StaffRow = BookingRequest & {
+  editVersion: number
+  /** 082's trigger: every write. Never part of the staff conditional write (review R1). */
   updatedAt: string
+  checkinQrPath?: string | null
   reminderSentAt?: string | null
   lastStaffMessageAt?: string | null
   cancelledByUser?: string | null
@@ -30,7 +35,7 @@ export interface StaffEvent {
 }
 
 let tick = 0
-/** A fresh updated_at per write (the 095 trigger), microsecond-shaped like PostgREST's. */
+/** A fresh updated_at per write (the 082 trigger), microsecond-shaped like PostgREST's. */
 const stamp = () => `2026-11-26T00:00:${String(++tick % 60).padStart(2, '0')}.${String(tick).padStart(6, '0')}+00:00`
 
 export function staffRow(extra: Partial<StaffRow> = {}): StaffRow {
@@ -38,9 +43,18 @@ export function staffRow(extra: Partial<StaffRow> = {}): StaffRow {
     id: crypto.randomUUID(), restaurantId: 'rest-a', memberId: null, phone: '+85291234567', name: 'Chan Tai Man', partySize: 2,
     bookingDate: '2026-11-28', bookingTime: '19:00', notes: null, status: 'confirmed', declineReason: null, decidedBy: 'u',
     decidedAt: '2026-11-20T00:00:00Z', source: 'chat', campaignId: null, createdAt: '2026-11-20T00:00:00Z',
-    decisionMessageStatus: 'delivered', replacesBookingId: null, cancelledBy: null, updatedAt: stamp(), createdBy: null,
+    decisionMessageStatus: 'delivered', replacesBookingId: null, cancelledBy: null, editVersion: 0, updatedAt: stamp(), createdBy: null,
     notifyDiner: true, checkinCode: 'K7Q2MX', checkedInAt: null, reminderSentAt: null, lastStaffMessageAt: null, ...extra,
   }
+}
+
+/** 095 bump_booking_edit_version: what staff edit or see. */
+const VERSIONED = ['status', 'bookingDate', 'bookingTime', 'partySize', 'name', 'phone', 'notes', 'notifyDiner'] as const
+
+/** Applies `patch` as one UPDATE: updated_at always (082), edit_version only on a versioned change (095). */
+function apply(row: StaffRow, patch: Partial<StaffRow>): void {
+  const moved = VERSIONED.some((k) => k in patch && patch[k] !== row[k])
+  Object.assign(row, patch, { updatedAt: stamp(), editVersion: row.editVersion + (moved ? 1 : 0) })
 }
 
 export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
@@ -64,6 +78,13 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
 
   private audit(restaurantId: string, type: string, actor: string, data: Record<string, unknown>, broken: string[] = []) {
     this.events.push({ restaurantId, type, actor, data: broken.length > 0 ? { ...data, brokenRules: broken } : data })
+  }
+
+  /** Any other writer (reminder claim, QR path, message status, diner AI, another staff): one UPDATE through the triggers. */
+  write(id: string, patch: Partial<StaffRow>): void {
+    const row = this.rows.find((r) => r.id === id)
+    if (!row) throw new Error(`no row ${id}`)
+    apply(row, patch)
   }
 
   async find(id: string, restaurantId: string) {
@@ -92,11 +113,11 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     this.writes.push('update')
     const row = this.mine(args.id, args.restaurantId)
     if (!row || row.status !== args.expectedStatus || !['pending', 'confirmed'].includes(row.status)) return null
-    if (row.updatedAt !== args.expectedUpdatedAt || this.openChange(row)) return null
+    if (row.editVersion !== args.expectedVersion || this.openChange(row)) return null
     const { input } = args
-    Object.assign(row, {
+    apply(row, {
       memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize, bookingDate: input.date,
-      bookingTime: input.time, notes: input.notes, notifyDiner: input.notify, updatedAt: stamp(),
+      bookingTime: input.time, notes: input.notes, notifyDiner: input.notify,
       reminderSentAt: args.clearReminder ? null : row.reminderSentAt,
     })
     this.audit(args.restaurantId, 'booking.staff_edited', args.actorUserId, { bookingId: row.id, changed: args.changed }, args.brokenRules)
@@ -106,8 +127,8 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
   async cancel(args: StaffCancelArgs) {
     this.writes.push('cancel')
     const row = this.mine(args.id, args.restaurantId)
-    if (!row || row.status !== 'confirmed' || row.updatedAt !== args.expectedUpdatedAt || this.openChange(row)) return null
-    Object.assign(row, { status: 'cancelled', cancelledBy: 'staff', cancelledByUser: args.actorUserId, updatedAt: stamp() })
+    if (!row || row.status !== 'confirmed' || row.editVersion !== args.expectedVersion || this.openChange(row)) return null
+    apply(row, { status: 'cancelled', cancelledBy: 'staff', cancelledByUser: args.actorUserId })
     this.audit(args.restaurantId, 'booking.staff_cancelled', args.actorUserId, { bookingId: row.id })
     return this.view(row)
   }
@@ -116,7 +137,7 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     const row = this.mine(id, restaurantId)
     if (!row) return false
     if (row.lastStaffMessageAt && Date.parse(row.lastStaffMessageAt) >= at.getTime() - gapMs) return false
-    row.lastStaffMessageAt = at.toISOString()
+    apply(row, { lastStaffMessageAt: at.toISOString() })
     return true
   }
 
@@ -136,7 +157,7 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     this.writes.push('checkIn')
     const row = this.mine(args.id, args.restaurantId)
     if (!row || row.status !== 'confirmed' || row.bookingDate !== args.today || row.checkedInAt || this.openChange(row)) return null
-    Object.assign(row, { checkedInAt: args.at.toISOString(), checkedInBy: args.actorUserId })
+    apply(row, { checkedInAt: args.at.toISOString(), checkedInBy: args.actorUserId })
     this.audit(args.restaurantId, 'booking.checked_in', args.actorUserId, { bookingId: row.id })
     return this.view(row)
   }
@@ -145,7 +166,7 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     this.writes.push('undoCheckIn')
     const row = this.mine(args.id, args.restaurantId)
     if (!row || !row.checkedInAt) return null
-    Object.assign(row, { checkedInAt: null, checkedInBy: null })
+    apply(row, { checkedInAt: null, checkedInBy: null })
     this.audit(args.restaurantId, 'booking.check_in_undone', args.actorUserId, { bookingId: row.id })
     return this.view(row)
   }

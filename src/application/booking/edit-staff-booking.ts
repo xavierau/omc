@@ -2,9 +2,12 @@
  * BOOK-013 S2: staff edit a pending or confirmed booking of any source.
  *
  * Status, source and check-in code never change (owner decision 5). The write
- * is conditional on the status and `updated_at` the form loaded and on no
+ * is conditional on the status and `edit_version` the form loaded and on no
  * open change request (R3, R5): a stale form answers `changed`, an open change
- * `open_change`, and nothing is written or sent. A moved slot re-checks the
+ * `open_change`, and nothing is written or sent. Background writes (reminder,
+ * QR, message status, check-in) never make a form stale (review R1).
+ * The `changed` message outcome is answered, never stored on the row: the
+ * row's badge is the confirmation's (review R8). A moved slot re-checks the
  * rules without counting the booking against itself (AC-8) and makes the
  * reminder due again (AC-7); a new phone re-resolves the member (AC-9, R17).
  * The diner hears `changed` only when date, time or party size changed and
@@ -19,7 +22,6 @@ import {
   messageDiner,
   rulesFor,
   UUID,
-  withOutcome,
   type StaffBookingDeps,
   type StaffBookingResult,
 } from './staff-booking-shared'
@@ -75,7 +77,7 @@ export async function editStaffBooking(deps: StaffBookingDeps, input: EditStaffB
     clock: clockAt(deps.now()),
     normalizePhone: deps.normalizePhone,
     currentSlot: { date: current.bookingDate, time: current.bookingTime },
-    requireExpectedUpdatedAt: true,
+    requireExpectedVersion: true,
   })
   if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors }
   const form = parsed.input
@@ -88,7 +90,7 @@ export async function editStaffBooking(deps: StaffBookingDeps, input: EditStaffB
     id: current.id,
     restaurantId: input.restaurantId,
     expectedStatus: current.status,
-    expectedUpdatedAt: parsed.expectedUpdatedAt as string,
+    expectedVersion: parsed.expectedVersion as number,
     memberId: await memberFor(deps, input.restaurantId, current, form),
     input: form,
     clearReminder: slotMoved(changed),
@@ -98,5 +100,5 @@ export async function editStaffBooking(deps: StaffBookingDeps, input: EditStaffB
   })
   if (!updated) return refusalAfterMiss(deps, input)
   const message = await messageDiner(deps, updated, 'changed', form.notify && dinerNews(changed))
-  return { ok: true, booking: withOutcome(updated, message), message }
+  return { ok: true, booking: updated, message }
 }

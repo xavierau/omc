@@ -39,7 +39,7 @@ afterEach(() => vi.useRealTimers())
 const booking = (over: Partial<BookingItem> = {}): BookingItem => ({
   id: 'b1', restaurantId: 'r', memberId: null, phone: '+85291234567', name: 'Mr Lam', partySize: 6, bookingDate: '2026-11-26',
   bookingTime: '19:00', notes: 'window table', status: 'confirmed', declineReason: null, decidedBy: 'u', decidedAt: null, source: 'staff',
-  campaignId: null, createdAt: '2026-11-20T00:00:00Z', decisionMessageStatus: null, updatedAt: '2026-11-26T01:00:00.123456+00:00',
+  campaignId: null, createdAt: '2026-11-20T00:00:00Z', decisionMessageStatus: null, editVersion: 2,
   createdBy: 'u', createdByName: 'Mandy', notifyDiner: true, checkinCode: 'K7Q2MX', checkedInAt: null, ...over,
 })
 
@@ -98,10 +98,11 @@ describe.each(Object.keys(views) as Array<keyof typeof views>)('row controls in 
 })
 
 describe('menu rules (AC-10, S3)', () => {
-  it('Edit on pending and confirmed; Cancel on confirmed only; neither without updatedAt or with an open change', () => {
+  it('Edit on pending and confirmed; Cancel on confirmed only; neither without editVersion or with an open change', () => {
     expect([canEditBooking(booking()), canCancelBooking(booking())]).toEqual([true, true])
     expect([canEditBooking(booking({ status: 'pending' })), canCancelBooking(booking({ status: 'pending' }))]).toEqual([true, false])
-    expect(canEditBooking(booking({ updatedAt: undefined }))).toBe(false)
+    expect(canEditBooking(booking({ editVersion: undefined }))).toBe(false)
+    expect(canEditBooking(booking({ editVersion: 0 }))).toBe(true)
     expect(canEditBooking(booking({ openChange: { id: 'c', bookingDate: 'x', bookingTime: 'y', partySize: 1 } as never }))).toBe(false)
   })
 })
@@ -217,7 +218,8 @@ describe('save outcomes (spec UI states)', () => {
   it('R4: the body carries only the form fields; edit marks the changed ones', () => {
     const b = booking()
     const values = { ...initialForm(b.bookingDate, b), partySize: 4, time: '19:30' }
-    expect(Object.keys(formBody(values, { expectedUpdatedAt: b.updatedAt }))).toEqual(['phone', 'name', 'partySize', 'date', 'time', 'notes', 'notify', 'expectedUpdatedAt'])
+    expect(formBody(values, { expectedVersion: b.editVersion })).toMatchObject({ expectedVersion: 2 })
+    expect(Object.keys(formBody(values, { expectedVersion: b.editVersion }))).toEqual(['phone', 'name', 'partySize', 'date', 'time', 'notes', 'notify', 'expectedVersion'])
     expect([...changedFormFields(b, values)]).toEqual(['partySize', 'time'])
     expect(initialForm('2026-11-28')).toMatchObject({ date: '2026-11-28', notify: true, partySize: 2 })
   })

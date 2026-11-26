@@ -39,7 +39,7 @@ const BOOKING_COLUMNS =
  * staff audit, notify, check-in code and arrival columns, dashboard only.
  */
 export const STAFF_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, updated_at, created_by, notify_diner, checkin_code, checked_in_at'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, edit_version, created_by, notify_diner, checkin_code, checked_in_at'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
 const POSTGREST_MAX_ROWS = 1000
@@ -79,7 +79,7 @@ interface BookingRow {
   cancelled_by?: BookingCancelledBy | null
   terms_accepted_at?: string | null
   terms_text?: string | null
-  updated_at?: string
+  edit_version?: number
   created_by?: string | null
   notify_diner?: boolean
   checkin_code?: string | null
@@ -88,9 +88,9 @@ interface BookingRow {
 
 /** BOOK-013: the 095 columns, present only when the read selected them (STAFF_COLUMNS). */
 function staffFields(row: BookingRow): Partial<BookingRequest> {
-  if (row.updated_at === undefined) return {}
+  if (row.edit_version === undefined) return {}
   return {
-    updatedAt: row.updated_at,
+    editVersion: row.edit_version,
     createdBy: row.created_by ?? null,
     notifyDiner: row.notify_diner ?? true,
     checkinCode: row.checkin_code ?? null,
@@ -484,15 +484,16 @@ export async function claimBookingReminder(id: string, at: Date): Promise<boolea
 
 /**
  * W3 (R19): clear name and notes on bookings dated before `beforeDate`, once.
- * BOOK-013 (R16): also the check-in code, after their QR files are deleted
- * (`removeQrFiles`, before the update, so a path is never lost while its file stays).
+ * BOOK-013 (R16): also the check-in code, after the QR files of those dates
+ * are deleted (`removeQrFiles`). Review R3: the QR step never blocks the PII
+ * purge, and a QR path is forgotten only after its file was deleted, so no
+ * path is lost while its public file stays (the next run retries it).
  */
 export async function purgeBookingPii(beforeDate: string, at: Date, removeQrFiles?: (paths: string[]) => Promise<void>): Promise<number> {
-  const supabase = createServerSupabaseClient()
-  if (removeQrFiles) await removeQrFiles(await qrPathsBefore(beforeDate))
-  const { data, error } = await supabase
+  if (removeQrFiles) await removeQrFilesBefore(beforeDate, removeQrFiles)
+  const { data, error } = await createServerSupabaseClient()
     .from('booking_requests')
-    .update({ name: null, notes: null, checkin_code: null, checkin_qr_path: null, pii_purged_at: at.toISOString() })
+    .update({ name: null, notes: null, checkin_code: null, pii_purged_at: at.toISOString() })
     .lt('booking_date', beforeDate)
     .is('pii_purged_at', null)
     .select('id')
@@ -500,16 +501,60 @@ export async function purgeBookingPii(beforeDate: string, at: Date, removeQrFile
   return (data ?? []).length
 }
 
-/** BOOK-013 (R16): QR files of the bookings the purge is about to clear. */
-async function qrPathsBefore(beforeDate: string): Promise<string[]> {
-  const { data, error } = await createServerSupabaseClient()
+type QrRow = { id: string; checkin_qr_path: string }
+
+/**
+ * Review R3: one page of stored QR paths on rows dated before `beforeDate`
+ * (purged or not, so a path a failed run kept is retried), by id after
+ * `afterId`. PostgREST returns at most `max_rows` per read, hence the pages.
+ */
+async function qrPathPage(beforeDate: string, afterId: string | null): Promise<QrRow[]> {
+  let query = createServerSupabaseClient()
     .from('booking_requests')
-    .select('checkin_qr_path')
+    .select('id, checkin_qr_path')
     .lt('booking_date', beforeDate)
-    .is('pii_purged_at', null)
     .not('checkin_qr_path', 'is', null)
+  if (afterId) query = query.gt('id', afterId)
+  const { data, error } = await query.order('id', { ascending: true }).limit(POSTGREST_MAX_ROWS)
   if (error) throw new Error(`purgeBookingPii qr paths: ${error.message}`)
-  return ((data ?? []) as Array<{ checkin_qr_path: string }>).map((r) => r.checkin_qr_path)
+  return (data ?? []) as QrRow[]
+}
+
+/** Forgets exactly these paths (095 RPC: a JSON body, never an `in` filter of 1000 values in the URL). */
+async function forgetQrPaths(paths: string[]): Promise<void> {
+  const { error } = await createServerSupabaseClient().rpc('forget_checkin_qr_paths', { p_paths: paths })
+  if (error) throw new Error(`purgeBookingPii forget qr paths: ${error.message}`)
+}
+
+/** R13: counts and the error kind only, never a path (a path is a public link to the code). */
+function logQrFailure(step: string, files: number, err: unknown): void {
+  console.error('[BookingRetention] QR files not deleted:', { step, files, error: (err as Error).name })
+}
+
+/** Deletes one page's files, then forgets those paths; a failed delete keeps them for the next run. */
+async function removeQrPage(rows: QrRow[], removeQrFiles: (paths: string[]) => Promise<void>): Promise<void> {
+  const paths = rows.map((r) => r.checkin_qr_path)
+  try {
+    await removeQrFiles(paths)
+    await forgetQrPaths(paths)
+  } catch (err) {
+    logQrFailure('delete', paths.length, err)
+  }
+}
+
+/** Every page, in id order; never throws, so the PII purge always runs. */
+async function removeQrFilesBefore(beforeDate: string, removeQrFiles: (paths: string[]) => Promise<void>): Promise<void> {
+  let afterId: string | null = null
+  try {
+    for (;;) {
+      const rows = await qrPathPage(beforeDate, afterId)
+      if (rows.length > 0) await removeQrPage(rows, removeQrFiles)
+      if (rows.length < POSTGREST_MAX_ROWS) return
+      afterId = rows[rows.length - 1].id
+    }
+  } catch (err) {
+    logQrFailure('read', 0, err)
+  }
 }
 
 const DINER_COLUMNS = 'id, booking_date, booking_time, party_size, status, name, notes, member_id, replaces_booking_id'

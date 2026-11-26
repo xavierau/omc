@@ -83,10 +83,11 @@ export interface BookingRequest {
   termsText?: string | null
   /**
    * BOOK-013 (migration 095). Read by the dashboard lists and staff paths
-   * only (undefined elsewhere). `updatedAt` is what a staff edit/cancel
-   * sends back for its conditional write (R3).
+   * only (undefined elsewhere). `editVersion` is what a staff edit/cancel
+   * sends back for its conditional write (R3); it moves only when status,
+   * slot, party, name, phone, notes or notify change (review R1).
    */
-  updatedAt?: string
+  editVersion?: number
   createdBy?: string | null
   /** The creating staff member's display name ("By staff · Mandy"); resolved by the list route. */
   createdByName?: string | null
