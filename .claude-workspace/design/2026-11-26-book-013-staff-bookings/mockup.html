@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOK-013 Staff bookings</title>
+<style>
+:root {
+  --background: oklch(0.98 0.00 250);
+  --foreground: oklch(0.18 0.03 280);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.42 0.08 175);
+  --primary-soft: oklch(0.95 0.03 175);
+  --primary-foreground: oklch(1 0 0);
+  --muted: oklch(0.96 0.00 250);
+  --muted-foreground: oklch(0.55 0.01 260);
+  --accent: oklch(0.63 0.17 70);
+  --destructive: oklch(0.63 0.24 25);
+  --destructive-soft: oklch(0.97 0.02 25);
+  /* NEW (BOOK-013): AA-safe text/fill for destructive actions; the app's --destructive is 3.9:1 on white. */
+  --destructive-strong: oklch(0.53 0.21 25);
+  --border: oklch(0.92 0.00 250);
+  --ring: oklch(0.42 0.08 175);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.18 0.03 280);
+  --sidebar-accent: oklch(0.25 0.03 280);
+  --pending-soft: oklch(0.985 0.025 85);
+  --pending-foreground: oklch(0.48 0.12 65);
+  --scrim: oklch(0.18 0.03 280 / 0.45);
+  --font-sans: "Inter", "Noto Sans HK", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); background: oklch(0.93 0.005 250); color: var(--foreground); font-size: 14px; line-height: 1.45; padding: 40px; }
+h1.canvas-title { font-size: 22px; font-weight: 650; margin-bottom: 6px; }
+p.canvas-sub { color: oklch(0.38 0.02 260); margin-bottom: 32px; max-width: 900px; }
+.frame-label { font-size: 13px; font-weight: 600; color: oklch(0.38 0.02 260); margin: 0 0 10px; letter-spacing: 0.01em; }
+.frame-label b { color: var(--foreground); }
+.frames { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; margin-bottom: 56px; }
+.frame { background: var(--background); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; position: relative; }
+
+/* app shell */
+.app { display: grid; grid-template-columns: 240px 1fr; width: 1440px; height: 900px; }
+.side { background: var(--sidebar); color: #fff; padding: 24px 12px; }
+.side .brand { padding: 0 12px 24px; }
+.side .brand b { font-size: 18px; display: block; }
+.side .brand small { color: oklch(0.75 0.01 260); font-size: 12px; display: block; }
+.side .brand span { font-size: 14px; }
+.nav a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; color: oklch(0.92 0 0); text-decoration: none; font-size: 14px; }
+.nav a.on { background: var(--sidebar-accent); font-weight: 600; }
+.nav i { width: 16px; height: 16px; border: 1.5px solid currentColor; border-radius: 4px; opacity: .8; }
+.main { padding: 28px 32px; overflow: hidden; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.head h2 { font-size: 24px; font-weight: 650; }
+.head p { color: var(--muted-foreground); }
+.head-right { display: flex; gap: 10px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--pending-soft); color: var(--pending-foreground); border: 1px solid oklch(0.88 0.06 85); font-weight: 600; font-size: 13px; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.seg { display: inline-flex; background: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg span { padding: 6px 14px; border-radius: 7px; font-weight: 600; font-size: 13px; color: var(--muted-foreground); }
+.seg span.on { background: var(--card); color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / .08); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 6px; font: 600 14px var(--font-sans); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; white-space: nowrap; }
+.btn.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.btn.warn { background: var(--pending-foreground); border-color: var(--pending-foreground); color: #fff; }
+.btn.danger { background: var(--destructive-strong); border-color: var(--destructive-strong); color: #fff; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--primary); }
+.btn.icon { width: 30px; padding: 0; height: 30px; }
+.btn.full { width: 100%; height: 44px; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.toolbar .month { font-size: 17px; font-weight: 650; margin: 0 8px 0 4px; }
+.toolbar .grow { flex: 1; }
+.chip { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--card); }
+.chip.on { background: var(--foreground); color: #fff; border-color: var(--foreground); }
+.chip em { font-style: normal; color: var(--muted-foreground); font-weight: 500; margin-left: 4px; }
+.search { width: 220px; height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 0 12px; display: flex; align-items: center; color: var(--muted-foreground); font-size: 13px; }
+
+.body { display: grid; grid-template-columns: 1fr 380px; gap: 20px; height: 740px; }
+.cal { background: var(--card); border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: 32px repeat(5, 1fr); overflow: hidden; }
+.cal .dow { font-size: 12px; font-weight: 600; color: var(--muted-foreground); padding: 8px 10px; background: var(--muted); border-bottom: 1px solid var(--border); }
+.cal .cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 8px; font-size: 12px; position: relative; }
+.cal .cell .n { font-weight: 600; }
+.cal .cell .g { position: absolute; right: 8px; top: 6px; color: var(--muted-foreground); font-size: 11px; }
+.cal .cell.sel { outline: 2px solid var(--primary); outline-offset: -2px; background: oklch(0.985 0.01 175); }
+.cal .cell.other .n { color: oklch(0.6 0 0); }
+.ev { margin-top: 5px; padding: 2px 6px; border-radius: 4px; font-size: 11.5px; background: var(--primary-soft); color: var(--primary); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; }
+.ev::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.ev.p { background: var(--pending-soft); color: var(--pending-foreground); }
+.ev.x { background: var(--muted); color: var(--muted-foreground); text-decoration: line-through; }
+.more { color: var(--muted-foreground); font-size: 11px; margin-top: 3px; }
+
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+.panel-h { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+.panel-h b { font-size: 17px; display: block; }
+.panel-h small { color: var(--muted-foreground); font-size: 13px; }
+.row { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--border); position: relative; }
+.row.pend { background: var(--pending-soft); }
+.row.cx { color: var(--muted-foreground); }
+.row.cx .nm, .row.cx .t { text-decoration: line-through; }
+.row .t { font-weight: 650; font-size: 15px; }
+.row .pax { color: var(--muted-foreground); font-size: 12px; }
+.row .nm { font-weight: 600; font-size: 14px; }
+.row .ph { color: var(--muted-foreground); font-size: 13px; }
+.row .note { font-style: italic; font-size: 13px; margin-top: 2px; }
+.row .acts { display: flex; gap: 8px; margin-top: 8px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-left: 6px; vertical-align: 1px; border: 1px solid transparent; }
+.badge.ok { background: var(--primary-soft); color: var(--primary); border-color: oklch(0.86 0.04 175); }
+.badge.pd { background: oklch(0.96 0.05 85); color: var(--pending-foreground); border-color: oklch(0.88 0.06 85); }
+.badge.cx { background: var(--muted); color: var(--muted-foreground); border-color: var(--border); }
+.badge.src { background: var(--card); color: var(--muted-foreground); border-color: var(--border); font-weight: 500; }
+.badge.src.staff { color: var(--foreground); border-color: oklch(0.82 0.01 260); }
+.kebab { width: 30px; height: 30px; border-radius: 6px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: var(--muted-foreground); font-weight: 700; letter-spacing: 1px; }
+.kebab.on { border-color: var(--border); background: var(--muted); color: var(--foreground); }
+.menu { position: absolute; right: 18px; top: 46px; width: 200px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px oklch(0 0 0 / .12); padding: 4px; z-index: 5; }
+.menu div { padding: 8px 10px; border-radius: 5px; font-size: 13.5px; display: flex; gap: 10px; align-items: center; }
+.menu div.hl { background: var(--muted); }
+.menu div.d { color: var(--destructive-strong); }
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+.toast { position: absolute; right: 32px; bottom: 28px; background: var(--foreground); color: #fff; padding: 12px 16px; border-radius: 8px; font-size: 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 24px oklch(0 0 0 / .2); }
+.toast span { color: oklch(0.8 0.08 175); font-weight: 600; }
+
+/* dialogs */
+.stage { width: 720px; min-height: 760px; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: 40px; }
+.dlg { width: 540px; background: var(--card); border-radius: 12px; box-shadow: 0 20px 50px oklch(0 0 0 / .25); overflow: hidden; }
+.dlg.narrow { width: 460px; }
+.dlg-h { padding: 20px 24px 6px; display: flex; justify-content: space-between; align-items: flex-start; }
+.dlg-h h3 { font-size: 18px; font-weight: 650; }
+.dlg-h p { color: var(--muted-foreground); font-size: 13px; margin-top: 2px; }
+.x { color: var(--muted-foreground); font-size: 18px; line-height: 1; }
+.dlg-b { padding: 14px 24px 8px; display: grid; gap: 14px; }
+.dlg-f { padding: 14px 24px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); margin-top: 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.three { display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 12px; }
+label.f { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+label.f .opt { color: var(--muted-foreground); font-weight: 400; }
+.in { height: 38px; border: 1px solid var(--border); border-radius: 7px; padding: 0 11px; display: flex; align-items: center; font-weight: 400; font-size: 14px; background: var(--card); gap: 8px; }
+.in.focus { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.42 0.08 175 / .15); }
+.in.err { border-color: var(--destructive); }
+.in .pre { color: var(--muted-foreground); border-right: 1px solid var(--border); padding-right: 8px; }
+.in .caret { margin-left: auto; color: var(--muted-foreground); font-size: 11px; }
+.in.area { height: 64px; align-items: flex-start; padding-top: 9px; color: var(--foreground); }
+.ph-text { color: var(--muted-foreground); }
+.hint { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.hint.err { color: var(--destructive-strong); }
+.member { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 400; color: var(--primary); background: var(--primary-soft); border-radius: 6px; padding: 5px 9px; }
+.member b { font-weight: 600; }
+.stepper { display: flex; align-items: center; height: 38px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.stepper span { width: 38px; text-align: center; color: var(--muted-foreground); font-size: 18px; }
+.stepper b { flex: 1; text-align: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); line-height: 38px; font-weight: 600; }
+.slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.slot { border: 1px solid var(--border); border-radius: 7px; padding: 6px 6px 5px; text-align: center; font-size: 13px; font-weight: 600; }
+.slot small { display: block; font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+.slot.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.slot.full { color: var(--pending-foreground); background: var(--pending-soft); border-color: oklch(0.88 0.06 85); }
+.slot.full small { color: var(--pending-foreground); }
+.slot.stop { color: var(--muted-foreground); background: var(--muted); }
+.slot-other { font-size: 12.5px; color: var(--primary); font-weight: 600; margin-top: 2px; }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--muted); }
+.box { width: 18px; height: 18px; border-radius: 4px; background: var(--primary); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: none; margin-top: 1px; font-weight: 700; }
+.box.off { background: var(--card); border: 1.5px solid oklch(0.75 0.01 260); }
+.check b { font-size: 13.5px; display: block; }
+.check small { font-size: 12.5px; color: var(--muted-foreground); }
+.rules { display: grid; gap: 8px; }
+.rule { display: flex; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--pending-soft); border: 1px solid oklch(0.88 0.06 85); font-size: 13.5px; }
+.rule .ic { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
+.rule small { display: block; color: var(--pending-foreground); font-size: 12.5px; }
+.summary { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13.5px; }
+.summary dt { color: var(--muted-foreground); }
+.summary dd { font-weight: 600; }
+.banner { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--destructive-soft); border: 1px solid oklch(0.88 0.06 25); color: oklch(0.45 0.18 25); font-size: 13.5px; }
+.banner .btn { margin-left: auto; }
+.changed { font-size: 12px; color: var(--primary); font-weight: 600; }
+.was { color: var(--muted-foreground); text-decoration: line-through; font-weight: 400; margin-left: 6px; }
+
+/* phone */
+.phone { width: 390px; height: 844px; background: var(--background); display: flex; flex-direction: column; }
+.ph-top { padding: 14px 16px 10px; background: var(--card); border-bottom: 1px solid var(--border); }
+.ph-top .r { display: flex; justify-content: space-between; align-items: center; }
+.ph-top h2 { font-size: 20px; font-weight: 650; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; text-align: center; font-size: 11px; color: var(--muted-foreground); }
+.week div b { display: block; font-size: 15px; color: var(--foreground); margin-top: 3px; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; margin-inline: auto; }
+.week div.on b { background: var(--primary); color: #fff; }
+.ph-list { flex: 1; overflow: hidden; }
+.ph-list .dh { padding: 12px 16px 6px; display: flex; justify-content: space-between; align-items: center; }
+.ph-list .dh b { font-size: 15px; }
+.ph-list .row { grid-template-columns: 50px 1fr auto; padding: 12px 16px; background: var(--card); }
+.sheet { position: absolute; inset: 0; background: var(--scrim); display: flex; align-items: flex-end; }
+.sheet-in { background: var(--card); width: 100%; border-radius: 16px 16px 0 0; max-height: 92%; display: flex; flex-direction: column; }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 8px auto 2px; }
+.sheet .dlg-h { padding: 10px 16px 4px; }
+.sheet .dlg-b { padding: 10px 16px; gap: 12px; }
+.sheet .slots { grid-template-columns: repeat(4, 1fr); }
+.sheet-f { padding: 12px 16px 24px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+/* today / check-in */
+.today { display: grid; grid-template-columns: 1fr 400px; gap: 20px; }
+.tbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+.bigsearch { flex: 1; height: 44px; border: 1.5px solid var(--ring); box-shadow: 0 0 0 3px oklch(0.42 0.08 175 / .12); border-radius: 10px; background: var(--card); display: flex; align-items: center; padding: 0 14px; gap: 10px; font-size: 15px; }
+.bigsearch .ph-text { font-size: 14px; }
+.btn.lg { height: 44px; padding: 0 18px; font-size: 15px; }
+.counters { display: flex; gap: 10px; margin-bottom: 14px; }
+.ctr { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; min-width: 150px; }
+.ctr b { font-size: 20px; display: block; }
+.ctr small { color: var(--muted-foreground); font-size: 12.5px; }
+.tlist { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.tlist .grp { padding: 8px 18px; background: var(--muted); font-size: 12px; font-weight: 650; color: oklch(0.42 0.02 260); border-bottom: 1px solid var(--border); }
+.trow { display: grid; grid-template-columns: 64px 1fr 110px 150px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.trow.hit { background: oklch(0.985 0.01 175); box-shadow: inset 3px 0 0 var(--primary); }
+.trow.done .nm { color: var(--muted-foreground); }
+.code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; letter-spacing: .08em; background: var(--muted); border-radius: 4px; padding: 1px 6px; }
+mark { background: oklch(0.92 0.09 95); color: inherit; border-radius: 2px; padding: 0 1px; }
+.state { font-size: 13px; font-weight: 600; }
+.state.arr { color: var(--primary); }
+.state.wait { color: oklch(0.42 0.02 260); }
+.state.late { color: var(--pending-foreground); }
+.state.ns { color: var(--muted-foreground); }
+.card-res { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.card-res .top { padding: 16px 18px; border-bottom: 1px solid var(--border); background: var(--primary-soft); }
+.card-res .top small { color: var(--primary); font-weight: 600; font-size: 12.5px; }
+.card-res .top b { display: block; font-size: 20px; margin-top: 2px; }
+.card-res .mid { padding: 14px 18px; display: grid; gap: 8px; }
+.card-res .bot { padding: 14px 18px 18px; display: grid; gap: 8px; }
+.btn.go { height: 52px; font-size: 16px; width: 100%; }
+.cam { height: 260px; background: oklch(0.22 0.02 260); border-radius: 12px; position: relative; display: flex; align-items: center; justify-content: center; }
+.cam .reticle { width: 170px; height: 170px; border: 3px solid #fff; border-radius: 14px; opacity: .9; }
+.cam small { position: absolute; bottom: 12px; color: oklch(0.9 0 0); font-size: 13px; }
+/* whatsapp */
+.wa { width: 390px; height: 760px; background: oklch(0.93 0.02 90); display: flex; flex-direction: column; }
+.wa-top { background: oklch(0.4 0.07 165); color: #fff; padding: 14px 16px; font-weight: 600; }
+.wa-top small { display: block; font-weight: 400; opacity: .85; font-size: 12px; }
+.wa-body { padding: 16px 12px; }
+.bubble { background: #fff; border-radius: 8px; max-width: 300px; overflow: hidden; box-shadow: 0 1px 1px oklch(0 0 0 / .12); }
+.bubble .img { background: #fff; padding: 18px; display: flex; justify-content: center; border-bottom: 1px solid oklch(0.94 0 0); }
+.qr { width: 180px; height: 180px; display: grid; grid-template-columns: repeat(21, 1fr); }
+.qr i { display: block; }
+.bubble .txt { padding: 8px 10px 4px; font-size: 13.5px; line-height: 1.5; }
+.bubble .txt .big { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: .18em; display: block; margin: 4px 0; }
+.bubble .meta { text-align: right; font-size: 11px; color: oklch(0.5 0 0); padding: 0 10px 6px; }
+.notes { max-width: 1440px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; }
+.notes h2 { font-size: 16px; margin-bottom: 8px; }
+.notes ol { padding-left: 20px; display: grid; gap: 4px; }
+</style>
+</head>
+<body>
+
+<h1 class="canvas-title">BOOK-013 · Staff create, edit and cancel bookings</h1>
+<p class="canvas-sub">Mockup on the BOOK-004 Bookings page. Spec: specs/2026-11-26-book-013-staff-booking-crud. Owner rules: staff bookings start confirmed; WhatsApp notify checkbox on by default; rule breaks warn and can be overridden; cancel is soft; edit/cancel apply to every pending/confirmed booking.</p>
+
+<div class="notes">
+  <h2>What changes on the page</h2>
+  <ol>
+    <li><b>New booking</b> button in the page header (primary), and <b>+ Add</b> in the day panel header (date pre-filled).</li>
+    <li>Every pending/confirmed row gets a <b>⋯</b> menu: Edit booking, Cancel booking (confirmed only; pending keeps Decline).</li>
+    <li>Staff-made rows carry a <b>By staff · Mandy</b> source badge; cancelled rows are grey and struck through (BOOK-005).</li>
+    <li>The time picker shows each slot's room (guests left). A full or stopped slot stays selectable; saving shows the rules prompt.</li>
+    <li><b>Today</b> view (new, default on phone): today's bookings with arrival state, one search box for name / phone / check-in code, and <b>Scan QR</b>. One tap marks <b>Arrived</b>.</li>
+    <li>Every confirmation message carries a <b>QR</b> (image header) and the 6-character <b>check-in code</b>. The QR holds only the code.</li>
+    <li>Booking mode <b>off</b>: no Bookings entry in the sidebar; the page shows "Bookings are off".</li>
+  </ol>
+</div>
+
+<!-- 1. Calendar with entry points + row menu -->
+<p class="frame-label"><b>1 · Calendar 1440</b>: entry points, staff badge, row menu open, success toast</p>
+<div class="frames">
+<div class="frame">
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>OhMyClient</b><small>Powered by WhatsApp</small><span>Cafe Poppy</span></div>
+    <nav class="nav">
+      <a><i></i>Overview</a><a><i></i>Members</a><a><i></i>Tags</a><a><i></i>Live Feed</a><a><i></i>Campaigns</a>
+      <a class="on"><i></i>Bookings</a><a><i></i>Stamp Cards</a><a><i></i>WA Templates</a><a><i></i>Coupons</a><a><i></i>Scan QR</a><a><i></i>Rewards</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="head">
+      <div><h2>Bookings</h2><p>Booking requests from your diners. Confirm or decline each one, or add one yourself.</p></div>
+      <div class="head-right">
+        <span class="pill"><span class="dot"></span>2 requests need a reply <span style="font-weight:500">Show</span></span>
+        <span class="seg"><span>Today</span><span class="on">Calendar</span><span>Table</span></span>
+        <button class="btn primary" data-testid="booking-new-button">+ New booking</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn icon">‹</button><button class="btn icon">›</button>
+      <span class="month">November 2026</span><button class="btn sm">Today</button>
+      <span class="grow"></span>
+      <span class="chip on">All</span><span class="chip">Pending<em>2</em></span><span class="chip">Confirmed<em>19</em></span><span class="chip">Declined<em>3</em></span>
+      <span class="search">Name or phone</span>
+    </div>
+    <div class="body">
+      <div class="cal">
+        <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>
+        <div class="cell"><span class="n">1</span></div>
+        <div class="cell"><span class="n">2</span><span class="g">2 guests</span><div class="ev">19:00 Lee</div></div>
+        <div class="cell"><span class="n">3</span></div>
+        <div class="cell"><span class="n">4</span><span class="g">4 guests</span><div class="ev">12:30 Wong</div><div class="ev x">19:30 Ho</div></div>
+        <div class="cell"><span class="n">5</span></div>
+        <div class="cell"><span class="n">6</span><span class="g">8 guests</span><div class="ev">19:00 Chan</div><div class="ev">20:00 Tsang</div></div>
+        <div class="cell"><span class="n">7</span><span class="g">15 guests</span><div class="ev">12:00 Lau</div><div class="ev">13:00 Ng</div><div class="ev">19:00 Cheung</div><div class="more">+1 more</div></div>
+        <div class="cell"><span class="n">8</span></div>
+        <div class="cell"><span class="n">9</span></div>
+        <div class="cell"><span class="n">10</span></div>
+        <div class="cell"><span class="n">11</span><span class="g">2 guests</span><div class="ev">19:30 Kwok</div></div>
+        <div class="cell"><span class="n">12</span></div>
+        <div class="cell"><span class="n">13</span><span class="g">4 guests</span><div class="ev">19:00 Leung</div><div class="ev x">20:00 Fung</div></div>
+        <div class="cell"><span class="n">14</span><span class="g">11 guests</span><div class="ev">12:30 Mak</div><div class="ev">19:00 Tam</div><div class="ev">19:30 So</div></div>
+        <div class="cell"><span class="n">15</span></div>
+        <div class="cell"><span class="n">16</span></div>
+        <div class="cell"><span class="n">17</span><span class="g">2 guests</span><div class="ev">12:30 Lo</div></div>
+        <div class="cell"><span class="n">18</span></div>
+        <div class="cell"><span class="n">19</span><span class="g">5 guests</span><div class="ev">12:30 Chow</div><div class="ev">19:30 Siu</div></div>
+        <div class="cell"><span class="n">20</span><span class="g">8 guests</span><div class="ev">19:00 Poon</div><div class="ev p">20:00 Kan</div></div>
+        <div class="cell sel"><span class="n">21</span><span class="g">22 guests</span><div class="ev p">12:30 Chat</div><div class="ev">13:00 Au</div><div class="ev">18:30 Wu</div><div class="more">+4 more</div></div>
+        <div class="cell"><span class="n">22</span><span class="g">4 guests</span><div class="ev">12:00 Ma</div></div>
+        <div class="cell"><span class="n">23</span></div>
+        <div class="cell"><span class="n">24</span><span class="g">2 guests</span><div class="ev p">19:30 Lui</div></div>
+        <div class="cell"><span class="n">25</span></div>
+        <div class="cell"><span class="n">26</span></div>
+        <div class="cell"><span class="n">27</span><span class="g">12 guests</span><div class="ev">19:00 Choi</div><div class="ev">19:30 Ip</div></div>
+        <div class="cell"><span class="n">28</span><span class="g">7 guests</span><div class="ev">13:00 Kong</div><div class="ev">19:00 Shek</div></div>
+        <div class="cell"><span class="n">29</span></div>
+        <div class="cell"><span class="n">30</span></div>
+        <div class="cell other"><span class="n">1</span></div><div class="cell other"><span class="n">2</span></div><div class="cell other"><span class="n">3</span></div><div class="cell other"><span class="n">4</span></div><div class="cell other"><span class="n">5</span></div>
+      </div>
+      <div class="panel" data-testid="bookings-day-panel">
+        <div class="panel-h">
+          <div><b>Saturday, 21 November</b><small>7 bookings · 22 guests · 1 needs a reply</small></div>
+          <button class="btn sm" data-testid="booking-day-new-button">+ Add</button>
+        </div>
+        <div class="row pend">
+          <div><div class="t">12:30</div><div class="pax">2 pax</div></div>
+          <div><span class="nm">Chat Diner</span><span class="badge pd">Pending</span><div class="ph">+852 9222 3333</div>
+            <div class="acts"><button class="btn primary sm">Confirm</button><button class="btn sm">Decline</button></div></div>
+          <div class="kebab">···</div>
+        </div>
+        <div class="row">
+          <div><div class="t">13:00</div><div class="pax">4 pax</div></div>
+          <div><span class="nm">Au Ka Yan</span><span class="badge ok">Confirmed</span><div class="ph">+852 6123 4455</div></div>
+          <div class="kebab">···</div>
+        </div>
+        <div class="row">
+          <div><div class="t">18:30</div><div class="pax">2 pax</div></div>
+          <div><span class="nm">Wu Siu Ming</span><span class="badge ok">Confirmed</span><div class="ph">+852 9876 1122</div><div class="note">“Birthday cake at 20:00”</div></div>
+          <div class="kebab on" data-testid="booking-row-b7-menu">···</div>
+          <div class="menu">
+            <div class="hl" data-testid="booking-row-b7-edit">✎&nbsp; Edit booking</div>
+            <hr>
+            <div class="d" data-testid="booking-row-b7-cancel">✕&nbsp; Cancel booking</div>
+          </div>
+        </div>
+        <div class="row">
+          <div><div class="t">19:00</div><div class="pax">6 pax</div></div>
+          <div><span class="nm">Mr Lam</span><span class="badge ok">Confirmed</span><span class="badge src staff">By staff · Mandy</span><div class="ph">+852 2345 6789</div><div class="note">“Phoned in, window table”</div></div>
+          <div class="kebab">···</div>
+        </div>
+        <div class="row">
+          <div><div class="t">20:00</div><div class="pax">6 pax</div></div>
+          <div><span class="nm">Yeung Family</span><span class="badge ok">Confirmed</span><span class="badge src">AI agent</span><div class="ph">+852 6555 7788</div></div>
+          <div class="kebab">···</div>
+        </div>
+        <div class="row cx">
+          <div><div class="t">20:30</div><div class="pax">2 pax</div></div>
+          <div><span class="nm">Hui Wing</span><span class="badge cx">Cancelled by staff</span><div class="ph">+852 5111 2233</div></div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" data-testid="booking-toast">Booking added · Sat 21 Nov, 19:00, 6 pax <span>View</span></div>
+</div>
+</div>
+
+<!-- 2. New booking form + rules prompt -->
+<p class="frame-label"><b>2 · New booking dialog</b> (from + Add on 21 Nov) &nbsp;→&nbsp; <b>3 · Rules prompt</b> when the slot is over its limit</p>
+<div class="frames">
+<div class="frame"><div class="stage">
+  <div class="dlg" data-testid="booking-form">
+    <div class="dlg-h"><div><h3>New booking</h3><p>Saved as confirmed. You can edit or cancel it later.</p></div><span class="x">✕</span></div>
+    <div class="dlg-b">
+      <label class="f">Phone
+        <div class="in focus" data-testid="booking-form-phone"><span class="pre">+852</span>2345 6789</div>
+        <div class="member">● Member: <b>Lam Chi Keung</b> · 6 past bookings</div>
+      </label>
+      <div class="two">
+        <label class="f">Name<div class="in" data-testid="booking-form-name">Mr Lam</div></label>
+        <label class="f">Guests<div class="stepper" data-testid="booking-form-party"><span>−</span><b>6</b><span>+</span></div></label>
+      </div>
+      <label class="f">Date<div class="in" data-testid="booking-form-date">Sat, 21 Nov 2026<span class="caret">▼</span></div></label>
+      <label class="f"><span>Time <span class="hint">Dinner · 18:00–21:30 · guests left per slot</span></span>
+        <div class="slots" data-testid="booking-form-time">
+          <div class="slot">18:00<small>20 left</small></div>
+          <div class="slot">18:30<small>18 left</small></div>
+          <div class="slot full on">19:00<small>2 left</small></div>
+          <div class="slot">19:30<small>14 left</small></div>
+          <div class="slot stop">20:00<small>Stopped</small></div>
+          <div class="slot">20:30<small>18 left</small></div>
+          <div class="slot">21:00<small>20 left</small></div>
+          <div class="slot">21:30<small>20 left</small></div>
+        </div>
+        <span class="slot-other">Other time…</span>
+      </label>
+      <label class="f"><span>Notes <span class="opt">(optional)</span></span><div class="in area" data-testid="booking-form-notes">Phoned in, window table</div></label>
+      <div class="check" data-testid="booking-form-notify">
+        <span class="box">✓</span>
+        <div><b>Send WhatsApp confirmation to the diner</b><small>Also sends the reminder 3 hours before. Untick for landlines or diners who don’t want messages.</small></div>
+      </div>
+    </div>
+    <div class="dlg-f"><button class="btn">Cancel</button><button class="btn primary" data-testid="booking-form-save">Add booking</button></div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="stage">
+  <div class="dlg narrow" data-testid="booking-rules-prompt" role="alertdialog">
+    <div class="dlg-h"><div><h3>This booking breaks a booking rule</h3><p>Sat 21 Nov · 19:00 · 6 guests · Mr Lam</p></div></div>
+    <div class="dlg-b">
+      <div class="rules">
+        <div class="rule"><span class="ic">!</span><div>Over the 19:00 slot limit<small>18 guests booked + 6 = 24, limit 20</small></div></div>
+        <div class="rule"><span class="ic">!</span><div>Over the dinner limit<small>52 guests booked + 6 = 58, limit 56</small></div></div>
+      </div>
+      <p class="hint" style="font-size:13px">Diners can’t book this time. You can still add it if the restaurant has room.</p>
+    </div>
+    <div class="dlg-f"><button class="btn">Back</button><button class="btn warn" data-testid="booking-rules-override">Book anyway</button></div>
+  </div>
+</div></div>
+</div>
+
+<!-- 4. Edit + stale; 5. Cancel -->
+<p class="frame-label"><b>4 · Edit booking</b> (changed fields marked) &nbsp;·&nbsp; <b>4b · Changed by someone else</b> &nbsp;·&nbsp; <b>5 · Cancel booking</b></p>
+<div class="frames">
+<div class="frame"><div class="stage">
+  <div class="dlg" data-testid="booking-form">
+    <div class="dlg-h"><div><h3>Edit booking</h3><p>Wu Siu Ming · confirmed · booked via WhatsApp chat</p></div><span class="x">✕</span></div>
+    <div class="dlg-b">
+      <label class="f">Phone<div class="in"><span class="pre">+852</span>9876 1122</div></label>
+      <div class="two">
+        <label class="f">Name<div class="in">Wu Siu Ming</div></label>
+        <label class="f"><span>Guests <span class="changed">changed<span class="was">2</span></span></span><div class="stepper"><span>−</span><b>4</b><span>+</span></div></label>
+      </div>
+      <label class="f">Date<div class="in">Sat, 21 Nov 2026<span class="caret">▼</span></div></label>
+      <label class="f"><span>Time <span class="changed">changed<span class="was">18:30</span></span></span>
+        <div class="slots">
+          <div class="slot">18:00<small>20 left</small></div>
+          <div class="slot">18:30<small>18 left</small></div>
+          <div class="slot full">19:00<small>2 left</small></div>
+          <div class="slot on">19:30<small>14 left</small></div>
+          <div class="slot stop">20:00<small>Stopped</small></div>
+        </div>
+      </label>
+      <label class="f"><span>Notes <span class="opt">(optional)</span></span><div class="in area">Birthday cake at 20:00</div></label>
+      <div class="check" data-testid="booking-form-notify">
+        <span class="box">✓</span>
+        <div><b>Send the change to the diner on WhatsApp</b><small>“Your booking has changed: Sat 21 Nov, 19:30, 4 guests.” The reminder moves to the new time.</small></div>
+      </div>
+    </div>
+    <div class="dlg-f"><button class="btn">Cancel</button><button class="btn primary">Save changes</button></div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="stage" style="width:620px">
+  <div class="dlg narrow">
+    <div class="dlg-h"><div><h3>Edit booking</h3><p>Wu Siu Ming · booked via WhatsApp chat</p></div><span class="x">✕</span></div>
+    <div class="dlg-b">
+      <div class="banner" data-testid="booking-form-stale">This booking changed while you were editing. Nothing was saved. <button class="btn sm">Reload</button></div>
+      <label class="f">Time<div class="in" style="opacity:.6">19:30</div></label>
+      <label class="f">Guests<div class="in" style="opacity:.6">4</div></label>
+    </div>
+    <div class="dlg-f"><button class="btn">Close</button><button class="btn primary" disabled style="opacity:.4">Save changes</button></div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="stage" style="width:620px">
+  <div class="dlg narrow" data-testid="booking-cancel-dialog" role="alertdialog">
+    <div class="dlg-h"><div><h3>Cancel this booking?</h3><p>The table is freed for other diners. This can’t be undone.</p></div></div>
+    <div class="dlg-b">
+      <dl class="summary"><dt>Diner</dt><dd>Wu Siu Ming · +852 9876 1122</dd><dt>When</dt><dd>Sat 21 Nov 2026, 18:30</dd><dt>Guests</dt><dd>2</dd></dl>
+      <div class="check">
+        <span class="box">✓</span>
+        <div><b>Tell the diner on WhatsApp</b><small>“Your booking at Cafe Poppy on Sat 21 Nov, 18:30 has been cancelled.”</small></div>
+      </div>
+    </div>
+    <div class="dlg-f"><button class="btn">Keep booking</button><button class="btn danger">Cancel booking</button></div>
+  </div>
+</div></div>
+</div>
+
+<!-- 6. Phone -->
+<p class="frame-label"><b>6 · Phone 390</b>: day list with entry point &nbsp;·&nbsp; New booking as a bottom sheet</p>
+<div class="frames">
+<div class="frame"><div class="phone">
+  <div class="ph-top">
+    <div class="r"><h2>Bookings</h2><button class="btn primary sm">+ New</button></div>
+    <div class="r" style="margin-top:10px"><span style="font-weight:650">November 2026</span><span class="seg"><span>Today</span><span class="on">Calendar</span><span>Table</span></span></div>
+    <div class="week"><div>Sun<b>15</b></div><div>Mon<b>16</b></div><div>Tue<b>17</b></div><div>Wed<b>18</b></div><div>Thu<b>19</b></div><div>Fri<b>20</b></div><div class="on">Sat<b>21</b></div></div>
+  </div>
+  <div class="ph-list">
+    <div class="dh"><div><b>Sat, 21 Nov</b><div class="hint">7 bookings · 22 guests</div></div><button class="btn sm">+ Add</button></div>
+    <div class="row pend"><div><div class="t">12:30</div><div class="pax">2 pax</div></div><div><span class="nm">Chat Diner</span><span class="badge pd">Pending</span><div class="ph">+852 9222 3333</div><div class="acts"><button class="btn primary sm">Confirm</button><button class="btn sm">Decline</button></div></div><div class="kebab">···</div></div>
+    <div class="row"><div><div class="t">13:00</div><div class="pax">4 pax</div></div><div><span class="nm">Au Ka Yan</span><span class="badge ok">Confirmed</span><div class="ph">+852 6123 4455</div></div><div class="kebab">···</div></div>
+    <div class="row"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><span class="badge ok">Confirmed</span><div><span class="badge src staff" style="margin-left:0">By staff · Mandy</span></div><div class="ph">+852 2345 6789</div></div><div class="kebab">···</div></div>
+    <div class="row cx"><div><div class="t">20:30</div><div class="pax">2 pax</div></div><div><span class="nm">Hui Wing</span><span class="badge cx">Cancelled by staff</span></div><div></div></div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="phone" style="position:relative">
+  <div class="ph-top"><div class="r"><h2>Bookings</h2><button class="btn primary sm">+ New</button></div></div>
+  <div class="sheet"><div class="sheet-in">
+    <div class="grab"></div>
+    <div class="dlg-h"><div><h3>New booking</h3><p>Saved as confirmed.</p></div><span class="x">✕</span></div>
+    <div class="dlg-b">
+      <label class="f">Phone<div class="in"><span class="pre">+852</span><span class="ph-text">Diner’s phone</span></div></label>
+      <label class="f">Name<div class="in err">&nbsp;</div><span class="hint err">Enter the diner’s name</span></label>
+      <div class="two">
+        <label class="f">Guests<div class="stepper"><span>−</span><b>2</b><span>+</span></div></label>
+        <label class="f">Date<div class="in">Sat 21 Nov<span class="caret">▼</span></div></label>
+      </div>
+      <label class="f">Time
+        <div class="slots"><div class="slot">18:00<small>20 left</small></div><div class="slot on">18:30<small>18 left</small></div><div class="slot full">19:00<small>2 left</small></div><div class="slot">19:30<small>14 left</small></div></div>
+      </label>
+      <div class="check"><span class="box">✓</span><div><b>Send WhatsApp confirmation</b><small>And the reminder 3 hours before.</small></div></div>
+    </div>
+    <div class="sheet-f"><button class="btn primary full">Add booking</button></div>
+  </div></div>
+</div></div>
+</div>
+
+
+<!-- 7. Today view desktop -->
+<p class="frame-label"><b>7 · Today view 1440</b>: search by code jumps to the booking; arrival states; scan result panel</p>
+<div class="frames">
+<div class="frame">
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>OhMyClient</b><small>Powered by WhatsApp</small><span>Cafe Poppy</span></div>
+    <nav class="nav">
+      <a><i></i>Overview</a><a><i></i>Members</a><a><i></i>Tags</a><a><i></i>Live Feed</a><a><i></i>Campaigns</a>
+      <a class="on"><i></i>Bookings</a><a><i></i>Stamp Cards</a><a><i></i>WA Templates</a><a><i></i>Coupons</a><a><i></i>Scan QR</a><a><i></i>Rewards</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="head">
+      <div><h2>Bookings</h2><p>Today, Saturday 21 November. Find a diner and check them in.</p></div>
+      <div class="head-right">
+        <span class="seg" data-testid="bookings-view-today"><span class="on">Today</span><span>Calendar</span><span>Table</span></span>
+        <button class="btn primary">+ New booking</button>
+      </div>
+    </div>
+    <div class="tbar">
+      <div class="bigsearch" data-testid="bookings-today-search"><span class="ph-text">&#9906;</span>K7Q2<span class="ph-text" style="margin-left:auto;font-size:12.5px">1 match</span></div>
+      <button class="btn lg" data-testid="bookings-today-scan">&#9638;&nbsp; Scan QR</button>
+    </div>
+    <div class="counters" data-testid="bookings-today-counter">
+      <div class="ctr"><b>12 / 30</b><small>guests arrived</small></div>
+      <div class="ctr"><b>4</b><small>bookings waiting</small></div>
+      <div class="ctr"><b>1</b><small>late (15+ min)</small></div>
+      <div class="ctr"><b>0</b><small>no-show</small></div>
+    </div>
+    <div class="today">
+      <div class="tlist" data-testid="bookings-today">
+        <div class="grp">LUNCH</div>
+        <div class="trow done"><div><div class="t">12:30</div><div class="pax">2 pax</div></div><div><span class="nm">Chat Diner</span><div class="ph">+852 9222 3333 · <span class="code">P4MX8T</span></div></div><span class="state arr">&#10003; Arrived 12:27</span><button class="btn sm">Undo</button></div>
+        <div class="trow done"><div><div class="t">13:00</div><div class="pax">4 pax</div></div><div><span class="nm">Au Ka Yan</span><div class="ph">+852 6123 4455 · <span class="code">H2RW9C</span></div></div><span class="state arr">&#10003; Arrived 12:58</span><button class="btn sm">Undo</button></div>
+        <div class="grp">DINNER</div>
+        <div class="trow"><div><div class="t">18:30</div><div class="pax">2 pax</div></div><div><span class="nm">Wu Siu Ming</span><div class="ph">+852 9876 1122 · <span class="code">ZB6N3Q</span></div></div><span class="state late">Late 18 min</span><button class="btn primary sm" data-testid="booking-row-b7-arrived">Arrived</button></div>
+        <div class="trow hit"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><span class="badge src staff">By staff · Mandy</span><div class="ph">+852 2345 6789 · <span class="code"><mark>K7Q2</mark>MX</span></div></div><span class="state wait">Waiting</span><button class="btn primary sm">Arrived</button></div>
+        <div class="trow"><div><div class="t">20:00</div><div class="pax">6 pax</div></div><div><span class="nm">Yeung Family</span><span class="badge src">AI agent</span><div class="ph">+852 6555 7788 · <span class="code">T9DK2V</span></div></div><span class="state wait">Waiting</span><button class="btn primary sm">Arrived</button></div>
+        <div class="trow"><div><div class="t">20:30</div><div class="pax">4 pax</div></div><div><span class="nm">Kan Wai</span><span class="badge pd">Pending</span><div class="ph">+852 9001 2233 · no code until confirmed</div></div><span class="state wait">Needs reply</span><button class="btn sm">Confirm</button></div>
+      </div>
+      <div class="card-res" data-testid="booking-scan-result">
+        <div class="top"><small>Code K7Q2MX · today</small><b>Mr Lam · 6 guests</b></div>
+        <div class="mid">
+          <dl class="summary"><dt>Time</dt><dd>19:00 (in 12 min)</dd><dt>Phone</dt><dd>+852 2345 6789</dd><dt>Member</dt><dd>Lam Chi Keung · 6 visits</dd><dt>Notes</dt><dd>Phoned in, window table</dd></dl>
+        </div>
+        <div class="bot"><button class="btn primary go">&#10003;&nbsp; Arrived</button><button class="btn">Edit booking</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</div>
+
+<!-- 8. Phone today + scan; WhatsApp -->
+<p class="frame-label"><b>8 · Phone Today</b> &nbsp;·&nbsp; <b>8b · Scanning</b> &nbsp;·&nbsp; <b>8c · Other results</b> (code not found; code for another day) &nbsp;·&nbsp; <b>9 · Diner's confirmation on WhatsApp</b></p>
+<div class="frames">
+<div class="frame"><div class="phone">
+  <div class="ph-top">
+    <div class="r"><h2>Bookings</h2><button class="btn primary sm">+ New</button></div>
+    <div class="r" style="margin-top:10px"><span class="seg"><span class="on">Today</span><span>Calendar</span><span>Table</span></span></div>
+    <div class="tbar" style="margin:12px 0 0"><div class="bigsearch" style="height:42px"><span class="ph-text">Name, phone or code</span></div><button class="btn lg" style="padding:0 12px">&#9638; Scan</button></div>
+  </div>
+  <div class="ph-list">
+    <div class="dh"><div><b>Sat, 21 Nov</b><div class="hint">12 / 30 guests arrived · 4 waiting</div></div></div>
+    <div class="row"><div><div class="t">18:30</div><div class="pax">2 pax</div></div><div><span class="nm">Wu Siu Ming</span><div class="state late">Late 18 min</div><div class="ph"><span class="code">ZB6N3Q</span></div></div><button class="btn primary sm">Arrived</button></div>
+    <div class="row"><div><div class="t">19:00</div><div class="pax">6 pax</div></div><div><span class="nm">Mr Lam</span><div class="state wait">Waiting</div><div class="ph"><span class="code">K7Q2MX</span></div></div><button class="btn primary sm">Arrived</button></div>
+    <div class="row"><div><div class="t">20:00</div><div class="pax">6 pax</div></div><div><span class="nm">Yeung Family</span><div class="state wait">Waiting</div><div class="ph"><span class="code">T9DK2V</span></div></div><button class="btn primary sm">Arrived</button></div>
+    <div class="row"><div><div class="t">13:00</div><div class="pax">4 pax</div></div><div><span class="nm">Au Ka Yan</span><div class="state arr">&#10003; Arrived 12:58</div></div><button class="btn sm">Undo</button></div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="phone" style="position:relative">
+  <div class="ph-top"><div class="r"><h2>Scan check-in QR</h2><span class="x">&#10005;</span></div></div>
+  <div style="padding:16px;display:grid;gap:14px">
+    <div class="cam"><div class="reticle"></div><small>Point at the diner's QR</small></div>
+    <div class="card-res">
+      <div class="top"><small>Code K7Q2MX · today</small><b>Mr Lam · 6 guests · 19:00</b></div>
+      <div class="mid"><div class="ph">+852 2345 6789 · window table</div></div>
+      <div class="bot"><button class="btn primary go">&#10003;&nbsp; Arrived</button></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="phone" style="position:relative">
+  <div class="ph-top"><div class="r"><h2>Scan check-in QR</h2><span class="x">&#10005;</span></div></div>
+  <div style="padding:16px;display:grid;gap:14px">
+    <div class="cam"><div class="reticle"></div><small>Point at the diner's QR</small></div>
+    <div class="banner" data-testid="booking-scan-not-found">No booking for this code at Cafe Poppy. <button class="btn sm">Search</button></div>
+    <div class="card-res">
+      <div class="top" style="background:var(--muted)"><small style="color:oklch(0.42 0.02 260)">Code ZB6N3Q · another day</small><b>Wu Siu Ming · 2 guests</b></div>
+      <div class="mid"><div class="ph">Booked for <b>Sun 22 Nov, 18:30</b>. Arrived is only for today's bookings.</div></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="wa">
+  <div class="wa-top">Cafe Poppy<small>Business account</small></div>
+  <div class="wa-body">
+    <div class="bubble">
+      <div class="img"><div class="qr" id="qr"></div></div>
+      <div class="txt">Your table booking is confirmed.<br>Restaurant: Cafe Poppy<br>Date: Sat, 21 Nov 2026 · Time: 19:00 · 6 guests<br><br>Show this QR at the door, or tell staff your check-in code:<span class="big">K7Q2MX</span>If your plans change, please reply to this message.</div>
+      <div class="meta">14:32</div>
+    </div>
+    <p class="hint" style="margin-top:10px;max-width:300px;color:oklch(0.38 0.02 260)">zh-HK: 你的訂座已確認…到達時出示此 QR 碼，或告知職員入座編號 K7Q2MX。</p>
+  </div>
+</div></div>
+</div>
+
+<!-- 10. Mode off -->
+<p class="frame-label"><b>10 · Booking mode off</b>: no Bookings in the sidebar; direct link shows the off state</p>
+<div class="frames">
+<div class="frame"><div class="app" style="height:520px">
+  <aside class="side">
+    <div class="brand"><b>OhMyClient</b><small>Powered by WhatsApp</small><span>Cafe Poppy</span></div>
+    <nav class="nav">
+      <a><i></i>Overview</a><a><i></i>Members</a><a><i></i>Tags</a><a><i></i>Live Feed</a><a><i></i>Campaigns</a>
+      <a><i></i>Stamp Cards</a><a><i></i>WA Templates</a><a><i></i>Coupons</a><a><i></i>Scan QR</a><a><i></i>Rewards</a>
+    </nav>
+  </aside>
+  <main class="main" style="display:flex;align-items:center;justify-content:center">
+    <div style="text-align:center;max-width:420px" data-testid="bookings-off">
+      <h2 style="font-size:20px;margin-bottom:6px">Bookings are off</h2>
+      <p style="color:oklch(0.42 0.02 260);margin-bottom:16px">Diners can't book through OhMyClient, and staff can't add bookings. Your past bookings are kept.</p>
+      <button class="btn primary">Open Settings → Booking</button>
+    </div>
+  </main>
+</div></div>
+</div>
+
+<script>
+(function(){var q=document.getElementById('qr');if(!q)return;var n=21,seed=7;function r(){seed=(seed*9301+49297)%233280;return seed/233280;}
+function finder(x,y){return(x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7);}
+function fon(x,y){var a=x%14,b=y%14;if(x>=n-7)a=x-(n-7);if(y>=n-7)b=y-(n-7);var ax=Math.min(a,6-a),by=Math.min(b,6-b),d=Math.min(ax,by);return d!==1;}
+for(var y=0;y<n;y++)for(var x=0;x<n;x++){var c=document.createElement('i');var on=finder(x,y)?fon(x,y):r()>0.52;c.style.background=on?'#111':'#fff';q.appendChild(c);}})();
+</script>
+</body>
+</html>
