@@ -373,6 +373,21 @@ describe('W2-07 replay (AC-7, R17)', () => {
     expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
     expect(handleUnknown).not.toHaveBeenCalled()
   })
+
+  // BOOK-012 r2: the diner never got a Book now reply, so the retry gets the
+  // fallback menu, as it would with the classifier off.
+  it.each<[string, () => void]>([
+    ['fallback', () => (fakeClassifier().result = { ok: true, label: 'other', confidence: 0.9 })],
+    ['error', () => (fakeClassifier().result = { ok: false, reason: 'timeout' })],
+  ])('a retry after an earlier %s outcome → fallback menu again, no Book now reply', async (_, first) => {
+    first()
+    await routeMessage(msg({ text: BOOKING_TEXT }), R)
+    fakeClassifier().result = { ok: true, label: 'booking', confidence: 0.95 }
+    await routeMessage(msg({ text: BOOKING_TEXT }), R)
+    expect(classifications.rows).toHaveLength(1)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(handleUnknown).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('W2-08 R8: classifier error paths log no text and no full phone', () => {

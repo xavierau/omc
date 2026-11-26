@@ -377,6 +377,41 @@ describe('AGENT-004 the classifier yields to an auto agent that is offered a boo
     expect(enqueued).toHaveLength(1)
   })
 
+  // BOOK-012 r2: a crash after the classification row was written (outcome
+  // fallback/error) and before the agent stored the text leaves the row
+  // behind; the retry must still reach the agent, as with the classifier off.
+  const seedEarlier = (outcome: 'fallback' | 'error' | 'booking_reply') =>
+    classifications.rows.push({ restaurantId: R, messageId: 'wamid.in.1', label: null, confidence: null, outcome })
+
+  it.each(['fallback', 'error'] as const)('(r2) retry after an earlier %s outcome + shadow agent → agent queued, fallback menu', async (outcome) => {
+    seedEarlier(outcome)
+    agentConfig = agentWith('shadow')
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
+    expect(enqueued[0].job.admittedMode).toBe('shadow')
+    expect(handleUnknown).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['fallback', 'error'] as const)('(r2) retry after an earlier %s outcome + auto agent (no booking tool) → agent queued, no menu', async (outcome) => {
+    seedEarlier(outcome)
+    agentConfig = resolveAgentConfig({ mode: 'auto' })
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
+    expect(enqueued[0].job.admittedMode).toBe('auto')
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  it('(r2) retry after an earlier booking_reply → nothing sent, agent not queued, no menu', async () => {
+    seedEarlier('booking_reply')
+    agentConfig = agentWith('shadow')
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toEqual([])
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
   it('a webhook retry of the skipped message queues once and sends nothing', async () => {
     agentConfig = agentWith('auto')
     await routeMessage(msg({ text: REPLY }), R)

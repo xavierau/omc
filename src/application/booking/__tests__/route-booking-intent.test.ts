@@ -137,6 +137,25 @@ describe('routeBookingIntent — record (AC-7, R17)', () => {
     expect(classifications.rows).toHaveLength(1)
   })
 
+  // BOOK-012 r2: only an earlier booking reply stops a retry; anything else
+  // routes on, as a tenant with the classifier off would on the same retry.
+  it.each<[string, ClassifyResult]>([
+    ['fallback (other label)', { ok: true, label: 'other', confidence: 0.9 }],
+    ['error (classifier down)', { ok: false, reason: 'http_error' }],
+  ])('a retry whose earlier outcome was %s → fallback, routing continues', async (_, first) => {
+    const { deps, classifier, classifications } = setup({}, first)
+    expect(await routeBookingIntent(deps, input())).toEqual({ kind: 'fallback' })
+    classifier.result = { ok: true, label: 'booking', confidence: 0.95 }
+    expect(await routeBookingIntent(deps, input())).toEqual({ kind: 'fallback' })
+    expect(classifications.rows).toHaveLength(1)
+  })
+
+  it('a retry whose earlier outcome is unknown → fallback, routing continues', async () => {
+    const { deps } = setup()
+    deps.classifications = { record: async () => ({ status: 'duplicate', earlierOutcome: null }) }
+    expect(await routeBookingIntent(deps, input())).toEqual({ kind: 'fallback' })
+  })
+
   it('a failed record still replies (fail open)', async () => {
     const { deps, classifications } = setup()
     classifications.fail = true

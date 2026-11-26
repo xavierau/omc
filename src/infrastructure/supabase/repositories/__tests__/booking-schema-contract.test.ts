@@ -47,6 +47,9 @@ describe('BOOK-001 schema contract: booking repositories match migration 082', (
     for (const c of filterColumns('agent-booking-repository.ts')) expect(requests.has(c), c).toBe(true)
     const stops = columnsForTable('booking_stops')
     for (const c of filterColumns('booking-room-repository.ts')) expect(stops.has(c), c).toBe(true)
+    // BOOK-012 r2: the duplicate lookup filters inbound_classifications.
+    const classifications = columnsForTable('inbound_classifications')
+    for (const c of filterColumns('inbound-classification-repository.ts')) expect(classifications.has(c), c).toBe(true)
   })
 
   it('BOOK-010: every column the shared insert row writes exists (plain insert and insert_booking_request_if_room)', () => {
