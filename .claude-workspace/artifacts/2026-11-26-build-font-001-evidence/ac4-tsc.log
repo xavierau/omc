@@ -1,0 +1,4 @@
+# AC-4: python3 ~/.claude/bin/resource-lock.py heavy -- npx tsc --noEmit on 7fa611b4's tree (fix branch), exit 0, finished ~05:20Z
+resource-lock: waiting for 'heavy' (held by PID 81652 CWD /Users/xavierau/Code/js/shopline-packing-app--invoice-amounts CMD npx --prefix e2e
+(no tsc output = no type errors)
+tsc exit=0

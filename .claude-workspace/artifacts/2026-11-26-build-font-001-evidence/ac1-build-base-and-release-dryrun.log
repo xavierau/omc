@@ -1,0 +1,27 @@
+# next build of base 0715b4eb (= tree 51e41efe = main 38399078), 04:48:42Z-04:49:23Z, exit 0
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 2.8s
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 17.0s
+  Running TypeScript ...
+  Finished TypeScript in 16.6s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/100) ...
+  Generating static pages using 7 workers (25/100) 
+  Generating static pages using 7 workers (50/100) 
+
+# RELEASE_DRY_RUN=1 scripts/release.sh on base (npm ci, rm -rf .next, npm run build, stage, scrub, scan), started 04:50:05Z, exit 0
+→ Preflight
+→   DRY RUN — nothing will be pushed; preflight checks relaxed
+→   building fix/build-noto-sans-hk-font @ 0715b4e
+→   node v22.21.1
+→ Installing dependencies
+→ Building Next.js
+✓ Compiled successfully in 19.1s
+→   BUILD_ID kPM1tJwbby7axi_406MnY
+→ Staging release tree
+→ Scrubbing secrets from the bundle
+→ Scanning bundle for inlined credentials
+→   clean
