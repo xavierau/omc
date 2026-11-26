@@ -1,0 +1,12 @@
+resource-lock: waiting for 'heavy' (held by PID 1074 CWD /Users/xavierau/Code/js/payment_management-voice-stocktake CMD node_modules/.bin/playwright test -c client/e2e/voice-stocktake/playwright.config.ts voice-memory)
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-013
+
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+
+ Test Files  733 passed | 17 skipped (750)
+      Tests  8618 passed | 140 skipped | 2 todo (8760)
+   Start at  23:25:24
+   Duration  36.05s (transform 27.24s, setup 0ms, import 101.77s, tests 30.10s, environment 53ms)
+
+vitest exit=0

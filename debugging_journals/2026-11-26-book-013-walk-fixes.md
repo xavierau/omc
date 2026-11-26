@@ -103,3 +103,15 @@ the local browser walk and fixed in b50ba492. Sections 5–7 were found by `/cod
   `principle_postgrest_in_filter_header_overflow`). A side step in a compliance job must not be able
   to stop the compliance write. Tests: `booking-cron-repository.test.ts` "review R3" (2001 rows in
   3 pages; a failing page; a failing read).
+
+## 8. Round 3: the phone Today card's state chip stretched across the card (walk, r3)
+- **Problem:** after the Today view was rewritten for the sort (AC-25), the phone card showed
+  "等候中" / "Waiting" as a bar the full width of the card, on its own line under the phone number
+  (`evidence/2026-11-26-book-013-r3`, first zh-390 run, `03-today-name-desc`). Round 1 had it as a
+  small chip beside the name.
+- **Root cause:** the chip was moved into a `flex flex-col` column; a column flex stretches its
+  children across, so the inline-flex chip took the full width.
+- **Fix:** the name row takes the chip (`NameCell chip=`), beside the name and the staff badge, as
+  in round 1 and mockup frame 8. The desktop table keeps it in the Status column.
+- **Prevention:** compare each phone screenshot with the previous round's for the same screen
+  before accepting a rewrite; the layout audit does not flag a stretched chip (it is not overflow).

@@ -1,0 +1,2 @@
+resource-lock: waiting for 'heavy' (held by PID 84205 CWD /Users/xavierau/Code/js/payment_management-fix-ck-cost-integrity CMD sh -c echo "__LOCAL_CI_LOCK_HELD_AT__ $(date +%s)"; (cd server && npx prisma generate) && pnpm build:packages)
+tsc exit=0
