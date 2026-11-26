@@ -79,12 +79,13 @@ interface RowProps {
   onDecide: DecideFn
 }
 
-/** The name, staff badge and phone: the column staff scan for a surname. */
-function NameCell({ booking }: { booking: BookingItem }) {
+/** The name, staff badge and phone: the column staff scan for a surname. A phone card adds the state chip beside the name. */
+function NameCell({ booking, chip }: { booking: BookingItem; chip?: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
         <BookingGuestName booking={booking} className="font-semibold break-words text-foreground" />
+        {chip}
         <StaffSourceBadge booking={booking} />
       </div>
       <p className="text-sm tabular-nums text-muted-foreground">{booking.phone}</p>
@@ -121,9 +122,8 @@ function TodayCardRow({ booking, now, busy, onDecide }: RowProps) {
           <p className="font-semibold tabular-nums text-foreground">{booking.bookingTime}</p>
           <p className="text-xs text-muted-foreground">{t('pax', { count: booking.partySize })}</p>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <NameCell booking={booking} />
-          <StateChip booking={booking} state={state} />
+        <div className="min-w-0 flex-1">
+          <NameCell booking={booking} chip={<StateChip booking={booking} state={state} />} />
         </div>
       </div>
       <div className="flex items-center gap-2 empty:hidden [&>*]:flex-1">
