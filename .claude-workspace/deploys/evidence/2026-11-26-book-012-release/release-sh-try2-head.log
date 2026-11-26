@@ -1,0 +1,63 @@
+resource-lock: waiting for 'heavy' (held by PID 25979 CWD /Users/xavierau/Code/js/shopline-packing-app--invoice-amounts CMD npm run gate)
+→ Preflight
+→   building release-book012 @ 3839907
+→   node v22.21.1
+→ Installing dependencies
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+added 837 packages, and audited 838 packages in 47s
+
+253 packages are looking for funding
+  run `npm fund` for details
+
+38 vulnerabilities (2 low, 18 moderate, 15 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+→ Building Next.js
+
+> whatsapp-crm-scaffold@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 2.8s
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 327 errors:
+[next]/internal/font/google/noto_sans_hk_5e297ec2.module.css:6:8
+Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+  4 |   font-weight: 400;
+  5 |   font-display: swap;
+> 6 |   src: url(@vercel/turbopack-next/internal/font/google/font?{%22url%22:%22https://fonts.gst...
+    |        ^
+  7 |   unicode-range: U+28eb2-28eb3, U+28ed9, U+28ee7, U+28fc5, U+29079, U+29088, U+2908b, U+290...
+  8 | }
+  9 | @font-face {
+
+next/font/google queries have exactly one entry
+
+Debug info:
+- Execution of *<ModuleAssetContext as AssetContext>::process_resolve_result failed
+- Execution of resolve failed
+- Execution of resolve_internal failed
+- Execution of <NextFontGoogleFontFileReplacer as ImportMappingReplacement>::result failed
+- next/font/google queries have exactly one entry
+Error while looking up import map: next/font/google queries have exactly one entry
+
+Debug info:
+- Execution of <NextFontGoogleFontFileReplacer as ImportMappingReplacement>::result failed
+- next/font/google queries have exactly one entry
+
+
+Import trace:
+    at <unknown> ([next]/internal/font/google/noto_sans_hk_5e297ec2.module.css:2626:8)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+release.sh exit=1
