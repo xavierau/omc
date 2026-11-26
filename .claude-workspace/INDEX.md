@@ -122,6 +122,7 @@ no artifact files were lost._
 ### Artifacts
 
 **TPL-012 — template edit in place on Meta (2026-11-24)**
+- [2026-11-26-book-012-classifier-default-on-handoff](artifacts/2026-11-26-book-012-classifier-default-on-handoff.md) — BOOK-012: classifier default on, migration 094 flip + rev bump (dev)
 - [2026-11-24-dev-tpl-012-handoff](artifacts/2026-11-24-dev-tpl-012-handoff.md) — TPL-012: edit via POST /<id>, never delete; refusals, probe, AC table (dev)
 - [2026-11-24-dev-tpl-012-r2-handoff](artifacts/2026-11-24-dev-tpl-012-r2-handoff.md) — TPL-012 r2: PR #227 review fixes F1-F4 (no-op, disabled, post-Meta save, Graph code) (dev)
 
