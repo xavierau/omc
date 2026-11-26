@@ -1,0 +1,25 @@
+# fix branch, NEXT_FONT_GOOGLE_MOCKED_RESPONSES = the failing (&) Noto response, exit 0
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 47ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.1s
+
+# AC-2 fix branch, real network, 05:02:08Z-05:02:37Z, exit 0
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 43ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 8.6s
+  Running TypeScript ...
+  Finished TypeScript in 14.8s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/100) ...
+  Generating static pages using 7 workers (25/100) 
+  Generating static pages using 7 workers (50/100) 
+  Generating static pages using 7 workers (75/100) 
+✓ Generating static pages using 7 workers (100/100) in 669ms
+  Finalizing page optimization ...
+

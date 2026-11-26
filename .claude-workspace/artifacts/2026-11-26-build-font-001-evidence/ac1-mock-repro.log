@@ -1,0 +1,63 @@
+# CONTROL: 0c41a4df, NEXT_FONT_GOOGLE_MOCKED_RESPONSES = today's real css2 responses (Noto + Inter), exit 0
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 117ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.5s
+
+# REPRO: same, but each Noto URL rewritten to Google's /l/font?kit=<id>&skey=<k>&v=v36 form, exit 1
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+✓ Running next.config.ts took 41ms
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 327 errors:
+[next]/internal/font/google/noto_sans_hk_5e297ec2.module.css:6:8
+Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+  4 |   font-weight: 400;
+  5 |   font-display: swap;
+> 6 |   src: url(@vercel/turbopack-next/internal/font/google/font?{%22url%22:%22https://fonts.gst...
+    |        ^
+  7 |   unicode-range: U+28eb2-28eb3, U+28ed9, U+28ee7, U+28fc5, U+29079, U+29088, U+2908b, U+290...
+  8 | }
+  9 | @font-face {
+
+next/font/google queries have exactly one entry
+
+Debug info:
+- Execution of *<ModuleAssetContext as AssetContext>::process_resolve_result failed
+- Execution of resolve failed
+- Execution of resolve_internal failed
+- Execution of <NextFontGoogleFontFileReplacer as ImportMappingReplacement>::result failed
+- next/font/google queries have exactly one entry
+Error while looking up import map: next/font/google queries have exactly one entry
+
+Debug info:
+- Execution of <NextFontGoogleFontFileReplacer as ImportMappingReplacement>::result failed
+- next/font/google queries have exactly one entry
+
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/noto_sans_hk_5e297ec2.module.css
+    [next]/internal/font/google/noto_sans_hk_5e297ec2.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+# signature counts, repro vs release.sh try 2
+## build-mock-amp.log
+ 654 - next/font/google queries have exactly one entry
+ 327 Error while looking up import map: next/font/google queries have exactly one entry
+ 327 Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+   1 Error: Turbopack build failed with 327 errors:
+ 327 next/font/google queries have exactly one entry
+## try2.clean.log
+ 654 - next/font/google queries have exactly one entry
+ 327 Error while looking up import map: next/font/google queries have exactly one entry
+ 327 Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+   1 Error: Turbopack build failed with 327 errors:
+ 327 next/font/google queries have exactly one entry
