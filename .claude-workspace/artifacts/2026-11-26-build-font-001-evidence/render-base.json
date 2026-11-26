@@ -1,0 +1,73 @@
+{
+  "htmlFontCjkVar": "\"Noto Sans HK\", \"Noto Sans HK Fallback\"",
+  "notoFaceCount": 328,
+  "loadedFaces": [
+    "Inter 100 900",
+    "Inter Fallback normal"
+  ],
+  "cjkElements": [
+    {
+      "tag": "P",
+      "text": "無需安裝 App — 由 WhatsApp 驅動",
+      "fontFamily": "Inter, \"Inter Fallback\"",
+      "fontWeight": "400",
+      "renderedWith": [
+        "PingFang TC (system) x7",
+        "Inter (web font) x17"
+      ]
+    },
+    {
+      "tag": "P",
+      "text": "登入您的管理介面",
+      "fontFamily": "Inter, \"Inter Fallback\"",
+      "fontWeight": "400",
+      "renderedWith": [
+        "PingFang TC (system) x8"
+      ]
+    },
+    {
+      "tag": "LABEL",
+      "text": "電郵地址",
+      "fontFamily": "Inter, \"Inter Fallback\"",
+      "fontWeight": "500",
+      "renderedWith": [
+        "PingFang TC (system) x4"
+      ]
+    },
+    {
+      "tag": "LABEL",
+      "text": "密碼",
+      "fontFamily": "Inter, \"Inter Fallback\"",
+      "fontWeight": "500",
+      "renderedWith": [
+        "PingFang TC (system) x2"
+      ]
+    },
+    {
+      "tag": "BUTTON",
+      "text": "忘記密碼？",
+      "fontFamily": "Inter, \"Inter Fallback\"",
+      "fontWeight": "400",
+      "renderedWith": [
+        "PingFang TC (system) x5"
+      ]
+    }
+  ],
+  "preloads": [
+    "/_next/static/media/30d7d2e0cdf4a190-s.p.0jm2xgkyhiysi.woff2",
+    "/_next/static/media/83afe278b6a6bb3c-s.p.2bn3s6zvc0dyp.woff2"
+  ],
+  "fontResponses": [
+    {
+      "url": "/_next/static/media/30d7d2e0cdf4a190-s.p.0jm2xgkyhiysi.woff2",
+      "status": 200
+    },
+    {
+      "url": "/_next/static/media/83afe278b6a6bb3c-s.p.2bn3s6zvc0dyp.woff2",
+      "status": 200
+    }
+  ],
+  "fontFailures": [],
+  "font404s": 0,
+  "thirdPartyRequests": []
+}

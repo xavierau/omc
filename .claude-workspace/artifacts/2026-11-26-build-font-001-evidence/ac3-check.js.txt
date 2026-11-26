@@ -1,0 +1,43 @@
+// usage: node check.js <url> <outPrefix>
+const { chromium } = require('playwright-core');
+const fs = require('fs');
+const EXE = process.env.HOME + '/Library/Caches/ms-playwright/chromium-1208/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+(async () => {
+  const [url, out] = process.argv.slice(2);
+  const browser = await chromium.launch({ executablePath: EXE, headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const fonts = [];
+  page.on('response', r => { if (r.request().resourceType() === 'font' || /\.woff2?(\?|$)/.test(r.url())) fonts.push({ url: r.url().replace(/^https?:\/\/[^/]+/, ''), status: r.status() }); });
+  const failed = [];
+  page.on('requestfailed', r => failed.push({ url: r.url(), err: r.failure()?.errorText }));
+  const thirdParty = [];
+  page.on('request', r => { if (!r.url().startsWith('http://localhost')) thirdParty.push(r.url()); });
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
+  const info = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('body *')].filter(e => e.children.length === 0 && /[一-鿿]/.test(e.textContent));
+    const faces = [...document.fonts];
+    return {
+      htmlFontCjkVar: getComputedStyle(document.documentElement).getPropertyValue('--font-cjk').trim(),
+      notoFaceCount: faces.filter(f => /Noto Sans HK/.test(f.family)).length,
+      loadedFaces: [...new Set(faces.filter(f => f.status === 'loaded').map(f => f.family + ' ' + f.weight))],
+      cjkElements: all.slice(0, 5).map((e, i) => { e.setAttribute('data-fontprobe', String(i)); return { tag: e.tagName, text: e.textContent.trim().slice(0, 24), fontFamily: getComputedStyle(e).fontFamily, fontWeight: getComputedStyle(e).fontWeight }; }),
+      preloads: [...document.querySelectorAll('link[rel=preload][as=font]')].map(l => l.getAttribute('href')),
+    };
+  });
+  // Actual rendered (platform) font per CJK element, via CDP.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
+  const { root } = await cdp.send('DOM.getDocument', { depth: -1 });
+  for (let i = 0; i < info.cjkElements.length; i++) {
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: `[data-fontprobe="${i}"]` });
+    const { fonts: pf } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
+    info.cjkElements[i].renderedWith = pf.map(f => `${f.familyName}${f.isCustomFont ? ' (web font)' : ' (system)'} x${f.glyphCount}`);
+  }
+  info.fontResponses = fonts; info.fontFailures = failed; info.font404s = fonts.filter(f => f.status >= 400).length;
+  info.thirdPartyRequests = thirdParty;
+  await page.screenshot({ path: out + '.png' });
+  fs.writeFileSync(out + '.json', JSON.stringify(info, null, 2));
+  console.log(JSON.stringify(info, null, 2));
+  await browser.close();
+})().catch(e => { console.error(e); process.exit(1); });

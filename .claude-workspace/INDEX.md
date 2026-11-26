@@ -121,6 +121,7 @@ no artifact files were lost._
 
 ### Artifacts
 
+- [2026-11-26-build-font-001-handoff](artifacts/2026-11-26-build-font-001-handoff.md) — BUILD-FONT-001: build fix, Noto off next/font (dev)
 **TPL-012 — template edit in place on Meta (2026-11-24)**
 - [2026-11-26-book-012-classifier-default-on-handoff](artifacts/2026-11-26-book-012-classifier-default-on-handoff.md) — BOOK-012: classifier default on, migration 094 flip + rev bump (dev)
 - [2026-11-26-book-012-r2-review-fixes-handoff](artifacts/2026-11-26-book-012-r2-review-fixes-handoff.md) — BOOK-012 r2: retry after fallback/error keeps routing; 094 rollback (dev)
