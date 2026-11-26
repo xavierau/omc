@@ -23,10 +23,12 @@ export class TemplateHeaderMediaMissingError extends Error {
   }
 }
 
-export function enforceHeaderMedia(template: WhatsAppTemplate | null): void {
+export function enforceHeaderMedia(template: WhatsAppTemplate | null, imageLink?: string): void {
   if (!template) return
   const header = template.components.find(isMediaHeader)
   if (!header) return
+  // BOOK-013: a per-send image (the booking's check-in QR) is the header link itself.
+  if (header.format === 'IMAGE' && imageLink) return
   if (readHeaderLink(header) === null) {
     throw new TemplateHeaderMediaMissingError(template.name)
   }

@@ -1,0 +1,166 @@
+// BOOK-013: in-memory staff booking + check-in store with the conditions of
+// migration 095's RPCs (staff_create_booking, staff_update_booking,
+// staff_cancel_booking, booking_check_in, booking_check_in_undo), written from
+// the SQL, not from the use cases. The SQL itself is proven on a scratch DB
+// (.claude-workspace/artifacts/evidence/2026-11-26-book-013/scratch-db-095.log).
+import type { BookingRequest } from '@/domain/entities/booking-request'
+import type {
+  CheckInArgs,
+  CheckinQrStore,
+  CheckinStore,
+  StaffBookingStore,
+  StaffCancelArgs,
+  StaffCreateArgs,
+  StaffUpdateArgs,
+} from '@/domain/ports/staff-booking'
+
+export type StaffRow = BookingRequest & {
+  updatedAt: string
+  reminderSentAt?: string | null
+  lastStaffMessageAt?: string | null
+  cancelledByUser?: string | null
+  checkedInBy?: string | null
+}
+
+export interface StaffEvent {
+  restaurantId: string
+  type: string
+  actor: string
+  data: Record<string, unknown>
+}
+
+let tick = 0
+/** A fresh updated_at per write (the 095 trigger), microsecond-shaped like PostgREST's. */
+const stamp = () => `2026-11-26T00:00:${String(++tick % 60).padStart(2, '0')}.${String(tick).padStart(6, '0')}+00:00`
+
+export function staffRow(extra: Partial<StaffRow> = {}): StaffRow {
+  return {
+    id: crypto.randomUUID(), restaurantId: 'rest-a', memberId: null, phone: '+85291234567', name: 'Chan Tai Man', partySize: 2,
+    bookingDate: '2026-11-28', bookingTime: '19:00', notes: null, status: 'confirmed', declineReason: null, decidedBy: 'u',
+    decidedAt: '2026-11-20T00:00:00Z', source: 'chat', campaignId: null, createdAt: '2026-11-20T00:00:00Z',
+    decisionMessageStatus: 'delivered', replacesBookingId: null, cancelledBy: null, updatedAt: stamp(), createdBy: null,
+    notifyDiner: true, checkinCode: 'K7Q2MX', checkedInAt: null, reminderSentAt: null, lastStaffMessageAt: null, ...extra,
+  }
+}
+
+export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
+  readonly rows: StaffRow[] = []
+  readonly events: StaffEvent[] = []
+  /** Every write the fake took, for "nothing written" assertions. */
+  readonly writes: string[] = []
+
+  private openChange(row: StaffRow): boolean {
+    return this.rows.some((c) => c.replacesBookingId === row.id && c.restaurantId === row.restaurantId && c.status === 'pending')
+  }
+
+  private view(row: StaffRow): BookingRequest {
+    const change = this.rows.find((c) => c.replacesBookingId === row.id && c.status === 'pending')
+    return { ...row, ...(change ? { openChange: { id: change.id, bookingDate: change.bookingDate, bookingTime: change.bookingTime, partySize: change.partySize } } : {}) } as BookingRequest
+  }
+
+  private mine(id: string, restaurantId: string) {
+    return this.rows.find((r) => r.id === id && r.restaurantId === restaurantId)
+  }
+
+  private audit(restaurantId: string, type: string, actor: string, data: Record<string, unknown>, broken: string[] = []) {
+    this.events.push({ restaurantId, type, actor, data: broken.length > 0 ? { ...data, brokenRules: broken } : data })
+  }
+
+  async find(id: string, restaurantId: string) {
+    const row = this.mine(id, restaurantId)
+    return row && row.status !== 'unverified' ? this.view(row) : null
+  }
+
+  async create(args: StaffCreateArgs) {
+    this.writes.push('create')
+    const taken = (code: string) => this.rows.some((r) => r.restaurantId === args.restaurantId && r.checkinCode === code)
+    const code = args.codes.find((c) => !taken(c))
+    if (!code) throw new Error('staff_create_booking: every check-in code clashed')
+    const { input } = args
+    const row = staffRow({
+      restaurantId: args.restaurantId, memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize,
+      bookingDate: input.date, bookingTime: input.time, notes: input.notes, status: 'confirmed', source: 'staff',
+      decidedBy: args.actorUserId, decidedAt: args.at.toISOString(), createdBy: args.actorUserId, notifyDiner: input.notify,
+      checkinCode: code, decisionMessageStatus: null,
+    })
+    this.rows.push(row)
+    this.audit(args.restaurantId, 'booking.staff_created', args.actorUserId, { bookingId: row.id }, args.brokenRules)
+    return this.view(row)
+  }
+
+  async update(args: StaffUpdateArgs) {
+    this.writes.push('update')
+    const row = this.mine(args.id, args.restaurantId)
+    if (!row || row.status !== args.expectedStatus || !['pending', 'confirmed'].includes(row.status)) return null
+    if (row.updatedAt !== args.expectedUpdatedAt || this.openChange(row)) return null
+    const { input } = args
+    Object.assign(row, {
+      memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize, bookingDate: input.date,
+      bookingTime: input.time, notes: input.notes, notifyDiner: input.notify, updatedAt: stamp(),
+      reminderSentAt: args.clearReminder ? null : row.reminderSentAt,
+    })
+    this.audit(args.restaurantId, 'booking.staff_edited', args.actorUserId, { bookingId: row.id, changed: args.changed }, args.brokenRules)
+    return this.view(row)
+  }
+
+  async cancel(args: StaffCancelArgs) {
+    this.writes.push('cancel')
+    const row = this.mine(args.id, args.restaurantId)
+    if (!row || row.status !== 'confirmed' || row.updatedAt !== args.expectedUpdatedAt || this.openChange(row)) return null
+    Object.assign(row, { status: 'cancelled', cancelledBy: 'staff', cancelledByUser: args.actorUserId, updatedAt: stamp() })
+    this.audit(args.restaurantId, 'booking.staff_cancelled', args.actorUserId, { bookingId: row.id })
+    return this.view(row)
+  }
+
+  async claimStaffMessage(id: string, restaurantId: string, at: Date, gapMs: number) {
+    const row = this.mine(id, restaurantId)
+    if (!row) return false
+    if (row.lastStaffMessageAt && Date.parse(row.lastStaffMessageAt) >= at.getTime() - gapMs) return false
+    row.lastStaffMessageAt = at.toISOString()
+    return true
+  }
+
+  async listForDate(restaurantId: string, date: string, cap: number) {
+    const rows = this.rows
+      .filter((r) => r.restaurantId === restaurantId && r.bookingDate === date && ['pending', 'confirmed', 'no_show'].includes(r.status))
+      .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime))
+    return { bookings: rows.slice(0, cap).map((r) => this.view(r)), truncated: rows.length > cap }
+  }
+
+  async findByCode(restaurantId: string, code: string) {
+    const row = this.rows.find((r) => r.restaurantId === restaurantId && r.checkinCode === code && ['confirmed', 'no_show'].includes(r.status))
+    return row ? this.view(row) : null
+  }
+
+  async checkIn(args: CheckInArgs) {
+    this.writes.push('checkIn')
+    const row = this.mine(args.id, args.restaurantId)
+    if (!row || row.status !== 'confirmed' || row.bookingDate !== args.today || row.checkedInAt || this.openChange(row)) return null
+    Object.assign(row, { checkedInAt: args.at.toISOString(), checkedInBy: args.actorUserId })
+    this.audit(args.restaurantId, 'booking.checked_in', args.actorUserId, { bookingId: row.id })
+    return this.view(row)
+  }
+
+  async undoCheckIn(args: { id: string; restaurantId: string; actorUserId: string }) {
+    this.writes.push('undoCheckIn')
+    const row = this.mine(args.id, args.restaurantId)
+    if (!row || !row.checkedInAt) return null
+    Object.assign(row, { checkedInAt: null, checkedInBy: null })
+    this.audit(args.restaurantId, 'booking.check_in_undone', args.actorUserId, { bookingId: row.id })
+    return this.view(row)
+  }
+}
+
+/** A QR store that records what it was asked for. */
+export class FakeCheckinQr implements CheckinQrStore {
+  readonly ensured: string[] = []
+  readonly removed: string[] = []
+  url: string | null = 'https://storage.example/booking-checkin-qr/AbCdEfGhIjKlMnOpQrStUvWx.png'
+  async ensure(b: { id: string; restaurantId: string; checkinCode: string }) {
+    this.ensured.push(`${b.id}:${b.checkinCode}`)
+    return this.url
+  }
+  async remove(b: { id: string }) {
+    this.removed.push(b.id)
+  }
+}

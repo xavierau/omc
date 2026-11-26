@@ -57,7 +57,7 @@ export async function sendWhatsAppTemplateMessage(
   // #127 / CAMP-007: refuse to send a payload Meta is guaranteed to reject
   // (#132012) — a media header we cannot supply must fail loudly here, not
   // as an opaque kapso_send_error per recipient.
-  enforceHeaderMedia(params.template)
+  enforceHeaderMedia(params.template, params.headerImageLink)
 
   const paramNames = extractParameters(params.template)
   const bodyParams = paramNames.map((name) => ({
