@@ -1,7 +1,7 @@
 // BOOK-001 W2-03, W2-06, W2-07 (spec AC-4, AC-6, AC-7; R13, R17).
 import { describe, it, expect, vi } from 'vitest'
 import { routeBookingIntent, type RouteBookingIntentDeps } from '../route-booking-intent'
-import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, resolveBookingConfig, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { ClassifyResult } from '@/domain/ports/intent-classifier'
 import { FakeChatTokens, FakeClassificationStore, FakeIntentClassifier } from '@/test-utils/fake-intent-classifier'
 
@@ -49,6 +49,28 @@ describe('routeBookingIntent — gate (AC-4, AC-8)', () => {
       expect(classifier.calls).toEqual([])
     }
   )
+})
+
+// BOOK-012: a stored blob without aiRoutingEnabled classifies by default.
+describe('routeBookingIntent — default on (BOOK-012)', () => {
+  it.each<[string, Record<string, unknown>]>([
+    ['simple, key absent', { mode: 'simple' }],
+    ['external, key absent', { mode: 'external', externalUrl: 'https://inline.app/r/demo' }],
+  ])('%s → classifier called, booking reply', async (_, stored) => {
+    const { deps, classifier } = setup(resolveBookingConfig(stored))
+    const decision = await routeBookingIntent(deps, input())
+    expect(classifier.calls).toEqual([TEXT])
+    expect(decision).toMatchObject({ kind: 'booking_reply' })
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['mode off, key absent', { mode: 'off' }],
+    ['external, explicit false', { mode: 'external', externalUrl: 'https://inline.app/r/demo', aiRoutingEnabled: false }],
+  ])('%s → classifier not called', async (_, stored) => {
+    const { deps, classifier } = setup(resolveBookingConfig(stored))
+    expect(await routeBookingIntent(deps, input())).toEqual({ kind: 'fallback' })
+    expect(classifier.calls).toEqual([])
+  })
 })
 
 describe('routeBookingIntent — decision (AC-4, AC-6)', () => {

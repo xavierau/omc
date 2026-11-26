@@ -46,7 +46,7 @@ import { admitAgentDeps } from '@/application/agent/agent-deps'
 import { createGeminiAgentClient } from '@/infrastructure/gemini/agent-client'
 import { getReplyConfig } from '@/infrastructure/supabase/repositories/restaurant-repository'
 import { resolveReplyConfig } from '@/domain/services/reply-config'
-import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, resolveBookingConfig, type BookingConfig } from '@/domain/value-objects/booking-config'
 import { resolveAgentConfig, type AgentConfig } from '@/domain/value-objects/agent-config'
 import type { AdmitAgentDeps, AgentReplyJob } from '@/application/agent/admit-inbound-for-agent'
 import type { RouteBookingIntentDeps } from '@/application/booking/route-booking-intent'
@@ -358,6 +358,23 @@ describe('AGENT-004 the classifier yields to an auto agent that is offered a boo
     expect(classifier.calls).toEqual([])
     expect(store.rows).toEqual([])
     expect(enqueued).toEqual([])
+  })
+
+  // BOOK-012: the classifier is on by default; the agent-owns-booking skip still wins.
+  it('(g) stored external blob without aiRoutingEnabled + shadow agent → classifier first (BOOK-012)', async () => {
+    bookingConfig = resolveBookingConfig({ mode: 'external', externalUrl: 'https://booking.example.com/r/demo' })
+    agentConfig = agentWith('shadow')
+    await routeMessage(msg({ text: REPLY }), R)
+    expectClassifierFirst()
+  })
+
+  it('(g) stored simple blob without aiRoutingEnabled + auto agent with booking tools → agent owns it, classifier not called (BOOK-012)', async () => {
+    bookingConfig = resolveBookingConfig({ mode: 'simple' })
+    agentConfig = agentWith('auto')
+    await routeMessage(msg({ text: REPLY }), R)
+    expect(classifier.calls).toEqual([])
+    expect(sendCtaUrlButton).not.toHaveBeenCalled()
+    expect(enqueued).toHaveLength(1)
   })
 
   it('a webhook retry of the skipped message queues once and sends nothing', async () => {

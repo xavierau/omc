@@ -41,6 +41,36 @@ describe('resolveBookingConfig', () => {
   })
 })
 
+// BOOK-012 (owner ruling 2026-11-26): the booking-intent classifier is on by
+// default. aiRoutingEnabled is an opt-out: only an explicit false turns it off.
+describe('aiRoutingEnabled is an opt-out (BOOK-012)', () => {
+  it('the default config has it on', () => {
+    expect(DEFAULT_BOOKING_CONFIG.aiRoutingEnabled).toBe(true)
+  })
+
+  it.each<[string, boolean, Record<string, unknown>]>([
+    ['key absent', true, { mode: 'external', externalUrl: 'https://book.example/x' }],
+    ['true', true, { mode: 'simple', aiRoutingEnabled: true }],
+    ['false', false, { mode: 'simple', aiRoutingEnabled: false }],
+    ["the string 'false'", true, { mode: 'simple', aiRoutingEnabled: 'false' }],
+    ['1', true, { mode: 'simple', aiRoutingEnabled: 1 }],
+    ['null', true, { mode: 'simple', aiRoutingEnabled: null }],
+  ])('stored %s → %s', (_, expected, raw) => {
+    expect(resolveBookingConfig(raw).aiRoutingEnabled).toBe(expected)
+  })
+
+  it.each([null, undefined, 'not-an-object', 42])('blob %j → the default, with it on', (raw) => {
+    expect(resolveBookingConfig(raw)).toEqual(DEFAULT_BOOKING_CONFIG)
+    expect(resolveBookingConfig(raw).aiRoutingEnabled).toBe(true)
+  })
+
+  it.each([true, false])('a settings save carries the stored %s through unchanged', (stored) => {
+    const current = resolveBookingConfig({ mode: 'simple', aiRoutingEnabled: stored })
+    const result = parseBookingSettings({ mode: 'external', externalUrl: 'https://book.example/x' }, current)
+    expect(result.ok && result.config.aiRoutingEnabled).toBe(stored)
+  })
+})
+
 describe('isSafeHttpsUrl (R14)', () => {
   it.each(['https://inline.app/booking/abc', 'https://example.com'])('accepts %s', (url) => {
     expect(isSafeHttpsUrl(url)).toBe(true)

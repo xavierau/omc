@@ -62,7 +62,7 @@ import { handleContact } from '../contact-handler'
 import { inboundBookingDeps } from '@/application/booking/inbound-booking-deps'
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import { createDecisionsClassifier } from '@/infrastructure/gemini/decisions-client'
-import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
+import { DEFAULT_BOOKING_CONFIG, resolveBookingConfig, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RouteBookingIntentDeps } from '@/application/booking/route-booking-intent'
 import type { IntentClassifierPort } from '@/domain/ports/intent-classifier'
 import type { KapsoMessage } from '@/infrastructure/whatsapp/webhooks'
@@ -250,6 +250,30 @@ describe('W2-03 free text (AC-4)', () => {
     expect(fakeClassifier().calls).toEqual([])
     expect(handleUnknown).toHaveBeenCalledWith('pn-a', PHONE, R)
     expect(sendCtaUrlButton).not.toHaveBeenCalled()
+  })
+})
+
+// BOOK-012: booking on with no aiRoutingEnabled key stored (釧 Kushiro's case) classifies.
+describe('BOOK-012 the classifier is on by default', () => {
+  it.each<[string, Record<string, unknown>]>([
+    ['simple, key absent', { mode: 'simple' }],
+    ['external, key absent', { mode: 'external', externalUrl: 'https://inline.app/r/demo' }],
+  ])('%s → classifier runs on unmatched text, Book now reply', async (_, stored) => {
+    config = resolveBookingConfig(stored)
+    await routeMessage(msg({ text: 'i wanna make reservation' }), R)
+    expect(fakeClassifier().calls).toEqual(['i wanna make reservation'])
+    expect(sendCtaUrlButton).toHaveBeenCalledTimes(1)
+    expect(handleUnknown).not.toHaveBeenCalled()
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['mode off, key absent', { mode: 'off' }],
+    ['external, explicit false', { mode: 'external', externalUrl: 'https://inline.app/r/demo', aiRoutingEnabled: false }],
+  ])('%s → classifier not called, fallback', async (_, stored) => {
+    config = resolveBookingConfig(stored)
+    await routeMessage(msg({ text: 'i wanna make reservation' }), R)
+    expect(fakeClassifier().calls).toEqual([])
+    expect(handleUnknown).toHaveBeenCalledWith('pn-a', PHONE, R)
   })
 })
 
