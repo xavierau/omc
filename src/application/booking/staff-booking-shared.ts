@@ -6,7 +6,7 @@
  */
 import type { BookingRequest, DecisionMessageStatus } from '@/domain/entities/booking-request'
 import type { BookingMemberLookup, BookingMessageSender, BookingRoomReader, BookingSettingsReader } from '@/domain/ports/booking'
-import type { CheckinQrStore, StaffBookingStore } from '@/domain/ports/staff-booking'
+import type { StaffBookingStore } from '@/domain/ports/staff-booking'
 import type { BookingMessageKind } from '@/domain/services/booking-message'
 import type { BookingClock } from '@/domain/services/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
@@ -25,13 +25,10 @@ export interface StaffBookingDeps {
   room: BookingRoomReader
   members: BookingMemberLookup
   sender: BookingMessageSender
-  qr: CheckinQrStore
   /** E.164, or null when not a phone number (the repo's one normaliser). */
   normalizePhone(raw: string): string | null
   /** Stores whether the confirmation reached the diner (the row's BOOK-001 "not delivered" badge). */
   recordMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
-  /** R8: CSPRNG check-in codes, tried in order. */
-  newCodes(): string[]
   now(): Date
 }
 

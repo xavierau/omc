@@ -15,10 +15,8 @@
  * so the diner never reads "declined" about a booking that still stands.
  * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
  *
- * BOOK-013 (spec S6; R8): a confirm (plain or change) mints the check-in code
- * in the same write, and the confirmation carries the code and its QR. A
- * booking whose staff unticked Notify (spec AC-2/AC-19) gets no confirm or
- * decline message and no message outcome (review R2).
+ * BOOK-013 (review R2): a booking whose staff unticked Notify (spec AC-2)
+ * gets no confirm or decline message and no message outcome.
  *
  * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
  * guest limit answers `over_limit` with the facts and changes nothing,
@@ -31,9 +29,7 @@ import {
   type DecisionMessageStatus,
 } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingRequestStore, BookingSettingsReader } from '@/domain/ports/booking'
-import type { CheckinQrStore } from '@/domain/ports/staff-booking'
 import { overLimitFor, type OverLimit, type OverLimitDeps } from './booking-over-limit'
-import { bookingMessageFor } from './booking-message-for'
 
 export interface DecideBookingDeps {
   requests: BookingRequestStore
@@ -42,10 +38,6 @@ export interface DecideBookingDeps {
   now(): Date
   /** BOOK-010: the over-limit question before a confirm; absent = never asked. */
   overLimit?: OverLimitDeps
-  /** BOOK-013 (R8): fresh check-in codes for a confirm (minted in the same write); absent = none. */
-  newCodes?: () => string[]
-  /** BOOK-013 (R10): the confirmation's QR link. */
-  qr?: CheckinQrStore
 }
 
 export interface DecideBookingInput {
@@ -72,8 +64,21 @@ export type DecideBookingResult =
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function notify(deps: DecideBookingDeps, booking: BookingRequest): Promise<boolean> {
-  const kind = booking.status === 'confirmed' ? 'confirmed' : 'declined'
-  const result = await deps.sender.send(await bookingMessageFor(deps, booking, kind))
+  const restaurant = await deps.settings.getRestaurant(booking.restaurantId)
+  const result = await deps.sender.send({
+    restaurantId: booking.restaurantId,
+    phone: booking.phone,
+    memberId: booking.memberId,
+    kind: booking.status === 'confirmed' ? 'confirmed' : 'declined',
+    details: {
+      restaurantName: restaurant?.name ?? '',
+      name: booking.name,
+      date: booking.bookingDate,
+      time: booking.bookingTime,
+      partySize: booking.partySize,
+      declineReason: booking.declineReason,
+    },
+  })
   return result.delivered
 }
 
@@ -109,15 +114,12 @@ export async function decideBookingRequest(deps: DecideBookingDeps, input: Decid
   if (!UUID.test(input.bookingId)) return { ok: false, reason: 'not_found' }
   const overLimit = await overLimitOf(deps, input)
   if (overLimit) return { ok: false, reason: 'over_limit', overLimit }
-  // BOOK-013 (R8): every move to confirmed writes its check-in code in the same statement.
-  const codes = input.decision === 'confirmed' && deps.newCodes ? { checkinCodes: deps.newCodes() } : {}
   if (input.decision === 'confirmed') {
     const change = await deps.requests.confirmChange({
       id: input.bookingId,
       restaurantId: input.restaurantId,
       decidedBy: input.userId,
       decidedAt: deps.now(),
-      ...codes,
     })
     if (change) return decided(deps, change)
   }
@@ -128,7 +130,6 @@ export async function decideBookingRequest(deps: DecideBookingDeps, input: Decid
     decidedBy: input.userId,
     decidedAt: deps.now(),
     declineReason: input.decision === 'declined' ? normalizeDeclineReason(input.reason) : null,
-    ...codes,
   })
   if (booking) return decided(deps, booking)
 

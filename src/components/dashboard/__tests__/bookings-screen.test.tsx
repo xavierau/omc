@@ -22,7 +22,7 @@ vi.mock('@/hooks/use-booking-availability', () => ({
 vi.mock('../bookings/use-bookings-today', () => ({
   useBookingsToday: () => ({
     data: { date: '2026-11-19', bookings: state.bookings, truncated: false }, failed: false, loading: false, refetch: async () => {},
-    query: '', setQuery: () => {}, codeCard: null, scan: { kind: 'closed' }, openScan: () => {}, scanAgain: () => {}, closeScan: () => {}, onScanned: async () => {},
+    query: '', setQuery: () => {},
   }),
 }))
 
@@ -46,8 +46,8 @@ const row = (id: string, date: string, status: BookingItem['status']): BookingIt
 
 const page = (over: Record<string, unknown>) => ({
   view: 'calendar', isPhone: false, today: '2026-11-19', selected: '2026-11-21', tableRange: 'upcoming',
-  status: 'all', query: '', range: { from: '2026-11-01', to: '2026-12-05' },
-  setView: () => {}, setStatus: () => {}, setQuery: () => {}, setTableRange: () => {}, select: () => {},
+  status: 'all', query: '', range: { from: '2026-11-01', to: '2026-12-05' }, todaySort: { key: 'time', dir: 'asc' },
+  setView: () => {}, setStatus: () => {}, setQuery: () => {}, setTableRange: () => {}, select: () => {}, setTodaySort: () => {}, sortTodayBy: () => {},
   shift: () => {}, goToday: () => {}, showPending: () => {}, ...over,
 })
 
@@ -128,14 +128,24 @@ describe('BookingsScreen (BOOK-013)', () => {
     for (const v of ['today', 'calendar', 'table']) expect(markup).toContain(`data-testid="bookings-view-${v}"`)
   })
 
-  it('?view=today renders the Today view (search, scan, counters) instead of the calendar', () => {
+  it('?view=today renders the Today view (search, sort, counters; no Scan) instead of the calendar', () => {
     state.bookings = [row('conf', '2026-11-19', 'confirmed')]
     state.page = page({ view: 'today' })
     const markup = render()
     expect(markup).toContain('data-testid="bookings-today"')
     expect(markup).toContain('data-testid="bookings-today-search"')
-    expect(markup).toContain('data-testid="bookings-today-scan"')
+    expect(markup).not.toMatch(/-scan\b/)
+    expect(markup).toContain('data-testid="bookings-today-sort-time"')
     expect(markup).toContain('data-testid="bookings-today-counter"')
     expect(markup).not.toContain('data-testid="bookings-day-panel"')
+  })
+
+  it('?view=today on a phone shows the Sort select instead of column headers', () => {
+    state.bookings = [row('conf', '2026-11-19', 'confirmed')]
+    state.page = page({ view: 'today', isPhone: true, todaySort: { key: 'name', dir: 'desc' } })
+    const markup = render()
+    expect(markup).toContain('data-testid="bookings-today-sort"')
+    expect(markup).toMatch(/<option value="name:desc" selected="">/)
+    expect(markup).not.toContain('role="columnheader"')
   })
 })

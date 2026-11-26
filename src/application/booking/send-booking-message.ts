@@ -10,10 +10,6 @@
  * F1 (C8): one lookup reads the candidate and live rows of both languages, and
  * the promotion runs after the send.
  * The free text uses the restaurant's custom wording when it has one (AC-7).
- * BOOK-013 (spec AC-17): a confirmation carries the booking's QR (`image`): as
- * the IMAGE header of a QR template (never its sample image), or, in the
- * window, as an image message with the text as caption. An old approved
- * confirmation without a header still sends as before (AC-18).
  * Never throws: the booking state is already saved when this runs, and the
  * caller reports `delivered: false` to staff instead (spec AC-14 warning
  * state). Logs carry the kind and a masked phone only (R8).
@@ -21,7 +17,6 @@
 import { isTemplateSendable, type WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 import { bookingParamsForBody, buildBookingTemplateParams, buildBookingText } from '@/domain/services/booking-message'
 import { renderBookingTemplateBody } from '@/domain/services/booking-template-body'
-import { hasImageHeader } from '@/domain/services/booking-templates'
 import { Language, type LanguageCode } from '@/domain/value-objects/language'
 import { TEMPLATE_LANGUAGES, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
 import type { BookingMessageInput, BookingMessageSender, BookingSendResult } from '@/domain/ports/booking'
@@ -36,17 +31,8 @@ export interface BookingSenderDeps {
   getPhoneNumberId(restaurantId: string): Promise<string>
   isWindowOpen(restaurantId: string, phone: string): Promise<boolean>
   getLanguage(restaurantId: string, phone: string): Promise<LanguageCode>
-  sendTemplate(args: {
-    phoneNumberId: string
-    to: string
-    template: WhatsAppTemplate
-    paramValues: Record<string, string>
-    /** BOOK-013: the per-send IMAGE header link (the booking's QR). */
-    headerImageLink?: string
-  }): Promise<SendResult>
+  sendTemplate(args: { phoneNumberId: string; to: string; template: WhatsAppTemplate; paramValues: Record<string, string> }): Promise<SendResult>
   sendText(phoneNumberId: string, to: string, text: string): Promise<SendResult>
-  /** BOOK-013 (spec AC-17): the in-window confirmation with its QR; absent = text only. */
-  sendImage?(phoneNumberId: string, to: string, imageUrl: string, caption: string): Promise<SendResult>
 }
 
 const maskPhone = (phone: string) => `***${phone.slice(-4)}`
@@ -112,11 +98,7 @@ async function sendTemplate(deps: BookingSenderDeps, input: BookingMessageInput,
   const body = template.components.find((c) => c.type === 'BODY')?.text ?? ''
   const paramValues = bookingParamsForBody(body, input.details)
   if (!paramValues) return failed(input, 'template_params_unknown')
-  // BOOK-013: a QR-header template never goes out with its sample image.
-  const qrHeader = hasImageHeader(template)
-  if (qrHeader && !input.image) return failed(input, 'qr_missing')
-  const header = qrHeader && input.image ? { headerImageLink: input.image } : {}
-  const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues, ...header })
+  const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
   return result.ok ? ({ delivered: true, via: 'template' } as const) : failed(input, result.error?.title ?? 'template_send_failed')
 }
 
@@ -140,12 +122,7 @@ async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Pr
   }
 
   if (!(await deps.isWindowOpen(input.restaurantId, input.phone))) return { delivered: false, reason: 'outside_window' }
-  const text = freeText(config, input, language)
-  if (input.image && deps.sendImage) {
-    const sent = await deps.sendImage(phoneNumberId, input.phone, input.image, text)
-    return sent.ok ? { delivered: true, via: 'image' } : failed(input, sent.error?.title ?? 'image_send_failed')
-  }
-  const result = await deps.sendText(phoneNumberId, input.phone, text)
+  const result = await deps.sendText(phoneNumberId, input.phone, freeText(config, input, language))
   return result.ok ? { delivered: true, via: 'text' } : failed(input, result.error?.title ?? 'text_send_failed')
 }
 

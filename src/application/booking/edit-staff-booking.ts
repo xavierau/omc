@@ -1,11 +1,11 @@
 /**
  * BOOK-013 S2: staff edit a pending or confirmed booking of any source.
  *
- * Status, source and check-in code never change (owner decision 5). The write
+ * Status and source never change (owner decision 5). The write
  * is conditional on the status and `edit_version` the form loaded and on no
  * open change request (R3, R5): a stale form answers `changed`, an open change
  * `open_change`, and nothing is written or sent. Background writes (reminder,
- * QR, message status, check-in) never make a form stale (review R1).
+ * message status, check-in) never make a form stale (review R1).
  * The `changed` message outcome is answered, never stored on the row: the
  * row's badge is the confirmation's (review R8). A moved slot re-checks the
  * rules without counting the booking against itself (AC-8) and makes the

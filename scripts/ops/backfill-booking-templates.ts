@@ -1,11 +1,9 @@
-// BOOK-013 (spec AC-14, AC-18): submit the new booking templates for every
+// BOOK-013 (spec AC-14): submit the new booking templates for every
 // restaurant already in Simple booking mode, without waiting for its next
 // settings save. One run per tenant of the same provisioning a Simple save
-// runs (provision-booking-templates.ts):
-//   - `changed` and `cancelled` (zh_hk + en) are submitted as new templates;
-//   - a live `confirmed` without the check-in QR header gets its QR version
-//     submitted as the slot's candidate; the old approved one keeps sending
-//     until Meta approves the new one (the BOOK-002 candidate flow).
+// runs (provision-booking-templates.ts): only the kinds that are missing
+// (`changed` and `cancelled` in zh_hk + en, and any kind not yet provisioned)
+// are submitted. A live `confirmed` is left as it is (spec decision 8).
 // Idempotent: a slot already submitted or pending at Meta is left alone.
 // It SUBMITS TO META, so it is a release step for the owner, never a test.
 //

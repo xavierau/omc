@@ -8,7 +8,6 @@
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import type {
   CheckInArgs,
-  CheckinQrStore,
   CheckinStore,
   StaffBookingStore,
   StaffCancelArgs,
@@ -20,7 +19,6 @@ export type StaffRow = BookingRequest & {
   editVersion: number
   /** 082's trigger: every write. Never part of the staff conditional write (review R1). */
   updatedAt: string
-  checkinQrPath?: string | null
   reminderSentAt?: string | null
   lastStaffMessageAt?: string | null
   cancelledByUser?: string | null
@@ -44,7 +42,7 @@ export function staffRow(extra: Partial<StaffRow> = {}): StaffRow {
     bookingDate: '2026-11-28', bookingTime: '19:00', notes: null, status: 'confirmed', declineReason: null, decidedBy: 'u',
     decidedAt: '2026-11-20T00:00:00Z', source: 'chat', campaignId: null, createdAt: '2026-11-20T00:00:00Z',
     decisionMessageStatus: 'delivered', replacesBookingId: null, cancelledBy: null, editVersion: 0, updatedAt: stamp(), createdBy: null,
-    notifyDiner: true, checkinCode: 'K7Q2MX', checkedInAt: null, reminderSentAt: null, lastStaffMessageAt: null, ...extra,
+    notifyDiner: true, checkedInAt: null, reminderSentAt: null, lastStaffMessageAt: null, ...extra,
   }
 }
 
@@ -80,7 +78,7 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     this.events.push({ restaurantId, type, actor, data: broken.length > 0 ? { ...data, brokenRules: broken } : data })
   }
 
-  /** Any other writer (reminder claim, QR path, message status, diner AI, another staff): one UPDATE through the triggers. */
+  /** Any other writer (reminder claim, message status, diner AI, another staff): one UPDATE through the triggers. */
   write(id: string, patch: Partial<StaffRow>): void {
     const row = this.rows.find((r) => r.id === id)
     if (!row) throw new Error(`no row ${id}`)
@@ -94,15 +92,12 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
 
   async create(args: StaffCreateArgs) {
     this.writes.push('create')
-    const taken = (code: string) => this.rows.some((r) => r.restaurantId === args.restaurantId && r.checkinCode === code)
-    const code = args.codes.find((c) => !taken(c))
-    if (!code) throw new Error('staff_create_booking: every check-in code clashed')
     const { input } = args
     const row = staffRow({
       restaurantId: args.restaurantId, memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize,
       bookingDate: input.date, bookingTime: input.time, notes: input.notes, status: 'confirmed', source: 'staff',
       decidedBy: args.actorUserId, decidedAt: args.at.toISOString(), createdBy: args.actorUserId, notifyDiner: input.notify,
-      checkinCode: code, decisionMessageStatus: null,
+      decisionMessageStatus: null,
     })
     this.rows.push(row)
     this.audit(args.restaurantId, 'booking.staff_created', args.actorUserId, { bookingId: row.id }, args.brokenRules)
@@ -148,11 +143,6 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     return { bookings: rows.slice(0, cap).map((r) => this.view(r)), truncated: rows.length > cap }
   }
 
-  async findByCode(restaurantId: string, code: string) {
-    const row = this.rows.find((r) => r.restaurantId === restaurantId && r.checkinCode === code && ['confirmed', 'no_show'].includes(r.status))
-    return row ? this.view(row) : null
-  }
-
   async checkIn(args: CheckInArgs) {
     this.writes.push('checkIn')
     const row = this.mine(args.id, args.restaurantId)
@@ -172,16 +162,3 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
   }
 }
 
-/** A QR store that records what it was asked for. */
-export class FakeCheckinQr implements CheckinQrStore {
-  readonly ensured: string[] = []
-  readonly removed: string[] = []
-  url: string | null = 'https://storage.example/booking-checkin-qr/AbCdEfGhIjKlMnOpQrStUvWx.png'
-  async ensure(b: { id: string; restaurantId: string; checkinCode: string }) {
-    this.ensured.push(`${b.id}:${b.checkinCode}`)
-    return this.url
-  }
-  async remove(b: { id: string }) {
-    this.removed.push(b.id)
-  }
-}

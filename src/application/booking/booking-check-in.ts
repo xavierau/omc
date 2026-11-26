@@ -4,14 +4,13 @@
  * Arrived only on a confirmed booking dated today (Hong Kong), not yet
  * arrived, with no open change (R14); undo clears it. Each is one
  * conditional statement with its events row (R3, R9), scoped by the
- * session's restaurant (R2). A code is parsed strictly before any lookup
- * (R15) and only ever looked up inside this restaurant (AC-24). Mode off
- * refuses Arrived and Undo like every staff write (R6).
+ * session's restaurant (R2, AC-24). Mode off refuses Arrived and Undo like
+ * every staff write (R6).
  */
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
 import type { CheckinStore } from '@/domain/ports/staff-booking'
-import { parseCheckinCode, TODAY_LIST_CAP } from '@/domain/services/booking-checkin'
+import { TODAY_LIST_CAP } from '@/domain/services/booking-checkin'
 import { hongKongToday } from '@/domain/services/booking-submission'
 import { UUID } from './staff-booking-shared'
 
@@ -71,15 +70,4 @@ export async function undoCheckIn(deps: BookingCheckInDeps, input: CheckInInput)
 export async function listTodayBookings(deps: BookingCheckInDeps, restaurantId: string) {
   const today = hongKongToday(deps.now())
   return { date: today, ...(await deps.store.listForDate(restaurantId, today, TODAY_LIST_CAP)) }
-}
-
-export type CodeLookup = { ok: true; booking: BookingRequest; today: boolean } | { ok: false; reason: 'not_found' }
-
-/** AC-21/AC-24, R15: a typed or scanned code; anything not code-shaped is not found without a query. */
-export async function findBookingByCode(deps: BookingCheckInDeps, restaurantId: string, raw: unknown): Promise<CodeLookup> {
-  const code = parseCheckinCode(raw)
-  if (!code) return { ok: false, reason: 'not_found' }
-  const booking = await deps.store.findByCode(restaurantId, code)
-  if (!booking) return { ok: false, reason: 'not_found' }
-  return { ok: true, booking, today: booking.bookingDate === hongKongToday(deps.now()) }
 }

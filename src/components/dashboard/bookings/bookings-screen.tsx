@@ -12,7 +12,7 @@
  * BOOK-010: the Calendar's Capacity block (stop / resume) and month badges,
  * and the over-limit confirm prompt; a decision also reloads the capacity.
  * BOOK-013: staff add / edit / cancel (StaffBookingContext: the form, rules
- * prompt, cancel dialog, toast), the Today view with search, scan and
+ * prompt, cancel dialog, toast), the Today view with search, sort and
  * Arrived, and "Bookings are off" when the restaurant's booking mode is off.
  */
 import { useCallback, type ReactNode } from 'react'
@@ -143,7 +143,10 @@ function BookingsOn() {
         <MemberLinkNoticeLine failed={member.failed} />
         {data?.truncated ? <p data-testid="bookings-truncated" className="text-sm text-muted-foreground">{t('truncated', { count: all.length })}</p> : null}
         {page.view === 'today' ? (
-          <BookingsToday state={todayView} today={page.today} busyIds={rows.busyIds} onDecide={rows.onDecide} />
+          <BookingsToday
+            state={todayView} sort={page.todaySort} onSort={page.sortTodayBy} onSortChange={page.setTodaySort}
+            isPhone={page.isPhone} busyIds={rows.busyIds} onDecide={rows.onDecide}
+          />
         ) : error ? (
           <LoadError onRetry={refetch} />
         ) : isLoading && !data ? (

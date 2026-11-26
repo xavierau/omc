@@ -19,8 +19,6 @@ export interface BookingMessageDetails {
   time: string
   partySize: number
   declineReason?: string | null
-  /** BOOK-013 (spec S6): the check-in code, on a confirmation only. */
-  checkinCode?: string | null
 }
 
 export const TEMPLATE_PARAM_NAME_MAX = 60
@@ -44,8 +42,6 @@ export function buildBookingTemplateParams(details: BookingMessageDetails): Reco
     time: details.time,
     party_size: String(details.partySize),
     reason: sanitizeTemplateParam(details.declineReason) || '-',
-    // BOOK-013: only a confirmation with a code can fill {{code}}; a body that names it otherwise is unfillable.
-    ...(details.checkinCode ? { code: details.checkinCode } : {}),
   }
 }
 
@@ -73,7 +69,7 @@ const EN: Record<BookingMessageKind, Copy> = {
   received: (d) =>
     `Hi ${d.name}, we've received your booking request at ${d.restaurant} for ${d.party_size} on ${d.date} at ${d.time}. The restaurant will confirm it shortly.`,
   confirmed: (d) =>
-    `Your table booking is confirmed. Restaurant: ${d.restaurant}. Date: ${d.date}. Time: ${d.time}. Party size: ${d.party_size}.${d.code ? ` Show this QR at the door, or tell staff your check-in code: ${d.code}.` : ''} If your plans change, please reply to this message to let the restaurant know.`,
+    `Your table booking is confirmed. Restaurant: ${d.restaurant}. Date: ${d.date}. Time: ${d.time}. Party size: ${d.party_size}. If your plans change, please reply to this message to let the restaurant know.`,
   declined: (d) =>
     `Sorry, the restaurant could not accept your booking request for ${d.date} at ${d.time}.${d.reason !== '-' ? ` Reason: ${d.reason}.` : ''} You are welcome to choose another time and send a new request.`,
   // F8: the 3h window can open the evening before, so the date, never "today".
@@ -90,7 +86,7 @@ const ZH: Record<BookingMessageKind, Copy> = {
   received: (d) =>
     `${d.name}你好,我們已收到你在${d.restaurant}的訂座要求:${d.date} ${d.time},${d.party_size}位。餐廳確認後會再通知你。`,
   confirmed: (d) =>
-    `你的訂座已確認。餐廳:${d.restaurant}。日期:${d.date}。時間:${d.time}。人數:${d.party_size}位。${d.code ? `到達時請出示此 QR 碼,或告知職員入座編號:${d.code}。` : ''}如行程有變,請直接回覆此訊息通知餐廳。`,
+    `你的訂座已確認。餐廳:${d.restaurant}。日期:${d.date}。時間:${d.time}。人數:${d.party_size}位。如行程有變,請直接回覆此訊息通知餐廳。`,
   declined: (d) =>
     `很抱歉,餐廳未能接受你在${d.date} ${d.time}的訂座要求。${d.reason !== '-' ? `原因:${d.reason}。` : ''}歡迎選擇其他時間再次提交訂座要求。`,
   reminder: (d) => `提提你,你在${d.restaurant}的訂座將於${d.date} ${d.time}開始。如未能出席,請直接回覆此訊息通知餐廳。`,

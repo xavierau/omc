@@ -8,8 +8,8 @@
  * BOOK-006: the change-pending marker sits in the notes too, in place of the actions.
  * BOOK-007: past confirmed rows offer "Mark no-show"; no-show rows "Undo".
  * BOOK-008: the guest cell's name opens the linked member; the member link control sits under it.
- * BOOK-013: the source cell says "By staff · name"; the phone cell carries the check-in code; the
- * actions cell Arrived / Undo and the ⋯ menu (Edit / Cancel).
+ * BOOK-013: the source cell says "By staff · name"; the actions cell Arrived / Undo and the ⋯ menu
+ * (Edit / Cancel).
  */
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -31,7 +31,7 @@ import { NoShowAction } from './booking-no-show-action'
 import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
-import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, CheckinCode, StaffSourceBadge } from './booking-staff-controls'
+import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
 import type { DayGroup } from './booking-groups'
 
 export interface BookingGroupsProps extends BookingActionProps {
@@ -48,10 +48,7 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
         <BookingGuestName booking={booking} className={cn('font-medium', cancelledText(booking))} />
         <MemberLinkControl booking={booking} />
       </TableCell>
-      <TableCell className="text-muted-foreground">
-        <PhoneLink phone={booking.phone} />
-        <CheckinCode booking={booking} className="block" />
-      </TableCell>
+      <TableCell className="text-muted-foreground"><PhoneLink phone={booking.phone} /></TableCell>
       <TableCell className="tabular-nums">{booking.partySize}</TableCell>
       <TableCell>
         <span className="flex flex-wrap items-center gap-1.5">

@@ -12,7 +12,7 @@ export interface RecordedQuery {
 type Result = { data?: unknown; error?: { message: string } | null; count?: number | null }
 
 const CHAIN_METHODS = [
-  'select', 'insert', 'update', 'delete', 'eq', 'neq', 'is', 'in', 'gt', 'lt', 'gte', 'lte', 'or', 'order', 'limit', 'not',
+  'select', 'insert', 'update', 'delete', 'eq', 'neq', 'is', 'in', 'gt', 'lt', 'gte', 'lte', 'or', 'order', 'limit',
 ]
 
 export function recordingSupabase(results: Result[] | ((query: RecordedQuery) => Result)) {
@@ -53,10 +53,6 @@ export function recordingSupabase(results: Result[] | ((query: RecordedQuery) =>
 /** The filters of one recorded query as `method:column=value` strings. */
 export function filtersOf(query: RecordedQuery): string[] {
   return query.calls
-    .filter(([m]) => ['eq', 'neq', 'is', 'gt', 'lt', 'or', 'in', 'not'].includes(m))
-    .map(([m, column, value, extra]) => {
-      if (m === 'or') return `or:${String(column)}`
-      if (m === 'not') return `not:${String(column)}=${String(value)}.${String(extra)}`
-      return `${m}:${String(column)}=${String(value)}`
-    })
+    .filter(([m]) => ['eq', 'neq', 'is', 'gt', 'lt', 'or', 'in'].includes(m))
+    .map(([m, column, value]) => (m === 'or' ? `or:${String(column)}` : `${m}:${String(column)}=${String(value)}`))
 }

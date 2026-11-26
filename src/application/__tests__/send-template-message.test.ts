@@ -208,20 +208,6 @@ describe('sendWhatsAppTemplateMessage', () => {
   // send-time header parameter carrying the stored public URL, or Meta
   // rejects every send with #132012.
   describe('media header params', () => {
-    // BOOK-013 (R10): the booking confirmation's IMAGE header is the booking's own QR link,
-    // even when the stored row only has Meta's `4:` handle.
-    it.each([['https://cdn.example.com/sample.png'], ['4::aW1hZ2U=']])('a per-send image link replaces the stored header (%s)', async (stored) => {
-      const template = buildTemplate({
-        components: [
-          { type: 'HEADER', format: 'IMAGE', example: { header_handle: [stored] } },
-          { type: 'BODY', text: 'Code {{code}}' },
-        ],
-      })
-      const link = 'https://storage.example/booking-checkin-qr/AbCdEfGhIjKlMnOpQrStUvWx.png'
-      await sendWhatsAppTemplateMessage({ phoneNumberId: 'pn-1', to: '+85291234567', template, paramValues: { code: 'K7Q2MX' }, headerImageLink: link })
-      expect(sendTemplateMessage).toHaveBeenCalledWith('pn-1', '+85291234567', expect.objectContaining({ headerParams: [{ type: 'image', image: { link } }] }))
-    })
-
     it('builds an image header param from the stored snake_case header_handle URL', async () => {
       const template = buildTemplate({
         components: [

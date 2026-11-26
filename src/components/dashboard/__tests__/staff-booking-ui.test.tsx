@@ -1,8 +1,9 @@
 /**
  * BOOK-013 UI (spec UI Feedback States, test ids; mockup frames 1, 3, 7, 8):
- * the row controls in every view (⋯ Edit / Cancel, "By staff · name", the
- * check-in code, Arrived / Undo), the rules prompt, the Today rows and code
- * card, the save outcomes, and the i18n keys in both languages.
+ * the row controls in every view (⋯ Edit / Cancel, "By staff · name",
+ * Arrived / Undo; no check-in code: decision 8), the rules prompt, the Today
+ * view (search, sort AC-25), the save outcomes, and the i18n keys in both
+ * languages.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -20,7 +21,7 @@ import { BookingsTableDesktop } from '../bookings/bookings-table-desktop'
 import { BookingsTableCards } from '../bookings/bookings-table-cards'
 import { CalendarDayPanel } from '../bookings/calendar-day-panel'
 import { RulesPrompt } from '../bookings/staff-booking-dialogs'
-import { BookingsToday, CodeResultCard } from '../bookings/bookings-today'
+import { BookingsToday } from '../bookings/bookings-today'
 import { BookingsNow } from '../bookings/bookings-clock'
 import { StaffBookingContext, formAfter, toastFor, type FormState, type StaffBookingActions } from '../bookings/use-staff-booking'
 import { canCancelBooking, canEditBooking, changedFormFields, formBody, initialForm, staffSaveOutcome, checkInOutcome } from '../bookings/staff-booking-api'
@@ -40,7 +41,7 @@ const booking = (over: Partial<BookingItem> = {}): BookingItem => ({
   id: 'b1', restaurantId: 'r', memberId: null, phone: '+85291234567', name: 'Mr Lam', partySize: 6, bookingDate: '2026-11-26',
   bookingTime: '19:00', notes: 'window table', status: 'confirmed', declineReason: null, decidedBy: 'u', decidedAt: null, source: 'staff',
   campaignId: null, createdAt: '2026-11-20T00:00:00Z', decisionMessageStatus: null, editVersion: 2,
-  createdBy: 'u', createdByName: 'Mandy', notifyDiner: true, checkinCode: 'K7Q2MX', checkedInAt: null, ...over,
+  createdBy: 'u', createdByName: 'Mandy', notifyDiner: true, checkedInAt: null, ...over,
 })
 
 const actions: StaffBookingActions = {
@@ -61,11 +62,11 @@ const views = {
 describe.each(Object.keys(views) as Array<keyof typeof views>)('row controls in the %s', (name) => {
   const render = views[name]
 
-  it('a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today)', () => {
+  it('a staff-made confirmed booking: By staff · name, the ⋯ menu and Arrived (today); no check-in code', () => {
     const html = render(booking())
     expect(html).toContain('data-testid="booking-row-b1-by-staff"')
     expect(html).toContain('bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}')
-    expect(html).toMatch(/data-testid="booking-row-b1-code"[^>]*>K7Q2MX</)
+    expect(html).not.toContain('booking-row-b1-code')
     expect(html).toContain('data-testid="booking-row-b1-menu"')
     expect(html).toContain('data-testid="booking-row-b1-arrived"')
   })
@@ -146,18 +147,20 @@ describe('rules prompt (AC-3, frame 3)', () => {
   })
 })
 
-describe('Today view (S7, frames 7-8)', () => {
+describe('Today view (S7, AC-20, AC-25; frames 7-8)', () => {
   const today = (bookings: BookingItem[], query = ''): BookingsTodayState => ({
-    data: { date: '2026-11-26', bookings, truncated: false }, failed: false, loading: false, refetch: async () => {},
-    query, setQuery: noop, codeCard: null, scan: { kind: 'closed' }, openScan: noop, scanAgain: noop, closeScan: noop, onScanned: async () => {},
+    data: { date: '2026-11-26', bookings, truncated: false }, failed: false, loading: false, refetch: async () => {}, query, setQuery: noop,
   })
   const list = [
-    booking({ id: 'a', bookingTime: '18:30', name: 'Wu Siu Ming', source: 'chat', checkinCode: 'ZB6N3Q' }),
-    booking({ id: 'b', bookingTime: '19:30', name: 'Yeung Family', source: 'agent', checkinCode: 'T9DK2V' }),
-    booking({ id: 'c', bookingTime: '13:00', name: 'Au Ka Yan', partySize: 4, checkedInAt: '2026-11-26T04:58:00Z', checkinCode: 'H2RW9C' }),
-    booking({ id: 'd', bookingTime: '20:30', name: 'Kan Wai', status: 'pending', checkinCode: null }),
+    booking({ id: 'a', bookingTime: '18:30', name: 'Wu Siu Ming', source: 'chat', partySize: 2 }),
+    booking({ id: 'b', bookingTime: '19:30', name: 'Yeung Family', source: 'agent', partySize: 8 }),
+    booking({ id: 'c', bookingTime: '13:00', name: 'Au Ka Yan', partySize: 4, checkedInAt: '2026-11-26T04:58:00Z' }),
+    booking({ id: 'd', bookingTime: '20:30', name: 'Chan Ka Wai', status: 'pending', partySize: 4 }),
   ]
-  const render = (state: BookingsTodayState) => withStaff(<BookingsToday state={state} today="2026-11-26" busyIds={new Set()} onDecide={noop} />)
+  type Sort = { key: 'time' | 'name' | 'guests' | 'status'; dir: 'asc' | 'desc' }
+  const render = (state: BookingsTodayState, sort: Sort = { key: 'time', dir: 'asc' }, isPhone = false) =>
+    withStaff(<BookingsToday state={state} sort={sort} onSort={noop} onSortChange={noop} isPhone={isPhone} busyIds={new Set()} onDecide={noop} />)
+  const order = (html: string) => (html.match(/data-testid="booking-row-[a-d]"/g) ?? []).map((m) => m.slice(-2, -1))
 
   it('states: Late 50 min, Waiting, Arrived 12:58 with Undo, Needs reply with Confirm; counters', () => {
     const html = render(today(list))
@@ -168,22 +171,58 @@ describe('Today view (S7, frames 7-8)', () => {
     expect(html).toContain('data-testid="booking-row-c-arrived-undo"')
     expect(html).toContain('data-testid="booking-row-d-arrival" data-state="needs_reply"')
     expect(html).toContain('data-testid="booking-row-d-confirm"')
-    expect(html).toMatch(/data-testid="bookings-today-counter-arrived"[^>]*><dt[^>]*>[^<]*<\/dt><dd[^>]*>4 \/ 22</)
+    expect(html).toMatch(/data-testid="bookings-today-counter-arrived"[^>]*><dt[^>]*>[^<]*<\/dt><dd[^>]*>4 \/ 18</)
   })
 
-  it('AC-20: the search narrows by name, phone digits or code; no match shows the empty state', () => {
-    expect(render(today(list, 'ZB6N')).match(/data-testid="booking-row-[a-d]"/g)).toEqual(['data-testid="booking-row-a"'])
+  it('decision 8: no Scan button, no code card, no code on the rows', () => {
+    for (const html of [render(today(list)), render(today(list), undefined, true)]) {
+      expect(html).not.toMatch(/-scan\b|-scan-|row-[a-d]-code/)
+    }
+  })
+
+  it('AC-20: the search narrows by name or phone digits; a code-shaped query matches nothing; no match shows the empty state', () => {
+    expect(order(render(today(list, 'Wu')))).toEqual(['a'])
+    expect(order(render(today(list, 'K7Q2MX')))).toEqual([])
     expect(render(today(list, 'zzz'))).toContain('data-testid="bookings-today-empty"')
   })
 
-  it('AC-21: a code card for today offers Arrived; for another day it says so and offers none', () => {
-    const todayCard = withStaff(<CodeResultCard lookup={{ kind: 'found', booking: booking(), today: true }} today="2026-11-26" />)
-    expect(todayCard).toContain('data-testid="booking-scan-result"')
-    expect(todayCard).toContain('data-testid="booking-row-b1-arrived"')
-    const other = withStaff(<CodeResultCard lookup={{ kind: 'found', booking: booking({ bookingDate: '2026-11-27' }), today: false }} today="2026-11-26" />)
-    expect(other).toContain('bookings.today.codeOtherDay')
-    expect(other).not.toContain('booking-row-b1-arrived')
-    expect(withStaff(<CodeResultCard lookup={{ kind: 'not_found' }} today="2026-11-26" />)).toContain('data-testid="booking-scan-not-found"')
+  it('AC-25 desktop: a header row of columnheaders, buttons for Time / Name / Guests / Status, aria-sort only on the active one, Action not sortable', () => {
+    const html = render(today(list), { key: 'name', dir: 'desc' })
+    expect(html).toContain('role="table"')
+    expect(html.match(/role="columnheader"/g)).toHaveLength(5)
+    expect(html.match(/aria-sort="/g)).toEqual(['aria-sort="'])
+    expect(html).toMatch(/role="columnheader" aria-sort="descending"><button[^>]*data-testid="bookings-today-sort-name"/)
+    for (const key of ['time', 'name', 'guests', 'status']) expect(html).toContain(`data-testid="bookings-today-sort-${key}"`)
+    expect(html).toMatch(/role="columnheader"[^>]*>bookings\.today\.sort\.action</)
+    expect(html).not.toContain('data-testid="bookings-today-sort"')
+  })
+
+  it('AC-25: Time sort shows Lunch / Dinner headings in order; any other sort shows none', () => {
+    const byTime = render(today(list))
+    expect(order(byTime)).toEqual(['c', 'a', 'b', 'd'])
+    expect(byTime.indexOf('bookings-today-group-lunch')).toBeLessThan(byTime.indexOf('booking-row-c"'))
+    expect(byTime.indexOf('bookings-today-group-dinner')).toBeGreaterThan(byTime.indexOf('booking-row-c"'))
+    expect(byTime.indexOf('bookings-today-group-dinner')).toBeLessThan(byTime.indexOf('booking-row-a"'))
+    expect(byTime).toMatch(/role="columnheader" aria-sort="ascending"><button[^>]*data-testid="bookings-today-sort-time"/)
+    const byName = render(today(list), { key: 'name', dir: 'asc' })
+    expect(order(byName)).toEqual(['c', 'd', 'a', 'b'])
+    expect(byName).not.toContain('bookings-today-group-')
+  })
+
+  it('AC-25: guests largest first, status Late → Waiting → Needs reply → Arrived, both kept with a search', () => {
+    expect(order(render(today(list), { key: 'guests', dir: 'desc' }))).toEqual(['b', 'c', 'd', 'a'])
+    expect(order(render(today(list), { key: 'status', dir: 'asc' }))).toEqual(['a', 'b', 'd', 'c'])
+    expect(order(render(today(list, 'a'), { key: 'name', dir: 'desc' }))).toEqual(['b', 'd', 'c'])
+    expect(order(render(today(list, 'Ka'), { key: 'time', dir: 'desc' }))).toEqual(['d', 'c'])
+  })
+
+  it('AC-25 phone: the Sort select (no column headers) with the active choice selected, cards in sort order', () => {
+    const html = render(today(list), { key: 'guests', dir: 'asc' }, true)
+    expect(html).toContain('data-testid="bookings-today-sort"')
+    expect(html).toMatch(/<option value="guests:asc" selected="">bookings\.today\.sort\.option\.guests_asc<\/option>/)
+    expect(html.match(/<option /g)).toHaveLength(8)
+    expect(html).not.toContain('role="columnheader"')
+    expect(order(html)).toEqual(['a', 'c', 'd', 'b'])
   })
 })
 

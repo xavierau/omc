@@ -2,7 +2,7 @@
  * BOOK-013 (spec S1/S2; threat R4, R7): the staff booking form as the server
  * accepts it. An allow-list: only phone, name, partySize, date, time, notes,
  * notify, override (and expectedVersion on an edit) are read; any other key
- * (status, source, member_id, checkin_code, restaurant_id …) is ignored, so
+ * (status, source, member_id, restaurant_id …) is ignored, so
  * the server alone sets those. Field errors are never overridable: `override`
  * only answers the booking-rules prompt (owner decision 3).
  */

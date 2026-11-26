@@ -23,11 +23,9 @@
  */
 import {
   BOOKING_TEMPLATE_LANGUAGES,
-  bookingKindComponents,
   bookingTemplateBody,
+  bookingTemplateComponents,
   bookingTemplateStatus,
-  hasImageHeader,
-  kindHasQrHeader,
   metaLanguageCode,
   mintBookingTemplateName,
   needsSubmission,
@@ -66,12 +64,6 @@ export interface ProvisionBookingTemplatesDeps {
   ensureWabaId(restaurantId: string): Promise<string | null>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
   suffix(): string
-  /**
-   * BOOK-013: a public sample QR image for the `confirmed` IMAGE header's
-   * example (minted into a Meta handle at submit); null when it cannot be
-   * made. Without it no `confirmed` is submitted (retried on the next save).
-   */
-  qrExampleUrl?(): Promise<string | null>
 }
 
 interface Submission {
@@ -83,8 +75,6 @@ interface Submission {
   draftId: string | null
   /** The slot's rejected or failed edit, replaced by this submission. */
   staleCandidateId: string | null
-  /** BOOK-013 (AC-18): the QR version of a live confirmed without one, stored as the candidate. */
-  asCandidate?: { body: string | null }
 }
 
 type Rows = Map<string, WhatsAppTemplate>
@@ -100,58 +90,17 @@ function slotDue(config: BookingConfig, rows: Rows, kind: BookingTemplateKind, l
   return [{ language, text, draftId: status === 'failed' ? slot.currentId : null, staleCandidateId }]
 }
 
-/** BOOK-013: the code sentence added to a restaurant's own confirmation text that has none. */
-const CODE_LINE: Record<LanguageCode, string> = {
-  en: ' Check-in code: {{code}}.',
-  zh_hk: '入座編號:{{code}}。',
-}
-
-function withCode(text: string, language: LanguageCode): string {
-  return text.includes('{{code}}') ? text : `${text}${CODE_LINE[language]}`
-}
-
-/**
- * BOOK-013 (AC-18): a live (approved or pending) `confirmed` without the QR
- * header gets its QR version submitted as the slot's candidate, unless one is
- * already waiting at Meta. Custom text keeps its words plus the code line.
- */
-function qrUpgradeDue(config: BookingConfig, rows: Rows, language: LanguageCode) {
-  const slot = resolveBookingTemplateSlot(config, 'confirmed', language, rows)
-  const live = slot.currentId ? rows.get(slot.currentId) : undefined
-  const liveStatus = bookingTemplateStatus(live ?? null)
-  if (!live || needsSubmission(liveStatus) || hasImageHeader(live)) return []
-  const candidate = slot.candidateId ? rows.get(slot.candidateId) : undefined
-  const candidateStatus = bookingCandidateStatus(candidate)
-  if (candidateStatus === 'pending' && hasImageHeader(candidate)) return []
-  const custom = config.templateBodies.confirmed[language] ?? null
-  const text = custom ? withCode(custom, language) : bookingTemplateBody('confirmed', language)
-  // A QR candidate that never reached Meta (a failed draft) is resubmitted in place, so retries do not pile up rows.
-  const draftId = candidateStatus === 'failed' && hasImageHeader(candidate) ? slot.candidateId : null
-  return [{ language, text, draftId, staleCandidateId: null, asCandidate: { body: custom ? text : null } }]
-}
-
 function pendingSubmissions(config: BookingConfig, rows: Rows, deps: ProvisionBookingTemplatesDeps): Submission[] {
-  const regular = TEMPLATE_KINDS.flatMap((kind) => {
+  return TEMPLATE_KINDS.flatMap((kind) => {
     const due = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => slotDue(config, rows, kind, language))
     if (due.length === 0) return []
     const name = mintBookingTemplateName(kind, deps.suffix())
     return due.map((d) => ({ kind, name, ...d }))
   })
-  const upgrades = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => qrUpgradeDue(config, rows, language))
-  if (upgrades.length === 0) return regular
-  const name = mintBookingTemplateName('confirmed', deps.suffix())
-  return [...regular, ...upgrades.map((u) => ({ kind: 'confirmed' as const, name, ...u }))]
 }
 
-/** BOOK-013: a `confirmed` submission needs the sample QR; without it, it waits for the next save. */
-async function withQrExample(submissions: Submission[], deps: ProvisionBookingTemplatesDeps) {
-  if (!submissions.some((s) => kindHasQrHeader(s.kind))) return { submissions, exampleUrl: null }
-  const exampleUrl = (await deps.qrExampleUrl?.().catch(() => null)) ?? null
-  return { submissions: exampleUrl ? submissions : submissions.filter((s) => !kindHasQrHeader(s.kind)), exampleUrl }
-}
-
-function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps, exampleUrl: string | null) {
-  const components = bookingKindComponents(s.kind, s.text, exampleUrl)
+function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
+  const components = bookingTemplateComponents(s.text)
   if (s.draftId) return deps.resubmitTemplate(s.draftId, restaurantId, components)
   return deps.createTemplate({ restaurantId, name: s.name, language: metaLanguageCode(s.language), category: 'UTILITY', components })
 }
@@ -166,9 +115,9 @@ async function resolveWaba(restaurantId: string, deps: ProvisionBookingTemplates
   }
 }
 
-async function submit(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps, exampleUrl: string | null) {
+async function submit(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
   try {
-    const { template } = await send(restaurantId, s, deps, exampleUrl)
+    const { template } = await send(restaurantId, s, deps)
     return template
   } catch (err) {
     console.warn('[Booking] template submission failed:', { kind: s.kind, language: s.language, error: (err as Error).message })
@@ -182,16 +131,15 @@ export async function provisionBookingTemplates(
 ): Promise<BookingTemplateStatuses> {
   const config = await deps.getConfig(restaurantId)
   const rows = await templateRowsById(config, restaurantId, deps.findTemplates)
-  const { submissions, exampleUrl } = await withQrExample(pendingSubmissions(config, rows, deps), deps)
+  const submissions = pendingSubmissions(config, rows, deps)
   if (submissions.length === 0) return statusesOf(config, rows)
 
   await resolveWaba(restaurantId, deps)
-  const created = await Promise.all(submissions.map((s) => submit(restaurantId, s, deps, exampleUrl)))
+  const created = await Promise.all(submissions.map((s) => submit(restaurantId, s, deps)))
   const slots: ProvisionedSlot[] = submissions.map((s, i) => {
     const template = created[i]
     if (template) rows.set(template.id, template)
-    const base = { kind: s.kind, language: s.language, id: template?.id ?? null, staleCandidateId: s.staleCandidateId }
-    return s.asCandidate ? { ...base, asCandidate: s.asCandidate } : base
+    return { kind: s.kind, language: s.language, id: template?.id ?? null, staleCandidateId: s.staleCandidateId }
   })
   await deps.saveProvisioned(restaurantId, slots)
   return statusesOf(applyProvisionedTemplates(config, slots), rows)

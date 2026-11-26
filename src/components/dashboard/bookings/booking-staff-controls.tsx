@@ -4,7 +4,7 @@
  * BOOK-013 (mockup frames 1, 7): what each booking row adds. The ⋯ menu with
  * Edit booking (pending/confirmed, no open change: AC-10) and Cancel booking
  * (confirmed only; pending keeps Decline); the "By staff · Mandy" source
- * badge; the check-in code; Arrived on today's confirmed bookings and
+ * badge; Arrived on today's confirmed bookings and
  * "Arrived 19:04 · Undo" once checked in (R14). The actions come from
  * StaffBookingContext, so every view offers the same ones.
  */
@@ -29,16 +29,6 @@ export function StaffSourceBadge({ booking }: { booking: BookingItem }) {
       <UserRound aria-hidden />
       {booking.createdByName ? t('byStaffName', { name: booking.createdByName }) : t('byStaff')}
     </Badge>
-  )
-}
-
-/** R10: the code is the diner's check-in key, shown so staff can match a code read aloud. */
-export function CheckinCode({ booking, className }: { booking: BookingItem; className?: string }) {
-  if (!booking.checkinCode || (booking.status !== 'confirmed' && booking.status !== 'no_show')) return null
-  return (
-    <span data-testid={`booking-row-${booking.id}-code`} className={cn('font-mono text-xs tracking-wider text-muted-foreground tabular-nums', className)}>
-      {booking.checkinCode}
-    </span>
   )
 }
 
@@ -77,18 +67,30 @@ export function BookingRowMenu({ booking }: { booking: BookingItem }) {
   )
 }
 
-/** R14: Arrived on today's confirmed booking; once arrived, the time and Undo. */
-export function ArrivedAction({ booking, stretch = false }: { booking: BookingItem; stretch?: boolean }) {
+/** "✓ Arrived 19:04" once the diner was checked in. */
+export function ArrivedTime({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings.today')
+  if (!booking.checkedInAt) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-sm font-medium text-primary" data-testid={`booking-row-${booking.id}-arrived-at`}>
+      <Check aria-hidden className="size-4" />
+      {t('stateArrived', { time: hkClock(booking.checkedInAt) })}
+    </span>
+  )
+}
+
+/**
+ * R14: Arrived on today's confirmed booking; once arrived, the time and Undo
+ * (`withTime={false}`: Undo only, where a Status column already shows the time).
+ */
+export function ArrivedAction({ booking, stretch = false, withTime = true }: { booking: BookingItem; stretch?: boolean; withTime?: boolean }) {
   const t = useTranslations('bookings.today')
   const staff = useStaffBookingActions()
   const busy = staff.checkInBusy.has(booking.id)
   if (booking.checkedInAt) {
     return (
       <span className="inline-flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-sm font-medium text-primary" data-testid={`booking-row-${booking.id}-arrived-at`}>
-          <Check aria-hidden className="size-4" />
-          {t('stateArrived', { time: hkClock(booking.checkedInAt) })}
-        </span>
+        {withTime ? <ArrivedTime booking={booking} /> : null}
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => void staff.checkIn(booking.id, 'undo')} data-testid={`booking-row-${booking.id}-arrived-undo`}>
           {t('undo')}
         </Button>

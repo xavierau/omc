@@ -1,13 +1,13 @@
 /**
  * BOOK-013 S1: staff add a booking (a phone or walk-up diner).
  *
- * The booking starts confirmed, source 'staff', created by the user, with its
- * check-in code (R8) and an events row (R9) in one transaction. Fields are
+ * The booking starts confirmed, source 'staff', created by the user, with an
+ * events row (R9) in one transaction. Fields are
  * validated first and never overridable (R7); then the booking rules: broken
  * ones answer `rules` until staff book anyway (owner decision 3, AC-3). The
  * member link is an EXISTING member of this restaurant by phone, never a new
- * one (R17, BOOK-008). With Notify on, the diner gets the confirmation with
- * the QR (AC-1, AC-17); off, no message and no reminder (AC-2, AC-19).
+ * one (R17, BOOK-008). With Notify on, the diner gets the confirmation
+ * (AC-1); off, no message and no reminder (AC-2).
  */
 import { parseStaffBookingInput } from '@/domain/services/staff-booking-input'
 import { brokenRuleCodes } from '@/domain/services/staff-booking-rules'
@@ -46,7 +46,6 @@ export async function createStaffBooking(deps: StaffBookingDeps, input: CreateSt
     input: form,
     actorUserId: input.userId,
     at: deps.now(),
-    codes: deps.newCodes(),
     brokenRules: brokenRuleCodes(rules),
   })
   const message = await messageDiner(deps, booking, 'confirmed', form.notify)

@@ -1,20 +1,16 @@
 // BOOK-013 domain: the staff form as the server accepts it (R4, R7), the
-// booking rules staff may override (AC-3, AC-8), the check-in code and QR
-// payload (R8, R10, R15) and the Today view's arrival rules (AC-20, AC-22, R14).
+// booking rules staff may override (AC-3, AC-8) and the Today view's arrival
+// rules and search (AC-20, AC-22, R14).
 import { describe, it, expect } from 'vitest'
 import { parseStaffBookingInput, type StaffBookingContext } from '../staff-booking-input'
 import { brokenRules, brokenRuleCodes } from '../staff-booking-rules'
 import {
   arrivalState,
   canCheckIn,
-  checkinQrPayload,
   matchesTodaySearch,
-  newCheckinCodes,
-  parseCheckinCode,
   todayCounters,
 } from '../booking-checkin'
 import { canMarkNoShow } from '../booking-no-show'
-import { isConfirmCode } from '../booking-confirm-code'
 import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { RoomState } from '../booking-room'
 
@@ -37,8 +33,8 @@ describe('parseStaffBookingInput (R4, R7)', () => {
     })
   })
 
-  it('R4: status, source, member, code, restaurant and created_by in the body are ignored', () => {
-    const r = parseStaffBookingInput({ ...valid, status: 'cancelled', source: 'agent', memberId: 'm-x', member_id: 'm-x', checkinCode: 'AAAAA2', restaurant_id: 'rest-b', createdBy: 'u-x' }, ctx())
+  it('R4: status, source, member, restaurant and created_by in the body are ignored', () => {
+    const r = parseStaffBookingInput({ ...valid, status: 'cancelled', source: 'agent', memberId: 'm-x', member_id: 'm-x', restaurant_id: 'rest-b', createdBy: 'u-x' }, ctx())
     expect(r.ok && Object.keys(r.input).sort()).toEqual(['date', 'name', 'notes', 'notify', 'override', 'partySize', 'phone', 'time'])
   })
 
@@ -124,32 +120,6 @@ describe('brokenRules (AC-3, AC-8; owner decision 3: warn, never refuse)', () =>
   })
 })
 
-describe('check-in code and QR (R8, R10, R15)', () => {
-  it('R8: codes use the confirm-code alphabet and are distinct', () => {
-    let i = 0
-    const codes = newCheckinCodes((n) => (i++ * 7) % n)
-    expect(codes).toHaveLength(5)
-    expect(new Set(codes).size).toBe(5)
-    for (const c of codes) expect(isConfirmCode(c)).toBe(true)
-  })
-
-  it('R10: the QR holds exactly BK:<code>', () => {
-    expect(checkinQrPayload('K7Q2MX')).toBe('BK:K7Q2MX')
-  })
-
-  it.each([
-    ['BK:K7Q2MX', 'K7Q2MX'], ['k7q2mx', 'K7Q2MX'], ['  bk:K7Q2MX ', 'K7Q2MX'],
-  ])('R15: %j parses to %s', (raw, code) => {
-    expect(parseCheckinCode(raw)).toBe(code)
-  })
-
-  it.each([
-    'https://evil.example/BK:K7Q2MX', 'COUPON:ABC123', 'BK:K7Q2M', 'BK:K7Q2MXX', 'BK:K0Q2MX', 'BK:ABCDEF', '<script>', 'x'.repeat(200), 42, null,
-  ])('R15: %j is not a code (never looked up)', (raw) => {
-    expect(parseCheckinCode(raw)).toBeNull()
-  })
-})
-
 describe('Today rules (AC-20, AC-22, R14)', () => {
   const today = '2026-11-26'
   const b = (extra: Record<string, unknown> = {}) => ({ status: 'confirmed', bookingDate: today, bookingTime: '19:00', checkedInAt: null, partySize: 2, ...extra })
@@ -201,14 +171,14 @@ describe('Today rules (AC-20, AC-22, R14)', () => {
     expect(todayCounters(list, { date: today, time: '12:00' }).guestsExpected).toBe(4)
   })
 
-  it('AC-20: one search over name, 4+ phone digits (any spacing) and code', () => {
-    const row = { name: 'Chan Tai Man', phone: '+85291234567', checkinCode: 'K7Q2MX' }
+  it('AC-20: one search over name (any part) and 4+ phone digits (any spacing); decision 8: nothing else', () => {
+    const row = { name: 'Chan Tai Man', phone: '+85291234567' }
     expect(matchesTodaySearch(row, 'tai')).toBe(true)
     expect(matchesTodaySearch(row, '9123 4567')).toBe(true)
     expect(matchesTodaySearch(row, '4567')).toBe(true)
     expect(matchesTodaySearch(row, '456')).toBe(false)
-    expect(matchesTodaySearch(row, 'k7q2')).toBe(true)
-    expect(matchesTodaySearch(row, 'BK:K7Q2MX')).toBe(true)
+    expect(matchesTodaySearch({ name: '陳生', phone: '+85261234567' }, '陳')).toBe(true)
+    expect(matchesTodaySearch(row, 'K7Q2MX')).toBe(false)
     expect(matchesTodaySearch(row, 'wong')).toBe(false)
     expect(matchesTodaySearch(row, '')).toBe(true)
   })

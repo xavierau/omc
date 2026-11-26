@@ -1,13 +1,13 @@
 /**
- * BOOK-013 S1–S3, S7 (spec AC-1–AC-13, AC-16, AC-19, AC-21, AC-22, AC-24;
- * threat R1–R7, R9, R11, R12, R14, R15, R17): the staff booking routes run
- * for real over in-memory stores with migration 095's conditions
- * (test-utils/fake-staff-booking.ts). Only the session, storage and the
- * WhatsApp send are faked.
+ * BOOK-013 S1–S3, S7 (spec AC-1–AC-13, AC-16, AC-21, AC-22, AC-24;
+ * threat R1–R7, R9, R11, R12, R14, R17): the staff booking routes run for
+ * real over in-memory stores with migration 095's conditions
+ * (test-utils/fake-staff-booking.ts). Only the session and the WhatsApp send
+ * are faked.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { FakeCheckinQr, FakeStaffBookings, staffRow, type StaffRow } from '@/test-utils/fake-staff-booking'
+import { FakeStaffBookings, staffRow, type StaffRow } from '@/test-utils/fake-staff-booking'
 import { FakeBookingRoom } from '@/application/booking/__tests__/fake-booking-room'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import { EMPTY_BOOKING_HOURS } from '@/domain/value-objects/booking-hours'
@@ -35,7 +35,6 @@ import { PATCH as editRoute } from '../[id]/route'
 import { POST as cancelRoute } from '../[id]/cancel/route'
 import { POST as arrivedRoute, DELETE as undoRoute } from '../[id]/check-in/route'
 import { GET as todayRoute } from '../today/route'
-import { GET as byCodeRoute } from '../by-code/[code]/route'
 
 const A = 'rest-a'
 const B = 'rest-b'
@@ -47,7 +46,6 @@ const dinner = [{ label: 'Dinner', first: '18:00', last: '21:00' }]
 
 let config: BookingConfig
 let fake: FakeStaffBookings
-let qr: FakeCheckinQr
 let sends: BookingMessageInput[]
 let sendResult: BookingSendResult
 let recorded: string[]
@@ -67,12 +65,10 @@ beforeEach(() => {
     bookingHours: { ...EMPTY_BOOKING_HOURS, weekly: { ...EMPTY_BOOKING_HOURS.weekly, thu: dinner, sat: dinner }, limits: { perSlot: 10, perMeal: null } },
   }
   fake = new FakeStaffBookings()
-  qr = new FakeCheckinQr()
   sends = []
   recorded = []
   sendResult = { delivered: true, via: 'template' }
   const room = new FakeBookingRoom(() => fake.rows)
-  let n = 0
   world.staff = {
     store: fake,
     settings: {
@@ -83,10 +79,8 @@ beforeEach(() => {
     room,
     members: { findMemberId: async (rid, phone) => (rid === A && phone === '+85291234567' ? MEMBER : null) },
     sender: { send: async (input) => (sends.push(input), sendResult) },
-    qr,
     normalizePhone,
     recordMessage: async (id, _rid, status) => void recorded.push(`${id}:${status}`),
-    newCodes: () => [`K7Q2M${'XYZ'[n++ % 3]}`, 'H4PN8R'],
     now: () => NOW,
   }
   world.checkin = { store: fake, settings: { getConfig: async () => config }, now: () => NOW }
@@ -115,23 +109,27 @@ const editBody = (row: StaffRow, patch: Record<string, unknown> = {}) => ({
 })
 
 describe('POST /api/dashboard/bookings — staff create (S1)', () => {
-  it('AC-1: confirmed, source staff, created by the user, with a code; the diner gets the confirmation with code + QR', async () => {
+  it('AC-1: confirmed, source staff, created by the user; the diner gets the BOOK-001 confirmation (no code, no image)', async () => {
     const res = await create()
     expect(res.status).toBe(201)
     const { booking, message } = await res.json()
-    expect(booking).toMatchObject({ status: 'confirmed', source: 'staff', createdBy: STAFF, phone: '+85291234567', checkinCode: 'K7Q2MX', notifyDiner: true })
+    expect(booking).toMatchObject({ status: 'confirmed', source: 'staff', createdBy: STAFF, phone: '+85291234567', notifyDiner: true })
+    expect(Object.keys(booking).filter((k) => /checkin/i.test(k))).toEqual([])
     expect(message).toBe('delivered')
     expect(sends).toHaveLength(1)
-    expect(sends[0]).toMatchObject({ kind: 'confirmed', phone: '+85291234567', details: { checkinCode: 'K7Q2MX', partySize: 4 }, image: qr.url })
+    expect(sends[0]).toEqual({
+      restaurantId: A, phone: '+85291234567', memberId: MEMBER, kind: 'confirmed',
+      details: { restaurantName: 'Walk Test Kitchen', name: 'Chan Tai Man', date: '2026-11-28', time: '19:00', partySize: 4, declineReason: null },
+    })
     expect(JSON.stringify(sends[0])).not.toContain('window seat')
     expect(fake.events).toEqual([{ restaurantId: A, type: 'booking.staff_created', actor: STAFF, data: { bookingId: booking.id } }])
   })
 
-  it('AC-2 / AC-19: Notify off → no message, no reminder flag, but still a code', async () => {
+  it('AC-2: Notify off → no message and no reminder (notify_diner false)', async () => {
     const { booking, message } = await (await create({ ...form, notify: false })).json()
     expect(message).toBe('none')
     expect(sends).toHaveLength(0)
-    expect(booking).toMatchObject({ notifyDiner: false, checkinCode: 'K7Q2MX' })
+    expect(booking).toMatchObject({ notifyDiner: false })
   })
 
   it('AC-3: a broken rule → 409 rules with the list; nothing written; override books anyway and records the rules', async () => {
@@ -162,24 +160,18 @@ describe('POST /api/dashboard/bookings — staff create (S1)', () => {
     expect((await (await create({ ...form, phone: '6123 4567' })).json()).booking.memberId).toBeNull()
   })
 
-  it('R4: status, source, member, code and restaurant in the body are ignored', async () => {
-    const { booking } = await (await create({ ...form, status: 'cancelled', source: 'agent', memberId: 'm-x', checkinCode: 'AAAAA2', restaurantId: B })).json()
-    expect(booking).toMatchObject({ status: 'confirmed', source: 'staff', memberId: MEMBER, checkinCode: 'K7Q2MX', restaurantId: A })
+  it('R4: status, source, member and restaurant in the body are ignored', async () => {
+    const { booking } = await (await create({ ...form, status: 'cancelled', source: 'agent', memberId: 'm-x', restaurantId: B })).json()
+    expect(booking).toMatchObject({ status: 'confirmed', source: 'staff', memberId: MEMBER, restaurantId: A })
   })
 
-  it('R8: a code taken in this restaurant tries the next one', async () => {
-    seed({ checkinCode: 'K7Q2MX' })
-    world.staff!.newCodes = () => ['K7Q2MX', 'H4PN8R']
-    expect((await (await create({ ...form, time: '20:00' })).json()).booking.checkinCode).toBe('H4PN8R')
-  })
-
-  it('R13: a failed status write logs the booking id only, never name, phone, notes or code', async () => {
+  it('R13: a failed status write logs the booking id only, never name, phone or notes', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    world.staff!.recordMessage = async () => { throw new Error('write failed for +85291234567 Chan Tai Man K7Q2MX') }
+    world.staff!.recordMessage = async () => { throw new Error('write failed for +85291234567 Chan Tai Man') }
     expect((await create()).status).toBe(201)
     const text = JSON.stringify(logged.mock.calls)
     expect(text).toContain('[StaffBooking]')
-    for (const secret of ['91234567', 'Chan', 'K7Q2MX', 'window seat']) expect(text).not.toContain(secret)
+    for (const secret of ['91234567', 'Chan', 'window seat']) expect(text).not.toContain(secret)
   })
 
   it('a not-delivered confirmation is stored on the row and reported', async () => {
@@ -192,12 +184,12 @@ describe('POST /api/dashboard/bookings — staff create (S1)', () => {
 })
 
 describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
-  it('AC-6: changes the fields, keeps status, source and code; changed fields (no values) in the events row; diner told', async () => {
+  it('AC-6: changes the fields, keeps status and source; changed fields (no values) in the events row; diner told', async () => {
     const row = seed({ source: 'agent', reminderSentAt: '2026-11-26T00:00:00Z' })
     const res = await edit(row.id, editBody(row, { partySize: 6, time: '20:00', name: 'Chan T M' }))
     expect(res.status).toBe(200)
     const { booking, message } = await res.json()
-    expect(booking).toMatchObject({ partySize: 6, bookingTime: '20:00', status: 'confirmed', source: 'agent', checkinCode: 'K7Q2MX' })
+    expect(booking).toMatchObject({ partySize: 6, bookingTime: '20:00', status: 'confirmed', source: 'agent' })
     expect(message).toBe('delivered')
     expect(sends[0]).toMatchObject({ kind: 'changed', details: { time: '20:00', partySize: 6 } })
     expect(fake.events[0]).toMatchObject({ type: 'booking.staff_edited', data: { bookingId: row.id, changed: ['name', 'partySize', 'time'] } })
@@ -259,7 +251,7 @@ describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
   })
 
   it('a pending booking stays pending after an edit', async () => {
-    const row = seed({ status: 'pending', checkinCode: null })
+    const row = seed({ status: 'pending' })
     expect((await (await edit(row.id, editBody(row, { partySize: 3 }))).json()).booking.status).toBe('pending')
   })
 
@@ -291,12 +283,11 @@ describe('PATCH /api/dashboard/bookings/[id] — staff edit (S2)', () => {
 })
 
 describe('POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3)', () => {
-  it('AC-12: soft cancel by staff with who; QR file deleted; diner told; events row', async () => {
+  it('AC-12: soft cancel by staff with who; diner told; events row', async () => {
     const row = seed({ source: 'chat' })
     const res = await cancel(row.id, { expectedVersion: row.editVersion, notify: true })
     expect(res.status).toBe(200)
     expect(fake.rows[0]).toMatchObject({ status: 'cancelled', cancelledBy: 'staff', cancelledByUser: STAFF })
-    expect(qr.removed).toEqual([row.id])
     expect(sends[0]).toMatchObject({ kind: 'cancelled', details: { date: '2026-11-28', time: '19:00' } })
     expect(fake.events[0]).toMatchObject({ type: 'booking.staff_cancelled', data: { bookingId: row.id } })
   })
@@ -349,7 +340,6 @@ describe('review R1: only a real change makes the form stale (spec AC-11, threat
   // Background writes bump updated_at (082 trigger) but never edit_version (095 trigger).
   const background: Array<[string, Partial<StaffRow>]> = [
     ['the reminder claim', { reminderSentAt: '2026-11-26T02:00:00Z' }],
-    ['the QR path claim', { checkinQrPath: 'AbCdEfGhIjKlMnOpQrStUvWx.png' }],
     ['the decision message status', { decisionMessageStatus: 'not_delivered' }],
     ['the staff message claim', { lastStaffMessageAt: '2026-11-26T02:00:00Z' }],
     ['a check-in', { checkedInAt: '2026-11-26T02:00:00Z' }],
@@ -407,7 +397,7 @@ describe('who may call them (R1, R2, R6)', () => {
   it('R1: no session → 401 on every staff route', async () => {
     const row = seed()
     vi.mocked(getTenantContext).mockRejectedValue(new AuthError('Unauthorized', 401))
-    for (const call of [...calls(row.id), () => todayRoute(), () => byCodeRoute(new Request(url), { params: Promise.resolve({ code: 'K7Q2MX' }) })]) {
+    for (const call of [...calls(row.id), () => todayRoute()]) {
       expect((await call()).status).toBe(401)
     }
     expect(fake.writes).toEqual([])
@@ -458,11 +448,10 @@ describe('who may call them (R1, R2, R6)', () => {
 describe('Today and check-in (S7)', () => {
   const arrive = (id: string) => arrivedRoute(new Request(url), ctx(id))
   const undo = (id: string) => undoRoute(new Request(url), ctx(id))
-  const byCode = (code: string) => byCodeRoute(new Request(url), { params: Promise.resolve({ code }) })
 
   it('R12: today\'s pending, confirmed and no-show bookings of this restaurant, by time, with the creator\'s name', async () => {
     seed({ bookingDate: '2026-11-26', bookingTime: '20:00', source: 'staff', createdBy: STAFF })
-    seed({ bookingDate: '2026-11-26', bookingTime: '18:00', status: 'pending', checkinCode: null })
+    seed({ bookingDate: '2026-11-26', bookingTime: '18:00', status: 'pending' })
     seed({ bookingDate: '2026-11-26', status: 'cancelled' })
     seed({ bookingDate: '2026-11-27' })
     fake.rows.push(staffRow({ restaurantId: B, bookingDate: '2026-11-26' }))
@@ -473,7 +462,7 @@ describe('Today and check-in (S7)', () => {
   })
 
   it('R12: the list is capped and says so', async () => {
-    for (let i = 0; i < 301; i++) seed({ bookingDate: '2026-11-26', checkinCode: null })
+    for (let i = 0; i < 301; i++) seed({ bookingDate: '2026-11-26' })
     const body = await (await todayRoute()).json()
     expect(body.bookings).toHaveLength(300)
     expect(body.truncated).toBe(true)
@@ -510,30 +499,5 @@ describe('Today and check-in (S7)', () => {
   it('Undo on a booking not arrived → 409 not_arrived', async () => {
     const row = seed({ bookingDate: '2026-11-26' })
     expect(await (await undo(row.id)).json()).toMatchObject({ error: 'not_arrived' })
-  })
-
-  it('AC-21: a scanned BK:<code> or typed code finds this restaurant\'s booking and says whether it is today', async () => {
-    seed({ bookingDate: '2026-11-26', checkinCode: 'K7Q2MX' })
-    seed({ bookingDate: '2026-11-30', checkinCode: 'H4PN8R' })
-    expect(await (await byCode('BK:K7Q2MX')).json()).toMatchObject({ today: true, booking: { checkinCode: 'K7Q2MX' } })
-    expect(await (await byCode('h4pn8r')).json()).toMatchObject({ today: false, booking: { bookingDate: '2026-11-30' } })
-  })
-
-  it('AC-24 / R2: another restaurant\'s code is not found, with nothing about it', async () => {
-    fake.rows.push(staffRow({ restaurantId: B, checkinCode: 'B2B2B2' }))
-    const res = await byCode('BK:B2B2B2')
-    expect(res.status).toBe(404)
-    expect(await res.json()).toEqual({ error: 'not_found' })
-  })
-
-  it('R15: text that is not a code is never looked up', async () => {
-    const spy = vi.spyOn(fake, 'findByCode')
-    for (const raw of ['https%3A%2F%2Fevil.example', 'COUPON%3AABC', '%3Cscript%3E']) expect((await byCode(raw)).status).toBe(404)
-    expect(spy).not.toHaveBeenCalled()
-  })
-
-  it('a cancelled booking\'s code is not found', async () => {
-    seed({ status: 'cancelled', checkinCode: 'K7Q2MX' })
-    expect((await byCode('K7Q2MX')).status).toBe(404)
   })
 })

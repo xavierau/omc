@@ -29,9 +29,6 @@ interface SendParams {
   // BOOK-001 W3 (AC-16): the recipient's booking token, sent as the {{1}} of
   // the Book now button (`https://…/b/{{1}}`). Coexists with `couponCode`.
   bookingToken?: string
-  // BOOK-013 (spec AC-17): a per-send IMAGE header link (the booking's
-  // check-in QR) instead of the template row's stored example image.
-  headerImageLink?: string
 }
 
 // BOOK-001 F2 (review S-2): a Book now button needs the recipient's token.
@@ -57,7 +54,7 @@ export async function sendWhatsAppTemplateMessage(
   // #127 / CAMP-007: refuse to send a payload Meta is guaranteed to reject
   // (#132012) — a media header we cannot supply must fail loudly here, not
   // as an opaque kapso_send_error per recipient.
-  enforceHeaderMedia(params.template, params.headerImageLink)
+  enforceHeaderMedia(params.template)
 
   const paramNames = extractParameters(params.template)
   const bodyParams = paramNames.map((name) => ({
@@ -70,7 +67,7 @@ export async function sendWhatsAppTemplateMessage(
     templateName: params.template.name,
     language: params.template.language,
     bodyParams,
-    headerParams: buildHeaderParams(params.template, params.headerImageLink),
+    headerParams: buildHeaderParams(params.template),
     buttons: buildButtonParams(params),
   })
 }
@@ -80,12 +77,11 @@ export async function sendWhatsAppTemplateMessage(
 // header URL (campaign image_url_* is welcome-only and never reaches this
 // path). enforceHeaderMedia above already threw when no link is resolvable.
 function buildHeaderParams(
-  template: WhatsAppTemplate,
-  override?: string
+  template: WhatsAppTemplate
 ): TemplateHeaderParam[] | undefined {
   const header = template.components.find(isMediaHeader)
   if (!header) return undefined
-  const link = header.format === 'IMAGE' && override ? override : readHeaderLink(header)
+  const link = readHeaderLink(header)
   if (link === null) return undefined
   switch (header.format) {
     case 'VIDEO':

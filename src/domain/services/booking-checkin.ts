@@ -1,48 +1,16 @@
 /**
- * BOOK-013 (spec S6/S7; threat R8, R10, R14, R15): the check-in code a
- * confirmed booking carries, the QR payload, the strict parse of a scanned or
- * typed code, and the Today view's arrival rules.
- *
- * The code uses the BOOK-003 confirm-code alphabet (no 0/O/1/I, at least one
- * digit) from a CSPRNG; the QR holds only `BK:<code>`, nothing about the
- * diner. A code is only ever looked up inside the session's restaurant.
+ * BOOK-013 (spec S7; threat R14): the Today view's arrival rules, counters and
+ * search. Check-in is staff finding the booking on today's list (name, phone,
+ * time) and one Arrived tap; there is no code or QR (owner decision 8).
  */
-import { generateConfirmCode, isConfirmCode } from './booking-confirm-code'
 import { absoluteMinutes } from './booking-calendar'
 import { hongKongTime } from './booking-submission'
 import type { HongKongMoment } from '@/domain/ports/booking'
 
-export const CHECKIN_QR_PREFIX = 'BK:'
-/** R8: codes the database tries in order when one clashes (unique per restaurant). */
-export const CHECKIN_CODE_ATTEMPTS = 5
 /** Spec S7: a waiting booking is "late" this many minutes after its time. */
 export const LATE_AFTER_MINUTES = 15
 /** R12: the most bookings one Today list returns; more sets `truncated`. */
 export const TODAY_LIST_CAP = 300
-/** R15: longer scanned/typed text is never a code. */
-const SCAN_TEXT_MAX = 16
-
-/** R10: the QR payload, exactly `BK:<code>`. */
-export const checkinQrPayload = (code: string): string => `${CHECKIN_QR_PREFIX}${code}`
-
-/** R8: `n` distinct codes; `randomIndex` is crypto.randomInt in production. */
-export function newCheckinCodes(randomIndex: (n: number) => number, n: number = CHECKIN_CODE_ATTEMPTS): string[] {
-  const codes = new Set<string>()
-  while (codes.size < n) codes.add(generateConfirmCode(randomIndex))
-  return [...codes]
-}
-
-/**
- * R15: `^(BK:)?<code>$`, case-insensitive, surrounding spaces ignored; anything
- * else (a URL, a coupon QR, script, long text) is null and never queried.
- */
-export function parseCheckinCode(raw: unknown): string | null {
-  if (typeof raw !== 'string' || raw.length > SCAN_TEXT_MAX + 4) return null
-  const text = raw.trim().toUpperCase()
-  if (text.length > SCAN_TEXT_MAX) return null
-  const code = text.startsWith(CHECKIN_QR_PREFIX) ? text.slice(CHECKIN_QR_PREFIX.length) : text
-  return isConfirmCode(code) ? code : null
-}
 
 export interface CheckinCandidate {
   id?: string
@@ -112,17 +80,11 @@ export function todayCounters(bookings: Array<CheckinCandidate & { partySize: nu
 
 const digitsOf = (s: string) => s.replace(/\D/g, '')
 
-/**
- * Spec AC-20: one search over name (any part, any case), phone (4+ digits,
- * any spacing or +852) and check-in code (a part of it, any case).
- */
-export function matchesTodaySearch(b: { name: string | null; phone: string; checkinCode?: string | null }, query: string): boolean {
+/** Spec AC-20: one search over name (any part, any case) and phone (4+ digits, any spacing or +852). */
+export function matchesTodaySearch(b: { name: string | null; phone: string }, query: string): boolean {
   const q = query.trim()
   if (q === '') return true
-  const lower = q.toLowerCase()
-  if (b.name && b.name.toLowerCase().includes(lower)) return true
+  if (b.name && b.name.toLowerCase().includes(q.toLowerCase())) return true
   const digits = digitsOf(q)
-  if (digits.length >= 4 && digitsOf(b.phone).includes(digits)) return true
-  const code = q.toUpperCase().replace(/^BK:/, '')
-  return !!b.checkinCode && code.length >= 2 && b.checkinCode.includes(code)
+  return digits.length >= 4 && digitsOf(b.phone).includes(digits)
 }

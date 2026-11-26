@@ -14,8 +14,6 @@ export interface StaffCreateArgs {
   input: StaffBookingInput
   actorUserId: string
   at: Date
-  /** R8: tried in order when a code clashes. */
-  codes: string[]
   brokenRules: string[]
 }
 
@@ -63,17 +61,7 @@ export interface CheckInArgs {
 export interface CheckinStore {
   /** Today's (HK) pending, confirmed and no-show bookings by time; reads one past `cap` (R12). */
   listForDate(restaurantId: string, date: string, cap: number): Promise<{ bookings: BookingRequest[]; truncated: boolean }>
-  /** R2/R24: at most one booking of THIS restaurant with that code (pending, confirmed or no-show). */
-  findByCode(restaurantId: string, code: string): Promise<BookingRequest | null>
   find(id: string, restaurantId: string): Promise<BookingRequest | null>
   checkIn(args: CheckInArgs): Promise<BookingRequest | null>
   undoCheckIn(args: { id: string; restaurantId: string; actorUserId: string }): Promise<BookingRequest | null>
-}
-
-/** R10/R16: the QR image of a booking's check-in code in the public bucket. */
-export interface CheckinQrStore {
-  /** The public link of the booking's QR, uploading it once under a random name; null when it cannot. */
-  ensure(booking: { id: string; restaurantId: string; checkinCode: string }): Promise<string | null>
-  /** Deletes the booking's QR file (if any) and forgets its name. Never throws. */
-  remove(booking: { id: string; restaurantId: string }): Promise<void>
 }

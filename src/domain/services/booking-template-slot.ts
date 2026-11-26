@@ -92,29 +92,12 @@ export interface ProvisionedSlot {
   id: string | null
   /** The slot's rejected or failed edit, cleared now that a new live template replaces it. */
   staleCandidateId: string | null
-  /**
-   * BOOK-013 (AC-18): the submission is the QR version of a live `confirmed`
-   * that has none: it goes in as the slot's candidate (the old approved one
-   * keeps sending until Meta approves), with `body` as its stored text.
-   */
-  asCandidate?: { body: string | null }
-}
-
-function applyCandidate(next: BookingConfig, slot: ProvisionedSlot, body: string | null): void {
-  if (!slot.id) return
-  next.templateCandidates[slot.kind][slot.language] = slot.id
-  if (body === null) delete next.templateBodies[slot.kind][slot.language]
-  else next.templateBodies[slot.kind][slot.language] = body
 }
 
 /** Writes only the submitted slots; a candidate is cleared only while it is still the stale one. */
 export function applyProvisionedTemplates(config: BookingConfig, slots: ProvisionedSlot[]): BookingConfig {
   const next = structuredClone(config)
   for (const slot of slots) {
-    if (slot.asCandidate) {
-      applyCandidate(next, slot, slot.asCandidate.body)
-      continue
-    }
     next.templateIds[slot.kind][slot.language] = slot.id
     if (slot.staleCandidateId && next.templateCandidates[slot.kind][slot.language] === slot.staleCandidateId) {
       delete next.templateCandidates[slot.kind][slot.language]

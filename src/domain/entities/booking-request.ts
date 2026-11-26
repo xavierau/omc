@@ -92,8 +92,6 @@ export interface BookingRequest {
   /** The creating staff member's display name ("By staff · Mandy"); resolved by the list route. */
   createdByName?: string | null
   notifyDiner?: boolean
-  /** The 6-character check-in code, minted when the booking became confirmed (R8). */
-  checkinCode?: string | null
   checkedInAt?: string | null
 }
 

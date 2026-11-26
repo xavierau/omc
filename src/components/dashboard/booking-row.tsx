@@ -20,8 +20,8 @@
  * Link member / Change member / Unlink member.
  * BOOK-009 AC-10: a booking whose diner accepted the booking terms shows
  * "Terms accepted"; hovering shows the text, tapping expands it (plain text).
- * BOOK-013: the ⋯ menu (Edit / Cancel), the "By staff · name" badge, the
- * check-in code, and Arrived / Undo on today's confirmed bookings.
+ * BOOK-013: the ⋯ menu (Edit / Cancel), the "By staff · name" badge, and
+ * Arrived / Undo on today's confirmed bookings.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -34,7 +34,7 @@ import type { BookingItem } from '@/hooks/use-bookings'
 import { NoShowAction } from './bookings/booking-no-show-action'
 import type { NoShowFn } from './bookings/use-booking-no-show'
 import { BookingGuestName, MemberLinkControl } from './bookings/booking-member'
-import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, CheckinCode, StaffSourceBadge } from './bookings/booking-staff-controls'
+import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './bookings/booking-staff-controls'
 
 export type DecideFn = (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 
@@ -244,9 +244,8 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
         </div>
         <ChangeFromLine booking={booking} />
         <ChangePendingLine booking={booking} />
-        <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           <PhoneLink phone={booking.phone} />
-          <CheckinCode booking={booking} />
         </p>
         <MemberLinkControl booking={booking} />
         <BookingNotes booking={booking} />

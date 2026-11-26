@@ -163,7 +163,7 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
       (r) => r.id === row.replacesBookingId && r.restaurantId === args.restaurantId && ['pending', 'confirmed'].includes(r.status)
     )
     if (this.failConfirmChangeCancel) throw new Error('confirm_booking_change failed')
-    Object.assign(row, { status: 'confirmed', decidedBy: args.decidedBy, decidedAt: args.decidedAt.toISOString(), declineReason: null, ...codeOf(args) })
+    Object.assign(row, { status: 'confirmed', decidedBy: args.decidedBy, decidedAt: args.decidedAt.toISOString(), declineReason: null })
     if (original) Object.assign(original, { status: 'cancelled', cancelledBy: 'change', cancelledAt: args.decidedAt.toISOString() })
     return { ...row }
   }
@@ -199,15 +199,9 @@ export class FakeBookingRequests implements BookingRequestStore, DinerBookingSto
     Object.assign(row, {
       status: args.decision, decidedBy: args.decidedBy, decidedAt: args.decidedAt.toISOString(),
       declineReason: args.decision === 'declined' ? args.declineReason : null,
-      ...(args.decision === 'confirmed' ? codeOf(args) : {}),
     })
     return { ...row }
   }
-}
-
-/** BOOK-013 (R8): the first offered check-in code, written with the confirm (as 095's update / RPC). */
-function codeOf(args: { checkinCodes?: string[] }): { checkinCode?: string } {
-  return args.checkinCodes?.length ? { checkinCode: args.checkinCodes[0] } : {}
 }
 
 export class FakeBookingSettings implements BookingSettingsReader {

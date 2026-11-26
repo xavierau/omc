@@ -1,32 +1,30 @@
 'use client'
 
 /**
- * BOOK-013 S7 (mockup frames 7, 8): the Today view. One search box (name,
- * phone digits, code), Scan QR (the existing html5-qrcode scanner), the
- * counters, and today's bookings by time with their arrival state: Waiting,
- * Late N min (15+), Arrived HH:MM (with Undo), No-show, Needs reply. A whole
- * code opens its booking card; a booking of another day says so and offers
- * no Arrived. Diner text renders as plain text.
+ * BOOK-013 S7 (mockup frames 7, 8): the Today view. One search box (name or
+ * phone digits), the counters, and today's bookings with their arrival
+ * state: Waiting, Late N min (15+), Arrived HH:MM (with Undo), No-show, Needs
+ * reply. Staff find a diner by surname, time or phone and tap Arrived (owner
+ * decision 8: no code, no QR). AC-25: sorted by Time (default), Name, Guests
+ * or Status; Lunch / Dinner headings only while sorted by time. Desktop is a
+ * table with sortable column headers; a phone gets cards and a Sort select.
+ * Diner text renders as plain text.
  */
-import { useContext } from 'react'
+import { useContext, type ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { QrCode, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { QrScanner } from '@/components/dashboard/qr-scanner'
 import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { RowActions, type DecideFn } from '@/components/dashboard/booking-row'
-import { arrivalState, canCheckIn, matchesTodaySearch, todayCounters, type ArrivalState } from '@/domain/services/booking-checkin'
+import { arrivalState, matchesTodaySearch, todayCounters, type ArrivalState } from '@/domain/services/booking-checkin'
+import { sortTodayBookings, todayMealGroups, type TodaySort, type TodaySortKey } from '@/domain/services/booking-today-sort'
 import { hongKongMoment } from '@/domain/services/booking-no-show'
 import { BookingsNow } from './bookings-clock'
-import { formatDate } from './booking-dates'
 import { BookingGuestName } from './booking-member'
-import { ArrivedAction, CheckInRefusedLine, CheckinCode, StaffSourceBadge } from './booking-staff-controls'
-import { useStaffBookingActions } from './use-staff-booking'
+import { ArrivedAction, ArrivedTime, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
+import { TODAY_COLUMNS, TodaySortHeaderRow, TodaySortSelect } from './bookings-today-sort'
 import type { BookingsTodayState } from './use-bookings-today'
-import type { CodeLookup } from './staff-booking-api'
 
 const STATE_TONE: Record<ArrivalState['kind'], string> = {
   arrived: 'border-primary/25 bg-primary/10 text-primary',
@@ -74,31 +72,61 @@ function Counters({ bookings, now }: { bookings: BookingItem[]; now: Date }) {
   )
 }
 
-function TodayRow({ booking, now, busy, onDecide }: { booking: BookingItem; now: Date; busy: boolean; onDecide: DecideFn }) {
+interface RowProps {
+  booking: BookingItem
+  now: Date
+  busy: boolean
+  onDecide: DecideFn
+}
+
+/** The name, staff badge and phone: the column staff scan for a surname. */
+function NameCell({ booking }: { booking: BookingItem }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <BookingGuestName booking={booking} className="font-semibold break-words text-foreground" />
+        <StaffSourceBadge booking={booking} />
+      </div>
+      <p className="text-sm tabular-nums text-muted-foreground">{booking.phone}</p>
+      <CheckInRefusedLine booking={booking} />
+    </div>
+  )
+}
+
+/** Desktop (frame 7): one table row, Time | Name | Guests | Status | Action. */
+function TodayTableRow({ booking, now, busy, onDecide }: RowProps) {
+  const state = arrivalState(booking, hongKongMoment(now))
+  return (
+    <div role="row" data-testid={`booking-row-${booking.id}`} className={cn(TODAY_COLUMNS, 'px-5 py-3', state.kind === 'arrived' && 'bg-muted/40')}>
+      <div role="cell" className="font-semibold tabular-nums text-foreground">{booking.bookingTime}</div>
+      <div role="cell" className="min-w-0"><NameCell booking={booking} /></div>
+      <div role="cell" className="tabular-nums text-foreground">{booking.partySize}</div>
+      <div role="cell">{state.kind === 'arrived' ? <ArrivedTime booking={booking} /> : <StateChip booking={booking} state={state} />}</div>
+      <div role="cell" className="flex flex-wrap items-center justify-end gap-2">
+        <RowActions booking={booking} busy={busy} onDecide={onDecide} />
+        <ArrivedAction booking={booking} withTime={false} />
+      </div>
+    </div>
+  )
+}
+
+/** Phone (frame 8): a card per booking with a full-width action. */
+function TodayCardRow({ booking, now, busy, onDecide }: RowProps) {
   const t = useTranslations('bookings')
   const state = arrivalState(booking, hongKongMoment(now))
   return (
-    <li data-testid={`booking-row-${booking.id}`} className={cn('flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5', state.kind === 'arrived' && 'bg-muted/40')}>
-      <div className="flex min-w-0 flex-1 items-start gap-4">
+    <li data-testid={`booking-row-${booking.id}`} className={cn('flex flex-col gap-2 px-4 py-3', state.kind === 'arrived' && 'bg-muted/40')}>
+      <div className="flex min-w-0 items-start gap-4">
         <div className="w-12 shrink-0">
           <p className="font-semibold tabular-nums text-foreground">{booking.bookingTime}</p>
           <p className="text-xs text-muted-foreground">{t('pax', { count: booking.partySize })}</p>
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <BookingGuestName booking={booking} className="font-semibold break-words text-foreground" />
-            <StaffSourceBadge booking={booking} />
-            <StateChip booking={booking} state={state} />
-          </div>
-          <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-            <span className="tabular-nums">{booking.phone}</span>
-            {booking.checkinCode ? <span aria-hidden>·</span> : null}
-            <CheckinCode booking={booking} />
-          </p>
-          <CheckInRefusedLine booking={booking} />
+          <NameCell booking={booking} />
+          <StateChip booking={booking} state={state} />
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2 max-sm:[&>*]:flex-1 sm:justify-end">
+      <div className="flex items-center gap-2 empty:hidden [&>*]:flex-1">
         <RowActions booking={booking} busy={busy} onDecide={onDecide} />
         <ArrivedAction booking={booking} />
       </div>
@@ -106,121 +134,96 @@ function TodayRow({ booking, now, busy, onDecide }: { booking: BookingItem; now:
   )
 }
 
-/** Frame 7/8c: the booking a code belongs to; Arrived only when it is today's and can check in. */
-export function CodeResultCard({ lookup, today }: { lookup: CodeLookup; today: string }) {
+/** Lunch / Dinner headings while sorted by time; one plain run of rows otherwise. */
+function grouped(bookings: BookingItem[], sort: TodaySort) {
+  return sort.key === 'time' ? todayMealGroups(bookings) : [{ meal: null, bookings }]
+}
+
+interface ListProps {
+  bookings: BookingItem[]
+  sort: TodaySort
+  onSort: (key: TodaySortKey) => void
+  now: Date
+  busyIds: ReadonlySet<string>
+  onDecide: DecideFn
+}
+
+const MEAL_HEADING = 'px-5 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase'
+
+function TodayTable({ bookings, sort, onSort, now, busyIds, onDecide }: ListProps) {
   const t = useTranslations('bookings.today')
-  const ts = useTranslations('bookings.staff')
-  const staff = useStaffBookingActions()
-  const locale = useLocale()
-  if (lookup.kind !== 'found') {
-    return (
-      <p data-testid="booking-scan-not-found" role="status" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        {t('notFound')}
-      </p>
-    )
-  }
-  const b = lookup.booking
-  const isToday = lookup.today && b.bookingDate === today
   return (
-    <section data-testid="booking-scan-result" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {t(isToday ? 'codeToday' : 'codeOtherDay', { code: b.checkinCode ?? '' })}
-      </p>
-      <h3 className="text-lg font-semibold break-words text-foreground">{b.name ?? b.phone} · {b.partySize}</h3>
-      {isToday ? (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">{t('timeLabel')}</dt>
-          <dd className="tabular-nums text-foreground">{b.bookingTime}</dd>
-          <dt className="text-muted-foreground">{t('phone')}</dt>
-          <dd className="tabular-nums text-foreground">{b.phone}</dd>
-          {b.notes ? (
-            <>
-              <dt className="text-muted-foreground">{t('notes')}</dt>
-              <dd className="whitespace-pre-wrap break-words text-foreground">{b.notes}</dd>
-            </>
+    <div role="table" aria-label={t('listLabel')} data-testid="bookings-today-list" className="overflow-hidden rounded-xl border border-border bg-card">
+      <div role="rowgroup"><TodaySortHeaderRow sort={sort} onSort={onSort} /></div>
+      {grouped(bookings, sort).map((g) => (
+        <div role="rowgroup" key={g.meal ?? 'all'} className="divide-y divide-border">
+          {g.meal ? (
+            <div role="row" data-testid={`bookings-today-group-${g.meal}`}>
+              <div role="cell" className={cn(MEAL_HEADING, 'bg-muted/50')}>{t(`meal.${g.meal}`)}</div>
+            </div>
           ) : null}
-        </dl>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {t('otherDayHint', { date: formatDate(b.bookingDate, locale, { weekday: 'short', day: 'numeric', month: 'short' }), time: b.bookingTime })}
-        </p>
-      )}
-      {b.checkedInAt || (isToday && canCheckIn(b, today)) ? (
-        <div className="flex flex-wrap gap-2">
-          <ArrivedAction booking={b} stretch />
+          {g.bookings.map((b) => <TodayTableRow key={b.id} booking={b} now={now} busy={busyIds.has(b.id)} onDecide={onDecide} />)}
         </div>
-      ) : null}
-      {isToday && b.status === 'confirmed' && !b.openChange ? (
-        <Button variant="outline" onClick={() => staff.openEdit(b)} className="self-start">{ts('edit')}</Button>
-      ) : null}
-    </section>
+      ))}
+    </div>
   )
 }
 
-function ScanSheet({ today, state }: { today: string; state: BookingsTodayState }) {
+function TodayCards({ bookings, sort, now, busyIds, onDecide }: Omit<ListProps, 'onSort'>) {
   const t = useTranslations('bookings.today')
-  const scan = state.scan
-  const open = scan.kind !== 'closed'
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && state.closeScan()}>
-      <SheetContent side="bottom" className="max-h-[92dvh] gap-3 overflow-y-auto rounded-t-2xl p-0 md:right-auto! md:bottom-auto! md:left-1/2! md:top-[6vh] md:w-[min(480px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-xl md:border" data-testid="bookings-today-scan-sheet">
-        <SheetHeader className="pr-12">
-          <SheetTitle className="text-lg font-semibold">{t('scanTitle')}</SheetTitle>
-        </SheetHeader>
-        <div className="flex flex-col gap-3 px-4 pb-4">
-          {scan.kind === 'scanning' ? (
-            <>
-              <div className="overflow-hidden rounded-xl bg-black"><QrScanner active onScan={(text) => void state.onScanned(text)} /></div>
-              <p className="text-center text-sm text-muted-foreground">{t('scanHint')}</p>
-            </>
-          ) : null}
-          {scan.kind === 'camera_denied' ? (
-            <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
-              <p className="font-medium text-destructive">{t('cameraDenied')}</p>
-              <p className="mt-1 text-muted-foreground">{t('cameraHint')}</p>
-            </div>
-          ) : null}
-          {scan.kind === 'result' ? <CodeResultCard lookup={scan.lookup} today={today} /> : null}
-          {scan.kind === 'result' || scan.kind === 'camera_denied' ? (
-            <Button variant="outline" size="lg" onClick={state.scanAgain}>{t('scan')}</Button>
-          ) : null}
-        </div>
-      </SheetContent>
-    </Sheet>
+    <div data-testid="bookings-today-list" className="overflow-hidden rounded-xl border border-border bg-card">
+      {grouped(bookings, sort).map((g) => (
+        <section key={g.meal ?? 'all'} aria-label={g.meal ? t(`meal.${g.meal}`) : undefined}>
+          {g.meal ? <h3 data-testid={`bookings-today-group-${g.meal}`} className={cn(MEAL_HEADING, 'border-b border-border bg-muted/50 px-4')}>{t(`meal.${g.meal}`)}</h3> : null}
+          <ul className="divide-y divide-border">
+            {g.bookings.map((b) => <TodayCardRow key={b.id} booking={b} now={now} busy={busyIds.has(b.id)} onDecide={onDecide} />)}
+          </ul>
+        </section>
+      ))}
+    </div>
   )
 }
 
 export interface BookingsTodayProps {
   state: BookingsTodayState
-  today: string
+  sort: TodaySort
+  onSort: (key: TodaySortKey) => void
+  onSortChange: (sort: TodaySort) => void
+  isPhone: boolean
   busyIds: ReadonlySet<string>
   onDecide: DecideFn
 }
 
-export function BookingsToday({ state, today, busyIds, onDecide }: BookingsTodayProps) {
+function SearchBox({ state, matches }: { state: BookingsTodayState; matches: ReactNode }) {
   const t = useTranslations('bookings.today')
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <label className="relative flex-1">
+        <span className="sr-only">{t('searchLabel')}</span>
+        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search" value={state.query} placeholder={t('searchPlaceholder')} onChange={(e) => state.setQuery(e.target.value)}
+          data-testid="bookings-today-search" className="h-11 pl-9"
+        />
+      </label>
+      {matches}
+    </div>
+  )
+}
+
+export function BookingsToday({ state, sort, onSort, onSortChange, isPhone, busyIds, onDecide }: BookingsTodayProps) {
+  const t = useTranslations('bookings.today')
+  const locale = useLocale()
   const now = useContext(BookingsNow) ?? new Date()
   const all = state.data?.bookings ?? []
-  const shown = all.filter((b) => matchesTodaySearch(b, state.query))
-  const searching = state.query.trim() !== ''
+  const shown = sortTodayBookings(all.filter((b) => matchesTodaySearch(b, state.query)), sort, { now: hongKongMoment(now), locale })
+  const matches = state.query.trim() !== '' ? <span className="text-sm text-muted-foreground" data-testid="bookings-today-matches">{t('matches', { count: shown.length })}</span> : null
+  const list = { bookings: shown, sort, now, busyIds, onDecide }
   return (
     <div data-testid="bookings-today" className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="relative flex-1">
-          <span className="sr-only">{t('searchLabel')}</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search" value={state.query} placeholder={t('searchPlaceholder')} onChange={(e) => state.setQuery(e.target.value)}
-            data-testid="bookings-today-search" className="h-11 pl-9"
-          />
-        </label>
-        {searching ? <span className="text-sm text-muted-foreground" data-testid="bookings-today-matches">{t('matches', { count: shown.length })}</span> : null}
-        <Button variant="outline" size="lg" onClick={state.openScan} data-testid="bookings-today-scan" className="h-11">
-          <QrCode aria-hidden />
-          {t('scan')}
-        </Button>
-      </div>
-      {state.codeCard ? <CodeResultCard lookup={state.codeCard} today={today} /> : null}
+      <SearchBox state={state} matches={matches} />
+      {isPhone ? <TodaySortSelect sort={sort} onChange={onSortChange} /> : null}
       {state.loading ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
       {state.failed ? <p role="alert" className="text-sm text-destructive">{t('couldntLoad')}</p> : null}
       {state.data ? (
@@ -231,15 +234,9 @@ export function BookingsToday({ state, today, busyIds, onDecide }: BookingsToday
             <p data-testid="bookings-today-empty" className="rounded-xl border border-border bg-card px-5 py-10 text-center text-sm text-muted-foreground">
               {all.length === 0 ? t('emptyDay') : t('empty')}
             </p>
-          ) : (
-            <ul data-testid="bookings-today-list" className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-              {shown.map((b) => <TodayRow key={b.id} booking={b} now={now} busy={busyIds.has(b.id)} onDecide={onDecide} />)}
-            </ul>
-          )}
+          ) : isPhone ? <TodayCards {...list} /> : <TodayTable {...list} onSort={onSort} />}
         </>
       ) : null}
-      <ScanSheet today={today} state={state} />
     </div>
   )
 }
-

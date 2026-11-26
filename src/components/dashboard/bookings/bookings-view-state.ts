@@ -9,6 +9,14 @@ import type { BookingDateRange } from '@/domain/entities/booking-request'
 import type { BookingsQuery } from '@/hooks/use-bookings'
 import { addDays, gridRange, monthKey, shiftMonth } from './booking-dates'
 import type { DayOrder } from './booking-groups'
+import {
+  DEFAULT_TODAY_SORT,
+  defaultTodaySortDir,
+  TODAY_SORT_KEYS,
+  type TodaySort,
+  type TodaySortDir,
+  type TodaySortKey,
+} from '@/domain/services/booking-today-sort'
 
 /** BOOK-013: Today joins (first; the default on a phone). */
 export const BOOKINGS_VIEWS = ['today', 'calendar', 'table'] as const
@@ -46,6 +54,23 @@ export function fetchRange(view: BookingsView, selected: string, range: TableRan
   if (view === 'calendar') return gridRange(selected)
   return range === 'pending' ? { status: 'pending' } : tableRangeDates(range, today)
 }
+
+const asSortKey = (value: string | null): TodaySortKey | null =>
+  TODAY_SORT_KEYS.includes(value as TodaySortKey) ? (value as TodaySortKey) : null
+
+/**
+ * BOOK-013 AC-25: `?sort=` and `?dir=` of the Today view. A key without a
+ * direction starts at that key's default; any invalid value is time, earliest first.
+ */
+export function resolveTodaySort(sort: string | null, dir: string | null): TodaySort {
+  const key = asSortKey(sort)
+  if (!key) return DEFAULT_TODAY_SORT
+  if (dir === null) return { key, dir: defaultTodaySortDir(key) }
+  return dir === 'asc' || dir === 'desc' ? { key, dir: dir as TodaySortDir } : DEFAULT_TODAY_SORT
+}
+
+/** The Today view's query string with its sort, so a reload keeps it. */
+export const todaySortSearch = (sort: TodaySort): string => `view=today&sort=${sort.key}&dir=${sort.dir}`
 
 /** Desktop prev/next: the next month's 1st, or today when that month holds today. Phone: a week. */
 export function stepSelected(selected: string, direction: 1 | -1, byWeek: boolean, today: string): string {

@@ -15,9 +15,8 @@
  * approved one, with no custom text set, stores nothing (C6).
  */
 import {
-  bookingKindComponents,
   bookingTemplateBody,
-  kindHasQrHeader,
+  bookingTemplateComponents,
   metaLanguageCode,
   mintBookingTemplateName,
 } from '@/domain/services/booking-templates'
@@ -65,16 +64,6 @@ export interface EditBookingTemplateDeps {
   saveTemplateEdit(restaurantId: string, edit: BookingTemplateEdit): Promise<void>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
   suffix(): string
-  /** BOOK-013: the sample QR for a `confirmed` edit's IMAGE header (see provisioning). */
-  qrExampleUrl?(): Promise<string | null>
-}
-
-/** BOOK-013: an edited `confirmed` keeps the QR header; without the sample image it cannot be submitted. */
-async function componentsFor(input: EditBookingTemplateInput, text: string, deps: EditBookingTemplateDeps) {
-  if (!kindHasQrHeader(input.kind)) return bookingKindComponents(input.kind, text, null)
-  const exampleUrl = (await deps.qrExampleUrl?.()) ?? null
-  if (!exampleUrl) throw new Error('editBookingTemplate: no sample QR image for the confirmed header')
-  return bookingKindComponents(input.kind, text, exampleUrl)
 }
 
 async function submitCandidate(input: EditBookingTemplateInput, text: string, deps: EditBookingTemplateDeps): Promise<string> {
@@ -83,7 +72,7 @@ async function submitCandidate(input: EditBookingTemplateInput, text: string, de
     name: mintBookingTemplateName(input.kind, deps.suffix()),
     language: metaLanguageCode(input.language),
     category: 'UTILITY',
-    components: await componentsFor(input, text, deps),
+    components: bookingTemplateComponents(text),
   })
   return template.id
 }

@@ -10,7 +10,6 @@ import { applyProvisionedTemplates } from '@/domain/services/booking-template-sl
 import type { TemplateStatus, WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
 
 const RID = 'rest-a'
-const SAMPLE_QR = 'https://storage.example/booking-checkin-qr/examples/checkin-qr-example.png'
 
 let rows: Map<string, WhatsAppTemplate>
 let config: BookingConfig
@@ -38,7 +37,6 @@ beforeEach(() => {
     saveProvisioned: vi.fn(async (_rid, slots) => { config = applyProvisionedTemplates(config, slots) }),
     ensureWabaId: vi.fn(async () => 'waba-1'),
     suffix: vi.fn(() => `s${++suffix}`),
-    qrExampleUrl: vi.fn(async () => SAMPLE_QR),
   }
   createdAs('pending')
 })
@@ -274,89 +272,41 @@ describe('applyProvisionedTemplates', () => {
   })
 })
 
-// BOOK-013 (spec AC-17, AC-18): `confirmed` carries the check-in QR as an IMAGE
-// header; an existing tenant's live confirmed without one gets its QR version
-// submitted as the slot's candidate while the old one keeps sending.
-describe('provisionBookingTemplates and the check-in QR (BOOK-013)', () => {
-  const QR_HEADER = { type: 'HEADER', format: 'IMAGE', example: { header_handle: [SAMPLE_QR] } }
-  const confirmedCalls = () => deps.createTemplate.mock.calls.map((c) => c[0]).filter((c) => c.name.startsWith('booking_confirmed_'))
-
-  function liveOldConfirmed(status: TemplateStatus = 'approved') {
-    for (const [lang, id] of [['en', 'old-en'], ['zh_hk', 'old-zh']] as const) {
-      rows.set(id, buildWhatsAppTemplate({ id, restaurantId: RID, status, components: [{ type: 'BODY', text: 'Old confirmed {{date}} {{time}}.' }] }))
-      config = structuredClone(config)
-      config.templateIds.confirmed[lang] = id
+// BOOK-013 (spec AC-14; decision 8): an existing tenant whose four BOOK-001
+// kinds are live gets only the two new kinds submitted; `confirmed` is left as
+// it is (no header, develop's body). This is what the backfill script runs.
+describe('provisionBookingTemplates for an existing tenant (BOOK-013)', () => {
+  function liveOldKinds() {
+    config = structuredClone(config)
+    for (const kind of ['received', 'confirmed', 'declined', 'reminder'] as const) {
+      for (const lang of ['en', 'zh_hk'] as const) {
+        const id = `old-${kind}-${lang}`
+        rows.set(id, buildWhatsAppTemplate({ id, restaurantId: RID, status: 'approved', components: [{ type: 'BODY', text: `Old ${kind} {{date}} {{time}}.` }] }))
+        config.templateIds[kind][lang] = id
+      }
     }
   }
 
-  it('a new confirmed is submitted with the QR header and {{code}} in the body; other kinds have no header', async () => {
+  it('submits only changed + cancelled (both languages), BODY only, and leaves every live kind and its candidates alone', async () => {
+    liveOldKinds()
     await provision()
-    for (const call of confirmedCalls()) {
-      expect(call.components[0]).toEqual(QR_HEADER)
-      expect(call.components[1].text).toContain('{{code}}')
-    }
-    const others = deps.createTemplate.mock.calls.map((c) => c[0]).filter((c) => !c.name.startsWith('booking_confirmed_'))
-    expect(others.every((c) => c.components.length === 1 && c.components[0].type === 'BODY')).toBe(true)
+    const calls = deps.createTemplate.mock.calls.map((c) => c[0])
+    expect(calls.map((c) => c.name.replace(/_[^_]+$/, '')).sort()).toEqual([
+      'booking_cancelled', 'booking_cancelled', 'booking_changed', 'booking_changed',
+    ])
+    expect(calls.every((c) => c.components.length === 1 && c.components[0].type === 'BODY')).toBe(true)
+    expect(deps.resubmitTemplate).not.toHaveBeenCalled()
+    expect(config.templateIds.confirmed).toEqual({ en: 'old-confirmed-en', zh_hk: 'old-confirmed-zh_hk' })
+    expect(config.templateCandidates.confirmed).toEqual({})
+    expect(config.templateIds.changed.en).toBeTruthy()
+    expect(config.templateIds.cancelled.zh_hk).toBeTruthy()
   })
 
-  it('without the sample image no confirmed is submitted (next save retries); the other kinds still are', async () => {
-    deps.qrExampleUrl!.mockResolvedValue(null)
-    const statuses = await provision()
-    expect(confirmedCalls()).toHaveLength(0)
-    expect(deps.createTemplate).toHaveBeenCalledTimes(10)
-    expect(statuses.confirmed).toEqual({ en: 'not_submitted', zh_hk: 'not_submitted' })
-  })
-
-  it.each(['approved', 'pending'] as const)('a live %s confirmed without the QR gets its QR version as the candidate; the old one stays live', async (status) => {
-    liveOldConfirmed(status)
-    await provision()
-    const calls = confirmedCalls()
-    expect(calls).toHaveLength(2)
-    expect(calls.every((c) => c.components[0].type === 'HEADER')).toBe(true)
-    expect(config.templateIds.confirmed).toEqual({ en: 'old-en', zh_hk: 'old-zh' })
-    expect(config.templateCandidates.confirmed.en).toBeTruthy()
-    expect(config.templateCandidates.confirmed.zh_hk).toBeTruthy()
-    expect(config.templateBodies.confirmed.en).toBeUndefined()
-  })
-
-  it('a pending QR candidate is not submitted again', async () => {
-    liveOldConfirmed()
+  it('a second run submits nothing', async () => {
+    liveOldKinds()
     await provision()
     deps.createTemplate.mockClear()
     await provision()
-    expect(confirmedCalls()).toHaveLength(0)
-  })
-
-  it('a QR candidate that never reached Meta is resubmitted in place on the next run, not created again', async () => {
-    liveOldConfirmed()
-    createdAs('draft')
-    await provision()
-    const candidates = { ...config.templateCandidates.confirmed }
-    deps.createTemplate.mockClear()
-    await provision()
-    expect(confirmedCalls()).toHaveLength(0)
-    const resubmitted = deps.resubmitTemplate.mock.calls.map((c) => c[0])
-    for (const id of Object.values(candidates)) expect(resubmitted).toContain(id)
-    expect(config.templateCandidates.confirmed).toEqual(candidates)
-    expect(config.templateIds.confirmed).toEqual({ en: 'old-en', zh_hk: 'old-zh' })
-  })
-
-  it("the restaurant's own confirmed text keeps its words, with the code line added when it has none", async () => {
-    liveOldConfirmed()
-    config.templateBodies.confirmed.en = 'See you on {{date}} at {{time}}, {{name}}!'
-    config.templateBodies.confirmed.zh_hk = '{{date}} {{time}} 見,入座編號 {{code}}。'
-    await provision()
-    const byLang = Object.fromEntries(confirmedCalls().map((c) => [c.language, c.components[1].text]))
-    expect(byLang.en).toBe('See you on {{date}} at {{time}}, {{name}}! Check-in code: {{code}}.')
-    expect(byLang.zh_HK).toBe('{{date}} {{time}} 見,入座編號 {{code}}。')
-    expect(config.templateBodies.confirmed.en).toBe(byLang.en)
-  })
-
-  it('a live confirmed that already has the QR header is left alone', async () => {
-    await provision()
-    deps.createTemplate.mockClear()
-    for (const id of Object.values(config.templateIds.confirmed) as string[]) rows.set(id, { ...(rows.get(id) as WhatsAppTemplate), status: 'approved' })
-    await provision()
-    expect(confirmedCalls()).toHaveLength(0)
+    expect(deps.createTemplate).not.toHaveBeenCalled()
   })
 })

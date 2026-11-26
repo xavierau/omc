@@ -3,9 +3,9 @@
  * status cancelled, cancelled_by 'staff', the user and time stored; owner
  * decision 4). A pending one is declined instead. The write is conditional on
  * the `edit_version` the dialog loaded and on no open change request (R3, R5,
- * AC-13; review R1); a refused cancel changes and sends nothing. The QR file is
- * deleted (R16); with Notify on the diner gets `cancelled` (AC-12), whose
- * outcome is answered but never stored on the row (review R8).
+ * AC-13; review R1); a refused cancel changes and sends nothing. With Notify
+ * on the diner gets `cancelled` (AC-12), whose outcome is answered but never
+ * stored on the row (review R8).
  */
 import { isEditVersion } from '@/domain/services/staff-booking-input'
 import {
@@ -59,7 +59,6 @@ export async function cancelStaffBooking(deps: StaffBookingDeps, input: CancelSt
     if (now?.openChange) return { ok: false, reason: 'open_change' }
     return now ? { ok: false, reason: 'changed', status: now.status } : { ok: false, reason: 'not_found' }
   }
-  await deps.qr.remove({ id: cancelled.id, restaurantId: cancelled.restaurantId })
   const message = await messageDiner(deps, cancelled, 'cancelled', body.notify)
   return { ok: true, booking: cancelled, message }
 }

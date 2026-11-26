@@ -55,7 +55,6 @@ async function createStaffBooking(args: StaffCreateArgs): Promise<BookingRequest
       p_notify: input.notify,
       p_actor: args.actorUserId,
       p_at: args.at.toISOString(),
-      p_codes: args.codes,
       p_broken_rules: args.brokenRules,
     })
     .select(STAFF_COLUMNS)
@@ -143,21 +142,6 @@ async function listForDate(restaurantId: string, date: string, cap: number) {
   return { bookings, truncated: rows.length > cap }
 }
 
-/** R2/R24: the code is looked up only among THIS restaurant's live bookings. */
-async function findByCode(restaurantId: string, code: string): Promise<BookingRequest | null> {
-  const { data, error } = await createServerSupabaseClient()
-    .from('booking_requests')
-    .select(STAFF_COLUMNS)
-    .eq('restaurant_id', restaurantId)
-    .eq('checkin_code', code)
-    .in('status', ['confirmed', 'no_show'])
-    .maybeSingle()
-  if (error) throw new Error(`findBookingByCode: ${error.message}`)
-  if (!data) return null
-  const [booking] = await withChangeSlots(restaurantId, [toBookingRequest(data as Row)])
-  return booking
-}
-
 async function checkIn(args: CheckInArgs): Promise<BookingRequest | null> {
   const { data, error } = await createServerSupabaseClient()
     .rpc('booking_check_in', {
@@ -180,4 +164,4 @@ async function undoCheckIn(args: { id: string; restaurantId: string; actorUserId
   return firstRow(data)
 }
 
-export const checkinStore: CheckinStore = { listForDate, findByCode, find: findStaffBooking, checkIn, undoCheckIn }
+export const checkinStore: CheckinStore = { listForDate, find: findStaffBooking, checkIn, undoCheckIn }

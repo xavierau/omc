@@ -117,19 +117,6 @@ export async function fetchToday(): Promise<TodayPayload | null> {
   }
 }
 
-export type CodeLookup = { kind: 'found'; booking: BookingItem; today: boolean } | { kind: 'not_found' } | { kind: 'error' }
-
-export async function lookupCode(code: string): Promise<CodeLookup> {
-  try {
-    const { status, json } = await call(`${BASE}/by-code/${encodeURIComponent(code)}`, 'GET')
-    const b = (json ?? {}) as { booking?: BookingItem; today?: boolean }
-    if (status === 200 && b.booking) return { kind: 'found', booking: b.booking, today: b.today === true }
-    return status === 404 ? { kind: 'not_found' } : { kind: 'error' }
-  } catch {
-    return { kind: 'error' }
-  }
-}
-
 /** The form for a new booking on `date` (the day panel's Add), or for editing `booking`. */
 export function initialForm(date: string, booking?: BookingItem | null): StaffBookingForm {
   if (!booking) return { phone: '', name: '', partySize: 2, date, time: '', notes: '', notify: true }
