@@ -41,6 +41,8 @@ export interface DecideBookingArgs {
   decidedBy: string
   decidedAt: Date
   declineReason: string | null
+  /** BOOK-013 (R8): check-in codes to try, in order, when this makes the booking confirmed. */
+  checkinCodes?: string[]
 }
 
 export interface BookingRequestStore {
@@ -99,7 +101,7 @@ export interface BookingSettingsReader {
 }
 
 export type BookingSendResult =
-  | { delivered: true; via: 'template' | 'text' }
+  | { delivered: true; via: 'template' | 'text' | 'image' }
   | { delivered: false; reason: 'outside_window' | 'send_failed' | 'no_sender' | 'error' }
 
 export interface BookingMessageInput {
@@ -108,6 +110,12 @@ export interface BookingMessageInput {
   memberId: string | null
   kind: BookingMessageKind
   details: BookingMessageDetails
+  /**
+   * BOOK-013 (spec AC-17): the booking's check-in QR (public link). An
+   * IMAGE-header template sends it as the header; in the 24h window it goes
+   * as an image message with the text as caption.
+   */
+  image?: string | null
 }
 
 /** Never throws: a failed send must not undo or fail the booking state. */
@@ -160,9 +168,12 @@ export interface BookingReminderStore {
   claimReminder(id: string, at: Date): Promise<boolean>
 }
 
-/** W3 (R19): clears name and notes on bookings dated before `beforeDate`; returns the rows changed. */
+/**
+ * W3 (R19): clears name and notes on bookings dated before `beforeDate`; returns the rows changed.
+ * BOOK-013 (R16): also their check-in codes, deleting their QR files first through `removeQrFiles`.
+ */
 export interface BookingRetentionStore {
-  purgePii(beforeDate: string, at: Date): Promise<number>
+  purgePii(beforeDate: string, at: Date, removeQrFiles?: (paths: string[]) => Promise<void>): Promise<number>
 }
 
 /** BOOK-003 (R41): deletes unverified bookings created before `createdBefore`; returns the rows deleted. */

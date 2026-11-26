@@ -97,6 +97,8 @@ interface StatsRow {
   declined: number
   no_show: number
   pending: number
+  /** BOOK-013 (095): absent before the migration. */
+  arrived?: number
   last_booking_date: string | null
   next_booking_date: string | null
 }
@@ -118,6 +120,7 @@ export async function memberBookingStats(memberId: string, restaurantId: string,
     declined: row.declined,
     noShow: row.no_show,
     pending: row.pending,
+    arrived: row.arrived ?? 0,
     lastBookingDate: row.last_booking_date,
     nextBookingDate: row.next_booking_date,
   }

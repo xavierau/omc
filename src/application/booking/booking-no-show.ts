@@ -26,12 +26,12 @@ export interface NoShowInput {
 export type NoShowResult =
   | { ok: true; booking: BookingRequest }
   | { ok: false; reason: 'not_found' }
-  | { ok: false; reason: 'already_handled' | 'not_past' | 'change_pending'; status: BookingRequest['status'] }
+  | { ok: false; reason: 'already_handled' | 'not_past' | 'change_pending' | 'checked_in'; status: BookingRequest['status'] }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const NOT_FOUND = { ok: false, reason: 'not_found' } as const
 
-type Refusal = (current: BookingRequest) => 'already_handled' | 'not_past' | 'change_pending'
+type Refusal = (current: BookingRequest) => 'already_handled' | 'not_past' | 'change_pending' | 'checked_in'
 
 const ALREADY_HANDLED: Refusal = () => 'already_handled'
 
@@ -40,8 +40,12 @@ const ALREADY_HANDLED: Refusal = () => 'already_handled'
  * AND no pending change; so a row still confirmed was either not past by the
  * same `before`, or (past) had a pending change request replacing it.
  */
-const markRefusal = (before: HongKongMoment): Refusal => (current) =>
-  current.status !== 'confirmed' ? 'already_handled' : isPastBooking(current, before) ? 'change_pending' : 'not_past'
+const markRefusal = (before: HongKongMoment): Refusal => (current) => {
+  if (current.status !== 'confirmed') return 'already_handled'
+  // BOOK-013 (R14): an arrived diner is never a no-show (095 adds checked_in_at IS NULL to the RPC).
+  if (current.checkedInAt) return 'checked_in'
+  return isPastBooking(current, before) ? 'change_pending' : 'not_past'
+}
 
 async function settle(deps: BookingNoShowDeps, input: NoShowInput, changed: BookingRequest | null, why: Refusal): Promise<NoShowResult> {
   if (changed) return { ok: true, booking: changed }

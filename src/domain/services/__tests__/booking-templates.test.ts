@@ -40,7 +40,7 @@ describe('booking template copy (R21)', () => {
   })
 
   it.each(ALL)('$kind/$lang uses only the parameters the sender fills, never notes', ({ kind, lang }) => {
-    const filled = Object.keys(buildBookingTemplateParams({ restaurantName: 'r', name: 'n', date: 'd', time: 't', partySize: 2 }))
+    const filled = Object.keys(buildBookingTemplateParams({ restaurantName: 'r', name: 'n', date: 'd', time: 't', partySize: 2, checkinCode: 'K7Q2MX' }))
     const used = extractParameters(buildWhatsAppTemplate({ components: bookingTemplateComponents(bookingTemplateBody(kind, lang)) }))
     expect(used.length).toBeGreaterThan(0)
     for (const p of used) expect(filled).toContain(p)
@@ -81,10 +81,12 @@ describe('booking template copy (R21)', () => {
 // Meta) keeps its stored body. BOOK-002 F1: Meta also rejected the zh_HK
 // reminder after review (it was never approved); the owner approved its new
 // copy on 2026-11-13.
+// BOOK-013 (spec AC-17): confirmed adds the check-in code sentence (it is
+// submitted with the QR as its IMAGE header).
 const APPROVED_COPY = {
   confirmed: {
-    en: 'Your table booking is confirmed. Restaurant: {{restaurant}}. Date: {{date}}. Time: {{time}}. Party size: {{party_size}}. If your plans change, please reply to this message to let the restaurant know.',
-    zh_hk: '你的訂座已確認。餐廳:{{restaurant}}。日期:{{date}}。時間:{{time}}。人數:{{party_size}}位。如行程有變,請直接回覆此訊息通知餐廳。',
+    en: 'Your table booking is confirmed. Restaurant: {{restaurant}}. Date: {{date}}. Time: {{time}}. Party size: {{party_size}}. Show this QR at the door, or tell staff your check-in code: {{code}}. If your plans change, please reply to this message to let the restaurant know.',
+    zh_hk: '你的訂座已確認。餐廳:{{restaurant}}。日期:{{date}}。時間:{{time}}。人數:{{party_size}}位。到達時請出示此 QR 碼,或告知職員入座編號:{{code}}。如行程有變,請直接回覆此訊息通知餐廳。',
   },
   declined: {
     en: 'Sorry, the restaurant could not accept your booking request for {{date}} at {{time}}. Reason: {{reason}}. You are welcome to choose another time and send a new request.',

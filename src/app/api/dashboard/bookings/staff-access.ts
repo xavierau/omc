@@ -7,14 +7,13 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext, type TenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
-
-const STAFF_ROLES = ['admin', 'staff']
+import { isStaffRole } from '@/domain/value-objects/tenant-role'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
 export async function staffContext(): Promise<TenantContext | NextResponse> {
   const ctx = await getTenantContext()
-  return STAFF_ROLES.includes(ctx.role) ? ctx : NextResponse.json({ error: 'forbidden' }, { status: 403, headers: NO_STORE })
+  return isStaffRole(ctx.role) ? ctx : NextResponse.json({ error: 'forbidden' }, { status: 403, headers: NO_STORE })
 }
 
 export function failure(error: unknown, what: string): NextResponse {

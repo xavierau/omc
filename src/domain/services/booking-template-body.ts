@@ -54,9 +54,10 @@ const TLDS = [
 const BARE_DOMAIN = new RegExp(`(?<![a-z0-9-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:${TLDS.join('|')})(?![a-z0-9-])`, 'i')
 const hasLink = (text: string) => URL_LINK.test(text) || BARE_DOMAIN.test(text)
 
-/** The placeholders one kind of message may use ({{reason}} only when declined). */
+/** The placeholders one kind of message may use ({{reason}} only when declined; BOOK-013: {{code}} only when confirmed). */
 export function allowedBookingPlaceholders(kind: BookingTemplateKind): string[] {
-  return kind === 'declined' ? [...BASE_PLACEHOLDERS, 'reason'] : [...BASE_PLACEHOLDERS]
+  if (kind === 'declined') return [...BASE_PLACEHOLDERS, 'reason']
+  return kind === 'confirmed' ? [...BASE_PLACEHOLDERS, 'code'] : [...BASE_PLACEHOLDERS]
 }
 
 const tokensOf = (text: string) => [...text.matchAll(TOKEN)].map((m) => ({ token: m[0], name: m[1] }))

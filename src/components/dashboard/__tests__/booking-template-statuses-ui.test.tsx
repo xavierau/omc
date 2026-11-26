@@ -20,6 +20,8 @@ const statuses: BookingTemplateStatuses = {
   confirmed: { en: 'rejected', zh_hk: 'failed' },
   declined: { en: 'not_submitted', zh_hk: 'approved' },
   reminder: { en: 'pending', zh_hk: 'pending' },
+  changed: { en: 'pending', zh_hk: 'pending' },
+  cancelled: { en: 'pending', zh_hk: 'pending' },
 }
 
 describe('BookingTemplateStatusList', () => {
@@ -29,7 +31,7 @@ describe('BookingTemplateStatusList', () => {
     expect(html).toMatch(/data-testid="booking-template-status-received-en"[^>]*>bookingSettings\.templates\.status\.approved/)
     expect(html).toMatch(/data-testid="booking-template-status-confirmed-zh_hk"[^>]*>bookingSettings\.templates\.status\.failed/)
     expect(html).toMatch(/data-testid="booking-template-status-declined-en"[^>]*>bookingSettings\.templates\.status\.not_submitted/)
-    expect(html.match(/data-testid="booking-template-status-[a-z]+-(en|zh_hk)"/g)).toHaveLength(8)
+    expect(html.match(/data-testid="booking-template-status-[a-z]+-(en|zh_hk)"/g)).toHaveLength(12)
   })
 
   it('shows loading while statuses are being fetched', () => {

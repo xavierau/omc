@@ -15,10 +15,10 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
  */
 export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show'
-/** AGENT-003 R24/R23: who cancelled a booking. */
-export type BookingCancelledBy = 'diner_ai' | 'change'
-/** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. */
-export type BookingSource = BookingLinkSource | 'agent'
+/** AGENT-003 R24/R23: who cancelled a booking. BOOK-013 (migration 095): 'staff' = a staff cancel. */
+export type BookingCancelledBy = 'diner_ai' | 'change' | 'staff'
+/** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. BOOK-013: 'staff' = made by staff. */
+export type BookingSource = BookingLinkSource | 'agent' | 'staff'
 export type BookingDecision = 'confirmed' | 'declined'
 /** Whether the confirm/decline message reached the diner (F9); null = none yet. */
 export type DecisionMessageStatus = 'delivered' | 'not_delivered'
@@ -81,6 +81,19 @@ export interface BookingRequest {
    */
   termsAcceptedAt?: string | null
   termsText?: string | null
+  /**
+   * BOOK-013 (migration 095). Read by the dashboard lists and staff paths
+   * only (undefined elsewhere). `updatedAt` is what a staff edit/cancel
+   * sends back for its conditional write (R3).
+   */
+  updatedAt?: string
+  createdBy?: string | null
+  /** The creating staff member's display name ("By staff · Mandy"); resolved by the list route. */
+  createdByName?: string | null
+  notifyDiner?: boolean
+  /** The 6-character check-in code, minted when the booking became confirmed (R8). */
+  checkinCode?: string | null
+  checkedInAt?: string | null
 }
 
 /** BOOK-006: the open (pending) change request that would replace a booking. */

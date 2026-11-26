@@ -19,6 +19,8 @@ const COUNTS = [
   ['total', 'bookingStatTotal'],
   ['confirmed', 'bookingStatConfirmed'],
   ['noShow', 'bookingStatNoShow'],
+  // BOOK-013 (AC-23): diners checked in.
+  ['arrived', 'bookingStatArrived'],
   ['cancelled', 'bookingStatCancelled'],
   ['declined', 'bookingStatDeclined'],
   ['pending', 'bookingStatPending'],
@@ -40,7 +42,7 @@ export function MemberBookingStatsGrid({ stats }: { stats: MemberBookingStats })
   return (
     <dl className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm" data-testid="member-bookings-stats">
       {COUNTS.map(([key, label]) => (
-        <Stat key={key} label={t(label)} value={stats[key]} testId={`member-bookings-stat-${key}`} />
+        <Stat key={key} label={t(label)} value={stats[key] ?? 0} testId={`member-bookings-stat-${key}`} />
       ))}
       <Stat label={t('lastBooking')} value={day(stats.lastBookingDate)} testId="member-bookings-stat-last" className={WIDE} />
       <Stat label={t('nextBooking')} value={day(stats.nextBookingDate)} testId="member-bookings-stat-next" className={WIDE} />

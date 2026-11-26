@@ -19,9 +19,21 @@ function store() {
 }
 
 describe('purgeBookingPii (R19)', () => {
+  it('BOOK-013 (R16): passes the QR file deleter to the purge and sweeps QR files left on closed bookings', async () => {
+    const s = store()
+    const removed: string[][] = []
+    const swept: number[] = []
+    const qrFiles = { removePaths: async (p: string[]) => void removed.push(p), sweepClosed: async (n: number) => (swept.push(n), 2) }
+    let handed: unknown
+    const spy = { purgePii: async (before: string, at: Date, remove?: (p: string[]) => Promise<void>) => ((handed = remove), s.purgePii(before, at)) }
+    expect(await purgeBookingPii({ store: spy, now: () => NOW, qrFiles })).toEqual({ purged: 1, cutoffDate: '2026-05-16', qrSwept: 2 })
+    expect(handed).toBe(qrFiles.removePaths)
+    expect(swept).toEqual([500])
+  })
+
   it('clears name and notes on bookings more than 180 days past their date and stamps pii_purged_at', async () => {
     const s = store()
-    expect(await purgeBookingPii({ store: s, now: () => NOW })).toEqual({ purged: 1, cutoffDate: '2026-05-16' })
+    expect(await purgeBookingPii({ store: s, now: () => NOW })).toEqual({ purged: 1, cutoffDate: '2026-05-16', qrSwept: 0 })
     const old = s.rows.find((r) => r.id === 'old')
     expect(old).toMatchObject({ name: null, notes: null, piiPurgedAt: NOW.toISOString() })
     expect(old).toMatchObject({ status: 'declined', partySize: 4, bookingDate: '2026-05-15', bookingTime: '19:30', phone: '+85291234567' })

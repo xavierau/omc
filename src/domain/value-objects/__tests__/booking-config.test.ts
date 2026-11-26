@@ -99,6 +99,8 @@ describe('parseBookingSettings (R14 / AC-1 / AC-2)', () => {
       confirmed: { en: 'c-en', zh_hk: 'c-zh' },
       declined: { en: 'd-en', zh_hk: 'd-zh' },
       reminder: { en: 'm-en', zh_hk: 'm-zh' },
+      changed: { en: 'g-en', zh_hk: 'g-zh' },
+      cancelled: { en: 'x-en', zh_hk: 'x-zh' },
     },
   }
 
@@ -167,8 +169,8 @@ describe('templateBodies and templateCandidates (BOOK-002)', () => {
       templateBodies: { confirmed: { en: 'Custom {{date}} {{time}} ok.', zh_hk: 7 }, declined: 'flat', bogus: { en: 'x' } },
       templateCandidates: { confirmed: { en: 'tpl-new', zh_hk: '' } },
     })
-    expect(config.templateBodies).toEqual({ received: {}, confirmed: { en: 'Custom {{date}} {{time}} ok.' }, declined: {}, reminder: {} })
-    expect(config.templateCandidates).toEqual({ received: {}, confirmed: { en: 'tpl-new' }, declined: {}, reminder: {} })
+    expect(config.templateBodies).toEqual({ received: {}, confirmed: { en: 'Custom {{date}} {{time}} ok.' }, declined: {}, reminder: {}, changed: {}, cancelled: {} })
+    expect(config.templateCandidates).toEqual({ received: {}, confirmed: { en: 'tpl-new' }, declined: {}, reminder: {}, changed: {}, cancelled: {} })
   })
 
   it('a resolved default is a fresh copy (writing one never changes the default)', () => {

@@ -52,8 +52,17 @@ describe('booking cron queries', () => {
     const rec = use([{ data: [{ id: 'a' }, { id: 'b' }] }])
     expect(await purgeBookingPii('2026-05-16', AT)).toBe(2)
     const q = rec.queries[0]
-    expect(q.calls[0]).toEqual(['update', { name: null, notes: null, pii_purged_at: AT.toISOString() }])
+    expect(q.calls[0]).toEqual(['update', { name: null, notes: null, checkin_code: null, checkin_qr_path: null, pii_purged_at: AT.toISOString() }])
     expect(filtersOf(q)).toEqual(['lt:booking_date=2026-05-16', 'is:pii_purged_at=null'])
+  })
+
+  it('BOOK-013 (R16): deletes the QR files of the rows it is about to clear, before clearing them', async () => {
+    const rec = use([{ data: [{ checkin_qr_path: 'aaaaaaaaaaaaaaaaaaaaaa.png' }] }, { data: [{ id: 'a' }] }])
+    const removed: string[][] = []
+    expect(await purgeBookingPii('2026-05-16', AT, async (paths) => void removed.push(paths))).toBe(1)
+    expect(removed).toEqual([['aaaaaaaaaaaaaaaaaaaaaa.png']])
+    expect(filtersOf(rec.queries[0])).toEqual(['lt:booking_date=2026-05-16', 'is:pii_purged_at=null', 'not:checkin_qr_path=is.null'])
+    expect(rec.queries[1].calls[0][0]).toBe('update')
   })
 
   it('surfaces a database error instead of reporting zero', async () => {

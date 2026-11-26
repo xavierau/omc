@@ -15,7 +15,7 @@ import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositori
 import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import { isWindowOpen } from '@/infrastructure/supabase/repositories/conversation-window-repository'
 import { getInboundRateLimiter } from '@/infrastructure/queue/integration-inbound-queue'
-import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { sendImageMessage, sendTextMessage } from '@/infrastructure/whatsapp/messaging'
 import { sendWhatsAppTemplateMessage } from '@/application/send-template-message'
 import { changeBookingConfig, getBookingConfig } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import {
@@ -42,6 +42,15 @@ import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 import type { BookingCapacityDeps } from './booking-capacity'
 import type { AgentBookingRoomDeps } from './agent-booking-full-reply'
+import { randomInt } from 'crypto'
+import { recordDecisionMessage } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { checkinStore, staffBookingStore } from '@/infrastructure/supabase/repositories/staff-booking-repository'
+import { checkinQrJanitor, checkinQrStore } from '@/infrastructure/supabase/checkin-qr-storage'
+import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
+import { isPhoneNormalizeError } from '@/domain/ports/phone-normalizer'
+import { newCheckinCodes } from '@/domain/services/booking-checkin'
+import type { StaffBookingDeps } from './staff-booking-shared'
+import type { BookingCheckInDeps } from './booking-check-in'
 
 const now = () => new Date()
 
@@ -73,7 +82,39 @@ export function bookingMessageSender(): BookingMessageSender {
     getLanguage: async (restaurantId, phone) => languageOf(await findMemberByPhone(restaurantId, phone)),
     sendTemplate: (args) => sendWhatsAppTemplateMessage(args),
     sendText: sendTextMessage,
+    // BOOK-013 (spec AC-17): the in-window confirmation with its QR.
+    sendImage: sendImageMessage,
   })
+}
+
+/** BOOK-013 (R8): CSPRNG check-in codes. */
+const newCodes = () => newCheckinCodes(randomInt)
+
+/** BOOK-013 (R7): the repo's one E.164 normaliser (HK default region). */
+const normalizePhone = (raw: string): string | null => {
+  const parsed = parseE164Phone(raw)
+  return isPhoneNormalizeError(parsed) ? null : parsed.value
+}
+
+/** BOOK-013 S1–S3: staff create / edit / cancel. */
+export function staffBookingDeps(): StaffBookingDeps {
+  return {
+    store: staffBookingStore,
+    settings: bookingSettingsReader,
+    room: bookingRoomStore,
+    members,
+    sender: bookingMessageSender(),
+    qr: checkinQrStore,
+    normalizePhone,
+    recordMessage: recordDecisionMessage,
+    newCodes,
+    now,
+  }
+}
+
+/** BOOK-013 S7: the Today view, code lookup, Arrived / Undo. */
+export function bookingCheckInDeps(): BookingCheckInDeps {
+  return { store: checkinStore, settings: bookingSettingsReader, now }
 }
 
 export function submitBookingDeps(): SubmitBookingDeps {
@@ -95,6 +136,9 @@ export function decideBookingDeps(): DecideBookingDeps {
     requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now,
     // BOOK-010 (spec AC-10): ask before a confirm goes over a guest limit.
     overLimit: { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore },
+    // BOOK-013 (R8, R10): the confirm mints the check-in code; the message carries its QR.
+    newCodes,
+    qr: checkinQrStore,
   }
 }
 
@@ -134,7 +178,8 @@ export function bookingReminderDeps(): SendBookingRemindersDeps {
 
 /** W3 (R19): the retention cron. */
 export function bookingRetentionDeps(): PurgeBookingPiiDeps {
-  return { store: bookingCronStore, now }
+  // BOOK-013 (R16): the purge also deletes check-in QR files.
+  return { store: bookingCronStore, now, qrFiles: checkinQrJanitor }
 }
 
 /** BOOK-003 (R41, review F3): the unverified purge step of the 5-minute reminders cron. */

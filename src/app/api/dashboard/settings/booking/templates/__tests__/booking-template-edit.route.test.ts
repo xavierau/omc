@@ -18,6 +18,8 @@ vi.mock('@/infrastructure/supabase/repositories/whatsapp-template-repository', (
 vi.mock('@/application/create-whatsapp-template', () => ({ createWhatsAppTemplate: vi.fn() }))
 vi.mock('@/application/update-whatsapp-template', () => ({ updateWhatsAppTemplate: vi.fn() }))
 vi.mock('@/application/ensure-waba-id', () => ({ ensureWabaId: vi.fn() }))
+// BOOK-013: an edited `confirmed` keeps its check-in QR header (sample image faked).
+vi.mock('@/infrastructure/supabase/checkin-qr-storage', () => ({ checkinQrExampleUrl: vi.fn(async () => SAMPLE_QR) }))
 
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { getBookingConfig, saveBookingTemplateEdit } from '@/infrastructure/supabase/repositories/booking-config-repository'
@@ -32,6 +34,8 @@ import { PUT } from '../route'
 import { GET } from '../../route'
 
 const RID = 'rest-1'
+const SAMPLE_QR = 'https://storage.example/booking-checkin-qr/examples/checkin-qr-example.png'
+const QR_HEADER = { type: 'HEADER', format: 'IMAGE', example: { header_handle: [SAMPLE_QR] } }
 const OLD_BODY = 'Hi {{name}}, your booking at {{restaurant}} for {{party_size}} on {{date}} at {{time}} is confirmed.'
 const NEW_BODY = 'Your table at {{restaurant}} is confirmed for {{date}} at {{time}}. Reply here if your plans change at all.'
 const DEFAULT_EN = bookingTemplateBody('confirmed', 'en')
@@ -72,7 +76,7 @@ beforeEach(() => {
   })
   vi.mocked(findManyByIdsForRestaurant).mockImplementation(async (ids) => ids.flatMap((id) => rows.get(id) ?? []))
   vi.mocked(createWhatsAppTemplate).mockImplementation(async (p) => ({
-    template: row(`tpl-new-${++created}`, 'pending', p.components[0].text as string, { name: p.name, language: p.language }),
+    template: row(`tpl-new-${++created}`, 'pending', p.components.find((c) => c.type === 'BODY')?.text as string, { name: p.name, language: p.language, components: p.components }),
   }))
 })
 
@@ -97,7 +101,7 @@ describe('who and when (R14, R22)', () => {
   })
 
   it.each([
-    ['unknown kind', { kind: 'cancelled', language: 'en', body: NEW_BODY }],
+    ['unknown kind', { kind: 'birthday', language: 'en', body: NEW_BODY }],
     ['unknown language', { kind: 'confirmed', language: 'fr', body: NEW_BODY }],
     ['non-string body', { kind: 'confirmed', language: 'en', body: 42 }],
     ['missing body', { kind: 'confirmed', language: 'en' }],
@@ -133,7 +137,7 @@ describe('a valid edit (AC-2)', () => {
     expect(res.status).toBe(200)
     expect(createWhatsAppTemplate).toHaveBeenCalledTimes(1)
     const params = vi.mocked(createWhatsAppTemplate).mock.calls[0][0]
-    expect(params).toMatchObject({ restaurantId: RID, language: 'en', category: 'UTILITY', components: [{ type: 'BODY', text: NEW_BODY }] })
+    expect(params).toMatchObject({ restaurantId: RID, language: 'en', category: 'UTILITY', components: [QR_HEADER, { type: 'BODY', text: NEW_BODY }] })
     expect(params.name).toMatch(/^booking_confirmed_[0-9a-f]{6}$/)
     expect(stored.templateBodies.confirmed.en).toBe(NEW_BODY)
     expect(stored.templateCandidates.confirmed.en).toBe('tpl-new-1')
@@ -193,7 +197,7 @@ describe('edits compared on what Meta has (F1)', () => {
   it('C1: full-width braces are stored and submitted as ASCII placeholders', async () => {
     const fullWidth = NEW_BODY.replace('{{date}}', '｛｛date｝｝').replace('{{time}}', '｛｛time｝｝')
     expect((await edit(fullWidth)).status).toBe(200)
-    expect(vi.mocked(createWhatsAppTemplate).mock.calls[0][0].components).toEqual([{ type: 'BODY', text: NEW_BODY }])
+    expect(vi.mocked(createWhatsAppTemplate).mock.calls[0][0].components).toEqual([QR_HEADER, { type: 'BODY', text: NEW_BODY }])
     expect(stored.templateBodies.confirmed.en).toBe(NEW_BODY)
   })
 
@@ -266,7 +270,7 @@ describe('reset to default (AC-5)', () => {
     stored.templateBodies.confirmed.en = OLD_BODY
     const res = await edit(null)
     expect(res.status).toBe(200)
-    expect(vi.mocked(createWhatsAppTemplate).mock.calls[0][0].components).toEqual([{ type: 'BODY', text: DEFAULT_EN }])
+    expect(vi.mocked(createWhatsAppTemplate).mock.calls[0][0].components).toEqual([QR_HEADER, { type: 'BODY', text: DEFAULT_EN }])
     expect(stored.templateBodies.confirmed.en).toBeUndefined()
     expect(stored.templateCandidates.confirmed.en).toBe('tpl-new-1')
   })
@@ -287,7 +291,7 @@ describe('GET booking settings → templateEditor (AC-1, AC-3)', () => {
       customBody: NEW_BODY,
       approvedBody: OLD_BODY,
       defaultBody: DEFAULT_EN,
-      placeholders: ['name', 'restaurant', 'date', 'time', 'party_size'],
+      placeholders: ['name', 'restaurant', 'date', 'time', 'party_size', 'code'],
     })
     expect(slots.declined.zh_hk).toMatchObject({ status: 'not_submitted', candidate: null, customBody: null })
     expect(slots.declined.zh_hk.placeholders).toContain('reason')

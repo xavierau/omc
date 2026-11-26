@@ -16,7 +16,7 @@ const req = (auth: string | null) =>
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('CRON_SECRET', SECRET)
-  vi.mocked(purgeBookingPii).mockResolvedValue({ purged: 3, cutoffDate: '2026-05-16' })
+  vi.mocked(purgeBookingPii).mockResolvedValue({ purged: 3, cutoffDate: '2026-05-16', qrSwept: 0 })
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -35,7 +35,7 @@ describe('/api/cron/booking-retention', () => {
   it.each([['GET', GET], ['POST', POST]] as const)('%s with the bearer purges once and returns the count', async (_m, handler) => {
     const res = await handler(req(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ purged: 3, cutoffDate: '2026-05-16' })
+    expect(await res.json()).toEqual({ purged: 3, cutoffDate: '2026-05-16', qrSwept: 0 })
     expect(purgeBookingPii).toHaveBeenCalledWith({ marker: 'deps' })
   })
 })

@@ -35,6 +35,8 @@ export interface MemberBookingStats {
   declined: number
   noShow: number
   pending: number
+  /** BOOK-013 (AC-23): bookings whose diner was checked in. */
+  arrived?: number
   /** The latest date before now (Hong Kong) of a confirmed or no_show booking; null when none. */
   lastBookingDate: string | null
   /** The earliest pending or confirmed booking date from now on; null when none. */

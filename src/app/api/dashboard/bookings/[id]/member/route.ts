@@ -11,10 +11,9 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { relinkBookingMemberDeps } from '@/application/booking/member-booking-deps'
 import { relinkBookingMember, type RelinkBookingMemberResult } from '@/application/booking/relink-booking-member'
+import { isStaffRole } from '@/domain/value-objects/tenant-role'
 
 type Params = { params: Promise<{ id: string }> }
-
-const STAFF_ROLES = ['admin', 'staff']
 
 /** The body's memberId: a string or null; anything else (missing, wrong type, not JSON) is undefined. */
 async function readMemberId(request: Request): Promise<string | null | undefined> {
@@ -36,7 +35,7 @@ function respond(result: RelinkBookingMemberResult): NextResponse {
 export async function PATCH(request: Request, { params }: Params): Promise<NextResponse> {
   try {
     const { restaurantId, userId, role } = await getTenantContext()
-    if (!STAFF_ROLES.includes(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isStaffRole(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const memberId = await readMemberId(request)
     if (memberId === undefined) return NextResponse.json({ error: 'invalid_input' }, { status: 400 })
     const { id } = await params

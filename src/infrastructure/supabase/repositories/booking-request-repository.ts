@@ -35,10 +35,11 @@ const BOOKING_COLUMNS =
 /**
  * AGENT-003 (migration 085): the change/cancel columns, read only by the
  * dashboard list and the staff decision, so the BOOK-001 paths (booking page,
- * webhook) do not depend on 085's columns.
+ * webhook) do not depend on 085's columns. BOOK-013 (migration 095): plus the
+ * staff audit, notify, check-in code and arrival columns, dashboard only.
  */
 export const STAFF_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, updated_at, created_by, notify_diner, checkin_code, checked_in_at'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
 const POSTGREST_MAX_ROWS = 1000
@@ -78,6 +79,23 @@ interface BookingRow {
   cancelled_by?: BookingCancelledBy | null
   terms_accepted_at?: string | null
   terms_text?: string | null
+  updated_at?: string
+  created_by?: string | null
+  notify_diner?: boolean
+  checkin_code?: string | null
+  checked_in_at?: string | null
+}
+
+/** BOOK-013: the 095 columns, present only when the read selected them (STAFF_COLUMNS). */
+function staffFields(row: BookingRow): Partial<BookingRequest> {
+  if (row.updated_at === undefined) return {}
+  return {
+    updatedAt: row.updated_at,
+    createdBy: row.created_by ?? null,
+    notifyDiner: row.notify_diner ?? true,
+    checkinCode: row.checkin_code ?? null,
+    checkedInAt: row.checked_in_at ?? null,
+  }
 }
 
 export function toBookingRequest(row: BookingRow): BookingRequest {
@@ -102,6 +120,7 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
     ...(row.replaces_booking_id !== undefined ? { replacesBookingId: row.replaces_booking_id } : {}),
     ...(row.cancelled_by !== undefined ? { cancelledBy: row.cancelled_by } : {}),
     ...(row.terms_accepted_at !== undefined ? { termsAcceptedAt: row.terms_accepted_at, termsText: row.terms_text ?? null } : {}),
+    ...staffFields(row),
   }
 }
 
@@ -233,7 +252,7 @@ async function openChangesFor(restaurantId: string, bookings: BookingRequest[]):
 }
 
 /** AGENT-003 replaced slots (old → new) and BOOK-006 open changes on the listed bookings. */
-async function withChangeSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
+export async function withChangeSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
   const [withReplaced, open] = await Promise.all([withReplacedSlots(restaurantId, bookings), openChangesFor(restaurantId, bookings)])
   return withReplaced.map((b) => (open.has(b.id) ? { ...b, openChange: open.get(b.id) } : b))
 }
@@ -319,7 +338,8 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('booking_requests')
-    .select(BOOKING_COLUMNS)
+    // BOOK-013: staff-only lookup, so the staff columns (check-in, audit) come with it.
+    .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
     // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff.
@@ -329,35 +349,56 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
   return data ? toBookingRequest(data as BookingRow) : null
 }
 
-export async function decideBookingRequest(args: DecideBookingArgs): Promise<BookingRequest | null> {
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
+/** BOOK-013 (R8): the unique index on (restaurant_id, checkin_code) refused this code. */
+export function isCheckinCodeClash(error: { code?: string; message?: string } | null): boolean {
+  return !!error && error.code === '23505' && (error.message ?? '').includes('checkin_code')
+}
+
+async function decideOnce(args: DecideBookingArgs, code: string | null) {
+  return createServerSupabaseClient()
     .from('booking_requests')
     .update({
       status: args.decision,
       decided_by: args.decidedBy,
       decided_at: args.decidedAt.toISOString(),
       decline_reason: args.decision === 'declined' ? args.declineReason : null,
+      ...(code ? { checkin_code: code } : {}),
     })
     .eq('id', args.id)
     .eq('restaurant_id', args.restaurantId)
     .eq('status', 'pending')
     .select(STAFF_COLUMNS)
     .maybeSingle()
-  if (error) throw new Error(`decideBookingRequest: ${error.message}`)
-  return data ? toBookingRequest(data as BookingRow) : null
+}
+
+/**
+ * BOOK-013 (R8): a confirm writes its check-in code in the same UPDATE; a code
+ * that clashes with another live booking of the restaurant tries the next.
+ */
+export async function decideBookingRequest(args: DecideBookingArgs): Promise<BookingRequest | null> {
+  const codes: Array<string | null> = args.decision === 'confirmed' && args.checkinCodes?.length ? args.checkinCodes : [null]
+  for (const code of codes) {
+    const { data, error } = await decideOnce(args, code)
+    if (isCheckinCodeClash(error)) continue
+    if (error) throw new Error(`decideBookingRequest: ${error.message}`)
+    return data ? toBookingRequest(data as BookingRow) : null
+  }
+  throw new Error('decideBookingRequest: every check-in code clashed')
 }
 
 /** AGENT-003 R23: confirm a change request and cancel what it replaces, atomically (migration 085). */
 export async function confirmBookingChange(
   args: Omit<DecideBookingArgs, 'decision' | 'declineReason'>
 ): Promise<BookingRequest | null> {
+  // BOOK-013 (R8): the 5-argument version (095) mints the code in the same transaction.
+  const codes = args.checkinCodes?.length ? { p_codes: args.checkinCodes } : {}
   const { data, error } = await createServerSupabaseClient()
     .rpc('confirm_booking_change', {
       p_id: args.id,
       p_restaurant_id: args.restaurantId,
       p_decided_by: args.decidedBy,
       p_decided_at: args.decidedAt.toISOString(),
+      ...codes,
     })
     .select(STAFF_COLUMNS)
   if (error) throw new Error(`confirmBookingChange: ${error.message}`)
@@ -441,17 +482,34 @@ export async function claimBookingReminder(id: string, at: Date): Promise<boolea
   return (data ?? []).length === 1
 }
 
-/** W3 (R19): clear name and notes on bookings dated before `beforeDate`, once. */
-export async function purgeBookingPii(beforeDate: string, at: Date): Promise<number> {
+/**
+ * W3 (R19): clear name and notes on bookings dated before `beforeDate`, once.
+ * BOOK-013 (R16): also the check-in code, after their QR files are deleted
+ * (`removeQrFiles`, before the update, so a path is never lost while its file stays).
+ */
+export async function purgeBookingPii(beforeDate: string, at: Date, removeQrFiles?: (paths: string[]) => Promise<void>): Promise<number> {
   const supabase = createServerSupabaseClient()
+  if (removeQrFiles) await removeQrFiles(await qrPathsBefore(beforeDate))
   const { data, error } = await supabase
     .from('booking_requests')
-    .update({ name: null, notes: null, pii_purged_at: at.toISOString() })
+    .update({ name: null, notes: null, checkin_code: null, checkin_qr_path: null, pii_purged_at: at.toISOString() })
     .lt('booking_date', beforeDate)
     .is('pii_purged_at', null)
     .select('id')
   if (error) throw new Error(`purgeBookingPii: ${error.message}`)
   return (data ?? []).length
+}
+
+/** BOOK-013 (R16): QR files of the bookings the purge is about to clear. */
+async function qrPathsBefore(beforeDate: string): Promise<string[]> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select('checkin_qr_path')
+    .lt('booking_date', beforeDate)
+    .is('pii_purged_at', null)
+    .not('checkin_qr_path', 'is', null)
+  if (error) throw new Error(`purgeBookingPii qr paths: ${error.message}`)
+  return ((data ?? []) as Array<{ checkin_qr_path: string }>).map((r) => r.checkin_qr_path)
 }
 
 const DINER_COLUMNS = 'id, booking_date, booking_time, party_size, status, name, notes, member_id, replaces_booking_id'

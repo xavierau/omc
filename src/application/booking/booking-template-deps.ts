@@ -15,6 +15,7 @@ import {
   saveProvisionedBookingTemplates,
 } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { provisionBookingTemplates } from './provision-booking-templates'
+import { checkinQrExampleUrl } from '@/infrastructure/supabase/checkin-qr-storage'
 import { bookingTemplateOverview, bookingTemplateStatuses, type BookingTemplateOverview } from './booking-template-statuses'
 import { editBookingTemplate, type EditBookingTemplateInput, type EditBookingTemplateResult } from './edit-booking-template'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
@@ -32,6 +33,8 @@ export function provisionBookingTemplatesFor(restaurantId: string): Promise<Book
     saveProvisioned: saveProvisionedBookingTemplates,
     ensureWabaId,
     suffix,
+    // BOOK-013: the sample QR for the confirmed IMAGE header.
+    qrExampleUrl: checkinQrExampleUrl,
   })
 }
 
@@ -51,5 +54,6 @@ export function editBookingTemplateFor(input: EditBookingTemplateInput): Promise
     createTemplate: createWhatsAppTemplate,
     saveTemplateEdit: saveBookingTemplateEdit,
     suffix,
+    qrExampleUrl: checkinQrExampleUrl,
   })
 }

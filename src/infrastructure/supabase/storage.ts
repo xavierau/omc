@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 
 const BUCKET_NAME = 'coupon-qr'
 
-async function generateQrBuffer(payload: string): Promise<Buffer> {
+/** BOOK-013: also renders the booking check-in QR (checkin-qr-storage.ts). */
+export async function generateQrBuffer(payload: string): Promise<Buffer> {
   return QRCode.toBuffer(payload, {
     width: 300,
     margin: 2,
