@@ -48,7 +48,7 @@ scope_drift: []
 in_flight: []
 cleanup:
   - "../whatsapp-crm--build-font: removed (slot released, worktree removed, local + remote branch deleted; restore from 978d3ed1)"
-  - "../whatsapp-crm--book-012: see the follow-up commit on this PR (removed after the records were pushed)"
+  - "../whatsapp-crm--book-012: removed 05:53Z by hand (wt-finish refused only against the primary checkout's stale local main; HEAD was exactly origin/main ffcf73ac, no changes or untracked files): slot released, worktree removed, local release-book012 + docs branch deleted, remote release-book012 deleted. Kept: local ref release-backup-f495266. Restore: git worktree add ../whatsapp-crm--book-012 ffcf73ac"
 next_step: "Merge the records PR into main, then merge main into develop (kanban.json/INDEX.md diverge otherwise)."
 ---
 
