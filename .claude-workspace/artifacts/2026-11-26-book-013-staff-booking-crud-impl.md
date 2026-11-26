@@ -32,3 +32,21 @@ Stage: POC (WT_STAGE=poc, no mature import). Branch `feature/book-013-staff-book
 - R3 says check-in / undo are conditional on `updated_at` as well. They are conditional on state only (confirmed, today, not arrived, no open change / arrived for undo): the reminder cron's claim bumps `updated_at` on the same day's bookings, so a Today list loaded before 16:00 would refuse every Arrived after its reminder went out. Double tap still changes the row once.
 - R16 "cancelled/declined bookings delete their QR file at that transition": staff cancel deletes it inline; the diner-AI cancel and a confirmed change's cancelled original keep their file until the daily retention cron's sweep (≤ 24 h, `QR_SWEEP_LIMIT` 500 per run), so the diner and agent channels are untouched (brief escalate_if). A declined booking never had a QR (codes are minted at confirm).
 - Existing-tenant templates: no automatic backfill on deploy. A Simple settings save submits `changed` + `cancelled` and the QR `confirmed` candidate; `scripts/ops/backfill-booking-templates.ts --apply` does it for every Simple tenant at once (owner's call, it submits to Meta).
+
+## Round 2: review fixes R1, R2, R3, R7, R8, R10 (brief BOOK-013 r2, base ff8b241e)
+QR delivery items (R4, R5, R6, R9, template image) are not touched here: the owner decides those first.
+
+| fix | files | what |
+|---|---|---|
+| R1 | `095` (in place, unreleased), `staff-booking-input.ts`, `ports/staff-booking.ts`, `edit-staff-booking.ts`, `cancel-staff-booking.ts`, `staff-booking-repository.ts`, `booking-request-repository.ts` (STAFF_COLUMNS, mapper), `booking-request.ts`, `staff-booking-api.ts`, `use-staff-booking.ts`, `[id]/route.ts` (comment) | `edit_version INT NOT NULL DEFAULT 0` plus trigger `bump_booking_edit_version`: +1 only when status, date, time, party, name, phone, notes or notify change, whoever writes, and a writer cannot set it directly. `staff_update_booking` / `staff_cancel_booking` take `p_expected_version int`. API body `expectedVersion` (non-negative int4) replaces `expectedUpdatedAt`. `BookingRequest.editVersion` replaces `updatedAt` (STAFF_COLUMNS no longer reads `updated_at`). An open change request still answers 409 `open_change` |
+| R2 | `decide-booking-request.ts` | `decided()`: `notifyDiner === false` → `delivered: null`, nothing sent, no outcome stored (confirm and decline). The code is still minted |
+| R3 | `booking-request-repository.ts`, `095` (`forget_checkin_qr_paths`) | QR paths are read in keyset pages by id (max_rows), one page's files are deleted and then exactly those paths are forgotten (RPC with a JSON body, no `in` URL). A failed page is logged with counts and the error kind only, and keeps its paths. Purged rows are read too, so the next run retries them. The PII UPDATE no longer nulls `checkin_qr_path`, and the QR step never throws |
+| R7 | `booking-checkin.ts` | `todayCounters`: a pending change whose original is in the same list does not count (the standing original does). A pending change whose original is another day still counts |
+| R8 | `staff-booking-shared.ts`, `edit-staff-booking.ts`, `cancel-staff-booking.ts` | `messageDiner` stores an outcome only for kind `confirmed` (staff create). Edit and cancel return the outcome in `message` (toast) without changing `decisionMessageStatus` |
+| R10 | `debugging_journals/2026-11-26-book-013-walk-fixes.md` | walk fixes 1–4 (b50ba492) and review R1–R3 |
+
+Decisions (brief `decide_yourself`):
+- R1 mechanism: a trigger-owned version column, not a field compare. Every writer is covered without changing its code, the client carries one integer that round-trips exactly, and the RPCs stay small. A field compare would need eight loaded values from the client and exact round-tripping of name, notes and time formatting.
+- R8 storage: none. Changed/cancelled outcomes are answered (toast) and not stored, so no new column. After a reload the row badge shows the confirmation's delivery only.
+
+Tests: red first (`evidence/2026-11-26-book-013-r2/red.log`, 53 failing), then green. Scratch DB: base 095 fails (`scratch-db-095-red.log`: `edit_version` does not exist), revised 095 passes 57/57 (`scratch-db-095.log`, on a throwaway supabase/postgres 17.6 container, port 55366, removed after).

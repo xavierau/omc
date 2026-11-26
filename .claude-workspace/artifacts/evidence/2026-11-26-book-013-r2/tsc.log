@@ -1,0 +1,2 @@
+resource-lock: waiting for 'heavy' (held by PID 72451 CWD /Users/xavierau/Code/js/payment_management-fix-ck-cost-integrity CMD pnpm gate)
+exit=0

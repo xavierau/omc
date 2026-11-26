@@ -2,6 +2,7 @@
 
 | date | agent | item | status | artifact | next | blocker |
 |---|---|---|---|---|---|---|
+| 2026-11-26 | dev | BOOK-013 r2 | done | artifacts/2026-11-26-book-013-r2-handoff · artifacts/evidence/2026-11-26-book-013-r2 | main: re-review PR #235 (review fixes R1 R2 R3 R7 R8 R10); QR items wait on owner | none |
 | 2026-11-26 | dev | BOOK-013 | done | artifacts/2026-11-26-book-013-handoff | main: review PR #235; release needs 095 first, template backfill is an owner step | none |
 | 2026-11-26 | dev | BOOK-012 release (resume) | done | artifacts/2026-11-26-book-012-release-r2-handoff | main: merge records PR, sync main into develop | none |
 | 2026-11-26 | dev | BOOK-012 migration 094 | done | artifacts/2026-11-26-book-012-migration-094-handoff | main: resume the code deploy after BUILD-FONT-001 | none |
