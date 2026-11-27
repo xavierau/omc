@@ -10,7 +10,13 @@
  * - paid: deposit awaiting -> paid and booking awaiting_deposit -> pending
  *   (staff-made -> confirmed), once; then the channel hook (`onDepositPaid`,
  *   W3/W5 send the "received" message there).
- * - paid after the lapse: full automatic refund (spec AC-8, R57).
+ * - paid after the lapse: full automatic refund (spec AC-8, R57). A redelivery
+ *   that finds that refund never issued (refund_pending, no refund id: the
+ *   call or its result write failed) issues it again with the same attempt,
+ *   so the same idempotency key (review finding 1a).
+ * - an unknown session is not ours (e.g. another integration's Checkout on the
+ *   same connected account): info log, ignored (review finding 7). A mismatch
+ *   on a deposit we know stays a security log line.
  * - session expired: lapse that hold now if its time is up (else the cron does).
  * - refund events: settle a refund_pending deposit found by the payment ref we stored.
  * - account events: W2 (onboarding status); ignored here.
@@ -58,7 +64,10 @@ async function onPaymentSucceeded(
 ): Promise<PaymentEventOutcome> {
   const deposit = await deps.deposits.findBySession(code, event.sessionRef)
   const ids = { eventId: event.eventId, sessionRef: event.sessionRef }
-  if (!deposit) return reject(deps, 'unknown_session', ids)
+  if (!deposit) {
+    deps.log('info', 'payment.unrelated_session', ids)
+    return 'ignored'
+  }
   const at = { ...ids, depositId: deposit.id }
   if (event.accountRef !== deposit.providerAccountId) return reject(deps, 'account_mismatch', at)
   if (!event.amount || !sameMoney(event.amount, deposit.amount)) return reject(deps, 'amount_mismatch', at)
@@ -82,10 +91,23 @@ async function onPaymentSucceeded(
   }
   if (result.outcome === 'late') {
     deps.log('warn', 'deposit.late_payment', { depositId: deposit.id })
-    const refunded = await issueRefund(deps, result.deposit)
-    return refunded.status === 'refund_failed' ? 'late_refund_failed' : 'late_refunded'
+    return lateRefund(deps, result.deposit)
+  }
+  if (result.outcome === 'duplicate' && lateRefundNeverIssued(result.deposit)) {
+    deps.log('warn', 'deposit.late_refund_redriven', { depositId: deposit.id, attempt: result.deposit.refundAttempts })
+    return lateRefund(deps, result.deposit)
   }
   return result.outcome === 'duplicate' ? 'duplicate' : 'ignored'
+}
+
+/** Finding 1a: the late-payment refund was claimed (refund_pending) but no refund id ever came back. */
+function lateRefundNeverIssued(deposit: BookingDeposit): boolean {
+  return deposit.status === 'refund_pending' && deposit.refundReason === 'late_payment' && deposit.refundRef === null
+}
+
+async function lateRefund(deps: HandlePaymentEventDeps, deposit: BookingDeposit): Promise<PaymentEventOutcome> {
+  const refunded = await issueRefund(deps, deposit)
+  return refunded.status === 'refund_failed' ? 'late_refund_failed' : 'late_refunded'
 }
 
 async function onPaymentExpired(

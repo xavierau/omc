@@ -1638,7 +1638,7 @@
         {
           "id": "BOOK-014",
           "title": "Booking deposits: Stripe Connect Standard behind a provider-agnostic payment port, all four channels",
-          "description": "Owner ask 2026-11-27: restaurants collect a deposit for a booking, Stripe for now, abstract so another region swaps the provider. Connect Standard, direct charges, hosted Checkout; pay-to-submit with a seat hold (awaiting_deposit), lapse after 30 min (24 h staff), auto refund on decline and late payment, staff Refund/Keep on cancel and no-show. W1 core: migration 096, PaymentGatewayPort + registry, Stripe and test adapters, startDeposit, fail-closed payment webhook, /p/[token] redirect, expiry cron step. W2-W5 channels and UI; W6 Stripe test-mode walk. R66 (next upgrade, SEC-NEXT) released before live keys.",
+          "description": "Owner ask 2026-11-27: restaurants collect a deposit for a booking, Stripe for now, abstract so another region swaps the provider. Connect Standard, direct charges, hosted Checkout; pay-to-submit with a seat hold (awaiting_deposit), lapse after 30 min (24 h staff), auto refund on decline and late payment, staff Refund/Keep on cancel and no-show. W1 core: migration 097 (renumbered after develop's 096_booking_staff_phone_optional), PaymentGatewayPort + registry, Stripe and test adapters, startDeposit, fail-closed payment webhook, /p/[token] redirect, expiry cron step. W2-W5 channels and UI; W6 Stripe test-mode walk. R66 (next upgrade, SEC-NEXT) released before live keys.",
           "priority": "high",
           "labels": [
             "booking",

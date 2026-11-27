@@ -140,6 +140,8 @@ export function bookingInsertRow(request: NewBookingRequest) {
     ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
     // BOOK-009: only a booking with accepted terms writes 091's columns.
     ...(request.termsAcceptedAt ? { terms_accepted_at: request.termsAcceptedAt, terms_text: request.termsText } : {}),
+    // BOOK-014 (review finding 6): a staff deposit booking records its creator (mark_booking_deposit_paid decides by it).
+    ...(request.createdBy ? { created_by: request.createdBy } : {}),
   }
 }
 

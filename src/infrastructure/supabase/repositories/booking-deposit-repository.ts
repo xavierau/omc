@@ -187,15 +187,19 @@ export async function finishDepositRefund(args: FinishRefundArgs) {
   )
 }
 
+/** Review finding 2: notes the refund id for its attempt (booking_deposit_refund_attempts), under the deposit row lock. */
 export async function recordDepositRefundRef(args: { depositId: string; attempt: number; refundRef: string }): Promise<void> {
-  const { error } = await createServerSupabaseClient()
-    .from('booking_deposits')
-    .update({ refund_ref: args.refundRef })
-    .eq('id', args.depositId)
-    .eq('status', 'refund_pending')
-    .eq('refund_attempts', args.attempt)
-    .is('refund_ref', null)
+  const { error } = await createServerSupabaseClient().rpc('record_booking_deposit_refund_ref', {
+    p_deposit_id: args.depositId,
+    p_attempt: args.attempt,
+    p_refund_ref: args.refundRef,
+  })
   if (error) throw new Error(`recordDepositRefundRef: ${error.message}`)
+}
+
+/** Review finding 1b: refunds claimed but never issued, by the database clock. */
+export async function listStalledDepositRefunds(limit: number, olderThanMs: number) {
+  return rpcDeposits('stalled_booking_deposit_refunds', { p_limit: limit, p_older_than_seconds: Math.ceil(olderThanMs / 1000) })
 }
 
 export async function keepDeposit(args: KeepDepositArgs) {
@@ -253,6 +257,7 @@ export const bookingDepositStore: BookingDepositStore = {
   beginRefund: beginDepositRefund,
   finishRefund: finishDepositRefund,
   recordRefundRef: recordDepositRefundRef,
+  listStalledRefunds: listStalledDepositRefunds,
   keep: keepDeposit,
 }
 

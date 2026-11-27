@@ -43,7 +43,7 @@ describe('BOOK-014 schema contract: deposit repositories match migration 097', (
     const row = bookingInsertRow({
       restaurantId: 'r', memberId: null, phone: '+85290000000', name: 'n', partySize: 2, bookingDate: '2026-12-24',
       bookingTime: '19:00', notes: null, source: 'chat', campaignId: null, token: null, replacesBookingId: 'b',
-      termsAcceptedAt: '2026-11-20T00:00:00Z', termsText: 't',
+      termsAcceptedAt: '2026-11-20T00:00:00Z', termsText: 't', createdBy: 'u',
     })
     expect(arrayIn('v_allowed').sort()).toEqual(Object.keys(row).sort())
     const dep = depositInsertRow({

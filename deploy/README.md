@@ -320,8 +320,16 @@ migration 097). Each lapsed hold's Stripe Checkout Session is then expired, best
 effort; one that was already completed is left to the payment webhook, which
 refunds a payment that arrived after the lapse. The JSON gains
 `depositsLapsed` and `sessionsClosed`; a failure adds
-`Failed to lapse expired deposit holds` to the 500's `error`. Migration 097
-must be applied before the code that runs this step is deployed.
+`Failed to lapse expired deposit holds` to the 500's `error`. A fourth step
+re-drives deposit refunds that were claimed but never issued: a deposit in
+`refund_pending` with no refund id for over 10 minutes (database clock,
+`stalled_booking_deposit_refunds`, 50 per run) gets its refund call again with
+the same attempt, so the same Stripe idempotency key; a charge Stripe reports as
+already fully refunded counts as refunded. A failed re-drive ends
+`refund_failed` (staff see Retry). The JSON gains `refundsRedriven`; a failure
+adds `Failed to re-drive stalled deposit refunds`. Migration 097 (after
+096_booking_staff_phone_optional) must be applied before the code that runs
+these steps is deployed.
 
 ### `booking-retention`
 

@@ -1,0 +1,43 @@
+resource-lock: waiting for 'heavy' (held by PID 1259 CWD /Users/xavierau/Code/js/payment_management-ck-stock-control CMD npx playwright test -c e2e/playwright.slot.config.ts e2e/uc-26-ck-stock-platform --project=layout-desktop)
+TSC_OK
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+ ❯ src/domain/__tests__/booking-deposit-domain.test.ts (13 tests | 1 failed) 11ms
+     × holds: 30 min diner, 24 h staff; refund key per attempt 4ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domain/__tests__/booking-deposit-domain.test.ts > deposit transitions (R56, R57) > holds: 30 min diner, 24 h staff; refund key per attempt
+AssertionError: expected 86280000 to be 86400000 // Object.is equality
+
+- Expected
++ Received
+
+- 86400000
++ 86280000
+
+ ❯ src/domain/__tests__/booking-deposit-domain.test.ts:75:32
+     73|   it('holds: 30 min diner, 24 h staff; refund key per attempt', () => {
+     74|     expect(holdMsFor('diner')).toBe(30 * 60_000)
+     75|     expect(holdMsFor('staff')).toBe(24 * 3_600_000)
+       |                                ^
+     76|     expect(refundIdempotencyKey('d1', 2)).toBe('refund:d1:2')
+     77|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 742 passed | 18 skipped (761)
+      Tests  1 failed | 8780 passed | 167 skipped | 2 todo (8950)
+   Start at  23:46:58
+   Duration  33.32s (transform 23.48s, setup 0ms, import 90.65s, tests 30.03s, environment 51ms)
+

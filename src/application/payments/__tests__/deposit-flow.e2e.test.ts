@@ -100,11 +100,11 @@ describe('AC-16: deposit flow on the test adapter', () => {
     expect(w.gateway.calls.refund).toBe(1)
   })
 
-  it('staff-made hold: paying confirms the booking directly (staff already accepted), 24 h hold', async () => {
+  it('staff-made hold: paying confirms the booking directly (staff already accepted), 24 h minus 2 min hold (review finding 5)', async () => {
     const w = paymentWorld()
     const s = await w.book({ source: 'staff' }, { holder: 'staff' })
     if (s.kind !== 'started') throw new Error(s.kind)
-    expect(Date.parse(s.expiresAt) - w.now().getTime()).toBe(24 * 3_600_000)
+    expect(Date.parse(s.expiresAt) - w.now().getTime()).toBe(24 * 3_600_000 - 2 * 60_000)
     await w.deliver(w.gateway.completeSession(s.deposit.providerSessionId!))
     expect(w.ledger.booking(s.booking.id)?.status).toBe('confirmed')
   })

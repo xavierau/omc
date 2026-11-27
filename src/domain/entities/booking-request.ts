@@ -173,6 +173,8 @@ export interface NewBookingRequest {
   /** BOOK-009 AC-10: set together, only when terms were required and accepted. */
   termsAcceptedAt?: string
   termsText?: string
+  /** BOOK-014 (review finding 6): the staff user who made a staff deposit booking; decided_by on payment. */
+  createdBy?: string
 }
 
 /** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, from the Hong Kong time now on). */

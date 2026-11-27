@@ -15,6 +15,7 @@ import type { DepositPaid } from '@/application/payments/handle-payment-event'
 import type { ExpireDepositsDeps } from '@/application/payments/expire-deposits'
 import type { DepositDecisionDeps } from '@/application/payments/deposit-decisions'
 import type { ResolvePaymentLinkDeps } from '@/application/payments/resolve-payment-link'
+import type { RedriveRefundsDeps } from '@/application/payments/redrive-stalled-refunds'
 import { FakeAccounts, FakeDepositLedger, FakeWebhookClaims, memoryLog } from './fake-booking-deposit'
 
 export const RESTAURANT = 'rest-a'
@@ -55,6 +56,7 @@ export function paymentWorld(start = new Date('2026-12-01T10:00:00Z')) {
   const expireDeps: ExpireDepositsDeps = { deposits: ledger, registry, log }
   const decisionDeps: DepositDecisionDeps = { deposits: ledger, registry, log, now }
   const linkDeps: ResolvePaymentLinkDeps = { deposits: ledger, registry, now, log }
+  const redriveDeps: RedriveRefundsDeps = { deposits: ledger, registry, log }
 
   const request = (over: Partial<NewBookingRequest> = {}): NewBookingRequest => ({
     restaurantId: RESTAURANT, memberId: null, phone: '+85291234567', name: 'Chan', partySize: 4, bookingDate: '2026-12-24',
@@ -75,6 +77,6 @@ export function paymentWorld(start = new Date('2026-12-01T10:00:00Z')) {
 
   return {
     gateway, registry, ledger, accounts, account, claims, log, lines, paidHook, tokens, now, advance,
-    startDeps, webhookDeps, expireDeps, decisionDeps, linkDeps, request, book, deliver,
+    startDeps, webhookDeps, expireDeps, decisionDeps, linkDeps, redriveDeps, request, book, deliver,
   }
 }

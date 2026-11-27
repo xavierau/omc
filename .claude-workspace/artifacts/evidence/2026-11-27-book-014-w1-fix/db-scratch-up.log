@@ -1,0 +1,6 @@
+# BOOK-014 W1-fix AC-2: fresh scratch DB, migrations 001..097 (2026-11-27T15:42:13Z), HEAD 8a5c5649 + working tree
+095_booking_staff_crud.sql
+096_booking_staff_phone_optional.sql
+097_booking_deposits.sql
+applied 97 migrations
+BOOK014_PG_URL=postgresql://postgres:postgres@127.0.0.1:55496/postgres

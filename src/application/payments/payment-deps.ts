@@ -18,6 +18,7 @@ import type { StartDepositDeps } from './start-deposit'
 import type { ProcessPaymentWebhookDeps } from './process-payment-webhook'
 import type { DepositPaid } from './handle-payment-event'
 import type { ExpireDepositsDeps } from './expire-deposits'
+import type { RedriveRefundsDeps } from './redrive-stalled-refunds'
 import type { DepositDecisionDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
 
@@ -66,6 +67,11 @@ export function paymentWebhookDeps(
 
 /** The expiry step of /api/cron/booking-reminders. */
 export function expireDepositsDeps(): ExpireDepositsDeps {
+  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog }
+}
+
+/** The stalled-refund step of /api/cron/booking-reminders (review finding 1b). */
+export function redriveRefundsDeps(): RedriveRefundsDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog }
 }
 
