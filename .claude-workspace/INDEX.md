@@ -11,10 +11,12 @@ no artifact files were lost._
 - [ui-map/INDEX.md](ui-map/INDEX.md) — scaffolded 2026-08-24 (ui-test-runner), all fields TODO, no run has occurred yet
 
 ### Specs
+- [2026-11-27-book-014-booking-deposits](specs/2026-11-27-book-014-booking-deposits.md) — BOOK-014 PRD: booking deposits, Stripe Connect Standard behind a provider port (main)
 - [2026-09-10-int-001-member-creation-api](specs/2026-09-10-int-001-member-creation-api.md) — INT-001 member API + webhook PRD rev2 (product-manager)
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-11-27-book-014-booking-deposits](plans/2026-11-27-book-014-booking-deposits.md) — BOOK-014 plan: W0–W6, migration 096, PaymentGatewayPort + Stripe/test adapters (main)
 - [2026-11-19-agent-booking-poppy](plans/2026-11-19-agent-booking-poppy.md) — BOOK-003 plan: agent booking via poppy.json + WhatsApp code (main)
 - [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
@@ -33,6 +35,7 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-build-plan](plans/2026-06-09-stamp-collection-build-plan.md) — Stamp Collection MVP, reviewed and build-ready (solution-architect)
 
 ### Threats
+- [2026-11-27-book-014-booking-deposits](threats/2026-11-27-book-014-booking-deposits.md) — BOOK-014: CONDITIONAL, R47–R66 (main)
 - [2026-11-19-agent-booking-poppy](threats/2026-11-19-agent-booking-poppy.md) — BOOK-003: CONDITIONAL, R31–R46 (main)
 - [2026-11-19-agent-001-ai-reply-agent](threats/2026-11-19-agent-001-ai-reply-agent.md) — AGENT-001 AI reply agent: APPROVED after OR1 confirmed (prod Gemini key paid) (main)
 - [2026-09-10-int-001-member-creation-api](threats/2026-09-10-int-001-member-creation-api.md) — INT-001: CONDITIONAL, 4 Critical, 8 High (security-architect)
