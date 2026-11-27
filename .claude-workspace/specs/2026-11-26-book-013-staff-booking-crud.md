@@ -177,6 +177,10 @@ surname (owner decision 8). No code, no Scan button.
   with the hint "沒有電話，不會發送 WhatsApp No phone, no WhatsApp message"; the server stores Notify
   off whatever the body says. No `confirmed`, `changed`, `cancelled`, decision or reminder message
   is ever attempted for a booking without a phone, and no "not delivered" warning is shown for it.
+  A booking without a phone cannot be linked to a member by hand either (owner default
+  2026-11-27): the BOOK-008 member chip's link action is not offered and the API refuses it
+  (`phone_required`); adding a phone (AC-28) is the way to link. A phone added later sends nothing
+  unless date, time or party changed (owner default 2026-11-27).
 - **AC-27** Given a booking without a phone, then its rows (Today, Calendar day panel, Table) show
   "未有電話 No phone" where the number would be; Today search finds it by name; phone search skips
   it; edit, cancel, Arrived/Undo, no-show and the rules prompt work as for any staff booking.
