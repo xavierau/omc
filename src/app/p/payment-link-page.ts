@@ -1,10 +1,14 @@
 /**
- * BOOK-014 (threat R62): the neutral pages of /p/<token>, zh-HK first then
- * English. They name no restaurant, date, party or amount: a link that
- * reaches the wrong person reveals nothing. Plain HTML (no app shell, no
- * scripts), served with the booking security headers.
+ * BOOK-014 (threat R62): the pages of /p/<token>, zh-HK first then English.
+ * Plain HTML (no app shell, no scripts), served with the booking security
+ * headers. Unknown, lapsed and unavailable links are neutral: they name no
+ * restaurant, date, party or amount.
+ * W3 (spec AC-5..AC-7): a live link's paid / confirming / not-finished page
+ * shows the restaurant, date, time, party and amount when the resolver gave
+ * them; never the diner's name, phone or notes.
  */
-import type { PaymentLinkState } from '@/application/payments/resolve-payment-link'
+import type { PaymentLinkDetails, PaymentLinkState } from '@/application/payments/resolve-payment-link'
+import { formatMoney } from '@/domain/value-objects/money'
 
 type PageState = Exclude<PaymentLinkState, { kind: 'redirect' }>
 
@@ -28,8 +32,8 @@ function copyFor(state: PageState): Copy {
     case 'lapsed':
       return {
         status: 410,
-        zh: { title: '訂座保留已過期', body: '此訂座保留已過期。如已付款，款項將會全數退回。請在 WhatsApp 聯絡餐廳取得新連結。' },
-        en: { title: 'This hold has lapsed', body: 'This booking hold has lapsed. Any payment made will be refunded in full. Message us on WhatsApp for a new link.' },
+        zh: { title: '訂座保留已過期', body: '此訂座保留已過期，請在 WhatsApp 聯絡我們取得新連結。如已付款，款項將會全數退回。' },
+        en: { title: 'This hold has lapsed', body: 'This hold has lapsed, message us on WhatsApp for a new link. Any payment made will be refunded in full.' },
       }
     case 'paid':
       return {
@@ -47,8 +51,8 @@ function copyFor(state: PageState): Copy {
       const until = hkTime(state.holdExpiresAt)
       return {
         status: 200,
-        zh: { title: '尚未完成付款', body: `你可在 ${until} 前完成付款。` },
-        en: { title: 'Payment not finished', body: `You have until ${until} to pay.` },
+        zh: { title: '尚未完成付款', body: `付款尚未完成，你可在 ${until} 前完成付款。` },
+        en: { title: 'Payment not finished', body: `Payment not finished. You have until ${until} to pay.` },
       }
     }
     case 'unavailable':
@@ -62,13 +66,34 @@ function copyFor(state: PageState): Copy {
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
+const TEST_IDS: Partial<Record<PageState['kind'], string>> = {
+  paid: 'booking-pay-paid',
+  unfinished: 'booking-pay-pending',
+  lapsed: 'booking-pay-lapsed',
+}
+
+/** W3: one line per language; every value escaped. */
+function detailLines(details: PaymentLinkDetails | undefined): { zh: string; en: string } {
+  if (!details) return { zh: '', en: '' }
+  const name = escape(details.restaurantName)
+  const when = `${escape(details.bookingDate)} ${escape(details.bookingTime)}`
+  const amount = escape(formatMoney(details.amount))
+  const n = details.partySize
+  return {
+    zh: `<p class="details" data-testid="booking-pay-details">${name} · ${when} · ${n} 位 · 訂金 ${amount}</p>`,
+    en: `<p class="details">${name} · ${when} · ${n} ${n === 1 ? 'guest' : 'guests'} · Deposit ${amount}</p>`,
+  }
+}
+
 export function renderPaymentLinkPage(state: PageState, token: string): { status: number; html: string } {
   const copy = copyFor(state)
   const payNow =
     state.kind === 'unfinished'
-      ? `<p><a class="btn" data-testid="booking-pay-pending" href="/p/${encodeURIComponent(token)}">立即付款 · Pay now</a></p>`
+      ? `<p><a class="btn" data-testid="booking-pay-now" href="/p/${encodeURIComponent(token)}">立即付款 · Pay now</a></p>`
       : ''
-  const testId = state.kind === 'lapsed' ? ' data-testid="booking-pay-lapsed"' : ''
+  const id = TEST_IDS[state.kind]
+  const testId = id ? ` data-testid="${id}"` : ''
+  const lines = detailLines('details' in state ? state.details : undefined)
   const html = `<!doctype html>
 <html lang="zh-HK">
 <head>
@@ -83,13 +108,14 @@ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
 h1{font-size:1.25rem;margin:0 0 .5rem}
 p{line-height:1.5;margin:0 0 1rem}
 section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
+.details{font-weight:600}
 .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
 </style>
 </head>
 <body>
 <main${testId}>
-<section lang="zh-HK"><h1>${escape(copy.zh.title)}</h1><p>${escape(copy.zh.body)}</p></section>
-<section lang="en"><h1>${escape(copy.en.title)}</h1><p>${escape(copy.en.body)}</p></section>
+<section lang="zh-HK"><h1>${escape(copy.zh.title)}</h1>${lines.zh}<p>${escape(copy.zh.body)}</p></section>
+<section lang="en"><h1>${escape(copy.en.title)}</h1>${lines.en}<p>${escape(copy.en.body)}</p></section>
 ${payNow}
 </main>
 </body>

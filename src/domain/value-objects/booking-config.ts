@@ -25,6 +25,7 @@ import type { LanguageCode } from './language'
 import { isSafeHttpsUrl } from './safe-https-url'
 import { resolveBookingHours, type BookingHours } from './booking-hours'
 import { parseBookingHoursSettings, type BookingHoursErrors } from './booking-hours-settings'
+import { DEPOSIT_RULE_OFF, resolveDepositRule, type DepositRule } from './deposit-rule'
 import { hongKongToday } from '@/domain/services/booking-submission'
 
 export { EXTERNAL_URL_MAX, isSafeHttpsUrl } from './safe-https-url'
@@ -69,6 +70,8 @@ export interface BookingConfig {
   bookingRules: string
   /** BOOK-009: structured booking hours; null = not configured (spec AC-5). */
   bookingHours: BookingHours | null
+  /** BOOK-014: the deposit rule (spec AC-3); OFF unless an admin saved one. */
+  deposit: DepositRule
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -98,6 +101,7 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
   bookingRules: '',
   bookingHours: null,
+  deposit: DEPOSIT_RULE_OFF,
 }
 
 /** BOOK-003: 128-384 bits as base64url. */
@@ -195,6 +199,7 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     agentBooking: resolveAgentBooking(r.agentBooking),
     bookingRules: typeof r.bookingRules === 'string' ? r.bookingRules.trim().slice(0, BOOKING_RULES_MAX_CHARS) : '',
     bookingHours: resolveBookingHours(r.bookingHours),
+    deposit: resolveDepositRule(r.deposit),
   }
 }
 

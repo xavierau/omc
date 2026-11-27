@@ -11,6 +11,8 @@ import { bookingDepositStore, depositBookingWriter } from '@/infrastructure/supa
 import { merchantPaymentAccountReader } from '@/infrastructure/supabase/repositories/merchant-payment-account-repository'
 import { releaseIdempotencyKey, tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { appBaseUrl } from '@/infrastructure/config/app-url'
+import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
 import { mintPaymentLinkToken } from '@/domain/services/payment-link-token'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { WebhookClaimStore } from '@/domain/ports/booking-deposit'
@@ -20,6 +22,8 @@ import type { DepositPaid } from './handle-payment-event'
 import type { ExpireDepositsDeps } from './expire-deposits'
 import type { DepositDecisionDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
+import type { BookingPageDepositDeps } from './booking-page-deposit'
+import { bookingPagePaidHook } from './notify-deposit-paid'
 
 const now = () => new Date()
 
@@ -44,13 +48,22 @@ export function startDepositDeps(): StartDepositDeps {
 }
 
 /**
+ * W3 (spec AC-6): the booking page's "received" message on the paid event.
+ * booking-deps imports this module, so its sender is loaded at call time.
+ */
+async function bookingPagePaid(paid: DepositPaid): Promise<void> {
+  const { bookingMessageSender } = await import('@/application/booking/booking-deps')
+  await bookingPagePaidHook({ settings: bookingSettingsReader, sender: bookingMessageSender() })(paid)
+}
+
+/**
  * The payment webhook of one provider. Throws when the provider is not
- * configured (the route answers 500, R47). `onDepositPaid` is the channel hook
- * (W3/W5 send the "received" message from it); none in W1.
+ * configured (the route answers 500, R47). `onDepositPaid` is the channel hook;
+ * the default sends the booking page's "received" message (W3).
  */
 export function paymentWebhookDeps(
   code: PaymentProviderCode,
-  onDepositPaid?: (paid: DepositPaid) => Promise<void>
+  onDepositPaid: (paid: DepositPaid) => Promise<void> = bookingPagePaid
 ): ProcessPaymentWebhookDeps {
   const registry = productionPaymentRegistry()
   return {
@@ -60,7 +73,7 @@ export function paymentWebhookDeps(
     registry,
     now,
     log: paymentLog,
-    ...(onDepositPaid ? { onDepositPaid } : {}),
+    onDepositPaid,
   }
 }
 
@@ -77,4 +90,9 @@ export function depositDecisionDeps(): DepositDecisionDeps {
 /** GET /p/<token>. */
 export function paymentLinkDeps(): ResolvePaymentLinkDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), now, log: paymentLog }
+}
+
+/** W3: the deposit line on the /b page. */
+export function bookingPageDepositDeps(): BookingPageDepositDeps {
+  return { tokens: bookingTokenStore, settings: bookingSettingsReader, accounts: merchantPaymentAccountReader, now }
 }

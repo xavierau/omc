@@ -48,6 +48,7 @@ import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
 import { isPhoneNormalizeError } from '@/domain/ports/phone-normalizer'
 import type { StaffBookingDeps } from './staff-booking-shared'
 import type { BookingCheckInDeps } from './booking-check-in'
+import { depositChannelPorts, startDepositDeps } from '@/application/payments/payment-deps'
 
 const now = () => new Date()
 
@@ -118,6 +119,8 @@ export function submitBookingDeps(): SubmitBookingDeps {
     now,
     // BOOK-010: guest limits and stops (atomic insert, migration 092).
     room: bookingRoomStore,
+    // BOOK-014 W3: the deposit hold + hosted payment when the restaurant's rule applies.
+    deposit: { ...depositChannelPorts, start: startDepositDeps() },
   }
 }
 
