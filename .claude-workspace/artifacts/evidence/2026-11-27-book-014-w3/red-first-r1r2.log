@@ -1,0 +1,262 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w3
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts (0 test)
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts (11 tests | 7 failed) 53ms
+     × paid -> "Deposit paid, request sent" (booking-pay-paid) with the details, no PII 15ms
+     × back from the provider after paying, before the webhook -> "confirming" with the details 3ms
+     × back without paying, hold open -> "Payment not finished, you have until HH:MM" + Pay now to the same /p link 17ms
+     × refund_pending -> "being / has been refunded" (booking-pay-refunded), zh-HK + en 2ms
+     × refunded -> "being / has been refunded" (booking-pay-refunded), zh-HK + en 2ms
+     × refund_failed -> "being / has been refunded" (booking-pay-refunded), zh-HK + en 3ms
+     × kept -> neutral closed page (booking-pay-closed), no details 4ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts [ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts ]
+Error: Cannot find module '/src/infrastructure/supabase/repositories/payment-link-details-repository' imported from /Users/xavierau/Code/js/whatsapp-crm--book-014-w3/src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts
+ ❯ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts:10:1
+      8|
+      9| import { createServerSupabaseClient } from '@/infrastructure/supabase/…
+     10| import { PAYMENT_LINK_DETAIL_COLUMNS, paymentLinkDetailsReader } from …
+       | ^
+     11|
+     12| const REF = { restaurantId: 'rest-a', bookingId: 'book-1' }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > paid -> "Deposit paid, request sent" (booking-pay-paid) with the details, no PII
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'Café A'
+
+- Expected
++ Received
+
+- Café A
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ expectDetails src/app/p/[token]/__tests__/route-details.test.ts:48:81
+     46|
+     47| function expectDetails(html: string) {
+     48|   for (const shown of ['Café A', '2026-12-24', '19:00', 'HK$400']) exp…
+       |                                                                                 ^
+     49|   expect(html).toMatch(/4 位|4 guests/)
+     50|   for (const hidden of PII) expect(html).not.toContain(hidden)
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:62:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > back from the provider after paying, before the webhook -> "confirming" with the details
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'Café A'
+
+- Expected
++ Received
+
+- Café A
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>正在確認付款 · Confirming your payment</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main>
++ <section lang="zh-HK"><h1>正在確認付款</h1><p>多謝！我們正在確認你的付款，確認後會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Confirming your payment</h1><p>Thank you. We are confirming your payment and will message you on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ expectDetails src/app/p/[token]/__tests__/route-details.test.ts:48:81
+     46|
+     47| function expectDetails(html: string) {
+     48|   for (const shown of ['Café A', '2026-12-24', '19:00', 'HK$400']) exp…
+       |                                                                                 ^
+     49|   expect(html).toMatch(/4 位|4 guests/)
+     50|   for (const hidden of PII) expect(html).not.toContain(hidden)
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > back without paying, hold open -> "Payment not finished, you have until HH:MM" + Pay now to the same /p link
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'Café A'
+
+- Expected
++ Received
+
+- Café A
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>尚未完成付款 · Payment not finished</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-pending">
++ <section lang="zh-HK"><h1>尚未完成付款</h1><p>付款尚未完成，你可在 18:30 前完成付款。</p></section>
++ <section lang="en"><h1>Payment not finished</h1><p>Payment not finished. You have until 18:30 to pay.</p></section>
++ <p><a class="btn" data-testid="booking-pay-now" href="/p/eq9ORJxY9BwuLZdfmbBdl9DkMGp6Q-3j7ibR02GrQWY">立即付款 · Pay now</a></p>
++ </main>
++ </body>
++ </html>
+
+ ❯ expectDetails src/app/p/[token]/__tests__/route-details.test.ts:48:81
+     46|
+     47| function expectDetails(html: string) {
+     48|   for (const shown of ['Café A', '2026-12-24', '19:00', 'HK$400']) exp…
+       |                                                                                 ^
+     49|   expect(html).toMatch(/4 位|4 guests/)
+     50|   for (const hidden of PII) expect(html).not.toContain(hidden)
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:80:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 r2: refunded and kept deposits never read "request sent" > refund_pending -> "being / has been refunded" (booking-pay-refunded), zh-HK + en
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 r2: refunded and kept deposits never read "request sent" > refunded -> "being / has been refunded" (booking-pay-refunded), zh-HK + en
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 r2: refunded and kept deposits never read "request sent" > refund_failed -> "being / has been refunded" (booking-pay-refunded), zh-HK + en
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-refunded"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-refunded"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:126:18
+    124|     expect(res.status).toBe(200)
+    125|     const html = await res.text()
+    126|     expect(html).toContain('data-testid="booking-pay-refunded"')
+       |                  ^
+    127|     expect(html).toContain('訂金退款')
+    128|     expect(html).toContain('Your deposit is being refunded or has been…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 r2: refunded and kept deposits never read "request sent" > kept -> neutral closed page (booking-pay-closed), no details
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-closed"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-closed"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:140:18
+    138|     const res = await get(token)
+    139|     const html = await res.text()
+    140|     expect(html).toContain('data-testid="booking-pay-closed"')
+       |                  ^
+    141|     expect(html).toContain('This booking is closed, message us on What…
+    142|     expect(html).toContain('此訂座已結束')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 4 passed (11)
+   Start at  23:28:31
+   Duration  598ms (transform 174ms, setup 0ms, import 252ms, tests 53ms, environment 0ms)
+

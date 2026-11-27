@@ -6,6 +6,7 @@
  * W3 (spec AC-5..AC-7): a live link's paid / confirming / not-finished page
  * shows the restaurant, date, time, party and amount when the resolver gave
  * them; never the diner's name, phone or notes.
+ * W3 r2: refunded (being / has been refunded) and closed (kept, neutral).
  */
 import type { PaymentLinkDetails, PaymentLinkState } from '@/application/payments/resolve-payment-link'
 import { formatMoney } from '@/domain/value-objects/money'
@@ -55,6 +56,18 @@ function copyFor(state: PageState): Copy {
         en: { title: 'Payment not finished', body: `Payment not finished. You have until ${until} to pay.` },
       }
     }
+    case 'refunded':
+      return {
+        status: 200,
+        zh: { title: '訂金退款', body: '你的訂金正在退款或已經退回。如有疑問，請在 WhatsApp 聯絡我們。' },
+        en: { title: 'Deposit refunded', body: 'Your deposit is being refunded or has been refunded. Message us on WhatsApp if you have questions.' },
+      }
+    case 'closed':
+      return {
+        status: 410,
+        zh: { title: '此訂座已結束', body: '此訂座已結束，請在 WhatsApp 聯絡我們。' },
+        en: { title: 'This booking is closed', body: 'This booking is closed, message us on WhatsApp.' },
+      }
     case 'unavailable':
       return {
         status: 503,
@@ -68,6 +81,8 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<':
 
 const TEST_IDS: Partial<Record<PageState['kind'], string>> = {
   paid: 'booking-pay-paid',
+  refunded: 'booking-pay-refunded',
+  closed: 'booking-pay-closed',
   unfinished: 'booking-pay-pending',
   lapsed: 'booking-pay-lapsed',
 }
@@ -75,13 +90,13 @@ const TEST_IDS: Partial<Record<PageState['kind'], string>> = {
 /** W3: one line per language; every value escaped. */
 function detailLines(details: PaymentLinkDetails | undefined): { zh: string; en: string } {
   if (!details) return { zh: '', en: '' }
-  const name = escape(details.restaurantName)
+  const name = details.restaurantName ? `${escape(details.restaurantName)} · ` : ''
   const when = `${escape(details.bookingDate)} ${escape(details.bookingTime)}`
   const amount = escape(formatMoney(details.amount))
   const n = details.partySize
   return {
-    zh: `<p class="details" data-testid="booking-pay-details">${name} · ${when} · ${n} 位 · 訂金 ${amount}</p>`,
-    en: `<p class="details">${name} · ${when} · ${n} ${n === 1 ? 'guest' : 'guests'} · Deposit ${amount}</p>`,
+    zh: `<p class="details" data-testid="booking-pay-details">${name}${when} · ${n} 位 · 訂金 ${amount}</p>`,
+    en: `<p class="details">${name}${when} · ${n} ${n === 1 ? 'guest' : 'guests'} · Deposit ${amount}</p>`,
   }
 }
 

@@ -4,6 +4,9 @@
 // paid, request sent" (booking-pay-paid); back without paying, hold open ->
 // "Payment not finished, you have until HH:MM" + Pay now to the same /p link
 // (booking-pay-pending); lapsed and unknown stay neutral (no details).
+// r2: a refunded deposit (refund_pending / refunded / refund_failed) says it is
+// being / has been refunded (booking-pay-refunded), never "request sent"; a
+// kept one is a neutral closed page (booking-pay-closed).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { paymentWorld } from '@/test-utils/payment-world'
@@ -21,13 +24,12 @@ beforeEach(() => {
   const deps: ResolvePaymentLinkDeps = {
     ...w.linkDeps,
     details: {
-      async find({ restaurantId, bookingId }) {
+      async findForDeposit({ restaurantId, bookingId }) {
         const b = w.ledger.booking(bookingId)
-        return b && b.restaurantId === restaurantId
-          ? { restaurantName: 'Café A', bookingDate: b.bookingDate, bookingTime: b.bookingTime, partySize: b.partySize }
-          : null
+        return b && b.restaurantId === restaurantId ? { bookingDate: b.bookingDate, bookingTime: b.bookingTime, partySize: b.partySize } : null
       },
     },
+    restaurants: { getRestaurant: async (id) => (id === 'rest-a' ? { name: 'Café A', logoUrl: null, whatsappNumber: '+85220000001' } : null) },
   }
   holder.deps = deps
 })
@@ -90,7 +92,7 @@ describe('W3 /p pages with booking details', () => {
   })
 
   it('unknown token -> neutral 404, the details reader is never asked', async () => {
-    const find = vi.spyOn((holder.deps as ResolvePaymentLinkDeps).details!, 'find')
+    const find = vi.spyOn((holder.deps as ResolvePaymentLinkDeps).details!, 'findForDeposit')
     const res = await get('Z'.repeat(43))
     expect(res.status).toBe(404)
     expect(find).not.toHaveBeenCalled()
@@ -99,11 +101,52 @@ describe('W3 /p pages with booking details', () => {
   it('a details read failure still answers the state, neutral, with no error text (R64)', async () => {
     const { token } = await started()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn((holder.deps as ResolvePaymentLinkDeps).details!, 'find').mockRejectedValueOnce(new Error('db acct_123 exploded'))
+    vi.spyOn((holder.deps as ResolvePaymentLinkDeps).details!, 'findForDeposit').mockRejectedValueOnce(new Error('db acct_123 exploded'))
     const res = await get(token, '?return=cancel')
     expect(res.status).toBe(200)
     const html = await res.text()
     expect(html).toContain('Payment not finished')
     for (const hidden of ['exploded', 'acct_', 'Café A']) expect(html).not.toContain(hidden)
+  })
+})
+
+describe('W3 r2: refunded and kept deposits never read "request sent"', () => {
+  async function paid() {
+    const { s, token } = await started()
+    await w.deliver(w.gateway.completeSession(s.deposit.providerSessionId!))
+    return { s, token }
+  }
+
+  it.each(['refund_pending', 'refunded', 'refund_failed'] as const)('%s -> "being / has been refunded" (booking-pay-refunded), zh-HK + en', async (status) => {
+    const { s, token } = await paid()
+    Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status, refundReason: 'declined' })
+    const res = await get(token)
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    expect(html).toContain('data-testid="booking-pay-refunded"')
+    expect(html).toContain('訂金退款')
+    expect(html).toContain('Your deposit is being refunded or has been refunded')
+    expect(html).not.toContain('request sent')
+    expect(html).not.toContain('訂座要求已送出')
+    expect(html).not.toContain('refund failed')
+    expectDetails(html)
+  })
+
+  it('kept -> neutral closed page (booking-pay-closed), no details', async () => {
+    const { s, token } = await paid()
+    Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status: 'kept', decidedAt: new Date().toISOString() })
+    const res = await get(token)
+    const html = await res.text()
+    expect(html).toContain('data-testid="booking-pay-closed"')
+    expect(html).toContain('This booking is closed, message us on WhatsApp')
+    expect(html).toContain('此訂座已結束')
+    expect(html).not.toContain('request sent')
+    for (const hidden of ['Café A', '2026-12-24', '19:00', 'HK$400', ...PII]) expect(html).not.toContain(hidden)
+  })
+
+  it('a late payment refund still reads as lapsed (unchanged)', async () => {
+    const { s, token } = await paid()
+    Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status: 'refunded', refundReason: 'late_payment' })
+    expect(await (await get(token)).text()).toContain('data-testid="booking-pay-lapsed"')
   })
 })

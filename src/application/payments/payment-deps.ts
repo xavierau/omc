@@ -13,6 +13,7 @@ import { releaseIdempotencyKey, tryMarkProcessed } from '@/infrastructure/supaba
 import { appBaseUrl } from '@/infrastructure/config/app-url'
 import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
 import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { paymentLinkDetailsReader } from '@/infrastructure/supabase/repositories/payment-link-details-repository'
 import { mintPaymentLinkToken } from '@/domain/services/payment-link-token'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { WebhookClaimStore } from '@/domain/ports/booking-deposit'
@@ -87,9 +88,16 @@ export function depositDecisionDeps(): DepositDecisionDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog, now }
 }
 
-/** GET /p/<token>. */
+/** GET /p/<token>; W3: with the booking slot and restaurant name on the live-link pages. */
 export function paymentLinkDeps(): ResolvePaymentLinkDeps {
-  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), now, log: paymentLog }
+  return {
+    deposits: bookingDepositStore,
+    registry: productionPaymentRegistry(),
+    now,
+    log: paymentLog,
+    details: paymentLinkDetailsReader,
+    restaurants: bookingSettingsReader,
+  }
 }
 
 /** W3: the deposit line on the /b page. */
