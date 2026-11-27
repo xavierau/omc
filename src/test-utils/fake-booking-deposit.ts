@@ -1,4 +1,4 @@
-// BOOK-014: in-memory deposit ports with the same rules as migration 096's
+// BOOK-014: in-memory deposit ports with the same rules as migration 097's
 // RPCs (booking-deposits.db.test.ts proves the SQL): every transition is a
 // check-and-write in one tick, so of two interleaved calls exactly one wins;
 // awaiting_deposit holds seats and counts toward the per-phone cap; the lapse

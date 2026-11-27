@@ -1,6 +1,6 @@
 /**
  * BOOK-014: a restaurant's account at a payment provider (table
- * `merchant_payment_accounts`, migration 096; commerce ADR entity, deposit
+ * `merchant_payment_accounts`, migration 097; commerce ADR entity, deposit
  * slice). With Stripe Connect Standard and direct charges, the provider
  * account id is all we store: calls use the platform key scoped to it.
  */

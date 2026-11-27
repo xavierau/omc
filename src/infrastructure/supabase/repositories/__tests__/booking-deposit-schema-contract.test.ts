@@ -1,4 +1,4 @@
-// BOOK-014 W1: the deposit repositories match migration 096 (memory:
+// BOOK-014 W1: the deposit repositories match migration 097 (memory:
 // incident_int001_fakes_hid_schema_mismatch). Mocked clients accept any
 // column or RPC argument; this test does not.
 import path from 'node:path'
@@ -11,7 +11,7 @@ import { depositInsertRow } from '../booking-deposit-repository'
 import { money } from '@/domain/value-objects/money'
 
 const REPOS_DIR = path.join(process.cwd(), 'src/infrastructure/supabase/repositories')
-const MIGRATION = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/096_booking_deposits.sql'), 'utf8')
+const MIGRATION = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/097_booking_deposits.sql'), 'utf8')
 const read = (file: string) => fs.readFileSync(path.join(REPOS_DIR, file), 'utf8')
 
 const CASES = [
@@ -22,7 +22,7 @@ const CASES = [
 const arrayIn = (name: string) =>
   (new RegExp(`${name} text\\[\\] := ARRAY\\[([^\\]]+)\\]`).exec(MIGRATION)?.[1].match(/'([a-z_]+)'/g) ?? []).map((c) => c.slice(1, -1))
 
-describe('BOOK-014 schema contract: deposit repositories match migration 096', () => {
+describe('BOOK-014 schema contract: deposit repositories match migration 097', () => {
   for (const { table, file } of CASES) {
     it(`${file} only selects/writes columns that exist on ${table}`, () => {
       const schema = columnsForTable(table)
@@ -39,7 +39,7 @@ describe('BOOK-014 schema contract: deposit repositories match migration 096', (
     })
   }
 
-  it('insert_booking_request_if_room (096) allows exactly the shared booking row and the deposit row keys', () => {
+  it('insert_booking_request_if_room (097) allows exactly the shared booking row and the deposit row keys', () => {
     const row = bookingInsertRow({
       restaurantId: 'r', memberId: null, phone: '+85290000000', name: 'n', partySize: 2, bookingDate: '2026-12-24',
       bookingTime: '19:00', notes: null, source: 'chat', campaignId: null, token: null, replacesBookingId: 'b',
@@ -54,7 +54,7 @@ describe('BOOK-014 schema contract: deposit repositories match migration 096', (
     expect(Object.keys(dep).filter((c) => !deposits.has(c))).toEqual([])
   })
 
-  it('every RPC the deposit repository calls exists in 096 with every argument name it passes', () => {
+  it('every RPC the deposit repository calls exists in 097 with every argument name it passes', () => {
     const source = read('booking-deposit-repository.ts')
     const calls = [...source.matchAll(/rpc(?:Deposits)?\(\s*'([a-z_]+)',\s*\{([^}]*)\}/g)]
     expect(calls.length).toBeGreaterThanOrEqual(8)
@@ -65,7 +65,7 @@ describe('BOOK-014 schema contract: deposit repositories match migration 096', (
     }
   })
 
-  it('096 adds the two booking statuses to both CHECKs', () => {
+  it('097 adds the two booking statuses to both CHECKs', () => {
     expect(MIGRATION).toMatch(/booking_requests_status_check\s+CHECK \(status IN \([^)]*'awaiting_deposit', 'lapsed'\)\)/)
     expect(MIGRATION).toMatch(/status IN \('unverified', 'pending', 'awaiting_deposit', 'lapsed'\) AND decided_at IS NULL/)
   })

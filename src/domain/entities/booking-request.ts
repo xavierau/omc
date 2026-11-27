@@ -13,7 +13,7 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
 /**
  * AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change.
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
- * BOOK-014 (migration 096): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
+ * BOOK-014 (migration 097): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
  * confirmed when staff made it); `lapsed` = the hold ran out unpaid. Neither is shown to staff in W1.
  */
 export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show' | 'awaiting_deposit' | 'lapsed'
@@ -55,7 +55,7 @@ export interface BookingRequest {
   id: string
   restaurantId: string
   memberId: string | null
-  /** E.164. BOOK-013 decision 9 (migration 096): null only on a source 'staff' booking, which then never messages the diner. */
+  /** E.164. BOOK-013 decision 9 (migration 097): null only on a source 'staff' booking, which then never messages the diner. */
   phone: string | null
   name: string | null
   partySize: number

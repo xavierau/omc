@@ -1,6 +1,6 @@
 /**
  * BOOK-014: the deposit of one booking (table `booking_deposits`, migration
- * 096). Every move is a conditional write in the database (CAS on the from
+ * 097). Every move is a conditional write in the database (CAS on the from
  * status, R56, R57); this module holds the vocabulary and the transition
  * table both the SQL and the in-memory fakes follow.
  *

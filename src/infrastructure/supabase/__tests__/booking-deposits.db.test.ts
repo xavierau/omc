@@ -1,11 +1,11 @@
 /**
- * DB INTEGRATION TESTS for migration 096 (BOOK-014 W1; threat R55, R56, R57,
+ * DB INTEGRATION TESTS for migration 097 (BOOK-014 W1; threat R55, R56, R57,
  * R58, R60). Fakes cannot show a race or a CHECK (memory: fakes hid schema
  * mismatch), so the seat hold, the per-phone cap, the lapse/paid CAS and the
  * refund/keep CAS run against a real Postgres here.
  *
  * Gated behind `RUN_DB_TESTS=1`, through `psql`, on the scratch database of
- * scripts/book-014/scratch-db.sh (every migration 001..096), never DEV or prod:
+ * scripts/book-014/scratch-db.sh (every migration 001..097), never DEV or prod:
  *
  *   scripts/book-014/scratch-db.sh up
  *   RUN_DB_TESTS=1 PGPORT=55496 npx vitest run src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts
@@ -114,7 +114,7 @@ const paid = (depositId: string, ref = 'pay_1') =>
   }
 const guests = (rid: string) => JSON.parse(psql(`SELECT public.booking_guest_counts('${rid}', '${DAY}', '${DAY}')`))
 
-d('BOOK-014 migration 096 on real Postgres', () => {
+d('BOOK-014 migration 097 on real Postgres', () => {
   it('R55: an awaiting_deposit booking holds its seats (the last seats are refused) and its deposit row comes with it', () => {
     const rid = restaurant()
     const held = insertAwaiting(rid, 'hold-A', { party: 8 })
@@ -376,7 +376,7 @@ d('BOOK-014 migration 096 on real Postgres', () => {
     expect(error(`DELETE FROM booking_requests WHERE id = '${held.row!.id}'`)).toContain('booking_deposits_booking_id_fkey')
   })
 
-  it('R58: anon and authenticated cannot execute any 096 function and read no deposit rows', () => {
+  it('R58: anon and authenticated cannot execute any 097 function and read no deposit rows', () => {
     const rid = restaurant()
     insertAwaiting(rid, 'grants')
     const id = randomUUID()

@@ -1,7 +1,7 @@
 /**
- * BOOK-014: booking deposits (`booking_deposits`, migration 096).
+ * BOOK-014: booking deposits (`booking_deposits`, migration 097).
  *
- * Every transition is one of 096's RPCs: a conditional write with its
+ * Every transition is one of 097's RPCs: a conditional write with its
  * deposit_events row in the same transaction (R56, R57, R60). Staff lookups
  * are scoped by restaurant in the query (R58); provider lookups use only the
  * references we stored (R49). 22P02 (not a uuid) is a miss, like an unknown id.

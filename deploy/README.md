@@ -316,11 +316,11 @@ BOOK-014 (deposits) adds a third step to the same run, so there is **no new
 Forge job**: every awaiting deposit hold whose `hold_expires_at` is past (the
 database's own clock; 30 min diner / 24 h staff) is lapsed together with its
 booking, which frees the seats, in batches of 200 (`lapse_expired_booking_deposits`,
-migration 096). Each lapsed hold's Stripe Checkout Session is then expired, best
+migration 097). Each lapsed hold's Stripe Checkout Session is then expired, best
 effort; one that was already completed is left to the payment webhook, which
 refunds a payment that arrived after the lapse. The JSON gains
 `depositsLapsed` and `sessionsClosed`; a failure adds
-`Failed to lapse expired deposit holds` to the 500's `error`. Migration 096
+`Failed to lapse expired deposit holds` to the 500's `error`. Migration 097
 must be applied before the code that runs this step is deployed.
 
 ### `booking-retention`

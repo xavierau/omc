@@ -1,7 +1,7 @@
 /**
  * BOOK-014: ports the deposit use cases depend on. The Supabase adapter is
  * `src/infrastructure/supabase/repositories/booking-deposit-repository.ts`
- * (migration 096 RPCs); tests use `src/test-utils/fake-booking-deposit.ts`,
+ * (migration 097 RPCs); tests use `src/test-utils/fake-booking-deposit.ts`,
  * which keeps the same CAS rules (first transition wins, loser gets null).
  *
  * Every staff-facing read and write is scoped by restaurant in the query
@@ -80,7 +80,7 @@ export type InsertWithDepositResult =
 /**
  * Spec AC-5 / R54 / R55: a diner channel's booking + its deposit, written in
  * one transaction with the seat check and (when `maxPending` is given) the
- * per-phone cap (insert_booking_request_if_room, migration 096).
+ * per-phone cap (insert_booking_request_if_room, migration 097).
  */
 export interface DepositBookingWriter {
   insertWithDeposit(request: NewBookingRequest, check: RoomCheck, hold: NewDepositHold, maxPending: number | null): Promise<InsertWithDepositResult>
