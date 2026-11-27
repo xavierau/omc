@@ -7,7 +7,8 @@
  * stepper, date, the time slots with the guests left in each (BOOK-010
  * capacity; a full or stopped slot stays selectable, saving then shows the
  * rules prompt), Other time, notes and the Notify checkbox. An edit marks
- * the fields it changed.
+ * the fields it changed. Decision 9 (AC-26): the phone is optional on a staff
+ * booking; while it is empty Notify is off and disabled with a hint.
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
@@ -172,12 +173,15 @@ export interface StaffBookingFieldsProps {
   changed: Set<keyof StaffBookingForm>
   maxPartySize?: number
   own?: OwnSlot
+  /** Decision 9 / R20: a new booking or a source 'staff' one; any other source keeps the phone required. */
+  phoneOptional: boolean
   onChange: (values: StaffBookingForm) => void
 }
 
-export function StaffBookingFields({ mode, values, errors, changed, own, onChange }: StaffBookingFieldsProps) {
+export function StaffBookingFields({ mode, values, errors, changed, own, phoneOptional, onChange }: StaffBookingFieldsProps) {
   const t = useTranslations('bookings.staff')
   const member = useMemberLine(values.phone)
+  const noPhone = values.phone.trim() === ''
   const set = <K extends keyof StaffBookingForm>(key: K, value: StaffBookingForm[K]) => onChange({ ...values, [key]: value })
   const err = (field: string) => {
     const code = errors[field]
@@ -187,7 +191,7 @@ export function StaffBookingFields({ mode, values, errors, changed, own, onChang
   }
   return (
     <div className="flex flex-col gap-4">
-      <Field label={t('phone')} htmlFor="booking-form-phone" changed={changed.has('phone')} error={err('phone')}>
+      <Field label={t(phoneOptional ? 'phoneOptional' : 'phone')} htmlFor="booking-form-phone" changed={changed.has('phone')} error={err('phone')}>
         <Input
           id="booking-form-phone" type="tel" inputMode="tel" autoComplete="off" value={values.phone} placeholder={t('phonePlaceholder')}
           aria-invalid={!!errors.phone} onChange={(e) => set('phone', e.target.value)} data-testid="booking-form-phone" className="h-11"
@@ -224,20 +228,31 @@ export function StaffBookingFields({ mode, values, errors, changed, own, onChang
         />
       </Field>
       <NotifyCheck
-        checked={values.notify} onChange={(v) => set('notify', v)}
-        label={t(mode === 'new' ? 'notifyCreate' : 'notifyEdit')} hint={t(mode === 'new' ? 'notifyCreateHint' : 'notifyEditHint')}
+        checked={values.notify && !noPhone} onChange={(v) => set('notify', v)} disabled={noPhone}
+        label={t(mode === 'new' ? 'notifyCreate' : 'notifyEdit')}
+        hint={t(noPhone ? 'notifyNoPhone' : mode === 'new' ? 'notifyCreateHint' : 'notifyEditHint')}
         testId="booking-form-notify"
       />
     </div>
   )
 }
 
-export function NotifyCheck({ checked, onChange, label, hint, testId }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint: string; testId: string }) {
+interface NotifyCheckProps {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+  hint: string
+  testId: string
+  /** Decision 9: no phone, so nothing can be sent. */
+  disabled?: boolean
+}
+
+export function NotifyCheck({ checked, onChange, label, hint, testId, disabled = false }: NotifyCheckProps) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/40 p-3">
+    <label className={cn('flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3', disabled ? 'cursor-not-allowed' : 'cursor-pointer')}>
       <input
-        type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} data-testid={testId}
-        className="mt-0.5 size-5 shrink-0 cursor-pointer accent-primary"
+        type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} data-testid={testId}
+        className="mt-0.5 size-5 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
       <span className="flex flex-col gap-0.5">
         <span className="text-sm font-medium text-foreground">{label}</span>

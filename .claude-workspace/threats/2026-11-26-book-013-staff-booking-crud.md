@@ -94,5 +94,16 @@ the code/file half of R16 (the PII purge of name/notes stays), and the "QR link 
 risk. Trust boundaries 3 (public QR bucket) and 5 (camera scan) no longer exist. The code removal
 must leave no `checkin_code` column, QR bucket, by-code route or scan UI behind.
 
+## Revision 2026-11-27 (spec decision 9: phone optional for staff bookings)
+Changed: R7 now reads "phone optional on staff create/edit; when given, E.164 by the one
+normaliser, invalid → 400". Added:
+| ID | Mitigation | Test that proves it | Phase |
+|---|---|---|---|
+| R19 | A booking without a phone never reaches a sender: DB checks `phone IS NOT NULL OR source = 'staff'` and `phone IS NOT NULL OR notify_diner = false`; the server forces Notify off when the phone is empty; decide, edit, cancel, reminder and any other send path return "no send" before the sender for a null phone. | Scratch DB: phone-less insert with source ≠ staff → refused; phone-less with notify true → refused. Route tests: create/edit/cancel/decide without a phone and `notify: true` in the body → stored notify false, sender never called, no "not delivered" outcome. Reminder selection test: phone-less booking never selected. | build |
+| R20 | Clearing a phone is allowed only on source `staff` bookings, by the same tenant-scoped conditional write; it removes the member link. | Route test: clear phone on a source `agent`/`chat` booking → 400, row unchanged; on a staff booking → phone and member_id null. | build |
+STRIDE delta: Tampering (a diner booking's phone cleared to silence messages) → R20. Information
+disclosure: less PII collected, no new exposure; logs mask a null phone as none (R13 unchanged).
+PDPO DPP1: collecting less is in line; no gap.
+
 ## Required Changes (if BLOCKED/CONDITIONAL)
 None. The plan must map R1–R18 to work items, and the dev's acceptance suite must include a test per R-id.

@@ -39,7 +39,8 @@ export function matchesSearch(booking: BookingItem, query: string): boolean {
   if (q === '') return true
   if ((booking.name ?? '').toLowerCase().includes(q)) return true
   const qDigits = digits(q)
-  return PHONE_QUERY.test(q) && qDigits !== '' && digits(booking.phone).includes(qDigits)
+  // BOOK-013 decision 9 (AC-27): a booking without a phone is never a phone match.
+  return PHONE_QUERY.test(q) && qDigits !== '' && booking.phone !== null && digits(booking.phone).includes(qDigits)
 }
 
 export function filterBookings(bookings: BookingItem[], status: StatusFilter, query: string): BookingItem[] {

@@ -30,6 +30,8 @@ const AGENT_BOOKING_COLUMNS =
 type BookingRow = Parameters<typeof toBookingRequest>[0]
 
 interface AgentBookingRow extends BookingRow {
+  /** 096: an agent row always has its phone (CHECK phone IS NOT NULL OR source = 'staff'). */
+  phone: string
   confirm_code: string | null
   verify_expires_at: string | null
   verified_at: string | null
@@ -41,6 +43,7 @@ interface AgentBookingRow extends BookingRow {
 export function toAgentBooking(row: AgentBookingRow): AgentBooking {
   return {
     ...toBookingRequest(row),
+    phone: row.phone,
     confirmCode: row.confirm_code,
     verifyExpiresAt: row.verify_expires_at,
     verifiedAt: row.verified_at,

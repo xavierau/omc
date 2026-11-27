@@ -8,6 +8,8 @@
  * members (name or phone). Both need the Bookings screen's
  * BookingMemberContext; without it nothing here is interactive.
  * The link is for staff only (R3): it changes nothing the diner receives.
+ * BOOK-013 AC-26: a booking without a phone offers no Link / Change member
+ * (the API refuses it, phone_required); Unlink stays should it hold a link.
  */
 import { useContext, useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -15,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
+import { hasPhone } from '@/domain/entities/booking-request'
 import { BookingMemberContext, useMemberSearch, type MemberOption, type MemberSearchState } from './use-booking-member'
 
 export function BookingGuestName({ booking, className }: { booking: BookingItem; className?: string }) {
@@ -113,11 +116,15 @@ export function MemberLinkControl({ booking }: { booking: BookingItem }) {
     return <MemberPicker booking={booking} onPick={pick} onCancel={() => setPicking(false)} />
   }
   const linked = booking.memberId !== null
+  const linkable = hasPhone(booking)
+  if (!linked && !linkable) return null
   return (
     <div className="-ml-2 flex flex-wrap gap-1 [&>button]:cursor-pointer [&>button]:text-muted-foreground [&>button:hover]:text-foreground">
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPicking(true)} data-testid={`booking-row-${booking.id}-member-link`}>
-        {t(linked ? 'changeMember' : 'linkMember')}
-      </Button>
+      {linkable ? (
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPicking(true)} data-testid={`booking-row-${booking.id}-member-link`}>
+          {t(linked ? 'changeMember' : 'linkMember')}
+        </Button>
+      ) : null}
       {linked ? (
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void actions.link(booking.id, null)} data-testid={`booking-row-${booking.id}-member-unlink`}>
           {t('unlinkMember')}

@@ -56,4 +56,18 @@ describe('decide with Notify (review R2)', () => {
     }])
     expect(requests.rows[0].decisionMessageStatus).toBe('delivered')
   })
+
+  // Decision 9 (R19): no phone, no decision message, whatever Notify says (the DB keeps it off; this is the guard).
+  it.each([[false], [true]])('R19: a booking without a phone (Notify %s) is decided with no message and no outcome', async (notify) => {
+    const id = await seed()
+    Object.assign(requests.rows[0], { phone: null, source: 'staff', notifyDiner: notify })
+    const recordSpy = vi.spyOn(requests, 'recordDecisionMessage')
+    for (const decision of ['confirmed', 'declined'] as const) {
+      requests.rows[0].status = 'pending'
+      const result = await decideBookingRequest(deps, { restaurantId: A, userId: 'u', bookingId: id, decision })
+      expect(result).toMatchObject({ ok: true, delivered: null })
+    }
+    expect(sender.sent).toEqual([])
+    expect(recordSpy).not.toHaveBeenCalled()
+  })
 })
