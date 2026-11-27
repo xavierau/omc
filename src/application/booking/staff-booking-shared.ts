@@ -4,7 +4,7 @@
  * anyway) and the diner message (owner decision 2: only with Notify on; R11:
  * at most one staff-triggered message per booking per 5 minutes).
  */
-import type { BookingRequest, DecisionMessageStatus } from '@/domain/entities/booking-request'
+import { hasPhone, type BookingRequest, type DecisionMessageStatus } from '@/domain/entities/booking-request'
 import type { BookingMemberLookup, BookingMessageSender, BookingRoomReader, BookingSettingsReader } from '@/domain/ports/booking'
 import type { StaffBookingStore } from '@/domain/ports/staff-booking'
 import type { BookingMessageKind } from '@/domain/services/booking-message'
@@ -46,6 +46,8 @@ export type StaffRefusal =
   | { ok: false; reason: 'rules'; rules: BrokenRule[] }
   | { ok: false; reason: 'open_change' }
   | { ok: false; reason: 'changed'; status: BookingRequest['status'] | null }
+  /** R20: only a source 'staff' booking may have its phone cleared. */
+  | { ok: false; reason: 'phone_required' }
 
 export type StaffBookingResult = { ok: true; booking: BookingRequest; message: StaffMessageOutcome } | StaffRefusal
 
@@ -81,9 +83,11 @@ async function record(deps: StaffBookingDeps, booking: BookingRequest, delivered
  * confirmation's outcome is stored (decision_message_status is the BOOK-001
  * confirm/decline badge); a changed/cancelled outcome is only answered, so a
  * failed later message never marks a delivered confirmation "not delivered".
+ * Decision 9 (R19): a booking without a phone is never messaged and records
+ * no outcome, before the throttle claim and the sender.
  */
 export async function messageDiner(deps: StaffBookingDeps, booking: BookingRequest, kind: BookingMessageKind, notify: boolean): Promise<StaffMessageOutcome> {
-  if (!notify) return 'none'
+  if (!notify || !hasPhone(booking)) return 'none'
   if (!(await deps.store.claimStaffMessage(booking.id, booking.restaurantId, deps.now(), STAFF_MESSAGE_GAP_MS))) return 'throttled'
   const result = await deps.sender.send(await bookingMessageFor(deps, booking, kind))
   if (kind === 'confirmed') await record(deps, booking, result.delivered)

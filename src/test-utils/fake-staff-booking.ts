@@ -5,6 +5,8 @@
 // mirrors 095's edit_version trigger: the version moves only when status,
 // slot, party, name, phone, notes or notify change; updated_at on every write. The SQL itself is proven on a scratch DB
 // (.claude-workspace/artifacts/evidence/2026-11-26-book-013/scratch-db-095.log).
+// 096 (decision 9): a null phone forces notify off; an update to a null phone
+// matches only a source 'staff' row (scratch-db-096.log in the 2026-11-27 evidence).
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import type {
   CheckInArgs,
@@ -96,7 +98,7 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     const row = staffRow({
       restaurantId: args.restaurantId, memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize,
       bookingDate: input.date, bookingTime: input.time, notes: input.notes, status: 'confirmed', source: 'staff',
-      decidedBy: args.actorUserId, decidedAt: args.at.toISOString(), createdBy: args.actorUserId, notifyDiner: input.notify,
+      decidedBy: args.actorUserId, decidedAt: args.at.toISOString(), createdBy: args.actorUserId, notifyDiner: input.notify && input.phone !== null,
       decisionMessageStatus: null,
     })
     this.rows.push(row)
@@ -110,9 +112,10 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     if (!row || row.status !== args.expectedStatus || !['pending', 'confirmed'].includes(row.status)) return null
     if (row.editVersion !== args.expectedVersion || this.openChange(row)) return null
     const { input } = args
+    if (input.phone === null && row.source !== 'staff') return null
     apply(row, {
       memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize, bookingDate: input.date,
-      bookingTime: input.time, notes: input.notes, notifyDiner: input.notify,
+      bookingTime: input.time, notes: input.notes, notifyDiner: input.notify && input.phone !== null,
       reminderSentAt: args.clearReminder ? null : row.reminderSentAt,
     })
     this.audit(args.restaurantId, 'booking.staff_edited', args.actorUserId, { bookingId: row.id, changed: args.changed }, args.brokenRules)

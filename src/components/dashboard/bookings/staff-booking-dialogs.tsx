@@ -93,7 +93,7 @@ export function StaffBookingFormDialog({ staff }: { staff: StaffBookingControlle
               <SheetTitle className="text-lg font-semibold">{t(form.mode === 'new' ? 'formNewTitle' : 'formEditTitle')}</SheetTitle>
               <SheetDescription>
                 {booking
-                  ? t('formEditHint', { name: booking.name ?? booking.phone, status: tv(`status.${booking.status}`), source: tv(`views.source.${booking.source}`) })
+                  ? t('formEditHint', { name: booking.name ?? booking.phone ?? '', status: tv(`status.${booking.status}`), source: tv(`views.source.${booking.source}`) })
                   : t('formNewHint')}
               </SheetDescription>
             </SheetHeader>
@@ -111,6 +111,7 @@ export function StaffBookingFormDialog({ staff }: { staff: StaffBookingControlle
                 <div className="px-4 pb-2">
                   <StaffBookingFields
                     mode={form.mode} values={form.values} errors={form.errors} changed={changed} onChange={staff.setValues}
+                    phoneOptional={!booking || booking.source === 'staff'}
                     own={booking ? { date: booking.bookingDate, time: booking.bookingTime, partySize: booking.partySize } : undefined}
                   />
                 </div>
@@ -149,14 +150,17 @@ export function CancelBookingDialog({ staff }: { staff: StaffBookingController }
             ) : null}
             <dl className="mx-4 my-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border border-border p-3 text-sm">
               <dt className="text-muted-foreground">{t('diner')}</dt>
-              <dd className="break-words text-foreground">{c.booking.name ?? ''} · <span className="tabular-nums">{c.booking.phone}</span></dd>
+              <dd className="break-words text-foreground">{c.booking.name ?? ''} · <span className="tabular-nums">{c.booking.phone ?? t('noPhone')}</span></dd>
               <dt className="text-muted-foreground">{t('when')}</dt>
               <dd className="text-foreground">{when}</dd>
               <dt className="text-muted-foreground">{t('guests')}</dt>
               <dd className="tabular-nums text-foreground">{c.booking.partySize}</dd>
             </dl>
             <div className="px-4">
-              <NotifyCheck checked={c.notify} onChange={staff.setCancelNotify} label={t('notifyCancel')} hint={t('notifyCancelHint', { when })} testId="booking-cancel-notify" />
+              <NotifyCheck
+                checked={c.notify && !!c.booking.phone} onChange={staff.setCancelNotify} label={t('notifyCancel')} disabled={!c.booking.phone}
+                hint={c.booking.phone ? t('notifyCancelHint', { when }) : t('notifyNoPhone')} testId="booking-cancel-notify"
+              />
             </div>
             <SheetFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" size="lg" onClick={staff.closeCancel}>{t('keep')}</Button>

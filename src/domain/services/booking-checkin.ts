@@ -81,10 +81,11 @@ export function todayCounters(bookings: Array<CheckinCandidate & { partySize: nu
 const digitsOf = (s: string) => s.replace(/\D/g, '')
 
 /** Spec AC-20: one search over name (any part, any case) and phone (4+ digits, any spacing or +852). */
-export function matchesTodaySearch(b: { name: string | null; phone: string }, query: string): boolean {
+export function matchesTodaySearch(b: { name: string | null; phone: string | null }, query: string): boolean {
   const q = query.trim()
   if (q === '') return true
   if (b.name && b.name.toLowerCase().includes(q.toLowerCase())) return true
   const digits = digitsOf(q)
-  return digits.length >= 4 && digitsOf(b.phone).includes(digits)
+  // Decision 9 (AC-27): a booking without a phone is never a phone match.
+  return digits.length >= 4 && b.phone !== null && digitsOf(b.phone).includes(digits)
 }

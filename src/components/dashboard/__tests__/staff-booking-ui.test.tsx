@@ -26,7 +26,7 @@ import { BookingsNow } from '../bookings/bookings-clock'
 import { StaffBookingContext, formAfter, toastFor, type FormState, type StaffBookingActions } from '../bookings/use-staff-booking'
 import { canCancelBooking, canEditBooking, changedFormFields, formBody, initialForm, staffSaveOutcome, checkInOutcome } from '../bookings/staff-booking-api'
 import type { BookingsTodayState } from '../bookings/use-bookings-today'
-import { slotLeft } from '../bookings/staff-booking-fields'
+import { slotLeft, StaffBookingFields } from '../bookings/staff-booking-fields'
 import type { BookingItem } from '@/hooks/use-bookings'
 
 // Thursday 2026-11-26 19:20 in Hong Kong.
@@ -277,5 +277,78 @@ describe('i18n (en + zh-HK)', () => {
       expect(m.bookingSettings.templates.kind.changed).toBeTruthy()
       expect(m.bookingSettings.templates.kind.cancelled).toBeTruthy()
     }
+  })
+})
+
+/** Spec decision 9 / S8 (AC-26–AC-28): a staff booking without a phone. */
+describe('S8 — no phone (decision 9)', () => {
+  const none = booking({ phone: null, notifyDiner: false, name: 'Walk-in Ho' })
+  const shown = (html: string) => {
+    expect(html).toContain('bookings.staff.noPhone')
+    expect(html).not.toContain('href="tel:')
+    expect(html).not.toContain('>null<')
+  }
+
+  it.each(Object.keys(views) as Array<keyof typeof views>)('AC-27: the %s shows "No phone" where the number goes, no tel: link', (name) => {
+    shown(views[name](none))
+  })
+
+  it('AC-27: the Calendar day panel row shows "No phone"', () => {
+    shown(withStaff(<CalendarDayPanel date="2026-11-26" bookings={[none]} monthEmpty={false} {...rowProps} />))
+  })
+
+  it('AC-27: Today desktop row and phone card show "No phone"; a phone search skips it, a name search finds it', () => {
+    const state = (query = ''): BookingsTodayState => ({
+      data: { date: '2026-11-26', bookings: [none], truncated: false }, failed: false, loading: false, refetch: async () => {}, query, setQuery: noop,
+    })
+    const render = (q: string, isPhone: boolean) =>
+      withStaff(<BookingsToday state={state(q)} sort={{ key: 'time', dir: 'asc' }} onSort={noop} onSortChange={noop} isPhone={isPhone} busyIds={new Set()} onDecide={noop} />)
+    for (const isPhone of [false, true]) {
+      shown(render('', isPhone))
+      expect(render('ho', isPhone)).toContain('data-testid="booking-row-b1"')
+      expect(render('9123 4567', isPhone)).toContain('data-testid="bookings-today-empty"')
+    }
+  })
+
+  const fields = (values: ReturnType<typeof initialForm>, mode: 'new' | 'edit' = 'new', phoneOptional = true) =>
+    renderToStaticMarkup(<StaffBookingFields mode={mode} values={values} errors={{}} changed={new Set()} phoneOptional={phoneOptional} onChange={noop} />)
+  const notifyInput = (html: string) => html.match(/<input[^>]*data-testid="booking-form-notify"[^>]*>/)?.[0] ?? ''
+
+  it('AC-26: an empty phone → the label says optional, Notify unticked and disabled with the no-phone hint', () => {
+    const html = fields({ ...initialForm('2026-11-28'), notify: true })
+    expect(html).toContain('bookings.staff.phoneOptional')
+    expect(notifyInput(html)).toContain('disabled=""')
+    expect(notifyInput(html)).not.toContain('checked=""')
+    expect(html).toContain('bookings.staff.notifyNoPhone')
+    expect(html).not.toContain('bookings.staff.notifyCreateHint')
+  })
+
+  it('AC-28: with a phone, Notify is available and keeps its value; the usual hint shows', () => {
+    const html = fields({ ...initialForm('2026-11-28'), phone: '9123 4567' })
+    expect(notifyInput(html)).not.toContain('disabled=""')
+    expect(notifyInput(html)).toContain('checked=""')
+    expect(html).toContain('bookings.staff.notifyCreateHint')
+  })
+
+  it('R20: editing a diner-channel booking keeps the plain (required) phone label', () => {
+    expect(fields(initialForm('2026-11-28', booking({ source: 'chat' })), 'edit', false)).not.toContain('bookings.staff.phoneOptional')
+  })
+
+  it('AC-26 / AC-28: the body sends Notify off without a phone; editing a phone-less booking starts with Notify ticked for when a phone is added', () => {
+    expect(formBody({ ...initialForm('2026-11-28'), phone: '  ', notify: true })).toMatchObject({ phone: '', notify: false })
+    expect(formBody({ ...initialForm('2026-11-28'), phone: '9123 4567', notify: true })).toMatchObject({ notify: true })
+    expect(initialForm('2026-11-26', none)).toMatchObject({ phone: '', notify: true })
+    expect([...changedFormFields(none, initialForm('2026-11-26', none))]).toEqual([])
+  })
+
+  it('R20: a 400 phone_required shows on the phone field', () => {
+    expect(staffSaveOutcome(400, { error: 'phone_required', fields: { phone: 'required' } })).toEqual({ kind: 'invalid', fields: { phone: 'required' } })
+  })
+
+  it('copy: the exact en and zh-HK strings', () => {
+    expect([en.bookings.staff.noPhone, en.bookings.staff.notifyNoPhone]).toEqual(['No phone', 'No phone, no WhatsApp message'])
+    expect([zhHK.bookings.staff.noPhone, zhHK.bookings.staff.notifyNoPhone]).toEqual(['未有電話', '沒有電話，不會發送 WhatsApp'])
+    expect(en.bookings.staff.phoneOptional).toBeTruthy()
+    expect(zhHK.bookings.staff.phoneOptional).toBeTruthy()
   })
 })

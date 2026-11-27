@@ -19,7 +19,7 @@
  * early (counts + stops), and step 5 writes through the atomic
  * check-and-insert; a refusal there gives the token back (spec AC-5, AC-13).
  */
-import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
+import { hasPhone, MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
 import {
   hongKongTime,
   hongKongToday,
@@ -154,6 +154,8 @@ export async function notifyReceived(
   deps: { settings: Pick<BookingSettingsReader, 'getRestaurant'>; sender: BookingMessageSender },
   booking: BookingRequest
 ): Promise<boolean> {
+  // BOOK-013 R19: never reached by a diner channel (the DB requires their phone); no phone, no send.
+  if (!hasPhone(booking)) return false
   const restaurant = await deps.settings.getRestaurant(booking.restaurantId)
   const result = await deps.sender.send({
     restaurantId: booking.restaurantId, phone: booking.phone, memberId: booking.memberId, kind: 'received',
