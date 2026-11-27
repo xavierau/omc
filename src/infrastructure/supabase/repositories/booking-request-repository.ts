@@ -35,10 +35,11 @@ const BOOKING_COLUMNS =
 /**
  * AGENT-003 (migration 085): the change/cancel columns, read only by the
  * dashboard list and the staff decision, so the BOOK-001 paths (booking page,
- * webhook) do not depend on 085's columns.
+ * webhook) do not depend on 085's columns. BOOK-013 (migration 095): plus the
+ * staff audit, notify and arrival columns, dashboard only.
  */
 export const STAFF_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, edit_version, created_by, notify_diner, checked_in_at'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
 const POSTGREST_MAX_ROWS = 1000
@@ -78,6 +79,21 @@ interface BookingRow {
   cancelled_by?: BookingCancelledBy | null
   terms_accepted_at?: string | null
   terms_text?: string | null
+  edit_version?: number
+  created_by?: string | null
+  notify_diner?: boolean
+  checked_in_at?: string | null
+}
+
+/** BOOK-013: the 095 columns, present only when the read selected them (STAFF_COLUMNS). */
+function staffFields(row: BookingRow): Partial<BookingRequest> {
+  if (row.edit_version === undefined) return {}
+  return {
+    editVersion: row.edit_version,
+    createdBy: row.created_by ?? null,
+    notifyDiner: row.notify_diner ?? true,
+    checkedInAt: row.checked_in_at ?? null,
+  }
 }
 
 export function toBookingRequest(row: BookingRow): BookingRequest {
@@ -102,6 +118,7 @@ export function toBookingRequest(row: BookingRow): BookingRequest {
     ...(row.replaces_booking_id !== undefined ? { replacesBookingId: row.replaces_booking_id } : {}),
     ...(row.cancelled_by !== undefined ? { cancelledBy: row.cancelled_by } : {}),
     ...(row.terms_accepted_at !== undefined ? { termsAcceptedAt: row.terms_accepted_at, termsText: row.terms_text ?? null } : {}),
+    ...staffFields(row),
   }
 }
 
@@ -233,7 +250,7 @@ async function openChangesFor(restaurantId: string, bookings: BookingRequest[]):
 }
 
 /** AGENT-003 replaced slots (old → new) and BOOK-006 open changes on the listed bookings. */
-async function withChangeSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
+export async function withChangeSlots(restaurantId: string, bookings: BookingRequest[]): Promise<BookingRequest[]> {
   const [withReplaced, open] = await Promise.all([withReplacedSlots(restaurantId, bookings), openChangesFor(restaurantId, bookings)])
   return withReplaced.map((b) => (open.has(b.id) ? { ...b, openChange: open.get(b.id) } : b))
 }
@@ -319,7 +336,8 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('booking_requests')
-    .select(BOOKING_COLUMNS)
+    // BOOK-013: staff-only lookup, so the staff columns (check-in, audit) come with it.
+    .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
     // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff.

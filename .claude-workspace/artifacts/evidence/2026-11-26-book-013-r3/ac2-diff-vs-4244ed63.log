@@ -1,0 +1,76 @@
+diff --git a/src/application/booking/decide-booking-request.ts b/src/application/booking/decide-booking-request.ts
+index 7e92aa89..763ed429 100644
+--- a/src/application/booking/decide-booking-request.ts
++++ b/src/application/booking/decide-booking-request.ts
+@@ -15,6 +15,9 @@
+  * so the diner never reads "declined" about a booking that still stands.
+  * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
+  *
++ * BOOK-013 (review R2): a booking whose staff unticked Notify (spec AC-2)
++ * gets no confirm or decline message and no message outcome.
++ *
+  * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
+  * guest limit answers `over_limit` with the facts and changes nothing,
+  * unless `confirmAnyway` is set; limits never block staff.
+@@ -92,6 +95,8 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
+ async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
+   // R23: a declined change request is not news about the diner's booking; nothing is sent (F8: nothing undelivered either).
+   if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: null }
++  // BOOK-013 review R2: Notify off means no diner message from staff actions, a decision included.
++  if (booking.notifyDiner === false) return { ok: true, booking, delivered: null }
+   const delivered = await notify(deps, booking)
+   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
+ }
+diff --git a/src/domain/services/booking-message.ts b/src/domain/services/booking-message.ts
+index fd90a1f0..402bda4d 100644
+--- a/src/domain/services/booking-message.ts
++++ b/src/domain/services/booking-message.ts
+@@ -75,6 +75,11 @@ const EN: Record<BookingMessageKind, Copy> = {
+   // F8: the 3h window can open the evening before, so the date, never "today".
+   reminder: (d) =>
+     `This is a reminder of your upcoming table booking at ${d.restaurant} on ${d.date} at ${d.time}. If you can no longer make it, please reply to this message to let the restaurant know.`,
++  // BOOK-013: staff edit / cancel (owner decision 6).
++  changed: (d) =>
++    `Your booking at ${d.restaurant} has been changed. New date: ${d.date}. New time: ${d.time}. Party size: ${d.party_size}. If this is not right, please reply to this message to let the restaurant know.`,
++  cancelled: (d) =>
++    `Your booking at ${d.restaurant} on ${d.date} at ${d.time} has been cancelled. If you have any questions, please reply to this message to contact the restaurant.`,
+ }
+ 
+ const ZH: Record<BookingMessageKind, Copy> = {
+@@ -85,6 +90,9 @@ const ZH: Record<BookingMessageKind, Copy> = {
+   declined: (d) =>
+     `很抱歉,餐廳未能接受你在${d.date} ${d.time}的訂座要求。${d.reason !== '-' ? `原因:${d.reason}。` : ''}歡迎選擇其他時間再次提交訂座要求。`,
+   reminder: (d) => `提提你,你在${d.restaurant}的訂座將於${d.date} ${d.time}開始。如未能出席,請直接回覆此訊息通知餐廳。`,
++  changed: (d) =>
++    `你在${d.restaurant}的訂座已更改。新日期:${d.date}。新時間:${d.time}。人數:${d.party_size}位。如有問題,請直接回覆此訊息通知餐廳。`,
++  cancelled: (d) => `你在${d.restaurant}於${d.date} ${d.time}的訂座已取消。如有疑問,請直接回覆此訊息聯絡餐廳。`,
+ }
+ 
+ /** Free-form text for a diner whose 24-hour service window is open. */
+diff --git a/src/domain/services/booking-templates.ts b/src/domain/services/booking-templates.ts
+index 8b543916..43c858e2 100644
+--- a/src/domain/services/booking-templates.ts
++++ b/src/domain/services/booking-templates.ts
+@@ -1,5 +1,5 @@
+ /**
+- * BOOK-001 W3 (AC-1, AC-14, AC-15): the four booking UTILITY templates each
++ * BOOK-001 W3 (AC-1, AC-14, AC-15): the booking UTILITY templates each
+  * restaurant gets when it turns on Simple booking, in zh_HK and en.
+  *
+  * Copy is strictly transactional (R21): no offers, no links, never the diner's
+@@ -40,6 +40,15 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
+     en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
+     zh_hk: '提提你,你在{{restaurant}}的訂座將於{{date}} {{time}}開始。如未能出席,請直接回覆此訊息通知餐廳。',
+   },
++  // BOOK-013 (owner decision 6): a staff edit or cancel.
++  changed: {
++    en: 'Your booking at {{restaurant}} has been changed. New date: {{date}}. New time: {{time}}. Party size: {{party_size}}. If this is not right, please reply to this message to let the restaurant know.',
++    zh_hk: '你在{{restaurant}}的訂座已更改。新日期:{{date}}。新時間:{{time}}。人數:{{party_size}}位。如有問題,請直接回覆此訊息通知餐廳。',
++  },
++  cancelled: {
++    en: 'Your booking at {{restaurant}} on {{date}} at {{time}} has been cancelled. If you have any questions, please reply to this message to contact the restaurant.',
++    zh_hk: '你在{{restaurant}}於{{date}} {{time}}的訂座已取消。如有疑問,請直接回覆此訊息聯絡餐廳。',
++  },
+ }
+ 
+ export function bookingTemplateBody(kind: BookingTemplateKind, language: LanguageCode): string {

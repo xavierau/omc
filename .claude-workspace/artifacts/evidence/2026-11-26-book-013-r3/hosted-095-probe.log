@@ -1,0 +1,10 @@
+2026-11-26T14:10:38Z uzim… booking_requests?select=id -> 200 
+2026-11-26T14:10:39Z uzim… booking_requests?select=edit_version -> 400 "code":"42703"
+2026-11-26T14:10:39Z uzim… booking_requests?select=checked_in_at -> 400 "code":"42703"
+2026-11-26T14:10:40Z uzim… booking_requests?select=notify_diner -> 400 "code":"42703"
+2026-11-26T14:10:40Z uzim… booking_requests?select=checkin_code -> 400 "code":"42703"
+2026-11-26T14:10:41Z ookn… booking_requests?select=id -> 404 "code":"PGRST205"
+2026-11-26T14:10:42Z ookn… booking_requests?select=edit_version -> 404 "code":"PGRST205"
+2026-11-26T14:10:42Z ookn… booking_requests?select=checked_in_at -> 404 "code":"PGRST205"
+2026-11-26T14:10:42Z ookn… booking_requests?select=notify_diner -> 404 "code":"PGRST205"
+2026-11-26T14:10:43Z ookn… booking_requests?select=checkin_code -> 404 "code":"PGRST205"

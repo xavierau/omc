@@ -1,5 +1,5 @@
 /**
- * BOOK-001 W3 (AC-1, AC-14, AC-15): the four booking UTILITY templates each
+ * BOOK-001 W3 (AC-1, AC-14, AC-15): the booking UTILITY templates each
  * restaurant gets when it turns on Simple booking, in zh_HK and en.
  *
  * Copy is strictly transactional (R21): no offers, no links, never the diner's
@@ -39,6 +39,15 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
   reminder: {
     en: 'This is a reminder of your upcoming table booking at {{restaurant}} on {{date}} at {{time}}. If you can no longer make it, please reply to this message to let the restaurant know.',
     zh_hk: '提提你,你在{{restaurant}}的訂座將於{{date}} {{time}}開始。如未能出席,請直接回覆此訊息通知餐廳。',
+  },
+  // BOOK-013 (owner decision 6): a staff edit or cancel.
+  changed: {
+    en: 'Your booking at {{restaurant}} has been changed. New date: {{date}}. New time: {{time}}. Party size: {{party_size}}. If this is not right, please reply to this message to let the restaurant know.',
+    zh_hk: '你在{{restaurant}}的訂座已更改。新日期:{{date}}。新時間:{{time}}。人數:{{party_size}}位。如有問題,請直接回覆此訊息通知餐廳。',
+  },
+  cancelled: {
+    en: 'Your booking at {{restaurant}} on {{date}} at {{time}} has been cancelled. If you have any questions, please reply to this message to contact the restaurant.',
+    zh_hk: '你在{{restaurant}}於{{date}} {{time}}的訂座已取消。如有疑問,請直接回覆此訊息聯絡餐廳。',
   },
 }
 

@@ -8,6 +8,8 @@
  * BOOK-006: the change-pending marker sits in the notes too, in place of the actions.
  * BOOK-007: past confirmed rows offer "Mark no-show"; no-show rows "Undo".
  * BOOK-008: the guest cell's name opens the linked member; the member link control sits under it.
+ * BOOK-013: the source cell says "By staff · name"; the actions cell Arrived / Undo and the ⋯ menu
+ * (Edit / Cancel).
  */
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -29,6 +31,7 @@ import { NoShowAction } from './booking-no-show-action'
 import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
+import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
 import type { DayGroup } from './booking-groups'
 
 export interface BookingGroupsProps extends BookingActionProps {
@@ -56,7 +59,7 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
       </TableCell>
       {/* The Source column says "AI agent"; it carries the BOOK-003 via-agent test id instead of a second badge. */}
       <TableCell data-testid={booking.source === 'agent' ? `booking-row-${booking.id}-via-agent` : undefined}>
-        <BookingSource source={booking.source} />
+        {booking.source === 'staff' ? <StaffSourceBadge booking={booking} /> : <BookingSource source={booking.source} />}
       </TableCell>
       <TableCell className="max-w-56 whitespace-pre-wrap text-muted-foreground">
         <ChangeFromLine booking={booking} />
@@ -68,10 +71,13 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
         <TermsAccepted booking={booking} />
       </TableCell>
       <TableCell className="text-right">
-        <span className="inline-flex justify-end">
+        <span className="inline-flex items-center justify-end gap-1">
           <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} />
           <NoShowAction booking={booking} busy={busyIds.has(booking.id)} onNoShow={onNoShow} />
+          <ArrivedAction booking={booking} />
+          <BookingRowMenu booking={booking} />
         </span>
+        <CheckInRefusedLine booking={booking} />
       </TableCell>
     </TableRow>
   )

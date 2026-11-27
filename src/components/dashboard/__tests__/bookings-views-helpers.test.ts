@@ -177,6 +177,11 @@ describe('bookings view state', () => {
     expect(resolveView(null, 'table')).toBe('table')
     expect(resolveView('calendar', 'table')).toBe('calendar')
     expect(resolveView('week', 'nope')).toBe('calendar')
+    // BOOK-013 S7: Today is a view; with no choice yet a phone opens on it.
+    expect(resolveView('today', 'calendar')).toBe('today')
+    expect(resolveView(null, null, true)).toBe('today')
+    expect(resolveView(null, 'table', true)).toBe('table')
+    expect(fetchRange('today', '2026-11-21', 'upcoming', '2026-11-19')).toEqual({ from: '2026-11-19', to: '2026-11-19' })
   })
 
   it('table upcoming = today onward; past = the 90 days before today, newest first', () => {

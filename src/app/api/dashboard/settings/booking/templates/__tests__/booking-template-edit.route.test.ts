@@ -97,7 +97,7 @@ describe('who and when (R14, R22)', () => {
   })
 
   it.each([
-    ['unknown kind', { kind: 'cancelled', language: 'en', body: NEW_BODY }],
+    ['unknown kind', { kind: 'birthday', language: 'en', body: NEW_BODY }],
     ['unknown language', { kind: 'confirmed', language: 'fr', body: NEW_BODY }],
     ['non-string body', { kind: 'confirmed', language: 'en', body: 42 }],
     ['missing body', { kind: 'confirmed', language: 'en' }],

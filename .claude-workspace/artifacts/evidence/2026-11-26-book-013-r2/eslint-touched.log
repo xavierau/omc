@@ -1,0 +1,2 @@
+# eslint on the files this round touched (full-src run above: 50 = round-1 baseline 49 + 1 new in booking-cron-repository.test.ts, fixed by renaming db -> useQrTable)
+exit=0

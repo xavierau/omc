@@ -1,0 +1,838 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-013
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts (8 tests | 3 failed) 37ms
+     × STAFF_COLUMNS carries the 095 columns; the mapper reads them 25ms
+     × R3: edit passes the loaded status and updated_at verbatim; no row = nothing changed 3ms
+     × cancel and check-in are the 095 RPCs scoped by restaurant 1ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts (8 tests | 4 failed) 38ms
+     × purges name, notes and the code only on rows before the cutoff that are not yet purged (QR paths are left to the QR step) 23ms
+       × reads every page by id (2001 rows → 3 pages), deletes each page, then forgets exactly the paths it deleted 2ms
+       × a QR delete that throws: that page keeps its paths, the other pages go on, PII is still purged, the log is masked 4ms
+       × a QR read error never blocks the PII purge 1ms
+ ❯ src/domain/services/__tests__/staff-booking.test.ts (49 tests | 8 failed) 74ms
+     × reads the allow-listed fields, normalises phone, name and notes; notify defaults on, override off 16ms
+     × edit: expectedVersion is required (R3) and an unchanged past slot is allowed 2ms
+     × edit: expectedVersion -1 is refused (a non-negative int4) 1ms
+     × edit: expectedVersion 1.5 is refused (a non-negative int4) 1ms
+     × edit: expectedVersion 3 is refused (a non-negative int4) 24ms
+     × edit: expectedVersion null is refused (a non-negative int4) 1ms
+     × edit: expectedVersion 2147483648 is refused (a non-negative int4) 0ms
+     × review R7: a BOOK-006 change pair (both today) counts once: the confirmed original, not its pending change 1ms
+ ❯ src/application/__tests__/book-013-confirm-qr.test.ts (10 tests | 2 failed) 45ms
+     × review R2: Notify off → confirmed with a code, but no message and no message outcome stored 9ms
+     × review R2: Notify off → a decline is not sent either 5ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts (64 tests | 32 failed) 88ms
+     × AC-6: changes the fields, keeps status, source and code; changed fields (no values) in the events row; diner told 6ms
+     × AC-7: a moved slot makes the reminder due again; a name-only edit does not and sends nothing 1ms
+     × AC-6: Notify off on an edit → no message 1ms
+     × AC-8: the booking is not counted against itself; a real overflow asks 1ms
+     × AC-9: a new phone re-resolves the member 2ms
+     × AC-11 / R3: a stale form → 409 changed with the current status; nothing written or sent 1ms
+     × a pending booking stays pending after an edit 1ms
+     × R11: a second staff message within 5 minutes is skipped (throttled), the edit is saved 1ms
+     × review R8: a changed message that is not delivered never overwrites the delivered confirmation badge; staff still hear it 1ms
+     × AC-12: soft cancel by staff with who; QR file deleted; diner told; events row 1ms
+     × AC-12: Notify off → no message 1ms
+     × AC-13: a cancelled booking → 409 changed, nothing written 1ms
+     × AC-13: a declined booking → 409 changed, nothing written 0ms
+     × AC-13: a no_show booking → 409 changed, nothing written 0ms
+     × AC-13: a pending booking → 409 changed, nothing written 0ms
+     × AC-13: changed by someone else since the dialog opened → 409, nothing sent 0ms
+     × an open change request → 409 open_change 2ms
+     × review R8: a cancelled message that is not delivered leaves the confirmation badge as it was 0ms
+     × after the reminder claim, the loaded edit form still saves 1ms
+     × after the QR path claim, the loaded edit form still saves 0ms
+     × after the decision message status, the loaded edit form still saves 0ms
+     × after the staff message claim, the loaded edit form still saves 0ms
+     × after a check-in, the loaded edit form still saves 0ms
+     × after the reminder claim, the loaded cancel dialog still cancels 0ms
+     × after the QR path claim, the loaded cancel dialog still cancels 0ms
+     × after the decision message status, the loaded cancel dialog still cancels 0ms
+     × after the staff message claim, the loaded cancel dialog still cancels 0ms
+     × after a check-in, the loaded cancel dialog still cancels 0ms
+     × when another staff member edits the party, edit and cancel answer 409, write nothing and send nothing 1ms
+     × when the diner AI cancels, edit and cancel answer 409, write nothing and send nothing 1ms
+     × when the diner AI opens a change request, edit and cancel answer 409, write nothing and send nothing 0ms
+     × R2: another restaurant's booking id → 404 on edit, cancel and check-in; untouched 1ms
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx (28 tests | 4 failed) 133ms
+     × a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today) 41ms
+     × a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today) 9ms
+     × a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today) 3ms
+     × Edit on pending and confirmed; Cancel on confirmed only; neither without editVersion or with an open change 5ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 53 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/__tests__/book-013-confirm-qr.test.ts > decide → confirmed mints the code and sends it with the QR (R8, AC-17) > review R2: Notify off → confirmed with a code, but no message and no message outcome stored
+AssertionError: expected { ok: true, booking: { …(22) }, …(1) } to match object { ok: true, delivered: null, …(1) }
+
+- Expected
++ Received
+
+  {
+    "booking": {
+      "checkinCode": "K7Q2MX",
+      "status": "confirmed",
+    },
+-   "delivered": null,
++   "delivered": true,
+    "ok": true,
+  }
+
+ ❯ src/application/__tests__/book-013-confirm-qr.test.ts:63:20
+     61|     const recordSpy = vi.spyOn(requests, 'recordDecisionMessage')
+     62|     const result = await decideBookingRequest(deps, { restaurantId: A,…
+     63|     expect(result).toMatchObject({ ok: true, delivered: null, booking:…
+       |                    ^
+     64|     expect(sender.sent).toEqual([])
+     65|     expect(recordSpy).not.toHaveBeenCalled()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/53]⎯
+
+ FAIL  src/application/__tests__/book-013-confirm-qr.test.ts > decide → confirmed mints the code and sends it with the QR (R8, AC-17) > review R2: Notify off → a decline is not sent either
+AssertionError: expected { ok: true, booking: { …(21) }, …(1) } to match object { ok: true, delivered: null, …(1) }
+
+- Expected
++ Received
+
+  {
+    "booking": {
+      "status": "declined",
+    },
+-   "delivered": null,
++   "delivered": true,
+    "ok": true,
+  }
+
+ ❯ src/application/__tests__/book-013-confirm-qr.test.ts:74:20
+     72|     requests.rows[0].notifyDiner = false
+     73|     const result = await decideBookingRequest(deps, { restaurantId: A,…
+     74|     expect(result).toMatchObject({ ok: true, delivered: null, booking:…
+       |                    ^
+     75|     expect(sender.sent).toEqual([])
+     76|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/53]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > reads the allow-listed fields, normalises phone, name and notes; notify defaults on, override off
+AssertionError: expected { ok: true, input: { …(8) }, …(1) } to deeply equal { ok: true, …(2) }
+
+- Expected
++ Received
+
+@@ -1,7 +1,7 @@
+  {
+-   "expectedVersion": null,
++   "expectedUpdatedAt": null,
+    "input": {
+      "date": "2026-11-28",
+      "name": "Chan Tai Man",
+      "notes": "window",
+      "notify": true,
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:33:50
+     31| describe('parseStaffBookingInput (R4, R7)', () => {
+     32|   it('reads the allow-listed fields, normalises phone, name and notes;…
+     33|     expect(parseStaffBookingInput(valid, ctx())).toEqual({
+       |                                                  ^
+     34|       ok: true,
+     35|       expectedVersion: null,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/53]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion is required (R3) and an unchanged past slot is allowed
+AssertionError: expected { ok: true, input: { …(8) }, …(1) } to match object { ok: false, errors: { …(1) } }
+(10 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "errors": {
+-     "expectedVersion": "required",
+-   },
+-   "ok": false,
++   "ok": true,
+  }
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:72:91
+     70|   it('edit: expectedVersion is required (R3) and an unchanged past slo…
+     71|     const edit = ctx({ requireExpectedVersion: true, currentSlot: { da…
+     72|     expect(parseStaffBookingInput({ ...valid, date: '2026-11-26', time…
+       |                                                                                           ^
+     73|     const ok = parseStaffBookingInput({ ...valid, date: '2026-11-26', …
+     74|     expect(ok).toMatchObject({ ok: true, expectedVersion: 3 })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/53]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion -1 is refused (a non-negative int4)
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion 1.5 is refused (a non-negative int4)
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion 3 is refused (a non-negative int4)
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion null is refused (a non-negative int4)
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > edit: expectedVersion 2147483648 is refused (a non-negative int4)
+AssertionError: expected { ok: true, input: { …(8) }, …(1) } to match object { ok: false, errors: { …(1) } }
+(10 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "errors": {
+-     "expectedVersion": "required",
+-   },
+-   "ok": false,
++   "ok": true,
+  }
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:80:76
+     78|   it.each([-1, 1.5, '3', null, 2 ** 31])('edit: expectedVersion %s is …
+     79|     const edit = ctx({ requireExpectedVersion: true })
+     80|     expect(parseStaffBookingInput({ ...valid, expectedVersion: v }, ed…
+       |                                                                            ^
+     81|   })
+     82| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/53]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > Today rules (AC-20, AC-22, R14) > review R7: a BOOK-006 change pair (both today) counts once: the confirmed original, not its pending change
+AssertionError: expected 8 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 8
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:196:80
+    194|       b({ id: 'chg', partySize: 4, bookingTime: '20:00', status: 'pend…
+    195|     ]
+    196|     expect(todayCounters(list, { date: today, time: '12:00' }).guestsE…
+       |                                                                                ^
+    197|   })
+    198|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/53]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > row controls in the day list > a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today)
+AssertionError: expected '<ul><li data-testid="booking-row-b1" …' to contain 'data-testid="booking-row-b1-menu"'
+
+Expected: "data-testid="booking-row-b1-menu""
+Received: "<ul><li data-testid="booking-row-b1" class="flex gap-4 px-4 py-4 sm:px-5"><div class="w-12 shrink-0"><p class="font-semibold tabular-nums text-foreground">19:00</p><p class="text-xs text-muted-foreground">bookings.pax:{&quot;count&quot;:6}</p></div><div class="flex min-w-0 flex-1 flex-col gap-1.5"><div class="flex flex-wrap items-center gap-2"><span class="font-semibold break-words text-foreground">Mr Lam</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></div><p class="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"><a href="tel:+85291234567" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85291234567</a><span data-testid="booking-row-b1-code" class="font-mono text-xs tracking-wider text-muted-foreground tabular-nums">K7Q2MX</span></p><p class="text-sm whitespace-pre-wrap text-muted-foreground">window table</p><div class="flex flex-wrap gap-2 pt-1 empty:hidden max-md:[&amp;&gt;div]:w-full max-md:[&amp;&gt;div&gt;button]:flex-1"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></div></li></ul>"
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:69:18
+     67|     expect(html).toContain('bookings.staff.byStaffName:{&quot;name&quo…
+     68|     expect(html).toMatch(/data-testid="booking-row-b1-code"[^>]*>K7Q2M…
+     69|     expect(html).toContain('data-testid="booking-row-b1-menu"')
+       |                  ^
+     70|     expect(html).toContain('data-testid="booking-row-b1-arrived"')
+     71|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/53]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > row controls in the desktop table > a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today)
+AssertionError: expected '<div data-slot="table-container" clas…' to contain 'data-testid="booking-row-b1-menu"'
+
+Expected: "data-testid="booking-row-b1-menu""
+Received: "<div data-slot="table-container" class="relative w-full overflow-x-auto"><table data-slot="table" class="w-full caption-bottom text-sm min-w-[56rem] [&amp;_td]:px-3"><thead data-slot="table-header" class="[&amp;_tr]:border-b bg-muted/50"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted hover:bg-transparent"><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.time</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.guest</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.phone</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.party</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.status</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.source</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.notes</th><th data-slot="table-head" class="h-10 text-left align-middle font-medium whitespace-nowrap text-foreground [&amp;:has([role=checkbox])]:pr-0 px-3"><span class="sr-only">bookings.views.columns.actions</span></th></tr></thead><tbody data-slot="table-body" class="[&amp;_tr:last-child]:border-0"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-muted/30 hover:bg-muted/30"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 py-2" colSpan="8"><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">bookings.views.todayLabel:{&quot;date&quot;:&quot;Thu, Nov 26&quot;}</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:6}</span></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b1"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">19:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 whitespace-normal"><span class="font-medium">Mr Lam</span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:+85291234567" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85291234567</a><span data-testid="booking-row-b1-code" class="font-mono text-xs tracking-wider text-muted-foreground tabular-nums block">K7Q2MX</span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">6</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex flex-wrap items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">window table</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex items-center justify-end gap-1"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></span></td></tr></tbody></table></div>"
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:69:18
+     67|     expect(html).toContain('bookings.staff.byStaffName:{&quot;name&quo…
+     68|     expect(html).toMatch(/data-testid="booking-row-b1-code"[^>]*>K7Q2M…
+     69|     expect(html).toContain('data-testid="booking-row-b1-menu"')
+       |                  ^
+     70|     expect(html).toContain('data-testid="booking-row-b1-arrived"')
+     71|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/53]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > row controls in the phone cards > a staff-made confirmed booking: By staff · name, its code, the ⋯ menu and Arrived (today)
+AssertionError: expected '<div class="space-y-5"><section class…' to contain 'data-testid="booking-row-b1-menu"'
+
+Expected: "data-testid="booking-row-b1-menu""
+Received: "<div class="space-y-5"><section class="space-y-2"><h3><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">bookings.views.todayLabel:{&quot;date&quot;:&quot;Thu, Nov 26&quot;}</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:6}</span></span></h3><ul class="space-y-3"><li data-testid="booking-row-b1" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">19:00</span><span>Mr Lam</span></p><span class="flex shrink-0 items-center gap-1"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span></span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:6}</span><a href="tel:+85291234567" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">+85291234567</a><span data-testid="booking-row-b1-code" class="font-mono text-xs tracking-wider text-muted-foreground tabular-nums">K7Q2MX</span><span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></span></p><div class="flex empty:hidden"></div><p class="text-sm whitespace-pre-wrap text-muted-foreground">window table</p><div class="pt-1 empty:hidden"><button data-slot="button" data-variant="default" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3 w-full" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></li></ul></section></div>"
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:69:18
+     67|     expect(html).toContain('bookings.staff.byStaffName:{&quot;name&quo…
+     68|     expect(html).toMatch(/data-testid="booking-row-b1-code"[^>]*>K7Q2M…
+     69|     expect(html).toContain('data-testid="booking-row-b1-menu"')
+       |                  ^
+     70|     expect(html).toContain('data-testid="booking-row-b1-arrived"')
+     71|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/53]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > menu rules (AC-10, S3) > Edit on pending and confirmed; Cancel on confirmed only; neither without editVersion or with an open change
+AssertionError: expected [ false, false ] to deeply equal [ true, true ]
+
+- Expected
++ Received
+
+  [
+-   true,
+-   true,
++   false,
++   false,
+  ]
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:102:70
+    100| describe('menu rules (AC-10, S3)', () => {
+    101|   it('Edit on pending and confirmed; Cancel on confirmed only; neither…
+    102|     expect([canEditBooking(booking()), canCancelBooking(booking())]).t…
+       |                                                                      ^
+    103|     expect([canEditBooking(booking({ status: 'pending' })), canCancelB…
+    104|     expect(canEditBooking(booking({ editVersion: undefined }))).toBe(f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts > booking cron queries > purges name, notes and the code only on rows before the cutoff that are not yet purged (QR paths are left to the QR step)
+AssertionError: expected [ 'update', …(1) ] to deeply equal [ 'update', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "update",
+    {
+      "checkin_code": null,
++     "checkin_qr_path": null,
+      "name": null,
+      "notes": null,
+      "pii_purged_at": "2026-11-20T09:00:00.000Z",
+    },
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts:55:24
+     53|     expect(await purgeBookingPii('2026-05-16', AT)).toBe(2)
+     54|     const q = rec.queries[0]
+     55|     expect(q.calls[0]).toEqual(['update', { name: null, notes: null, c…
+       |                        ^
+     56|     expect(filtersOf(q)).toEqual(['lt:booking_date=2026-05-16', 'is:pi…
+     57|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts > booking cron queries > BOOK-013 (R16, review R3): QR files of rows before the cutoff > reads every page by id (2001 rows → 3 pages), deletes each page, then forgets exactly the paths it deleted
+AssertionError: expected [ +0 ] to deeply equal [ 1000, 1000, 1 ]
+
+- Expected
++ Received
+
+  [
+-   1000,
+-   1000,
+-   1,
++   0,
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts:87:44
+     85|       const removed: string[][] = []
+     86|       expect(await purgeBookingPii('2026-05-16', AT, async (paths) => …
+     87|       expect(removed.map((p) => p.length)).toEqual([1000, 1000, 1])
+       |                                            ^
+     88|       expect(removed.flat()).toEqual(rows.map((r) => r.checkin_qr_path…
+     89|       expect(forgotten).toEqual(removed)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts > booking cron queries > BOOK-013 (R16, review R3): QR files of rows before the cutoff > a QR delete that throws: that page keeps its paths, the other pages go on, PII is still purged, the log is masked
+AssertionError: expected [] to deeply equal [ 1000, 1 ]
+
+- Expected
++ Received
+
+- [
+-   1000,
+-   1,
+- ]
++ []
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts:110:46
+    108|       }
+    109|       expect(await purgeBookingPii('2026-05-16', AT, remove)).toBe(1)
+    110|       expect(forgotten.map((p) => p.length)).toEqual([1000, 1])
+       |                                              ^
+    111|       expect(forgotten.flat()).not.toContain(path(1000))
+    112|       expect(rec.queries[rec.queries.length - 1].calls[0][0]).toBe('up…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts > booking cron queries > BOOK-013 (R16, review R3): QR files of rows before the cutoff > a QR read error never blocks the PII purge
+Error: purgeBookingPii qr paths: read boom
+ ❯ qrPathsBefore src/infrastructure/supabase/repositories/booking-request-repository.ts:511:20
+    509|     .is('pii_purged_at', null)
+    510|     .not('checkin_qr_path', 'is', null)
+    511|   if (error) throw new Error(`purgeBookingPii qr paths: ${error.messag…
+       |                    ^
+    512|   return ((data ?? []) as Array<{ checkin_qr_path: string }>).map((r) …
+    513| }
+ ❯ Module.purgeBookingPii src/infrastructure/supabase/repositories/booking-request-repository.ts:492:42
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-cron-repository.test.ts:121:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts > staff booking repository (095) > STAFF_COLUMNS carries the 095 columns; the mapper reads them
+AssertionError: expected 'id, restaurant_id, member_id, phone, …' to contain 'edit_version'
+
+Expected: "edit_version"
+Received: "id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, updated_at, created_by, notify_diner, checkin_code, checked_in_at"
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts:32:124
+     30| describe('staff booking repository (095)', () => {
+     31|   it('STAFF_COLUMNS carries the 095 columns; the mapper reads them', a…
+     32|     for (const c of ['edit_version', 'created_by', 'notify_diner', 'ch…
+       |                                                                                                                            ^
+     33|     // review R1: updated_at moves on background writes, so it is neve…
+     34|     expect(STAFF_COLUMNS).not.toContain('updated_at')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts > staff booking repository (095) > R3: edit passes the loaded status and updated_at verbatim; no row = nothing changed
+AssertionError: expected { p_id: 'b-1', …(15) } to match object { p_id: 'b-1', …(5) }
+(11 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -2,9 +2,8 @@
+    "p_changed": [
+      "time",
+    ],
+    "p_clear_reminder": true,
+    "p_expected_status": "confirmed",
+-   "p_expected_version": 7,
+    "p_id": "b-1",
+    "p_restaurant_id": "r-a",
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts:55:40
+     53|     })
+     54|     expect(updated).toBeNull()
+     55|     expect(rec.queries[0].calls[0][1]).toMatchObject({ p_id: 'b-1', p_…
+       |                                        ^
+     56|   })
+     57|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/53]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts > staff booking repository (095) > cancel and check-in are the 095 RPCs scoped by restaurant
+AssertionError: expected { p_id: 'b-1', …(4) } to match object { p_expected_version: 7 }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "p_expected_version": 7,
++   "p_actor": "u",
++   "p_at": "2026-11-26T03:00:00.000Z",
++   "p_expected_updated_at": undefined,
++   "p_id": "b-1",
++   "p_restaurant_id": "r-a",
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/staff-booking-repository.test.ts:61:40
+     59|     const rec = use([{ data: [] }, { data: [] }, { data: [] }])
+     60|     await staffBookingStore.cancel({ id: 'b-1', restaurantId: 'r-a', e…
+     61|     expect(rec.queries[0].calls[0][1]).toMatchObject({ p_expected_vers…
+       |                                        ^
+     62|     await checkinStore.checkIn({ id: 'b-1', restaurantId: 'r-a', today…
+     63|     await checkinStore.undoCheckIn({ id: 'b-1', restaurantId: 'r-a', a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-6: changes the fields, keeps status, source and code; changed fields (no values) in the events row; diner told
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:198:24
+    196|     const row = seed({ source: 'agent', reminderSentAt: '2026-11-26T00…
+    197|     const res = await edit(row.id, editBody(row, { partySize: 6, time:…
+    198|     expect(res.status).toBe(200)
+       |                        ^
+    199|     const { booking, message } = await res.json()
+    200|     expect(booking).toMatchObject({ partySize: 6, bookingTime: '20:00'…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-7: a moved slot makes the reminder due again; a name-only edit does not and sends nothing
+AssertionError: expected undefined to be 'none' // Object.is equality
+
+- Expected:
+"none"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:210:30
+    208|     const row = seed({ reminderSentAt: '2026-11-26T00:00:00Z' })
+    209|     const nameOnly = await (await edit(row.id, editBody(row, { name: '…
+    210|     expect(nameOnly.message).toBe('none')
+       |                              ^
+    211|     expect(fake.rows[0].reminderSentAt).toBe('2026-11-26T00:00:00Z')
+    212|     expect(sends).toHaveLength(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-6: Notify off on an edit → no message
+AssertionError: expected undefined to be 'none' // Object.is equality
+
+- Expected:
+"none"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:219:105
+    217|   it('AC-6: Notify off on an edit → no message', async () => {
+    218|     const row = seed()
+    219|     expect((await (await edit(row.id, editBody(row, { partySize: 3, no…
+       |                                                                                                         ^
+    220|     expect(sends).toHaveLength(0)
+    221|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-8: the booking is not counted against itself; a real overflow asks
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:225:75
+    223|   it('AC-8: the booking is not counted against itself; a real overflow…
+    224|     const row = seed({ partySize: 8 })
+    225|     expect((await edit(row.id, editBody(row, { partySize: 10 }))).stat…
+       |                                                                           ^
+    226|     seed({ partySize: 2 })
+    227|     const res = await edit(row.id, editBody(fake.rows[0], { partySize:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-9: a new phone re-resolves the member
+TypeError: Cannot read properties of undefined (reading 'memberId')
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:233:95
+    231|   it('AC-9: a new phone re-resolves the member', async () => {
+    232|     const row = seed({ phone: '+85261234567', memberId: null })
+    233|     expect((await (await edit(row.id, editBody(row, { phone: '9123 456…
+       |                                                                                               ^
+    234|   })
+    235|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > AC-11 / R3: a stale form → 409 changed with the current status; nothing written or sent
+AssertionError: expected 400 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:250:24
+    248|     fake.write(row.id, { notes: 'another staff member' })
+    249|     const res = await edit(row.id, loaded)
+    250|     expect(res.status).toBe(409)
+       |                        ^
+    251|     expect(await res.json()).toEqual({ error: 'changed', status: 'conf…
+    252|     expect(fake.rows[0].partySize).toBe(2)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > a pending booking stays pending after an edit
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:263:89
+    261|   it('a pending booking stays pending after an edit', async () => {
+    262|     const row = seed({ status: 'pending', checkinCode: null })
+    263|     expect((await (await edit(row.id, editBody(row, { partySize: 3 }))…
+       |                                                                                         ^
+    264|   })
+    265|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > R11: a second staff message within 5 minutes is skipped (throttled), the edit is saved
+AssertionError: expected undefined to be 'throttled' // Object.is equality
+
+- Expected:
+"throttled"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:270:28
+    268|     await edit(row.id, editBody(row, { partySize: 3 }))
+    269|     const second = await (await edit(row.id, editBody(fake.rows[0], { …
+    270|     expect(second.message).toBe('throttled')
+       |                            ^
+    271|     expect(second.booking.partySize).toBe(4)
+    272|     expect(sends).toHaveLength(1)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > PATCH /api/dashboard/bookings/[id] — staff edit (S2) > review R8: a changed message that is not delivered never overwrites the delivered confirmation badge; staff still hear it
+AssertionError: expected undefined to be 'not_delivered' // Object.is equality
+
+- Expected:
+"not_delivered"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:286:21
+    284|     sendResult = { delivered: false, reason: 'outside_window' }
+    285|     const { booking, message } = await (await edit(row.id, editBody(ro…
+    286|     expect(message).toBe('not_delivered')
+       |                     ^
+    287|     expect(booking.decisionMessageStatus).toBe('delivered')
+    288|     expect(recorded).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-12: soft cancel by staff with who; QR file deleted; diner told; events row
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:297:24
+    295|     const row = seed({ source: 'chat' })
+    296|     const res = await cancel(row.id, { expectedVersion: row.editVersio…
+    297|     expect(res.status).toBe(200)
+       |                        ^
+    298|     expect(fake.rows[0]).toMatchObject({ status: 'cancelled', cancelle…
+    299|     expect(qr.removed).toEqual([row.id])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-12: Notify off → no message
+AssertionError: expected undefined to be 'none' // Object.is equality
+
+- Expected:
+"none"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:306:112
+    304|   it('AC-12: Notify off → no message', async () => {
+    305|     const row = seed()
+    306|     expect((await (await cancel(row.id, { expectedVersion: row.editVer…
+       |                                                                                                                ^
+    307|     expect(sends).toHaveLength(0)
+    308|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-13: a cancelled booking → 409 changed, nothing written
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-13: a declined booking → 409 changed, nothing written
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-13: a no_show booking → 409 changed, nothing written
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-13: a pending booking → 409 changed, nothing written
+AssertionError: expected 400 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:313:24
+    311|     const row = seed({ status })
+    312|     const res = await cancel(row.id, { expectedVersion: row.editVersio…
+    313|     expect(res.status).toBe(409)
+       |                        ^
+    314|     expect(await res.json()).toEqual({ error: 'changed', status })
+    315|     expect(fake.writes).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > AC-13: changed by someone else since the dialog opened → 409, nothing sent
+AssertionError: expected 400 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:322:51
+    320|     const loaded = { expectedVersion: row.editVersion }
+    321|     fake.write(row.id, { partySize: 5 })
+    322|     expect((await cancel(row.id, loaded)).status).toBe(409)
+       |                                                   ^
+    323|     expect(fake.rows[0].status).toBe('confirmed')
+    324|     expect(sends).toHaveLength(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > an open change request → 409 open_change
+AssertionError: expected { error: 'invalid', fields: { …(1) } } to deeply equal { error: 'open_change' }
+
+- Expected
++ Received
+
+  {
+-   "error": "open_change",
++   "error": "invalid",
++   "fields": {
++     "expectedUpdatedAt": "required",
++   },
+  }
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:330:87
+    328|     const row = seed()
+    329|     seed({ status: 'pending', replacesBookingId: row.id })
+    330|     expect(await (await cancel(row.id, { expectedVersion: row.editVers…
+       |                                                                                       ^
+    331|   })
+    332|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > POST /api/dashboard/bookings/[id]/cancel — staff cancel (S3) > review R8: a cancelled message that is not delivered leaves the confirmation badge as it was
+AssertionError: expected undefined to be 'not_delivered' // Object.is equality
+
+- Expected:
+"not_delivered"
+
++ Received:
+undefined
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:337:21
+    335|     sendResult = { delivered: false, reason: 'outside_window' }
+    336|     const { booking, message } = await (await cancel(row.id, { expecte…
+    337|     expect(message).toBe('not_delivered')
+       |                     ^
+    338|     expect(booking.decisionMessageStatus).toBe('delivered')
+    339|     expect(recorded).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the reminder claim, the loaded edit form still saves
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the QR path claim, the loaded edit form still saves
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the decision message status, the loaded edit form still saves
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the staff message claim, the loaded edit form still saves
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after a check-in, the loaded edit form still saves
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:363:24
+    361|     fake.write(row.id, patch)
+    362|     const res = await edit(row.id, loaded)
+    363|     expect(res.status).toBe(200)
+       |                        ^
+    364|     expect(fake.rows[0].partySize).toBe(3)
+    365|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the reminder claim, the loaded cancel dialog still cancels
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the QR path claim, the loaded cancel dialog still cancels
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the decision message status, the loaded cancel dialog still cancels
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after the staff message claim, the loaded cancel dialog still cancels
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > after a check-in, the loaded cancel dialog still cancels
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:371:51
+    369|     const loaded = { expectedVersion: row.editVersion, notify: true }
+    370|     fake.write(row.id, patch)
+    371|     expect((await cancel(row.id, loaded)).status).toBe(200)
+       |                                                   ^
+    372|     expect(fake.rows[0].status).toBe('cancelled')
+    373|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > when another staff member edits the party, edit and cancel answer 409, write nothing and send nothing
+AssertionError: expected [ 400, 400 ] to deeply equal [ 409, 409 ]
+
+- Expected
++ Received
+
+  [
+-   409,
+-   409,
++   400,
++   400,
+  ]
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:389:47
+    387|     const edited = await edit(row.id, loadedEdit)
+    388|     const cancelled = await cancel(row.id, loadedCancel)
+    389|     expect([edited.status, cancelled.status]).toEqual([409, 409])
+       |                                               ^
+    390|     expect(await edited.json()).toEqual(answer)
+    391|     expect(await cancelled.json()).toEqual(answer)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > when the diner AI cancels, edit and cancel answer 409, write nothing and send nothing
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > review R1: only a real change makes the form stale (spec AC-11, threat R3) > when the diner AI opens a change request, edit and cancel answer 409, write nothing and send nothing
+AssertionError: expected [ 409, 400 ] to deeply equal [ 409, 409 ]
+
+- Expected
++ Received
+
+  [
+    409,
+-   409,
++   400,
+  ]
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:389:47
+    387|     const edited = await edit(row.id, loadedEdit)
+    388|     const cancelled = await cancel(row.id, loadedCancel)
+    389|     expect([edited.status, cancelled.status]).toEqual([409, 409])
+       |                                               ^
+    390|     expect(await edited.json()).toEqual(answer)
+    391|     expect(await cancelled.json()).toEqual(answer)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/53]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > who may call them (R1, R2, R6) > R2: another restaurant's booking id → 404 on edit, cancel and check-in; untouched
+AssertionError: expected 400 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:432:85
+    430|     fake.rows.push(other)
+    431|     expect((await edit(other.id, editBody(other, { partySize: 3 }))).s…
+    432|     expect((await cancel(other.id, { expectedVersion: other.editVersio…
+       |                                                                                     ^
+    433|     expect((await arrivedRoute(new Request(url), ctx(other.id))).statu…
+    434|     expect(fake.rows[0]).toMatchObject({ partySize: 2, status: 'confir…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/53]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  53 failed | 114 passed (167)
+   Start at  21:34:31
+   Duration  1.45s (transform 2.16s, setup 0ms, import 3.38s, tests 414ms, environment 0ms)
+

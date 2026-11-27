@@ -1,0 +1,328 @@
+NOTICE:  database "scratch_095_r3" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/024_require_webhook_secret.sql:2: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/025_commission_dual_revenue.sql:12: NOTICE:  constraint "referrers_commission_per_redemption_hkd_check" of relation "referrers" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/047_consent_records_v2.sql:45: NOTICE:  trigger "trg_consent_records_default_expires_at" for relation "consent_records" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/050_stamp_collection.sql:14: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/078_tenant_campaign_settings_seed_on_create.sql:64: NOTICE:  trigger "trg_restaurant_seed_campaign_settings" for relation "restaurants" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/087_booking_no_show.sql:34: NOTICE:  constraint "booking_requests_no_show_marker" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/088_booking_member_backfill.sql:157: NOTICE:  trigger "trg_members_link_bookings" for relation "members" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/091_booking_terms_acceptance.sql:14: NOTICE:  constraint "booking_requests_terms_acceptance" of relation "booking_requests" does not exist, skipping
+applied 001..094
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:62: NOTICE:  trigger "booking_requests_edit_version" for relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:73: NOTICE:  constraint "booking_requests_checked_in_not_no_show" of relation "booking_requests" does not exist, skipping
+== 095 applied ==
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ n  | result |                                         label                                          |                                                                                                              detail                                                                                                               
+----+--------+----------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1 | PASS   | create returns confirmed staff row                                                     | 
+  2 | PASS   | create wrote one booking.staff_created event without brokenRules                       | 
+  3 | PASS   | override create (Notify off) returns its row                                           | 
+  4 | PASS   | override create records brokenRules                                                    | 
+  5 | PASS   | two staff bookings at one restaurant, same slot, both stored (no unique code to clash) | 
+  6 | PASS   | cancelled_by rejects unknown value                                                     | 
+  7 | PASS   | source rejects unknown value                                                           | 
+  8 | PASS   | checked_in and no_show exclude each other                                              | 
+  9 | PASS   | edit with a stale edit_version changes nothing                                         | 
+ 10 | PASS   | edit from another restaurant changes nothing                                           | 
+ 11 | PASS   | no edit event after refused edits                                                      | 
+ 12 | PASS   | fresh edit: values, updated_by, reminder cleared, status kept                          | 
+ 13 | PASS   | edit event names fields only                                                           | 
+ 14 | PASS   | edit refused with open change                                                          | 
+ 15 | PASS   | cancel refused with open change                                                        | 
+ 16 | PASS   | confirm change (085, 4 args) confirms the change                                       | 
+ 17 | PASS   | original cancelled by change                                                           | 
+ 18 | PASS   | cancel stale refused                                                                   | 
+ 19 | PASS   | cancel -> cancelled by staff + user + time                                             | 
+ 20 | PASS   | cancel again -> nothing                                                                | 
+ 21 | PASS   | one cancel event                                                                       | 
+ 22 | PASS   | a new booking starts at edit_version 0                                                 | 
+ 23 | PASS   | background writes landed and did not move edit_version                                 | version 0
+ 24 | PASS   | a writer cannot set edit_version directly                                              | 
+ 25 | PASS   | after background writes, the loaded edit saves                                         | 
+ 26 | PASS   | the staff edit moved edit_version by one                                               | 
+ 27 | PASS   | after background writes, the loaded cancel cancels                                     | 
+ 28 | PASS   | a party change moves edit_version                                                      | 
+ 29 | PASS   | after a party change, the loaded edit is refused                                       | 
+ 30 | PASS   | after a party change, the loaded cancel is refused                                     | 
+ 31 | PASS   | refused: party and status as the other writer left them                                | 
+ 32 | PASS   | a status change moves edit_version                                                     | 
+ 33 | PASS   | after the diner AI cancels, the loaded edit and cancel are refused                     | 
+ 34 | PASS   | refused writes wrote no events                                                         | 
+ 35 | PASS   | each versioned column moves edit_version by one                                        | 
+ 36 | PASS   | check-in refused for another day                                                       | 
+ 37 | PASS   | check-in refused for another restaurant                                                | 
+ 38 | PASS   | check-in today sets at/by, status stays confirmed                                      | 
+ 39 | PASS   | check-in twice -> nothing                                                              | 
+ 40 | PASS   | no-show refused when checked in                                                        | 
+ 41 | PASS   | member stats count arrived                                                             | 
+ 42 | PASS   | undo clears checked_in only                                                            | 
+ 43 | PASS   | no-show allowed after undo                                                             | 
+ 44 | PASS   | check-in refused on no_show                                                            | 
+ 45 | PASS   | events: 1 checked_in, 1 undone                                                         | 
+ 46 | PASS   | reminder candidates skip notify off                                                    | 
+ 47 | PASS   | no checkin_code / checkin_qr_path column                                               | 
+ 48 | PASS   | no code or QR index                                                                    | 
+ 49 | PASS   | no booking-checkin-qr bucket                                                           | 
+ 50 | PASS   | no forget_checkin_qr_paths function                                                    | 
+ 51 | PASS   | confirm_booking_change has only 085's 4-argument version                               | 
+ 52 | PASS   | staff_create_booking takes no code list (12 arguments, no text[])                      | p_restaurant_id uuid, p_member_id uuid, p_phone text, p_name text, p_party integer, p_date date, p_time time without time zone, p_notes text, p_notify boolean, p_actor uuid, p_at timestamp with time zone, p_broken_rules jsonb
+ 53 | PASS   | new RPCs not executable by anon or authenticated                                       | 
+ 54 | PASS   | one staff_update_booking and one staff_cancel_booking (int version)                    | 
+(54 rows)
+
+ passed | failed 
+--------+--------
+     54 |      0
+(1 row)
+
+dropped scratch_095_r3

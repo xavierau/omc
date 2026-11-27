@@ -9,8 +9,17 @@ import type { BookingDateRange } from '@/domain/entities/booking-request'
 import type { BookingsQuery } from '@/hooks/use-bookings'
 import { addDays, gridRange, monthKey, shiftMonth } from './booking-dates'
 import type { DayOrder } from './booking-groups'
+import {
+  DEFAULT_TODAY_SORT,
+  defaultTodaySortDir,
+  TODAY_SORT_KEYS,
+  type TodaySort,
+  type TodaySortDir,
+  type TodaySortKey,
+} from '@/domain/services/booking-today-sort'
 
-export const BOOKINGS_VIEWS = ['calendar', 'table'] as const
+/** BOOK-013: Today joins (first; the default on a phone). */
+export const BOOKINGS_VIEWS = ['today', 'calendar', 'table'] as const
 export type BookingsView = (typeof BOOKINGS_VIEWS)[number]
 export type TableRange = 'upcoming' | 'past' | 'pending'
 
@@ -22,8 +31,9 @@ export const UPCOMING_DAYS = 365
 const asView = (value: string | null | undefined): BookingsView | null =>
   BOOKINGS_VIEWS.includes(value as BookingsView) ? (value as BookingsView) : null
 
-export function resolveView(param: string | null, stored: string | null): BookingsView {
-  return asView(param) ?? asView(stored) ?? 'calendar'
+/** `?view=` > the remembered choice > Today on a phone (BOOK-013 S7) / Calendar on desktop. */
+export function resolveView(param: string | null, stored: string | null, isPhone = false): BookingsView {
+  return asView(param) ?? asView(stored) ?? (isPhone ? 'today' : 'calendar')
 }
 
 export function tableRangeDates(range: Exclude<TableRange, 'pending'>, today: string): BookingDateRange {
@@ -39,9 +49,28 @@ export const SHOW_PENDING = { view: 'table', tableRange: 'pending', status: 'pen
 
 /** What to fetch: the visible month grid of the selected day, the table range, or every pending booking. */
 export function fetchRange(view: BookingsView, selected: string, range: TableRange, today: string): BookingsQuery {
+  // BOOK-013: Today reads its own list (/today); the pending count still comes from this one.
+  if (view === 'today') return { from: today, to: today }
   if (view === 'calendar') return gridRange(selected)
   return range === 'pending' ? { status: 'pending' } : tableRangeDates(range, today)
 }
+
+const asSortKey = (value: string | null): TodaySortKey | null =>
+  TODAY_SORT_KEYS.includes(value as TodaySortKey) ? (value as TodaySortKey) : null
+
+/**
+ * BOOK-013 AC-25: `?sort=` and `?dir=` of the Today view. A key without a
+ * direction starts at that key's default; any invalid value is time, earliest first.
+ */
+export function resolveTodaySort(sort: string | null, dir: string | null): TodaySort {
+  const key = asSortKey(sort)
+  if (!key) return DEFAULT_TODAY_SORT
+  if (dir === null) return { key, dir: defaultTodaySortDir(key) }
+  return dir === 'asc' || dir === 'desc' ? { key, dir: dir as TodaySortDir } : DEFAULT_TODAY_SORT
+}
+
+/** The Today view's query string with its sort, so a reload keeps it. */
+export const todaySortSearch = (sort: TodaySort): string => `view=today&sort=${sort.key}&dir=${sort.dir}`
 
 /** Desktop prev/next: the next month's 1st, or today when that month holds today. Phone: a week. */
 export function stepSelected(selected: string, direction: 1 | -1, byWeek: boolean, today: string): string {

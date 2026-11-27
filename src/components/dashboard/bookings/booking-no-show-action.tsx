@@ -43,7 +43,7 @@ export function NoShowAction({ booking, busy, onNoShow, stretch = false }: NoSho
   )
 }
 
-const REFUSAL_KEY = { not_past: 'noShowNotPast', change_pending: 'noShowChangePending' } as const
+const REFUSAL_KEY = { not_past: 'noShowNotPast', change_pending: 'noShowChangePending', checked_in: 'noShowCheckedIn' } as const
 
 /** BOOK-007: the notice of a no-show move that did not change the row; r1 F3: a refused mark says why. */
 export function NoShowNoticeLine({ notice }: { notice: NoShowNotice }) {

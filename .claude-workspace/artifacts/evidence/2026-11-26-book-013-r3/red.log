@@ -1,0 +1,37 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-013
+
+ ❯ src/domain/services/__tests__/booking-today-sort.test.ts (0 test)
+ ❯ src/components/dashboard/__tests__/bookings-today-sort-state.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-today-sort-state.test.ts [ src/components/dashboard/__tests__/bookings-today-sort-state.test.ts ]
+Error: Cannot find package '@/domain/services/booking-today-sort' imported from /Users/xavierau/Code/js/whatsapp-crm--book-013/src/components/dashboard/__tests__/bookings-today-sort-state.test.ts
+ ❯ src/components/dashboard/__tests__/bookings-today-sort-state.test.ts:3:1
+      1| import { describe, it, expect } from 'vitest'
+      2| import { resolveTodaySort, todaySortSearch } from '../bookings/booking…
+      3| import { TODAY_SORT_KEYS } from '@/domain/services/booking-today-sort'
+       | ^
+      4|
+      5| describe('Today sort in the URL (BOOK-013 AC-25)', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts [ src/domain/services/__tests__/booking-today-sort.test.ts ]
+Error: Cannot find module '../booking-today-sort' imported from /Users/xavierau/Code/js/whatsapp-crm--book-013/src/domain/services/__tests__/booking-today-sort.test.ts
+ ❯ src/domain/services/__tests__/booking-today-sort.test.ts:2:1
+      1| import { describe, it, expect } from 'vitest'
+      2| import {
+       | ^
+      3|   DEFAULT_TODAY_SORT,
+      4|   defaultTodaySortDir,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  no tests
+   Start at  21:58:13
+   Duration  1.00s (transform 216ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

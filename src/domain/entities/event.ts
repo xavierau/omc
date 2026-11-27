@@ -21,6 +21,12 @@ export type EventType =
   | 'reachability_restored'
   /** BOOK-008 R4 (migration 088): staff linked, relinked or unlinked a booking's member. */
   | 'booking.member_relinked'
+  /** BOOK-013 R9 (migration 095): staff create / edit / cancel and check-in, written by the RPCs. */
+  | 'booking.staff_created'
+  | 'booking.staff_edited'
+  | 'booking.staff_cancelled'
+  | 'booking.checked_in'
+  | 'booking.check_in_undone'
 
 export interface CrmEvent {
   id: string

@@ -1,0 +1,49 @@
+PASS today: no Scan button, no code on any row (decision 8) 
+PASS today: default sort is time ascending time:asc
+PASS today: rows by time ["Au Ka Yan","Chan Siu Fung","Lam Tai","Chan Wing Yan","Mr Chan","Yeung Family","Chan Ka Wai","陳生"]
+PASS today: Lunch and Dinner headings while sorted by time 
+PASS today: phone has the Sort select, desktop the column headers 
+01-today-time-zh-390.jpeg  blocking=0 warning=0
+PASS sort name: URL ?view=today&sort=name&dir=asc /dashboard/bookings?view=today&sort=name&dir=asc
+PASS sort name: rows A–Z by the locale collation ["陳生","Au Ka Yan","Chan Ka Wai","Chan Siu Fung","Chan Wing Yan","Lam Tai","Mr Chan","Yeung Family"]
+PASS sort name: no meal headings 
+02-today-name-zh-390.jpeg  blocking=0 warning=0
+PASS sort name again: reversed, dir=desc in the URL ["Yeung Family","Mr Chan","Lam Tai","Chan Wing Yan","Chan Siu Fung","Chan Ka Wai","Au Ka Yan","陳生"]
+03-today-name-desc-zh-390.jpeg  blocking=0 warning=1
+PASS reload: sort kept (name desc) name:desc
+PASS search Chan: only the Chan bookings, still name Z–A ["Mr Chan","Chan Wing Yan","Chan Siu Fung","Chan Ka Wai"]
+PASS search Chan: URL sort unchanged 
+04-today-search-chan-zh-390.jpeg  blocking=0 warning=0
+PASS search Chan + time sort: Chan bookings by time ["Chan Siu Fung","Chan Wing Yan","Mr Chan","Chan Ka Wai"]
+PASS search 6555: Yeung Family only 
+PASS search 陳: 陳生 only 
+PASS sort guests: largest first (Yeung Family 8) ["Yeung Family","Mr Chan","Au Ka Yan","Chan Ka Wai","Lam Tai","Chan Siu Fung","Chan Wing Yan","陳生"]
+05-today-guests-zh-390.jpeg  blocking=0 warning=0
+PASS sort status: Late, Waiting, Needs reply, Arrived, No-show ["late","late","late","waiting","waiting","needs_reply","arrived","no_show"]
+PASS arrived: row shows Arrived HH:MM 23:00 已到
+PASS arrived: DB checked_in_at set, status confirmed 
+06-today-arrived-zh-390.jpeg  blocking=0 warning=1
+PASS undo: DB checked_in_at cleared 
+PASS form: existing member line shown for the typed phone 會員：Lam Chi Keung
+PASS form: Notify diner ticked by default 
+07-form-new-zh-390.jpeg  blocking=0 warning=2
+PASS rules: prompt lists the slot limit 此訂座不符合訂座規則 超出 19:00 時段上限 已有 16 位 + 6 = 22，上限 20 客人無法預訂此時間。如餐廳仍有位置，你仍可新增。 返回 仍然訂座
+PASS rules: nothing written before Book anyway 
+08-rules-prompt-zh-390.jpeg  blocking=0 warning=2
+PASS create: confirmed, source staff, created_by set, linked to the existing member 9f1becd2-aa0d-45aa-8b67-ed33b581183d confirmed staff true 67f03f72-8f48-40a0-b1c6-d15ccd1a3f0c
+PASS create: staff_created event carries the overridden rules 
+PASS create: no new member row 
+PASS confirm send: develop's confirmed template, one BODY component with restaurant/date/time/party_size only (no header, no image, no code) [{"type":"body","parameters":[{"type":"text","text":"Walk Test Kitchen","parameter_name":"restaurant"},{"type":"text","text":"2026-11-28","parameter_name":"date"},{"type":"text","text":"19:00","parameter_name":"time"},{"type":"text","text":"6","parameter_name":"party_size"}]}]
+09-created-toast-zh-390.jpeg  blocking=0 warning=1
+PASS table: By staff badge on the row, no code 
+10-row-menu-zh-390.jpeg  blocking=2 warning=12
+11-form-edit-zh-390.jpeg  blocking=0 warning=11
+PASS edit: party 4, status still confirmed 
+PASS stale: 409 changed shows the banner, notes unchanged in DB 
+12-form-stale-zh-390.jpeg  blocking=0 warning=12
+13-cancel-dialog-zh-390.jpeg  blocking=0 warning=12
+PASS cancel: status cancelled, cancelled_by staff + user 
+14-cancelled-toast-zh-390.jpeg  blocking=0 warning=12
+PASS mode off: no Bookings link in the sidebar 
+PASS mode off: POST create answers 409 booking_off 409 {"error":"booking_off"}
+15-mode-off-zh-390.jpeg  blocking=0 warning=0
