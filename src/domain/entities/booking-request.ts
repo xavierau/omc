@@ -13,8 +13,16 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
 /**
  * AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change.
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
+ * BOOK-014 (migration 096): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
+ * confirmed when staff made it); `lapsed` = the hold ran out unpaid. Neither is shown to staff in W1.
  */
-export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show'
+export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show' | 'awaiting_deposit' | 'lapsed'
+/**
+ * BOOK-014: statuses staff never see (BOOK-003 R41 unverified; W1 hides the
+ * deposit holds too, W4 adds their staff view). For `.not('status', 'in', ...)`.
+ */
+export const STAFF_HIDDEN_STATUSES = ['unverified', 'awaiting_deposit', 'lapsed'] as const
+export const STAFF_HIDDEN_STATUS_FILTER = `(${STAFF_HIDDEN_STATUSES.join(',')})`
 /** AGENT-003 R24/R23: who cancelled a booking. BOOK-013 (migration 095): 'staff' = a staff cancel. */
 export type BookingCancelledBy = 'diner_ai' | 'change' | 'staff'
 /** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. BOOK-013: 'staff' = made by staff. */
@@ -23,8 +31,10 @@ export type BookingDecision = 'confirmed' | 'declined'
 /** Whether the confirm/decline message reached the diner (F9); null = none yet. */
 export type DecisionMessageStatus = 'delivered' | 'not_delivered'
 
-/** R11: open requests one phone may hold at one restaurant. */
+/** R11: open requests one phone may hold at one restaurant (BOOK-014 R55: pending + awaiting_deposit). */
 export const MAX_PENDING_PER_PHONE = 3
+/** BOOK-014 (R55): the statuses that count toward MAX_PENDING_PER_PHONE. */
+export const PENDING_CAP_STATUSES = ['pending', 'awaiting_deposit'] as const
 export const DECLINE_REASON_MAX = 200
 /** F10: the dashboard lists every pending request plus this many newest decided ones. */
 export const DECIDED_BOOKINGS_LIST_LIMIT = 200

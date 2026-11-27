@@ -3,13 +3,16 @@
  * Scheduled Job: scripts/cron/booking-reminders.sh (deploy/README.md).
  * Bearer CRON_SECRET, as /api/cron/campaigns; an unset secret admits no one.
  * BOOK-003 (R41, review F3): the same run deletes unverified agent bookings
- * older than an hour. Each step runs even when the other throws; a failed
- * step makes the run a 500 that names it, without internals.
+ * older than an hour. BOOK-014 (R55, R57): and lapses expired deposit holds
+ * (seats freed, provider sessions closed). Each step runs even when another
+ * throws; a failed step makes the run a 500 that names it, without internals.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { sendBookingReminders } from '@/application/booking/send-booking-reminders'
 import { purgeUnverifiedBookings } from '@/application/booking/purge-unverified-bookings'
 import { bookingReminderDeps, unverifiedBookingPurgeDeps } from '@/application/booking/booking-deps'
+import { expireDeposits } from '@/application/payments/expire-deposits'
+import { expireDepositsDeps } from '@/application/payments/payment-deps'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,8 +40,9 @@ async function run(request: NextRequest) {
   const purge = await step('unverified booking purge', 'Failed to delete unverified bookings', () =>
     purgeUnverifiedBookings(unverifiedBookingPurgeDeps())
   )
-  const body = { ...(reminders.ok ? reminders.value : {}), ...(purge.ok ? purge.value : {}) }
-  const errors = [reminders, purge].flatMap((s) => (s.ok ? [] : [s.error]))
+  const deposits = await step('deposit expiry', 'Failed to lapse expired deposit holds', () => expireDeposits(expireDepositsDeps()))
+  const body = { ...(reminders.ok ? reminders.value : {}), ...(purge.ok ? purge.value : {}), ...(deposits.ok ? deposits.value : {}) }
+  const errors = [reminders, purge, deposits].flatMap((s) => (s.ok ? [] : [s.error]))
   if (errors.length > 0) return NextResponse.json({ error: errors.join('; '), ...body }, { status: 500 })
   return NextResponse.json(body)
 }

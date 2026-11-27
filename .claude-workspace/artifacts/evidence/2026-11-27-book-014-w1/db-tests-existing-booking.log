@@ -1,0 +1,74 @@
+## booking.db
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  13:47:07
+   Duration  3.65s (transform 49ms, setup 0ms, import 72ms, tests 3.21s, environment 0ms)
+
+## booking-cron.db
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  13:47:12
+   Duration  3.15s (transform 25ms, setup 0ms, import 35ms, tests 2.89s, environment 0ms)
+
+## booking-room.db
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  13:47:16
+   Duration  4.60s (transform 28ms, setup 0ms, import 39ms, tests 4.36s, environment 0ms)
+
+## agent-booking.db
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  13:47:21
+   Duration  3.65s (transform 33ms, setup 0ms, import 44ms, tests 3.48s, environment 0ms)
+
+## agent-booking-changes.db
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking-changes.db.test.ts (12 tests | 1 failed | 3 skipped) 2714ms
+     × AC-R24 a cancelled row needs its marker and cancel time; the marker needs the status 281ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/__tests__/agent-booking-changes.db.test.ts > migration 085 (real Postgres) > AC-R24 a cancelled row needs its marker and cancel time; the marker needs the status
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/infrastructure/supabase/__tests__/agent-booking-changes.db.test.ts:81:138
+     79|     expect(fails(`UPDATE booking_requests SET status = 'cancelled', ca…
+     80|     expect(fails(`UPDATE booking_requests SET cancelled_by = 'diner_ai…
+     81|     expect(fails(`UPDATE booking_requests SET status = 'cancelled', ca…
+       |                                                                                                                                          ^
+     82|     psql(`UPDATE booking_requests SET status = 'cancelled', cancelled_…
+     83|     expect(statusOf(ORIG)).toBe('cancelled|diner_ai')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed | 3 skipped (12)
+   Start at  13:47:25
+   Duration  3.06s (transform 91ms, setup 0ms, import 167ms, tests 2.71s, environment 0ms)
+

@@ -122,7 +122,7 @@ describe('agent-booking-repository', () => {
   it('R41: the staff lookup never returns an unverified booking', async () => {
     const rec = use([{ data: null }])
     await findBookingForRestaurant('b-1', 'r-a')
-    expect(filtersOf(rec.queries[0])).toContain('neq:status=unverified')
+    expect(filtersOf(rec.queries[0])).toContain('not:status.in=(unverified,awaiting_deposit,lapsed)')
   })
 
   it('R33: the directory looks up by the JSON path the unique index covers and resolves the config', async () => {

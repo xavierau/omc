@@ -23,6 +23,9 @@ const CHIP_TONE: Record<BookingItem['status'], string> = {
   declined: 'bg-muted text-muted-foreground line-through',
   cancelled: 'bg-muted text-muted-foreground line-through',
   no_show: 'bg-muted text-muted-foreground',
+  // BOOK-014: hidden from staff in W1 (W4 gives them their tones).
+  awaiting_deposit: 'bg-muted text-muted-foreground',
+  lapsed: 'bg-muted text-muted-foreground',
 }
 
 const DOT_TONE: Record<BookingItem['status'], string> = {
@@ -32,6 +35,8 @@ const DOT_TONE: Record<BookingItem['status'], string> = {
   declined: 'bg-muted-foreground',
   cancelled: 'bg-muted-foreground',
   no_show: 'bg-muted-foreground',
+  awaiting_deposit: 'bg-muted-foreground',
+  lapsed: 'bg-muted-foreground',
 }
 
 export interface CalendarDaysProps {

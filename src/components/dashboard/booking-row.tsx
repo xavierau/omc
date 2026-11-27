@@ -54,6 +54,9 @@ export const STATUS_TONE: Record<BookingItem['status'], string> = {
   declined: 'border-border bg-muted text-muted-foreground',
   cancelled: 'border-border bg-muted text-muted-foreground',
   no_show: 'border-border bg-muted text-muted-foreground',
+  // BOOK-014: hidden from staff in W1 (W4 gives them their tones).
+  awaiting_deposit: 'border-border text-muted-foreground',
+  lapsed: 'border-border bg-muted text-muted-foreground',
 }
 
 /** A cancelled booking's time and guest are greyed and struck through (owner 2026-11-19). */

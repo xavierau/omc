@@ -145,9 +145,13 @@ export type AgentBookingStatus = 'awaiting_confirmation' | 'expired' | 'pending'
 /**
  * What the agent sees: unverified splits into awaiting and expired by the clock.
  * BOOK-007 R7: a no-show is a staff-only mark; the agent still sees `confirmed`.
+ * BOOK-014 W1 (neutral until W5 adds `awaiting_deposit` to the PAP enum): a deposit hold is still
+ * awaiting the diner, a lapsed one has expired.
  */
 export function agentBookingStatus(status: BookingStatus, verifyExpiresAt: string | null, now: Date): AgentBookingStatus {
   if (status === 'no_show') return 'confirmed'
+  if (status === 'awaiting_deposit') return 'awaiting_confirmation'
+  if (status === 'lapsed') return 'expired'
   if (status !== 'unverified') return status
   return verifyExpiresAt !== null && Date.parse(verifyExpiresAt) > now.getTime() ? 'awaiting_confirmation' : 'expired'
 }

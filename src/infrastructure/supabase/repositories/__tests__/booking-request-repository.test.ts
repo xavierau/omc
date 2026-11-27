@@ -35,7 +35,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
   it('scopes get by id AND restaurant inside the query', async () => {
     const rec = use([{ data: ROW }])
     const found = await findBookingForRestaurant('b-1', 'r-a')
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'neq:status=unverified'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'not:status.in=(unverified,awaiting_deposit,lapsed)'])
     expect(found?.bookingTime).toBe('19:30')
   })
 
@@ -198,10 +198,10 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(result).toBeNull()
   })
 
-  it('counts pending per phone per restaurant', async () => {
+  it('counts pending (and BOOK-014 R55: awaiting-deposit holds) per phone per restaurant', async () => {
     const rec = use([{ count: 3 }])
     expect(await countPendingBookings('r-a', '+852')).toBe(3)
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+852', 'eq:status=pending'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+852', 'in:status=pending,awaiting_deposit'])
     // BOOK-006: the diner-side rate limit counts every pending row, pairs included (unchanged, one query).
     expect(rec.queries).toHaveLength(1)
   })

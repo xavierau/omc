@@ -10,6 +10,7 @@
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type { MemberBookingItem, MemberBookingStats } from '@/domain/entities/member-booking'
+import { STAFF_HIDDEN_STATUS_FILTER } from '@/domain/entities/booking-request'
 import type { HongKongMoment } from '@/domain/ports/booking'
 import type { BookingMemberLinkStore, MemberBookingsReader, RelinkBookingMemberArgs } from '@/domain/ports/booking-member'
 import { STAFF_COLUMNS, toBookingRequest } from './booking-request-repository'
@@ -19,7 +20,7 @@ type BookingRow = Parameters<typeof toBookingRequest>[0]
 /**
  * r1 F6: the relink's booking read uses the same staff columns as the RPC's
  * answer, so PATCH returns one booking shape on a no-op and on a change.
- * Never an unverified agent booking (BOOK-003 R41); 22P02 = not a uuid: a miss.
+ * Never an unverified agent booking (BOOK-003 R41), nor a BOOK-014 deposit hold or lapsed one; 22P02 = not a uuid: a miss.
  */
 export async function findStaffBookingForRestaurant(id: string, restaurantId: string) {
   const { data, error } = await createServerSupabaseClient()
@@ -27,7 +28,7 @@ export async function findStaffBookingForRestaurant(id: string, restaurantId: st
     .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
-    .neq('status', 'unverified')
+    .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
     .maybeSingle()
   if (error?.code === '22P02') return null
   if (error) throw new Error(`findStaffBookingForRestaurant: ${error.code}`)
@@ -76,7 +77,7 @@ export async function listMemberBookings(memberId: string, restaurantId: string,
     .select('id, booking_date, booking_time, party_size, status')
     .eq('restaurant_id', restaurantId)
     .eq('member_id', memberId)
-    .neq('status', 'unverified')
+    .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
     .order('booking_date', { ascending: false })
     .order('booking_time', { ascending: false })
     .limit(limit)

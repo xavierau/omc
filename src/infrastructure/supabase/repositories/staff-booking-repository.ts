@@ -7,7 +7,7 @@
  * nothing changed, and the caller re-reads to say why.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import { STAFF_HIDDEN_STATUS_FILTER, type BookingRequest } from '@/domain/entities/booking-request'
 import type {
   CheckInArgs,
   CheckinStore,
@@ -25,14 +25,14 @@ const firstRow = (data: unknown): BookingRequest | null => {
   return row ? toBookingRequest(row) : null
 }
 
-/** One booking of this restaurant (never an unverified one), with its BOOK-006 open change. */
+/** One booking of this restaurant (never an unverified one, BOOK-014: nor a deposit hold or lapsed one), with its BOOK-006 open change. */
 export async function findStaffBooking(id: string, restaurantId: string): Promise<BookingRequest | null> {
   const { data, error } = await createServerSupabaseClient()
     .from('booking_requests')
     .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
-    .neq('status', 'unverified')
+    .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
     .maybeSingle()
   if (error) throw new Error(`findStaffBooking: ${error.message}`)
   if (!data) return null

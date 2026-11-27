@@ -16,7 +16,7 @@ import type {
   NewBookingRequest,
   OpenChangeSlot,
 } from '@/domain/entities/booking-request'
-import { pendingNeedingReply } from '@/domain/entities/booking-request'
+import { PENDING_CAP_STATUSES, STAFF_HIDDEN_STATUS_FILTER, pendingNeedingReply } from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
@@ -160,7 +160,8 @@ export async function countPendingBookings(restaurantId: string, phone: string):
     .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurantId)
     .eq('phone', phone)
-    .eq('status', 'pending')
+    // BOOK-014 (R55): a deposit hold counts toward the cap like a pending request.
+    .in('status', [...PENDING_CAP_STATUSES])
   if (error) throw new Error(`countPendingBookings: ${error.message}`)
   return count ?? 0
 }
@@ -340,8 +341,8 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
     .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
-    // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff.
-    .neq('status', 'unverified')
+    // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff; BOOK-014: nor does a deposit hold or a lapsed one.
+    .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
     .maybeSingle()
   if (error) throw new Error(`findBookingForRestaurant: ${error.message}`)
   return data ? toBookingRequest(data as BookingRow) : null

@@ -191,6 +191,9 @@ Set in the Forge UI under **Site → Environment**. Restart daemons after editin
 | `WAQ_TRACK_MESSAGES` | Opt-out since #131 — set to `0` to disable outbound message tracking; unset = tracking ON (default) |
 | `WAQ_BATCH_DELAY_MS` | Optional — delay between campaign send chunks (default 1000) |
 | `KAPSO_DEFAULT_OPTIN_TEMPLATE_ID` | Optional — platform-default UTILITY template for opt-in prompts (WONB-007) |
+| `STRIPE_SECRET_KEY` | BOOK-014 deposits. Platform **restricted** key (`rk_test_…`/`rk_live_…`), scoped to Connect accounts + account links (write), Checkout Sessions (write), Refunds (write), Events (read). Server only, never `NEXT_PUBLIC_`. Its prefix must match `STRIPE_MODE` or the adapter refuses to start |
+| `STRIPE_WEBHOOK_SECRET` | BOOK-014. Signing secret (`whsec_…`) of the Stripe **Connect** ("connected accounts") endpoint `https://<app>/api/webhooks/payments/stripe` (events: `checkout.session.completed`, `checkout.session.expired`, `charge.refunded`, `refund.updated`, `account.updated`, `account.application.deauthorized`). Unset = the webhook answers 500 and processes nothing |
+| `STRIPE_MODE` | BOOK-014. `test` or `live`. Events in the other mode are ignored. **No live key before the `next` RCE patch (R66, SEC-NEXT) is in production** |
 
 ## Forge Daemons
 
@@ -308,6 +311,17 @@ restaurant's approved `booking_reminder_*` UTILITY template.
 
 **Verify the first run**: expect JSON with `candidates`, `due`, `sent`,
 `notDelivered`, `claimLost`. All zeros just means nothing was due.
+
+BOOK-014 (deposits) adds a third step to the same run, so there is **no new
+Forge job**: every awaiting deposit hold whose `hold_expires_at` is past (the
+database's own clock; 30 min diner / 24 h staff) is lapsed together with its
+booking, which frees the seats, in batches of 200 (`lapse_expired_booking_deposits`,
+migration 096). Each lapsed hold's Stripe Checkout Session is then expired, best
+effort; one that was already completed is left to the payment webhook, which
+refunds a payment that arrived after the lapse. The JSON gains
+`depositsLapsed` and `sessionsClosed`; a failure adds
+`Failed to lapse expired deposit holds` to the 500's `error`. Migration 096
+must be applied before the code that runs this step is deployed.
 
 ### `booking-retention`
 

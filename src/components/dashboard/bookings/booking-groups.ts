@@ -48,7 +48,11 @@ export function filterBookings(bookings: BookingItem[], status: StatusFilter, qu
 
 export function statusCounts(bookings: BookingItem[]): Record<StatusFilter, number> {
   const counts = { all: bookings.length, pending: 0, confirmed: 0, declined: 0, cancelled: 0, no_show: 0 }
-  for (const b of bookings) if (b.status !== 'unverified' && (b.status !== 'pending' || needsReply(b))) counts[b.status] += 1
+  for (const b of bookings) {
+    // BOOK-014: deposit holds and lapsed bookings are not staff statuses (hidden in W1).
+    if (b.status === 'unverified' || b.status === 'awaiting_deposit' || b.status === 'lapsed') continue
+    if (b.status !== 'pending' || needsReply(b)) counts[b.status] += 1
+  }
   return counts
 }
 

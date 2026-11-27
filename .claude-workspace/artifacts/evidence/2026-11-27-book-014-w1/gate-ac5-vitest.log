@@ -1,0 +1,130 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts (18 tests | 3 failed) 33ms
+     × scopes get by id AND restaurant inside the query 5ms
+     × maps the stored decision message status 1ms
+     × counts pending per phone per restaurant 3ms
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts (12 tests | 3 failed) 13ms
+     × list: scoped by restaurant AND member, unverified excluded, newest date then time, capped 4ms
+     × reads the staff columns, scoped by id AND restaurant, never an unverified booking 1ms
+     × no row → null; a malformed id is a miss; other errors throw 0ms
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+ ❯ src/infrastructure/supabase/repositories/__tests__/agent-booking-repository.test.ts (10 tests | 1 failed) 16ms
+     × R41: the staff lookup never returns an unverified booking 4ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/agent-booking-repository.test.ts > agent-booking-repository > R41: the staff lookup never returns an unverified booking
+TypeError: supabase.from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Module.findBookingForRestaurant src/infrastructure/supabase/repositories/booking-request-repository.ts:345:6
+    343|     .eq('restaurant_id', restaurantId)
+    344|     // BOOK-003 (R41): an unconfirmed agent booking does not exist for…
+    345|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+    346|     .maybeSingle()
+    347|   if (error) throw new Error(`findBookingForRestaurant: ${error.messag…
+ ❯ src/infrastructure/supabase/repositories/__tests__/agent-booking-repository.test.ts:124:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > member bookings list and stats (R8, R2) > list: scoped by restaurant AND member, unverified excluded, newest date then time, capped
+TypeError: createServerSupabaseClient(...).from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Module.listMemberBookings src/infrastructure/supabase/repositories/booking-member-repository.ts:80:6
+     78|     .eq('restaurant_id', restaurantId)
+     79|     .eq('member_id', memberId)
+     80|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+     81|     .order('booking_date', { ascending: false })
+     82|     .order('booking_time', { ascending: false })
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:40:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > relink store booking read (r1 F6) > reads the staff columns, scoped by id AND restaurant, never an unverified booking
+TypeError: createServerSupabaseClient(...).from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Object.findStaffBookingForRestaurant [as findBooking] src/infrastructure/supabase/repositories/booking-member-repository.ts:31:6
+     29|     .eq('id', id)
+     30|     .eq('restaurant_id', restaurantId)
+     31|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+     32|     .maybeSingle()
+     33|   if (error?.code === '22P02') return null
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:124:50
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts > relink store booking read (r1 F6) > no row → null; a malformed id is a miss; other errors throw
+TypeError: createServerSupabaseClient(...).from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Object.findStaffBookingForRestaurant [as findBooking] src/infrastructure/supabase/repositories/booking-member-repository.ts:31:6
+     29|     .eq('id', id)
+     30|     .eq('restaurant_id', restaurantId)
+     31|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+     32|     .maybeSingle()
+     33|   if (error?.code === '22P02') return null
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-member-repository.test.ts:135:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > scopes get by id AND restaurant inside the query
+TypeError: supabase.from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Module.findBookingForRestaurant src/infrastructure/supabase/repositories/booking-request-repository.ts:345:6
+    343|     .eq('restaurant_id', restaurantId)
+    344|     // BOOK-003 (R41): an unconfirmed agent booking does not exist for…
+    345|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+    346|     .maybeSingle()
+    347|   if (error) throw new Error(`findBookingForRestaurant: ${error.messag…
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:37:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > maps the stored decision message status
+TypeError: supabase.from(...).select(...).eq(...).eq(...).not is not a function
+ ❯ Module.findBookingForRestaurant src/infrastructure/supabase/repositories/booking-request-repository.ts:345:6
+    343|     .eq('restaurant_id', restaurantId)
+    344|     // BOOK-003 (R41): an unconfirmed agent booking does not exist for…
+    345|     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+       |      ^
+    346|     .maybeSingle()
+    347|   if (error) throw new Error(`findBookingForRestaurant: ${error.messag…
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:177:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts > booking-request-repository (R4, R5, R6) > counts pending per phone per restaurant
+AssertionError: expected [ 'eq:restaurant_id=r-a', …(2) ] to deeply equal [ 'eq:restaurant_id=r-a', …(2) ]
+
+- Expected
++ Received
+
+  [
+    "eq:restaurant_id=r-a",
+    "eq:phone=+852",
+-   "eq:status=pending",
++   "in:status=pending,awaiting_deposit",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-request-repository.test.ts:204:39
+    202|     const rec = use([{ count: 3 }])
+    203|     expect(await countPendingBookings('r-a', '+852')).toBe(3)
+    204|     expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a',…
+       |                                       ^
+    205|     // BOOK-006: the diner-side rate limit counts every pending row, p…
+    206|     expect(rec.queries).toHaveLength(1)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  3 failed | 739 passed | 18 skipped (760)
+      Tests  7 failed | 8711 passed | 161 skipped | 2 todo (8881)
+   Start at  13:42:21
+   Duration  35.72s (transform 25.74s, setup 0ms, import 101.82s, tests 27.49s, environment 53ms)
+

@@ -2,7 +2,8 @@
 // /api/cron/campaigns); with it, one run of sendBookingReminders.
 // BOOK-003 review F3 (R41): the same */5 run deletes unverified agent
 // bookings older than an hour, as its own step that runs even when the
-// reminder step throws.
+// reminder step throws. BOOK-014 (R55, R57): and lapses expired deposit holds,
+// its own step too.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
@@ -12,9 +13,12 @@ vi.mock('@/application/booking/booking-deps', () => ({
   bookingReminderDeps: vi.fn(() => ({ marker: 'deps' })),
   unverifiedBookingPurgeDeps: vi.fn(() => ({ marker: 'purge-deps' })),
 }))
+vi.mock('@/application/payments/expire-deposits', () => ({ expireDeposits: vi.fn() }))
+vi.mock('@/application/payments/payment-deps', () => ({ expireDepositsDeps: vi.fn(() => ({ marker: 'expiry-deps' })) }))
 
 import { sendBookingReminders } from '@/application/booking/send-booking-reminders'
 import { purgeUnverifiedBookings } from '@/application/booking/purge-unverified-bookings'
+import { expireDeposits } from '@/application/payments/expire-deposits'
 import { GET, POST } from '../route'
 
 const SECRET = 'test-cron-secret'
@@ -26,6 +30,7 @@ beforeEach(() => {
   vi.stubEnv('CRON_SECRET', SECRET)
   vi.mocked(sendBookingReminders).mockResolvedValue({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0 })
   vi.mocked(purgeUnverifiedBookings).mockResolvedValue({ unverifiedDeleted: 2 })
+  vi.mocked(expireDeposits).mockResolvedValue({ depositsLapsed: 3, sessionsClosed: 2 })
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -34,6 +39,7 @@ describe('/api/cron/booking-reminders', () => {
     expect((await GET(req(auth))).status).toBe(401)
     expect(sendBookingReminders).not.toHaveBeenCalled()
     expect(purgeUnverifiedBookings).not.toHaveBeenCalled()
+    expect(expireDeposits).not.toHaveBeenCalled()
   })
 
   it('401 when CRON_SECRET is unset, even for "Bearer undefined"', async () => {
@@ -46,10 +52,29 @@ describe('/api/cron/booking-reminders', () => {
   it.each([['GET', GET], ['POST', POST]] as const)('%s with the bearer runs one pass and returns its counts', async (_m, handler) => {
     const res = await handler(req(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2 })
+    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2, depositsLapsed: 3, sessionsClosed: 2 })
     expect(sendBookingReminders).toHaveBeenCalledWith({ marker: 'deps' })
     expect(purgeUnverifiedBookings).toHaveBeenCalledTimes(1)
     expect(purgeUnverifiedBookings).toHaveBeenCalledWith({ marker: 'purge-deps' })
+    expect(expireDeposits).toHaveBeenCalledWith({ marker: 'expiry-deps' })
+  })
+
+  it('BOOK-014: the deposit expiry step runs when both other steps throw; its own failure is a 500 naming it, without internals', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(sendBookingReminders).mockRejectedValue(new Error('x'))
+    vi.mocked(purgeUnverifiedBookings).mockRejectedValue(new Error('y'))
+    const ran = await GET(req(`Bearer ${SECRET}`))
+    expect(expireDeposits).toHaveBeenCalledTimes(1)
+    expect(await ran.json()).toMatchObject({ depositsLapsed: 3 })
+
+    vi.mocked(sendBookingReminders).mockResolvedValue({ candidates: 0, due: 0, sent: 0, notDelivered: 0, claimLost: 0 })
+    vi.mocked(purgeUnverifiedBookings).mockResolvedValue({ unverifiedDeleted: 0 })
+    vi.mocked(expireDeposits).mockRejectedValue(new Error('sk_test_SECRET leaked'))
+    const res = await GET(req(`Bearer ${SECRET}`))
+    expect(res.status).toBe(500)
+    const body = JSON.stringify(await res.json())
+    expect(body).toContain('Failed to lapse expired deposit holds')
+    expect(body).not.toContain('sk_test')
   })
 
   it('F3 (R41): the unverified purge still runs when the reminder step throws; 500 without internals', async () => {
