@@ -70,7 +70,7 @@ export interface BookingConfig {
   bookingRules: string
   /** BOOK-009: structured booking hours; null = not configured (spec AC-5). */
   bookingHours: BookingHours | null
-  /** BOOK-014: the deposit rule (spec AC-3); OFF unless an admin saved one. */
+  /** BOOK-014: the deposit rule; DEPOSIT_RULE_OFF when none is set. */
   deposit: DepositRule
 }
 
