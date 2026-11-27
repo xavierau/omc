@@ -85,6 +85,21 @@ describe('Today sort (BOOK-013 AC-25)', () => {
     expect(sort('name', 'desc', list)).toEqual(['m', 'k', 'n'])
   })
 
+  // Review N1 (spec AC-25 revision 2026-11-27): the name tie-break puts unnamed rows last too, under every key and direction.
+  it.each([
+    ['time', 'asc'], ['time', 'desc'], ['guests', 'asc'], ['guests', 'desc'], ['status', 'asc'], ['status', 'desc'],
+  ] as const)('N1: under %s %s, a booking with no (or an empty) name sorts after a named one it ties with', (key, dir) => {
+    const tied = [row('n', '19:00', null, 2), row('e', '19:00', '', 2), row('c', '19:00', 'Chan', 2), row('a', '19:00', 'au', 2)]
+    expect(sort(key, dir, tied).slice(0, 2)).toEqual(['a', 'c'])
+    expect(sort(key, dir, tied).slice(2).sort()).toEqual(['e', 'n'])
+  })
+
+  it('N1: an empty name counts as no name under the name key as well', () => {
+    const list = [row('e', '19:00', '', 2), row('m', '19:00', 'Mak', 2)]
+    expect(sort('name', 'asc', list)).toEqual(['m', 'e'])
+    expect(sort('name', 'desc', list)).toEqual(['m', 'e'])
+  })
+
   it('never changes the list it was given', () => {
     const copy = [...LIST]
     sort('name', 'desc')

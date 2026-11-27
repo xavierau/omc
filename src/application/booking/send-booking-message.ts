@@ -35,7 +35,8 @@ export interface BookingSenderDeps {
   sendText(phoneNumberId: string, to: string, text: string): Promise<SendResult>
 }
 
-const maskPhone = (phone: string) => `***${phone.slice(-4)}`
+/** R8; BOOK-013 decision 9: a missing phone logs as none, never throws. */
+const maskPhone = (phone: string | null) => (phone ? `***${phone.slice(-4)}` : 'none')
 
 function failed(input: BookingMessageInput, reason: string): BookingSendResult {
   console.warn('[Booking] message not delivered:', { kind: input.kind, to: maskPhone(input.phone), reason })

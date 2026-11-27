@@ -53,6 +53,18 @@ describe('sendBookingReminders (AC-15)', () => {
     expect(sender.sent).toHaveLength(0)
   })
 
+  // BOOK-013 decision 9 (R19): the DB checks keep a phone-less booking's Notify off (095 then skips it);
+  // the run also never selects one, even if the store handed it over.
+  it('R19: a staff booking without a phone is never selected, claimed or sent', async () => {
+    store.rows[0] = { ...store.rows[0], phone: null, source: 'staff' }
+    const claim = vi.spyOn(store, 'claimReminder')
+    const result = await sendBookingReminders(deps(IN_WINDOW))
+    expect(result).toMatchObject({ due: 0, sent: 0, notDelivered: 0 })
+    expect(claim).not.toHaveBeenCalled()
+    expect(sender.sent).toHaveLength(0)
+    expect(store.rows[0].reminderSentAt).toBeNull()
+  })
+
   it('no reminder for a booking made less than 3h before its time', async () => {
     store.rows[0].createdAt = '2026-11-20T09:00:00.000Z' // made at 17:00 HKT for 19:30
     await sendBookingReminders(deps(at('2026-11-20T09:05:00.000Z')))

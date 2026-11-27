@@ -12,6 +12,9 @@
  * reminder due again (AC-7); a new phone re-resolves the member (AC-9, R17).
  * The diner hears `changed` only when date, time or party size changed and
  * Notify is on (R11, AC-6).
+ * Decision 9 (AC-28, R20): only a source 'staff' booking may lose its phone
+ * (any other answers `phone_required`, nothing written); clearing it drops
+ * the member link and Notify; adding one resolves the member as above.
  */
 import type { BookingRequest } from '@/domain/entities/booking-request'
 import { parseStaffBookingInput, type StaffBookingInput } from '@/domain/services/staff-booking-input'
@@ -60,6 +63,7 @@ async function refusalAfterMiss(deps: StaffBookingDeps, input: EditStaffBookingI
 }
 
 async function memberFor(deps: StaffBookingDeps, restaurantId: string, current: BookingRequest, form: StaffBookingInput) {
+  if (form.phone === null) return null
   return form.phone === current.phone ? current.memberId : deps.members.findMemberId(restaurantId, form.phone)
 }
 
@@ -81,6 +85,7 @@ export async function editStaffBooking(deps: StaffBookingDeps, input: EditStaffB
   })
   if (!parsed.ok) return { ok: false, reason: 'invalid', errors: parsed.errors }
   const form = parsed.input
+  if (form.phone === null && current.source !== 'staff') return { ok: false, reason: 'phone_required' }
   const changed = changedFields(current, form)
   const own = { date: current.bookingDate, time: current.bookingTime, partySize: current.partySize, counted: true }
   const rules = dinerNews(changed) ? await rulesFor(deps, input.restaurantId, config, form, own) : []

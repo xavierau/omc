@@ -11,6 +11,7 @@ import {
   todayCounters,
 } from '../booking-checkin'
 import { canMarkNoShow } from '../booking-no-show'
+import { parseAgentBookingBody } from '../agent-booking'
 import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { RoomState } from '../booking-room'
 
@@ -39,8 +40,8 @@ describe('parseStaffBookingInput (R4, R7)', () => {
   })
 
   it.each([
-    ['phone missing', { phone: '' }, 'phone', 'required'],
     ['phone not a number', { phone: 'call me' }, 'phone', 'invalid'],
+    ['phone not text', { phone: 91234567 }, 'phone', 'invalid'],
     ['name missing', { name: '   ' }, 'name', 'required'],
     ['name over 60', { name: 'x'.repeat(61) }, 'name', 'too_long'],
     ['party 0', { partySize: 0 }, 'partySize', 'invalid'],
@@ -53,6 +54,20 @@ describe('parseStaffBookingInput (R4, R7)', () => {
     ['notify not boolean', { notify: 'yes' }, 'notify', 'invalid'],
   ])('AC-4: %s is a field error', (_, patch, field, code) => {
     expect(parseStaffBookingInput({ ...valid, ...patch }, ctx())).toMatchObject({ ok: false, errors: { [field]: code } })
+  })
+
+  // Decision 9 (AC-26, R19): name required, phone optional; no phone forces Notify off whatever the body says.
+  it.each([
+    ['empty', { phone: '' }],
+    ['blank', { phone: '   ' }],
+    ['null', { phone: null }],
+    ['absent', { phone: undefined }],
+  ])('AC-26: a %s phone is valid, stored as null, and Notify is off even when asked on', (_, patch) => {
+    expect(parseStaffBookingInput({ ...valid, ...patch, notify: true }, ctx())).toMatchObject({ ok: true, input: { phone: null, notify: false } })
+  })
+
+  it('AC-26: the name stays required without a phone', () => {
+    expect(parseStaffBookingInput({ ...valid, phone: '', name: ' ' }, ctx())).toEqual({ ok: false, errors: { name: 'required' } })
   })
 
   it('AC-4: override never lifts a field error', () => {
@@ -181,5 +196,18 @@ describe('Today rules (AC-20, AC-22, R14)', () => {
     expect(matchesTodaySearch(row, 'K7Q2MX')).toBe(false)
     expect(matchesTodaySearch(row, 'wong')).toBe(false)
     expect(matchesTodaySearch(row, '')).toBe(true)
+  })
+
+  it('AC-27: a booking without a phone is found by name; a phone search skips it', () => {
+    const row = { name: 'Walk-in Ho', phone: null }
+    expect(matchesTodaySearch(row, 'ho')).toBe(true)
+    expect(matchesTodaySearch(row, '9123 4567')).toBe(false)
+    expect(matchesTodaySearch(row, '')).toBe(true)
+  })
+
+  it('AC-29: the personal-agent API still requires a phone', () => {
+    const rules = { today: CLOCK.today, nowTime: CLOCK.nowTime, maxPartySize: 12 }
+    const body = { date: '2026-11-28', time: '19:00', party_size: 2, name: 'Chan' }
+    expect(parseAgentBookingBody(body, rules)).toMatchObject({ ok: false, errors: { phone: 'required' } })
   })
 })

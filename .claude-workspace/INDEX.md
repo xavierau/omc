@@ -60,6 +60,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-26-book-013-r3-re-review](reviews/2026-11-26-book-013-r3-re-review.md) — PR #235 r3 re-review: APPROVED, R1/R2/R3/R7/R8 hold, 1 nit (verifier)
 - [2026-11-21-book-010-f1-rereview](reviews/2026-11-21-book-010-f1-rereview.md) — PR #223 F1 re-review: APPROVED, 6/6 resolved, 1 new P3 (verifier)
 - ~~[2026-11-21-book-010-review](reviews/2026-11-21-book-010-review.md)~~ → superseded by 2026-11-21-book-010-f1-rereview
 - [2026-11-20-book-009-review](reviews/2026-11-20-book-009-review.md) — PR #222 substitute review: CONDITIONAL, 0 P0/P1, 2 P2, 6 P3 (verifier)
@@ -124,6 +125,9 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+- [2026-11-27-book-013-phone-optional-impl](artifacts/2026-11-27-book-013-phone-optional-impl.md) — BOOK-013 decision 9: phone optional for staff bookings (096) + N1, PR #236 (dev)
+- [2026-11-27-book-013-phone-optional-handoff](artifacts/2026-11-27-book-013-phone-optional-handoff.md) — BOOK-013 decision 9 handoff: AC-1..AC-4 pass, PR #236 open (dev)
+- [2026-11-27-book-013-phone-optional-r2-handoff](artifacts/2026-11-27-book-013-phone-optional-r2-handoff.md) — BOOK-013 AC-26: no manual member link without a phone, PR #236 (dev)
 
 **BOOK-014 — booking deposits (2026-11-27)**
 - [2026-11-27-book-014-w1-handoff](artifacts/2026-11-27-book-014-w1-handoff.md) — BOOK-014 W1 handoff: deposit core, mig 096, Stripe adapter, webhook, /p; PR #237; evidence in artifacts/evidence/2026-11-27-book-014-w1/ (dev)

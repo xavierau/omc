@@ -1880,7 +1880,7 @@
         {
           "id": "BOOK-013",
           "title": "Staff booking CRUD + Today check-in: staff create, edit, cancel and mark arrived; sortable Today list",
-          "description": "POC (owner rules 2026-11-26): staff add phone/walk-up bookings (start confirmed, source staff, created_by), edit and cancel (soft cancel, cancelled_by staff) any pending/confirmed booking, with a Notify-diner checkbox (default on; off = no message and no 3h reminder). Booking rules warn and staff may Book anyway; field validation is never overridable. New templates changed + cancelled; the confirmed template is unchanged. Today view (default on phone) with one search (name, 4+ phone digits), sort by Time / Name / Guests / Status (AC-25, URL state), counters and Arrived/Undo. Owner decision 8 (r3): no check-in code or QR. Booking mode off hides Bookings and refuses staff writes (409 booking_off). Migration 095 must run before deploy.",
+          "description": "POC (owner rules 2026-11-26): staff add phone/walk-up bookings (start confirmed, source staff, created_by), edit and cancel (soft cancel, cancelled_by staff) any pending/confirmed booking, with a Notify-diner checkbox (default on; off = no message and no 3h reminder). Booking rules warn and staff may Book anyway; field validation is never overridable. New templates changed + cancelled; the confirmed template is unchanged. Today view (default on phone) with one search (name, 4+ phone digits), sort by Time / Name / Guests / Status (AC-25, URL state), counters and Arrived/Undo. Owner decision 8 (r3): no check-in code or QR. Booking mode off hides Bookings and refuses staff writes (409 booking_off). Migration 095 must run before deploy. Decision 9 (2026-11-27, PR #236): name required, phone optional for staff bookings (migration 096 after 095); no phone = no WhatsApp message of any kind; diner channels still require a phone.",
           "priority": "high",
           "labels": [
             "booking",
@@ -1902,7 +1902,11 @@
             "plans/2026-11-26-book-013-staff-booking-crud",
             "design/2026-11-26-book-013-staff-bookings/mockup.html",
             "artifacts/2026-11-26-book-013-staff-booking-crud-impl",
-            "artifacts/2026-11-26-book-013-handoff", "artifacts/2026-11-26-book-013-r2-handoff", "artifacts/2026-11-26-book-013-r3-handoff"
+            "artifacts/2026-11-26-book-013-handoff",
+            "artifacts/2026-11-26-book-013-r2-handoff",
+            "artifacts/2026-11-26-book-013-r3-handoff",
+            "artifacts/2026-11-27-book-013-phone-optional-impl",
+            "artifacts/2026-11-27-book-013-phone-optional-handoff"
           ],
           "branch": "feature/book-013-staff-booking-crud",
           "status": "review",

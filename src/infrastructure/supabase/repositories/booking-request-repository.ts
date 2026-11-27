@@ -61,7 +61,8 @@ interface BookingRow {
   id: string
   restaurant_id: string
   member_id: string | null
-  phone: string
+  /** 096: null only on a source 'staff' row. */
+  phone: string | null
   name: string | null
   party_size: number
   booking_date: string
