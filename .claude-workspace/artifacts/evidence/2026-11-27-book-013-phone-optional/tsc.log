@@ -1,0 +1,2 @@
+resource-lock: waiting for 'heavy' (held by PID 28280 CWD /Users/xavierau/Code/js/payment_management-voice-stocktake CMD node_modules/.bin/playwright test -c client/e2e/voice-stocktake/playwright.config.ts voice-trace -g live Gemini --reporter=list)
+tsc exit 0

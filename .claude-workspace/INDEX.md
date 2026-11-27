@@ -122,6 +122,8 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+- [2026-11-27-book-013-phone-optional-impl](artifacts/2026-11-27-book-013-phone-optional-impl.md) — BOOK-013 decision 9: phone optional for staff bookings (096) + N1, PR #236 (dev)
+- [2026-11-27-book-013-phone-optional-handoff](artifacts/2026-11-27-book-013-phone-optional-handoff.md) — BOOK-013 decision 9 handoff: AC-1..AC-4 pass, PR #236 open (dev)
 
 - [2026-11-26-book-012-release-r2-handoff](artifacts/2026-11-26-book-012-release-r2-handoff.md) — BOOK-012 release resumed: #231, #232, deploy 84057118 (dev)
 - [2026-11-26-book-012-migration-094-handoff](artifacts/2026-11-26-book-012-migration-094-handoff.md) — BOOK-012: migration 094 applied ahead of the code deploy (dev)
