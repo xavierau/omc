@@ -13,7 +13,9 @@
  * - paid after the lapse: full automatic refund (spec AC-8, R57).
  * - session expired: lapse that hold now if its time is up (else the cron does).
  * - refund events: settle a refund_pending deposit found by the payment ref we stored.
- * - account events: W2 (onboarding status); ignored here.
+ * - account events (W2, R52): the account row found by the provider account id
+ *   we stored takes the provider's status; deauthorized = disabled, and new
+ *   bookings then take no deposit (AC-4). See payment-account.ts.
  */
 import type { BookingDeposit } from '@/domain/entities/booking-deposit'
 import type { BookingRequest } from '@/domain/entities/booking-request'
@@ -21,6 +23,7 @@ import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-dep
 import type { NormalizedPaymentEvent, PaymentGatewayRegistry, PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import { sameMoney } from '@/domain/value-objects/money'
 import { issueRefund } from './issue-refund'
+import { applyAccountEvent, type AccountEventDeps } from './payment-account'
 
 export interface DepositPaid {
   deposit: BookingDeposit
@@ -34,6 +37,8 @@ export interface HandlePaymentEventDeps {
   log: PaymentLog
   /** Channel hook after a booking moved out of awaiting_deposit. Its failure never undoes the payment. */
   onDepositPaid?: (paid: DepositPaid) => Promise<void>
+  /** W2: the account store for account events; without it they are logged and ignored. */
+  accounts?: AccountEventDeps['accounts']
 }
 
 export type PaymentEventOutcome =
@@ -43,6 +48,7 @@ export type PaymentEventOutcome =
   | 'duplicate'
   | 'lapsed'
   | 'refund_settled'
+  | 'account_updated'
   | 'ignored'
   | 'rejected'
 
@@ -134,7 +140,10 @@ export async function handlePaymentEvent(
       return onRefundEvent(deps, code, event)
     case 'account_updated':
     case 'account_deauthorized':
-      deps.log('info', 'payment.account_event_ignored', { eventId: event.eventId, type: event.type })
-      return 'ignored'
+      if (!deps.accounts) {
+        deps.log('info', 'payment.account_event_ignored', { eventId: event.eventId, type: event.type })
+        return 'ignored'
+      }
+      return applyAccountEvent({ accounts: deps.accounts, now: deps.now, log: deps.log }, code, event)
   }
 }

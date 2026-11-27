@@ -20,6 +20,11 @@
  * GET returns it, without special dates already past (spec S1.4), and its
  * rules `summary` per language (null when hours are not set), the same text
  * the agents get.
+ * BOOK-014 W2: PUT accepts `deposit` (the deposit rule, admin only, R53).
+ * Turning it on needs the restaurant's payment account to be active: 409
+ * `payment_account_not_active` otherwise (R52, AC-4). A rule already on stays
+ * savable when the account later goes inactive (deposits are then paused by
+ * startDeposit), so other edits and turning it off are never blocked.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -36,6 +41,8 @@ import type { BookingTemplateStatuses } from '@/domain/services/booking-template
 import { hongKongToday } from '@/domain/services/booking-submission'
 import { summarizeInWindow } from '@/domain/services/agent-booking'
 import { activeSchedule, withoutPastSpecialDates } from '@/domain/value-objects/booking-hours'
+import { findPaymentAccountForRestaurant } from '@/infrastructure/supabase/repositories/merchant-payment-account-repository'
+import { isChargeable } from '@/domain/entities/merchant-payment-account'
 
 /**
  * BOOK-009: the hours as the form loads them, and their summary in both
@@ -91,6 +98,12 @@ async function templatesAfterSave(restaurantId: string, config: BookingConfig): 
   }
 }
 
+/** R52: a deposit rule is switched on only onto an account that can take charges. */
+async function depositNeedsAccount(restaurantId: string, current: BookingConfig, next: BookingConfig): Promise<boolean> {
+  if (!next.deposit.enabled || current.deposit.enabled) return false
+  return !isChargeable(await findPaymentAccountForRestaurant(restaurantId))
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const ctx = await getTenantContext()
@@ -101,8 +114,12 @@ export async function PUT(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
     }
-    const result = parseBookingSettings(body, await getBookingConfig(ctx.restaurantId), hongKongToday(new Date()))
+    const current = await getBookingConfig(ctx.restaurantId)
+    const result = parseBookingSettings(body, current, hongKongToday(new Date()))
     if (!result.ok) return NextResponse.json({ error: 'invalid', fields: result.errors }, { status: 400 })
+    if (await depositNeedsAccount(ctx.restaurantId, current, result.config)) {
+      return NextResponse.json({ error: 'payment_account_not_active' }, { status: 409 })
+    }
     await saveBookingSettings(ctx.restaurantId, result.config)
     const templates = await templatesAfterSave(ctx.restaurantId, result.config)
     return NextResponse.json({ success: true, config: result.config, templates })

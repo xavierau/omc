@@ -1,0 +1,19 @@
+TSC_OK
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w2
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+Warning: best-effort deprecate of previous flow flow-old failed: deprecate boom
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+
+ Test Files  747 passed | 18 skipped (765)
+      Tests  8810 passed | 161 skipped | 2 todo (8973)
+   Start at  14:41:43
+   Duration  38.91s (transform 29.35s, setup 0ms, import 113.57s, tests 34.57s, environment 51ms)
+

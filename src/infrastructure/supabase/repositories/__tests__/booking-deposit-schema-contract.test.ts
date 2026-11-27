@@ -17,6 +17,8 @@ const read = (file: string) => fs.readFileSync(path.join(REPOS_DIR, file), 'utf8
 const CASES = [
   { table: 'booking_deposits', file: 'booking-deposit-repository.ts' },
   { table: 'merchant_payment_accounts', file: 'merchant-payment-account-repository.ts' },
+  // W2: the onboarding / account-event writes.
+  { table: 'merchant_payment_accounts', file: 'merchant-payment-account-store.ts' },
 ]
 
 const arrayIn = (name: string) =>

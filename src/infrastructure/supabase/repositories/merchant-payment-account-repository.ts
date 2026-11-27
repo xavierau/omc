@@ -11,7 +11,7 @@ import { isPaymentProviderCode } from '@/domain/ports/payment-gateway'
 
 const ACCOUNT_COLUMNS = 'id, restaurant_id, provider_code, provider_account_id, status, charges_enabled, currency, restriction_reason, updated_at'
 
-interface AccountRow {
+export interface AccountRow {
   id: string
   restaurant_id: string
   provider_code: string
@@ -23,7 +23,7 @@ interface AccountRow {
   updated_at: string
 }
 
-function toAccount(row: AccountRow): MerchantPaymentAccount | null {
+export function toAccount(row: AccountRow): MerchantPaymentAccount | null {
   // A provider this build has no adapter for is treated as no account (no deposit), never guessed.
   if (!isPaymentProviderCode(row.provider_code)) return null
   return {

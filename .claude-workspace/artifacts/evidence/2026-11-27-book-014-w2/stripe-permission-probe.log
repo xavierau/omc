@@ -1,0 +1,3 @@
+2026-11-27 direct SDK probe: stripe.accounts.create({type:'standard'}) with the .env.local restricted test key (key, platform account and key-object ids redacted)
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+{"type":"StripePermissionError","code":"more_permissions_required","statusCode":403,"message":"Permission denied. The provided key 'rk_test_…<redacted>' does not have the required permissions for this endpoint on account 'acct_<platform redacted>'. Enabling Accounts Write ('connected_account_write') permissions on this key would allow this request to continue. You can edit permissions at https://dashboard.stripe.com/b/acct_<platform redacted>?destination=%2Ftest%2Fapikeys%2Fmk_<redacted>%2Fedit"}

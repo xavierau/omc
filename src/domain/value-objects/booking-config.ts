@@ -20,12 +20,17 @@
  * BOOK-009: `bookingHours` is the structured schedule, window, terms and
  * restaurant info (booking-hours.ts); null = not configured (AC-5). The
  * settings form owns it; an omitted value keeps the stored one.
+ *
+ * BOOK-014 W2: `deposit` is the deposit rule (deposit-rule.ts); the settings
+ * form owns it, an omitted value keeps the stored one, and a malformed stored
+ * value resolves to OFF (no deposit), never a guessed amount (R53).
  */
 import type { LanguageCode } from './language'
 import { isSafeHttpsUrl } from './safe-https-url'
 import { resolveBookingHours, type BookingHours } from './booking-hours'
 import { parseBookingHoursSettings, type BookingHoursErrors } from './booking-hours-settings'
 import { hongKongToday } from '@/domain/services/booking-submission'
+import { DEPOSIT_RULE_OFF, resolveDepositRule, validateDepositRule, type DepositRule, type DepositRuleField } from './deposit-rule'
 
 export { EXTERNAL_URL_MAX, isSafeHttpsUrl } from './safe-https-url'
 
@@ -69,6 +74,8 @@ export interface BookingConfig {
   bookingRules: string
   /** BOOK-009: structured booking hours; null = not configured (spec AC-5). */
   bookingHours: BookingHours | null
+  /** BOOK-014: the deposit rule; DEPOSIT_RULE_OFF when none is set. */
+  deposit: DepositRule
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
@@ -98,6 +105,7 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
   bookingRules: '',
   bookingHours: null,
+  deposit: DEPOSIT_RULE_OFF,
 }
 
 /** BOOK-003: 128-384 bits as base64url. */
@@ -195,20 +203,31 @@ export function resolveBookingConfig(raw: unknown): BookingConfig {
     agentBooking: resolveAgentBooking(r.agentBooking),
     bookingRules: typeof r.bookingRules === 'string' ? r.bookingRules.trim().slice(0, BOOKING_RULES_MAX_CHARS) : '',
     bookingHours: resolveBookingHours(r.bookingHours),
+    deposit: resolveDepositRule(r.deposit),
   }
 }
 
-/** BOOK-009: booking-hours errors are keyed by path (`bookingHours.weekly.wed.0`, spec AC-2). */
+/** BOOK-009: booking-hours errors are keyed by path (`bookingHours.weekly.wed.0`, spec AC-2). BOOK-014: `deposit.<field>`. */
 export type BookingSettingsErrors = Partial<
   Record<'mode' | 'externalUrl' | 'chatLinkTtlHours' | 'campaignLinkTtlHours' | 'maxPartySize' | 'bookingRules' | 'form', string>
 > &
-  Partial<BookingHoursErrors>
+  Partial<BookingHoursErrors> &
+  Partial<Record<`deposit.${DepositRuleField}`, string>>
 
 export type ParseBookingSettingsResult =
   | { ok: true; config: BookingConfig }
   | { ok: false; errors: BookingSettingsErrors }
 
-const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize', 'bookingRules', 'bookingHours']
+const SETTINGS_FIELDS = ['mode', 'externalUrl', 'chatLinkTtlHours', 'campaignLinkTtlHours', 'maxPartySize', 'bookingRules', 'bookingHours', 'deposit']
+
+/** BOOK-014 (R53): omitted keeps the stored rule; otherwise strictly validated, each bad field named. */
+function parseDepositField(raw: unknown, current: DepositRule, errors: BookingSettingsErrors): DepositRule {
+  if (raw === undefined) return current
+  const result = validateDepositRule(raw)
+  if (result.ok) return result.rule
+  for (const field of result.errors) errors[`deposit.${field}`] = 'invalid'
+  return current
+}
 
 /** AGENT-005: omitted keeps the stored rules; a string is trimmed and at most BOOKING_RULES_MAX_CHARS. */
 function parseBookingRules(raw: unknown, current: string, errors: BookingSettingsErrors): string {
@@ -257,8 +276,8 @@ function parseTtlField(raw: unknown, current: number | null, key: keyof BookingS
  * template ids, edits or candidates it read earlier.
  */
 export function applyBookingSettings(current: BookingConfig, settings: BookingConfig): BookingConfig {
-  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours } = settings
-  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours }
+  const { mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours, deposit } = settings
+  return { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize, bookingRules, bookingHours, deposit }
 }
 
 /**
@@ -285,11 +304,12 @@ export function parseBookingSettings(
   if (!isPartyMax(maxPartySize)) errors.maxPartySize = 'invalid_party_size'
   const bookingRules = parseBookingRules(b.bookingRules, current.bookingRules, errors)
   const bookingHours = parseHoursField(b.bookingHours, current.bookingHours, today, errors)
+  const deposit = parseDepositField(b.deposit, current.deposit, errors)
 
   if (Object.keys(errors).length > 0 || !mode) return { ok: false, errors }
   return {
     ok: true,
-    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number, bookingRules, bookingHours },
+    config: { ...current, mode, externalUrl, chatLinkTtlHours, campaignLinkTtlHours, maxPartySize: maxPartySize as number, bookingRules, bookingHours, deposit },
   }
 }
 

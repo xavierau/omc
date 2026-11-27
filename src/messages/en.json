@@ -2009,6 +2009,59 @@
           "above_meal": "Can't be more than the guests per meal."
         }
       }
+    },
+    "payments": {
+      "title": "Payments",
+      "hint": "Deposits are paid into your restaurant's own Stripe account. OhMyClient never holds the money.",
+      "status": {
+        "none": "Not connected",
+        "connecting": "Connecting",
+        "active": "Active",
+        "action_needed": "Action needed",
+        "disconnected": "Disconnected"
+      },
+      "connect": "Connect Stripe",
+      "continue": "Continue setup",
+      "opening": "Opening Stripe...",
+      "loading": "Checking Stripe...",
+      "adminOnly": "Only admins can connect a payment account.",
+      "loadFailed": "Couldn't load the payment account.",
+      "connectFailed": "Couldn't reach Stripe, try again.",
+      "reason": {
+        "past_due": "Stripe needs more information before this account can take payments.",
+        "rejected": "Stripe rejected this account. Check your Stripe dashboard.",
+        "deauthorized": "This Stripe account was disconnected. Connect again to take deposits.",
+        "other": "Stripe has paused payments on this account ({reason})."
+      }
+    },
+    "deposit": {
+      "title": "Deposit",
+      "hint": "Diners pay a deposit to send their booking. The seats are held for 30 minutes while they pay.",
+      "toggle": "Require a deposit",
+      "connectFirst": "Connect Stripe first",
+      "paused": "Stripe isn't active, so new bookings are taken without a deposit until it is.",
+      "modeLabel": "Amount type",
+      "mode": {
+        "per_guest": "Per guest",
+        "per_booking": "Per booking"
+      },
+      "amount": "Amount ({currency}, whole units)",
+      "fromPartySize": "From party size",
+      "refundTitle": "Refund rule shown to diners",
+      "refundLang": {
+        "zh_hk": "繁體中文",
+        "en": "English"
+      },
+      "summaryTitle": "Diners and AI agents see",
+      "summaryNone": "Enter an amount to see the line diners get.",
+      "errors": {
+        "blocked": "Connect Stripe first: the deposit can be turned on once the account is active.",
+        "enabled": "Turn the deposit on or off.",
+        "mode": "Choose per guest or per booking.",
+        "amount": "Enter a whole amount from {min} to {max}.",
+        "fromPartySize": "Enter a party size from 1 to 1000.",
+        "refundNote": "The refund rule can be up to 500 characters."
+      }
     }
   },
   "agentSettings": {

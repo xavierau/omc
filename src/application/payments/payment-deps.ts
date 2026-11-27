@@ -9,6 +9,7 @@ import { productionPaymentRegistry } from '@/infrastructure/payments/registry'
 import { paymentLog } from '@/infrastructure/payments/payment-logger'
 import { bookingDepositStore, depositBookingWriter } from '@/infrastructure/supabase/repositories/booking-deposit-repository'
 import { merchantPaymentAccountReader } from '@/infrastructure/supabase/repositories/merchant-payment-account-repository'
+import { merchantPaymentAccountStore } from '@/infrastructure/supabase/repositories/merchant-payment-account-store'
 import { releaseIdempotencyKey, tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { appBaseUrl } from '@/infrastructure/config/app-url'
 import { mintPaymentLinkToken } from '@/domain/services/payment-link-token'
@@ -20,6 +21,7 @@ import type { DepositPaid } from './handle-payment-event'
 import type { ExpireDepositsDeps } from './expire-deposits'
 import type { DepositDecisionDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
+import type { PaymentAccountDeps } from './payment-account'
 
 const now = () => new Date()
 
@@ -58,6 +60,7 @@ export function paymentWebhookDeps(
     claims: webhookClaims,
     deposits: bookingDepositStore,
     registry,
+    accounts: merchantPaymentAccountStore,
     now,
     log: paymentLog,
     ...(onDepositPaid ? { onDepositPaid } : {}),
@@ -77,4 +80,16 @@ export function depositDecisionDeps(): DepositDecisionDeps {
 /** GET /p/<token>. */
 export function paymentLinkDeps(): ResolvePaymentLinkDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), now, log: paymentLog }
+}
+
+/** W2: Settings → Booking → Payments (connect, status). New accounts open with Stripe. */
+export function paymentAccountDeps(): PaymentAccountDeps {
+  return {
+    registry: productionPaymentRegistry(),
+    accounts: merchantPaymentAccountStore,
+    onboardingProvider: 'stripe',
+    appBaseUrl: appBaseUrl(),
+    now,
+    log: paymentLog,
+  }
 }

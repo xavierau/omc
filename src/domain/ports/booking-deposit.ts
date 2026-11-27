@@ -11,7 +11,7 @@
  */
 import type { BookingRequest, BookingStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingDeposit, DepositActor, NewDepositHold, RefundReason } from '@/domain/entities/booking-deposit'
-import type { MerchantPaymentAccount } from '@/domain/entities/merchant-payment-account'
+import type { MerchantAccountUpdate, MerchantPaymentAccount } from '@/domain/entities/merchant-payment-account'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { RoomCheck, RoomRefusal } from '@/domain/services/booking-room'
 
@@ -89,6 +89,23 @@ export interface DepositBookingWriter {
 export interface MerchantPaymentAccountReader {
   /** The restaurant's account for deposits (one per restaurant is used), any status. */
   findForRestaurant(restaurantId: string): Promise<MerchantPaymentAccount | null>
+}
+
+/**
+ * BOOK-014 W2 (R52, R58): the onboarding routes and the provider's account
+ * events write the account. A provider account id is created server side and
+ * stored here before any onboarding link exists; an event finds its row only
+ * by the provider account id WE stored.
+ */
+export interface MerchantPaymentAccountStore extends MerchantPaymentAccountReader {
+  findForRestaurantByProvider(restaurantId: string, providerCode: PaymentProviderCode): Promise<MerchantPaymentAccount | null>
+  findByProviderAccount(providerCode: PaymentProviderCode, providerAccountId: string): Promise<MerchantPaymentAccount | null>
+  /** A new pending account for the restaurant. If a concurrent connect stored one first, that row comes back instead. */
+  link(input: { restaurantId: string; providerCode: PaymentProviderCode; providerAccountId: string }): Promise<MerchantPaymentAccount>
+  /** A disconnected (or id-less) row gets a new provider account, back to pending; null when the row is no longer replaceable. */
+  relink(input: { restaurantId: string; accountId: string; providerAccountId: string }): Promise<MerchantPaymentAccount | null>
+  /** Writes a status onto the row only while it still holds `providerAccountId`; null when it no longer does. */
+  applyStatus(input: { accountId: string; providerAccountId: string; update: MerchantAccountUpdate; at: Date }): Promise<MerchantPaymentAccount | null>
 }
 
 /** The webhook idempotency claim (processed_webhooks, R48). */

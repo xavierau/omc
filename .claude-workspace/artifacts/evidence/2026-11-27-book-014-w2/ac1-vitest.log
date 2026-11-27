@@ -1,0 +1,13 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w2
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+
+ Test Files  157 passed (157)
+      Tests  2025 passed (2025)
+   Start at  14:43:11
+   Duration  9.15s (transform 8.24s, setup 0ms, import 32.00s, tests 5.59s, environment 11ms)
+
