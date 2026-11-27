@@ -16,7 +16,7 @@ branch: feature/book-013-phone-optional
 pushed: true
 stage: poc
 suite_changed: "yes, once, deliberately: staff-booking.test.ts AC-4 case 'phone missing → required' became 'phone not text → invalid' (decision 9 makes an empty phone valid). Every other change only adds tests."
-gate: {result: pass, at: 2026-11-27}
+gate: {result: pass, at: 2026-11-27T06:30Z}
 next: {owner: main, action: "review PR #236 (2f922d5b..branch tip); release 096 after 095, before restart"}
 blockers: []
 refs: [pr:236, kanban:BOOK-013, specs/2026-11-26-book-013-staff-booking-crud, threats/2026-11-26-book-013-staff-booking-crud, plans/2026-11-26-book-013-staff-booking-crud, reviews/2026-11-26-book-013-r3-re-review, artifacts/2026-11-27-book-013-phone-optional-impl]
@@ -35,6 +35,15 @@ decisions:
   - "No new test ids: 'No phone' and the hint are static copy (getByText); the inputs keep their ids."
   - "The reminder SQL is unchanged: the 096 CHECK forces notify off, which 095's candidate filter already excludes. The cron also filters with hasPhone."
   - "Local DB: 096 applied with `supabase migration up --local` on the existing 001..095 volume (no reset)."
+failed:
+  - tried: "walk checks reading notify_diner through psql text concatenation"
+    why: "boolean || text prints true/false, not t/f, so 4 checks failed on correct data"
+    evidence: "first zh-1440 run"
+    replaced_by: "CASE WHEN notify_diner THEN 't' ELSE 'f' END; all runs 29/29"
+  - tried: "plain git push of the records commit"
+    why: "remote hung up on the 5 MB evidence push (RTK printed 'Everything up-to-date')"
+    evidence: "ls-remote still at bbe713bf"
+    replaced_by: "git -c http.postBuffer=524288000 push; ls-remote == 3a72ec6b"
 invariants:
   - "No booking without a phone reaches a sender (staff, decide, reminder, received, agent verify)."
   - "Only source 'staff' rows may have a null phone; this is enforced by the DB CHECK, the RPC WHERE and the use case."
