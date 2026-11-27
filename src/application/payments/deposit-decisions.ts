@@ -1,7 +1,7 @@
 /**
  * BOOK-014 (spec AC-12, AC-13; threat R56, R58, R60): what staff (and the
- * decline path) do with a paid deposit. W4 adds the routes and wires decline;
- * these are the use cases.
+ * decline path) do with a paid deposit. W4 adds the routes (/deposit/refund,
+ * /deposit/keep, /deposit/link) and wires decline; these are the use cases.
  *
  * Every lookup and move is scoped by restaurant in the query (R58): a foreign
  * booking id is `not_found` and no provider call is made. Each move is one
@@ -18,6 +18,7 @@ import {
 } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore } from '@/domain/ports/booking-deposit'
 import { issueRefund, type IssueRefundDeps } from './issue-refund'
+import { isAllowedRedirect } from './resolve-payment-link'
 
 export interface DepositDecisionDeps extends IssueRefundDeps {
   deposits: Pick<BookingDepositStore, 'findByBookingForRestaurant' | 'beginRefund' | 'finishRefund' | 'recordRefundRef' | 'keep'>
@@ -100,4 +101,38 @@ export async function keepDeposit(deps: DepositDecisionDeps, input: DepositDecis
       at: deps.now(),
     })
   )
+}
+
+export interface StaffDepositLinkDeps {
+  deposits: Pick<BookingDepositStore, 'findByBookingForRestaurant'>
+  registry: IssueRefundDeps['registry']
+  /** The staff-visible booking (scoped by restaurant, R58). */
+  findBooking(id: string, restaurantId: string): Promise<{ status: string; source: string } | null>
+}
+
+export type StaffDepositLinkResult = { ok: true; url: string } | { ok: false; reason: 'not_found' | 'conflict' }
+
+/**
+ * BOOK-014 W4 (spec UI states, AC-11): "Copy link" on a staff booking still
+ * awaiting its deposit. The /p token is stored as a hash only (R62), so after
+ * create the link staff can copy is the hosted payment page the /p link
+ * redirects to: the stored session URL, given only while the hold is open,
+ * only for a staff-made booking of this restaurant, and only when it is https
+ * on a host the deposit's provider allows (as GET /p checks).
+ */
+export async function staffDepositLink(deps: StaffDepositLinkDeps, input: { restaurantId: string; bookingId: string }): Promise<StaffDepositLinkResult> {
+  const booking = await deps.findBooking(input.bookingId, input.restaurantId)
+  if (!booking) return { ok: false, reason: 'not_found' }
+  const deposit = await deps.deposits.findByBookingForRestaurant(input.restaurantId, input.bookingId)
+  if (!deposit) return { ok: false, reason: 'not_found' }
+  if (booking.source !== 'staff' || booking.status !== 'awaiting_deposit' || deposit.status !== 'awaiting' || !deposit.sessionUrl) {
+    return { ok: false, reason: 'conflict' }
+  }
+  let hosts: readonly string[] = []
+  try {
+    hosts = deps.registry.get(deposit.providerCode).allowedRedirectHosts
+  } catch {
+    return { ok: false, reason: 'conflict' }
+  }
+  return isAllowedRedirect(deposit.sessionUrl, hosts) ? { ok: true, url: deposit.sessionUrl } : { ok: false, reason: 'conflict' }
 }

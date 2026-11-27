@@ -12,7 +12,7 @@
  *   refund_failed -> refunded           (the provider confirms a refund we had marked failed)
  */
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
-import type { BookingStatus } from '@/domain/entities/booking-request'
+import type { BookingDepositView, BookingStatus } from '@/domain/entities/booking-request'
 import type { Money } from '@/domain/value-objects/money'
 
 export type DepositStatus = 'awaiting' | 'paid' | 'lapsed' | 'refund_pending' | 'refunded' | 'refund_failed' | 'kept'
@@ -91,4 +91,35 @@ export type DepositActor = { kind: 'user'; userId: string } | { kind: 'provider'
 
 export function refundIdempotencyKey(depositId: string, attempt: number): string {
   return `refund:${depositId}:${attempt}`
+}
+
+/** BOOK-014 W4 (spec AC-14): what a staff list shows of a deposit. */
+export function depositViewOf(d: BookingDeposit): BookingDepositView {
+  return { status: d.status, amount: { ...d.amount }, refundReason: d.refundReason, decidedAt: d.decidedAt, holdExpiresAt: d.holdExpiresAt }
+}
+
+/** BOOK-014 W4 (spec AC-12, AC-13): the deposit moves staff are offered on a row. */
+export interface DepositRowActions {
+  /** "Deposit held HK$X": paid, and the booking is not going ahead. */
+  held: boolean
+  refund: boolean
+  keep: boolean
+  /** refund_failed: a new attempt (R56). */
+  retry: boolean
+  /** A staff-made booking still waiting for its deposit: Copy link. */
+  copyLink: boolean
+}
+
+export function depositRowActions(b: { status: BookingStatus; source: string; deposit?: BookingDepositView | null }): DepositRowActions {
+  const d = b.deposit
+  const none = { held: false, refund: false, keep: false, retry: false, copyLink: false }
+  if (!d) return none
+  const paid = d.status === 'paid'
+  return {
+    held: paid && REFUNDABLE_BOOKING_STATUSES.includes(b.status),
+    refund: paid && REFUNDABLE_BOOKING_STATUSES.includes(b.status),
+    keep: paid && KEEPABLE_BOOKING_STATUSES.includes(b.status),
+    retry: d.status === 'refund_failed',
+    copyLink: d.status === 'awaiting' && b.status === 'awaiting_deposit' && b.source === 'staff',
+  }
 }

@@ -8,6 +8,9 @@
 // 096 (decision 9): a null phone forces notify off; an update to a null phone
 // matches only a source 'staff' row (scratch-db-096.log in the 2026-11-27 evidence).
 import type { BookingRequest } from '@/domain/entities/booking-request'
+import type { NewDepositHold } from '@/domain/entities/booking-deposit'
+import type { Money } from '@/domain/value-objects/money'
+import type { FakeDepositLedger } from './fake-booking-deposit'
 import type {
   CheckInArgs,
   CheckinStore,
@@ -57,11 +60,26 @@ function apply(row: StaffRow, patch: Partial<StaffRow>): void {
   Object.assign(row, patch, { updatedAt: stamp(), editVersion: row.editVersion + (moved ? 1 : 0) })
 }
 
+/** BOOK-014 W4: a 'waived' deposit event (097: deposit_id NULL, booking_id set). */
+export interface FakeWaiver {
+  bookingId: string
+  restaurantId: string
+  userId: string
+  amount: Money
+}
+
 export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
   readonly rows: StaffRow[] = []
   readonly events: StaffEvent[] = []
   /** Every write the fake took, for "nothing written" assertions. */
   readonly writes: string[] = []
+  readonly waivers: FakeWaiver[] = []
+
+  /**
+   * BOOK-014 W4: with a deposit ledger, a staff deposit booking is written to
+   * both (one table in the database: the ledger's paid/lapse moves then act on it).
+   */
+  constructor(readonly ledger?: FakeDepositLedger) {}
 
   private openChange(row: StaffRow): boolean {
     return this.rows.some((c) => c.replacesBookingId === row.id && c.restaurantId === row.restaurantId && c.status === 'pending')
@@ -103,7 +121,27 @@ export class FakeStaffBookings implements StaffBookingStore, CheckinStore {
     })
     this.rows.push(row)
     this.audit(args.restaurantId, 'booking.staff_created', args.actorUserId, { bookingId: row.id }, args.brokenRules)
+    if (args.waivedDeposit) {
+      this.waivers.push({ bookingId: row.id, restaurantId: args.restaurantId, userId: args.actorUserId, amount: { ...args.waivedDeposit } })
+    }
     return this.view(row)
+  }
+
+  /** 097 staff_create_deposit_booking: awaiting_deposit, no decision yet, the deposit row + its 'created' event by the user. */
+  async createAwaitingDeposit(args: StaffCreateArgs, hold: NewDepositHold) {
+    if (!this.ledger) throw new Error('FakeStaffBookings: no deposit ledger')
+    if (args.input.phone === null) throw new Error('fake: phone required')
+    this.writes.push('createAwaitingDeposit')
+    const { input } = args
+    const row = staffRow({
+      restaurantId: args.restaurantId, memberId: args.memberId, phone: input.phone, name: input.name, partySize: input.partySize,
+      bookingDate: input.date, bookingTime: input.time, notes: input.notes, status: 'awaiting_deposit', source: 'staff',
+      decidedBy: null, decidedAt: null, createdBy: args.actorUserId, notifyDiner: input.notify, decisionMessageStatus: null,
+    })
+    this.rows.push(row)
+    this.audit(args.restaurantId, 'booking.staff_created', args.actorUserId, { bookingId: row.id, deposit: 'required' }, args.brokenRules)
+    const deposit = this.ledger.adoptHold(row, hold, args.actorUserId)
+    return { booking: { ...this.view(row), deposit: { status: deposit.status, amount: deposit.amount, refundReason: null, decidedAt: null, holdExpiresAt: deposit.holdExpiresAt } }, deposit }
   }
 
   async update(args: StaffUpdateArgs) {

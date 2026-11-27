@@ -156,6 +156,7 @@ function BookingsOn() {
             bookings={lists.shown} monthEmpty={lists.scopeEmpty} dayHidden={lists.dayHidden} selected={page.selected} today={page.today}
             isPhone={page.isPhone} onSelect={page.select} {...actions}
             capacity={<DayCapacity capacity={capacity} bookings={all} date={page.selected} />} footer={prompt} badges={capacity.badges}
+            holds={data?.holds}
           />
         ) : (
           <>
@@ -169,7 +170,7 @@ function BookingsOn() {
       </div>
       <StaffBookingFormDialog staff={staff} />
       <CancelBookingDialog staff={staff} />
-      <BookingToast toast={staff.toast} onDismiss={staff.dismissToast} />
+      <BookingToast toast={staff.toast} onDismiss={staff.dismissToast} onCopyLink={(url) => void staff.copyToastLink(url)} />
       </StaffBookingContext.Provider>
       <MemberDetailPanel memberId={member.openMemberId} open={member.openMemberId !== null} onClose={member.closeMember} onDeleted={refetch} />
     </ScreenProviders>

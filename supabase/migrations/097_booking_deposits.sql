@@ -16,7 +16,8 @@
 -- function: EXECUTE revoked from PUBLIC, anon, authenticated; granted to
 -- service_role.
 --
--- Rollback (before any deposit exists): DROP the functions created below,
+-- Rollback (before any deposit exists): DROP the functions created below (incl. W4's
+-- staff_create_deposit_booking and staff_create_booking_waiving_deposit),
 -- DROP TABLE deposit_events, booking_deposit_refund_attempts, booking_deposits,
 -- merchant_payment_accounts;
 -- re-run 087's status/decision CHECKs, 092's booking_room_refusal,
@@ -150,9 +151,13 @@ ALTER TABLE booking_deposit_refund_attempts ENABLE ROW LEVEL SECURITY;
 -- ---------------------------------------------------------------------------
 -- 4. Append-only audit of every deposit transition (R60): who (a staff user,
 -- the provider, the cron, the system) and when; no PII.
+-- W4 (spec AC-11, R60): a staff booking whose deposit staff waived has no
+-- deposit row, so its 'waived' event names the booking instead (deposit_id
+-- NULL, booking_id set, amount = the deposit that was not asked for).
 CREATE TABLE deposit_events (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  deposit_id    UUID NOT NULL REFERENCES booking_deposits(id) ON DELETE CASCADE,
+  deposit_id    UUID REFERENCES booking_deposits(id) ON DELETE CASCADE,
+  booking_id    UUID REFERENCES booking_requests(id) ON DELETE CASCADE,
   restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
   event_type    TEXT NOT NULL CHECK (event_type IN (
                   'created', 'session_created', 'session_failed', 'paid', 'lapsed', 'late_payment',
@@ -164,10 +169,12 @@ CREATE TABLE deposit_events (
   amount_minor  INTEGER,
   currency      TEXT CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$'),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT deposit_events_actor_user CHECK ((actor_kind = 'user') = (actor_user_id IS NOT NULL))
+  CONSTRAINT deposit_events_actor_user CHECK ((actor_kind = 'user') = (actor_user_id IS NOT NULL)),
+  CONSTRAINT deposit_events_subject CHECK (deposit_id IS NOT NULL OR (event_type = 'waived' AND booking_id IS NOT NULL))
 );
 
 CREATE INDEX IF NOT EXISTS deposit_events_deposit_idx ON deposit_events (deposit_id, created_at);
+CREATE INDEX IF NOT EXISTS deposit_events_booking_idx ON deposit_events (booking_id) WHERE booking_id IS NOT NULL;
 
 ALTER TABLE deposit_events ENABLE ROW LEVEL SECURITY;
 
@@ -946,3 +953,116 @@ $$ LANGUAGE sql STABLE;
 
 REVOKE ALL ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.member_booking_stats(uuid, uuid, date, time) TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 13. W4 (spec AC-11, R60): staff create a booking a deposit rule applies to.
+-- Both keep 096's staff_create_booking behaviour (source 'staff', created_by,
+-- updated_by, the 'booking.staff_created' events row with any broken rules)
+-- and add the deposit side in the same transaction. Staff override the
+-- booking rules in the app (owner decision 3), so neither checks seats.
+--
+-- staff_create_deposit_booking: the booking waits as awaiting_deposit (no
+-- decision yet: decided_at stays NULL until mark_booking_deposit_paid confirms
+-- it as its creator) with its deposit row 'awaiting' and the 'created' event
+-- by the staff user. A deposit link goes to a phone, so the phone is required.
+-- p_deposit keys as insert_booking_request_if_room's.
+-- Returns {"row": booking, "deposit": deposit}.
+CREATE OR REPLACE FUNCTION public.staff_create_deposit_booking(
+  p_restaurant_id uuid,
+  p_member_id uuid,
+  p_phone text,
+  p_name text,
+  p_party int,
+  p_date date,
+  p_time time,
+  p_notes text,
+  p_notify boolean,
+  p_actor uuid,
+  p_at timestamptz,
+  p_broken_rules jsonb,
+  p_deposit jsonb
+) RETURNS jsonb AS $$
+DECLARE
+  v_keys text[] := ARRAY[
+    'id', 'provider_code', 'account_id', 'provider_account_id', 'amount_minor', 'currency', 'hold_expires_at', 'link_token_hash'
+  ];
+  v_bad text;
+  v_row booking_requests;
+  v_deposit booking_deposits;
+BEGIN
+  IF p_phone IS NULL OR p_deposit IS NULL OR p_actor IS NULL THEN
+    RAISE EXCEPTION 'staff_create_deposit_booking: phone, deposit and actor are required' USING ERRCODE = '22023';
+  END IF;
+  SELECT k INTO v_bad FROM jsonb_object_keys(p_deposit) AS k WHERE k <> ALL (v_keys) LIMIT 1;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'staff_create_deposit_booking: deposit key % is not allowed', v_bad USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO booking_requests (
+    restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes,
+    status, source, created_by, updated_by, notify_diner
+  ) VALUES (
+    p_restaurant_id, p_member_id, p_phone, p_name, p_party, p_date, p_time, p_notes,
+    'awaiting_deposit', 'staff', p_actor, p_actor, p_notify
+  ) RETURNING * INTO v_row;
+
+  INSERT INTO events (restaurant_id, member_id, type, actor_user_id, data_json)
+  VALUES (
+    p_restaurant_id, NULL, 'booking.staff_created', p_actor,
+    jsonb_build_object('bookingId', v_row.id, 'deposit', 'required')
+      || CASE WHEN jsonb_array_length(coalesce(p_broken_rules, '[]'::jsonb)) > 0
+              THEN jsonb_build_object('brokenRules', p_broken_rules) ELSE '{}'::jsonb END
+  );
+
+  INSERT INTO booking_deposits (
+    id, restaurant_id, booking_id, account_id, provider_code, provider_account_id, amount_minor, currency,
+    status, hold_expires_at, link_token_hash
+  ) VALUES (
+    (p_deposit ->> 'id')::uuid, p_restaurant_id, v_row.id, (p_deposit ->> 'account_id')::uuid, p_deposit ->> 'provider_code',
+    p_deposit ->> 'provider_account_id', (p_deposit ->> 'amount_minor')::int, p_deposit ->> 'currency',
+    'awaiting', (p_deposit ->> 'hold_expires_at')::timestamptz, p_deposit ->> 'link_token_hash'
+  ) RETURNING * INTO v_deposit;
+  PERFORM public.booking_deposit_event(v_deposit, 'created', 'user', p_actor, NULL);
+  RETURN jsonb_build_object('row', to_jsonb(v_row), 'deposit', to_jsonb(v_deposit));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.staff_create_deposit_booking(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.staff_create_deposit_booking(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, jsonb) TO service_role;
+
+-- staff_create_booking_waiving_deposit: 096's staff_create_booking (confirmed,
+-- Notify off without a phone) plus the 'waived' event by the staff user, with
+-- the amount the rule would have asked (R60). One transaction.
+CREATE OR REPLACE FUNCTION public.staff_create_booking_waiving_deposit(
+  p_restaurant_id uuid,
+  p_member_id uuid,
+  p_phone text,
+  p_name text,
+  p_party int,
+  p_date date,
+  p_time time,
+  p_notes text,
+  p_notify boolean,
+  p_actor uuid,
+  p_at timestamptz,
+  p_broken_rules jsonb,
+  p_amount_minor int,
+  p_currency text
+) RETURNS SETOF booking_requests AS $$
+DECLARE
+  v_row booking_requests;
+BEGIN
+  IF p_actor IS NULL OR p_amount_minor IS NULL OR p_amount_minor <= 0 OR p_currency IS NULL THEN
+    RAISE EXCEPTION 'staff_create_booking_waiving_deposit: actor and a positive amount are required' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_row FROM public.staff_create_booking(
+    p_restaurant_id, p_member_id, p_phone, p_name, p_party, p_date, p_time, p_notes, p_notify, p_actor, p_at, p_broken_rules
+  );
+  INSERT INTO deposit_events (deposit_id, booking_id, restaurant_id, event_type, actor_kind, actor_user_id, provider_ref, amount_minor, currency)
+  VALUES (NULL, v_row.id, p_restaurant_id, 'waived', 'user', p_actor, NULL, p_amount_minor, p_currency);
+  RETURN NEXT v_row;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.staff_create_booking_waiving_deposit(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, int, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.staff_create_booking_waiving_deposit(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, int, text) TO service_role;

@@ -1492,7 +1492,9 @@
       "declined": "已拒絕",
       "cancelled": "已取消",
       "unverified": "等待客人確認",
-      "no_show": "未出席"
+      "no_show": "未出席",
+      "awaiting_deposit": "等待訂金",
+      "lapsed": "已失效"
     },
     "notDelivered": "訊息未能送達,請聯絡客人",
     "nameRemoved": "(姓名已刪除)",
@@ -1758,7 +1760,41 @@
         }
       }
     },
-    "noShowCheckedIn": "客人已到，不能標記未出席。"
+    "noShowCheckedIn": "客人已到，不能標記未出席。",
+    "deposit": {
+      "state": {
+        "awaiting": "待付訂金 {amount}",
+        "paid": "已付訂金 {amount}",
+        "lapsed": "未付訂金",
+        "refund_pending": "退款處理中 {amount}",
+        "refunded": "已退款 {amount}",
+        "refund_failed": "退款失敗 {amount}",
+        "kept": "已保留訂金 {amount}"
+      },
+      "held": "持有訂金 {amount}",
+      "refund": "退款",
+      "keep": "保留",
+      "retry": "重試退款",
+      "copyLink": "複製連結",
+      "linkCopied": "已複製付款連結",
+      "linkCopyFailed": "未能複製連結,請再試。",
+      "refunded": "訂金已退回",
+      "refundStarted": "已向付款服務商發出退款",
+      "refundFailed": "退款失敗。請按重試,或於 Stripe 控制台退款。",
+      "kept": "已保留訂金",
+      "conflict": "此訂金剛有變更,請重新載入查看。",
+      "actionFailed": "未能更新訂金,請再試。",
+      "requireLabel": "收取訂金 {amount}",
+      "requireHint": "客人會在 WhatsApp 收到付款連結,須於 24 小時內付款,付款後訂座即確認。",
+      "waiveHint": "此訂座不收訂金。關閉會以你的名字記錄。",
+      "cancelChoiceTitle": "訂金 {amount}",
+      "cancelRefund": "全數退款",
+      "cancelKeep": "保留訂金",
+      "cancelLater": "稍後決定",
+      "toastSent": "已儲存訂座 · 已發送付款連結",
+      "toastNotSent": "已儲存訂座 · 未能發送連結,請自行分享",
+      "toastUnavailable": "付款服務暫時未能使用,未有儲存任何資料。"
+    }
   },
   "bookingSettings": {
     "title": "訂座",
@@ -1807,7 +1843,8 @@
         "declined": "未能接受訂座",
         "reminder": "訂座提醒",
         "changed": "訂座已更改",
-        "cancelled": "訂座已取消"
+        "cancelled": "訂座已取消",
+        "deposit_request": "訂金付款要求"
       },
       "lang": {
         "en": "English",

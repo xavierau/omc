@@ -129,3 +129,12 @@ export function parseStaffBookingInput(body: unknown, ctx: StaffBookingContext):
   const expectedVersion = parseExpected(b.expectedVersion, ctx, errors)
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, input, expectedVersion }
 }
+
+/**
+ * BOOK-014 W4 (spec AC-11): "Require deposit" is on by default; only an
+ * explicit `requireDeposit: false` waives it (recorded, R60). Read apart from
+ * the form so the allow-listed input above is unchanged.
+ */
+export function depositRequested(body: unknown): boolean {
+  return !(body && typeof body === 'object' && (body as Record<string, unknown>).requireDeposit === false)
+}

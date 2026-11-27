@@ -101,6 +101,7 @@ describe('parseBookingSettings (R14 / AC-1 / AC-2)', () => {
       reminder: { en: 'm-en', zh_hk: 'm-zh' },
       changed: { en: 'g-en', zh_hk: 'g-zh' },
       cancelled: { en: 'x-en', zh_hk: 'x-zh' },
+      deposit_request: { en: 'p-en', zh_hk: 'p-zh' },
     },
   }
 

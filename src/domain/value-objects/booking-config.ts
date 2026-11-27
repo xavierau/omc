@@ -35,8 +35,11 @@ import { DEPOSIT_RULE_OFF, resolveDepositRule, validateDepositRule, type Deposit
 export { EXTERNAL_URL_MAX, isSafeHttpsUrl } from './safe-https-url'
 
 export type BookingMode = 'off' | 'simple' | 'external'
-/** BOOK-013: 'changed' and 'cancelled' tell the diner about a staff edit or cancel. */
-export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder' | 'changed' | 'cancelled'
+/**
+ * BOOK-013: 'changed' and 'cancelled' tell the diner about a staff edit or cancel.
+ * BOOK-014 W4: 'deposit_request' sends a staff booking's payment link (one URL button, R21 exception).
+ */
+export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder' | 'changed' | 'cancelled' | 'deposit_request'
 /** W3: one template row per language (zh_HK and en) for each kind. */
 export type BookingTemplateIdsByLanguage = Record<LanguageCode, string | null>
 /** BOOK-002: a value per language, absent when unset. */
@@ -79,7 +82,9 @@ export interface BookingConfig {
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
-export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'confirmed', 'declined', 'reminder', 'changed', 'cancelled']
+export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'confirmed', 'declined', 'reminder', 'changed', 'cancelled', 'deposit_request']
+/** BOOK-014 W4: the deposit request carries its link button, which the body-only editor cannot keep; its copy is fixed. */
+export const EDITABLE_TEMPLATE_KINDS: readonly BookingTemplateKind[] = TEMPLATE_KINDS.filter((k) => k !== 'deposit_request')
 export const TEMPLATE_LANGUAGES: readonly LanguageCode[] = ['zh_hk', 'en']
 export const MAX_TTL_HOURS = 8760
 export const MAX_PARTY_SIZE_LIMIT = 100
@@ -99,9 +104,10 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
     reminder: { en: null, zh_hk: null },
     changed: { en: null, zh_hk: null },
     cancelled: { en: null, zh_hk: null },
+    deposit_request: { en: null, zh_hk: null },
   },
-  templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {} },
-  templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {} },
+  templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {}, deposit_request: {} },
+  templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {}, deposit_request: {} },
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
   bookingRules: '',
   bookingHours: null,

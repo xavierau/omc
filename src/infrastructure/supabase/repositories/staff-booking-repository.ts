@@ -7,7 +7,7 @@
  * nothing changed, and the caller re-reads to say why.
  */
 import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
-import { STAFF_HIDDEN_STATUS_FILTER, type BookingRequest } from '@/domain/entities/booking-request'
+import { STAFF_HIDDEN_STATUS_FILTER, STAFF_HOLD_FILTER, staffStatusFilter, type BookingRequest } from '@/domain/entities/booking-request'
 import type {
   CheckInArgs,
   CheckinStore,
@@ -16,7 +16,9 @@ import type {
   StaffCreateArgs,
   StaffUpdateArgs,
 } from '@/domain/ports/staff-booking'
+import type { BookingDeposit, NewDepositHold } from '@/domain/entities/booking-deposit'
 import { STAFF_COLUMNS, toBookingRequest, withChangeSlots } from './booking-request-repository'
+import { depositInsertRow, toBookingDeposit } from './booking-deposit-repository'
 
 type Row = Parameters<typeof toBookingRequest>[0]
 
@@ -25,7 +27,7 @@ const firstRow = (data: unknown): BookingRequest | null => {
   return row ? toBookingRequest(row) : null
 }
 
-/** One booking of this restaurant (never an unverified one, BOOK-014: nor a deposit hold or lapsed one), with its BOOK-006 open change. */
+/** One booking of this restaurant (never an unverified one, BOOK-014: nor a lapsed one or a diner's deposit hold; W4: a staff-made hold is), with its BOOK-006 open change. */
 export async function findStaffBooking(id: string, restaurantId: string): Promise<BookingRequest | null> {
   const { data, error } = await createServerSupabaseClient()
     .from('booking_requests')
@@ -33,6 +35,7 @@ export async function findStaffBooking(id: string, restaurantId: string): Promis
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+    .or(STAFF_HOLD_FILTER)
     .maybeSingle()
   if (error) throw new Error(`findStaffBooking: ${error.message}`)
   if (!data) return null
@@ -40,28 +43,54 @@ export async function findStaffBooking(id: string, restaurantId: string): Promis
   return booking
 }
 
-async function createStaffBooking(args: StaffCreateArgs): Promise<BookingRequest> {
+/** 095/096 staff_create_booking's arguments, shared by the W4 deposit variants (097). */
+function createParams(args: StaffCreateArgs) {
   const { input } = args
-  const { data, error } = await createServerSupabaseClient()
-    .rpc('staff_create_booking', {
-      p_restaurant_id: args.restaurantId,
-      p_member_id: args.memberId,
-      p_phone: input.phone,
-      p_name: input.name,
-      p_party: input.partySize,
-      p_date: input.date,
-      p_time: input.time,
-      p_notes: input.notes,
-      p_notify: input.notify,
-      p_actor: args.actorUserId,
-      p_at: args.at.toISOString(),
-      p_broken_rules: args.brokenRules,
-    })
-    .select(STAFF_COLUMNS)
+  return {
+    p_restaurant_id: args.restaurantId,
+    p_member_id: args.memberId,
+    p_phone: input.phone,
+    p_name: input.name,
+    p_party: input.partySize,
+    p_date: input.date,
+    p_time: input.time,
+    p_notes: input.notes,
+    p_notify: input.notify,
+    p_actor: args.actorUserId,
+    p_at: args.at.toISOString(),
+    p_broken_rules: args.brokenRules,
+  }
+}
+
+async function createStaffBooking(args: StaffCreateArgs): Promise<BookingRequest> {
+  // BOOK-014 W4 (R60): a waived deposit is recorded with the booking, in one transaction (097).
+  const waived = args.waivedDeposit
+  const call = waived
+    ? createServerSupabaseClient().rpc('staff_create_booking_waiving_deposit', {
+        ...createParams(args),
+        p_amount_minor: waived.amountMinor,
+        p_currency: waived.currency,
+      })
+    : createServerSupabaseClient().rpc('staff_create_booking', createParams(args))
+  const { data, error } = await call.select(STAFF_COLUMNS)
   if (error) throw new Error(`createStaffBooking: ${error.message}`)
   const booking = firstRow(data)
   if (!booking) throw new Error('createStaffBooking: no row')
   return booking
+}
+
+/** BOOK-014 W4 (spec AC-11): awaiting_deposit + its deposit row in one transaction (097). */
+async function createAwaitingDeposit(args: StaffCreateArgs, hold: NewDepositHold): Promise<{ booking: BookingRequest; deposit: BookingDeposit }> {
+  const { data, error } = await createServerSupabaseClient().rpc('staff_create_deposit_booking', {
+    ...createParams(args),
+    p_deposit: depositInsertRow(hold),
+  })
+  if (error) throw new Error(`createAwaitingDeposit: ${error.message}`)
+  const body = data as { row?: Row; deposit?: Parameters<typeof toBookingDeposit>[0] } | null
+  if (!body?.row || !body.deposit) throw new Error('createAwaitingDeposit: no row')
+  const deposit = toBookingDeposit(body.deposit)
+  const booking = await findStaffBooking(body.row.id, args.restaurantId)
+  return { booking: booking ?? { ...toBookingRequest(body.row), deposit: null }, deposit }
 }
 
 async function updateStaffBooking(args: StaffUpdateArgs): Promise<BookingRequest | null> {
@@ -121,19 +150,20 @@ async function claimStaffMessage(id: string, restaurantId: string, at: Date, gap
 export const staffBookingStore: StaffBookingStore = {
   find: findStaffBooking,
   create: createStaffBooking,
+  createAwaitingDeposit,
   update: updateStaffBooking,
   cancel: cancelStaffBooking,
   claimStaffMessage,
 }
 
-/** R12: one date's pending, confirmed and no-show bookings, by time, reading one past `cap`. */
+/** R12: one date's pending, confirmed and no-show bookings (BOOK-014 W4: and staff-made deposit holds), by time, reading one past `cap`. */
 async function listForDate(restaurantId: string, date: string, cap: number) {
   const { data, error } = await createServerSupabaseClient()
     .from('booking_requests')
     .select(STAFF_COLUMNS)
     .eq('restaurant_id', restaurantId)
     .eq('booking_date', date)
-    .in('status', ['pending', 'confirmed', 'no_show'])
+    .or(staffStatusFilter(['pending', 'confirmed', 'no_show']))
     .order('booking_time', { ascending: true })
     .limit(cap + 1)
   if (error) throw new Error(`listTodayBookings: ${error.message}`)

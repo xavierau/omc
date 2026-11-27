@@ -5,7 +5,11 @@
  * BOOK-006: pending counts count an original + its open change once (needsReply).
  * BOOK-007: no-shows are not guests either; an original with an open change
  * adds no guests when its change row is listed too: that row's party counts.
+ * BOOK-014 W4: a staff booking awaiting its deposit is listed and holds its
+ * seats (as booking_room_refusal counts it); diners' holds are not rows, so
+ * their guests come in apart (`heldGuests`, review finding 9).
  */
+import { isStaffVisible } from '@/domain/entities/booking-request'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { needsReply } from '@/domain/entities/booking-request'
 import { monthKey } from './booking-dates'
@@ -48,10 +52,13 @@ export function filterBookings(bookings: BookingItem[], status: StatusFilter, qu
 }
 
 export function statusCounts(bookings: BookingItem[]): Record<StatusFilter, number> {
-  const counts = { all: bookings.length, pending: 0, confirmed: 0, declined: 0, cancelled: 0, no_show: 0 }
+  const counts = { all: 0, pending: 0, confirmed: 0, declined: 0, cancelled: 0, no_show: 0 }
   for (const b of bookings) {
-    // BOOK-014: deposit holds and lapsed bookings are not staff statuses (hidden in W1).
-    if (b.status === 'unverified' || b.status === 'awaiting_deposit' || b.status === 'lapsed') continue
+    // BOOK-014 (review finding 10): what staff never see is skipped before 'all' counts it.
+    if (!isStaffVisible(b)) continue
+    counts.all += 1
+    // A staff booking awaiting its deposit has no chip of its own: it counts under 'all' only.
+    if (b.status === 'awaiting_deposit' || b.status === 'unverified' || b.status === 'lapsed') continue
     if (b.status !== 'pending' || needsReply(b)) counts[b.status] += 1
   }
   return counts
@@ -70,8 +77,9 @@ export function covers(bookings: BookingItem[]): number {
   return bookings.reduce((sum, b) => (NOT_COMING.has(b.status) || countedAsChange(b) ? sum : sum + b.partySize), 0)
 }
 
-export function daySummary(bookings: BookingItem[]): DaySummary {
-  return { count: bookings.length, guests: covers(bookings), pending: bookings.filter(needsReply).length }
+/** `heldGuests`: the day's guests in diners' deposit holds (BOOK-014 W4), seats taken with no row. */
+export function daySummary(bookings: BookingItem[], heldGuests = 0): DaySummary {
+  return { count: bookings.length, guests: covers(bookings) + heldGuests, pending: bookings.filter(needsReply).length }
 }
 
 const byDateTime = (a: BookingItem, b: BookingItem) =>

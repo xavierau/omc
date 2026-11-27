@@ -3,7 +3,12 @@
  * restaurant gets when it turns on Simple booking, in zh_HK and en.
  *
  * Copy is strictly transactional (R21): no offers, no links, never the diner's
- * notes. Parameters are the NAMED ones W1's sender fills
+ * notes. BOOK-014 W4: the ONE owner-approved exception to R21 (owner
+ * 2026-11-27, spec "Owner rulings"): `deposit_request`, a staff booking's
+ * deposit request, carries one URL button to our own domain,
+ * `<app>/p/{{1}}`, whose variable is the deposit's /p token (the page then
+ * redirects to the provider's hosted payment). No other booking template may
+ * carry a link or a button. Parameters are the NAMED ones W1's sender fills
  * (buildBookingTemplateParams: restaurant, name, date, time, party_size,
  * reason), already flattened and capped there (R16). Meta refuses a body that
  * starts or ends with a parameter, and one with too few words per parameter
@@ -49,6 +54,11 @@ const BODIES: Record<BookingTemplateKind, Record<LanguageCode, string>> = {
     en: 'Your booking at {{restaurant}} on {{date}} at {{time}} has been cancelled. If you have any questions, please reply to this message to contact the restaurant.',
     zh_hk: '你在{{restaurant}}於{{date}} {{time}}的訂座已取消。如有疑問,請直接回覆此訊息聯絡餐廳。',
   },
+  // BOOK-014 W4 (spec AC-11): staff took the booking; it is held until the deposit is paid.
+  deposit_request: {
+    en: 'Your table at {{restaurant}} on {{date}} at {{time}} for {{party_size}} is held for you. To confirm it, please pay the deposit of {{amount}} by {{hold_until}} with the button below.',
+    zh_hk: '我們已為你在{{restaurant}}保留{{date}} {{time}}的座位,共{{party_size}}位。請於{{hold_until}}前按下方按鈕繳付訂金{{amount}},以確認你的訂座。如有疑問,請直接回覆此訊息。',
+  },
 }
 
 export function bookingTemplateBody(kind: BookingTemplateKind, language: LanguageCode): string {
@@ -58,6 +68,27 @@ export function bookingTemplateBody(kind: BookingTemplateKind, language: Languag
 /** BODY only: no header, footer or buttons (R21: no links). Default or custom text alike. */
 export function bookingTemplateComponents(text: string): TemplateComponent[] {
   return [{ type: 'BODY', text }]
+}
+
+/** BOOK-014 W4: the deposit request's one button path; {{1}} is the /p token. */
+export const DEPOSIT_LINK_BUTTON_PATH = '/p/{{1}}'
+/** Example suffix shown to Meta reviewers; never a real token. */
+export const DEPOSIT_LINK_EXAMPLE_TOKEN = 'sample-payment-link'
+const DEPOSIT_BUTTON_TEXT: Record<LanguageCode, string> = { en: 'Pay deposit', zh_hk: '繳付訂金' }
+
+/**
+ * The R21 exception (owner 2026-11-27): BODY + ONE URL button on our own
+ * domain (`appBaseUrl`, no trailing slash), `<app>/p/{{1}}`.
+ */
+export function depositRequestComponents(text: string, language: LanguageCode, appBaseUrl: string): TemplateComponent[] {
+  const base = appBaseUrl.trim().replace(/\/+$/, '')
+  return [
+    { type: 'BODY', text },
+    {
+      type: 'BUTTONS',
+      buttons: [{ type: 'URL', text: DEPOSIT_BUTTON_TEXT[language], url: `${base}${DEPOSIT_LINK_BUTTON_PATH}`, example: `${base}/p/${DEPOSIT_LINK_EXAMPLE_TOKEN}` }],
+    },
+  ]
 }
 
 const META_LANGUAGE: Record<LanguageCode, string> = { en: 'en', zh_hk: 'zh_HK' }
