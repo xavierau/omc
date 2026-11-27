@@ -3,7 +3,8 @@
  * restaurant ({ memberId: uuid }), or unlinks it ({ memberId: null }). Tenant
  * from the session, roles admin and staff (as the no-show route). 404 for a
  * missing, malformed or other-tenant booking or member; 409 when another tap
- * changed the link first; 400 for a body without a string or null memberId.
+ * changed the link first; 400 for a body without a string or null memberId,
+ * and 400 phone_required for a link on a booking without a phone (BOOK-013 AC-26).
  * The link is for staff only: nothing is sent to the diner.
  */
 import { NextResponse } from 'next/server'
@@ -29,6 +30,7 @@ async function readMemberId(request: Request): Promise<string | null | undefined
 function respond(result: RelinkBookingMemberResult): NextResponse {
   if (result.ok) return NextResponse.json({ booking: result.booking })
   if (result.reason === 'conflict') return NextResponse.json({ error: 'changed' }, { status: 409 })
+  if (result.reason === 'phone_required') return NextResponse.json({ error: 'phone_required' }, { status: 400 })
   return NextResponse.json({ error: 'not_found' }, { status: 404 })
 }
 
