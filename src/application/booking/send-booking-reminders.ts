@@ -7,7 +7,7 @@
  * per booking). The sender never throws and logs a masked phone only.
  */
 import { isReminderDue } from '@/domain/services/booking-reminder'
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import { hasPhone, type BookingWithPhone } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingReminderStore, BookingSettingsReader } from '@/domain/ports/booking'
 
 /** Per run; a 5-minute cadence never has more due than this. */
@@ -35,7 +35,7 @@ function restaurantName(deps: SendBookingRemindersDeps, names: RestaurantNames, 
   return names.get(id) as Promise<string>
 }
 
-async function remind(deps: SendBookingRemindersDeps, names: RestaurantNames, b: BookingRequest) {
+async function remind(deps: SendBookingRemindersDeps, names: RestaurantNames, b: BookingWithPhone) {
   if (!(await deps.store.claimReminder(b.id, deps.now()))) return 'claim_lost' as const
   const result = await deps.sender.send({
     restaurantId: b.restaurantId,
@@ -57,7 +57,8 @@ export async function sendBookingReminders(deps: SendBookingRemindersDeps): Prom
   const now = deps.now()
   const candidates = await deps.store.listReminderCandidates(now, REMINDER_BATCH_LIMIT)
   // The store already applies the window (F7); re-checked here as a guard.
-  const due = candidates.filter((b) => isReminderDue(b, now))
+  // BOOK-013 decision 9 (R19): a booking without a phone is never selected (the DB keeps its Notify off too).
+  const due = candidates.filter(hasPhone).filter((b) => isReminderDue(b, now))
   const names: RestaurantNames = new Map()
   const result: ReminderRunResult = { candidates: candidates.length, due: due.length, sent: 0, notDelivered: 0, claimLost: 0 }
   for (const booking of due) {

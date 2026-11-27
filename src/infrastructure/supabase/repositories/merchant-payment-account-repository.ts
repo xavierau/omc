@@ -1,6 +1,6 @@
 /**
  * BOOK-014: a restaurant's payment provider account (`merchant_payment_accounts`,
- * migration 096). W1 reads it (deposits start only on a chargeable account,
+ * migration 097). W1 reads it (deposits start only on a chargeable account,
  * spec AC-4); W2's onboarding routes write it. Scoped by restaurant in the
  * query (R58).
  */

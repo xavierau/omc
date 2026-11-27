@@ -6,7 +6,7 @@
  * message just opened, with up to 3 times that fit and their booking link.
  * Best effort: a failure is logged by error name and never undoes the decline.
  */
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import type { BookingWithPhone } from '@/domain/entities/booking-request'
 import type { BookingRoomReader } from '@/domain/ports/booking'
 import { fullReplyText } from '@/domain/services/booking-full-reply'
 import { roomCheckFor, roomApplies, type RoomCheck } from '@/domain/services/booking-room'
@@ -29,7 +29,7 @@ export function promoteRoom(room: AgentBookingRoomDeps | undefined, config: Book
 
 export async function tellFull(
   deps: { room?: AgentBookingRoomDeps; sendText(restaurantId: string, phone: string, text: string): Promise<void>; now(): Date },
-  booking: BookingRequest,
+  booking: BookingWithPhone,
   config: BookingConfig
 ): Promise<void> {
   const hours = config.bookingHours

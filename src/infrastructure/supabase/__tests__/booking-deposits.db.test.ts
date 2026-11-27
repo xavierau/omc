@@ -1,11 +1,11 @@
 /**
- * DB INTEGRATION TESTS for migration 096 (BOOK-014 W1; threat R55, R56, R57,
+ * DB INTEGRATION TESTS for migration 097 (BOOK-014 W1; threat R55, R56, R57,
  * R58, R60). Fakes cannot show a race or a CHECK (memory: fakes hid schema
  * mismatch), so the seat hold, the per-phone cap, the lapse/paid CAS and the
  * refund/keep CAS run against a real Postgres here.
  *
  * Gated behind `RUN_DB_TESTS=1`, through `psql`, on the scratch database of
- * scripts/book-014/scratch-db.sh (every migration 001..096), never DEV or prod:
+ * scripts/book-014/scratch-db.sh (every migration 001..097), never DEV or prod:
  *
  *   scripts/book-014/scratch-db.sh up
  *   RUN_DB_TESTS=1 PGPORT=55496 npx vitest run src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts
@@ -61,10 +61,13 @@ afterEach(() => {
   for (const id of created.splice(0)) psql(`DELETE FROM restaurants WHERE id = '${id}'`)
 })
 
-const row = (rid: string, name: string, opts: { phone?: string; party?: number; source?: string } = {}) =>
+type RowOpts = { phone?: string | null; party?: number; source?: string; createdBy?: string }
+
+const row = (rid: string, name: string, opts: RowOpts = {}) =>
   JSON.stringify({
-    restaurant_id: rid, member_id: null, phone: opts.phone ?? '+85291234567', name, party_size: opts.party ?? 4,
+    restaurant_id: rid, member_id: null, phone: opts.phone === undefined ? '+85291234567' : opts.phone, name, party_size: opts.party ?? 4,
     booking_date: DAY, booking_time: '19:00', notes: null, source: opts.source ?? 'chat', campaign_id: null, token: null,
+    ...(opts.createdBy ? { created_by: opts.createdBy } : {}),
   })
 
 const tokenHash = () => createHash('sha256').update(randomUUID()).digest('hex')
@@ -77,7 +80,7 @@ const deposit = (rid: string, over: Record<string, unknown> = {}) =>
   })
 
 /** insert_booking_request_if_room as the deposit channels call it: 10 seats per slot. */
-function insertAwaiting(rid: string, name: string, opts: { phone?: string; party?: number; hold?: string; maxPending?: number | null } = {}) {
+function insertAwaiting(rid: string, name: string, opts: RowOpts & { hold?: string; maxPending?: number | null } = {}) {
   const dep = deposit(rid, opts.hold ? { hold_expires_at: opts.hold } : {})
   const max = opts.maxPending === undefined ? 3 : opts.maxPending ?? 'NULL'
   const out = JSON.parse(
@@ -114,7 +117,7 @@ const paid = (depositId: string, ref = 'pay_1') =>
   }
 const guests = (rid: string) => JSON.parse(psql(`SELECT public.booking_guest_counts('${rid}', '${DAY}', '${DAY}')`))
 
-d('BOOK-014 migration 096 on real Postgres', () => {
+d('BOOK-014 migration 097 on real Postgres', () => {
   it('R55: an awaiting_deposit booking holds its seats (the last seats are refused) and its deposit row comes with it', () => {
     const rid = restaurant()
     const held = insertAwaiting(rid, 'hold-A', { party: 8 })
@@ -255,6 +258,29 @@ d('BOOK-014 migration 096 on real Postgres', () => {
     expect(psql(`SELECT decided_by || ',' || (decided_at IS NOT NULL) FROM booking_requests WHERE id = '${held.row!.id}'`)).toBe(`${staff},true`)
   })
 
+  it('review finding 6: a staff deposit booking records created_by through insert_booking_request_if_room, and payment decides by it', () => {
+    const rid = restaurant()
+    const staff = randomUUID()
+    const held = insertAwaiting(rid, 'staff-made', { source: 'staff', createdBy: staff })
+    expect(held.ok).toBe(true)
+    expect(psql(`SELECT created_by FROM booking_requests WHERE id = '${held.row!.id}'`)).toBe(staff)
+    expect(paid(held.deposit!.id).booking?.status).toBe('confirmed')
+    expect(psql(`SELECT decided_by FROM booking_requests WHERE id = '${held.row!.id}'`)).toBe(staff)
+  })
+
+  it('096 + 097: a staff deposit booking with no phone is never capped and never messaged; a diner row still needs a phone', () => {
+    const rid = restaurant()
+    const staff = randomUUID()
+    for (const n of [1, 2, 3, 4]) {
+      const held = insertAwaiting(rid, `walk-in-${n}`, { phone: null, source: 'staff', createdBy: staff, party: 1, maxPending: 3 })
+      expect(held.ok, `walk-in ${n}`).toBe(true)
+      expect(psql(`SELECT coalesce(phone, '-') || ',' || notify_diner FROM booking_requests WHERE id = '${held.row!.id}'`)).toBe('-,false')
+    }
+    expect(error(asService(
+      `SELECT public.insert_booking_request_if_room('${row(rid, 'diner-no-phone', { phone: null })}'::jsonb, '晚市', '18:00', '21:30', 10, NULL, 'awaiting_deposit', '${deposit(rid)}'::jsonb, 3)`
+    ))).toContain('booking_requests_phone_staff_only')
+  })
+
   it('R54: abandon lapses the booking and its hold at once (seats freed), event session_failed', () => {
     const rid = restaurant()
     const held = insertAwaiting(rid, 'abandon', { party: 6 })
@@ -338,7 +364,7 @@ d('BOOK-014 migration 096 on real Postgres', () => {
       expect(begin(held.deposit!.id, rid, 'paid', "ARRAY['cancelled']", actor)).toBe('1')
       expect(finish(held.deposit!.id, 1, 'refund_failed', 're_1')).toBe('1')
       expect(begin(held.deposit!.id, rid, 'refund_failed')).toBe('2')
-      psql(`UPDATE booking_deposits SET refund_ref = 're_2' WHERE id = '${held.deposit!.id}'`)
+      psql(asService(`SELECT public.record_booking_deposit_refund_ref('${held.deposit!.id}', 2, 're_2')`))
       expect(finish(held.deposit!.id, null, 'refund_failed', 're_1')).toBe('0')
       expect(finish(held.deposit!.id, 1, 'refunded', null)).toBe('0')
       expect(finish(held.deposit!.id, null, 'refunded', 're_2')).toBe('1')
@@ -348,6 +374,88 @@ d('BOOK-014 migration 096 on real Postgres', () => {
         'created:system,paid:provider,refund_requested:user,refund_failed:provider,refund_requested:user,refund_succeeded:provider'
       )
       expect(psql(`SELECT count(*) FROM deposit_events WHERE deposit_id = '${held.deposit!.id}' AND event_type = 'refund_requested' AND actor_user_id = '${actor}'`)).toBe('1')
+    })
+
+    const record = (dep: string, attempt: number, ref: string) =>
+      psql(asService(`SELECT public.record_booking_deposit_refund_ref('${dep}', ${attempt}, '${ref}')`))
+    const attempts = (dep: string) =>
+      psql(`SELECT coalesce(string_agg(attempt || '=' || coalesce(refund_ref, '-'), ',' ORDER BY attempt), '') FROM booking_deposit_refund_attempts WHERE deposit_id = '${dep}'`)
+    const state = (dep: string) => psql(`SELECT status || ',' || refund_attempts || ',' || coalesce(refund_ref, '-') FROM booking_deposits WHERE id = '${dep}'`)
+
+    it('finding 2: attempt 1 re_1 failed, Retry -> attempt 2 with no id yet; a delayed failed/canceled for re_1 changes nothing; attempt 2 settles', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'attempt-match')
+      const dep = held.deposit!.id
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      record(dep, 1, 're_1')
+      expect(finish(dep, 1, 'refund_failed', 're_1')).toBe('1')
+      expect(begin(dep, rid, 'refund_failed')).toBe('2')
+      expect(state(dep)).toBe('refund_pending,2,-')
+      expect(attempts(dep)).toBe('1=re_1,2=-')
+
+      expect(finish(dep, null, 'refund_failed', 're_1')).toBe('0')
+      expect(finish(dep, null, 'refunded', 're_unknown')).toBe('0')
+      expect(finish(dep, null, 'refund_failed', null)).toBe('0')
+      expect(state(dep)).toBe('refund_pending,2,-')
+
+      record(dep, 2, 're_2')
+      expect(state(dep)).toBe('refund_pending,2,re_2')
+      expect(finish(dep, null, 'refunded', 're_2')).toBe('1')
+      expect(state(dep)).toBe('refunded,2,re_2')
+      expect(attempts(dep)).toBe('1=re_1,2=re_2')
+    })
+
+    it('finding 2: an older attempt’s id that succeeds -> refunded (from refund_pending), and no Retry can start after it', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'older-success')
+      const dep = held.deposit!.id
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      expect(finish(dep, 1, 'refund_failed', 're_1')).toBe('1')
+      expect(begin(dep, rid, 'refund_failed')).toBe('2')
+      record(dep, 2, 're_2')
+      expect(finish(dep, null, 'refunded', 're_1')).toBe('1')
+      expect(state(dep)).toBe('refunded,2,re_1')
+      expect(finish(dep, 2, 'refunded', 're_2')).toBe('0')
+      expect(finish(dep, null, 'refund_failed', 're_2')).toBe('0')
+      expect(begin(dep, rid, 'refund_failed')).toBe('')
+      expect(depositStatus(dep)).toBe('refunded')
+    })
+
+    it('finding 2: ids are noted once per attempt and once per deposit; an unclaimed attempt is never created; "fully refunded" with no id ends refund_failed', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'note-once')
+      const dep = held.deposit!.id
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      record(dep, 1, 're_1')
+      record(dep, 1, 're_other')
+      record(dep, 3, 're_3')
+      expect(attempts(dep)).toBe('1=re_1')
+      expect(state(dep)).toBe('refund_pending,1,re_1')
+      expect(finish(dep, 1, 'refund_failed', 're_1')).toBe('1')
+      expect(finish(dep, null, 'refunded', null)).toBe('1')
+      expect(depositStatus(dep)).toBe('refunded')
+    })
+
+    it('finding 1: the late-payment refund claims attempt 1; the stalled list returns only refund_pending rows with no id older than the cutoff', () => {
+      const rid = restaurant()
+      const late = insertAwaiting(rid, 'late', { phone: '+85291230011' })
+      expire(late.deposit!.id)
+      lapse(200, late.deposit!.id)
+      expect(paid(late.deposit!.id).outcome).toBe('late')
+      expect(attempts(late.deposit!.id)).toBe('1=-')
+      expect(paid(late.deposit!.id).outcome).toBe('duplicate')
+      expect(state(late.deposit!.id)).toBe('refund_pending,1,-')
+
+      const fresh = paidCancelled(rid, 'fresh')
+      expect(begin(fresh.deposit!.id, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      const withRef = paidCancelled(rid, 'with-ref')
+      expect(begin(withRef.deposit!.id, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      record(withRef.deposit!.id, 1, 're_w')
+      psql(`UPDATE booking_deposits SET updated_at = now() - interval '11 minutes' WHERE id IN ('${late.deposit!.id}', '${withRef.deposit!.id}')`)
+      const stalled = psql(
+        asService(`SELECT coalesce(string_agg(id::text, ','), '') FROM public.stalled_booking_deposit_refunds(50, 600) WHERE restaurant_id = '${rid}'`)
+      )
+      expect(stalled).toBe(late.deposit!.id)
     })
   })
 
@@ -376,7 +484,7 @@ d('BOOK-014 migration 096 on real Postgres', () => {
     expect(error(`DELETE FROM booking_requests WHERE id = '${held.row!.id}'`)).toContain('booking_deposits_booking_id_fkey')
   })
 
-  it('R58: anon and authenticated cannot execute any 096 function and read no deposit rows', () => {
+  it('R58: anon and authenticated cannot execute any 097 function and read no deposit rows', () => {
     const rid = restaurant()
     insertAwaiting(rid, 'grants')
     const id = randomUUID()
@@ -388,11 +496,13 @@ d('BOOK-014 migration 096 on real Postgres', () => {
       `SELECT * FROM public.booking_deposit_attach_session('${id}', 's', 'https://x')`,
       `SELECT * FROM public.begin_booking_deposit_refund('${id}', '${id}', 'paid', 'staff', ARRAY['cancelled'], 'user', '${id}', now())`,
       `SELECT * FROM public.finish_booking_deposit_refund('${id}', 1, 'refunded', NULL, 'provider')`,
+      `SELECT public.record_booking_deposit_refund_ref('${id}', 1, 're_x')`,
+      `SELECT * FROM public.stalled_booking_deposit_refunds(1, 600)`,
       `SELECT * FROM public.keep_booking_deposit('${id}', '${id}', ARRAY['cancelled'], '${id}', now())`,
     ]
     for (const role of ['anon', 'authenticated']) {
       for (const fn of fns) expect(error(`SET ROLE ${role}; ${fn}`), `${role}: ${fn}`).toContain('permission denied for function')
-      for (const table of ['booking_deposits', 'deposit_events', 'merchant_payment_accounts']) {
+      for (const table of ['booking_deposits', 'deposit_events', 'merchant_payment_accounts', 'booking_deposit_refund_attempts']) {
         const out = error(`SET ROLE ${role}; SELECT count(*) FROM ${table}`)
         expect(out === '' ? psql(`SET ROLE ${role}; SELECT count(*) FROM ${table}`) : 'denied').not.toBe('1')
       }

@@ -281,3 +281,35 @@ describe('BOOK-008 messages', () => {
     expect(zhHK.bookings.linkMember).toBe('連結會員')
   })
 })
+
+// BOOK-013 AC-26 (decision 9, owner default 2026-11-27): a booking without a
+// phone offers no Link / Change member; the API refuses it (phone_required).
+// Unlink stays, should a phone-less row still hold a link.
+describe('BOOK-013 member link on a booking without a phone (AC-26)', () => {
+  const noPhone = { ...b('np', null), phone: null, source: 'staff' as const, status: 'confirmed' as const }
+  const noPhoneLinked = { ...b('npl', MEMBER), phone: null, source: 'staff' as const, status: 'confirmed' as const }
+  const withPhone = b('wp', null, 'confirmed')
+  const mixed = [noPhone, withPhone]
+  const mixedViews: Record<string, () => ReactNode> = {
+    'desktop table': () => <BookingsTableDesktop groups={[{ date: '2026-11-25', bookings: mixed }]} today="2026-11-20" {...rowActions} />,
+    'phone cards': () => <BookingsTableCards groups={[{ date: '2026-11-25', bookings: mixed }]} today="2026-11-20" {...rowActions} />,
+    'calendar day panel': () => <CalendarDayPanel date="2026-11-25" bookings={mixed} monthEmpty={false} {...rowActions} />,
+  }
+
+  it.each(Object.keys(mixedViews))('%s: no link action on the phone-less booking; the booking with a phone keeps it', (name) => {
+    const html = withMembers(mixedViews[name]())
+    expect(html).not.toContain('data-testid="booking-row-np-member-link"')
+    expect(html).toContain('data-testid="booking-row-wp-member-link"')
+  })
+
+  it('a phone-less booking that still holds a link: no Change member, Unlink stays and calls the link with null', () => {
+    const html = withMembers(<MemberLinkControl booking={noPhoneLinked} />)
+    expect(html).not.toContain('booking-row-npl-member-link"')
+    expect(html).toContain('data-testid="booking-row-npl-member-unlink"')
+    const value = actions()
+    const el = capture(() => MemberLinkControl({ booking: noPhoneLinked }), value)
+    findBy(el, 'data-testid', 'booking-row-npl-member-unlink')?.props.onClick?.()
+    expect(value.links).toEqual([['npl', null]])
+    expect(withMembers(<MemberLinkControl booking={noPhone} />)).toBe('')
+  })
+})

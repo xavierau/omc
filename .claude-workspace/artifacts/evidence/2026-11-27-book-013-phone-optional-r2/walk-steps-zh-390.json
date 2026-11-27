@@ -1,0 +1,212 @@
+[
+  {
+    "check": "seed: phone-less booking NP and phone booking WP exist, both unlinked",
+    "ok": true,
+    "detail": "10dd048e-7d01-4da1-84fa-e1db94568eac cd581b77-ff52-4626-8aa0-ffc1f7f50351"
+  },
+  {
+    "check": "today (nav): phone-less row shown, no link action",
+    "ok": true
+  },
+  {
+    "check": "today: no row offers the link control (Today has none)",
+    "ok": true
+  },
+  {
+    "step": "01-today",
+    "note": "Today: phone-less Walk-in Ho, no member link control in Today",
+    "file": "01-today-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "calendar day panel (nav): phone-less row has no link action",
+    "ok": true
+  },
+  {
+    "check": "calendar day panel: the booking with a phone still offers Link member",
+    "ok": true
+  },
+  {
+    "step": "02-calendar-day",
+    "note": "Calendar day panel: Walk-in Ho without Link member, Mr Chan with it",
+    "file": "02-calendar-day-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=calendar",
+    "audit": {
+      "blocking": 0,
+      "warning": 19,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: div.flex.min-w-0 \"Au Ka Yan 已確認 +85291234401 連結會員 05:29 已到\" @145,613 152x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Siu Fung 已確認 +85292223333 連結會員 標記未出\" @145,772 152x190 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Lam Tai 未出席 +85295550001 連結會員 復原\" @145,995 204x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Wing Yan 已確認 經 AI 助理 +85298761122 連\" @145,1307 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Mr Chan 已確認 職員建立 · walk-admin +852234567\" @145,1494 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Yeung Family 已確認 +85261116555 連結會員 已到\" @145,1681 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Ka Wai 待確認 +85290012233 連結會員 確認 拒絕\" @145,1868 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"陳生 已確認 +85291234402 連結會員 已到\" @145,2055 152x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "content-spill: span[data-testid=\"booking-row-10dd048e-7d01-4da1-84fa-e1db94568eac-by-staff\"].group/badge. | extends past its parent's right edge by 7px (parent: div.flex.flex-wrap \"Walk-in Ho 已確認 職員建立 · walk-admin\" @145,1154 152",
+      "content-spill: span[data-testid=\"booking-row-cd581b77-ff52-4626-8aa0-ffc1f7f50351-by-staff\"].group/badge. | extends past its parent's right edge by 7px (parent: div.flex.flex-wrap \"Mr Chan 已確認 職員建立 · walk-admin\" @145,1494 152x52",
+      "row-misaligned: header.flex.items-start \"11月27日星期五 9 個訂座 · 31 位客人 · 1 個待回覆 新增\" @65,281 300x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+      "row-misaligned: li[data-testid=\"booking-row-4d5d3cc1-f071-4e07-a6f0-520c21f0a2b9\"].flex.gap-4 \"12:30 4 位 A | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-64f69a87-9100-4cbd-ab8a-1fcb026833c6\"].flex.gap-4 \"13:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 77px / bottom 164px)",
+      "row-misaligned: li[data-testid=\"booking-row-10dd048e-7d01-4da1-84fa-e1db94568eac\"].flex.gap-4 \"18:30 3 位 W | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 42px / bottom 94px)",
+      "row-misaligned: li[data-testid=\"booking-row-a2680494-c6a1-4e39-b49e-9a2927ecc1be\"].flex.gap-4 \"21:30 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-cd581b77-ff52-4626-8aa0-ffc1f7f50351\"].flex.gap-4 \"22:30 6 位 M | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-23bd026b-f4af-4189-ada8-5a1d57279293\"].flex.gap-4 \"23:00 8 位 Y | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-afe10175-957a-44df-a547-3de3f17864bd\"].flex.gap-4 \"23:15 4 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-a5828c02-78ce-40f3-8a00-541386eaf81f\"].flex.gap-4 \"23:30 2 位 陳 | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)"
+    ]
+  },
+  {
+    "step": "02b-calendar-np-focus",
+    "note": "Phone-less row in the day panel, no Link member",
+    "file": "02b-calendar-np-focus-zh-390.jpeg",
+    "focus": "[data-testid=\"booking-row-10dd048e-7d01-4da1-84fa-e1db94568eac\"]"
+  },
+  {
+    "step": "02c-calendar-wp-focus",
+    "note": "Row with a phone in the day panel, Link member offered",
+    "file": "02c-calendar-wp-focus-zh-390.jpeg",
+    "focus": "[data-testid=\"booking-row-cd581b77-ff52-4626-8aa0-ffc1f7f50351\"]"
+  },
+  {
+    "check": "table (nav): phone-less row has no link action",
+    "ok": true
+  },
+  {
+    "check": "table: the booking with a phone still offers Link member",
+    "ok": true
+  },
+  {
+    "step": "03-table",
+    "note": "Table: Walk-in Ho without Link member, Mr Chan with it",
+    "file": "03-table-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 10,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-4d5d3cc1-f071-4e07-a6f0-520c21f0a2b9\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-64f69a87-9100-4cbd-ab8a-1fcb026833c6\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a9913a21-61d4-4c71-a93e-b3b48d1de7d3\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a2680494-c6a1-4e39-b49e-9a2927ecc1be\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cd581b77-ff52-4626-8aa0-ffc1f7f50351\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-23bd026b-f4af-4189-ada8-5a1d57279293\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-afe10175-957a-44df-a547-3de3f17864bd\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a5828c02-78ce-40f3-8a00-541386eaf81f\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-612dec13-bead-4591-9789-3cde952d4b10\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-fa029f74-4edd-49cc-bfab-ff5c04b4fc8e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+    ]
+  },
+  {
+    "step": "03b-table-np-focus",
+    "note": "Phone-less row in the table, no Link member",
+    "file": "03b-table-np-focus-zh-390.jpeg",
+    "focus": "[data-testid=\"booking-row-10dd048e-7d01-4da1-84fa-e1db94568eac\"]"
+  },
+  {
+    "check": "API: link on phone-less booking → 400 phone_required",
+    "ok": true,
+    "detail": "{\"status\":400,\"body\":{\"error\":\"phone_required\"}}"
+  },
+  {
+    "check": "API: member_id still NULL, no member_relinked event",
+    "ok": true
+  },
+  {
+    "check": "UI: booking with a phone links through Link member (unchanged behaviour)",
+    "ok": true
+  },
+  {
+    "step": "04-table-wp-linked",
+    "note": "Mr Chan linked through the UI; Change / Unlink offered",
+    "file": "04-table-wp-linked-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 10,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-4d5d3cc1-f071-4e07-a6f0-520c21f0a2b9\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-64f69a87-9100-4cbd-ab8a-1fcb026833c6\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a9913a21-61d4-4c71-a93e-b3b48d1de7d3\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a2680494-c6a1-4e39-b49e-9a2927ecc1be\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cd581b77-ff52-4626-8aa0-ffc1f7f50351\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-23bd026b-f4af-4189-ada8-5a1d57279293\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-afe10175-957a-44df-a547-3de3f17864bd\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-a5828c02-78ce-40f3-8a00-541386eaf81f\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-612dec13-bead-4591-9789-3cde952d4b10\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-fa029f74-4edd-49cc-bfab-ff5c04b4fc8e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+    ]
+  },
+  {
+    "check": "UI: unlink still works",
+    "ok": true
+  },
+  {
+    "check": "console: 0 errors",
+    "ok": true,
+    "detail": "[]"
+  },
+  {
+    "consoleErrors": []
+  }
+]

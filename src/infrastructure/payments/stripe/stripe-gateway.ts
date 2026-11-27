@@ -63,9 +63,10 @@ async function call<T>(op: string, run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Unix seconds, rounded UP so the session never closes before the hold it serves (review finding 5). */
 export function sessionExpiry(requested: Date, now: Date): number {
   const ms = Math.min(Math.max(requested.getTime(), now.getTime() + SESSION_MIN_MS), now.getTime() + SESSION_MAX_MS)
-  return Math.floor(ms / 1000)
+  return Math.ceil(ms / 1000)
 }
 
 export function createStripeGateway(options: StripeGatewayOptions): PaymentGatewayPort {
@@ -147,12 +148,19 @@ export function createStripeGateway(options: StripeGatewayOptions): PaymentGatew
     },
 
     async refund(request: RefundRequest): Promise<RefundResult> {
-      const refund = await call('refunds.create', () =>
-        stripe.refunds.create(
+      let refund: Stripe.Refund
+      try {
+        refund = await stripe.refunds.create(
           { payment_intent: request.paymentRef, amount: request.amount.amountMinor },
           { stripeAccount: request.accountRef, idempotencyKey: request.idempotencyKey }
         )
-      )
+      } catch (err) {
+        // Review finding 1c: the charge is fully refunded already (e.g. a re-drive after the 24 h key expired).
+        if (err instanceof Stripe.errors.StripeInvalidRequestError && err.code === 'charge_already_refunded') {
+          return { refundRef: null, status: 'already_refunded' }
+        }
+        throw gatewayError('refunds.create', err)
+      }
       const status = refund.status === 'succeeded' ? 'succeeded' : refund.status === 'failed' || refund.status === 'canceled' ? 'failed' : 'pending'
       return { refundRef: refund.id, status }
     },

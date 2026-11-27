@@ -5,7 +5,10 @@
  * Keys: Time (earliest first), Name (A–Z by the active locale's collation, so
  * zh-HK names sort as zh-HK does), Guests (largest first), Status (Late,
  * Waiting, Needs reply, Arrived, No-show). Selecting the active key again
- * reverses it. Ties fall back to time, then name, always ascending.
+ * reverses it. Ties fall back to time, then name, always ascending. A booking
+ * without a name (null or empty; diner channels allow it) sorts after the
+ * named ones wherever the name decides the order: the Name key in either
+ * direction and the name tie-break under every key (review N1).
  */
 import type { HongKongMoment } from '@/domain/ports/booking'
 import { arrivalState, type ArrivalState, type CheckinCandidate } from './booking-checkin'
@@ -40,9 +43,11 @@ interface SortContext {
 
 type Compare<T> = (a: T, b: T) => number
 
-/** A missing name sorts after every named booking, in either direction. */
+const unnamed = (b: TodaySortable): boolean => !b.name?.trim()
+
+/** By the locale's collation; a missing (null or empty) name after every named booking. */
 function nameCompare(collator: Intl.Collator): Compare<TodaySortable> {
-  return (a, b) => collator.compare(a.name ?? '', b.name ?? '')
+  return (a, b) => Number(unnamed(a)) - Number(unnamed(b)) || collator.compare(a.name ?? '', b.name ?? '')
 }
 
 function primary(key: TodaySortKey, ctx: SortContext, byName: Compare<TodaySortable>): Compare<TodaySortable> {
@@ -52,8 +57,9 @@ function primary(key: TodaySortKey, ctx: SortContext, byName: Compare<TodaySorta
   return (a, b) => a.bookingTime.localeCompare(b.bookingTime)
 }
 
+/** Under the Name key the unnamed rows stay last in either direction, so this runs before the sign. */
 const unnamedLast = (key: TodaySortKey, a: TodaySortable, b: TodaySortable): number =>
-  key === 'name' ? Number(a.name === null) - Number(b.name === null) : 0
+  key === 'name' ? Number(unnamed(a)) - Number(unnamed(b)) : 0
 
 /** A new array in `sort` order; the input is never changed. */
 export function sortTodayBookings<T extends TodaySortable>(bookings: readonly T[], sort: TodaySort, ctx: SortContext): T[] {

@@ -43,10 +43,13 @@ export interface RefundRequest {
   idempotencyKey: string
 }
 
-export interface RefundResult {
-  refundRef: string
-  status: 'succeeded' | 'pending' | 'failed'
-}
+export type RefundResult =
+  | { refundRef: string; status: 'succeeded' | 'pending' | 'failed' }
+  /**
+   * The provider says the payment is already fully refunded (review finding 1c): the money is back,
+   * e.g. a re-drive after the original idempotency key expired (Stripe: 24 h). No new refund was made.
+   */
+  | { refundRef: null; status: 'already_refunded' }
 
 export interface ProviderAccountStatus {
   chargesEnabled: boolean

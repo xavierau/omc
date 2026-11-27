@@ -13,7 +13,7 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
 /**
  * AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change.
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
- * BOOK-014 (migration 096): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
+ * BOOK-014 (migration 097): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
  * confirmed when staff made it); `lapsed` = the hold ran out unpaid. Neither is shown to staff in W1.
  */
 export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show' | 'awaiting_deposit' | 'lapsed'
@@ -55,7 +55,8 @@ export interface BookingRequest {
   id: string
   restaurantId: string
   memberId: string | null
-  phone: string
+  /** E.164. BOOK-013 decision 9 (migration 097): null only on a source 'staff' booking, which then never messages the diner. */
+  phone: string | null
   name: string | null
   partySize: number
   bookingDate: string
@@ -105,6 +106,18 @@ export interface BookingRequest {
   checkedInAt?: string | null
 }
 
+/** A booking that can be messaged: it has the diner's phone. */
+export type BookingWithPhone = BookingRequest & { phone: string }
+
+/**
+ * BOOK-013 decision 9 (R19): every diner message (confirmed, changed,
+ * cancelled, decision, reminder, received) goes only to a booking with a
+ * phone; a phone-less staff booking never reaches a sender.
+ */
+export function hasPhone<T extends BookingRequest>(b: T): b is T & { phone: string } {
+  return typeof b.phone === 'string' && b.phone !== ''
+}
+
 /** BOOK-006: the open (pending) change request that would replace a booking. */
 export interface OpenChangeSlot {
   id: string
@@ -115,6 +128,8 @@ export interface OpenChangeSlot {
 
 /** BOOK-003: an agent booking with its phone-proof and status-token columns. */
 export interface AgentBooking extends BookingRequest {
+  /** An agent booking always has the phone it must be confirmed from (R31). */
+  phone: string
   confirmCode: string | null
   verifyExpiresAt: string | null
   verifiedAt: string | null
@@ -158,6 +173,8 @@ export interface NewBookingRequest {
   /** BOOK-009 AC-10: set together, only when terms were required and accepted. */
   termsAcceptedAt?: string
   termsText?: string
+  /** BOOK-014 (review finding 6): the staff user who made a staff deposit booking; decided_by on payment. */
+  createdBy?: string
 }
 
 /** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, from the Hong Kong time now on). */

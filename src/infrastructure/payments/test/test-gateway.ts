@@ -47,14 +47,17 @@ interface TestRefund {
   accountRef: string
   paymentRef: string
   amount: Money
-  status: RefundResult['status']
+  status: TestRefundStatus
 }
+
+type TestRefundStatus = 'succeeded' | 'pending' | 'failed'
 
 /** The test provider's own wire format (deliberately not Stripe's). */
 type WireEvent =
   | { id: string; type: 'session.completed'; livemode: boolean; account: string; session: string; payment: string | null; amount: number; currency: string; paid: boolean }
   | { id: string; type: 'session.expired'; livemode: boolean; account: string; session: string }
-  | { id: string; type: 'refund.settled'; livemode: boolean; account: string; payment: string; refund: string; ok: boolean }
+  /** `refund: null` = the provider says the payment is fully refunded, naming no refund (as Stripe's charge.refunded). */
+  | { id: string; type: 'refund.settled'; livemode: boolean; account: string; payment: string; refund: string | null; ok: boolean }
   | { id: string; type: 'account.updated'; livemode: boolean; account: string; charges: boolean; currency: string | null }
   | { id: string; type: 'account.deauthorized'; livemode: boolean; account: string }
   | { id: string; type: string; livemode: boolean; account: string }
@@ -84,7 +87,7 @@ export class TestPaymentGateway implements PaymentGatewayPort {
     createHostedPayment: 0, refund: 0, expireHostedPayment: 0, createAccount: 0, getAccountStatus: 0,
   }
   /** The next refund settles as this (a real provider can answer pending, then settle by webhook). */
-  refundOutcome: RefundResult['status'] = 'succeeded'
+  refundOutcome: TestRefundStatus = 'succeeded'
 
   private readonly secret: string
   private readonly now: () => Date
@@ -182,7 +185,8 @@ export class TestPaymentGateway implements PaymentGatewayPort {
     const refunded = [...this.refunds.values()]
       .filter((r) => r.paymentRef === request.paymentRef && r.status !== 'failed')
       .reduce((sum, r) => sum + r.amount.amountMinor, 0)
-    if (refunded + request.amount.amountMinor > session.amount.amountMinor) throw new PaymentGatewayError('rejected', 'test already refunded')
+    if (refunded >= session.amount.amountMinor) return { refundRef: null, status: 'already_refunded' }
+    if (refunded + request.amount.amountMinor > session.amount.amountMinor) throw new PaymentGatewayError('rejected', 'test refund over the paid amount')
     const id = this.nextId('rf')
     this.refunds.set(id, { id, accountRef: request.accountRef, paymentRef: request.paymentRef, amount: request.amount, status: this.refundOutcome })
     this.byKey.set(key, id)

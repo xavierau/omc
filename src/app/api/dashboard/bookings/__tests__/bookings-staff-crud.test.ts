@@ -501,3 +501,101 @@ describe('Today and check-in (S7)', () => {
     expect(await (await undo(row.id)).json()).toMatchObject({ error: 'not_arrived' })
   })
 })
+
+/**
+ * Spec decision 9 / S8 (AC-26–AC-29), threat R19–R20: a staff booking may
+ * have no phone. No phone → no message of any kind and no outcome stored; only
+ * a source 'staff' booking may have its phone cleared.
+ */
+describe('S8 — a staff booking without a phone (decision 9)', () => {
+  const noPhone = { ...form, phone: '' }
+
+  it.each([['empty', { phone: '' }], ['absent', { phone: undefined }]])('AC-26 / R19: a %s phone saves confirmed, no member, Notify off whatever the body says; nothing sent or stored', async (_, patch) => {
+    const res = await create({ ...form, ...patch, notify: true })
+    expect(res.status).toBe(201)
+    const { booking, message } = await res.json()
+    expect(booking).toMatchObject({ status: 'confirmed', source: 'staff', phone: null, memberId: null, notifyDiner: false })
+    expect(message).toBe('none')
+    expect(sends).toHaveLength(0)
+    expect(recorded).toEqual([])
+    expect(booking.decisionMessageStatus).toBeNull()
+  })
+
+  it('AC-26: the name stays required', async () => {
+    const res = await create({ ...noPhone, name: '' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid', fields: { name: 'required' } })
+  })
+
+  it('R19: editing a phone-less booking (new time, notify true in the body) sends nothing and keeps Notify off', async () => {
+    const row = seed({ source: 'staff', phone: null, notifyDiner: false })
+    const res = await edit(row.id, editBody(row, { phone: '', time: '20:00', notify: true }))
+    expect(res.status).toBe(200)
+    const { booking, message } = await res.json()
+    expect(message).toBe('none')
+    expect(booking).toMatchObject({ phone: null, bookingTime: '20:00', notifyDiner: false })
+    expect(sends).toHaveLength(0)
+    expect(recorded).toEqual([])
+  })
+
+  it('R19: cancelling a phone-less booking with notify true sends nothing and stores no outcome', async () => {
+    const row = seed({ source: 'staff', phone: null, notifyDiner: false })
+    const { booking, message } = await (await cancel(row.id, { expectedVersion: row.editVersion, notify: true })).json()
+    expect(booking.status).toBe('cancelled')
+    expect(message).toBe('none')
+    expect(sends).toHaveLength(0)
+    expect(recorded).toEqual([])
+  })
+
+  it('AC-28 / R20: clearing the phone of a staff booking removes the member link and turns Notify off; no message', async () => {
+    const row = seed({ source: 'staff', memberId: MEMBER })
+    const res = await edit(row.id, editBody(row, { phone: '', date: '2026-12-05', notify: true }))
+    expect(res.status).toBe(200)
+    const { booking, message } = await res.json()
+    expect(booking).toMatchObject({ phone: null, memberId: null, notifyDiner: false })
+    expect(message).toBe('none')
+    expect(sends).toHaveLength(0)
+    expect(fake.events.at(-1)?.data).toMatchObject({ changed: expect.arrayContaining(['phone', 'notify']) })
+  })
+
+  it.each(['chat', 'campaign', 'agent'] as const)('R20: clearing the phone of a source %s booking → 400 phone_required, row unchanged, nothing written or sent', async (source) => {
+    const row = seed({ source })
+    const before = { ...fake.rows[0] }
+    const res = await edit(row.id, editBody(row, { phone: '' }))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'phone_required', fields: { phone: 'required' } })
+    expect(fake.rows[0]).toEqual(before)
+    expect(fake.writes).toEqual([])
+    expect(sends).toHaveLength(0)
+  })
+
+  it('AC-28: adding a phone links the member; with no date/time/party change no message goes', async () => {
+    const row = seed({ source: 'staff', phone: null, notifyDiner: false })
+    const { booking, message } = await (await edit(row.id, editBody(row, { phone: '9123 4567', notify: true }))).json()
+    expect(booking).toMatchObject({ phone: '+85291234567', memberId: MEMBER, notifyDiner: true })
+    expect(message).toBe('none')
+    expect(sends).toHaveLength(0)
+  })
+
+  it('AC-28: adding a phone with a new party size sends the change under the AC-6 rule', async () => {
+    const row = seed({ source: 'staff', phone: null, notifyDiner: false })
+    const { message } = await (await edit(row.id, editBody(row, { phone: '9123 4567', partySize: 5, notify: true }))).json()
+    expect(message).toBe('delivered')
+    expect(sends.map((s) => [s.kind, s.phone])).toEqual([['changed', '+85291234567']])
+  })
+
+  it('AC-27: Arrived and Undo work on a phone-less booking; Today lists it with no phone', async () => {
+    const row = seed({ source: 'staff', phone: null, notifyDiner: false, bookingDate: '2026-11-26' })
+    expect((await arrivedRoute(new Request(url), ctx(row.id))).status).toBe(200)
+    expect((await undoRoute(new Request(url), ctx(row.id))).status).toBe(200)
+    const today = await (await todayRoute()).json()
+    expect(today.bookings.map((b: { id: string; phone: string | null }) => [b.id, b.phone])).toEqual([[row.id, null]])
+    expect(sends).toHaveLength(0)
+  })
+
+  it('R13: a phone-less create logs nothing about a phone and never throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect((await create(noPhone)).status).toBe(201)
+    expect(JSON.stringify([...warn.mock.calls, ...vi.mocked(console.error).mock.calls])).not.toMatch(/\*\*\*|null/)
+  })
+})

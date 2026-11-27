@@ -26,7 +26,7 @@
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText, termsReplyText } from '@/domain/services/poppy-documents'
-import { MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
+import { hasPhone, MAX_PENDING_PER_PHONE, type BookingRequest, type BookingWithPhone } from '@/domain/entities/booking-request'
 import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
 import { promoteRoom, tellFull, type AgentBookingRoomDeps } from './agent-booking-full-reply'
 import { recheckAgentBookings, type RecheckAgentBookingsDeps } from './recheck-agent-bookings'
@@ -56,7 +56,7 @@ function confirmedText(statement: string, booking: BookingRequest): string {
   return booking.termsText ? `${statement}\n\n${termsReplyText(booking.termsText)}` : statement
 }
 
-async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest): Promise<void> {
+async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingWithPhone): Promise<void> {
   const restaurantName = (await deps.settings.getRestaurant(booking.restaurantId))?.name ?? ''
   await deps.sender.send({
     restaurantId: booking.restaurantId, phone: booking.phone, memberId: booking.memberId, kind: 'received',
@@ -67,7 +67,7 @@ async function acknowledge(deps: VerifyAgentBookingDeps, booking: BookingRequest
 }
 
 /** R1: only now, after promotion, does the booking phone count as the diner's. */
-async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: BookingRequest): Promise<BookingRequest> {
+async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: BookingWithPhone): Promise<BookingWithPhone> {
   if (booking.memberId) return booking
   try {
     const memberId = await deps.members.findMemberId(booking.restaurantId, booking.phone)
@@ -89,6 +89,8 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
     maxPending: MAX_PENDING_PER_PHONE, ...promoteRoom(deps.room, config),
   })
   for (const row of promoted) {
+    // BOOK-013 R19: an agent booking always has its phone (DB check); without one nothing is sent.
+    if (!hasPhone(row)) continue
     if (row.status === 'declined') {
       await tellFull(deps, row, config)
       continue

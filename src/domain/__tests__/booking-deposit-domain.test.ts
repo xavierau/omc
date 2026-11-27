@@ -70,9 +70,9 @@ describe('deposit transitions (R56, R57)', () => {
     expect(canTransition('lapsed', 'paid')).toBe(false)
     expect(DEPOSIT_TRANSITIONS.kept).toEqual([])
   })
-  it('holds: 30 min diner, 24 h staff; refund key per attempt', () => {
+  it('holds: 30 min diner, 24 h minus 2 min staff (inside one Checkout Session, review finding 5); refund key per attempt', () => {
     expect(holdMsFor('diner')).toBe(30 * 60_000)
-    expect(holdMsFor('staff')).toBe(24 * 3_600_000)
+    expect(holdMsFor('staff')).toBe(24 * 3_600_000 - 2 * 60_000)
     expect(refundIdempotencyKey('d1', 2)).toBe('refund:d1:2')
   })
   it('AC-4: only an active, charge-enabled account with an id and a currency takes deposits', () => {

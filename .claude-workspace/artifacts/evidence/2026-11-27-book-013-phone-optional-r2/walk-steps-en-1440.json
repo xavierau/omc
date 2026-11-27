@@ -1,0 +1,188 @@
+[
+  {
+    "check": "seed: phone-less booking NP and phone booking WP exist, both unlinked",
+    "ok": true,
+    "detail": "fcb4efaf-8cdd-4282-b568-d519d9caa6e0 6b9a996e-fe55-4668-9430-d5aac72288e1"
+  },
+  {
+    "check": "today (nav): phone-less row shown, no link action",
+    "ok": true
+  },
+  {
+    "check": "today: no row offers the link control (Today has none)",
+    "ok": true
+  },
+  {
+    "step": "01-today",
+    "note": "Today: phone-less Walk-in Ho, no member link control in Today",
+    "file": "01-today-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "calendar day panel (nav): phone-less row has no link action",
+    "ok": true
+  },
+  {
+    "check": "calendar day panel: the booking with a phone still offers Link member",
+    "ok": true
+  },
+  {
+    "step": "02-calendar-day",
+    "note": "Calendar day panel: Walk-in Ho without Link member, Mr Chan with it",
+    "file": "02-calendar-day-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=calendar",
+    "audit": {
+      "blocking": 0,
+      "warning": 17,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: div.flex.min-w-0 \"Au Ka Yan Confirmed +85291234401 Link me\" @1133,565 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Siu Fung Confirmed +85292223333 Lin\" @1133,724 202x162 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Lam Tai No-show +85295550001 Link member\" @1133,919 254x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Wing Yan Confirmed via AI agent +85\" @1133,1231 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Mr Chan Confirmed By staff · walk-admin \" @1133,1418 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Yeung Family Confirmed +85261116555 Link\" @1133,1605 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Ka Wai Pending +85290012233 Link me\" @1133,1764 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"陳生 Confirmed +85291234402 Link member Ar\" @1133,1923 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "row-misaligned: header.flex.items-start \"Friday, November 27 9 bookings · 31 gues\" @1049,233 358x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+      "row-misaligned: li[data-testid=\"booking-row-a14f4d9a-e8e3-43aa-aebe-ea701471d0f3\"].flex.gap-4 \"12:30 4 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-003c9dee-0a80-4191-ba1c-6d09383e1493\"].flex.gap-4 \"13:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 63px / bottom 136px)",
+      "row-misaligned: li[data-testid=\"booking-row-fcb4efaf-8cdd-4282-b568-d519d9caa6e0\"].flex.gap-4 \"18:30 3 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 42px / bottom 94px)",
+      "row-misaligned: li[data-testid=\"booking-row-ee21ce4f-aec0-4dfb-bdc6-e5ba5edbd7d8\"].flex.gap-4 \"21:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-6b9a996e-fe55-4668-9430-d5aac72288e1\"].flex.gap-4 \"22:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-a6fc4612-f631-44c3-bcdb-dc4109e7578c\"].flex.gap-4 \"23:00 8 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-3223530f-1ed4-431b-a39e-8bd1a92fdc76\"].flex.gap-4 \"23:15 4 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-219f468f-01f0-460c-9e06-3be01b2cf74a\"].flex.gap-4 \"23:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)"
+    ]
+  },
+  {
+    "step": "02b-calendar-np-focus",
+    "note": "Phone-less row in the day panel, no Link member",
+    "file": "02b-calendar-np-focus-en-1440.jpeg",
+    "focus": "[data-testid=\"booking-row-fcb4efaf-8cdd-4282-b568-d519d9caa6e0\"]"
+  },
+  {
+    "step": "02c-calendar-wp-focus",
+    "note": "Row with a phone in the day panel, Link member offered",
+    "file": "02c-calendar-wp-focus-en-1440.jpeg",
+    "focus": "[data-testid=\"booking-row-6b9a996e-fe55-4668-9430-d5aac72288e1\"]"
+  },
+  {
+    "check": "table (nav): phone-less row has no link action",
+    "ok": true
+  },
+  {
+    "check": "table: the booking with a phone still offers Link member",
+    "ok": true
+  },
+  {
+    "step": "03-table",
+    "note": "Table: Walk-in Ho without Link member, Mr Chan with it",
+    "file": "03-table-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "03b-table-np-focus",
+    "note": "Phone-less row in the table, no Link member",
+    "file": "03b-table-np-focus-en-1440.jpeg",
+    "focus": "[data-testid=\"booking-row-fcb4efaf-8cdd-4282-b568-d519d9caa6e0\"]"
+  },
+  {
+    "check": "API: link on phone-less booking → 400 phone_required",
+    "ok": true,
+    "detail": "{\"status\":400,\"body\":{\"error\":\"phone_required\"}}"
+  },
+  {
+    "check": "API: member_id still NULL, no member_relinked event",
+    "ok": true
+  },
+  {
+    "check": "UI: booking with a phone links through Link member (unchanged behaviour)",
+    "ok": true
+  },
+  {
+    "step": "04-table-wp-linked",
+    "note": "Mr Chan linked through the UI; Change / Unlink offered",
+    "file": "04-table-wp-linked-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "UI: unlink still works",
+    "ok": true
+  },
+  {
+    "check": "console: 0 errors",
+    "ok": true,
+    "detail": "[]"
+  },
+  {
+    "consoleErrors": []
+  }
+]

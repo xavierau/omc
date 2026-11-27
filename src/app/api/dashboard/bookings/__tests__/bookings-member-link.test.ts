@@ -289,3 +289,44 @@ describe('PATCH member: roles and auth', () => {
     expect(await res.json()).toEqual({ error: 'Failed to update booking' })
   })
 })
+
+// BOOK-013 AC-26 (decision 9, owner default 2026-11-27): a booking without a
+// phone cannot be linked by hand; the next phone-less save would drop the link.
+// Adding a phone (AC-28) is the way to link. Unlinking stays allowed.
+describe('PATCH member: a booking without a phone (BOOK-013 AC-26)', () => {
+  it('link on a phone-less booking → 400 phone_required, member_id unchanged, no events row', async () => {
+    const id = seed({ phone: null, source: 'staff', status: 'confirmed' })
+    const res = await patch(id, { memberId: m1 })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'phone_required' })
+    expect(rowOf(id).memberId).toBeNull()
+    expect(world.links.events).toEqual([])
+  })
+
+  it('relink on a phone-less booking that still holds a member → 400 phone_required, link unchanged', async () => {
+    const id = seed({ phone: null, source: 'staff', status: 'confirmed', memberId: m1 })
+    const res = await patch(id, { memberId: m2 })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'phone_required' })
+    expect(rowOf(id).memberId).toBe(m1)
+    expect(world.links.events).toEqual([])
+  })
+
+  it('unlink on a phone-less booking is still allowed → 200, one events row to null', async () => {
+    const id = seed({ phone: null, source: 'staff', status: 'confirmed', memberId: m1 })
+    expect((await patch(id, { memberId: null })).status).toBe(200)
+    expect(rowOf(id).memberId).toBeNull()
+    expect(world.links.events.map((e) => e.data)).toEqual([{ bookingId: id, fromMemberId: m1, toMemberId: null }])
+  })
+
+  it('a staff booking with a phone still links as before → 200', async () => {
+    const id = seed({ source: 'staff', status: 'confirmed' })
+    expect((await patch(id, { memberId: m1 })).status).toBe(200)
+    expect(rowOf(id).memberId).toBe(m1)
+  })
+
+  it("another tenant's phone-less booking is still 404, not phone_required", async () => {
+    const id = seed({ phone: null, source: 'staff', status: 'confirmed', restaurantId: B })
+    expect((await patch(id, { memberId: m1 })).status).toBe(404)
+  })
+})

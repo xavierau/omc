@@ -1,0 +1,93 @@
+NOTICE:  database "scratch_096" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/024_require_webhook_secret.sql:2: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/025_commission_dual_revenue.sql:12: NOTICE:  constraint "referrers_commission_per_redemption_hkd_check" of relation "referrers" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/047_consent_records_v2.sql:45: NOTICE:  trigger "trg_consent_records_default_expires_at" for relation "consent_records" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/050_stamp_collection.sql:14: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/078_tenant_campaign_settings_seed_on_create.sql:64: NOTICE:  trigger "trg_restaurant_seed_campaign_settings" for relation "restaurants" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/087_booking_no_show.sql:34: NOTICE:  constraint "booking_requests_no_show_marker" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/088_booking_member_backfill.sql:157: NOTICE:  trigger "trg_members_link_bookings" for relation "members" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/091_booking_terms_acceptance.sql:14: NOTICE:  constraint "booking_requests_terms_acceptance" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:62: NOTICE:  trigger "booking_requests_edit_version" for relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:73: NOTICE:  constraint "booking_requests_checked_in_not_no_show" of relation "booking_requests" does not exist, skipping
+applied 001..095
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/096_booking_staff_phone_optional.sql:18: NOTICE:  constraint "booking_requests_phone_staff_only" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/096_booking_staff_phone_optional.sql:25: NOTICE:  constraint "booking_requests_no_phone_no_notify" of relation "booking_requests" does not exist, skipping
+== migration applied ==
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ n  | result |                                          label                                          |                                                 detail                                                  
+----+--------+-----------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------
+  1 | PASS   | booking_requests.phone is nullable                                                      | 
+  2 | PASS   | CHECK phone IS NOT NULL OR source = staff exists                                        | booking_requests_no_phone_no_notify,booking_requests_phone_staff_only
+  3 | PASS   | CHECK phone IS NOT NULL OR notify_diner = false exists                                  | 
+  4 | PASS   | existing rows unchanged (every column)                                                  | 
+  5 | PASS   | staff create with no phone: saved confirmed staff, no member, notify forced false       | phone= notify=f
+  6 | PASS   | staff create with no phone wrote its staff_created event                                | 
+  7 | PASS   | staff create with a phone keeps Notify on                                               | 
+  8 | PASS   | phone-less chat row refused                                                             | new row for relation "booking_requests" violates check constraint "booking_requests_phone_staff_only"
+  9 | PASS   | phone-less campaign row refused                                                         | new row for relation "booking_requests" violates check constraint "booking_requests_phone_staff_only"
+ 10 | PASS   | phone-less agent row refused                                                            | new row for relation "booking_requests" violates check constraint "booking_requests_phone_staff_only"
+ 11 | PASS   | phone-less staff row with notify_diner true refused                                     | new row for relation "booking_requests" violates check constraint "booking_requests_no_phone_no_notify"
+ 12 | PASS   | a raw UPDATE clearing a chat row's phone is refused                                     | new row for relation "booking_requests" violates check constraint "booking_requests_no_phone_no_notify"
+ 13 | PASS   | clear phone on a staff row: phone null, member null, notify forced false, version moved | phone= notify=f v=1
+ 14 | PASS   | clear phone on a non-staff row (00000000-0000-4000-8000-0000000000c1): no row changed   | 0 rows
+ 15 | PASS   | clear phone on a non-staff row (00000000-0000-4000-8000-0000000000a1): no row changed   | 0 rows
+ 16 | PASS   | non-staff rows still as before (phone, name, version)                                   | 
+ 17 | PASS   | the refused clears wrote no staff_edited event                                          | 
+ 18 | PASS   | add a phone back: phone, member and Notify on stored                                    | 
+ 19 | PASS   | reminder candidates: the phone-less booking is never selected                           | 
+ 20 | PASS   | staff create/update: one each, 095 signatures                                           | 
+ 21 | PASS   | staff create/update not executable by anon or authenticated; executable by service_role | 
+ 22 | PASS   | search_path still pinned on both                                                        | 
+(22 rows)
+
+ passed | failed 
+--------+--------
+     22 |      0
+(1 row)
+
+dropped scratch_096

@@ -1,0 +1,329 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+ ❯ src/app/api/cron/booking-reminders/__tests__/route.test.ts (11 tests | 3 failed) 21ms
+     × GET with the bearer runs one pass and returns its counts 7ms
+     × POST with the bearer runs one pass and returns its counts 2ms
+     × BOOK-014 review finding 1b: the stalled-refund sweep runs when every other step throws; its own failure is a 500 naming it, without internals 1ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts (8 tests | 7 failed) 38ms
+     × refund call throws AND finishRefund throws -> 500; the redelivery is a duplicate payment yet the refund runs once more with the same key 18ms
+     × re-drives a refund_pending row with no refund id older than 10 minutes (same key); skips a fresh one and one with a refund id 5ms
+     × a re-drive whose provider call fails ends refund_failed (staff see Retry) and is not swept again 2ms
+     × -> refunded, not refund_failed (the original idempotency key has expired) 3ms
+     × attempt 1 re_1 failed, Retry -> attempt 2 in flight; a delayed failed/canceled webhook for re_1 changes nothing; attempt 2 succeeding -> refunded 3ms
+     × an older attempt’s refund id that succeeds -> refunded (provider truth on money), and no further attempt runs 3ms
+     × a refund id we never recorded settles nothing; "the payment is fully refunded" (no refund id) is provider truth 2ms
+ ❯ src/app/api/webhooks/payments/stripe/__tests__/route.test.ts (8 tests | 2 failed) 32ms
+     × valid signature -> 200, claimed as stripe:<event id> after verification, then matched by our session id 8ms
+     × a chunked body with no Content-Length over 256 KB -> 413, and reading stops at the cap (never fully buffered) 2ms
+ ❯ src/application/payments/__tests__/payment-threats.test.ts (33 tests | 1 failed) 73ms
+     × session id unknown -> no change, ignored and logged at info as an unrelated session (not a security event; review finding 7) 8ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/infrastructure/payments/stripe/__tests__/stripe-gateway.test.ts (16 tests | 2 failed) 538ms
+     × review finding 5: a staff hold never outlives its Checkout Session (hold <= Stripe maximum, rounded up to the second) 1ms
+     × review finding 1c: charge_already_refunded -> already_refunded (money is back), not an error; other refusals stay errors 2ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/payments/__tests__/payment-threats.test.ts > R49: a payment is matched only by OUR stored session id, and only when account, amount, currency and paid all match > session id unknown -> no change, ignored and logged at info as an unrelated session (not a security event; review finding 7)
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     "rejected",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/payment-threats.test.ts:78:44
+     76|       payment: 'pay_x', amount: 40000, currency: 'HKD', paid: true,
+     77|     })
+     78|     expect((await w.deliver(forged)).body).toEqual({ received: true, o…
+       |                                            ^
+     79|     expect(w.ledger.booking(s.booking.id)?.status).toBe('awaiting_depo…
+     80|     expect(w.lines).toContainEqual({ level: 'info', event: 'payment.un…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 1a: a redelivered late payment re-drives a refund that was never issued > refund call throws AND finishRefund throws -> 500; the redelivery is a duplicate payment yet the refund runs once more with the same key
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "late_refunded",
++     "duplicate",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:71:46
+     69|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refund_pendi…
+     70|
+     71|     expect((await w.deliver(delivery)).body).toEqual({ received: true,…
+       |                                              ^
+     72|     expect(keys).toEqual([`refund:${s.deposit.id}:1`, `refund:${s.depo…
+     73|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refunded', r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 1b: the cron sweep re-drives stalled refunds > re-drives a refund_pending row with no refund id older than 10 minutes (same key); skips a fresh one and one with a refund id
+AssertionError: expected { refundsRedriven: +0 } to deeply equal { refundsRedriven: 1 }
+
+- Expected
++ Received
+
+  {
+-   "refundsRedriven": 1,
++   "refundsRedriven": 0,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:105:56
+    103|     const keys = refundKeys(w)
+    104|
+    105|     expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refun…
+       |                                                        ^
+    106|     expect(keys).toEqual([`refund:${stale.deposit.id}:1`])
+    107|     expect(row(w, stale.deposit.id)).toMatchObject({ status: 'refunded…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 1b: the cron sweep re-drives stalled refunds > a re-drive whose provider call fails ends refund_failed (staff see Retry) and is not swept again
+AssertionError: expected { refundsRedriven: +0 } to deeply equal { refundsRedriven: 1 }
+
+- Expected
++ Received
+
+  {
+-   "refundsRedriven": 1,
++   "refundsRedriven": 0,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:118:56
+    116|     w.advance(STALLED_REFUND_AFTER_MS + 60_000)
+    117|     w.gateway.failNext('refund', 'unavailable')
+    118|     expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refun…
+       |                                                        ^
+    119|     expect(row(w, stale.deposit.id).status).toBe('refund_failed')
+    120|     expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refun…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 1c: the provider says the payment is already fully refunded > -> refunded, not refund_failed (the original idempotency key has expired)
+AssertionError: expected { ok: true, deposit: { …(19) } } to match object { ok: true, …(1) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "deposit": {
+-     "status": "refunded",
++     "status": "refund_failed",
+    },
+    "ok": true,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:130:141
+    128|     const paymentRef = row(w, s.deposit.id).providerPaymentRef!
+    129|     await w.gateway.refund({ accountRef: s.deposit.providerAccountId, …
+    130|     expect(await refundDeposit(w.decisionDeps, { restaurantId: RESTAUR…
+       |                                                                                                                                             ^
+    131|       ok: true, deposit: { status: 'refunded' },
+    132|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 2: refund webhooks settle through the attempt that created the refund id > attempt 1 re_1 failed, Retry -> attempt 2 in flight; a delayed failed/canceled webhook for re_1 changes nothing; attempt 2 succeeding -> refunded
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "duplicate",
++     "refund_settled",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:156:72
+    154|     expect(begun).toMatchObject({ status: 'refund_pending', refundAtte…
+    155|
+    156|     expect((await w.deliver(w.gateway.settleRefund(re1, false))).body)…
+       |                                                                        ^
+    157|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refund_pendi…
+    158|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 2: refund webhooks settle through the attempt that created the refund id > an older attempt’s refund id that succeeds -> refunded (provider truth on money), and no further attempt runs
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "refund_settled",
++     "duplicate",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:172:71
+    170|     expect(row(w, s.deposit.id).refundRef).not.toBe(re1)
+    171|
+    172|     expect((await w.deliver(w.gateway.settleRefund(re1, true))).body).…
+       |                                                                       ^
+    173|     expect(row(w, s.deposit.id).status).toBe('refunded')
+    174|     const calls = w.gateway.calls.refund
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/15]⎯
+
+ FAIL  src/application/payments/__tests__/refund-redrive.test.ts > finding 2: refund webhooks settle through the attempt that created the refund id > a refund id we never recorded settles nothing; "the payment is fully refunded" (no refund id) is provider truth
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "duplicate",
++     "refund_settled",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/refund-redrive.test.ts:192:76
+    190|         payment: row(w, s.deposit.id).providerPaymentRef!, refund, ok:…
+    191|       })
+    192|     expect((await w.deliver(event('evt_unknown_ref', 'rf_unknown'))).b…
+       |                                                                            ^
+    193|     expect(row(w, s.deposit.id).status).toBe('refund_failed')
+    194|     expect((await w.deliver(event('evt_charge_refunded', null))).body)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/15]⎯
+
+ FAIL  src/infrastructure/payments/stripe/__tests__/stripe-gateway.test.ts > createHostedPayment: Checkout Session on the connected account (direct charge) > review finding 5: a staff hold never outlives its Checkout Session (hold <= Stripe maximum, rounded up to the second)
+AssertionError: expected 86400000 to be less than or equal to 86280000
+ ❯ src/infrastructure/payments/stripe/__tests__/stripe-gateway.test.ts:99:27
+     97|
+     98|   it('review finding 5: a staff hold never outlives its Checkout Sessi…
+     99|     expect(STAFF_HOLD_MS).toBeLessThanOrEqual(24 * 3_600_000 - 2 * 60_…
+       |                           ^
+    100|     const t0 = Date.parse('2026-12-01T10:00:00.789Z')
+    101|     const hold = new Date(t0 + STAFF_HOLD_MS)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/15]⎯
+
+ FAIL  src/infrastructure/payments/stripe/__tests__/stripe-gateway.test.ts > expire, refund, accounts > review finding 1c: charge_already_refunded -> already_refunded (money is back), not an error; other refusals stay errors
+PaymentGatewayError: stripe refunds.create StripeInvalidRequestError charge_already_refunded
+ ❯ gatewayError src/infrastructure/payments/stripe/stripe-gateway.ts:55:10
+     53|   const type = err instanceof Stripe.errors.StripeError ? err.type : (…
+     54|   const code = err instanceof Stripe.errors.StripeError ? (err.code ??…
+     55|   return new PaymentGatewayError(codeFor(err), `stripe ${op} ${type}${…
+       |          ^
+     56| }
+     57|
+ ❯ call src/infrastructure/payments/stripe/stripe-gateway.ts:62:11
+ ❯ Object.refund src/infrastructure/payments/stripe/stripe-gateway.ts:150:22
+ ❯ src/infrastructure/payments/stripe/__tests__/stripe-gateway.test.ts:149:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/15]⎯
+
+ FAIL  src/app/api/cron/booking-reminders/__tests__/route.test.ts > /api/cron/booking-reminders > GET with the bearer runs one pass and returns its counts
+ FAIL  src/app/api/cron/booking-reminders/__tests__/route.test.ts > /api/cron/booking-reminders > POST with the bearer runs one pass and returns its counts
+AssertionError: expected { Object (candidates, due, ...) } to deeply equal { Object (candidates, due, ...) }
+
+- Expected
++ Received
+
+@@ -2,10 +2,9 @@
+    "candidates": 1,
+    "claimLost": 0,
+    "depositsLapsed": 3,
+    "due": 1,
+    "notDelivered": 0,
+-   "refundsRedriven": 1,
+    "sent": 1,
+    "sessionsClosed": 2,
+    "unverifiedDeleted": 2,
+  }
+
+ ❯ src/app/api/cron/booking-reminders/__tests__/route.test.ts:62:30
+     60|     const res = await handler(req(`Bearer ${SECRET}`))
+     61|     expect(res.status).toBe(200)
+     62|     expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1,…
+       |                              ^
+     63|     expect(sendBookingReminders).toHaveBeenCalledWith({ marker: 'deps'…
+     64|     expect(purgeUnverifiedBookings).toHaveBeenCalledTimes(1)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/15]⎯
+
+ FAIL  src/app/api/cron/booking-reminders/__tests__/route.test.ts > /api/cron/booking-reminders > BOOK-014 review finding 1b: the stalled-refund sweep runs when every other step throws; its own failure is a 500 naming it, without internals
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/app/api/cron/booking-reminders/__tests__/route.test.ts:76:35
+     74|     vi.mocked(expireDeposits).mockRejectedValue(new Error('z'))
+     75|     const ran = await GET(req(`Bearer ${SECRET}`))
+     76|     expect(redriveStalledRefunds).toHaveBeenCalledTimes(1)
+       |                                   ^
+     77|     expect(await ran.json()).toMatchObject({ refundsRedriven: 1 })
+     78|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/15]⎯
+
+ FAIL  src/app/api/webhooks/payments/stripe/__tests__/route.test.ts > R47: fails closed > valid signature -> 200, claimed as stripe:<event id> after verification, then matched by our session id
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     "rejected",
+    ],
+    "received": true,
+  }
+
+ ❯ src/app/api/webhooks/payments/stripe/__tests__/route.test.ts:83:30
+     81|     expect(res.status).toBe(200)
+     82|     // An unknown session is not ours (another platform's Checkout on …
+     83|     expect(await res.json()).toEqual({ received: true, outcomes: ['ign…
+       |                              ^
+     84|     expect(idem.tryMarkProcessed).toHaveBeenCalledWith('stripe:evt_4',…
+     85|     expect(store.findBySession).toHaveBeenCalledWith('stripe', 'cs_1')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/15]⎯
+
+ FAIL  src/app/api/webhooks/payments/stripe/__tests__/route.test.ts > R48: oversize bodies are refused before any verification > a chunked body with no Content-Length over 256 KB -> 413, and reading stops at the cap (never fully buffered)
+AssertionError: expected 311296 to be less than 307200
+ ❯ src/app/api/webhooks/payments/stripe/__tests__/route.test.ts:116:20
+    114|     expect(res.status).toBe(413)
+    115|     expect(await res.json()).toEqual({ error: 'payload_too_large' })
+    116|     expect(pulled).toBeLessThan(total)
+       |                    ^
+    117|     expect(pulled).toBeLessThanOrEqual(256 * 1024 + chunk.length)
+    118|     expect(cancelled).toBe(true)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/15]⎯
+
+
+ Test Files  5 failed | 3 passed (8)
+      Tests  15 failed | 80 passed (95)
+   Start at  23:36:14
+   Duration  1.16s (transform 962ms, setup 0ms, import 2.24s, tests 1.63s, environment 1ms)
+
