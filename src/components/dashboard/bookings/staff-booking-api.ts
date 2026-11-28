@@ -66,11 +66,12 @@ async function save(url: string, method: string, body: unknown): Promise<StaffSa
   }
 }
 
-/** The request body: only the allow-listed fields (R4); notes empty = none. */
+/** The request body: only the allow-listed fields (R4); notes empty = none; no phone = Notify off (decision 9, AC-26). */
 export function formBody(form: StaffBookingForm, extra: { override?: boolean; expectedVersion?: number } = {}) {
+  const phone = form.phone.trim()
   return {
-    phone: form.phone.trim(), name: form.name, partySize: form.partySize, date: form.date, time: form.time,
-    notes: form.notes.trim() === '' ? null : form.notes, notify: form.notify, ...extra,
+    phone, name: form.name, partySize: form.partySize, date: form.date, time: form.time,
+    notes: form.notes.trim() === '' ? null : form.notes, notify: form.notify && phone !== '', ...extra,
   }
 }
 
@@ -117,12 +118,16 @@ export async function fetchToday(): Promise<TodayPayload | null> {
   }
 }
 
-/** The form for a new booking on `date` (the day panel's Add), or for editing `booking`. */
+/**
+ * The form for a new booking on `date` (the day panel's Add), or for editing
+ * `booking`. A booking without a phone starts with Notify ticked, so adding a
+ * phone offers it checked (AC-28); with the phone empty it is shown off.
+ */
 export function initialForm(date: string, booking?: BookingItem | null): StaffBookingForm {
   if (!booking) return { phone: '', name: '', partySize: 2, date, time: '', notes: '', notify: true }
   return {
-    phone: booking.phone, name: booking.name ?? '', partySize: booking.partySize, date: booking.bookingDate,
-    time: booking.bookingTime, notes: booking.notes ?? '', notify: booking.notifyDiner ?? true,
+    phone: booking.phone ?? '', name: booking.name ?? '', partySize: booking.partySize, date: booking.bookingDate,
+    time: booking.bookingTime, notes: booking.notes ?? '', notify: booking.phone ? (booking.notifyDiner ?? true) : true,
   }
 }
 

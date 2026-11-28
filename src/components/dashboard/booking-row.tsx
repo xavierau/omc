@@ -218,7 +218,10 @@ export function BookingNotes({ booking }: { booking: BookingItem }) {
   )
 }
 
-export function PhoneLink({ phone }: { phone: string }) {
+/** BOOK-013 decision 9 (AC-27): a staff booking may have no phone; "No phone" stands where the number goes. */
+export function PhoneLink({ phone }: { phone: string | null }) {
+  const t = useTranslations('bookings.staff')
+  if (!phone) return <span className="inline-flex min-h-6 items-center">{t('noPhone')}</span>
   return (
     <a href={`tel:${phone}`} className="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">
       {phone}

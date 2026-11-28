@@ -1,0 +1,53 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-013
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts (28 tests | 2 failed) 28ms
+     × link on a phone-less booking → 400 phone_required, member_id unchanged, no events row 6ms
+     × relink on a phone-less booking that still holds a member → 400 phone_required, link unchanged 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: a booking without a phone (BOOK-013 AC-26) > link on a phone-less booking → 400 phone_required, member_id unchanged, no events row
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:300:24
+    298|     const id = seed({ phone: null, source: 'staff', status: 'confirmed…
+    299|     const res = await patch(id, { memberId: m1 })
+    300|     expect(res.status).toBe(400)
+       |                        ^
+    301|     expect(await res.json()).toEqual({ error: 'phone_required' })
+    302|     expect(rowOf(id).memberId).toBeNull()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts > PATCH member: a booking without a phone (BOOK-013 AC-26) > relink on a phone-less booking that still holds a member → 400 phone_required, link unchanged
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-member-link.test.ts:309:24
+    307|     const id = seed({ phone: null, source: 'staff', status: 'confirmed…
+    308|     const res = await patch(id, { memberId: m2 })
+    309|     expect(res.status).toBe(400)
+       |                        ^
+    310|     expect(await res.json()).toEqual({ error: 'phone_required' })
+    311|     expect(rowOf(id).memberId).toBe(m1)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 26 passed (28)
+   Start at  14:22:51
+   Duration  444ms (transform 144ms, setup 0ms, import 288ms, tests 28ms, environment 0ms)
+

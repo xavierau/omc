@@ -81,6 +81,7 @@ interface RowProps {
 
 /** The name, staff badge and phone: the column staff scan for a surname. A phone card adds the state chip beside the name. */
 function NameCell({ booking, chip }: { booking: BookingItem; chip?: ReactNode }) {
+  const t = useTranslations('bookings.staff')
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -88,7 +89,7 @@ function NameCell({ booking, chip }: { booking: BookingItem; chip?: ReactNode })
         {chip}
         <StaffSourceBadge booking={booking} />
       </div>
-      <p className="text-sm tabular-nums text-muted-foreground">{booking.phone}</p>
+      <p className="text-sm tabular-nums text-muted-foreground">{booking.phone ?? t('noPhone')}</p>
       <CheckInRefusedLine booking={booking} />
     </div>
   )

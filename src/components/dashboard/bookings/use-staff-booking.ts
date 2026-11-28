@@ -148,7 +148,7 @@ export function useStaffBooking(refetch: () => Promise<void>) {
   async function confirmCancel() {
     if (!cancel || cancel.saving) return
     setCancel({ ...cancel, saving: true })
-    const outcome = await cancelStaffBooking(cancel.booking.id, cancel.booking.editVersion as number, cancel.notify)
+    const outcome = await cancelStaffBooking(cancel.booking.id, cancel.booking.editVersion as number, cancel.notify && !!cancel.booking.phone)
     if (outcome.kind === 'saved') {
       setCancel(null)
       show({ kind: toastFor('cancelled', outcome.message), booking: outcome.booking })

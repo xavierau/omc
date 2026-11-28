@@ -1,0 +1,542 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-013
+
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts (24 tests | 1 failed) 44ms
+     × BOOK-013 AC-27: a staff booking without a phone is found by name; a phone search skips it 3ms
+ ❯ src/domain/services/__tests__/booking-today-sort.test.ts (19 tests | 7 failed) 48ms
+     × N1: under time asc, a booking with no (or an empty) name sorts after a named one it ties with 6ms
+     × N1: under time desc, a booking with no (or an empty) name sorts after a named one it ties with 2ms
+     × N1: under guests asc, a booking with no (or an empty) name sorts after a named one it ties with 1ms
+     × N1: under guests desc, a booking with no (or an empty) name sorts after a named one it ties with 0ms
+     × N1: under status asc, a booking with no (or an empty) name sorts after a named one it ties with 1ms
+     × N1: under status desc, a booking with no (or an empty) name sorts after a named one it ties with 0ms
+     × N1: an empty name counts as no name under the name key as well 1ms
+ ❯ src/application/__tests__/book-013-decide-notify.test.ts (6 tests | 1 failed) 14ms
+     × R19: a booking without a phone (Notify true) is decided with no message and no outcome 6ms
+ ❯ src/application/__tests__/send-booking-reminders.test.ts (14 tests | 1 failed) 20ms
+     × R19: a staff booking without a phone is never selected, claimed or sent 6ms
+ ❯ src/domain/services/__tests__/staff-booking.test.ts (41 tests | 7 failed) 38ms
+     × AC-4: phone not text is a field error 6ms
+     × AC-26: a empty phone is valid, stored as null, and Notify is off even when asked on 1ms
+     × AC-26: a blank phone is valid, stored as null, and Notify is off even when asked on 1ms
+     × AC-26: a null phone is valid, stored as null, and Notify is off even when asked on 1ms
+     × AC-26: a absent phone is valid, stored as null, and Notify is off even when asked on 1ms
+     × AC-26: the name stays required without a phone 1ms
+     × AC-27: a booking without a phone is found by name; a phone search skips it 1ms
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts (70 tests | 10 failed) 90ms
+     × AC-26 / R19: a empty phone saves confirmed, no member, Notify off whatever the body says; nothing sent or stored 5ms
+     × AC-26 / R19: a absent phone saves confirmed, no member, Notify off whatever the body says; nothing sent or stored 1ms
+     × AC-26: the name stays required 2ms
+     × R19: editing a phone-less booking (new time, notify true in the body) sends nothing and keeps Notify off 1ms
+     × R19: cancelling a phone-less booking with notify true sends nothing and stores no outcome 1ms
+     × AC-28 / R20: clearing the phone of a staff booking removes the member link and turns Notify off; no message 1ms
+     × R20: clearing the phone of a source chat booking → 400 phone_required, row unchanged, nothing written or sent 1ms
+     × R20: clearing the phone of a source campaign booking → 400 phone_required, row unchanged, nothing written or sent 1ms
+     × R20: clearing the phone of a source agent booking → 400 phone_required, row unchanged, nothing written or sent 3ms
+     × R13: a phone-less create logs nothing about a phone and never throws 1ms
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx (43 tests | 8 failed) 210ms
+     × AC-27: the day list shows "No phone" where the number goes, no tel: link 11ms
+     × AC-27: the desktop table shows "No phone" where the number goes, no tel: link 8ms
+     × AC-27: the phone cards shows "No phone" where the number goes, no tel: link 4ms
+     × AC-27: the Calendar day panel row shows "No phone" 4ms
+     × AC-27: Today desktop row and phone card show "No phone"; a phone search skips it, a name search finds it 4ms
+     × AC-26: an empty phone → the label says optional, Notify unticked and disabled with the no-phone hint 3ms
+     × AC-26 / AC-28: the body sends Notify off without a phone; editing a phone-less booking starts with Notify ticked for when a phone is added 3ms
+     × copy: the exact en and zh-HK strings 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 35 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/__tests__/book-013-decide-notify.test.ts > decide with Notify (review R2) > R19: a booking without a phone (Notify true) is decided with no message and no outcome
+AssertionError: expected { ok: true, booking: { …(21) }, …(1) } to match object { ok: true, delivered: null }
+(22 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "delivered": null,
++   "delivered": true,
+    "ok": true,
+  }
+
+ ❯ src/application/__tests__/book-013-decide-notify.test.ts:68:22
+     66|       requests.rows[0].status = 'pending'
+     67|       const result = await decideBookingRequest(deps, { restaurantId: …
+     68|       expect(result).toMatchObject({ ok: true, delivered: null })
+       |                      ^
+     69|     }
+     70|     expect(sender.sent).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/35]⎯
+
+ FAIL  src/application/__tests__/send-booking-reminders.test.ts > sendBookingReminders (AC-15) > R19: a staff booking without a phone is never selected, claimed or sent
+AssertionError: expected { Object (candidates, due, ...) } to match object { due: +0, sent: +0, notDelivered: +0 }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "due": 0,
++   "due": 1,
+    "notDelivered": 0,
+-   "sent": 0,
++   "sent": 1,
+  }
+
+ ❯ src/application/__tests__/send-booking-reminders.test.ts:62:20
+     60|     const claim = vi.spyOn(store, 'claimReminder')
+     61|     const result = await sendBookingReminders(deps(IN_WINDOW))
+     62|     expect(result).toMatchObject({ due: 0, sent: 0, notDelivered: 0 })
+       |                    ^
+     63|     expect(claim).not.toHaveBeenCalled()
+     64|     expect(sender.sent).toHaveLength(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/bookings-views-helpers.test.ts > booking groups > BOOK-013 AC-27: a staff booking without a phone is found by name; a phone search skips it
+TypeError: Cannot read properties of null (reading 'replace')
+ ❯ digits src/components/dashboard/bookings/booking-groups.ts:28:41
+     26| }
+     27|
+     28| const digits = (value: string) => value.replace(/\D/g, '')
+       |                                         ^
+     29| /** A query made only of digits and phone punctuation is a phone searc…
+     30| const PHONE_QUERY = /^[\d\s+()-]+$/
+ ❯ matchesSearch src/components/dashboard/bookings/booking-groups.ts:42:51
+ ❯ src/components/dashboard/__tests__/bookings-views-helpers.test.ts:129:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-27: the day list shows "No phone" where the number goes, no tel: link
+AssertionError: expected '<ul><li data-testid="booking-row-b1" …' to contain 'bookings.staff.noPhone'
+
+Expected: "bookings.staff.noPhone"
+Received: "<ul><li data-testid="booking-row-b1" class="flex gap-4 px-4 py-4 sm:px-5"><div class="w-12 shrink-0"><p class="font-semibold tabular-nums text-foreground">19:00</p><p class="text-xs text-muted-foreground">bookings.pax:{&quot;count&quot;:6}</p></div><div class="flex min-w-0 flex-1 flex-col gap-1.5"><div class="flex flex-wrap items-center gap-2"><span class="font-semibold break-words text-foreground">Walk-in Ho</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></div><p class="text-sm text-muted-foreground"><a href="tel:null" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline"></a></p><p class="text-sm whitespace-pre-wrap text-muted-foreground">window table</p><div class="flex flex-wrap gap-2 pt-1 empty:hidden max-md:[&amp;&gt;div]:w-full max-md:[&amp;&gt;div&gt;button]:flex-1"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></div><button data-slot="button" data-variant="ghost" data-size="icon-lg" class="group/button inline-flex items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 size-9 shrink-0" aria-label="bookings.staff.menu" data-testid="booking-row-b1-menu" type="button" id="radix-_R_3_" aria-haspopup="menu" aria-expanded="false" data-state="closed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ellipsis" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button></li></ul>"
+
+ ❯ shown src/components/dashboard/__tests__/staff-booking-ui.test.tsx:287:18
+    285|   const none = booking({ phone: null, notifyDiner: false, name: 'Walk-…
+    286|   const shown = (html: string) => {
+    287|     expect(html).toContain('bookings.staff.noPhone')
+       |                  ^
+    288|     expect(html).not.toContain('href="tel:')
+    289|     expect(html).not.toContain('>null<')
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:293:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-27: the desktop table shows "No phone" where the number goes, no tel: link
+AssertionError: expected '<div data-slot="table-container" clas…' to contain 'bookings.staff.noPhone'
+
+Expected: "bookings.staff.noPhone"
+Received: "<div data-slot="table-container" class="relative w-full overflow-x-auto"><table data-slot="table" class="w-full caption-bottom text-sm min-w-[56rem] [&amp;_td]:px-3"><thead data-slot="table-header" class="[&amp;_tr]:border-b bg-muted/50"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted hover:bg-transparent"><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.time</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.guest</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.phone</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.party</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.status</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.source</th><th data-slot="table-head" class="h-10 text-left align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">bookings.views.columns.notes</th><th data-slot="table-head" class="h-10 text-left align-middle font-medium whitespace-nowrap text-foreground [&amp;:has([role=checkbox])]:pr-0 px-3"><span class="sr-only">bookings.views.columns.actions</span></th></tr></thead><tbody data-slot="table-body" class="[&amp;_tr:last-child]:border-0"><tr data-slot="table-row" class="border-b transition-colors data-[state=selected]:bg-muted bg-muted/30 hover:bg-muted/30"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 px-3 py-2" colSpan="8"><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">bookings.views.todayLabel:{&quot;date&quot;:&quot;Thu, Nov 26&quot;}</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:6}</span></span></td></tr><tr data-slot="table-row" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" data-testid="booking-row-b1"><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-base font-semibold tabular-nums">19:00</td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 whitespace-normal"><span class="font-medium">Walk-in Ho</span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-muted-foreground"><a href="tel:null" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline"></a></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 tabular-nums">6</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span class="flex flex-wrap items-center gap-1.5"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span></span></td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></td><td data-slot="table-cell" class="p-2 align-middle [&amp;:has([role=checkbox])]:pr-0 max-w-56 whitespace-pre-wrap text-muted-foreground">window table</td><td data-slot="table-cell" class="p-2 align-middle whitespace-nowrap [&amp;:has([role=checkbox])]:pr-0 text-right"><span class="inline-flex items-center justify-end gap-1"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button><button data-slot="button" data-variant="ghost" data-size="icon-lg" class="group/button inline-flex items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 size-9 shrink-0" aria-label="bookings.staff.menu" data-testid="booking-row-b1-menu" type="button" id="radix-_R_8om_" aria-haspopup="menu" aria-expanded="false" data-state="closed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ellipsis" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button></span></td></tr></tbody></table></div>"
+
+ ❯ shown src/components/dashboard/__tests__/staff-booking-ui.test.tsx:287:18
+    285|   const none = booking({ phone: null, notifyDiner: false, name: 'Walk-…
+    286|   const shown = (html: string) => {
+    287|     expect(html).toContain('bookings.staff.noPhone')
+       |                  ^
+    288|     expect(html).not.toContain('href="tel:')
+    289|     expect(html).not.toContain('>null<')
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:293:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-27: the phone cards shows "No phone" where the number goes, no tel: link
+AssertionError: expected '<div class="space-y-5"><section class…' to contain 'bookings.staff.noPhone'
+
+Expected: "bookings.staff.noPhone"
+Received: "<div class="space-y-5"><section class="space-y-2"><h3><span class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-semibold text-foreground">bookings.views.todayLabel:{&quot;date&quot;:&quot;Thu, Nov 26&quot;}</span><span class="text-muted-foreground">bookings.views.guests:{&quot;count&quot;:6}</span></span></h3><ul class="space-y-3"><li data-testid="booking-row-b1" class="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"><div class="flex items-start justify-between gap-2"><p class="min-w-0 text-base font-semibold break-words text-foreground"><span class="mr-2 tabular-nums">19:00</span><span>Walk-in Ho</span></p><span class="flex shrink-0 items-center gap-1"><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span><button data-slot="button" data-variant="ghost" data-size="icon-lg" class="group/button inline-flex items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 size-9 shrink-0" aria-label="bookings.staff.menu" data-testid="booking-row-b1-menu" type="button" id="radix-_R_2gt_" aria-haspopup="menu" aria-expanded="false" data-state="closed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ellipsis" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button></span></div><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>bookings.pax:{&quot;count&quot;:6}</span><a href="tel:null" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline"></a><span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></span></p><div class="flex empty:hidden"></div><p class="text-sm whitespace-pre-wrap text-muted-foreground">window table</p><div class="pt-1 empty:hidden"><button data-slot="button" data-variant="default" data-size="lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3 w-full" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></li></ul></section></div>"
+
+ ❯ shown src/components/dashboard/__tests__/staff-booking-ui.test.tsx:287:18
+    285|   const none = booking({ phone: null, notifyDiner: false, name: 'Walk-…
+    286|   const shown = (html: string) => {
+    287|     expect(html).toContain('bookings.staff.noPhone')
+       |                  ^
+    288|     expect(html).not.toContain('href="tel:')
+    289|     expect(html).not.toContain('>null<')
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:293:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-27: the Calendar day panel row shows "No phone"
+AssertionError: expected '<section data-testid="bookings-day-pa…' to contain 'bookings.staff.noPhone'
+
+Expected: "bookings.staff.noPhone"
+Received: "<section data-testid="bookings-day-panel" class="overflow-hidden rounded-xl border border-border bg-card"><header class="flex items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5"><div class="min-w-0"><h2 class="text-lg font-semibold text-foreground">Thursday, November 26</h2><p class="mt-0.5 text-sm text-muted-foreground"><span>bookings.views.bookingCount:{&quot;count&quot;:1} · bookings.views.guests:{&quot;count&quot;:6}</span></p></div><button data-slot="button" data-variant="outline" data-size="default" class="group/button inline-flex items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 h-9 shrink-0" data-testid="booking-day-new-button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>bookings.staff.add</button></header><ul data-testid="booking-list" class="divide-y divide-border"><li data-testid="booking-row-b1" class="flex gap-4 px-4 py-4 sm:px-5"><div class="w-12 shrink-0"><p class="font-semibold tabular-nums text-foreground">19:00</p><p class="text-xs text-muted-foreground">bookings.pax:{&quot;count&quot;:6}</p></div><div class="flex min-w-0 flex-1 flex-col gap-1.5"><div class="flex flex-wrap items-center gap-2"><span class="font-semibold break-words text-foreground">Walk-in Ho</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! [a]:hover:bg-muted [a]:hover:text-muted-foreground border-primary/25 bg-primary/10 text-primary" data-testid="booking-row-b1-status">bookings.status.confirmed</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></div><p class="text-sm text-muted-foreground"><a href="tel:null" class="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline"></a></p><p class="text-sm whitespace-pre-wrap text-muted-foreground">window table</p><div class="flex flex-wrap gap-2 pt-1 empty:hidden max-md:[&amp;&gt;div]:w-full max-md:[&amp;&gt;div&gt;button]:flex-1"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></div><button data-slot="button" data-variant="ghost" data-size="icon-lg" class="group/button inline-flex items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 size-9 shrink-0" aria-label="bookings.staff.menu" data-testid="booking-row-b1-menu" type="button" id="radix-_R_1r_" aria-haspopup="menu" aria-expanded="false" data-state="closed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ellipsis" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button></li></ul></section>"
+
+ ❯ shown src/components/dashboard/__tests__/staff-booking-ui.test.tsx:287:18
+    285|   const none = booking({ phone: null, notifyDiner: false, name: 'Walk-…
+    286|   const shown = (html: string) => {
+    287|     expect(html).toContain('bookings.staff.noPhone')
+       |                  ^
+    288|     expect(html).not.toContain('href="tel:')
+    289|     expect(html).not.toContain('>null<')
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:297:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-27: Today desktop row and phone card show "No phone"; a phone search skips it, a name search finds it
+AssertionError: expected '<div data-testid="bookings-today" cla…' to contain 'bookings.staff.noPhone'
+
+Expected: "bookings.staff.noPhone"
+Received: "<div data-testid="bookings-today" class="space-y-4"><div class="flex flex-col gap-2 sm:flex-row sm:items-center"><label class="relative flex-1"><span class="sr-only">bookings.today.searchLabel</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg><input type="search" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11 pl-9" placeholder="bookings.today.searchPlaceholder" data-testid="bookings-today-search" value=""/></label></div><dl data-testid="bookings-today-counter" class="grid grid-cols-2 gap-2 sm:grid-cols-4"><div class="rounded-xl border border-border bg-card px-4 py-3" data-testid="bookings-today-counter-arrived"><dt class="sr-only">bookings.today.guestsArrived</dt><dd class="text-xl font-semibold tabular-nums text-foreground">0 / 6</dd><dd class="text-sm text-muted-foreground">bookings.today.guestsArrived</dd></div><div class="rounded-xl border border-border bg-card px-4 py-3" data-testid="bookings-today-counter-waiting"><dt class="sr-only">bookings.today.waiting</dt><dd class="text-xl font-semibold tabular-nums text-foreground">1</dd><dd class="text-sm text-muted-foreground">bookings.today.waiting</dd></div><div class="rounded-xl border border-border bg-card px-4 py-3" data-testid="bookings-today-counter-late"><dt class="sr-only">bookings.today.late</dt><dd class="text-xl font-semibold tabular-nums text-foreground">1</dd><dd class="text-sm text-muted-foreground">bookings.today.late</dd></div><div class="rounded-xl border border-border bg-card px-4 py-3" data-testid="bookings-today-counter-no-show"><dt class="sr-only">bookings.today.noShow</dt><dd class="text-xl font-semibold tabular-nums text-foreground">0</dd><dd class="text-sm text-muted-foreground">bookings.today.noShow</dd></div></dl><div role="table" aria-label="bookings.today.listLabel" data-testid="bookings-today-list" class="overflow-hidden rounded-xl border border-border bg-card"><div role="rowgroup"><div role="row" class="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem_9.5rem_13rem] items-center gap-3 border-b border-border px-5"><div role="columnheader" aria-sort="ascending"><button type="button" data-testid="bookings-today-sort-time" class="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground">bookings.today.sort.time<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up size-3.5 text-primary" aria-hidden="true"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></button></div><div role="columnheader"><button type="button" data-testid="bookings-today-sort-name" class="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground">bookings.today.sort.name<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-down size-3.5 text-muted-foreground" aria-hidden="true"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg></button></div><div role="columnheader"><button type="button" data-testid="bookings-today-sort-guests" class="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground">bookings.today.sort.guests<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-down size-3.5 text-muted-foreground" aria-hidden="true"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg></button></div><div role="columnheader"><button type="button" data-testid="bookings-today-sort-status" class="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground">bookings.today.sort.status<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-down size-3.5 text-muted-foreground" aria-hidden="true"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg></button></div><div role="columnheader" class="text-right text-sm font-semibold text-muted-foreground">bookings.today.sort.action</div></div></div><div role="rowgroup" class="divide-y divide-border"><div role="row" data-testid="bookings-today-group-dinner"><div role="cell" class="px-5 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase bg-muted/50">bookings.today.meal.dinner</div></div><div role="row" data-testid="booking-row-b1" class="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem_9.5rem_13rem] items-center gap-3 px-5 py-3"><div role="cell" class="font-semibold tabular-nums text-foreground">19:00</div><div role="cell" class="min-w-0"><div class="flex min-w-0 flex-col gap-1"><div class="flex flex-wrap items-center gap-2"><span class="font-semibold break-words text-foreground">Walk-in Ho</span><span data-slot="badge" data-variant="outline" class="group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;&gt;svg]:pointer-events-none [&amp;&gt;svg]:size-3! border-border [a]:hover:bg-muted [a]:hover:text-muted-foreground text-muted-foreground" data-testid="booking-row-b1-by-staff"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>bookings.staff.byStaffName:{&quot;name&quot;:&quot;Mandy&quot;}</span></div><p class="text-sm tabular-nums text-muted-foreground"></p></div></div><div role="cell" class="tabular-nums text-foreground">6</div><div role="cell"><span data-testid="booking-row-b1-arrival" data-state="late" class="inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium border-destructive/40 bg-destructive/5 text-destructive">bookings.today.stateLate:{&quot;minutes&quot;:20}</span></div><div role="cell" class="flex flex-wrap items-center justify-end gap-2"><button data-slot="button" data-variant="default" data-size="sm" class="group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 bg-primary text-primary-foreground [a]:hover:bg-primary/80 h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-3.5" data-testid="booking-row-b1-arrived"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>bookings.today.arrived</button></div></div></div></div></div>"
+
+ ❯ shown src/components/dashboard/__tests__/staff-booking-ui.test.tsx:287:18
+    285|   const none = booking({ phone: null, notifyDiner: false, name: 'Walk-…
+    286|   const shown = (html: string) => {
+    287|     expect(html).toContain('bookings.staff.noPhone')
+       |                  ^
+    288|     expect(html).not.toContain('href="tel:')
+    289|     expect(html).not.toContain('>null<')
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:307:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-26: an empty phone → the label says optional, Notify unticked and disabled with the no-phone hint
+AssertionError: expected '<div class="flex flex-col gap-4"><div…' to contain 'bookings.staff.phoneOptional'
+
+Expected: "bookings.staff.phoneOptional"
+Received: "<div class="flex flex-col gap-4"><div class="flex flex-col gap-1.5"><label for="booking-form-phone" class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.phone</label><input type="tel" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-form-phone" inputMode="tel" autoComplete="off" placeholder="bookings.staff.phonePlaceholder" aria-invalid="false" data-testid="booking-form-phone" value=""/></div><div class="flex flex-col gap-1.5"><label for="booking-form-name" class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.name</label><input data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-form-name" maxLength="60" placeholder="bookings.staff.namePlaceholder" aria-invalid="false" data-testid="booking-form-name" value=""/></div><div class="grid grid-cols-1 gap-4 sm:grid-cols-2"><div class="flex flex-col gap-1.5"><label class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.guests</label><div class="inline-flex items-center gap-2"><button data-slot="button" data-variant="outline" data-size="icon-lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 size-9" type="button" aria-label="bookings.staff.fewer"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-minus" aria-hidden="true"><path d="M5 12h14"></path></svg></button><input data-slot="input" class="min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11 w-16 text-center tabular-nums" inputMode="numeric" aria-label="bookings.staff.guests" data-testid="booking-form-partySize" value="2"/><button data-slot="button" data-variant="outline" data-size="icon-lg" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 size-9" type="button" aria-label="bookings.staff.more"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button></div></div><div class="flex flex-col gap-1.5"><label for="booking-form-date" class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.date</label><input type="date" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-form-date" aria-invalid="false" data-testid="booking-form-date" value="2026-11-28"/></div></div><div class="flex flex-col gap-1.5"><label class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.time</label><div class="flex flex-col gap-2"><input type="time" data-slot="input" class="min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11 w-40" step="300" aria-label="bookings.staff.otherTimeLabel" data-testid="booking-form-time" value=""/></div></div><div class="flex flex-col gap-1.5"><label for="booking-form-notes" class="flex items-center gap-2 text-sm font-medium text-foreground">bookings.staff.notes</label><textarea id="booking-form-notes" maxLength="500" rows="2" data-testid="booking-form-notes" class="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"></textarea></div><label class="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/40 p-3"><input type="checkbox" data-testid="booking-form-notify" class="mt-0.5 size-5 shrink-0 cursor-pointer accent-primary" checked=""/><span class="flex flex-col gap-0.5"><span class="text-sm font-medium text-foreground">bookings.staff.notifyCreate</span><span class="text-sm text-muted-foreground">bookings.staff.notifyCreateHint</span></span></label></div>"
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:319:18
+    317|   it('AC-26: an empty phone → the label says optional, Notify unticked…
+    318|     const html = fields({ ...initialForm('2026-11-28'), notify: true })
+    319|     expect(html).toContain('bookings.staff.phoneOptional')
+       |                  ^
+    320|     expect(notifyInput(html)).toContain('disabled=""')
+    321|     expect(notifyInput(html)).not.toContain('checked=""')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > AC-26 / AC-28: the body sends Notify off without a phone; editing a phone-less booking starts with Notify ticked for when a phone is added
+AssertionError: expected { phone: '', name: '', …(5) } to match object { phone: '', notify: false }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "notify": false,
++   "notify": true,
+    "phone": "",
+  }
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:338:83
+    336|
+    337|   it('AC-26 / AC-28: the body sends Notify off without a phone; editin…
+    338|     expect(formBody({ ...initialForm('2026-11-28'), phone: '  ', notif…
+       |                                                                                   ^
+    339|     expect(formBody({ ...initialForm('2026-11-28'), phone: '9123 4567'…
+    340|     expect(initialForm('2026-11-26', none)).toMatchObject({ phone: '',…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/35]⎯
+
+ FAIL  src/components/dashboard/__tests__/staff-booking-ui.test.tsx > S8 — no phone (decision 9) > copy: the exact en and zh-HK strings
+AssertionError: expected [ undefined, undefined ] to deeply equal [ 'No phone', …(1) ]
+
+- Expected
++ Received
+
+  [
+-   "No phone",
+-   "No phone, no WhatsApp message",
++   undefined,
++   undefined,
+  ]
+
+ ❯ src/components/dashboard/__tests__/staff-booking-ui.test.tsx:349:74
+    347|
+    348|   it('copy: the exact en and zh-HK strings', () => {
+    349|     expect([en.bookings.staff.noPhone, en.bookings.staff.notifyNoPhone…
+       |                                                                          ^
+    350|     expect([zhHK.bookings.staff.noPhone, zhHK.bookings.staff.notifyNoP…
+    351|     expect(en.bookings.staff.phoneOptional).toBeTruthy()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/35]⎯
+
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under time asc, a booking with no (or an empty) name sorts after a named one it ties with
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under time desc, a booking with no (or an empty) name sorts after a named one it ties with
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under guests asc, a booking with no (or an empty) name sorts after a named one it ties with
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under guests desc, a booking with no (or an empty) name sorts after a named one it ties with
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under status asc, a booking with no (or an empty) name sorts after a named one it ties with
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: under status desc, a booking with no (or an empty) name sorts after a named one it ties with
+AssertionError: expected [ 'n', 'e' ] to deeply equal [ 'a', 'c' ]
+
+- Expected
++ Received
+
+  [
+-   "a",
+-   "c",
++   "n",
++   "e",
+  ]
+
+ ❯ src/domain/services/__tests__/booking-today-sort.test.ts:93:46
+     91|   ] as const)('N1: under %s %s, a booking with no (or an empty) name s…
+     92|     const tied = [row('n', '19:00', null, 2), row('e', '19:00', '', 2)…
+     93|     expect(sort(key, dir, tied).slice(0, 2)).toEqual(['a', 'c'])
+       |                                              ^
+     94|     expect(sort(key, dir, tied).slice(2).sort()).toEqual(['e', 'n'])
+     95|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/35]⎯
+
+ FAIL  src/domain/services/__tests__/booking-today-sort.test.ts > Today sort (BOOK-013 AC-25) > N1: an empty name counts as no name under the name key as well
+AssertionError: expected [ 'e', 'm' ] to deeply equal [ 'm', 'e' ]
+
+- Expected
++ Received
+
+  [
+-   "m",
+    "e",
++   "m",
+  ]
+
+ ❯ src/domain/services/__tests__/booking-today-sort.test.ts:99:39
+     97|   it('N1: an empty name counts as no name under the name key as well',…
+     98|     const list = [row('e', '19:00', '', 2), row('m', '19:00', 'Mak', 2…
+     99|     expect(sort('name', 'asc', list)).toEqual(['m', 'e'])
+       |                                       ^
+    100|     expect(sort('name', 'desc', list)).toEqual(['m', 'e'])
+    101|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/35]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-4: phone not text is a field error
+AssertionError: expected { ok: false, …(1) } to match object { ok: false, …(1) }
+
+- Expected
++ Received
+
+  {
+    "errors": {
+-     "phone": "invalid",
++     "phone": "required",
+    },
+    "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:56:67
+     54|     ['notify not boolean', { notify: 'yes' }, 'notify', 'invalid'],
+     55|   ])('AC-4: %s is a field error', (_, patch, field, code) => {
+     56|     expect(parseStaffBookingInput({ ...valid, ...patch }, ctx())).toMa…
+       |                                                                   ^
+     57|   })
+     58|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/35]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-26: a empty phone is valid, stored as null, and Notify is off even when asked on
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-26: a blank phone is valid, stored as null, and Notify is off even when asked on
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-26: a null phone is valid, stored as null, and Notify is off even when asked on
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-26: a absent phone is valid, stored as null, and Notify is off even when asked on
+AssertionError: expected { ok: false, …(1) } to match object { ok: true, …(1) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "input": {
+-     "notify": false,
+-     "phone": null,
+-   },
+-   "ok": true,
++   "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:66:81
+     64|     ['absent', { phone: undefined }],
+     65|   ])('AC-26: a %s phone is valid, stored as null, and Notify is off ev…
+     66|     expect(parseStaffBookingInput({ ...valid, ...patch, notify: true }…
+       |                                                                                 ^
+     67|   })
+     68|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/35]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > parseStaffBookingInput (R4, R7) > AC-26: the name stays required without a phone
+AssertionError: expected { ok: false, errors: { …(2) } } to deeply equal { ok: false, …(1) }
+
+- Expected
++ Received
+
+  {
+    "errors": {
+      "name": "required",
++     "phone": "required",
+    },
+    "ok": false,
+  }
+
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:70:79
+     68|
+     69|   it('AC-26: the name stays required without a phone', () => {
+     70|     expect(parseStaffBookingInput({ ...valid, phone: '', name: ' ' }, …
+       |                                                                               ^
+     71|   })
+     72|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/35]⎯
+
+ FAIL  src/domain/services/__tests__/staff-booking.test.ts > Today rules (AC-20, AC-22, R14) > AC-27: a booking without a phone is found by name; a phone search skips it
+TypeError: Cannot read properties of null (reading 'replace')
+ ❯ digitsOf src/domain/services/booking-checkin.ts:81:35
+     79| }
+     80|
+     81| const digitsOf = (s: string) => s.replace(/\D/g, '')
+       |                                   ^
+     82|
+     83| /** Spec AC-20: one search over name (any part, any case) and phone (4…
+ ❯ matchesTodaySearch src/domain/services/booking-checkin.ts:89:32
+ ❯ src/domain/services/__tests__/staff-booking.test.ts:204:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > AC-26 / R19: a empty phone saves confirmed, no member, Notify off whatever the body says; nothing sent or stored
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > AC-26 / R19: a absent phone saves confirmed, no member, Notify off whatever the body says; nothing sent or stored
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:515:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > AC-26: the name stays required
+AssertionError: expected { error: 'invalid', fields: { …(2) } } to deeply equal { error: 'invalid', …(1) }
+
+- Expected
++ Received
+
+  {
+    "error": "invalid",
+    "fields": {
+      "name": "required",
++     "phone": "required",
+    },
+  }
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:527:30
+    525|     const res = await create({ ...noPhone, name: '' })
+    526|     expect(res.status).toBe(400)
+    527|     expect(await res.json()).toEqual({ error: 'invalid', fields: { nam…
+       |                              ^
+    528|   })
+    529|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R19: editing a phone-less booking (new time, notify true in the body) sends nothing and keeps Notify off
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:533:24
+    531|     const row = seed({ source: 'staff', phone: null, notifyDiner: fals…
+    532|     const res = await edit(row.id, editBody(row, { phone: '', time: '2…
+    533|     expect(res.status).toBe(200)
+       |                        ^
+    534|     const { booking, message } = await res.json()
+    535|     expect(message).toBe('none')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R19: cancelling a phone-less booking with notify true sends nothing and stores no outcome
+AssertionError: expected 'delivered' to be 'none' // Object.is equality
+
+Expected: "none"
+Received: "delivered"
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:545:21
+    543|     const { booking, message } = await (await cancel(row.id, { expecte…
+    544|     expect(booking.status).toBe('cancelled')
+    545|     expect(message).toBe('none')
+       |                     ^
+    546|     expect(sends).toHaveLength(0)
+    547|     expect(recorded).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > AC-28 / R20: clearing the phone of a staff booking removes the member link and turns Notify off; no message
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:553:24
+    551|     const row = seed({ source: 'staff', memberId: MEMBER })
+    552|     const res = await edit(row.id, editBody(row, { phone: '', date: '2…
+    553|     expect(res.status).toBe(200)
+       |                        ^
+    554|     const { booking, message } = await res.json()
+    555|     expect(booking).toMatchObject({ phone: null, memberId: null, notif…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R20: clearing the phone of a source chat booking → 400 phone_required, row unchanged, nothing written or sent
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R20: clearing the phone of a source campaign booking → 400 phone_required, row unchanged, nothing written or sent
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R20: clearing the phone of a source agent booking → 400 phone_required, row unchanged, nothing written or sent
+AssertionError: expected { error: 'invalid', …(1) } to deeply equal { error: 'phone_required', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "error": "phone_required",
++   "error": "invalid",
+    "fields": {
+      "phone": "required",
+    },
+  }
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:566:30
+    564|     const res = await edit(row.id, editBody(row, { phone: '' }))
+    565|     expect(res.status).toBe(400)
+    566|     expect(await res.json()).toEqual({ error: 'phone_required', fields…
+       |                              ^
+    567|     expect(fake.rows[0]).toEqual(before)
+    568|     expect(fake.writes).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/35]⎯
+
+ FAIL  src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts > S8 — a staff booking without a phone (decision 9) > R13: a phone-less create logs nothing about a phone and never throws
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ src/app/api/dashboard/bookings/__tests__/bookings-staff-crud.test.ts:598:44
+    596|   it('R13: a phone-less create logs nothing about a phone and never th…
+    597|     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    598|     expect((await create(noPhone)).status).toBe(201)
+       |                                            ^
+    599|     expect(JSON.stringify([...warn.mock.calls, ...vi.mocked(console.er…
+    600|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/35]⎯
+
+
+ Test Files  7 failed (7)
+      Tests  35 failed | 182 passed (217)
+   Start at  12:39:31
+   Duration  1.06s (transform 1.84s, setup 0ms, import 2.66s, tests 463ms, environment 0ms)
+

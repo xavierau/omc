@@ -7,7 +7,8 @@
  * ones answer `rules` until staff book anyway (owner decision 3, AC-3). The
  * member link is an EXISTING member of this restaurant by phone, never a new
  * one (R17, BOOK-008). With Notify on, the diner gets the confirmation
- * (AC-1); off, no message and no reminder (AC-2).
+ * (AC-1); off, no message and no reminder (AC-2). Decision 9 (AC-26): with
+ * no phone the booking links no member and Notify is off (no message ever).
  */
 import { parseStaffBookingInput } from '@/domain/services/staff-booking-input'
 import { brokenRuleCodes } from '@/domain/services/staff-booking-rules'
@@ -42,7 +43,7 @@ export async function createStaffBooking(deps: StaffBookingDeps, input: CreateSt
 
   const booking = await deps.store.create({
     restaurantId: input.restaurantId,
-    memberId: await deps.members.findMemberId(input.restaurantId, form.phone),
+    memberId: form.phone === null ? null : await deps.members.findMemberId(input.restaurantId, form.phone),
     input: form,
     actorUserId: input.userId,
     at: deps.now(),
