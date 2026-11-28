@@ -9,12 +9,51 @@
  * on WhatsApp (R31, R32). Unverified bookings are invisible to staff.
  */
 import type { BookingLinkSource } from '@/domain/services/booking-token'
+import type { DepositStatus, RefundReason } from '@/domain/entities/booking-deposit'
+import type { Money } from '@/domain/value-objects/money'
 
 /**
  * AGENT-003 (migration 085): `cancelled` by the diner through the AI agent, or replaced by a confirmed change.
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
+ * BOOK-014 (migration 097): `awaiting_deposit` holds its seats until the deposit is paid (then pending, or
+ * confirmed when staff made it); `lapsed` = the hold ran out unpaid. Neither is shown to staff in W1.
  */
-export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show'
+export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show' | 'awaiting_deposit' | 'lapsed'
+/**
+ * BOOK-014: statuses staff never see (BOOK-003 R41 unverified; a lapsed hold).
+ * For `.not('status', 'in', ...)`, always together with STAFF_HOLD_FILTER.
+ */
+export const STAFF_HIDDEN_STATUSES = ['unverified', 'lapsed'] as const
+export const STAFF_HIDDEN_STATUS_FILTER = `(${STAFF_HIDDEN_STATUSES.join(',')})`
+/**
+ * BOOK-014 W4 (spec AC-5, AC-11): a diner's deposit hold stays hidden until it
+ * is paid; one staff made ("Awaiting deposit") is shown. For `.or(...)`.
+ */
+export const STAFF_HOLD_FILTER = 'status.neq.awaiting_deposit,source.eq.staff'
+
+/** The same rule as the two filters above, for lists already in memory. */
+export function isStaffVisible(b: Pick<BookingRequest, 'status' | 'source'>): boolean {
+  if ((STAFF_HIDDEN_STATUSES as readonly string[]).includes(b.status)) return false
+  return b.status !== 'awaiting_deposit' || b.source === 'staff'
+}
+
+/** `.or(...)`: one of `statuses`, or a staff-made deposit hold. */
+export function staffStatusFilter(statuses: readonly BookingStatus[]): string {
+  return `status.in.(${statuses.join(',')}),and(status.eq.awaiting_deposit,source.eq.staff)`
+}
+
+/**
+ * BOOK-014 W4 (spec AC-14): what a staff list shows of a booking's deposit.
+ * Read by the dashboard lists only (undefined elsewhere; null = no deposit).
+ */
+export interface BookingDepositView {
+  status: DepositStatus
+  amount: Money
+  refundReason: RefundReason | null
+  /** Who decided Refund / Keep and when (R60); null until then. */
+  decidedAt: string | null
+  holdExpiresAt: string
+}
 /** AGENT-003 R24/R23: who cancelled a booking. BOOK-013 (migration 095): 'staff' = a staff cancel. */
 export type BookingCancelledBy = 'diner_ai' | 'change' | 'staff'
 /** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. BOOK-013: 'staff' = made by staff. */
@@ -23,8 +62,10 @@ export type BookingDecision = 'confirmed' | 'declined'
 /** Whether the confirm/decline message reached the diner (F9); null = none yet. */
 export type DecisionMessageStatus = 'delivered' | 'not_delivered'
 
-/** R11: open requests one phone may hold at one restaurant. */
+/** R11: open requests one phone may hold at one restaurant (BOOK-014 R55: pending + awaiting_deposit). */
 export const MAX_PENDING_PER_PHONE = 3
+/** BOOK-014 (R55): the statuses that count toward MAX_PENDING_PER_PHONE. */
+export const PENDING_CAP_STATUSES = ['pending', 'awaiting_deposit'] as const
 export const DECLINE_REASON_MAX = 200
 /** F10: the dashboard lists every pending request plus this many newest decided ones. */
 export const DECIDED_BOOKINGS_LIST_LIMIT = 200
@@ -45,7 +86,7 @@ export interface BookingRequest {
   id: string
   restaurantId: string
   memberId: string | null
-  /** E.164. BOOK-013 decision 9 (migration 096): null only on a source 'staff' booking, which then never messages the diner. */
+  /** E.164. BOOK-013 decision 9 (migration 097): null only on a source 'staff' booking, which then never messages the diner. */
   phone: string | null
   name: string | null
   partySize: number
@@ -94,6 +135,8 @@ export interface BookingRequest {
   createdByName?: string | null
   notifyDiner?: boolean
   checkedInAt?: string | null
+  /** BOOK-014 W4: the booking's deposit (dashboard lists only). */
+  deposit?: BookingDepositView | null
 }
 
 /** A booking that can be messaged: it has the diner's phone. */
@@ -163,6 +206,8 @@ export interface NewBookingRequest {
   /** BOOK-009 AC-10: set together, only when terms were required and accepted. */
   termsAcceptedAt?: string
   termsText?: string
+  /** BOOK-014 (review finding 6): the staff user who made a staff deposit booking; decided_by on payment. */
+  createdBy?: string
 }
 
 /** AGENT-003 R20: one of the diner's upcoming bookings (pending or confirmed, from the Hong Kong time now on). */

@@ -1,0 +1,15 @@
+     11| } from '@/domain/value-objects/booking-config'
+     12| import { DEPOSIT_RULE_OFF, depositFor, type DepositRule } from '@/doma…
+     13| import { depositTermsText } from '@/domain/value-objects/deposit-terms'
+       | ^
+     14|
+     15| const RULE: DepositRule = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  14:18:41
+   Duration  1.06s (transform 80ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

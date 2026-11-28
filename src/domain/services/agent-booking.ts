@@ -14,6 +14,7 @@
  */
 import type { AgentBooking, BookingStatus } from '@/domain/entities/booking-request'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
+import type { AgentDepositView } from './agent-booking-deposit'
 import type { BookingHours, BookingHoursLanguage } from '@/domain/value-objects/booking-hours'
 import { suggestTimes, summarize, windowEnd, type BookingClock, type SuggestedTime } from './booking-hours'
 import {
@@ -140,14 +141,25 @@ export function isValidIdempotencyKey(value: string): boolean {
   return IDEMPOTENCY_KEY.test(value)
 }
 
-export type AgentBookingStatus = 'awaiting_confirmation' | 'expired' | 'pending' | 'confirmed' | 'declined' | 'cancelled'
+export type AgentBookingStatus =
+  | 'awaiting_confirmation'
+  | 'awaiting_deposit'
+  | 'expired'
+  | 'pending'
+  | 'confirmed'
+  | 'declined'
+  | 'cancelled'
 
 /**
  * What the agent sees: unverified splits into awaiting and expired by the clock.
  * BOOK-007 R7: a no-show is a staff-only mark; the agent still sees `confirmed`.
+ * BOOK-014 W5 (spec AC-10): a deposit hold is `awaiting_deposit` (the diner
+ * has the payment link); a lapsed hold, or one released because payment could
+ * not start (R54), has `expired`.
  */
 export function agentBookingStatus(status: BookingStatus, verifyExpiresAt: string | null, now: Date): AgentBookingStatus {
   if (status === 'no_show') return 'confirmed'
+  if (status === 'lapsed') return 'expired'
   if (status !== 'unverified') return status
   return verifyExpiresAt !== null && Date.parse(verifyExpiresAt) > now.getTime() ? 'awaiting_confirmation' : 'expired'
 }
@@ -160,9 +172,14 @@ export interface AgentBookingStatusView {
   time: string
   party_size: number
   expires_at?: string
+  /** BOOK-014 W5: only while awaiting_deposit, and only a URL on the provider's own host (R62). */
+  payment_url?: string
+  /** BOOK-014 W5: only while awaiting_deposit. */
+  deposit?: AgentDepositView['deposit']
 }
 
-export function agentBookingStatusView(booking: AgentBooking, now: Date): AgentBookingStatusView {
+/** BOOK-014 W5: `deposit` = the booking's agentDepositView (read only for an awaiting_deposit booking). */
+export function agentBookingStatusView(booking: AgentBooking, now: Date, deposit: AgentDepositView | null = null): AgentBookingStatusView {
   const status = agentBookingStatus(booking.status, booking.verifyExpiresAt, now)
   const view: AgentBookingStatusView = {
     booking_id: booking.id,
@@ -172,6 +189,7 @@ export function agentBookingStatusView(booking: AgentBooking, now: Date): AgentB
     party_size: booking.partySize,
   }
   if (status === 'awaiting_confirmation' && booking.verifyExpiresAt) view.expires_at = booking.verifyExpiresAt
+  if (status === 'awaiting_deposit' && deposit) Object.assign(view, deposit)
   return view
 }
 

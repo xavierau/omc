@@ -16,6 +16,13 @@
  * with `suggested_times`. Without hours it is the pre-BOOK-009 document,
  * byte for byte (fixture test).
  *
+ * BOOK-014 W5 (spec AC-10, AC-3; threat R61): when the restaurant takes
+ * deposits, both documents say a deposit is required and state its amount
+ * rule; the OpenAPI document adds the `awaiting_deposit` status, `payment_url`
+ * and `deposit` {amount, currency, expires_at}, and Stripe's processing
+ * sentence beside the collection statement. Without a deposit both are the
+ * pre-BOOK-014 documents, byte for byte.
+ *
  * Pure: no I/O, so the downloaded file and the served one are the same bytes.
  */
 import { MAX_PENDING_PER_PHONE } from '@/domain/entities/booking-request'
@@ -24,6 +31,7 @@ import { NAME_MAX, NOTES_MAX } from './booking-submission'
 import { sanitizeTemplateParam } from './booking-message'
 import { availabilityMaxDays, summarizeForAgents } from './agent-booking'
 import { tableTimeSentence } from './booking-hours-summary'
+import type { DepositTexts } from '@/domain/value-objects/deposit-messages'
 
 export const POPPY_PROTOCOL_VERSION = '1.0'
 
@@ -46,6 +54,16 @@ export function buildCollectionStatement(restaurantName: string, privacyUrl: str
   }
 }
 
+/**
+ * BOOK-014 W6a (R61): while the restaurant takes deposits, the statement an
+ * agent gets also says Stripe processes the deposit, possibly outside Hong
+ * Kong (depositProcessingSentence). Null = the statement unchanged.
+ */
+export function withDepositProcessing(statement: CollectionStatement, processing: DepositTexts | null): CollectionStatement {
+  if (!processing) return statement
+  return { ...statement, en: `${statement.en} ${processing.en}`, 'zh-HK': `${statement['zh-HK']}${processing.zh_hk}` }
+}
+
 /** The WhatsApp text after the diner confirms: both languages, then the privacy link. */
 export function collectionStatementText(statement: CollectionStatement): string {
   return `${statement['zh-HK']}\n${statement.en}\n私隱政策 Privacy policy: ${statement.privacy_url}`
@@ -66,9 +84,19 @@ export interface PoppyJsonInput {
   restaurantName: string
   websiteHost: string
   openApiUrl: string
+  /** BOOK-014 W5: the deposit amount rule in English (depositTermsText), when the restaurant takes deposits. */
+  depositTerms?: string | null
 }
 
+/** BOOK-014 W5: the terms as one sentence (depositTermsText ends without a stop when no refund note is set). */
+const sentence = (text: string) => (/[.!?。]$/.test(text) ? text : `${text}.`)
+
+/** BOOK-014 W5: the deposit sentence agents read before they book. */
+const depositSentence = (terms: string) =>
+  `A deposit is required: ${sentence(terms)} After the diner confirms on WhatsApp, they get a payment link there; the request goes to the restaurant once it is paid.`
+
 export function buildPoppyJson(input: PoppyJsonInput) {
+  const base = `Request a table at ${input.restaurantName}. The diner confirms the request on WhatsApp.`
   return {
     protocol_version: POPPY_PROTOCOL_VERSION,
     organization: { name: input.restaurantName, domain: input.websiteHost },
@@ -76,7 +104,7 @@ export function buildPoppyJson(input: PoppyJsonInput) {
       {
         type: 'openapi',
         url: input.openApiUrl,
-        description: `Request a table at ${input.restaurantName}. The diner confirms the request on WhatsApp.`,
+        description: input.depositTerms ? `${base} ${depositSentence(input.depositTerms)}` : base,
       },
     ],
   }
@@ -90,6 +118,15 @@ export interface AgentOpenApiInput {
   statement: CollectionStatement
   /** BOOK-009: the restaurant's booking hours and Hong Kong today; absent or null = the pre-BOOK-009 document. */
   booking?: AgentOpenApiBooking | null
+  /** BOOK-014 W5: set when the restaurant takes deposits; absent or null = the pre-BOOK-014 document. */
+  deposit?: AgentOpenApiDeposit | null
+}
+
+export interface AgentOpenApiDeposit {
+  /** The amount rule and refund note in English (depositTermsText). */
+  terms: string
+  /** R61: who processes the deposit and that it may leave Hong Kong (depositProcessingSentence). */
+  processing: DepositTexts
 }
 
 export interface AgentOpenApiBooking {
@@ -157,9 +194,20 @@ function rulesLines(input: AgentOpenApiInput, { hours, today }: AgentOpenApiBook
   ]
 }
 
+/** BOOK-014 W5 (spec AC-10): the deposit step between the diner's code and the restaurant. */
+function depositLines(deposit: AgentOpenApiDeposit): string[] {
+  return [
+    '',
+    `Deposit: ${sentence(deposit.terms)}`,
+    'When a deposit applies, the diner\'s confirmation on WhatsApp does not send the request yet: the booking becomes `awaiting_deposit` and the diner gets a payment link in that WhatsApp chat.',
+    'GET /bookings/{booking_id} then also returns `payment_url` and `deposit` {amount, currency, expires_at}. Once paid it becomes `pending`; unpaid at `deposit.expires_at` it becomes `expired`. The amount is set by the restaurant; no request field changes it.',
+  ]
+}
+
 function description(input: AgentOpenApiInput): string {
   const s = input.statement
   const rules = input.booking ? rulesLines(input, input.booking) : []
+  const deposit = input.deposit ?? null
   return [
     `Request a table at ${input.restaurantName}. No sign-in.`,
     '',
@@ -172,9 +220,11 @@ function description(input: AgentOpenApiInput): string {
     '',
     `At most ${MAX_PENDING_PER_PHONE} open requests per phone number at a time (unconfirmed, or confirmed by the diner and waiting for the restaurant). Send an Idempotency-Key header to retry safely.`,
     ...rules,
+    ...(deposit ? depositLines(deposit) : []),
     '',
     `Collection statement: ${s.en} Privacy policy: ${s.privacy_url}`,
     `收集個人資料聲明: ${s['zh-HK']} 私隱政策: ${s.privacy_url}`,
+    ...(deposit ? [deposit.processing.en, deposit.processing.zh_hk] : []),
   ].join('\n')
 }
 
@@ -340,8 +390,29 @@ const AVAILABILITY_SCHEMA = {
 
 // AGENT-003: the diner can cancel by chat with the restaurant's own AI agent.
 const STATUS_ENUM = ['awaiting_confirmation', 'expired', 'pending', 'confirmed', 'declined', 'cancelled']
+/** BOOK-014 W5: a confirmed request waiting for its deposit. */
+const DEPOSIT_STATUS_ENUM = ['awaiting_confirmation', 'awaiting_deposit', 'expired', 'pending', 'confirmed', 'declined', 'cancelled']
 
-function schemas(booking: AgentOpenApiBooking | null) {
+const DEPOSIT_FIELDS = {
+  payment_url: {
+    type: 'string',
+    format: 'uri',
+    description: 'Only while awaiting_deposit: the hosted payment page. Give it to the diner (they also got it on WhatsApp).',
+  },
+  deposit: {
+    type: 'object',
+    description: 'Only while awaiting_deposit.',
+    required: ['amount', 'currency', 'expires_at'],
+    properties: {
+      amount: { type: 'string', description: 'Decimal amount in major currency units, e.g. "400".' },
+      currency: { type: 'string', description: 'ISO 4217 code, e.g. HKD.' },
+      expires_at: { type: 'string', format: 'date-time', description: 'The hold ends here; unpaid, the booking becomes expired.' },
+    },
+  },
+}
+
+function schemas(booking: AgentOpenApiBooking | null, deposit: AgentOpenApiDeposit | null = null) {
+  const statusEnum = deposit ? DEPOSIT_STATUS_ENUM : STATUS_ENUM
   const statement = {
     type: 'object',
     required: ['en', 'zh-HK', 'privacy_url'],
@@ -355,7 +426,7 @@ function schemas(booking: AgentOpenApiBooking | null) {
       required: ['booking_id', 'status', 'confirm_url', 'confirm_code', 'expires_at', 'status_token', 'collection_statement'],
       properties: {
         booking_id: { type: 'string', format: 'uuid' },
-        status: { type: 'string', enum: STATUS_ENUM },
+        status: { type: 'string', enum: statusEnum },
         confirm_url: { type: 'string', format: 'uri', description: 'WhatsApp link to the restaurant with the code prefilled. Give it to the diner.' },
         confirm_code: { type: 'string', description: 'The code the diner sends if they type the message themselves.' },
         expires_at: { type: 'string', format: 'date-time' },
@@ -368,11 +439,12 @@ function schemas(booking: AgentOpenApiBooking | null) {
       required: ['booking_id', 'status', 'date', 'time', 'party_size'],
       properties: {
         booking_id: { type: 'string', format: 'uuid' },
-        status: { type: 'string', enum: STATUS_ENUM },
+        status: { type: 'string', enum: statusEnum },
         date: { type: 'string', format: 'date' },
         time: { type: 'string' },
         party_size: { type: 'integer' },
         expires_at: { type: 'string', format: 'date-time', description: 'Only while awaiting confirmation.' },
+        ...(deposit ? DEPOSIT_FIELDS : {}),
       },
     },
     ReplayedBooking: {
@@ -404,6 +476,6 @@ export function buildAgentBookingOpenApi(input: AgentOpenApiInput) {
       '/bookings/{booking_id}': { get: getBookingOperation() },
       ...(schedule ? { '/availability': { get: availabilityOperation(input, schedule.hours) } } : {}),
     },
-    components: { schemas: { ...schemas(input.booking ?? null), ...(schedule ? { Availability: AVAILABILITY_SCHEMA } : {}) } },
+    components: { schemas: { ...schemas(input.booking ?? null, input.deposit ?? null), ...(schedule ? { Availability: AVAILABILITY_SCHEMA } : {}) } },
   }
 }

@@ -1,0 +1,694 @@
+TSC_OK
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/app/api/webhooks/whatsapp/__tests__/route.quality-event.integration.test.ts
+  193:7   warning  '_opts' is defined but never used  @typescript-eslint/no-unused-vars
+  207:16  warning  '_cols' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/app/dashboard/feed/page.tsx
+  44:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/app/dashboard/feed/page.tsx:44:5
+  42 |
+  43 |   useEffect(() => {
+> 44 |     fetchEvents()
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  45 |   }, [fetchEvents])
+  46 |
+  47 |   const mergedEvents = useMergedEvents(realtimeEvents, fetchedEvents, filter)  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/app/dashboard/rewards/page.tsx
+  117:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/app/dashboard/rewards/page.tsx:117:7
+  115 |   useEffect(() => {
+  116 |     if (reward) {
+> 117 |       setForm({
+      |       ^^^^^^^ Avoid calling setState() directly within an effect
+  118 |         name: reward.name, pointsCost: String(reward.pointsCost),
+  119 |         discountType: reward.discountType, discountValue: String(reward.discountValue),
+  120 |         couponExpiryDays: String(reward.couponExpiryDays), sortOrder: String(reward.sortOrder),  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/application/__tests__/award-pos-points.test.ts
+  15:10  warning  'sendTextMessage' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/onboarding-wizard/step-indicator.tsx
+  4:10  warning  'STEP_COUNT' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/referrer-form-dialog.tsx
+  36:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/referrer-form-dialog.tsx:36:7
+  34 |   useEffect(() => {
+  35 |     if (referrer) {
+> 36 |       setForm({
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  37 |         name: referrer.name,
+  38 |         contactEmail: referrer.contactEmail,
+  39 |         contactPhone: referrer.contactPhone ?? '',  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/template-review-decision-sheet.tsx
+  39:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/template-review-decision-sheet.tsx:39:5
+  37 |
+  38 |   useEffect(() => {
+> 39 |     setNotes('')
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  40 |     setError(null)
+  41 |     setSubmittingAction(null)
+  42 |   }, [review?.id])  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/tenant-referrer-selector.tsx
+  32:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/admin/tenant-referrer-selector.tsx:32:5
+  30 |
+  31 |   useEffect(() => {
+> 32 |     setValue(currentReferrerId ?? '')
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |   }, [currentReferrerId])
+  34 |
+  35 |   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/campaign-form-dialog.tsx
+  110:22  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/campaign-form-dialog.tsx:110:22
+  108 |
+  109 |   useEffect(() => {
+> 110 |     if (!campaign) { setForm(initialCampaignForm); return }
+      |                      ^^^^^^^ Avoid calling setState() directly within an effect
+  111 |     setForm(campaignToFormState(campaign))
+  112 |     if (campaign.targetAudience === 'selected') {
+  113 |       fetch(`/api/dashboard/campaigns/${campaign.id}`)  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/coupon-detail-panel.tsx
+  73:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/coupon-detail-panel.tsx:73:5
+  71 |   useEffect(() => {
+  72 |     if (!couponId || !open) return
+> 73 |     fetchCouponData(couponId)
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  74 |   }, [couponId, open, fetchCouponData])
+  75 |
+  76 |   return (  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/coupon-form-dialog.tsx
+  48:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/coupon-form-dialog.tsx:48:7
+  46 |   useEffect(() => {
+  47 |     if (coupon) {
+> 48 |       setForm({
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  49 |         type: coupon.type,
+  50 |         code: coupon.code,
+  51 |         discountType: coupon.discountType ?? 'none',  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/flagged-receipts-panel.tsx
+  29:21  error  Error: Cannot access variable before it is declared
+
+`fetchFlagged` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/flagged-receipts-panel.tsx:29:21
+  27 |   const [actionId, setActionId] = useState<string | null>(null)
+  28 |
+> 29 |   useEffect(() => { fetchFlagged() }, [])
+     |                     ^^^^^^^^^^^^ `fetchFlagged` accessed before it is declared
+  30 |
+  31 |   async function fetchFlagged() {
+  32 |     setLoading(true)
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/flagged-receipts-panel.tsx:31:3
+  29 |   useEffect(() => { fetchFlagged() }, [])
+  30 |
+> 31 |   async function fetchFlagged() {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 32 |     setLoading(true)
+     | ^^^^^^^^^^^^^^^^^^^^
+> 33 |     try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^
+> 42 |     }
+     | ^^^^^^^^^^^^^^^^^^^^
+> 43 |   }
+     | ^^^^ `fetchFlagged` is declared here
+  44 |
+  45 |   async function handleAction(receiptId: string, action: 'approve' | 'reject') {
+  46 |     setActionId(receiptId)  react-hooks/immutability
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/member-detail-panel.tsx
+  150:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/member-detail-panel.tsx:150:5
+  148 |   useEffect(() => {
+  149 |     if (!memberId || !open) return
+> 150 |     fetchMember(memberId)
+      |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  151 |   }, [memberId, open, fetchMember])
+  152 |
+  153 |   return (  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/receipt-template-status.tsx
+  23:5  error  Error: Cannot access variable before it is declared
+
+`fetchTemplate` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/receipt-template-status.tsx:23:5
+  21 |
+  22 |   useEffect(() => {
+> 23 |     fetchTemplate()
+     |     ^^^^^^^^^^^^^ `fetchTemplate` accessed before it is declared
+  24 |   }, [refreshKey])
+  25 |
+  26 |   async function fetchTemplate() {
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/receipt-template-status.tsx:26:3
+  24 |   }, [refreshKey])
+  25 |
+> 26 |   async function fetchTemplate() {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 27 |     setLoading(true)
+     | ^^^^^^^^^^^^^^^^^^^^
+> 28 |     try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^
+> 36 |     }
+     | ^^^^^^^^^^^^^^^^^^^^
+> 37 |   }
+     | ^^^^ `fetchTemplate` is declared here
+  38 |
+  39 |   if (loading) {
+  40 |     return (  react-hooks/immutability
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/sidebar.tsx
+  162:15  warning  Do not use `window.location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/wa-template-form-dialog.tsx
+  35:27  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/wa-template-form-dialog.tsx:35:27
+  33 |
+  34 |   useEffect(() => {
+> 35 |     if (open && template) setForm(templateToFormState(template))
+     |                           ^^^^^^^ Avoid calling setState() directly within an effect
+  36 |     else if (open) setForm(initialWaTemplateForm)
+  37 |   }, [open, template])
+  38 |  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/welcome-setup-form.tsx
+  57:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/components/dashboard/welcome-setup-form.tsx:57:5
+  55 |
+  56 |   useEffect(() => {
+> 57 |     setDraft(toDraft(settings))
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |   }, [settings])
+  59 |
+  60 |   const dirty = isDirty(settings, draft)  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/domain/value-objects/__tests__/pos-field-mapping.test.ts
+  25:13  warning  'transactionId' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  30:13  warning  'amount' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  35:13  warning  'currency' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  40:13  warning  'eventType' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  45:13  warning  'eventTypeMapping' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/domain/value-objects/__tests__/tenant-plan.test.ts
+  5:8  warning  'TenantPlan' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-audit-logs.ts
+  55:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-audit-logs.ts:55:5
+  53 |
+  54 |   useEffect(() => {
+> 55 |     fetchLogs()
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  56 |   }, [fetchLogs])
+  57 |
+  58 |   return {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-campaign-settings.ts
+  41:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-campaign-settings.ts:41:5
+  39 |
+  40 |   useEffect(() => {
+> 41 |     fetchSettings()
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |   }, [fetchSettings])
+  43 |
+  44 |   return {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-referrers.ts
+  47:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-referrers.ts:47:21
+  45 |   }, [status])
+  46 |
+> 47 |   useEffect(() => { fetchReferrers() }, [fetchReferrers])
+     |                     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |
+  49 |   return { referrers, isLoading, error, mutate: fetchReferrers }
+  50 | }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-template-reviews.ts
+  60:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-template-reviews.ts:60:5
+  58 |
+  59 |   useEffect(() => {
+> 60 |     fetchReviews()
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  61 |   }, [fetchReviews])
+  62 |
+  63 |   return { reviews, isLoading, error, refetch: fetchReviews }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenant-detail.ts
+  60:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenant-detail.ts:60:5
+  58 |
+  59 |   useEffect(() => {
+> 60 |     fetchDetail()
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  61 |   }, [fetchDetail])
+  62 |
+  63 |   return {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenant-onboarding.ts
+  61:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenant-onboarding.ts:61:5
+  59 |
+  60 |   useEffect(() => {
+> 61 |     refresh()
+     |     ^^^^^^^ Avoid calling setState() directly within an effect
+  62 |   }, [refresh])
+  63 |
+  64 |   const mutateThenRefresh = useCallback(  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenants.ts
+  54:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-admin-tenants.ts:54:5
+  52 |
+  53 |   useEffect(() => {
+> 54 |     fetchTenants()
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  55 |   }, [fetchTenants])
+  56 |
+  57 |   return {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-billing-report.ts
+  30:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-billing-report.ts:30:5
+  28 |
+  29 |   useEffect(() => {
+> 30 |     fetchReport()
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  31 |   }, [fetchReport])
+  32 |
+  33 |   return { data, loading, error, refetch: fetchReport }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaign-guardrails.ts
+  42:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaign-guardrails.ts:42:5
+  40 |
+  41 |   useEffect(() => {
+> 42 |     fetchGuardrails()
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  43 |   }, [fetchGuardrails])
+  44 |
+  45 |   return { data, loading, error, refetch: fetchGuardrails }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaign-usage.ts
+  31:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaign-usage.ts:31:5
+  29 |
+  30 |   useEffect(() => {
+> 31 |     fetchUsage()
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |   }, [fetchUsage])
+  33 |
+  34 |   return { data, loading, error, refetch: fetchUsage }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaigns.ts
+  46:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-campaigns.ts:46:5
+  44 |
+  45 |   useEffect(() => {
+> 46 |     fetchCampaigns()
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  47 |   }, [fetchCampaigns])
+  48 |
+  49 |   return { campaigns, isLoading, error, refetch: fetchCampaigns }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-coupons.ts
+  63:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-coupons.ts:63:5
+  61 |
+  62 |   useEffect(() => {
+> 63 |     fetchCoupons()
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  64 |   }, [fetchCoupons])
+  65 |
+  66 |   return { data, isLoading, error, refetch: fetchCoupons }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-dashboard-overview.ts
+  47:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-dashboard-overview.ts:47:5
+  45 |
+  46 |   useEffect(() => {
+> 47 |     fetchOverview()
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |   }, [fetchOverview])
+  49 |
+  50 |   return { data, isLoading, error, refetch: fetchOverview }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-members.ts
+  89:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-members.ts:89:5
+  87 |
+  88 |   useEffect(() => {
+> 89 |     fetchMembers()
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  90 |   }, [fetchMembers])
+  91 |
+  92 |   return { data, isLoading, error, refetch: fetchMembers }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-onboarding-settings.ts
+  35:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-onboarding-settings.ts:35:5
+  33 |
+  34 |   useEffect(() => {
+> 35 |     load()
+     |     ^^^^ Avoid calling setState() directly within an effect
+  36 |   }, [load])
+  37 |
+  38 |   const saveSettings = useCallback(async (patch: OnboardingPatch) => {  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-platform-overview.ts
+  48:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-platform-overview.ts:48:5
+  46 |
+  47 |   useEffect(() => {
+> 48 |     fetchOverview()
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  49 |   }, [fetchOverview])
+  50 |
+  51 |   return { data, isLoading, error, refetch: fetchOverview }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-quality-overview.ts
+  58:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-quality-overview.ts:58:5
+  56 |
+  57 |   useEffect(() => {
+> 58 |     refetch()
+     |     ^^^^^^^ Avoid calling setState() directly within an effect
+  59 |   }, [refetch])
+  60 |
+  61 |   return { data, isLoading, error, refetch }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-realtime-events.ts
+  49:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-realtime-events.ts:49:7
+  47 |   useEffect(() => {
+  48 |     if (!restaurantId) {
+> 49 |       setEvents([])
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  50 |       setStatus('disconnected')
+  51 |       return
+  52 |     }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-referrer-detail.ts
+  51:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-referrer-detail.ts:51:21
+  49 |   }, [id])
+  50 |
+> 51 |   useEffect(() => { fetchDetail() }, [fetchDetail])
+     |                     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  52 |
+  53 |   return { referrer, earnings, commissions, isLoading, error, mutate: fetchDetail }
+  54 | }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-referrer-report.ts
+  33:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-referrer-report.ts:33:5
+  31 |
+  32 |   useEffect(() => {
+> 33 |     fetchReport()
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |   }, [fetchReport])
+  35 |
+  36 |   return { data, loading, error, refetch: fetchReport }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-rewards.ts
+  41:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-rewards.ts:41:5
+  39 |
+  40 |   useEffect(() => {
+> 41 |     fetchRewards()
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |   }, [fetchRewards])
+  43 |
+  44 |   return { data, isLoading, error, refetch: fetchRewards }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-stamp-campaigns.ts
+  42:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/hooks/use-stamp-campaigns.ts:42:5
+  40 |
+  41 |   useEffect(() => {
+> 42 |     fetchCampaigns()
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  43 |   }, [fetchCampaigns])
+  44 |
+  45 |   return { campaigns, isLoading, error, refetch: fetchCampaigns }  react-hooks/set-state-in-effect
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/infrastructure/pos/generic/__tests__/webhook-adapter.test.ts
+  110:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/proxy.ts
+  55:3  warning  '_userId' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/test-utils/loopback-test-guard.ts
+  63:19  warning  '_hostname' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 49 problems (36 errors, 13 warnings)
+

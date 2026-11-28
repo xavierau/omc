@@ -1,0 +1,7 @@
+R49 account match removed: exit=1 Tests  1 failed | 32 passed (33)
+R50 mode check removed: exit=1 Tests  1 failed | 32 passed (33)
+R48 claim release removed: exit=1 Tests  1 failed | 32 passed (33)
+R54 abandon on provider failure removed: exit=1 Tests  2 failed | 31 passed (33)
+R62 redirect host check removed: exit=1 Tests  1 failed | 5 passed (6)
+R47 route secret check removed (adapter still fails closed): exit=0 Tests  7 passed (7)
+R61 metadata gains phone: exit=1 Tests  1 failed | 13 passed (14)

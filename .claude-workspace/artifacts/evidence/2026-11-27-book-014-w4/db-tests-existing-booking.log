@@ -1,0 +1,10 @@
+# existing booking DB suites on the same scratch DB (2026-11-27T16:36:44Z)
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w4
+
+
+ Test Files  4 passed (4)
+      Tests  36 passed (36)
+   Start at  00:36:45
+   Duration  4.88s (transform 179ms, setup 0ms, import 226ms, tests 15.37s, environment 0ms)
+

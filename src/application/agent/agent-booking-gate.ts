@@ -21,6 +21,8 @@ import {
 import type { AgentConversationKey } from '@/domain/ports/agent-reply'
 import type { AgentToolOutput } from '@/domain/ports/agent-model'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
+import type { BookingDepositStore, DepositBookingWriter, MerchantPaymentAccountReader } from '@/domain/ports/booking-deposit'
+import type { StartDepositDeps } from '@/application/payments/start-deposit'
 import type {
   BookingMemberLookup,
   BookingMessageSender,
@@ -36,7 +38,7 @@ export interface AgentBookingToolContext {
    * The tenant's booking settings, read when the job started (AGENT-005: bookingRules feeds the booking skill's prompt;
    * BOOK-009: bookingHours binds the tools, absent = null = any time).
    */
-  config: Pick<BookingConfig, 'mode' | 'maxPartySize' | 'externalUrl' | 'bookingRules'> & Partial<Pick<BookingConfig, 'bookingHours'>>
+  config: Pick<BookingConfig, 'mode' | 'maxPartySize' | 'externalUrl' | 'bookingRules'> & Partial<Pick<BookingConfig, 'bookingHours' | 'deposit'>>
   /** `created_at` of this job's inbound agent_messages row (R15); null when it is gone. */
   inboundCreatedAt(): Promise<string | null>
   proposals: AgentProposalStore
@@ -60,6 +62,17 @@ export interface AgentBookingToolContext {
   notifyText(restaurantId: string, phone: string, text: string): Promise<boolean>
   /** BOOK-010: guest counts, stops and the atomic insert; absent = no room check. */
   room?: BookingRoomStore
+  /** BOOK-014 W5 (spec AC-9): the deposit side of create, change and cancel; absent = no deposits. */
+  deposit?: AgentDepositDeps
+}
+
+/** BOOK-014 W5: the account, W1's startDeposit (the one money entry) with its atomic writer, and the deposit lookup. */
+export interface AgentDepositDeps {
+  accounts: MerchantPaymentAccountReader
+  writer: DepositBookingWriter
+  start: StartDepositDeps
+  /** Scoped by restaurant in the query (R58). */
+  deposits: Pick<BookingDepositStore, 'findByBookingForRestaurant'>
 }
 
 export interface BookingCall {

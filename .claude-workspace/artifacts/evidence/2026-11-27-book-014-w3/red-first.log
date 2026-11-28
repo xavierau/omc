@@ -1,0 +1,428 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w3
+
+ ❯ src/application/payments/__tests__/notify-deposit-paid.test.ts (0 test)
+ ❯ src/application/payments/__tests__/booking-page-deposit.test.ts (0 test)
+ ❯ src/components/booking/__tests__/booking-deposit.test.tsx (0 test)
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts (15 tests | 7 failed) 43ms
+     × returns the /p redirect built on the app URL; the booking holds its seats; nothing is sent 21ms
+     × the /b token stays spent after the submit (no second booking from the same link) 3ms
+     × 503 code payment_unavailable; the hold is released (no seats counted); nothing is sent 4ms
+     × an account read that throws is a plain failure and re-arms the link 2ms
+     × per-phone cap reached at the atomic insert -> too_many_pending, link re-armed 3ms
+     × slot full at the atomic insert -> invalid full, link re-armed 3ms
+     × the amount comes only from the stored rule (per guest 100 x 4 = HK$400) 1ms
+ ❯ src/app/api/b/__tests__/booking-submit-deposit-route.test.ts (3 tests | 2 failed) 35ms
+     × 200 {ok, redirect} to the /p link; the no-store booking headers; no received message 29ms
+     × R54/R64: provider failure -> 503 payment_unavailable; the provider message and account id never in the body 3ms
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts (6 tests | 4 failed) 43ms
+     × paid -> "Deposit paid, request sent" (booking-pay-paid) with the details, no PII 15ms
+     × back from the provider after paying, before the webhook -> "confirming" with the details 4ms
+     × back without paying, hold open -> "Payment not finished, you have until HH:MM" + Pay now to the same /p link 18ms
+     × lapsed -> "This hold has lapsed, message us on WhatsApp", neutral (no details) 2ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/booking/__tests__/booking-deposit.test.tsx [ src/components/booking/__tests__/booking-deposit.test.tsx ]
+Error: Cannot find module '/src/components/booking/deposit-line' imported from /Users/xavierau/Code/js/whatsapp-crm--book-014-w3/src/components/booking/__tests__/booking-deposit.test.tsx
+ ❯ src/components/booking/__tests__/booking-deposit.test.tsx:16:1
+     14|
+     15| import { outcomeFromResponse } from '../booking-form-client'
+     16| import { DepositLine, DepositUnavailable, depositSubmitLabel, isPaymen…
+       | ^
+     17| import { SummaryBar } from '../summary-bar'
+     18| import { CollectionStatement } from '../collection-statement'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  src/application/payments/__tests__/booking-page-deposit.test.ts [ src/application/payments/__tests__/booking-page-deposit.test.ts ]
+Error: Cannot find module '../booking-page-deposit' imported from /Users/xavierau/Code/js/whatsapp-crm--book-014-w3/src/application/payments/__tests__/booking-page-deposit.test.ts
+ ❯ src/application/payments/__tests__/booking-page-deposit.test.ts:6:1
+      4| // same domain function the server charges with (R53).
+      5| import { describe, it, expect, beforeEach, vi } from 'vitest'
+      6| import { bookingPageDepositPlan, type BookingPageDepositDeps } from '.…
+       | ^
+      7| import { FakeBookingSettings, FakeBookingTokens } from '@/test-utils/f…
+      8| import { FakeAccounts } from '@/test-utils/fake-booking-deposit'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+ FAIL  src/application/payments/__tests__/notify-deposit-paid.test.ts [ src/application/payments/__tests__/notify-deposit-paid.test.ts ]
+Error: Cannot find module '../notify-deposit-paid' imported from /Users/xavierau/Code/js/whatsapp-crm--book-014-w3/src/application/payments/__tests__/notify-deposit-paid.test.ts
+ ❯ src/application/payments/__tests__/notify-deposit-paid.test.ts:5:1
+      3| // idempotency). Bookings from other channels are left to their own ho…
+      4| import { describe, it, expect, beforeEach } from 'vitest'
+      5| import { bookingPagePaidHook } from '../notify-deposit-paid'
+       | ^
+      6| import { paymentWorld, RESTAURANT } from '@/test-utils/payment-world'
+      7| import { FakeBookingSender, FakeBookingSettings } from '@/test-utils/f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3 AC-5: deposit applies -> held awaiting_deposit, redirect to /p, no received message yet > returns the /p redirect built on the app URL; the booking holds its seats; nothing is sent
+TypeError: Cannot read properties of undefined (reading 'id')
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:50:64
+     48|   it('returns the /p redirect built on the app URL; the booking holds …
+     49|     const result = await submit()
+     50|     expect(result).toEqual({ ok: true, bookingId: onlyBooking().id, re…
+       |                                                                ^
+     51|     expect(onlyBooking()).toMatchObject({ status: 'awaiting_deposit', …
+     52|     expect(w.ledger.guests('2026-12-24', '19:00')).toBe(4)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3 AC-5: deposit applies -> held awaiting_deposit, redirect to /p, no received message yet > the /b token stays spent after the submit (no second booking from the same link)
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:61:36
+     59|     await submit()
+     60|     expect(await submit()).toEqual({ ok: false, reason: 'token_unusabl…
+     61|     expect(w.ledger.bookings.size).toBe(1)
+       |                                    ^
+     62|   })
+     63| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3 R54 / R64: provider failure at submit > 503 code payment_unavailable; the hold is released (no seats counted); nothing is sent
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: false, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "ok": false,
+-   "reason": "payment_unavailable",
++   "bookingId": "aad6bba6-dda5-4876-8f80-7c9d9f7cb34b",
++   "delivered": true,
++   "ok": true,
+  }
+
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:102:28
+    100|     vi.spyOn(console, 'error').mockImplementation(() => {})
+    101|     w.gateway.failNext('createHostedPayment')
+    102|     expect(await submit()).toEqual({ ok: false, reason: 'payment_unava…
+       |                            ^
+    103|     expect(onlyBooking().status).toBe('lapsed')
+    104|     expect(w.ledger.guests('2026-12-24', '19:00')).toBe(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3 R54 / R64: provider failure at submit > an account read that throws is a plain failure and re-arms the link
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: false, reason: 'failed' }
+
+- Expected
++ Received
+
+  {
+-   "ok": false,
+-   "reason": "failed",
++   "bookingId": "8454b956-7331-4084-b64d-24f9bc116338",
++   "delivered": true,
++   "ok": true,
+  }
+
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:111:28
+    109|     vi.spyOn(console, 'error').mockImplementation(() => {})
+    110|     vi.spyOn(w.accounts, 'findForRestaurant').mockRejectedValueOnce(ne…
+    111|     expect(await submit()).toEqual({ ok: false, reason: 'failed' })
+       |                            ^
+    112|     expect(tokens.rows[0].consumedAt).toBeNull()
+    113|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3: the insert refuses (existing error mapping) > per-phone cap reached at the atomic insert -> too_many_pending, link re-armed
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: false, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "ok": false,
+-   "reason": "too_many_pending",
++   "bookingId": "c5dd3f39-5e41-4f0d-9f3d-035824fac5c7",
++   "delivered": true,
++   "ok": true,
+  }
+
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:126:28
+    124|       )
+    125|     }
+    126|     expect(await submit()).toEqual({ ok: false, reason: 'too_many_pend…
+       |                            ^
+    127|     expect(tokens.rows[0].consumedAt).toBeNull()
+    128|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3: the insert refuses (existing error mapping) > slot full at the atomic insert -> invalid full, link re-armed
+AssertionError: expected { ok: true, …(2) } to match object { ok: false, reason: 'invalid', …(1) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "errors": {
+-     "time": "full",
+-   },
+-   "ok": false,
+-   "reason": "invalid",
++   "ok": true,
+  }
+
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:133:20
+    131|     w.ledger.defaultSlotLimit = 2
+    132|     const result = await submit()
+    133|     expect(result).toMatchObject({ ok: false, reason: 'invalid', error…
+       |                    ^
+    134|     expect(tokens.rows[0].consumedAt).toBeNull()
+    135|     expect(w.ledger.deposits.size).toBe(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/16]⎯
+
+ FAIL  src/application/booking/__tests__/submit-booking-deposit.test.ts > W3 R53: no amount from the client > the amount comes only from the stored rule (per guest 100 x 4 = HK$400)
+TypeError: Cannot read properties of undefined (reading 'amount')
+ ❯ src/application/booking/__tests__/submit-booking-deposit.test.ts:150:47
+    148|   it('the amount comes only from the stored rule (per guest 100 x 4 = …
+    149|     await submit({ ...BODY, partySize: 4 })
+    150|     expect([...w.ledger.deposits.values()][0].amount).toEqual({ amount…
+       |                                               ^
+    151|   })
+    152| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/16]⎯
+
+ FAIL  src/app/api/b/__tests__/booking-submit-deposit-route.test.ts > POST /api/b/<token> with a deposit > 200 {ok, redirect} to the /p link; the no-store booking headers; no received message
+AssertionError: expected { ok: true, delivered: true } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
++   "delivered": true,
+    "ok": true,
+-   "redirect": "https://app.example.test/p/undefined",
+  }
+
+ ❯ src/app/api/b/__tests__/booking-submit-deposit-route.test.ts:54:30
+     52|     const res = await post(BODY)
+     53|     expect(res.status).toBe(200)
+     54|     expect(await res.json()).toEqual({ ok: true, redirect: `${APP_URL}…
+       |                              ^
+     55|     expect(res.headers.get('Cache-Control')).toContain('no-store')
+     56|     expect(sender.sent).toEqual([])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/16]⎯
+
+ FAIL  src/app/api/b/__tests__/booking-submit-deposit-route.test.ts > POST /api/b/<token> with a deposit > R54/R64: provider failure -> 503 payment_unavailable; the provider message and account id never in the body
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ src/app/api/b/__tests__/booking-submit-deposit-route.test.ts:65:24
+     63|     )
+     64|     const res = await post(BODY)
+     65|     expect(res.status).toBe(503)
+       |                        ^
+     66|     const text = await res.text()
+     67|     expect(JSON.parse(text)).toEqual({ error: 'payment_unavailable' })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/16]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > paid -> "Deposit paid, request sent" (booking-pay-paid) with the details, no PII
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-paid"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-paid"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main>
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:59:18
+     57|     const html = await res.text()
+     58|     expect(html).toContain('Deposit paid, request sent')
+     59|     expect(html).toContain('data-testid="booking-pay-paid"')
+       |                  ^
+     60|     expectDetails(html)
+     61|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/16]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > back from the provider after paying, before the webhook -> "confirming" with the details
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'Café A'
+
+- Expected
++ Received
+
+- Café A
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>正在確認付款 · Confirming your payment</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main>
++ <section lang="zh-HK"><h1>正在確認付款</h1><p>多謝！我們正在確認你的付款，確認後會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Confirming your payment</h1><p>Thank you. We are confirming your payment and will message you on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ expectDetails src/app/p/[token]/__tests__/route-details.test.ts:46:81
+     44|
+     45| function expectDetails(html: string) {
+     46|   for (const shown of ['Café A', '2026-12-24', '19:00', 'HK$400']) exp…
+       |                                                                                 ^
+     47|   expect(html).toMatch(/4 位|4 guests/)
+     48|   for (const hidden of PII) expect(html).not.toContain(hidden)
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:67:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/16]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > back without paying, hold open -> "Payment not finished, you have until HH:MM" + Pay now to the same /p link
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-now"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-now"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>尚未完成付款 · Payment not finished</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main>
++ <section lang="zh-HK"><h1>尚未完成付款</h1><p>你可在 18:30 前完成付款。</p></section>
++ <section lang="en"><h1>Payment not finished</h1><p>You have until 18:30 to pay.</p></section>
++ <p><a class="btn" data-testid="booking-pay-pending" href="/p/8Ju0t3GtRSAJ_S0QK8blPfy0w5JuS_ipY7_JmzUcxy8">立即付款 · Pay now</a></p>
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:77:18
+     75|     expect(html).toContain('You have until 18:30') // 10:00Z + 30 min …
+     76|     expect(html).toContain(`href="/p/${token}"`)
+     77|     expect(html).toContain('data-testid="booking-pay-now"')
+       |                  ^
+     78|     expectDetails(html)
+     79|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/16]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W3 /p pages with booking details > lapsed -> "This hold has lapsed, message us on WhatsApp", neutral (no details)
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'message us on WhatsApp'
+
+- Expected
++ Received
+
+- message us on WhatsApp
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>訂座保留已過期 · This hold has lapsed</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-lapsed">
++ <section lang="zh-HK"><h1>訂座保留已過期</h1><p>此訂座保留已過期。如已付款，款項將會全數退回。請在 WhatsApp 聯絡餐廳取得新連結。</p></section>
++ <section lang="en"><h1>This hold has lapsed</h1><p>This booking hold has lapsed. Any payment made will be refunded in full. Message us on WhatsApp for a new link.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:88:18
+     86|     const html = await res.text()
+     87|     expect(html).toContain('data-testid="booking-pay-lapsed"')
+     88|     expect(html).toContain('message us on WhatsApp')
+       |                  ^
+     89|     for (const hidden of ['Café A', '2026-12-24', '19:00', 'HK$400', .…
+     90|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/16]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  13 failed | 11 passed (24)
+   Start at  14:21:54
+   Duration  966ms (transform 1.09s, setup 0ms, import 1.54s, tests 121ms, environment 0ms)
+

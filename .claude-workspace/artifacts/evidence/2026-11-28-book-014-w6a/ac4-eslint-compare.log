@@ -1,0 +1,6 @@
+command: (cd <export> && eslint -c <tree>/eslint.config.mjs src -f json), exports via git archive of origin/develop (8d93704a) and HEAD 7d98e2eb, same node_modules (eslint-config-next 16.4.6), run 2026-11-28
+base origin/develop: errors 36, warnings 13
+branch HEAD: errors 36, warnings 13
+same (file, line, rule, severity) set: True; only in base: []; only in branch: []
+src .ts/.tsx files added or modified vs origin/develop: 180; files among them with any eslint message: 0
+eslint-base.txt and eslint-branch.txt identical: diff exit 0

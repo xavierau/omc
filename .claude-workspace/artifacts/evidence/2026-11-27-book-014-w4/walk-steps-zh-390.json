@@ -1,0 +1,515 @@
+{
+  "tag": "zh-390",
+  "today": "2026-11-28",
+  "steps": [
+    {
+      "check": "today: staff hold shown, diner hold + lapsed hidden",
+      "ok": true,
+      "detail": "Wong Awaiting, Lee Paid, Ho Paid, Cheung Paid, Ng No-show, Chan No Deposit"
+    },
+    {
+      "check": "today: badges awaiting / paid / no-show paid",
+      "ok": true,
+      "detail": "awaiting paid paid"
+    },
+    {
+      "check": "today: no badge without a deposit",
+      "ok": true
+    },
+    {
+      "check": "today: no-show paid offers Refund + Keep",
+      "ok": true
+    },
+    {
+      "check": "today: staff hold offers Copy link",
+      "ok": true
+    },
+    {
+      "step": "01-today",
+      "note": "Today: awaiting (staff), paid, no-show with Deposit held + Refund/Keep",
+      "file": "01-today-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 0,
+        "info": 1
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": []
+    },
+    {
+      "check": "table: awaiting, paid, kept, refunded, refund pending, refund failed",
+      "ok": true,
+      "detail": "{\"Wong Awaiting\":\"awaiting\",\"Lee Paid\":\"paid\",\"Tam Kept\":\"kept\",\"Yip Refunded\":\"refunded\",\"Kwok Pending\":\"refund_pending\",\"Lau Failed\":\"refund_failed\"}"
+    },
+    {
+      "check": "table: refund failed offers Retry",
+      "ok": true
+    },
+    {
+      "check": "table: diner hold and lapsed not listed",
+      "ok": true
+    },
+    {
+      "step": "02-table",
+      "note": "Table: one deposit state per row",
+      "file": "02-table-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=table",
+      "audit": {
+        "blocking": 0,
+        "warning": 10,
+        "info": 1
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: li[data-testid=\"booking-row-72fd7175-4bdf-4e72-ac93-b3b81bff506e\"].flex.flex-col \"12:00Ng  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-ed26f9cc-8a32-4b1c-8653-e1ed67d5a379\"].flex.flex-col \"12:30Won | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-395ca4ec-1d31-431d-b106-d9f5533440d5\"].flex.flex-col \"13:00Lee | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-9fffb268-8b3d-4e40-8801-f63ef09ac02a\"].flex.flex-col \"13:30Ho  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-92b6d45b-1090-4124-99fd-76ae092e7f30\"].flex.flex-col \"18:30Che | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-7bc6ebf3-321a-46df-99bf-140c95ace1bf\"].flex.flex-col \"19:00Tam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-e9dc4a9c-3aea-41ea-8ebf-d586733c89c9\"].flex.flex-col \"19:30Yip | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-54e300d2-c2e3-48ef-9345-17ae010e82e4\"].flex.flex-col \"20:00Kwo | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-44511603-6f75-4630-bac9-58eaa55868cb\"].flex.flex-col \"20:30Lau | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.flex-col \"21:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+      ]
+    },
+    {
+      "check": "calendar: day total = listed guests (no-shows left out, BOOK-007) + diner hold (5), in the day panel",
+      "ok": true,
+      "detail": "listed 16 + hold 5; panel \"11月28日星期六  10 個訂座 · 21 位客人 · 2 個待回覆\"; cell \"週六 28\""
+    },
+    {
+      "check": "calendar: chip deposit mark on the staff hold",
+      "ok": true,
+      "detail": "phone grid shows dots, not chips"
+    },
+    {
+      "step": "03-calendar-day",
+      "note": "Calendar with the day panel; totals include held seats",
+      "file": "03-calendar-day-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 15,
+        "info": 1
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Ng No-show 未出席 已付訂金 HK$300 +85291000005 \" @145,629 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting 等待訂金 職員建立 · walk-staff 待付訂\" @145,888 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid 待確認 已付訂金 HK$400 +85291000002 連結\" @145,1103 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid 待確認 經 AI 助理 已付訂金 HK$200 +8529100\" @145,1290 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid 已確認 已付訂金 HK$600 +85291000004\" @145,1505 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept 已取消 職員取消 已保留訂金 HK$200 +85291000\" @145,1720 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded 已取消 職員取消 已退款 HK$400 +852910\" @145,1897 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending 已取消 經 AI 助理 職員取消 退款處理中 HK$2\" @145,2046 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed 已拒絕 退款失敗 HK$500 +85291000009 \" @145,2223 204x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit 已確認 +85291000012 連結會員 已到\" @145,2410 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: header.flex.items-start \"11月28日星期六 10 個訂座 · 21 位客人 · 2 個待回覆 新增\" @65,281 300x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+        "row-misaligned: li[data-testid=\"booking-row-395ca4ec-1d31-431d-b106-d9f5533440d5\"].flex.gap-4 \"13:00 4 位 L | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-9fffb268-8b3d-4e40-8801-f63ef09ac02a\"].flex.gap-4 \"13:30 2 位 H | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-92b6d45b-1090-4124-99fd-76ae092e7f30\"].flex.gap-4 \"18:30 6 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.gap-4 \"21:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)"
+      ]
+    },
+    {
+      "check": "decline paid: declined + refunded (declined), one provider refund",
+      "ok": true,
+      "detail": "refunded|declined|1 stripe+1"
+    },
+    {
+      "check": "decline paid: the decline message (free text, open window, the diner's language: zh_hk by default, no member) says the deposit HK$400 will be refunded",
+      "ok": true,
+      "detail": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"+85291000002\",\"type\":\"text\",\"text\":{\"body\":\"很抱歉,餐廳未能接受你在2026-11-28 13:00的訂座要求。歡迎選擇其他時間再次提交訂座要求。 你的訂金 HK$400 將會退回。\"}}"
+    },
+    {
+      "step": "04-decline-refunded",
+      "note": "Declined paid booking: Refunded",
+      "file": "04-decline-refunded-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 14,
+        "info": 2
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Ng No-show 未出席 已付訂金 HK$300 +85291000005 \" @145,669 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting 等待訂金 職員建立 · walk-staff 待付訂\" @145,928 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid 已拒絕 已退款 HK$400 +85291000002 連結會\" @145,1143 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid 待確認 經 AI 助理 已付訂金 HK$200 +8529100\" @145,1292 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid 已確認 已付訂金 HK$600 +85291000004\" @145,1507 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept 已取消 職員取消 已保留訂金 HK$200 +85291000\" @145,1722 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded 已取消 職員取消 已退款 HK$400 +852910\" @145,1899 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending 已取消 經 AI 助理 職員取消 退款處理中 HK$2\" @145,2048 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed 已拒絕 退款失敗 HK$500 +85291000009 \" @145,2225 204x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit 已確認 +85291000012 連結會員 已到\" @145,2412 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: header.flex.items-start \"11月28日星期六 10 個訂座 · 17 位客人 · 1 個待回覆 新增\" @65,321 300x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+        "row-misaligned: li[data-testid=\"booking-row-9fffb268-8b3d-4e40-8801-f63ef09ac02a\"].flex.gap-4 \"13:30 2 位 H | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-92b6d45b-1090-4124-99fd-76ae092e7f30\"].flex.gap-4 \"18:30 6 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.gap-4 \"21:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)"
+      ]
+    },
+    {
+      "check": "decline, provider refuses: declined stands, refund_failed",
+      "ok": true,
+      "detail": "refund_failed|declined|1"
+    },
+    {
+      "check": "decline, provider refuses: Retry shown",
+      "ok": true
+    },
+    {
+      "step": "05-decline-refund-failed",
+      "note": "Declined, the refund failed: Refund failed + Retry",
+      "file": "05-decline-refund-failed-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 13,
+        "info": 2
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Ng No-show 未出席 已付訂金 HK$300 +85291000005 \" @145,649 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting 等待訂金 職員建立 · walk-staff 待付訂\" @145,908 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid 已拒絕 已退款 HK$400 +85291000002 連結會\" @145,1123 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid 已拒絕 經 AI 助理 退款失敗 HK$200 +8529100\" @145,1272 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid 已確認 已付訂金 HK$600 +85291000004\" @145,1487 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept 已取消 職員取消 已保留訂金 HK$200 +85291000\" @145,1702 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded 已取消 職員取消 已退款 HK$400 +852910\" @145,1879 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending 已取消 經 AI 助理 職員取消 退款處理中 HK$2\" @145,2028 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed 已拒絕 退款失敗 HK$500 +85291000009 \" @145,2205 204x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit 已確認 +85291000012 連結會員 已到\" @145,2392 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: header.flex.items-start \"11月28日星期六 10 個訂座 · 15 位客人 新增\" @65,321 300x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-92b6d45b-1090-4124-99fd-76ae092e7f30\"].flex.gap-4 \"18:30 6 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.gap-4 \"21:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)"
+      ]
+    },
+    {
+      "check": "retry: refunded, attempt 2",
+      "ok": true,
+      "detail": "refunded|declined|2"
+    },
+    {
+      "check": "retry: toast refunded",
+      "ok": true,
+      "detail": "refunded"
+    },
+    {
+      "check": "cancel dialog: Refund / Keep / Decide later",
+      "ok": true
+    },
+    {
+      "step": "06-cancel-dialog",
+      "note": "Cancel dialog with the deposit choice (Keep picked)",
+      "file": "06-cancel-dialog-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 17,
+        "info": 2
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Ng No-show 未出席 已付訂金 HK$300 +85291000005 \" @145,649 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting 等待訂金 職員建立 · walk-staff 待付訂\" @145,908 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid 已拒絕 已退款 HK$400 +85291000002 連結會\" @145,1123 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid 已拒絕 經 AI 助理 已退款 HK$200 +85291000\" @145,1272 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid 已確認 已付訂金 HK$600 +85291000004\" @145,1449 152x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept 已取消 職員取消 已保留訂金 HK$200 +85291000\" @145,1664 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded 已取消 職員取消 已退款 HK$400 +852910\" @145,1841 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending 已取消 經 AI 助理 職員取消 退款處理中 HK$2\" @145,1990 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed 已拒絕 退款失敗 HK$500 +85291000009 \" @145,2167 204x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit 已確認 +85291000012 連結會員 已到\" @145,2354 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: header.flex.items-start \"11月28日星期六 10 個訂座 · 15 位客人 新增\" @65,321 300x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-92b6d45b-1090-4124-99fd-76ae092e7f30\"].flex.gap-4 \"18:30 6 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.gap-4 \"21:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "touch-target-small: input[data-testid=\"booking-cancel-notify\"].mt-0.5.size-5 \"on\" @29,1511 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)",
+        "touch-target-small: input[data-testid=\"booking-cancel-deposit-refund\"].size-5.shrink-0 \"refund\" @29,1638 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)",
+        "touch-target-small: input[data-testid=\"booking-cancel-deposit-keep\"].size-5.shrink-0 \"keep\" @29,1686 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)",
+        "touch-target-small: input[data-testid=\"booking-cancel-deposit-later\"].size-5.shrink-0 \"later\" @29,1734 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+      ]
+    },
+    {
+      "check": "cancel + keep: cancelled, kept by the staff user",
+      "ok": true,
+      "detail": "kept|-|0"
+    },
+    {
+      "step": "07-cancel-kept",
+      "note": "Cancelled: Kept",
+      "file": "07-cancel-kept-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 13,
+        "info": 5
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Ng No-show 未出席 已付訂金 HK$300 +85291000005 \" @145,633 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting 等待訂金 職員建立 · walk-staff 待付訂\" @145,892 204x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid 已拒絕 已退款 HK$400 +85291000002 連結會\" @145,1107 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid 已拒絕 經 AI 助理 已退款 HK$200 +85291000\" @145,1256 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid 已取消 職員取消 已保留訂金 HK$600 +85291\" @145,1433 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept 已取消 職員取消 已保留訂金 HK$200 +85291000\" @145,1610 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded 已取消 職員取消 已退款 HK$400 +852910\" @145,1787 204x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending 已取消 經 AI 助理 職員取消 退款處理中 HK$2\" @145,1936 204x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed 已拒絕 退款失敗 HK$500 +85291000009 \" @145,2113 204x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit 已確認 +85291000012 連結會員 已到\" @145,2300 152x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "layout-shift: null | cumulative layout shift 0.111 (> 0.1) since load",
+        "row-misaligned: header.flex.items-start \"11月28日星期六 10 個訂座 · 9 位客人 新增\" @65,321 300x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-f3e46517-0276-4f9d-a9c5-07ae9cd8b9b4\"].flex.gap-4 \"21:00 2 位 C | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)"
+      ]
+    },
+    {
+      "check": "no-show paid: Deposit held + Refund + Keep",
+      "ok": true
+    },
+    {
+      "step": "08-no-show-held",
+      "note": "Marked no-show: Deposit held HK$400 with Refund / Keep",
+      "file": "08-no-show-held-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 2,
+        "info": 1
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "column-indent: div.flex.min-w-0 \"Fong Past 未出席 已付訂金 HK$400 +85291000013 連\" @145,593 204x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: header.flex.items-start \"11月27日星期五 1 個訂座 · 0 位客人 新增\" @65,281 300x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)"
+      ]
+    },
+    {
+      "check": "no-show + Refund: refunded (staff), a second Refund is not offered",
+      "ok": true,
+      "detail": "refunded|staff|1"
+    },
+    {
+      "check": "a second Refund and Keep after Refund from the page -> 409",
+      "ok": true,
+      "detail": "409 409"
+    },
+    {
+      "check": "create: no phone -> no Require deposit",
+      "ok": true
+    },
+    {
+      "step": "09-create-no-phone",
+      "note": "New booking without a phone: no deposit option",
+      "file": "09-create-no-phone-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 1,
+        "info": 1
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "touch-target-small: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @29,767 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+      ]
+    },
+    {
+      "check": "create: phone -> \"Require deposit HK$400\", on",
+      "ok": true,
+      "detail": "{\"checked\":true,\"label\":\"收取訂金 HK$400 客人會在 WhatsApp 收到付款連結，須於 24 小時內付款，付款後訂座即確認。\"}"
+    },
+    {
+      "step": "10-create-require-deposit",
+      "note": "Require deposit HK$400, on by default",
+      "file": "10-create-require-deposit-zh-390.jpeg",
+      "focus": "[data-testid=booking-form-deposit]"
+    },
+    {
+      "check": "create: clearing the phone hides it again",
+      "ok": true
+    },
+    {
+      "check": "create: awaiting_deposit, staff, created_by, 24 h hold, one checkout session",
+      "ok": true,
+      "detail": "awaiting_deposit|awaiting"
+    },
+    {
+      "check": "create: toast \"Link not sent, share it yourself\" + Copy link (no approved template, window closed)",
+      "ok": true,
+      "detail": "deposit_not_sent"
+    },
+    {
+      "step": "11-create-awaiting-toast",
+      "note": "Saved: Awaiting deposit, toast with Copy link",
+      "file": "11-create-awaiting-toast-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 1,
+        "info": 7
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "row-misaligned: div[data-testid=\"booking-toast\"].fixed.inset-x-4 \"已儲存訂座 · 未能發送連結，請自行分享 複製連結\" @16,762 358x6 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 12px / bottom 22px)"
+      ]
+    },
+    {
+      "check": "copy link: the /p link is on the clipboard",
+      "ok": true,
+      "detail": "http://localhost:3110/p/fxGvfHMVW0ckGFNg… link_copied"
+    },
+    {
+      "check": "create: the row shows Awaiting deposit + Copy link",
+      "ok": true,
+      "detail": "awaiting"
+    },
+    {
+      "check": "row Copy link: the hosted checkout URL",
+      "ok": true,
+      "detail": "https://checkout.stripe.com/c/pay/cs_test_walkfake_179583135"
+    },
+    {
+      "step": "12-today-awaiting-row",
+      "note": "Today after save: the new row Awaiting deposit with Copy link",
+      "file": "12-today-awaiting-row-zh-390.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 0,
+        "info": 3
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 2,
+        "mobile": true,
+        "consistent": true,
+        "inner": [
+          390,
+          844
+        ]
+      },
+      "blocking": [],
+      "warnings": []
+    },
+    {
+      "check": "0 console errors (the 2 deliberate 409 probes excluded)",
+      "ok": true,
+      "detail": "{\"real\":[],\"probes\":2}"
+    }
+  ],
+  "consoleErrors": [
+    "log: Failed to load resource: the server responded with a status of 409 (Conflict) http://localhost:3110/api/dashboard/bookings/00ec36a0-11b8-47be-a33c-5a794399a4e9/deposit/refund",
+    "log: Failed to load resource: the server responded with a status of 409 (Conflict) http://localhost:3110/api/dashboard/bookings/00ec36a0-11b8-47be-a33c-5a794399a4e9/deposit/keep"
+  ]
+}

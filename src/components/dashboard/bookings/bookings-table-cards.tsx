@@ -26,6 +26,7 @@ import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
 import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
+import { DepositActions, DepositBadge } from './booking-deposit'
 import type { BookingGroupsProps } from './bookings-table-desktop'
 
 function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: BookingActionProps & { booking: BookingItem }) {
@@ -53,8 +54,9 @@ function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: Book
         </span>
       </p>
       <MemberLinkControl booking={booking} />
-      <div className="flex empty:hidden">
+      <div className="flex flex-wrap gap-1.5 empty:hidden">
         <CancelledByBadge booking={booking} />
+        <DepositBadge booking={booking} />
       </div>
       <ChangeFromLine booking={booking} />
       <ChangePendingLine booking={booking} />
@@ -66,6 +68,7 @@ function BookingCard({ booking, busyIds, undelivered, onDecide, onNoShow }: Book
         <RowActions booking={booking} busy={busyIds.has(booking.id)} onDecide={onDecide} stretch />
         <NoShowAction booking={booking} busy={busyIds.has(booking.id)} onNoShow={onNoShow} stretch />
         <ArrivedAction booking={booking} stretch />
+        <DepositActions booking={booking} stretch />
       </div>
     </li>
   )

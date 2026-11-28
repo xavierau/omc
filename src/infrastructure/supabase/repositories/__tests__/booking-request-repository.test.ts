@@ -35,7 +35,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
   it('scopes get by id AND restaurant inside the query', async () => {
     const rec = use([{ data: ROW }])
     const found = await findBookingForRestaurant('b-1', 'r-a')
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'neq:status=unverified'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'not:status.in=(unverified,lapsed)', 'or:status.neq.awaiting_deposit,source.eq.staff'])
     expect(found?.bookingTime).toBe('19:30')
   })
 
@@ -48,7 +48,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const list = await listBookingRequests('r-a', 200)
     expect(list.map((b) => b.id)).toEqual(['d-new', 'p-old'])
     const [pending, decided] = rec.queries
-    expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'eq:status=pending'])
+    expect(filtersOf(pending)).toEqual(['eq:restaurant_id=r-a', 'or:status.in.(pending),and(status.eq.awaiting_deposit,source.eq.staff)'])
     expect(pending.calls.some(([m]) => m === 'limit')).toBe(false)
     expect(filtersOf(decided)).toEqual(['eq:restaurant_id=r-a', 'in:status=confirmed,declined,cancelled,no_show'])
     expect(decided.calls).toContainEqual(['limit', 200])
@@ -60,7 +60,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ data: [ROW, { ...ROW, id: 'b-2' }, { ...ROW, id: 'b-3' }] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 2)
     const q = rec.queries[0]
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled,no_show'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'or:status.in.(pending,confirmed,declined,cancelled,no_show),and(status.eq.awaiting_deposit,source.eq.staff)'])
     expect(q.calls).toContainEqual(['gte', 'booking_date', '2026-11-01'])
     expect(q.calls).toContainEqual(['lte', 'booking_date', '2026-11-30'])
     expect(q.calls.filter(([m]) => m === 'order')).toEqual([
@@ -82,7 +82,7 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     const rec = use([{ data: [cancelledRow, changeRow] }, { data: [OLD_SLOT] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
     const [q, slots] = rec.queries
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled,no_show'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'or:status.in.(pending,confirmed,declined,cancelled,no_show),and(status.eq.awaiting_deposit,source.eq.staff)'])
     expect(filtersOf(q).join()).not.toContain('unverified')
     expect(String(q.calls.find(([m]) => m === 'select')?.[1])).toContain('replaces_booking_id, cancelled_by')
     expect(filtersOf(slots)).toEqual(['eq:restaurant_id=r-a', 'in:id=b-old'])
@@ -198,10 +198,10 @@ describe('booking-request-repository (R4, R5, R6)', () => {
     expect(result).toBeNull()
   })
 
-  it('counts pending per phone per restaurant', async () => {
+  it('counts pending (and BOOK-014 R55: awaiting-deposit holds) per phone per restaurant', async () => {
     const rec = use([{ count: 3 }])
     expect(await countPendingBookings('r-a', '+852')).toBe(3)
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+852', 'eq:status=pending'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:phone=+852', 'in:status=pending,awaiting_deposit'])
     // BOOK-006: the diner-side rate limit counts every pending row, pairs included (unchanged, one query).
     expect(rec.queries).toHaveLength(1)
   })

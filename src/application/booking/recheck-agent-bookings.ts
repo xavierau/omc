@@ -38,6 +38,8 @@ export interface RecheckMessage {
 export interface RecheckResult {
   /** The codes that still pass: the only ones to promote. */
   codes: string[]
+  /** BOOK-014 W5: the rows behind `codes` (the code step decides per row whether a deposit applies). */
+  rows: AgentBooking[]
   /** Candidates refused now (the code was ours, so the message is handled). */
   refused: number
 }
@@ -77,13 +79,16 @@ export async function recheckAgentBookings(
   const at = deps.now()
   const rules = bookingRulesAt(at, config)
   const rows = await deps.store.findPromotable({ restaurantId: message.restaurantId, phone: message.phone, codes: message.codes, at })
-  const result: RecheckResult = { codes: [], refused: 0 }
+  const result: RecheckResult = { codes: [], rows: [], refused: 0 }
   const fitsOf = roomFitsFor(deps, message.restaurantId, config, at)
   for (const row of rows) {
     let check = recheckAgentBooking(row, rules)
     if (check.kind === 'rules') check = recheckAgentBooking(row, rules, await fitsOf(row.partySize))
     if (check.kind === 'ok') {
-      if (row.confirmCode) result.codes.push(row.confirmCode)
+      if (row.confirmCode) {
+        result.codes.push(row.confirmCode)
+        result.rows.push(row)
+      }
       continue
     }
     result.refused += 1

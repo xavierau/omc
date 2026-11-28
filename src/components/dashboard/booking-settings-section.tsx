@@ -11,6 +11,8 @@
  * moves into them), then the rules summary with Preview, then the old rules
  * textarea relabelled "Other booking notes (AI assistant only)".
  * BOOK-010 S1: the guest limits ride in the same form and Save.
+ * BOOK-014 W2: in Simple mode, Payments (connect the restaurant's Stripe
+ * account) and 訂金 Deposit (the rule, same Save) follow the hours blocks.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -25,6 +27,9 @@ import { BookingTemplateEditor } from './booking-template-editor'
 import { BookingAgentSettings } from './booking-agent-settings'
 import { BookingHoursBlocks } from './booking-settings/booking-hours-blocks'
 import { errorCount } from './booking-settings/hours-errors'
+import { PaymentsBlock } from './booking-settings/payments-block'
+import { DepositBlock } from './booking-settings/deposit-block'
+import { paymentsActive, usePaymentAccount } from '@/hooks/use-payment-account'
 import { BOOKING_RULES_MAX_CHARS, type BookingConfig, type BookingMode } from '@/domain/value-objects/booking-config'
 
 const MODES: BookingMode[] = ['off', 'simple', 'external']
@@ -116,6 +121,7 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
   const { loading, summary } = useBookingSettingsSummaryState(summaryVersion)
   const saved = outcome?.kind === 'saved'
   const messages = useBookingTemplateOverview(summary, outcome)
+  const payments = usePaymentAccount()
   return (
     <Card data-testid="booking-settings-section">
       <CardHeader>
@@ -137,6 +143,13 @@ export function BookingSettingsSection({ initialConfig }: { initialConfig: Booki
           <BookingHoursBlocks form={form} errors={errors} onEdit={(edit) => update('bookingHours', edit(form.bookingHours))} onMaxPartySize={(v) => update('maxPartySize', v)}
             onLimit={(field, v) => update(field, v)}
             summary={summary?.hoursSummary ?? null} dirty={dirty} />
+        ) : null}
+        {form.mode === 'simple' ? (
+          <>
+            <PaymentsBlock payments={payments} />
+            <DepositBlock deposit={form.deposit} onChange={(d) => update('deposit', d)} active={payments.loading ? null : paymentsActive(payments.account)}
+              currency={payments.account?.currency ?? 'HKD'} errors={errors} blocked={outcome?.kind === 'deposit_blocked'} />
+          </>
         ) : null}
         {form.mode !== 'off' ? <BookingRulesField form={form} update={update} error={errors.bookingRules} /> : null}
         {form.mode === 'simple' ? (

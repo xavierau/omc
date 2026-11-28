@@ -24,13 +24,21 @@
  * bind both steps (agent-booking-rules.ts): a refused slot returns
  * `suggestedTimes` and stores nothing; the terms come back with the
  * proposal for the read-back and are stored as accepted on create.
+ *
+ * BOOK-014 W5 (spec AC-9; threat R59): when the restaurant's deposit rule
+ * applies, propose reads the amount back and create holds the booking
+ * awaiting its deposit and sends the payment link (agent-booking-deposit.ts);
+ * no tool takes a payment field, and a call that sends one runs nothing.
  */
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentMode, AgentToolName } from '@/domain/value-objects/agent-config'
 import type { BookingMode } from '@/domain/value-objects/booking-config'
+import type { AgentProposalAction } from '@/domain/ports/agent-booking-proposal'
+import type { Money } from '@/domain/value-objects/money'
 import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
 import { acceptedTerms, insertRequest, parseAgreed, parseProposal, proposalFull, termsForReadBack } from './agent-booking-rules'
+import { createWithDeposit, depositReadBack, proposalDeposit, refusePaymentArgs } from './agent-booking-deposit'
 import {
   CHANGE_TOOL_DECLARATIONS,
   CHANGE_TOOL_NAMES,
@@ -105,7 +113,7 @@ export const AGENT_BOOKING_TOOL_DECLARATIONS: Record<AgentBookingToolName, Agent
   create_booking_request: {
     name: 'create_booking_request',
     description:
-      'Send the booking you proposed with propose_booking to the restaurant, only after the diner has agreed to your read-back in a later message. When the diner\'s message agrees, call this directly: do not propose again (proposing again restarts the confirmation). Takes no arguments: it sends exactly the last proposal. The booking is a request: restaurant staff confirm or decline it and the diner gets a WhatsApp update.',
+      'Send the booking you proposed with propose_booking to the restaurant, only after the diner has agreed to your read-back in a later message. When the diner\'s message agrees, call this directly: do not propose again (proposing again restarts the confirmation). Takes no arguments: it sends exactly the last proposal. The booking is a request: restaurant staff confirm or decline it and the diner gets a WhatsApp update. When the restaurant asks a deposit, the booking is held instead and the diner gets a payment link; it goes to the restaurant once paid.',
   },
   get_booking_link: {
     name: 'get_booking_link',
@@ -126,14 +134,17 @@ async function proposeBooking(call: BookingCall, args: Record<string, unknown>):
   if (full) return full
   if (await atOpenCap(call)) return TOO_MANY_PENDING
   const { terms, note } = termsForReadBack(call)
-  if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }))) {
+  const deposit = await proposalDeposit(call, parsed.submission.partySize)
+  const action = { kind: 'create' as const, booking: parsed.submission, ...(terms ? { termsText: terms } : {}), plannedDeposit: deposit.plan }
+  if (!(await saveProposal(call, action))) {
     return { error: 'lookup_failed' }
   }
   return {
     proposed: true,
     booking: parsed.submission,
     ...(terms ? { terms } : {}),
-    note: note ? `${PROPOSED_NOTE} ${note}` : PROPOSED_NOTE,
+    ...(deposit.deposit ? { deposit: deposit.deposit } : {}),
+    note: [PROPOSED_NOTE, note, deposit.note].filter(Boolean).join(' '),
   }
 }
 
@@ -148,7 +159,7 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
 
   const s = parsed.submission
   const memberId = await booking.members.findMemberId(key.restaurantId, key.phone)
-  const inserted = await insertRequest(call, {
+  const request = {
     restaurantId: key.restaurantId,
     memberId,
     phone: key.phone,
@@ -157,11 +168,16 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
     bookingDate: s.date,
     bookingTime: s.time,
     notes: s.notes,
-    source: 'agent',
+    source: 'agent' as const,
     campaignId: null,
     token: null,
     ...acceptedTerms(call, s),
-  })
+  }
+  // BOOK-014 W5 (spec AC-9): held awaiting its deposit; "received" waits for the paid event.
+  const held = await createWithDeposit(call, request, taken.proposal.plannedDeposit)
+  if (held.kind === 'output') return held.output
+  if (held.kind === 'terms_changed') return reproposeForNewDeposit(call, taken.proposal, held.plan)
+  const inserted = await insertRequest(call, request)
   if (!inserted.ok) return inserted.output
   // R16: best effort; a failed "received" message never fails the booking.
   await notifyReceived(booking, inserted.booking).catch(() => false)
@@ -172,12 +188,42 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
   }
 }
 
+const TERMS_CHANGED_NOTE =
+  'The deposit terms changed since the diner agreed, so nothing was booked. Nothing was charged. This is the new proposal: read it back to the diner and ask them to confirm. Call create_booking_request only after they agree in their next message.'
+
+/**
+ * BOOK-014 W6-fix F5: the deposit the diner agreed to is not the one that applies now. Nothing is
+ * written; the same booking is proposed again with the deposit that applies now (or none), so the
+ * diner agrees to what will really happen.
+ */
+async function reproposeForNewDeposit(
+  call: BookingCall,
+  proposal: Extract<AgentProposalAction, { kind: 'create' }>,
+  plan: Money | null
+): Promise<AgentToolOutput> {
+  const readBack = depositReadBack(call, plan)
+  const plannedDeposit = plan ? { amountMinor: plan.amountMinor, currency: plan.currency } : null
+  if (!(await saveProposal(call, { kind: 'create', booking: proposal.booking, ...(proposal.termsText ? { termsText: proposal.termsText } : {}), plannedDeposit }))) {
+    return { error: 'lookup_failed' }
+  }
+  return {
+    error: 'deposit_terms_changed',
+    proposed: true,
+    booking: proposal.booking,
+    ...(proposal.termsText ? { terms: proposal.termsText } : {}),
+    ...(readBack.deposit ? { deposit: readBack.deposit } : {}),
+    note: [TERMS_CHANGED_NOTE, readBack.note ?? 'no deposit is needed now: tell the diner.'].join(' '),
+  }
+}
+
 function bookingLink({ booking }: BookingCall): AgentToolOutput {
   const url = booking.config.mode === 'external' ? booking.config.externalUrl : null
   return url ? { url, note: 'Share this link so the diner can book.' } : { error: 'no_booking_link' }
 }
 
 export async function runBookingTool(name: AgentBookingToolName, call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
+  const refused = refusePaymentArgs(args)
+  if (refused) return refused
   switch (name) {
     case 'propose_booking':
       return proposeBooking(call, args)

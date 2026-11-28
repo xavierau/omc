@@ -22,6 +22,7 @@
  * "Terms accepted"; hovering shows the text, tapping expands it (plain text).
  * BOOK-013: the ⋯ menu (Edit / Cancel), the "By staff · name" badge, and
  * Arrived / Undo on today's confirmed bookings.
+ * BOOK-014 W4: the deposit badge and its Refund / Keep / Retry / Copy link.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -35,6 +36,7 @@ import { NoShowAction } from './bookings/booking-no-show-action'
 import type { NoShowFn } from './bookings/use-booking-no-show'
 import { BookingGuestName, MemberLinkControl } from './bookings/booking-member'
 import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './bookings/booking-staff-controls'
+import { DepositActions, DepositBadge } from './bookings/booking-deposit'
 
 export type DecideFn = (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 
@@ -54,6 +56,9 @@ export const STATUS_TONE: Record<BookingItem['status'], string> = {
   declined: 'border-border bg-muted text-muted-foreground',
   cancelled: 'border-border bg-muted text-muted-foreground',
   no_show: 'border-border bg-muted text-muted-foreground',
+  // BOOK-014 W4: a staff booking waiting for its deposit (a lapsed one is never listed).
+  awaiting_deposit: 'border-dashed border-accent/50 text-pending-foreground',
+  lapsed: 'border-border bg-muted text-muted-foreground',
 }
 
 /** A cancelled booking's time and guest are greyed and struck through (owner 2026-11-19). */
@@ -244,6 +249,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
           <AgentBadge booking={booking} />
           <StaffSourceBadge booking={booking} />
           <CancelledByBadge booking={booking} />
+          <DepositBadge booking={booking} />
         </div>
         <ChangeFromLine booking={booking} />
         <ChangePendingLine booking={booking} />
@@ -259,6 +265,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
           <RowActions booking={booking} busy={busy} onDecide={onDecide} />
           <NoShowAction booking={booking} busy={busy} onNoShow={onNoShow} />
           <ArrivedAction booking={booking} />
+          <DepositActions booking={booking} />
         </div>
       </div>
       <BookingRowMenu booking={booking} />

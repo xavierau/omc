@@ -1,0 +1,63 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+ ✓ src/infrastructure/supabase/__tests__/merchant-account-order-postgrest.db.test.ts > W6-fix F6: merchantPaymentAccountStore.applyStatus through a real PostgREST > F6 first event applies and stores its time; an older one is skipped (null); an equal or newer one applies 844ms
+ ✓ src/infrastructure/supabase/__tests__/merchant-account-order-postgrest.db.test.ts > W6-fix F6: merchantPaymentAccountStore.applyStatus through a real PostgREST > no eventAt (the refresh path) writes the status and leaves last_webhook_at as it was 153ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R55: an awaiting_deposit booking holds its seats (the last seats are refused) and its deposit row comes with it 901ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > txn: unverified -> awaiting_deposit, code cleared, deposit awaiting + created:system, seats held 964ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R55: a 4th awaiting/pending request for one phone is refused (pending_cap), other phones are not 922ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > CAS: a replay, another number, a wrong code or an expired window changes nothing 1853ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > R55: 10 concurrent calls for the same row -> exactly one hold and one deposit 642ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R55: the PAP promotion counts awaiting_deposit toward its pending cap 1012ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > R55 cap: pending + awaiting_deposit at the cap -> pending_cap, the row stays unverified 937ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R55: the expiry RPC lapses only expired awaiting rows, frees their seats, and leaves live and paid ones 1632ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > room: a slot that filled -> declined full (row returned), no deposit; with room it holds seats 1173ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R55: the expiry RPC uses the database clock and its limit; a deposit id narrows it 1063ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > refuses a deposit key outside the list, and a missing deposit 539ms
+ ✓ src/infrastructure/supabase/__tests__/agent-booking-deposit.db.test.ts > 097 promote_agent_booking_to_deposit (BOOK-014 W5) > R58: anon and authenticated cannot execute it; service_role can 564ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: paid first, then the expiry step: the lapse changes nothing 897ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: lapse first, then the payment: the booking stays lapsed and the deposit goes to refund (late_payment), once 817ms
+stdout | src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: a payment holding the deposit row lock makes a concurrent expiry step skip it (the loser changes nothing)
+[R57 race] paid={"booking": {"id": "750a3fe3-98ad-4f34-96e2-02e68355c041", " | lapsed while held=0
+
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: a payment holding the deposit row lock makes a concurrent expiry step skip it (the loser changes nothing) 2104ms
+stdout | src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: 10 concurrent paid + lapse calls on one expired hold end in exactly one consistent state
+[R57 fuzz] paid 0 duplicate 0 duplicate 0 duplicate 0 duplicate 0 -> booking pending, deposit paid
+
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R57: 10 concurrent paid + lapse calls on one expired hold end in exactly one consistent state 739ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > staff-created awaiting booking becomes confirmed on payment, decided by its creator 538ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > review finding 6: a staff deposit booking records created_by through insert_booking_request_if_room, and payment decides by it 397ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > 096 + 097: a staff deposit booking with no phone is never capped and never messaged; a diner row still needs a phone 1140ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R54: abandon lapses the booking and its hold at once (seats freed), event session_failed 746ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > session attach stores the id once, with its event 417ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > two concurrent Refund calls: exactly one wins (attempt 1) 848ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > Refund after Keep and Keep after Refund change nothing; a foreign restaurant changes nothing 1374ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > a paid deposit on a still-pending booking cannot be refunded or kept by staff 348ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > refund_pending -> refund_failed -> Retry (attempt 2) -> refunded; a stale refund id from attempt 1 changes nothing 1029ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > finding 2: attempt 1 re_1 failed, Retry -> attempt 2 with no id yet; a delayed failed/canceled for re_1 changes nothing; attempt 2 settles 1456ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > finding 2: an older attempt’s id that succeeds -> refunded (from refund_pending), and no Retry can start after it 1080ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > finding 2: ids are noted once per attempt and once per deposit; an unclaimed attempt is never created; W6-fix F1: "fully refunded" with no id settles nothing 1039ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F1: a pending refund is not settled by "fully refunded" with no id; the later failure for its id still lands 685ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F4: booking_deposit_refund_attempt_of names the attempt a refund id was recorded for, NULL before it is 719ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F7: a paid deposit refunded in the dashboard -> refunded (provider_dashboard, actor provider) once; Keep then changes nothing 845ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F7: anything but a paid deposit with no attempt of ours is left alone (refund_pending, refund_failed, kept, awaiting) 1192ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F7: the refund_reason CHECK takes provider_dashboard and still refuses anything else 721ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F2: a late refund_failed is claimed as a new attempt after 15 min x4^(n-1), actor cron, and never past 5 attempts 2739ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > W6-fix F2: staff-path refund_failed is never claimed; two concurrent sweeps claim a late row once 1248ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R56 / R58 refund and keep CAS > finding 1: the late-payment refund claims attempt 1; the stalled list returns only refund_pending rows with no id older than the cutoff 1442ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > shape: a deposit only with awaiting_deposit, no unknown deposit keys, no other status; amount > 0 538ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R60: deposit_events is append-only (UPDATE refused, even for the table owner) 362ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > a booking with a deposit cannot be deleted on its own (purges never orphan money); the restaurant cascade removes both 330ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > R58: anon and authenticated cannot execute any 097 function and read no deposit rows 4326ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > merchant_payment_accounts: one per provider per restaurant; a provider account links to one restaurant; active needs charges 726ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > W4: staff_create_deposit_booking saves awaiting_deposit (source staff, created_by) with its awaiting deposit and the created event by the user 828ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > W4: staff_create_deposit_booking refuses without a phone, a deposit or an actor, and an unknown deposit key 846ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > W4: staff_create_booking_waiving_deposit creates the confirmed booking and one waived event (no deposit row) naming the booking, user and amount 731ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > W4: deposit_events needs a deposit, except a waived event that names its booking 463ms
+ ✓ src/infrastructure/supabase/__tests__/booking-deposits.db.test.ts > BOOK-014 migration 097 on real Postgres > W4 R58: anon and authenticated cannot execute the staff deposit create RPCs 511ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  18:31:43
+   Duration  40.18s (transform 507ms, setup 0ms, import 759ms, tests 47.88s, environment 0ms)
+

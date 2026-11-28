@@ -1,0 +1,18 @@
+{
+ "id": "re_3UgmLQBsmWz9nN6A2hgdSksD",
+ "object": "refund",
+ "amount": 20000,
+ "currency": "hkd",
+ "status": "succeeded",
+ "payment_intent": "pi_3UgmLQBsmWz9nN6A2xtAcpG6",
+ "charge": "ch_3UgmLQBsmWz9nN6A2dqAR5kx",
+ "reason": null,
+ "created": 1795875091,
+ "metadata": {},
+ "destination_details": {
+  "card": {
+   "type": "refund"
+  },
+  "type": "card"
+ }
+}

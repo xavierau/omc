@@ -1,0 +1,64 @@
+{
+  "url": "http://localhost:3090/dashboard/setup/bookings",
+  "viewport": {
+    "w": 1200,
+    "h": 900,
+    "dpr": 1,
+    "mobile": false,
+    "consistent": true,
+    "inner": [
+      1200,
+      900
+    ]
+  },
+  "page": {
+    "scrollW": 1200,
+    "scrollH": 3778,
+    "scrollable": true,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 318,
+    "domNodes": 565,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 3,
+    "info": 0
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 W2 Walk Kitch\" @0,0 1200x3778",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 633px / bottom 1233px)",
+      "items": [
+        "aside.bg-sidebar.text-sidebar-foreground \"OhMyClient WhatsApp 智能客戶管理 W2 Walk Kitch\" @0,0 240x3778",
+        "main.flex-1.bg-background \"設定 管理您的餐廳設定。 餐廳資料 標誌 顧客訊息 聯絡轉介、自動回覆 訂座及 \" @240,0 960x3778"
+      ]
+    },
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"推廣活動 新 受眾質素、喚回顧客\" @272,326 232x66",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 23px)",
+      "items": [
+        "span.min-w-0.flex-1 \"推廣活動 新 受眾質素、喚回顧客\" @317,337 174x44",
+        "svg @285,339 20x20"
+      ]
+    },
+    {
+      "check": "row-misaligned",
+      "sev": "warning",
+      "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @272,396 232x66",
+      "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 24px)",
+      "items": [
+        "span.min-w-0.flex-1 \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @317,407 174x44",
+        "svg @285,409 20x20"
+      ]
+    }
+  ]
+}

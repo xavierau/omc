@@ -57,7 +57,7 @@ import type { BookingFieldErrors } from '@/domain/services/booking-submission'
 import type { SuggestedTime } from '@/domain/services/booking-hours'
 import { termsSnapshot } from '@/domain/value-objects/booking-hours'
 import { generateConfirmCode } from '@/domain/services/booking-confirm-code'
-import { buildCollectionStatement, buildConfirmText, type CollectionStatement } from '@/domain/services/poppy-documents'
+import { buildCollectionStatement, buildConfirmText, withDepositProcessing, type CollectionStatement } from '@/domain/services/poppy-documents'
 import { buildContactUrl } from '@/domain/services/contact-redirect'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import type {
@@ -74,6 +74,8 @@ import { hongKongTime, hongKongToday } from '@/domain/services/booking-submissio
 import type { BookingRoomReader } from '@/domain/ports/booking'
 import { earlyFull, suggestionFits, suggestionParty } from './booking-room-check'
 import { bookingRulesAt, type BookingRulesConfig } from './submit-booking-request'
+import type { MerchantPaymentAccountReader } from '@/domain/ports/booking-deposit'
+import { documentDeposit } from './agent-booking-settings'
 
 export const AGENT_SUBMIT_LIMIT_PER_MINUTE = 10
 export const IP_RETRY_AFTER_SEC = 60
@@ -91,6 +93,8 @@ export interface CreateAgentBookingDeps {
   now(): Date
   /** BOOK-010: guest counts and stops; absent = no room check. */
   room?: BookingRoomReader
+  /** BOOK-014 W6a (R61): the payment account, for the statement's Stripe sentence; absent = never added. */
+  accounts?: MerchantPaymentAccountReader
 }
 
 export interface CreateAgentBookingInput {
@@ -246,8 +250,18 @@ async function contextFor(deps: CreateAgentBookingDeps, tenant: AgentBookingTena
     restaurantId: tenant.restaurantId,
     config: tenant.config,
     restaurant: { ...restaurant, whatsappNumber },
-    statement: buildCollectionStatement(restaurant.name, deps.privacyUrl),
+    statement: withDepositProcessing(buildCollectionStatement(restaurant.name, deps.privacyUrl), await depositProcessing(deps, tenant, restaurant.name)),
     now: deps.now(),
+  }
+}
+
+/** W6a (R61): the Stripe sentence while the restaurant takes deposits; a failed account read leaves it out (logged). */
+async function depositProcessing(deps: CreateAgentBookingDeps, tenant: AgentBookingTenant, restaurantName: string) {
+  try {
+    return (await documentDeposit(deps.accounts, tenant.restaurantId, tenant.config.deposit, restaurantName))?.processing ?? null
+  } catch (err) {
+    console.warn('[AgentBooking] deposit account read failed for the collection statement:', (err as Error).name)
+    return null
   }
 }
 

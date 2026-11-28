@@ -30,11 +30,13 @@ export interface CalendarDayPanelProps extends BookingActionProps {
   capacity?: ReactNode
   /** BOOK-010: the over-limit prompt, below the rows. */
   footer?: ReactNode
+  /** BOOK-014 W4: the day's guests in diners' deposit holds (seats taken, no rows). */
+  heldGuests?: number
 }
 
-export function DaySummaryLine({ bookings }: { bookings: BookingItem[] }) {
+export function DaySummaryLine({ bookings, heldGuests = 0 }: { bookings: BookingItem[]; heldGuests?: number }) {
   const t = useTranslations('bookings.views')
-  const s = daySummary(bookings)
+  const s = daySummary(bookings, heldGuests)
   const parts = [t('bookingCount', { count: s.count }), t('guests', { count: s.guests })]
   if (s.pending > 0) parts.push(t('needReply', { count: s.pending }))
   return <span>{parts.join(' · ')}</span>
@@ -57,7 +59,7 @@ function PanelEmpty({ monthEmpty, dayHidden }: { monthEmpty: boolean; dayHidden:
   )
 }
 
-export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false, className, capacity, footer, ...actions }: CalendarDayPanelProps) {
+export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false, className, capacity, footer, heldGuests = 0, ...actions }: CalendarDayPanelProps) {
   const locale = useLocale()
   const t = useTranslations('bookings.staff')
   const staff = useStaffBookingActions()
@@ -69,7 +71,7 @@ export function CalendarDayPanel({ date, bookings, monthEmpty, dayHidden = false
             {formatDate(date, locale, { weekday: 'long', day: 'numeric', month: 'long' })}
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            <DaySummaryLine bookings={bookings} />
+            <DaySummaryLine bookings={bookings} heldGuests={heldGuests} />
           </p>
         </div>
         <Button variant="outline" onClick={() => staff.openNew(date)} data-testid="booking-day-new-button" className="h-9 shrink-0">

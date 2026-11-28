@@ -28,11 +28,12 @@ import type { AgentToolOutput } from '@/domain/ports/agent-model'
 import { bookingRulesAt } from '@/application/booking/submit-booking-request'
 import type { BookingCall } from './agent-booking-gate'
 import type { BookingRequest, NewBookingRequest } from '@/domain/entities/booking-request'
-import { roomApplies, type SlotFits } from '@/domain/services/booking-room'
+import { roomApplies, roomCheckFor, type RoomCheck, type RoomRefusal, type SlotFits } from '@/domain/services/booking-room'
 import { hongKongTime, hongKongToday } from '@/domain/services/booking-submission'
 import type { BookingRoomStore } from '@/domain/ports/booking'
 import {
   earlyFull,
+  fittingSuggestions,
   insertWithRoom,
   suggestionFits,
   suggestionParty,
@@ -143,4 +144,25 @@ export async function insertRequest(
   if (!ctx) return { ok: true, booking: await call.booking.requests.insert(request) }
   const inserted = await insertWithRoom(ctx.store, ctx, request)
   return inserted.ok ? inserted : { ok: false, output: fullOutput(inserted.full) }
+}
+
+/** No guest limits: the deposit insert then checks only the per-phone cap (as the booking page, W3). */
+const NO_ROOM_LIMITS: RoomCheck = { periodKey: null, periodFirst: null, periodLast: null, perSlot: null, perMeal: null }
+
+/**
+ * BOOK-014 W5 (spec AC-9): what the atomic booking + deposit insert checks for
+ * this slot (the room rules when they apply), and how its refusal is answered
+ * (the same `full` + suggestedTimes as insertRequest).
+ */
+export function depositInsertCheck(call: BookingCall, request: NewBookingRequest) {
+  const ctx = roomContext(call)
+  const check = ctx ? roomCheckFor(ctx.hours, request.bookingDate, request.bookingTime) : NO_ROOM_LIMITS
+  return {
+    check,
+    async full(refusal: RoomRefusal): Promise<AgentToolOutput> {
+      const req = { date: request.bookingDate, time: request.bookingTime, partySize: request.partySize }
+      const suggestedTimes = ctx ? await fittingSuggestions(ctx.store, ctx, req) : []
+      return fullOutput({ errors: { time: 'full' }, suggestedTimes, refusal })
+    },
+  }
 }

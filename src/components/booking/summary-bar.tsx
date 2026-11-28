@@ -4,6 +4,8 @@
  * BOOK-009 AC-7: the bar fixed at the bottom of the screen: the choices so far
  * as chips, and the submit button, disabled and labelled with the missing
  * step until party, day, slot and terms are done.
+ * BOOK-014 W3: when the party owes a deposit, the ready button reads
+ * "Pay deposit HK$X and send".
  */
 import { useTranslations } from 'next-intl'
 import { ChevronRight } from 'lucide-react'
@@ -12,12 +14,15 @@ import { Button } from '@/components/ui/button'
 import { dayLabel } from './booking-date-label'
 import type { MissingStep } from './slot-picker-model'
 import type { SlotFormValues } from '@/hooks/use-booking-slot-form'
+import { depositSubmitLabel } from './deposit-line'
+import type { DepositPlan } from '@/domain/value-objects/deposit-plan'
 
 export interface SummaryBarProps {
   values: SlotFormValues
   missing: MissingStep | null
   submitting: boolean
   preview: boolean
+  deposit?: DepositPlan | null
 }
 
 function Chip({ text, empty }: { text: string; empty?: boolean }) {
@@ -28,10 +33,10 @@ function Chip({ text, empty }: { text: string; empty?: boolean }) {
   )
 }
 
-export function SummaryBar({ values, missing, submitting, preview }: SummaryBarProps) {
+export function SummaryBar({ values, missing, submitting, preview, deposit }: SummaryBarProps) {
   const t = useTranslations('booking')
   const sep = <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-  const label = submitting ? t('submitting') : missing ? t(`picker.missing.${missing}`) : t('submit')
+  const label = submitting ? t('submitting') : missing ? t(`picker.missing.${missing}`) : (depositSubmitLabel(t, deposit, values.partySize) ?? t('submit'))
   return (
     <div data-testid="booking-summary-bar" className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-md space-y-2.5">

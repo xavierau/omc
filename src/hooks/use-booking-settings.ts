@@ -5,6 +5,8 @@
  * (AC-1/AC-2/AC-3). Lifetimes are edited as hours plus a "no expiry" switch;
  * the payload sends null for no expiry.
  * BOOK-009 S1: the structured booking hours ride in the same form and Save.
+ * BOOK-014 W2: so does the deposit rule (Simple mode only); a 409 means the
+ * payment account is not active, so it cannot be turned on yet.
  */
 import { useState } from 'react'
 import { EMPTY_BOOKING_HOURS, type BookingHours } from '@/domain/value-objects/booking-hours'
@@ -21,6 +23,7 @@ import {
   type BookingMode,
 } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatuses } from '@/domain/services/booking-templates'
+import { DEPOSIT_RULE_OFF, validateDepositRule, type DepositMode, type DepositRule } from '@/domain/value-objects/deposit-rule'
 import { parseTemplateStatuses } from './use-booking-availability'
 
 export interface BookingSettingsForm {
@@ -40,13 +43,37 @@ export interface BookingSettingsForm {
   /** BOOK-010: guest limits as typed ('' = no limit); they ride in `bookingHours.limits` on save. */
   limitPerSlot: string
   limitPerMeal: string
+  /** BOOK-014: the deposit rule as typed. */
+  deposit: DepositForm
+  /** BOOK-014: whether a rule other than the OFF default is stored (an untouched OFF form then sends nothing). */
+  depositStored: boolean
+}
+
+export interface DepositForm {
+  enabled: boolean
+  mode: DepositMode
+  amount: string
+  fromPartySize: string
+  refundNote: { zh_hk: string; en: string }
 }
 
 export type SaveBookingSettingsOutcome =
   | { kind: 'saved'; config: BookingConfig; templates: BookingTemplateStatuses | null }
   | { kind: 'fields'; errors: Record<string, string> }
   | { kind: 'forbidden' }
+  /** BOOK-014: the deposit can't be turned on while the payment account is not active. */
+  | { kind: 'deposit_blocked' }
   | { kind: 'error' }
+
+export function toDepositForm(rule: DepositRule): DepositForm {
+  return {
+    enabled: rule.enabled,
+    mode: rule.mode,
+    amount: rule.amount > 0 ? String(rule.amount) : '',
+    fromPartySize: String(rule.fromPartySize),
+    refundNote: { ...rule.refundNote },
+  }
+}
 
 const limitText = (value: number | null | undefined) => (value == null ? '' : String(value))
 
@@ -65,6 +92,8 @@ export function toForm(config: BookingConfig): BookingSettingsForm {
     hoursConfigured: config.bookingHours !== null,
     limitPerSlot: limitText(limits?.perSlot),
     limitPerMeal: limitText(limits?.perMeal),
+    deposit: toDepositForm(config.deposit),
+    depositStored: !sameValue(config.deposit, DEPOSIT_RULE_OFF),
   }
 }
 
@@ -119,6 +148,25 @@ function withLimits(hours: BookingHours | undefined, form: BookingSettingsForm):
   return limits.perSlot === null && limits.perMeal === null ? hours : { ...hours, limits }
 }
 
+/** BOOK-014: the rule as the server takes it; '' amount = 0 (a disabled draft), anything else as typed so the server names the field. */
+function depositValue(deposit: DepositForm): Record<string, unknown> {
+  const amount = deposit.amount.trim() === '' && !deposit.enabled ? 0 : toInt(deposit.amount)
+  return { enabled: deposit.enabled, mode: deposit.mode, amount, fromPartySize: toInt(deposit.fromPartySize), refundNote: deposit.refundNote }
+}
+
+/** BOOK-014: Simple mode only shows the block; an untouched OFF rule on a restaurant without one sends nothing. */
+export function depositPayload(form: BookingSettingsForm): Record<string, unknown> | undefined {
+  if (form.mode !== 'simple') return undefined
+  if (!form.depositStored && sameValue(form.deposit, toDepositForm(DEPOSIT_RULE_OFF))) return undefined
+  return depositValue(form.deposit)
+}
+
+/** BOOK-014: the rule the form describes, when it is a valid ON rule (for the diner line preview); else null. */
+export function depositRuleOf(deposit: DepositForm): DepositRule | null {
+  const parsed = validateDepositRule(JSON.parse(JSON.stringify(depositValue(deposit))))
+  return parsed.ok && parsed.rule.enabled ? parsed.rule : null
+}
+
 export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
   return {
     mode: form.mode,
@@ -129,6 +177,7 @@ export function toPayload(form: BookingSettingsForm): Record<string, unknown> {
     // AGENT-005: Off hides the field, so there an over-long draft is left out (same idea as F1).
     bookingRules: form.mode !== 'off' || form.bookingRules.trim().length <= BOOKING_RULES_MAX_CHARS ? form.bookingRules : undefined,
     bookingHours: withLimits(hoursPayload(form), form),
+    deposit: depositPayload(form),
   }
 }
 
@@ -142,6 +191,7 @@ export function saveOutcome(status: number, body: unknown): SaveBookingSettingsO
   if (status === 200 && b.config) return { kind: 'saved', config: b.config, templates: parseTemplateStatuses(b.templates) }
   if (status === 400 && b.fields) return { kind: 'fields', errors: b.fields }
   if (status === 403) return { kind: 'forbidden' }
+  if (status === 409 && (body as { error?: unknown } | null)?.error === 'payment_account_not_active') return { kind: 'deposit_blocked' }
   return { kind: 'error' }
 }
 

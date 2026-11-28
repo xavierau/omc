@@ -1,0 +1,142 @@
+2026-11-27T06:34:38.776Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:34:43.227Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:34:43.237Z [zh-HK] before connect: {"chip":"未連接","connect":"連接 Stripe","toggleDisabled":true,"locked":"請先連接 Stripe","error":null}
+2026-11-27T06:34:44.013Z [zh-HK] layout audit before-connect 1200px: {"blocking":0,"warning":3,"info":1}
+2026-11-27T06:34:44.625Z [zh-HK] screenshot before-connect 1200px, page overflow 0px
+2026-11-27T06:34:45.089Z [zh-HK] layout audit before-connect 390px: {"blocking":2,"warning":11,"info":2}
+2026-11-27T06:34:45.141Z [zh-HK] screenshot before-connect 390px, page overflow 0px
+2026-11-27T06:34:46.756Z [zh-HK] POST connect -> 502
+2026-11-27T06:34:46.771Z [zh-HK] connect body: {"error":"provider_unavailable"}
+2026-11-27T06:34:49.773Z [zh-HK] browser sent to: (no stripe navigation)
+2026-11-27T06:34:51.535Z [zh-HK] after return, address is /dashboard/setup/bookings?account=acct_attacker
+2026-11-27T06:34:51.537Z [zh-HK] after return: {"chip":"未連接","connect":"連接 Stripe","toggleDisabled":true,"locked":"請先連接 Stripe","error":null}
+2026-11-27T06:34:51.896Z [zh-HK] layout audit returned 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:34:51.949Z [zh-HK] screenshot returned 1200px, page overflow 0px
+2026-11-27T06:34:52.303Z [zh-HK] layout audit returned 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:34:52.338Z [zh-HK] screenshot returned 390px, page overflow 0px
+2026-11-27T06:34:52.357Z [zh-HK] console errors: 1 ["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]
+### 2026-11-27T06:35:58Z zh-HK walk (local Supabase wcrm-w2, migrations 001-096, fake tenant)
+2026-11-27T06:36:00.720Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:36:02.129Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:36:02.131Z [zh-HK] before connect: {"chip":"未連接","connect":"連接 Stripe","toggleDisabled":true,"locked":"請先連接 Stripe","error":null}
+2026-11-27T06:36:02.488Z [zh-HK] layout audit before-connect 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:02.534Z [zh-HK] screenshot before-connect 1200px, page overflow 0px
+2026-11-27T06:36:02.883Z [zh-HK] layout audit before-connect 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:36:02.911Z [zh-HK] screenshot before-connect 390px, page overflow 0px
+2026-11-27T06:36:03.720Z [zh-HK] POST connect -> 502
+2026-11-27T06:36:03.736Z [zh-HK] connect body: {"error":"provider_unavailable"}
+2026-11-27T06:36:06.740Z [zh-HK] connect refused: {"chip":"未連接","connect":"連接 Stripe","toggleDisabled":true,"locked":"請先連接 Stripe","error":"未能連接 Stripe，請再試一次。"}
+2026-11-27T06:36:07.077Z [zh-HK] layout audit connect-error 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:07.118Z [zh-HK] screenshot connect-error 1200px, page overflow 0px
+2026-11-27T06:36:07.477Z [zh-HK] layout audit connect-error 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:36:07.502Z [zh-HK] screenshot connect-error 390px, page overflow 0px
+2026-11-27T06:36:07.515Z [zh-HK] browser sent to: (no stripe navigation)
+2026-11-27T06:36:08.292Z [zh-HK] after return, address is /dashboard/setup/bookings?account=acct_attacker
+2026-11-27T06:36:08.295Z [zh-HK] after return: {"chip":"未連接","connect":"連接 Stripe","toggleDisabled":true,"locked":"請先連接 Stripe","error":null}
+2026-11-27T06:36:08.637Z [zh-HK] layout audit returned 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:08.677Z [zh-HK] screenshot returned 1200px, page overflow 0px
+2026-11-27T06:36:09.037Z [zh-HK] layout audit returned 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:36:09.060Z [zh-HK] screenshot returned 390px, page overflow 0px
+2026-11-27T06:36:09.074Z [zh-HK] console errors: 1 ["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]
+2026-11-27T06:36:14.695Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:36:16.482Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:36:16.614Z [zh-HK] PUT deposit on while not active -> {"status":409,"body":{"error":"payment_account_not_active"}}
+2026-11-27T06:36:16.615Z [zh-HK] console errors: 1 ["Failed to load resource: the server responded with a status of 409 (Conflict)"]
+seeded pending row
+2026-11-27T06:36:19.796Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:36:21.757Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:36:22.653Z [zh-HK] return landing, address now /dashboard/setup/bookings
+2026-11-27T06:36:22.656Z [zh-HK] pending (seeded row) after return: {"chip":"連接中","connect":"繼續設定","toggleDisabled":true,"locked":"請先連接 Stripe","error":null}
+2026-11-27T06:36:23.905Z [zh-HK] layout audit connecting 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:25.788Z [zh-HK] screenshot connecting 1200px, page overflow 0px
+2026-11-27T06:36:26.247Z [zh-HK] layout audit connecting 390px: {"blocking":2,"warning":11,"info":1}
+2026-11-27T06:36:26.291Z [zh-HK] screenshot connecting 390px, page overflow 0px
+2026-11-27T06:36:26.306Z [zh-HK] console errors: 0
+row set active (HKD)
+2026-11-27T06:36:28.705Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:36:30.675Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:36:30.683Z [zh-HK] active (seeded row): {"chip":"已啟用","connect":null,"toggleDisabled":false,"locked":null,"error":null}
+2026-11-27T06:36:30.832Z [zh-HK] summary line: "食客及 AI 助理會看到\n\n訂金每位 HK$100（6位或以上）。取消須提前24小時通知，否則訂金不退。\n\nDeposit HK$100 per guest for 6 or more. Cancel 24 hours ahead or the deposit is kept."
+2026-11-27T06:36:31.181Z [zh-HK] PUT booking settings -> 200
+2026-11-27T06:36:31.557Z [zh-HK] layout audit active-deposit-on 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:31.610Z [zh-HK] screenshot active-deposit-on 1200px, page overflow 0px
+2026-11-27T06:36:31.972Z [zh-HK] layout audit active-deposit-on 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:36:31.999Z [zh-HK] screenshot active-deposit-on 390px, page overflow 0px
+2026-11-27T06:36:32.020Z [zh-HK] console errors: 0
+{"mode": "per_guest", "amount": 100, "enabled": true, "refundNote": {"en": "Cancel 24 hours ahead or the deposit is kept.", "zh_hk": "取消須提前24小時通知，否則訂金不退。"}, "fromPartySize": 6}
+row set disabled (deauthorized)
+2026-11-27T06:36:35.381Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:36:36.638Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:36:36.650Z [zh-HK] disabled account, rule on: {"chip":"已中斷連接","connect":"連接 Stripe","toggleDisabled":false,"locked":null,"error":null}
+2026-11-27T06:36:36.654Z [zh-HK] paused warning: "Stripe 未啟用，新訂座暫時不收訂金，直至帳戶啟用。"
+2026-11-27T06:36:37.010Z [zh-HK] layout audit paused 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:36:37.055Z [zh-HK] screenshot paused 1200px, page overflow 0px
+2026-11-27T06:36:37.417Z [zh-HK] layout audit paused 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:36:37.451Z [zh-HK] screenshot paused 390px, page overflow 0px
+2026-11-27T06:36:37.469Z [zh-HK] console errors: 0
+re-run after label fix: row active, deposit cleared
+2026-11-27T06:37:08.454Z [zh-HK] logged in at http://localhost:3090/dashboard
+2026-11-27T06:37:10.809Z [zh-HK] reached /dashboard/setup/bookings via nav
+2026-11-27T06:37:10.813Z [zh-HK] active (seeded row): {"chip":"已啟用","connect":null,"toggleDisabled":false,"locked":null,"error":null}
+2026-11-27T06:37:10.946Z [zh-HK] summary line: "食客及 AI 助理會看到\n\n訂金每位 HK$100（6位或以上）。取消須提前24小時通知，否則訂金不退。\n\nDeposit HK$100 per guest for 6 or more. Cancel 24 hours ahead or the deposit is kept."
+2026-11-27T06:37:11.248Z [zh-HK] PUT booking settings -> 200
+2026-11-27T06:37:11.623Z [zh-HK] layout audit active-deposit-on 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:37:11.674Z [zh-HK] screenshot active-deposit-on 1200px, page overflow 0px
+2026-11-27T06:37:12.037Z [zh-HK] layout audit active-deposit-on 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:37:12.091Z [zh-HK] screenshot active-deposit-on 390px, page overflow 0px
+2026-11-27T06:37:12.280Z [zh-HK] console errors: 0
+### 2026-11-27T06:37:40Z en walk (same stack; NEXT_PUBLIC_DEFAULT_LOCALE=en)
+reset: no account, no deposit rule
+2026-11-27T06:37:43.636Z [en] logged in at http://localhost:3090/dashboard
+2026-11-27T06:37:45.588Z [en] reached /dashboard/setup/bookings via nav
+2026-11-27T06:37:45.599Z [en] before connect: {"chip":"Not connected","connect":"Connect Stripe","toggleDisabled":true,"locked":"Connect Stripe first","error":null}
+2026-11-27T06:37:45.972Z [en] layout audit before-connect 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:37:46.021Z [en] screenshot before-connect 1200px, page overflow 0px
+2026-11-27T06:37:46.373Z [en] layout audit before-connect 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:37:46.409Z [en] screenshot before-connect 390px, page overflow 0px
+2026-11-27T06:37:48.476Z [en] POST connect -> 502
+2026-11-27T06:37:48.491Z [en] connect body: {"error":"provider_unavailable"}
+2026-11-27T06:37:51.493Z [en] connect refused: {"chip":"Not connected","connect":"Connect Stripe","toggleDisabled":true,"locked":"Connect Stripe first","error":"Couldn't reach Stripe, try again."}
+2026-11-27T06:37:51.836Z [en] layout audit connect-error 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:37:51.880Z [en] screenshot connect-error 1200px, page overflow 0px
+2026-11-27T06:37:52.233Z [en] layout audit connect-error 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:37:52.277Z [en] screenshot connect-error 390px, page overflow 0px
+2026-11-27T06:37:52.293Z [en] browser sent to: (no stripe navigation)
+2026-11-27T06:37:53.295Z [en] after return, address is /dashboard/setup/bookings?account=acct_attacker
+2026-11-27T06:37:53.299Z [en] after return: {"chip":"Not connected","connect":"Connect Stripe","toggleDisabled":true,"locked":"Connect Stripe first","error":null}
+2026-11-27T06:37:53.635Z [en] layout audit returned 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:37:53.678Z [en] screenshot returned 1200px, page overflow 0px
+2026-11-27T06:37:54.033Z [en] layout audit returned 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:37:54.059Z [en] screenshot returned 390px, page overflow 0px
+2026-11-27T06:37:54.072Z [en] console errors: 1 ["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]
+seeded pending row
+2026-11-27T06:37:56.353Z [en] logged in at http://localhost:3090/dashboard
+2026-11-27T06:37:57.453Z [en] reached /dashboard/setup/bookings via nav
+2026-11-27T06:37:58.132Z [en] return landing, address now /dashboard/setup/bookings
+2026-11-27T06:37:58.134Z [en] pending (seeded row) after return: {"chip":"Connecting","connect":"Continue setup","toggleDisabled":true,"locked":"Connect Stripe first","error":null}
+2026-11-27T06:37:58.487Z [en] layout audit connecting 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:37:58.529Z [en] screenshot connecting 1200px, page overflow 0px
+2026-11-27T06:37:58.883Z [en] layout audit connecting 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:37:58.908Z [en] screenshot connecting 390px, page overflow 0px
+2026-11-27T06:37:58.923Z [en] console errors: 0
+row set active (HKD)
+2026-11-27T06:38:01.605Z [en] logged in at http://localhost:3090/dashboard
+2026-11-27T06:38:02.637Z [en] reached /dashboard/setup/bookings via nav
+2026-11-27T06:38:02.639Z [en] active (seeded row): {"chip":"Active","connect":null,"toggleDisabled":false,"locked":null,"error":null}
+2026-11-27T06:38:02.726Z [en] summary line: "Diners and AI agents see\n\n訂金每位 HK$100（6位或以上）。取消須提前24小時通知，否則訂金不退。\n\nDeposit HK$100 per guest for 6 or more. Cancel 24 hours ahead or the deposit is kept."
+2026-11-27T06:38:02.917Z [en] PUT booking settings -> 200
+2026-11-27T06:38:03.274Z [en] layout audit active-deposit-on 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:38:03.320Z [en] screenshot active-deposit-on 1200px, page overflow 0px
+2026-11-27T06:38:03.676Z [en] layout audit active-deposit-on 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:38:03.706Z [en] screenshot active-deposit-on 390px, page overflow 0px
+2026-11-27T06:38:03.848Z [en] console errors: 0
+row set disabled (deauthorized)
+2026-11-27T06:38:08.496Z [en] logged in at http://localhost:3090/dashboard
+2026-11-27T06:38:09.538Z [en] reached /dashboard/setup/bookings via nav
+2026-11-27T06:38:09.544Z [en] disabled account, rule on: {"chip":"Disconnected","connect":"Connect Stripe","toggleDisabled":false,"locked":null,"error":null}
+2026-11-27T06:38:09.554Z [en] paused warning: "Stripe isn't active, so new bookings are taken without a deposit until it is."
+2026-11-27T06:38:09.901Z [en] layout audit paused 1200px: {"blocking":0,"warning":3,"info":0}
+2026-11-27T06:38:09.951Z [en] screenshot paused 1200px, page overflow 0px
+2026-11-27T06:38:10.312Z [en] layout audit paused 390px: {"blocking":0,"warning":11,"info":1}
+2026-11-27T06:38:10.337Z [en] screenshot paused 390px, page overflow 0px
+2026-11-27T06:38:10.351Z [en] console errors: 0

@@ -15,7 +15,7 @@
  * state). Logs carry the kind and a masked phone only (R8).
  */
 import { isTemplateSendable, type WhatsAppTemplate } from '@/domain/entities/whatsapp-template'
-import { bookingParamsForBody, buildBookingTemplateParams, buildBookingText } from '@/domain/services/booking-message'
+import { bookingParamsForBody, buildBookingTemplateParams, buildBookingText, withDepositLine } from '@/domain/services/booking-message'
 import { renderBookingTemplateBody } from '@/domain/services/booking-template-body'
 import { Language, type LanguageCode } from '@/domain/value-objects/language'
 import { TEMPLATE_LANGUAGES, type BookingConfig, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
@@ -31,7 +31,8 @@ export interface BookingSenderDeps {
   getPhoneNumberId(restaurantId: string): Promise<string>
   isWindowOpen(restaurantId: string, phone: string): Promise<boolean>
   getLanguage(restaurantId: string, phone: string): Promise<LanguageCode>
-  sendTemplate(args: { phoneNumberId: string; to: string; template: WhatsAppTemplate; paramValues: Record<string, string> }): Promise<SendResult>
+  /** BOOK-014 W4: `linkToken` fills the deposit request's one URL button (`<app>/p/{{1}}`). */
+  sendTemplate(args: { phoneNumberId: string; to: string; template: WhatsAppTemplate; paramValues: Record<string, string>; linkToken?: string }): Promise<SendResult>
   sendText(phoneNumberId: string, to: string, text: string): Promise<SendResult>
 }
 
@@ -94,19 +95,25 @@ async function promote(deps: BookingSenderDeps, input: BookingMessageInput, chos
   }
 }
 
+/** The row's Meta language code ('zh_HK' / 'en') as ours. */
+const rowLanguage = (template: WhatsAppTemplate): LanguageCode => (template.language.toLowerCase() === 'en' ? 'en' : 'zh_hk')
+
 async function sendTemplate(deps: BookingSenderDeps, input: BookingMessageInput, phoneNumberId: string, template: WhatsAppTemplate) {
   // F3: this row's own BODY params, never a fixed set per kind.
   const body = template.components.find((c) => c.type === 'BODY')?.text ?? ''
-  const paramValues = bookingParamsForBody(body, input.details)
+  const paramValues = bookingParamsForBody(body, input.details, rowLanguage(template))
   if (!paramValues) return failed(input, 'template_params_unknown')
-  const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues })
+  // BOOK-014 W4: the deposit request's button needs its /p token; Meta refuses an unfilled one.
+  const linkToken = input.details.depositRequest?.linkToken
+  if (input.kind === 'deposit_request' && !linkToken) return failed(input, 'deposit_link_missing')
+  const result = await deps.sendTemplate({ phoneNumberId, to: input.phone, template, paramValues, ...(linkToken ? { linkToken } : {}) })
   return result.ok ? ({ delivered: true, via: 'template' } as const) : failed(input, result.error?.title ?? 'template_send_failed')
 }
 
 function freeText(config: BookingConfig, input: BookingMessageInput, language: LanguageCode): string {
   const custom = config.templateBodies[input.kind][language]
   if (!custom) return buildBookingText(input.kind, language, input.details)
-  return renderBookingTemplateBody(custom, buildBookingTemplateParams(input.details))
+  return withDepositLine(renderBookingTemplateBody(custom, buildBookingTemplateParams(input.details)), language, input.details)
 }
 
 async function sendOnce(deps: BookingSenderDeps, input: BookingMessageInput): Promise<BookingSendResult> {

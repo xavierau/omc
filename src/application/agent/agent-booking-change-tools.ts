@@ -21,6 +21,12 @@
  * BOOK-009 W4 (spec AC-16, AC-17): a new slot the booking hours refuse
  * returns `suggestedTimes` and stores nothing; the terms are read back with
  * the change and stored as accepted on the change request.
+ *
+ * BOOK-014 W5 (spec Explicitly Not Handled, Q5): a booking with a deposit
+ * (any state but lapsed) is never changed by chat: both change tools refuse
+ * it and the diner is handed to staff. A cancel goes through; with a paid
+ * deposit the read-back and the cancelled text say the restaurant decides,
+ * quoting the admin's rule, and staff then Refund / Keep it.
  */
 import type { BookingSubmission } from '@/domain/services/booking-submission'
 import { isOpenChangeRequest, type DinerBooking } from '@/domain/entities/booking-request'
@@ -30,6 +36,7 @@ import { withDisclosure } from '@/domain/services/agent-reply-text'
 import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { hkNow, saveProposal, takeProposal, type BookingCall } from './agent-booking-gate'
 import { acceptedTerms, insertRequest, parseAgreed, parseProposal, proposalFull, termsForReadBack } from './agent-booking-rules'
+import { DEPOSIT_NOT_CHANGEABLE, depositBlocksChange, paidDepositNote } from './agent-booking-deposit'
 
 export type AgentChangeToolName = Extract<
   AgentToolName,
@@ -155,6 +162,7 @@ async function proposeChange(call: BookingCall, args: Record<string, unknown>): 
   if (!found) return NOT_FOUND
   const { target, all } = found
   if (isOpenChangeRequest(target)) return { error: 'not_changeable', note: 'This is already a change request waiting for staff.' }
+  if (await depositBlocksChange(call, target.id)) return DEPOSIT_NOT_CHANGEABLE
   if (all.some((b) => isOpenChangeRequest(b) && b.replacesBookingId === target.id)) {
     return { error: 'change_already_pending', note: 'A change of this booking is already waiting for staff.' }
   }
@@ -184,6 +192,8 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
   // The original must still be the diner's open, upcoming booking.
   const target = (await upcoming(call)).find((b) => b.id === taken.proposal.bookingId && !isOpenChangeRequest(b))
   if (!target) return NOT_FOUND
+  // A deposit may have been taken since the proposal (staff hold paid): re-checked at confirm.
+  if (await depositBlocksChange(call, target.id)) return DEPOSIT_NOT_CHANGEABLE
   const parsed = await parseAgreed(call, taken.proposal, { note: 'Ask the diner for new details and propose again.' })
   if (!parsed.ok) return parsed.output
   const s = parsed.submission
@@ -223,11 +233,15 @@ async function confirmChange(call: BookingCall): Promise<AgentToolOutput> {
 async function proposeCancel(call: BookingCall, args: Record<string, unknown>): Promise<AgentToolOutput> {
   const found = await resolveRef(call, args.bookingRef)
   if (!found) return NOT_FOUND
+  const deposit = await paidDepositNote(call, found.target.id)
   if (!(await saveProposal(call, { kind: 'cancel', bookingId: found.target.id }))) return { error: 'lookup_failed' }
+  const note =
+    'Nothing is cancelled yet. Read the booking back and ask the diner to confirm the cancellation. Call confirm_booking_cancel only after they agree in their next message.'
   return {
     proposed: true,
     booking: { ...slotOf(found.target), status: found.target.status },
-    note: 'Nothing is cancelled yet. Read the booking back and ask the diner to confirm the cancellation. Call confirm_booking_cancel only after they agree in their next message.',
+    ...(deposit ? { depositNote: deposit } : {}),
+    note: deposit ? `${note} The booking has a paid deposit: also read depositNote back (the restaurant decides on the deposit).` : note,
   }
 }
 
@@ -253,15 +267,20 @@ async function confirmCancel(call: BookingCall): Promise<AgentToolOutput> {
     at: call.now(),
   })
   if (!ids.includes(target.id)) return NOT_FOUND
+  // Q5: a paid deposit stays with the restaurant's decision (staff Refund / Keep).
+  const deposit = await paidDepositNote(call, target.id)
   // R11 (review F9): an agent-sent text carries the tenant's disclosure, as every other agent reply does.
-  const text = withDisclosure(cancelledText(target), booking.disclosureText)
+  const cancelled = deposit ? `${cancelledText(target)}\n${deposit}` : cancelledText(target)
+  const text = withDisclosure(cancelled, booking.disclosureText)
   const texted = await booking.notifyText(key.restaurantId, key.phone, text).catch(() => false)
+  const said = deposit ? ' and that the restaurant will decide on their deposit (depositNote)' : ''
   return {
     cancelled: true,
     booking: slotOf(target),
+    ...(deposit ? { depositNote: deposit } : {}),
     note: texted
       ? 'Cancelled. The diner already got a short confirmation text; reply briefly.'
-      : 'Cancelled. Tell the diner the booking is cancelled.',
+      : `Cancelled. Tell the diner the booking is cancelled${said}.`,
   }
 }
 

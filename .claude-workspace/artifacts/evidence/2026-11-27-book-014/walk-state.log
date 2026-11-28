@@ -1,0 +1,206 @@
+=== W2 paid via /b  (2026-11-28T13:46:53Z)  deposit 85fda75a-7469-451f-b2ed-af09f8bd9f82
+booking | 2863588d-f6de-4c6f-88d5-3b3eafd71f1d | W2 Diner Chan | pending | 4 | chat
+deposit | paid | 40000 | HKD | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | pi_3UglxMBsmWz9nN6A1t83eopN |  |  | 0 |  |  | 2026-11-28 14:13:38.695+00
+event | created | system |  |  | 40000 | 2026-11-28 13:43:38.697264+00
+event | session_created | system |  | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | 40000 | 2026-11-28 13:43:39.468465+00
+event | paid | provider |  | pi_3UglxMBsmWz9nN6A1t83eopN | 40000 | 2026-11-28 13:46:26.885796+00
+stripe session cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE complete paid 40000 hkd pi_3UglxMBsmWz9nN6A1t83eopN {}
+stripe payment_intent pi_3UglxMBsmWz9nN6A1t83eopN succeeded 40000 hkd charge ch_3UglxMBsmWz9nN6A13r8cOdm refunded False amount_refunded 0
+=== W3 decline  (2026-11-28T13:47:24Z)  deposit 85fda75a-7469-451f-b2ed-af09f8bd9f82
+booking | 2863588d-f6de-4c6f-88d5-3b3eafd71f1d | W2 Diner Chan | pending | 4 | chat
+deposit | paid | 40000 | HKD | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | pi_3UglxMBsmWz9nN6A1t83eopN |  |  | 0 |  |  | 2026-11-28 14:13:38.695+00
+event | created | system |  |  | 40000 | 2026-11-28 13:43:38.697264+00
+event | session_created | system |  | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | 40000 | 2026-11-28 13:43:39.468465+00
+event | paid | provider |  | pi_3UglxMBsmWz9nN6A1t83eopN | 40000 | 2026-11-28 13:46:26.885796+00
+stripe session cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE complete paid 40000 hkd pi_3UglxMBsmWz9nN6A1t83eopN {}
+stripe payment_intent pi_3UglxMBsmWz9nN6A1t83eopN succeeded 40000 hkd charge ch_3UglxMBsmWz9nN6A13r8cOdm refunded False amount_refunded 0
+=== W3 after decline  (2026-11-28T13:47:45Z)  deposit 85fda75a-7469-451f-b2ed-af09f8bd9f82
+booking | 2863588d-f6de-4c6f-88d5-3b3eafd71f1d | W2 Diner Chan | declined | 4 | chat
+deposit | refunded | 40000 | HKD | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | pi_3UglxMBsmWz9nN6A1t83eopN | re_3UglxMBsmWz9nN6A1hhZBWRX | declined | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 13:47:37.549+00 | 2026-11-28 14:13:38.695+00
+event | created | system |  |  | 40000 | 2026-11-28 13:43:38.697264+00
+event | session_created | system |  | cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE | 40000 | 2026-11-28 13:43:39.468465+00
+event | paid | provider |  | pi_3UglxMBsmWz9nN6A1t83eopN | 40000 | 2026-11-28 13:46:26.885796+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 40000 | 2026-11-28 13:47:37.55766+00
+event | refund_succeeded | provider |  | re_3UglxMBsmWz9nN6A1hhZBWRX | 40000 | 2026-11-28 13:47:38.691398+00
+stripe session cs_test_a0CrhocTST5WtTYg8BtFYMr56YX4igkhlrEa8iYPSLpVLff9cMWuF9AMyE complete paid 40000 hkd pi_3UglxMBsmWz9nN6A1t83eopN {}
+stripe payment_intent pi_3UglxMBsmWz9nN6A1t83eopN succeeded 40000 hkd charge ch_3UglxMBsmWz9nN6A13r8cOdm refunded True amount_refunded 40000
+stripe refund re_3UglxMBsmWz9nN6A1hhZBWRX succeeded 40000 hkd {}
+=== W4a paid (Checkout presented TWD, adaptive pricing)  (2026-11-28T13:52:59Z)  deposit 5628a1a6-b2da-41bc-a2c4-2582f38ddc58
+booking | c24769a7-00e9-4c07-afca-b03ef0a6faf4 | W4 Cancel Lee | pending | 2 | chat
+deposit | paid | 20000 | HKD | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | pi_3Ugm3DBsmWz9nN6A3kCFsOvx |  |  | 0 |  |  | 2026-11-28 14:18:44.448+00
+event | created | system |  |  | 20000 | 2026-11-28 13:48:44.450207+00
+event | session_created | system |  | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | 20000 | 2026-11-28 13:48:45.006872+00
+event | paid | provider |  | pi_3Ugm3DBsmWz9nN6A3kCFsOvx | 20000 | 2026-11-28 13:52:29.553898+00
+stripe session cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot complete paid 20000 hkd pi_3Ugm3DBsmWz9nN6A3kCFsOvx {}
+stripe payment_intent pi_3Ugm3DBsmWz9nN6A3kCFsOvx succeeded 20000 hkd charge ch_3Ugm3DBsmWz9nN6A3BRmvXxI refunded False amount_refunded 0
+=== W4b paid (Checkout presented TWD, adaptive pricing)  (2026-11-28T13:53:02Z)  deposit e88b81d0-2666-4cb3-b611-cbc920dbac56
+booking | 33e046ed-f9d8-46cf-a1d9-90cc545eafa7 | W4 NoShow Ho | pending | 2 | chat
+deposit | paid | 20000 | HKD | cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk | pi_3Ugm3XBsmWz9nN6A0A6CqRKn |  |  | 0 |  |  | 2026-11-28 14:19:22.041+00
+event | created | system |  |  | 20000 | 2026-11-28 13:49:22.042831+00
+event | session_created | system |  | cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk | 20000 | 2026-11-28 13:49:22.49772+00
+event | paid | provider |  | pi_3Ugm3XBsmWz9nN6A0A6CqRKn | 20000 | 2026-11-28 13:52:49.061219+00
+stripe session cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk complete paid 20000 hkd pi_3Ugm3XBsmWz9nN6A0A6CqRKn {}
+stripe payment_intent pi_3Ugm3XBsmWz9nN6A0A6CqRKn succeeded 20000 hkd charge ch_3Ugm3XBsmWz9nN6A0qimm3WA refunded False amount_refunded 0
+=== W4a cancel + Refund (dialog)  (2026-11-28T13:53:53Z)  deposit 5628a1a6-b2da-41bc-a2c4-2582f38ddc58
+booking | c24769a7-00e9-4c07-afca-b03ef0a6faf4 | W4 Cancel Lee | cancelled | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | pi_3Ugm3DBsmWz9nN6A3kCFsOvx | re_3Ugm3DBsmWz9nN6A3cCqKoLr | staff | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 13:53:49.222+00 | 2026-11-28 14:18:44.448+00
+event | created | system |  |  | 20000 | 2026-11-28 13:48:44.450207+00
+event | session_created | system |  | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | 20000 | 2026-11-28 13:48:45.006872+00
+event | paid | provider |  | pi_3Ugm3DBsmWz9nN6A3kCFsOvx | 20000 | 2026-11-28 13:52:29.553898+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 13:53:49.220542+00
+event | refund_succeeded | provider |  | re_3Ugm3DBsmWz9nN6A3cCqKoLr | 20000 | 2026-11-28 13:53:50.620327+00
+stripe session cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot complete paid 20000 hkd pi_3Ugm3DBsmWz9nN6A3kCFsOvx {}
+stripe payment_intent pi_3Ugm3DBsmWz9nN6A3kCFsOvx succeeded 20000 hkd charge ch_3Ugm3DBsmWz9nN6A3BRmvXxI refunded True amount_refunded 20000
+stripe refund re_3Ugm3DBsmWz9nN6A3cCqKoLr succeeded 20000 hkd {}
+=== W5 before lapse (awaiting)  (2026-11-28T13:55:23Z)  deposit 787dfc8d-2817-4066-974f-d8fa9764af78
+booking | b5ccac78-9ff5-4d9f-98b6-3e1fb326a2ed | W5 Lapse Wong | awaiting_deposit | 3 | chat
+deposit | awaiting | 30000 | HKD | cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP |  |  |  | 0 |  |  | 2026-11-28 14:24:33.708+00
+event | created | system |  |  | 30000 | 2026-11-28 13:54:33.717204+00
+event | session_created | system |  | cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP | 30000 | 2026-11-28 13:54:34.404172+00
+stripe session cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP open unpaid 30000 hkd None {}
+=== W5 after cron lapse  (2026-11-28T13:55:53Z)  deposit 787dfc8d-2817-4066-974f-d8fa9764af78
+booking | b5ccac78-9ff5-4d9f-98b6-3e1fb326a2ed | W5 Lapse Wong | lapsed | 3 | chat
+deposit | lapsed | 30000 | HKD | cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP |  |  |  | 0 |  |  | 2026-11-28 13:54:50.815995+00
+event | created | system |  |  | 30000 | 2026-11-28 13:54:33.717204+00
+event | session_created | system |  | cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP | 30000 | 2026-11-28 13:54:34.404172+00
+event | lapsed | cron |  |  | 30000 | 2026-11-28 13:55:52.815005+00
+stripe session cs_test_a0t1xGhEiVBaeLbCien5zZxCaIBjj2cuBySjyOwVBlwmadAxUBMpqFBgFP expired unpaid 30000 hkd None {}
+=== W6 late payment after lapse  (2026-11-28T13:58:19Z)  deposit 98b25c58-a903-4bb9-820b-4e785a3c5f7f
+booking | 82cac3e7-ae00-4d0c-8cd1-bccea550b0bd | W6 Late Payer | lapsed | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0y7MHmjfTJKD0mKQZWy6HZOaar2X4XunynMlvIAjc26JzZZt9YNEt5hib | pi_3Ugm8iBsmWz9nN6A0fh0Dsu2 | re_3Ugm8iBsmWz9nN6A0MANdLUu | late_payment | 1 |  |  | 2026-11-28 13:57:06.749312+00
+event | created | system |  |  | 20000 | 2026-11-28 13:56:59.011761+00
+event | session_created | system |  | cs_test_a0y7MHmjfTJKD0mKQZWy6HZOaar2X4XunynMlvIAjc26JzZZt9YNEt5hib | 20000 | 2026-11-28 13:56:59.576405+00
+event | lapsed | cron |  |  | 20000 | 2026-11-28 13:58:06.974856+00
+event | late_payment | provider |  | pi_3Ugm8iBsmWz9nN6A0fh0Dsu2 | 20000 | 2026-11-28 13:58:09.680618+00
+event | refund_requested | system |  |  | 20000 | 2026-11-28 13:58:09.680618+00
+event | refund_succeeded | provider |  | re_3Ugm8iBsmWz9nN6A0MANdLUu | 20000 | 2026-11-28 13:58:11.059954+00
+stripe session cs_test_a0y7MHmjfTJKD0mKQZWy6HZOaar2X4XunynMlvIAjc26JzZZt9YNEt5hib complete paid 20000 hkd pi_3Ugm8iBsmWz9nN6A0fh0Dsu2 {}
+stripe payment_intent pi_3Ugm8iBsmWz9nN6A0fh0Dsu2 succeeded 20000 hkd charge ch_3Ugm8iBsmWz9nN6A0zHhVTTC refunded True amount_refunded 20000
+stripe refund re_3Ugm8iBsmWz9nN6A0MANdLUu succeeded 20000 hkd {}
+=== W7 staff create, Require deposit on  (2026-11-28T13:59:43Z)  deposit 4eed8245-9d9f-4401-8134-21f10f9ad192
+booking | c1417c75-45dc-410b-86c3-2a6d4281a66c | W7 Staff Hold Yip | awaiting_deposit | 4 | staff
+deposit | awaiting | 40000 | HKD | cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi |  |  |  | 0 |  |  | 2026-11-29 13:57:24.725+00
+event | created | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 40000 | 2026-11-28 13:59:24.728578+00
+event | session_created | system |  | cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi | 40000 | 2026-11-28 13:59:25.230619+00
+stripe session cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi open unpaid 40000 hkd None {}
+=== W7 staff hold paid via /p link  (2026-11-28T14:00:42Z)  deposit 4eed8245-9d9f-4401-8134-21f10f9ad192
+booking | c1417c75-45dc-410b-86c3-2a6d4281a66c | W7 Staff Hold Yip | confirmed | 4 | staff
+deposit | paid | 40000 | HKD | cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi | pi_3UgmB0BsmWz9nN6A39bLuLla |  |  | 0 |  |  | 2026-11-29 13:57:24.725+00
+event | created | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 40000 | 2026-11-28 13:59:24.728578+00
+event | session_created | system |  | cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi | 40000 | 2026-11-28 13:59:25.230619+00
+event | paid | provider |  | pi_3UgmB0BsmWz9nN6A39bLuLla | 40000 | 2026-11-28 14:00:32.881269+00
+stripe session cs_test_a0iDujNaUC0tJmn5xj5QH5q34BeB8bte5l31AeXb2A2YMrSRaw5dHSprXi complete paid 40000 hkd pi_3UgmB0BsmWz9nN6A39bLuLla {}
+stripe payment_intent pi_3UgmB0BsmWz9nN6A39bLuLla succeeded 40000 hkd charge ch_3UgmB0BsmWz9nN6A3e1ELUkU refunded False amount_refunded 0
+=== W7b staff hold (diner in window) paid via /p  (2026-11-28T14:02:32Z)  deposit 35c97aab-1e36-4a49-b81e-c04dbbe4043e
+booking | de5b7c8c-0702-48a5-92bf-b5fcc56929c3 | W7b Staff Hold Kwan | confirmed | 4 | staff
+deposit | paid | 40000 | HKD | cs_test_a0AJ1Rfqx0xo0VobIVsu0muJO46QUQGW3KRQXMTtAWPabZFGoUHfRMl6gk | pi_3UgmCoBsmWz9nN6A3vl2RY3M |  |  | 0 |  |  | 2026-11-29 13:59:35.776+00
+event | created | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 40000 | 2026-11-28 14:01:35.777209+00
+event | session_created | system |  | cs_test_a0AJ1Rfqx0xo0VobIVsu0muJO46QUQGW3KRQXMTtAWPabZFGoUHfRMl6gk | 40000 | 2026-11-28 14:01:36.396544+00
+event | paid | provider |  | pi_3UgmCoBsmWz9nN6A3vl2RY3M | 40000 | 2026-11-28 14:02:24.493282+00
+=== W4b no-show + Keep, then Keep/Refund again -> 409  (2026-11-28T14:03:43Z)  deposit e88b81d0-2666-4cb3-b611-cbc920dbac56
+booking | 33e046ed-f9d8-46cf-a1d9-90cc545eafa7 | W4 NoShow Ho | no_show | 2 | chat
+deposit | kept | 20000 | HKD | cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk | pi_3Ugm3XBsmWz9nN6A0A6CqRKn |  |  | 0 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 14:03:27.163+00 | 2026-11-28 14:19:22.041+00
+event | created | system |  |  | 20000 | 2026-11-28 13:49:22.042831+00
+event | session_created | system |  | cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk | 20000 | 2026-11-28 13:49:22.49772+00
+event | paid | provider |  | pi_3Ugm3XBsmWz9nN6A0A6CqRKn | 20000 | 2026-11-28 13:52:49.061219+00
+event | kept | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 14:03:27.168968+00
+stripe session cs_test_a0UBOfazZM8YcVRsaSFf0DzsqjDyC2ksWY7SOvdszxnRZisuNSlg7Rk1Gk complete paid 20000 hkd pi_3Ugm3XBsmWz9nN6A0A6CqRKn {}
+stripe payment_intent pi_3Ugm3XBsmWz9nN6A0A6CqRKn succeeded 20000 hkd charge ch_3Ugm3XBsmWz9nN6A0qimm3WA refunded False amount_refunded 0
+=== W4a after the 409 probes (still one refund)  (2026-11-28T14:03:45Z)  deposit 5628a1a6-b2da-41bc-a2c4-2582f38ddc58
+booking | c24769a7-00e9-4c07-afca-b03ef0a6faf4 | W4 Cancel Lee | cancelled | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | pi_3Ugm3DBsmWz9nN6A3kCFsOvx | re_3Ugm3DBsmWz9nN6A3cCqKoLr | staff | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 13:53:49.222+00 | 2026-11-28 14:18:44.448+00
+event | created | system |  |  | 20000 | 2026-11-28 13:48:44.450207+00
+event | session_created | system |  | cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot | 20000 | 2026-11-28 13:48:45.006872+00
+event | paid | provider |  | pi_3Ugm3DBsmWz9nN6A3kCFsOvx | 20000 | 2026-11-28 13:52:29.553898+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 13:53:49.220542+00
+event | refund_succeeded | provider |  | re_3Ugm3DBsmWz9nN6A3cCqKoLr | 20000 | 2026-11-28 13:53:50.620327+00
+stripe session cs_test_a0aVuKGnRZa2ms7FyfTCD1GaV5nblW5ZFUzzXgZV9Q2wRHTVsEIBdiLeot complete paid 20000 hkd pi_3Ugm3DBsmWz9nN6A3kCFsOvx {}
+stripe payment_intent pi_3Ugm3DBsmWz9nN6A3kCFsOvx succeeded 20000 hkd charge ch_3Ugm3DBsmWz9nN6A3BRmvXxI refunded True amount_refunded 20000
+stripe refund re_3Ugm3DBsmWz9nN6A3cCqKoLr succeeded 20000 hkd {}
+=== W8 AI agent booking paid  (2026-11-28T14:07:00Z)  deposit b48e2829-5697-484a-907f-a30a0c904868
+booking | 21acecda-354b-477e-9111-14b8a2ff7533 | 陳 | pending | 4 | agent
+deposit | paid | 40000 | HKD | cs_test_a0fzK1FvO4y4rh4vg0xUH95BL3WxWI6z5v7maEYeBfLm1vidW7HRoJ5wRX | pi_3UgmH8BsmWz9nN6A0HWtviPZ |  |  | 0 |  |  | 2026-11-28 14:36:16.62+00
+event | created | system |  |  | 40000 | 2026-11-28 14:06:16.625932+00
+event | session_created | system |  | cs_test_a0fzK1FvO4y4rh4vg0xUH95BL3WxWI6z5v7maEYeBfLm1vidW7HRoJ5wRX | 40000 | 2026-11-28 14:06:17.371174+00
+event | paid | provider |  | pi_3UgmH8BsmWz9nN6A0HWtviPZ | 40000 | 2026-11-28 14:06:52.410978+00
+stripe session cs_test_a0fzK1FvO4y4rh4vg0xUH95BL3WxWI6z5v7maEYeBfLm1vidW7HRoJ5wRX complete paid 40000 hkd pi_3UgmH8BsmWz9nN6A0HWtviPZ {}
+stripe payment_intent pi_3UgmH8BsmWz9nN6A0HWtviPZ succeeded 40000 hkd charge ch_3UgmH8BsmWz9nN6A0SgSmath refunded False amount_refunded 0
+=== W9 PAP booking paid  (2026-11-28T14:08:29Z)  deposit 2e89efb1-c39a-471b-bbc2-83334a51642a
+booking | 6af402f1-b7ac-4ed9-98ee-11be5ee59ead | W9 PAP Lam | pending | 3 | agent
+deposit | paid | 30000 | HKD | cs_test_a0NwkMl1MVwlprND3zfDMykyIf4x3SDqXfgUaChXXtyAbEmzwfxW9CfAFW | pi_3UgmIaBsmWz9nN6A09Chm2HH |  |  | 0 |  |  | 2026-11-28 14:37:32.328+00
+event | created | system |  |  | 30000 | 2026-11-28 14:07:32.332626+00
+event | session_created | system |  | cs_test_a0NwkMl1MVwlprND3zfDMykyIf4x3SDqXfgUaChXXtyAbEmzwfxW9CfAFW | 30000 | 2026-11-28 14:07:32.951808+00
+event | paid | provider |  | pi_3UgmIaBsmWz9nN6A09Chm2HH | 30000 | 2026-11-28 14:08:21.978596+00
+stripe session cs_test_a0NwkMl1MVwlprND3zfDMykyIf4x3SDqXfgUaChXXtyAbEmzwfxW9CfAFW complete paid 30000 hkd pi_3UgmIaBsmWz9nN6A09Chm2HH {}
+stripe payment_intent pi_3UgmIaBsmWz9nN6A09Chm2HH succeeded 30000 hkd charge ch_3UgmIaBsmWz9nN6A0jksYC30 refunded False amount_refunded 0
+active | t |  |  | 2026-11-28 13:33:40.651+00
+restricted | f | requirements.past_due
+UPDATE 1
+active | t |  | HKD | 2026-11-28 14:09:40+00 | 2026-11-28 14:09:41.35+00 | 2026-11-28 14:09:41.35+00
+=== W3b decline with pending-refund card (4000000000007726), right after  (2026-11-28T14:11:42Z)  deposit a219131d-6ebd-4cf8-b5eb-e0699bdcf597
+booking | 0872c605-a750-4c18-9c21-b55464e3caea | W3b Pending Refund Ma | declined | 2 | chat
+deposit | refund_pending | 20000 | HKD | cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk | pi_3UgmLQBsmWz9nN6A2xtAcpG6 | re_3UgmLQBsmWz9nN6A2hgdSksD | declined | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 14:11:30.744+00 | 2026-11-28 14:40:23.848+00
+event | created | system |  |  | 20000 | 2026-11-28 14:10:23.85574+00
+event | session_created | system |  | cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk | 20000 | 2026-11-28 14:10:24.636244+00
+event | paid | provider |  | pi_3UgmLQBsmWz9nN6A2xtAcpG6 | 20000 | 2026-11-28 14:11:17.967162+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 14:11:30.746568+00
+stripe session cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk complete paid 20000 hkd pi_3UgmLQBsmWz9nN6A2xtAcpG6 {}
+stripe payment_intent pi_3UgmLQBsmWz9nN6A2xtAcpG6 succeeded 20000 hkd charge ch_3UgmLQBsmWz9nN6A2dqAR5kx refunded True amount_refunded 20000
+stripe refund re_3UgmLQBsmWz9nN6A2hgdSksD pending 20000 hkd {}
+=== W3b after refund.updated (Stripe settled the pending refund)  (2026-11-28T14:13:41Z)  deposit a219131d-6ebd-4cf8-b5eb-e0699bdcf597
+booking | 0872c605-a750-4c18-9c21-b55464e3caea | W3b Pending Refund Ma | declined | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk | pi_3UgmLQBsmWz9nN6A2xtAcpG6 | re_3UgmLQBsmWz9nN6A2hgdSksD | declined | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 14:11:30.744+00 | 2026-11-28 14:40:23.848+00
+event | created | system |  |  | 20000 | 2026-11-28 14:10:23.85574+00
+event | session_created | system |  | cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk | 20000 | 2026-11-28 14:10:24.636244+00
+event | paid | provider |  | pi_3UgmLQBsmWz9nN6A2xtAcpG6 | 20000 | 2026-11-28 14:11:17.967162+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 14:11:30.746568+00
+event | refund_succeeded | provider |  | re_3UgmLQBsmWz9nN6A2hgdSksD | 20000 | 2026-11-28 14:13:33.341541+00
+stripe session cs_test_a0tBmVvMtCoOXoEcwiJnBB4ycDW8B3kNellmi3IrnPdSIAV1Z5ZlzexzBk complete paid 20000 hkd pi_3UgmLQBsmWz9nN6A2xtAcpG6 {}
+stripe payment_intent pi_3UgmLQBsmWz9nN6A2xtAcpG6 succeeded 20000 hkd charge ch_3UgmLQBsmWz9nN6A2dqAR5kx refunded True amount_refunded 20000
+stripe refund re_3UgmLQBsmWz9nN6A2hgdSksD succeeded 20000 hkd {}
+=== W3c decline with failing-refund card (4000000000005126) after Stripe failed the refund  (2026-11-28T14:19:59Z)  deposit 207db092-3525-4075-a81e-e68743cc0e11
+booking | 5265b269-99d4-4f20-a4f7-a4b536c62360 | W3c Failing Refund Ng | declined | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv | pi_3UgmOuBsmWz9nN6A1KtalCrh | re_3UgmOuBsmWz9nN6A1Zt4V8Xy | declined | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 14:15:05.854+00 | 2026-11-28 14:44:01.739+00
+event | created | system |  |  | 20000 | 2026-11-28 14:14:01.744557+00
+event | session_created | system |  | cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv | 20000 | 2026-11-28 14:14:02.296394+00
+event | paid | provider |  | pi_3UgmOuBsmWz9nN6A1KtalCrh | 20000 | 2026-11-28 14:14:53.969893+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 14:15:05.855821+00
+event | refund_succeeded | provider |  | re_3UgmOuBsmWz9nN6A1Zt4V8Xy | 20000 | 2026-11-28 14:15:07.118688+00
+stripe session cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv complete paid 20000 hkd pi_3UgmOuBsmWz9nN6A1KtalCrh {}
+stripe payment_intent pi_3UgmOuBsmWz9nN6A1KtalCrh succeeded 20000 hkd charge ch_3UgmOuBsmWz9nN6A161TaG8w refunded True amount_refunded 20000
+stripe refund re_3UgmOuBsmWz9nN6A1Zt4V8Xy succeeded 20000 hkd {}
+=== W2 (en run) paid via /b  (2026-11-28T14:22:16Z)  deposit 58db5cfd-d27e-4bff-80b3-8a88cffdeeed
+booking | d879d005-f0f7-4394-9b8a-ed2ca77809ea | W2en Diner Wong | pending | 4 | chat
+deposit | paid | 40000 | HKD | cs_test_a0A3XXOt5GseOHvEYsSxFtf5zUCMbNDABIGD2LU3CVe7vcZRCaHazIxSY1 | pi_3UgmVuBsmWz9nN6A1DkfzbOK |  |  | 0 |  |  | 2026-11-28 14:51:02.895+00
+event | created | system |  |  | 40000 | 2026-11-28 14:21:02.893235+00
+event | session_created | system |  | cs_test_a0A3XXOt5GseOHvEYsSxFtf5zUCMbNDABIGD2LU3CVe7vcZRCaHazIxSY1 | 40000 | 2026-11-28 14:21:03.558251+00
+event | paid | provider |  | pi_3UgmVuBsmWz9nN6A1DkfzbOK | 40000 | 2026-11-28 14:22:07.958554+00
+stripe session cs_test_a0A3XXOt5GseOHvEYsSxFtf5zUCMbNDABIGD2LU3CVe7vcZRCaHazIxSY1 complete paid 40000 hkd pi_3UgmVuBsmWz9nN6A1DkfzbOK {}
+stripe payment_intent pi_3UgmVuBsmWz9nN6A1DkfzbOK succeeded 40000 hkd charge ch_3UgmVuBsmWz9nN6A19H0kWag refunded False amount_refunded 0
+=== W3c after Stripe FAILED the already-succeeded refund (refund.updated failed)  (2026-11-28T14:23:06Z)  deposit 207db092-3525-4075-a81e-e68743cc0e11
+booking | 5265b269-99d4-4f20-a4f7-a4b536c62360 | W3c Failing Refund Ng | declined | 2 | chat
+deposit | refunded | 20000 | HKD | cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv | pi_3UgmOuBsmWz9nN6A1KtalCrh | re_3UgmOuBsmWz9nN6A1Zt4V8Xy | declined | 1 | 537c8971-7681-4d1a-a3bc-ee371e1ca4da | 2026-11-28 14:15:05.854+00 | 2026-11-28 14:44:01.739+00
+event | created | system |  |  | 20000 | 2026-11-28 14:14:01.744557+00
+event | session_created | system |  | cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv | 20000 | 2026-11-28 14:14:02.296394+00
+event | paid | provider |  | pi_3UgmOuBsmWz9nN6A1KtalCrh | 20000 | 2026-11-28 14:14:53.969893+00
+event | refund_requested | user | 537c8971-7681-4d1a-a3bc-ee371e1ca4da |  | 20000 | 2026-11-28 14:15:05.855821+00
+event | refund_succeeded | provider |  | re_3UgmOuBsmWz9nN6A1Zt4V8Xy | 20000 | 2026-11-28 14:15:07.118688+00
+stripe session cs_test_a0Zd3BTk8vmYdeYkzSWAnsJs7H66PlcDc9mCmIA1VJUdsnqQkyWwETRoxv complete paid 20000 hkd pi_3UgmOuBsmWz9nN6A1KtalCrh {}
+stripe payment_intent pi_3UgmOuBsmWz9nN6A1KtalCrh succeeded 20000 hkd charge ch_3UgmOuBsmWz9nN6A161TaG8w refunded False amount_refunded 0
+stripe refund re_3UgmOuBsmWz9nN6A1Zt4V8Xy failed 20000 hkd {}
+=== FINAL summary 2026-11-28T14:23:53Z
+W2 Diner Chan | chat | lapsed | lapsed | 40000 | - | 0
+W2 Diner Chan | chat | declined | refunded | 40000 | declined | 1
+W4 Cancel Lee | chat | cancelled | refunded | 20000 | staff | 1
+W4 NoShow Ho | chat | no_show | kept | 20000 | - | 0
+W5 Lapse Wong | chat | lapsed | lapsed | 30000 | - | 0
+W6 Late Payer | chat | lapsed | refunded | 20000 | late_payment | 1
+W7 Staff Hold Yip | staff | confirmed | paid | 40000 | - | 0
+W7b Staff Hold Kwan | staff | confirmed | paid | 40000 | - | 0
+陳 | agent | pending | paid | 40000 | - | 0
+W9 PAP Lam | agent | pending | paid | 30000 | - | 0
+W10 No Deposit Tsang | chat | pending | - | - | - | -
+W3b Pending Refund Ma | chat | declined | refunded | 20000 | declined | 1
+W3c Failing Refund Ng | chat | declined | refunded | 20000 | declined | 1
+W2en Diner Wong | chat | pending | paid | 40000 | - | 0
+account | acct_1UgkeeBsmWz9nN6A | active | t | HKD | 2026-11-28 14:09:40+00

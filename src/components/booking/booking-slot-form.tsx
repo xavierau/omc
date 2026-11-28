@@ -8,6 +8,9 @@
  * BOOK-010 (AC-12, AC-13): with the server's room, days and slots that cannot
  * take the chosen party show 已滿; a party change clears a choice that no
  * longer fits; a `full` refusal reads "這個時段剛剛滿了".
+ * BOOK-014 W3: with a deposit plan, the deposit line above the summary bar
+ * and "Pay deposit HK$X and send"; a hold goes to /p; a 503 shows the
+ * payment-unavailable state.
  */
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
@@ -26,6 +29,8 @@ import { SlotBookingSent } from './slot-booking-sent'
 import { SlotTextFields } from './slot-text-fields'
 import { dayLabel } from './booking-date-label'
 import { refitChoice, slotFits } from './slot-picker-model'
+import { DepositLine, DepositRedirect, DepositTerms, DepositUnavailable } from './deposit-line'
+import type { DepositPlan } from '@/domain/value-objects/deposit-plan'
 import type { SlotRoom } from '@/application/booking/resolve-booking-link'
 
 export interface BookingSlotFormProps {
@@ -36,6 +41,8 @@ export interface BookingSlotFormProps {
   today: string
   schedule: { hours: BookingHours; nowTime: string; room?: SlotRoom }
   preview?: boolean
+  /** BOOK-014 W3: the restaurant's deposit terms; absent = no deposit asked. */
+  deposit?: DepositPlan | null
 }
 
 /** Fields this form places an error next to (date/time refusals show as the times-changed notice). */
@@ -60,7 +67,7 @@ function TimesChanged({ time, full }: { time: string; full: boolean }) {
   )
 }
 
-export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, today, schedule, preview = false }: BookingSlotFormProps) {
+export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, today, schedule, preview = false, deposit }: BookingSlotFormProps) {
   const t = useTranslations('booking')
   const router = useRouter()
   const { hours } = schedule
@@ -81,6 +88,8 @@ export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, to
 
   if (outcome?.kind === 'sent') return <SlotBookingSent values={values} termsAccepted={termsRequired && values.accepted} />
   if (outcome?.kind === 'gone') return <BookingUnavailable reason={outcome.state} retryUrl={retryUrl} />
+  if (outcome?.kind === 'redirect') return <DepositRedirect url={outcome.url} />
+  if (outcome?.kind === 'payment_unavailable') return <DepositUnavailable retryUrl={retryUrl} />
 
   return (
     <form data-testid="booking-form" data-variant="slots" noValidate className="space-y-6" onSubmit={(e) => { e.preventDefault(); void form.submit() }}>
@@ -101,7 +110,9 @@ export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, to
       <SlotTextFields name={values.name} notes={values.notes} errors={errors} onChange={(k, v) => set(k, v)} />
       {termsRequired ? <TermsBlock terms={hours.terms} accepted={values.accepted} onChange={(a) => set('accepted', a)} error={errors.acceptTerms} /> : null}
       <BookingFormNotice outcome={outcome} placed={termsRequired ? [...SLOT_FIELDS, 'acceptTerms'] : SLOT_FIELDS} />
-      <SummaryBar values={values} missing={form.missing} submitting={form.submitting} preview={preview} />
+      <DepositTerms plan={deposit} />
+      <DepositLine plan={deposit} partySize={values.partySize} />
+      <SummaryBar values={values} missing={form.missing} submitting={form.submitting} preview={preview} deposit={deposit} />
     </form>
   )
 }

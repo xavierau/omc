@@ -1,0 +1,8 @@
+# BOOK-014 W4 AC-2: fresh container book014-w4-scratch-pg (supabase/postgres 17.6.1.143, 127.0.0.1:55511), migrations 001..097 (2026-11-27T16:35:57Z), HEAD caa73e44 + working tree
+# stubs: storage.buckets/objects + storage.foldername (the image has no storage-api tables), publication supabase_realtime if missing
+NOTICE:  schema "storage" already exists, skipping
+095_booking_staff_crud.sql
+096_booking_staff_phone_optional.sql
+097_booking_deposits.sql
+applied 97 migrations, 0 errors
+BOOK014_PG_URL=postgresql://postgres:postgres@127.0.0.1:55511/postgres

@@ -78,7 +78,8 @@ d('migration 085 (real Postgres)', () => {
     expect(fails(`UPDATE booking_requests SET status = 'cancelled' WHERE id = '${ORIG}'`)).toBe(true)
     expect(fails(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'diner_ai' WHERE id = '${ORIG}'`)).toBe(true)
     expect(fails(`UPDATE booking_requests SET cancelled_by = 'diner_ai' WHERE id = '${ORIG}'`)).toBe(true)
-    expect(fails(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'staff', cancelled_at = now() WHERE id = '${ORIG}'`)).toBe(true)
+    // 095 (BOOK-013) made 'staff' a valid canceller, so this marker + time cancels (it was refused before 095).
+    expect(fails(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'staff', cancelled_at = now() WHERE id = '${ORIG}'`)).toBe(false)
     psql(`UPDATE booking_requests SET status = 'cancelled', cancelled_by = 'diner_ai', cancelled_at = now() WHERE id = '${ORIG}'`)
     expect(statusOf(ORIG)).toBe('cancelled|diner_ai')
   })

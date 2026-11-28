@@ -41,7 +41,7 @@ describe('member bookings list and stats (R8, R2)', () => {
     const q = rec.queries[0]
     expect(q.table).toBe('booking_requests')
     expect(q.calls[0]).toEqual(['select', 'id, booking_date, booking_time, party_size, status'])
-    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'eq:member_id=m-1', 'neq:status=unverified'])
+    expect(filtersOf(q)).toEqual(['eq:restaurant_id=r-a', 'eq:member_id=m-1', 'not:status.in=(unverified,lapsed,awaiting_deposit)'])
     expect(q.calls.filter(([m]) => m === 'order')).toEqual([
       ['order', 'booking_date', { ascending: false }],
       ['order', 'booking_time', { ascending: false }],
@@ -125,7 +125,7 @@ describe('relink store booking read (r1 F6)', () => {
     const q = rec.queries[0]
     expect(q.table).toBe('booking_requests')
     expect(q.calls[0]).toEqual(['select', STAFF_COLUMNS])
-    expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'neq:status=unverified'])
+    expect(filtersOf(q)).toEqual(['eq:id=b-1', 'eq:restaurant_id=r-a', 'not:status.in=(unverified,lapsed)', 'or:status.neq.awaiting_deposit,source.eq.staff'])
     expect(q.calls.at(-1)).toEqual(['maybeSingle'])
     expect(booking).toMatchObject({ id: 'b-1', replacesBookingId: 'b-0', cancelledBy: null })
   })

@@ -22,6 +22,13 @@
  * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
  * guest limit answers `over_limit` with the facts and changes nothing,
  * unless `confirmAnyway` is set; limits never block staff.
+ *
+ * BOOK-014 W4 (spec AC-12, R56): declining a booking whose deposit is paid
+ * refunds it in full, after the decline is saved, through W1's refund use
+ * case (reason 'declined', the staff user recorded, R60), and the decline
+ * message says "Your deposit HK$X will be refunded". A refund the provider
+ * refuses (or an error) never undoes the decline: the row shows Refund
+ * failed + Retry (or Refund, if the refund never started).
  */
 import {
   hasPhone,
@@ -32,6 +39,9 @@ import {
   type DecisionMessageStatus,
 } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingRequestStore, BookingSettingsReader } from '@/domain/ports/booking'
+import { depositViewOf } from '@/domain/entities/booking-deposit'
+import type { Money } from '@/domain/value-objects/money'
+import { refundDeposit, type DepositDecisionDeps } from '@/application/payments/deposit-decisions'
 import { overLimitFor, type OverLimit, type OverLimitDeps } from './booking-over-limit'
 
 export interface DecideBookingDeps {
@@ -41,6 +51,8 @@ export interface DecideBookingDeps {
   now(): Date
   /** BOOK-010: the over-limit question before a confirm; absent = never asked. */
   overLimit?: OverLimitDeps
+  /** BOOK-014 W4: refunds a declined booking's paid deposit; absent = no deposits. */
+  deposits?: DepositDecisionDeps
 }
 
 export interface DecideBookingInput {
@@ -66,7 +78,7 @@ export type DecideBookingResult =
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function notify(deps: DecideBookingDeps, booking: BookingWithPhone): Promise<boolean> {
+async function notify(deps: DecideBookingDeps, booking: BookingWithPhone, depositRefund: Money | null): Promise<boolean> {
   const restaurant = await deps.settings.getRestaurant(booking.restaurantId)
   const result = await deps.sender.send({
     restaurantId: booking.restaurantId,
@@ -80,6 +92,7 @@ async function notify(deps: DecideBookingDeps, booking: BookingWithPhone): Promi
       time: booking.bookingTime,
       partySize: booking.partySize,
       declineReason: booking.declineReason,
+      ...(depositRefund ? { depositRefund } : {}),
     },
   })
   return result.delivered
@@ -95,14 +108,40 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
   return { ...booking, decisionMessageStatus: status }
 }
 
-async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
+async function decided(deps: DecideBookingDeps, booking: BookingRequest, depositRefund: Money | null = null): Promise<DecideBookingResult> {
   // R23: a declined change request is not news about the diner's booking; nothing is sent (F8: nothing undelivered either).
   if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: null }
   // BOOK-013 review R2: Notify off means no diner message from staff actions, a decision included.
   // BOOK-013 decision 9 (R19): no phone, no message and no outcome (the DB keeps Notify off too).
   if (booking.notifyDiner === false || !hasPhone(booking)) return { ok: true, booking, delivered: null }
-  const delivered = await notify(deps, booking)
+  const delivered = await notify(deps, booking, depositRefund)
   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
+}
+
+/**
+ * BOOK-014 W4 (spec AC-12): after the decline is saved, the paid deposit is
+ * refunded (one CAS winner calls the provider, R56). `amount` is set whenever
+ * the deposit was paid, so the diner is told it will be refunded even when
+ * the provider refused (staff Retry) or the refund could not start (staff Refund).
+ */
+async function refundOnDecline(deps: DecideBookingDeps, input: DecideBookingInput, booking: BookingRequest): Promise<{ booking: BookingRequest; amount: Money | null }> {
+  const d = deps.deposits
+  if (!d || booking.status !== 'declined') return { booking, amount: null }
+  const scope = { restaurantId: input.restaurantId, bookingId: booking.id }
+  const deposit = await d.deposits.findByBookingForRestaurant(scope.restaurantId, scope.bookingId).catch((err: Error) => {
+    console.error('[Bookings] decline deposit lookup failed:', { bookingId: booking.id, error: err.message })
+    return null
+  })
+  if (!deposit || deposit.status !== 'paid') return { booking, amount: null }
+  try {
+    const result = await refundDeposit(d, { ...scope, actorUserId: input.userId, reason: 'declined' })
+    const now = result.ok ? result.deposit : await d.deposits.findByBookingForRestaurant(scope.restaurantId, scope.bookingId)
+    return { booking: { ...booking, deposit: depositViewOf(now ?? deposit) }, amount: deposit.amount }
+  } catch (err) {
+    // The decline stands; the row offers Refund again (paid + declined).
+    console.error('[Bookings] decline refund failed:', { bookingId: booking.id, error: (err as Error).message })
+    return { booking: { ...booking, deposit: depositViewOf(deposit) }, amount: deposit.amount }
+  }
 }
 
 /** BOOK-010 (spec AC-10): the facts when this confirm would go over a limit; null otherwise. */
@@ -135,7 +174,10 @@ export async function decideBookingRequest(deps: DecideBookingDeps, input: Decid
     decidedAt: deps.now(),
     declineReason: input.decision === 'declined' ? normalizeDeclineReason(input.reason) : null,
   })
-  if (booking) return decided(deps, booking)
+  if (booking) {
+    const refunded = await refundOnDecline(deps, input, booking)
+    return decided(deps, refunded.booking, refunded.amount)
+  }
 
   const current = await deps.requests.findForRestaurant(input.bookingId, input.restaurantId)
   return current ? { ok: false, reason: 'already_handled', status: current.status } : { ok: false, reason: 'not_found' }

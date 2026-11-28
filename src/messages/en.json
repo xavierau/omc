@@ -1371,6 +1371,13 @@
     "offBody": "Online booking isn't available for this restaurant. Please message the restaurant on WhatsApp to book.",
     "askOnWhatsapp": "Ask on WhatsApp",
     "askOnWhatsappManual": "Go back to the WhatsApp chat and send BOOK to get a new link.",
+    "deposit": {
+      "line": "Deposit {amount}. You pay it online next; your request is sent once it is paid.",
+      "submit": "Pay deposit {amount} and send",
+      "redirecting": "Taking you to the payment page...",
+      "continue": "Continue to payment",
+      "unavailable": "Payment is unavailable right now, please message us."
+    },
     "errors": {
       "required": "Please fill this in.",
       "invalid": "Please check this value.",
@@ -1492,7 +1499,9 @@
       "declined": "Declined",
       "cancelled": "Cancelled",
       "unverified": "Awaiting diner",
-      "no_show": "No-show"
+      "no_show": "No-show",
+      "awaiting_deposit": "Awaiting deposit",
+      "lapsed": "Lapsed"
     },
     "notDelivered": "Message not delivered, contact the diner",
     "nameRemoved": "(name removed)",
@@ -1758,7 +1767,41 @@
         }
       }
     },
-    "noShowCheckedIn": "Can’t mark no-show: the diner has arrived."
+    "noShowCheckedIn": "Can’t mark no-show: the diner has arrived.",
+    "deposit": {
+      "state": {
+        "awaiting": "Deposit due {amount}",
+        "paid": "Deposit paid {amount}",
+        "lapsed": "Deposit not paid",
+        "refund_pending": "Refund pending {amount}",
+        "refunded": "Refunded {amount}",
+        "refund_failed": "Refund failed {amount}",
+        "kept": "Deposit kept {amount}"
+      },
+      "held": "Deposit held {amount}",
+      "refund": "Refund",
+      "keep": "Keep",
+      "retry": "Retry refund",
+      "copyLink": "Copy link",
+      "linkCopied": "Payment link copied",
+      "linkCopyFailed": "Couldn't copy the link. Try again.",
+      "refunded": "Deposit refunded",
+      "refundStarted": "Refund sent to the payment provider",
+      "refundFailed": "The refund failed. Try Retry, or refund in your Stripe dashboard.",
+      "kept": "Deposit kept",
+      "conflict": "This deposit changed. Reload to see where it is now.",
+      "actionFailed": "Couldn't update the deposit. Try again.",
+      "requireLabel": "Require deposit {amount}",
+      "requireHint": "The diner gets a payment link on WhatsApp and has 24 hours to pay. Paying confirms the booking.",
+      "waiveHint": "No deposit for this booking. Turning it off is recorded with your name.",
+      "cancelChoiceTitle": "Deposit {amount}",
+      "cancelRefund": "Refund it in full",
+      "cancelKeep": "Keep it",
+      "cancelLater": "Decide later",
+      "toastSent": "Booking saved · Payment link sent",
+      "toastNotSent": "Booking saved · Link not sent, share it yourself",
+      "toastUnavailable": "Payment is unavailable right now. Nothing was saved."
+    }
   },
   "bookingSettings": {
     "title": "Booking",
@@ -1807,7 +1850,8 @@
         "declined": "Booking declined",
         "reminder": "Booking reminder",
         "changed": "Booking changed",
-        "cancelled": "Booking cancelled"
+        "cancelled": "Booking cancelled",
+        "deposit_request": "Deposit request"
       },
       "lang": {
         "en": "English",
@@ -2011,6 +2055,59 @@
           "invalid": "Enter a whole number from 1 to 999, or leave it empty.",
           "above_meal": "Can't be more than the guests per meal."
         }
+      }
+    },
+    "payments": {
+      "title": "Payments",
+      "hint": "Deposits are paid into your restaurant's own Stripe account. OhMyClient never holds the money.",
+      "status": {
+        "none": "Not connected",
+        "connecting": "Connecting",
+        "active": "Active",
+        "action_needed": "Action needed",
+        "disconnected": "Disconnected"
+      },
+      "connect": "Connect Stripe",
+      "continue": "Continue setup",
+      "opening": "Opening Stripe...",
+      "loading": "Checking Stripe...",
+      "adminOnly": "Only admins can connect a payment account.",
+      "loadFailed": "Couldn't load the payment account.",
+      "connectFailed": "Couldn't reach Stripe, try again.",
+      "reason": {
+        "past_due": "Stripe needs more information before this account can take payments.",
+        "rejected": "Stripe rejected this account. Check your Stripe dashboard.",
+        "deauthorized": "This Stripe account was disconnected. Connect again to take deposits.",
+        "other": "Stripe has paused payments on this account ({reason})."
+      }
+    },
+    "deposit": {
+      "title": "Deposit",
+      "hint": "Diners pay a deposit to send their booking. The seats are held for 30 minutes while they pay.",
+      "toggle": "Require a deposit",
+      "connectFirst": "Connect Stripe first",
+      "paused": "Stripe isn't active, so new bookings are taken without a deposit until it is.",
+      "modeLabel": "Amount type",
+      "mode": {
+        "per_guest": "Per guest",
+        "per_booking": "Per booking"
+      },
+      "amount": "Amount ({currency}, whole units)",
+      "fromPartySize": "From party size",
+      "refundTitle": "Refund rule shown to diners",
+      "refundLang": {
+        "zh_hk": "繁體中文",
+        "en": "English"
+      },
+      "summaryTitle": "Diners and AI agents see",
+      "summaryNone": "Enter an amount to see the line diners get.",
+      "errors": {
+        "blocked": "Connect Stripe first: the deposit can be turned on once the account is active.",
+        "enabled": "Turn the deposit on or off.",
+        "mode": "Choose per guest or per booking.",
+        "amount": "Enter a whole amount from {min} to {max}.",
+        "fromPartySize": "Enter a party size from 1 to 1000.",
+        "refundNote": "The refund rule can be up to 500 characters."
       }
     }
   },

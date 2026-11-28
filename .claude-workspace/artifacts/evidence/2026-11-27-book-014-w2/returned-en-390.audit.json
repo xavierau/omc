@@ -1,0 +1,106 @@
+{
+  "url": "http://localhost:3090/dashboard/setup/bookings?account=acct_attacker",
+  "viewport": {
+    "w": 390,
+    "h": 844,
+    "dpr": 1,
+    "mobile": true,
+    "consistent": true,
+    "inner": [
+      390,
+      844
+    ]
+  },
+  "page": {
+    "scrollW": 390,
+    "scrollH": 4710,
+    "scrollable": true,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 225,
+    "domNodes": 541,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 11,
+    "info": 1
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "a[data-testid=\"settings-back\"].inline-flex.items-center \"Settings\" @64,24 75x20",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-off\"].mt-1 \"off\" @80,246 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-simple\"].mt-1 \"simple\" @80,294 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-mode-external\"].mt-1 \"external\" @80,362 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-chat-no-expiry\"] \"on\" @254,2443 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-settings-campaign-no-expiry\"] \"on\" @254,2515 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"booking-agent-toggle\"] \"on\" @80,3429 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"agent-settings-mode-off\"].mt-1 \"off\" @80,3870 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"agent-settings-mode-shadow\"].mt-1 \"shadow\" @80,3918 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": "input[data-testid=\"agent-settings-mode-auto\"].mt-1 \"auto\" @80,3986 13x13",
+      "detail": "interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    },
+    {
+      "check": "touch-target-small",
+      "sev": "warning",
+      "el": null,
+      "detail": "…and 1 more interactive targets below 24x24px"
+    },
+    {
+      "check": "touch-target-under-44",
+      "sev": "info",
+      "el": null,
+      "detail": "26 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+    }
+  ]
+}

@@ -32,6 +32,7 @@ import { BookingGuestName, MemberLinkControl } from './booking-member'
 import { BookingSource } from './booking-source'
 import { DayHeading } from './booking-day-heading'
 import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
+import { DepositActions, DepositBadge } from './booking-deposit'
 import type { DayGroup } from './booking-groups'
 
 export interface BookingGroupsProps extends BookingActionProps {
@@ -55,6 +56,7 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
           <BookingStatusBadge booking={booking} />
           <CancelledByBadge booking={booking} />
           <NotDeliveredBadge booking={booking} undelivered={undelivered.has(booking.id)} short />
+          <DepositBadge booking={booking} />
         </span>
       </TableCell>
       {/* The Source column says "AI agent"; it carries the BOOK-003 via-agent test id instead of a second badge. */}
@@ -77,6 +79,7 @@ function BookingTableRow({ booking, busyIds, undelivered, onDecide, onNoShow }: 
           <ArrivedAction booking={booking} />
           <BookingRowMenu booking={booking} />
         </span>
+        <DepositActions booking={booking} />
         <CheckInRefusedLine booking={booking} />
       </TableCell>
     </TableRow>

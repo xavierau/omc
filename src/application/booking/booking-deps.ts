@@ -48,6 +48,10 @@ import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
 import { isPhoneNormalizeError } from '@/domain/ports/phone-normalizer'
 import type { StaffBookingDeps } from './staff-booking-shared'
 import type { BookingCheckInDeps } from './booking-check-in'
+import { depositChannelPorts, depositDecisionDeps, startDepositDeps } from '@/application/payments/payment-deps'
+import { bookingDepositStore } from '@/infrastructure/supabase/repositories/booking-deposit-repository'
+import { agentDepositPromoter } from '@/infrastructure/supabase/repositories/agent-booking-repository'
+import { productionPaymentRegistry } from '@/infrastructure/payments/registry'
 
 const now = () => new Date()
 
@@ -77,7 +81,9 @@ export function bookingMessageSender(): BookingMessageSender {
     getPhoneNumberId: getRestaurantPhoneNumberId,
     isWindowOpen: (restaurantId, phoneE164) => isWindowOpen({ restaurantId, phoneE164 }),
     getLanguage: async (restaurantId, phone) => languageOf(await findMemberByPhone(restaurantId, phone)),
-    sendTemplate: (args) => sendWhatsAppTemplateMessage(args),
+    // BOOK-014 W4: the deposit request's one button (`<app>/p/{{1}}`) is a dynamic URL button other
+    // than Book now, which sendWhatsAppTemplateMessage fills from its coupon-code slot; the /p token goes there.
+    sendTemplate: ({ linkToken, ...args }) => sendWhatsAppTemplateMessage(linkToken ? { ...args, couponCode: linkToken } : args),
     sendText: sendTextMessage,
   })
 }
@@ -99,6 +105,8 @@ export function staffBookingDeps(): StaffBookingDeps {
     normalizePhone,
     recordMessage: recordDecisionMessage,
     now,
+    // BOOK-014 W4 (spec AC-11): staff create with a deposit.
+    deposit: { accounts: depositChannelPorts.accounts, start: startDepositDeps() },
   }
 }
 
@@ -118,6 +126,8 @@ export function submitBookingDeps(): SubmitBookingDeps {
     now,
     // BOOK-010: guest limits and stops (atomic insert, migration 092).
     room: bookingRoomStore,
+    // BOOK-014 W3: the deposit hold + hosted payment when the restaurant's rule applies.
+    deposit: { ...depositChannelPorts, start: startDepositDeps() },
   }
 }
 
@@ -126,6 +136,8 @@ export function decideBookingDeps(): DecideBookingDeps {
     requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now,
     // BOOK-010 (spec AC-10): ask before a confirm goes over a guest limit.
     overLimit: { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore },
+    // BOOK-014 W4 (spec AC-12): decline refunds a paid deposit.
+    deposits: depositDecisionDeps(),
   }
 }
 
@@ -184,17 +196,24 @@ export function createAgentBookingDeps(): CreateAgentBookingDeps {
     privacyUrl: PRIVACY_URL,
     now,
     room: bookingRoomStore,
+    // BOOK-014 W6a (R61): the collection statement names Stripe while the restaurant takes deposits.
+    accounts: depositChannelPorts.accounts,
   }
 }
 
 /** BOOK-003: the public agent API (status read). */
 export function getAgentBookingStatusDeps(): GetAgentBookingStatusDeps {
-  return { directory: agentBookingDirectory, store: agentBookingStore, now }
+  // BOOK-014 W5 (spec AC-10): awaiting_deposit carries the deposit and the stored hosted payment URL.
+  return { directory: agentBookingDirectory, store: agentBookingStore, now, deposits: { store: bookingDepositStore, registry: productionPaymentRegistry() } }
 }
 
 /** BOOK-003: the OpenAPI description an agent reads. */
 export function agentOpenApiDeps(): AgentOpenApiDeps & { directory: typeof agentBookingDirectory } {
-  return { directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL, now }
+  return {
+    directory: agentBookingDirectory, settings: bookingSettingsReader, appUrl: appUrl(), privacyUrl: PRIVACY_URL, now,
+    // BOOK-014 W5: the deposit and its rule while the restaurant takes deposits.
+    accounts: depositChannelPorts.accounts,
+  }
 }
 
 /** BOOK-009 W4: the public agent API (availability); same limiter, its own key and limit (BOOK-010-RL). */
@@ -222,6 +241,8 @@ export function verifyAgentBookingDeps(): VerifyAgentBookingDeps {
     privacyUrl: PRIVACY_URL,
     now,
     room: agentBookingRoom,
+    // BOOK-014 W5 (spec AC-10): a code for a booking that needs a deposit holds it and sends the link.
+    deposit: { accounts: depositChannelPorts.accounts, start: startDepositDeps(), promoter: agentDepositPromoter },
   }
 }
 
@@ -233,5 +254,7 @@ export function agentBookingSettingsDeps(): AgentBookingSettingsDeps {
     settings: bookingSettingsReader,
     secrets: agentBookingSecrets,
     appUrl: appUrl(),
+    // BOOK-014 W5: poppy.json states the deposit while the restaurant takes deposits.
+    accounts: depositChannelPorts.accounts,
   }
 }

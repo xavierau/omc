@@ -3,6 +3,7 @@
  * the URL, so neither may be cached by an edge or proxy, leak through a
  * Referer header, or be indexed. Applied to `/b/*` by next.config.ts
  * `headers()` and set explicitly on every `/api/b/*` response.
+ * BOOK-014 (R62): the `/p/<token>` payment link too.
  */
 export const BOOKING_SECURITY_HEADERS: ReadonlyArray<{ key: string; value: string }> = [
   { key: 'Cache-Control', value: 'no-store, max-age=0' },
@@ -15,6 +16,7 @@ export function bookingHeaderRules() {
   return [
     { source: '/b/:path*', headers },
     { source: '/api/b/:path*', headers },
+    { source: '/p/:path*', headers },
   ]
 }
 

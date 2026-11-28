@@ -1,0 +1,94 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts (5 tests | 3 failed) 19ms
+     × AI agent and personal agent (source agent): pending + "received" once 6ms
+     × staff-created: confirmed + "confirmed" once, outcome recorded; replay none 2ms
+     × all four sources paid in one world: four messages, one each; replaying all sends none 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/payments/__tests__/deposit-paid-hook.test.ts > W6a composed paid hook: one diner message per source, replay none > AI agent and personal agent (source agent): pending + "received" once
+AssertionError: expected [] to deeply equal [ [ 'received', '+85291234567' ] ]
+
+- Expected
++ Received
+
+- [
+-   [
+-     "received",
+-     "+85291234567",
+-   ],
+- ]
++ []
+
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts:68:55
+     66|     const { w, sender, bookingId } = await payTwice('agent')
+     67|     expect(w.ledger.booking(bookingId)?.status).toBe('pending')
+     68|     expect(sender.sent.map((m) => [m.kind, m.phone])).toEqual([['recei…
+       |                                                       ^
+     69|   })
+     70|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/application/payments/__tests__/deposit-paid-hook.test.ts > W6a composed paid hook: one diner message per source, replay none > staff-created: confirmed + "confirmed" once, outcome recorded; replay none
+AssertionError: expected [] to deeply equal [ 'confirmed' ]
+
+- Expected
++ Received
+
+- [
+-   "confirmed",
+- ]
++ []
+
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts:78:44
+     76|     await deliver(delivery)
+     77|     expect(w.ledger.booking(bookingId)?.status).toBe('confirmed')
+     78|     expect(sender.sent.map((m) => m.kind)).toEqual(['confirmed'])
+       |                                            ^
+     79|     expect(recorded).toEqual([{ id: bookingId, status: 'delivered' }])
+     80|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/application/payments/__tests__/deposit-paid-hook.test.ts > W6a composed paid hook: one diner message per source, replay none > all four sources paid in one world: four messages, one each; replaying all sends none
+AssertionError: expected [ Array(2) ] to deeply equal [ Array(4) ]
+
+- Expected
++ Received
+
+@@ -5,14 +5,6 @@
+    ],
+    [
+      "received",
+      "+85291000002",
+    ],
+-   [
+-     "received",
+-     "+85291000003",
+-   ],
+-   [
+-     "confirmed",
+-     "+85290000000",
+-   ],
+  ]
+
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts:92:55
+     90|     deliveries.push(w.gateway.completeSession(staff.sessionRef))
+     91|     for (const d of deliveries) await deliver(d)
+     92|     expect(sender.sent.map((m) => [m.kind, m.phone])).toEqual([
+       |                                                       ^
+     93|       ['received', '+85291000001'],
+     94|       ['received', '+85291000002'],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  12:29:27
+   Duration  631ms (transform 238ms, setup 0ms, import 443ms, tests 19ms, environment 0ms)
+

@@ -1,0 +1,14 @@
+payment_url host: checkout.stripe.com
+{
+ "booking_id": "6af402f1-b7ac-4ed9-98ee-11be5ee59ead",
+ "status": "awaiting_deposit",
+ "date": "2026-11-30",
+ "time": "18:30",
+ "party_size": 3,
+ "deposit": {
+  "amount": "300",
+  "currency": "HKD",
+  "expires_at": "2026-11-28T14:37:32.328+00:00"
+ },
+ "payment_url": "https://checkout.stripe.com/<session url, scrubbed>"
+}

@@ -1371,6 +1371,13 @@
     "offBody": "此餐廳暫不接受網上訂座。請在 WhatsApp 直接聯絡餐廳訂座。",
     "askOnWhatsapp": "在 WhatsApp 查詢",
     "askOnWhatsappManual": "請返回 WhatsApp 對話,輸入 BOOK 索取新連結。",
+    "deposit": {
+      "line": "訂金 {amount}。下一步於網上付款，付款後訂座要求才會送出。",
+      "submit": "支付訂金 {amount} 並送出",
+      "redirecting": "正在前往付款頁面...",
+      "continue": "前往付款",
+      "unavailable": "暫時未能付款，請在 WhatsApp 聯絡我們。"
+    },
     "errors": {
       "required": "請填寫此欄。",
       "invalid": "請檢查此欄。",
@@ -1492,7 +1499,9 @@
       "declined": "已拒絕",
       "cancelled": "已取消",
       "unverified": "等待客人確認",
-      "no_show": "未出席"
+      "no_show": "未出席",
+      "awaiting_deposit": "等待訂金",
+      "lapsed": "已失效"
     },
     "notDelivered": "訊息未能送達,請聯絡客人",
     "nameRemoved": "(姓名已刪除)",
@@ -1758,7 +1767,41 @@
         }
       }
     },
-    "noShowCheckedIn": "客人已到，不能標記未出席。"
+    "noShowCheckedIn": "客人已到，不能標記未出席。",
+    "deposit": {
+      "state": {
+        "awaiting": "待付訂金 {amount}",
+        "paid": "已付訂金 {amount}",
+        "lapsed": "未付訂金",
+        "refund_pending": "退款處理中 {amount}",
+        "refunded": "已退款 {amount}",
+        "refund_failed": "退款失敗 {amount}",
+        "kept": "已保留訂金 {amount}"
+      },
+      "held": "持有訂金 {amount}",
+      "refund": "退款",
+      "keep": "保留",
+      "retry": "重試退款",
+      "copyLink": "複製連結",
+      "linkCopied": "已複製付款連結",
+      "linkCopyFailed": "未能複製連結，請再試。",
+      "refunded": "訂金已退回",
+      "refundStarted": "已向付款服務商發出退款",
+      "refundFailed": "退款失敗。請按重試，或於 Stripe 控制台退款。",
+      "kept": "已保留訂金",
+      "conflict": "此訂金剛有變更，請重新載入查看。",
+      "actionFailed": "未能更新訂金，請再試。",
+      "requireLabel": "收取訂金 {amount}",
+      "requireHint": "客人會在 WhatsApp 收到付款連結，須於 24 小時內付款，付款後訂座即確認。",
+      "waiveHint": "此訂座不收訂金。關閉會以你的名字記錄。",
+      "cancelChoiceTitle": "訂金 {amount}",
+      "cancelRefund": "全數退款",
+      "cancelKeep": "保留訂金",
+      "cancelLater": "稍後決定",
+      "toastSent": "已儲存訂座 · 已發送付款連結",
+      "toastNotSent": "已儲存訂座 · 未能發送連結，請自行分享",
+      "toastUnavailable": "付款服務暫時未能使用，未有儲存任何資料。"
+    }
   },
   "bookingSettings": {
     "title": "訂座",
@@ -1807,7 +1850,8 @@
         "declined": "未能接受訂座",
         "reminder": "訂座提醒",
         "changed": "訂座已更改",
-        "cancelled": "訂座已取消"
+        "cancelled": "訂座已取消",
+        "deposit_request": "訂金付款要求"
       },
       "lang": {
         "en": "English",
@@ -2011,6 +2055,59 @@
           "invalid": "請輸入 1 至 999 的整數，或留空。",
           "above_meal": "不能多於每餐最多的人數。"
         }
+      }
+    },
+    "payments": {
+      "title": "收款",
+      "hint": "訂金直接存入餐廳自己的 Stripe 帳戶，OhMyClient 不會經手款項。",
+      "status": {
+        "none": "未連接",
+        "connecting": "連接中",
+        "active": "已啟用",
+        "action_needed": "需要處理",
+        "disconnected": "已中斷連接"
+      },
+      "connect": "連接 Stripe",
+      "continue": "繼續設定",
+      "opening": "正在開啟 Stripe…",
+      "loading": "正在檢查 Stripe…",
+      "adminOnly": "只有管理員可以連接收款帳戶。",
+      "loadFailed": "未能載入收款帳戶。",
+      "connectFailed": "未能連接 Stripe，請再試一次。",
+      "reason": {
+        "past_due": "Stripe 需要你補充資料，帳戶才可以收款。",
+        "rejected": "Stripe 拒絕了此帳戶，請查看你的 Stripe 後台。",
+        "deauthorized": "此 Stripe 帳戶已中斷連接，請重新連接以收取訂金。",
+        "other": "Stripe 已暫停此帳戶收款（{reason}）。"
+      }
+    },
+    "deposit": {
+      "title": "訂金",
+      "hint": "食客付訂金後才會送出訂座。付款期間座位會保留 30 分鐘。",
+      "toggle": "需要訂金",
+      "connectFirst": "請先連接 Stripe",
+      "paused": "Stripe 未啟用，新訂座暫時不收訂金，直至帳戶啟用。",
+      "modeLabel": "金額計算",
+      "mode": {
+        "per_guest": "每位",
+        "per_booking": "每張訂座"
+      },
+      "amount": "金額（{currency}，整數）",
+      "fromPartySize": "適用人數由",
+      "refundTitle": "向食客顯示的退款規則",
+      "refundLang": {
+        "zh_hk": "繁體中文",
+        "en": "English"
+      },
+      "summaryTitle": "食客及 AI 助理會看到",
+      "summaryNone": "填寫金額後，會顯示食客看到的訂金說明。",
+      "errors": {
+        "blocked": "請先連接 Stripe：帳戶啟用後才可以開啟訂金。",
+        "enabled": "請開啟或關閉訂金。",
+        "mode": "請選擇每位或每張訂座。",
+        "amount": "請輸入 {min} 至 {max} 的整數金額。",
+        "fromPartySize": "請輸入 1 至 1000 的人數。",
+        "refundNote": "退款規則最多 500 字。"
       }
     }
   },

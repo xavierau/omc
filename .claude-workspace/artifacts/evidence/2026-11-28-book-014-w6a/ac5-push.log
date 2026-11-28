@@ -1,0 +1,5 @@
+push: 08ea74be..905f1c02 feature/book-014-core
+ls-remote == HEAD 905f1c02f5bc1c50dbc12705ff8e7e79a8771fee: MATCH
+PR #237: MERGEABLE CLEAN, head 905f1c02, body updated
+#238 MERGED, #239 MERGED, #242 OPEN (base feature/book-014-w2-admin), #244 OPEN (base feature/book-014-w4-staff)
+note: recorded after push of 905f1c02; this log's own commit follows it

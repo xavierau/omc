@@ -10,6 +10,8 @@
  * date, by date and time, capped: the rows behind `pendingCount`.
  * BOOK-013: staff-made rows carry the creator's display name ("By staff ·
  * Mandy"); POST adds a staff booking (admin/staff, R1; staff-response.ts).
+ * BOOK-014 W4: rows carry their deposit; a range also carries `holds`, the
+ * guests per date of diners' deposit holds (not listed, spec AC-5).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
@@ -18,6 +20,7 @@ import {
   countRestaurantPendingBookings,
   listBookingRequests,
   listBookingRequestsInRange,
+  listDepositHoldGuests,
   listPendingBookingRequests,
 } from '@/infrastructure/supabase/repositories/booking-request-repository'
 import { findStaffDisplayName } from '@/infrastructure/supabase/repositories/booking-room-repository'
@@ -59,8 +62,10 @@ async function listBody(restaurantId: string, query: ListQuery) {
     query.kind === 'range'
       ? listBookingRequestsInRange(restaurantId, query.range, BOOKINGS_RANGE_CAP)
       : listPendingBookingRequests(restaurantId, BOOKINGS_RANGE_CAP)
-  const [rows, pendingCount] = await Promise.all([list, pending])
-  return { ...rows, bookings: await withCreatorNames(rows.bookings, findStaffDisplayName), pendingCount }
+  // BOOK-014 W4 (review finding 9): diners' deposit holds are not rows, but they take seats; the calendar adds them.
+  const holds = query.kind === 'range' ? listDepositHoldGuests(restaurantId, query.range) : Promise.resolve(undefined)
+  const [rows, pendingCount, held] = await Promise.all([list, pending, holds])
+  return { ...rows, bookings: await withCreatorNames(rows.bookings, findStaffDisplayName), pendingCount, ...(held ? { holds: held } : {}) }
 }
 
 export async function GET(request: Request) {

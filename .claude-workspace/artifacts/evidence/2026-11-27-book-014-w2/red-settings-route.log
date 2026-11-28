@@ -1,0 +1,12 @@
+     × admin with an active account → 200, rule saved for the session restaurant 22ms
+     × turning it on with no account → 409, nothing saved (R52, AC-4) 3ms
+     × turning it on with pending → 409, nothing saved (R52, AC-4) 1ms
+     × turning it on with restricted → 409, nothing saved (R52, AC-4) 1ms
+     × turning it on with disabled → 409, nothing saved (R52, AC-4) 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/booking-deposit-settings.route.test.ts > PUT /api/dashboard/settings/booking: deposit rule > admin with an active account → 200, rule saved for the session restaurant
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/booking-deposit-settings.route.test.ts > PUT /api/dashboard/settings/booking: deposit rule > turning it on with no account → 409, nothing saved (R52, AC-4)
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/booking-deposit-settings.route.test.ts > PUT /api/dashboard/settings/booking: deposit rule > turning it on with pending → 409, nothing saved (R52, AC-4)
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/booking-deposit-settings.route.test.ts > PUT /api/dashboard/settings/booking: deposit rule > turning it on with restricted → 409, nothing saved (R52, AC-4)
+ FAIL  src/app/api/dashboard/settings/booking/__tests__/booking-deposit-settings.route.test.ts > PUT /api/dashboard/settings/booking: deposit rule > turning it on with disabled → 409, nothing saved (R52, AC-4)
+      Tests  5 failed | 9 passed (14)

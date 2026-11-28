@@ -46,6 +46,7 @@ const booking = (over: Partial<BookingItem> = {}): BookingItem => ({
 
 const actions: StaffBookingActions = {
   openNew: vi.fn(), openEdit: vi.fn(), openCancel: vi.fn(), checkIn: vi.fn(async () => {}), checkInBusy: new Set(), checkInRefused: null,
+  depositMove: vi.fn(async () => {}), copyDepositLink: vi.fn(async () => {}), depositBusy: new Set(),
 }
 const noop = () => {}
 const rowProps = { busyIds: new Set<string>(), undelivered: new Set<string>(), onDecide: noop }

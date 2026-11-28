@@ -11,10 +11,12 @@ no artifact files were lost._
 - [ui-map/INDEX.md](ui-map/INDEX.md) — scaffolded 2026-08-24 (ui-test-runner), all fields TODO, no run has occurred yet
 
 ### Specs
+- [2026-11-27-book-014-booking-deposits](specs/2026-11-27-book-014-booking-deposits.md) — BOOK-014 PRD: booking deposits, Stripe Connect Standard behind a provider port (main)
 - [2026-09-10-int-001-member-creation-api](specs/2026-09-10-int-001-member-creation-api.md) — INT-001 member API + webhook PRD rev2 (product-manager)
 - [2026-06-07-stamp-collection-campaign](specs/2026-06-07-stamp-collection-campaign.md) — PRD: Stamp Collection Campaign ("Digital Stamp Card") (product-manager)
 
 ### Plans
+- [2026-11-27-book-014-booking-deposits](plans/2026-11-27-book-014-booking-deposits.md) — BOOK-014 plan: W0–W6, migration 096, PaymentGatewayPort + Stripe/test adapters (main)
 - [2026-11-19-agent-booking-poppy](plans/2026-11-19-agent-booking-poppy.md) — BOOK-003 plan: agent booking via poppy.json + WhatsApp code (main)
 - [2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc](plans/2026-09-10-camp-012-013-guardrail-defaults-and-recipient-rpc.md) — #161/#162: mig 078+079, 3 WIs (solution-architect)
 - [2026-09-10-int-001-member-creation-api](plans/2026-09-10-int-001-member-creation-api.md) — INT-001 plan: 13 WIs, mig 069–072, 2 queues, closes all 13 threat items (solution-architect)
@@ -33,6 +35,7 @@ no artifact files were lost._
 - [2026-06-09-stamp-collection-build-plan](plans/2026-06-09-stamp-collection-build-plan.md) — Stamp Collection MVP, reviewed and build-ready (solution-architect)
 
 ### Threats
+- [2026-11-27-book-014-booking-deposits](threats/2026-11-27-book-014-booking-deposits.md) — BOOK-014: CONDITIONAL, R47–R66 (main)
 - [2026-11-19-agent-booking-poppy](threats/2026-11-19-agent-booking-poppy.md) — BOOK-003: CONDITIONAL, R31–R46 (main)
 - [2026-11-19-agent-001-ai-reply-agent](threats/2026-11-19-agent-001-ai-reply-agent.md) — AGENT-001 AI reply agent: APPROVED after OR1 confirmed (prod Gemini key paid) (main)
 - [2026-09-10-int-001-member-creation-api](threats/2026-09-10-int-001-member-creation-api.md) — INT-001: CONDITIONAL, 4 Critical, 8 High (security-architect)
@@ -126,6 +129,11 @@ no artifact files were lost._
 - [2026-11-27-book-013-phone-optional-handoff](artifacts/2026-11-27-book-013-phone-optional-handoff.md) — BOOK-013 decision 9 handoff: AC-1..AC-4 pass, PR #236 open (dev)
 - [2026-11-27-book-013-phone-optional-r2-handoff](artifacts/2026-11-27-book-013-phone-optional-r2-handoff.md) — BOOK-013 AC-26: no manual member link without a phone, PR #236 (dev)
 
+**BOOK-014 — booking deposits (2026-11-27)**
+- [2026-11-27-book-014-w1-handoff](artifacts/2026-11-27-book-014-w1-handoff.md) — BOOK-014 W1 handoff: deposit core, mig 096, Stripe adapter, webhook, /p; PR #237; evidence in artifacts/evidence/2026-11-27-book-014-w1/ (dev)
+- [2026-11-27-book-014-w2-handoff](artifacts/2026-11-27-book-014-w2-handoff.md) — BOOK-014 W2 handoff: Stripe onboarding routes, account events, deposit rule settings + UI; evidence in artifacts/evidence/2026-11-27-book-014-w2/ (dev)
+- [2026-11-27-book-014-w4-handoff](artifacts/2026-11-27-book-014-w4-handoff.md) — BOOK-014 W4 handoff: staff deposit state, decline auto-refund, Refund/Keep/Retry, staff create with deposit + booking_deposit_request template, Copy link; W1 firstDeposit fix; evidence in artifacts/evidence/2026-11-27-book-014-w4/ (dev)
+- [2026-11-27-book-014-w1-fix-handoff](artifacts/2026-11-27-book-014-w1-fix-handoff.md) — BOOK-014 W1-fix handoff: develop merged, mig renumbered 097, PR #237 review findings 1+2 (refund re-drive, per-attempt refund matching) + nits; evidence in artifacts/evidence/2026-11-27-book-014-w1-fix/ (dev)
 - [2026-11-26-book-012-release-r2-handoff](artifacts/2026-11-26-book-012-release-r2-handoff.md) — BOOK-012 release resumed: #231, #232, deploy 84057118 (dev)
 - [2026-11-26-book-012-migration-094-handoff](artifacts/2026-11-26-book-012-migration-094-handoff.md) — BOOK-012: migration 094 applied ahead of the code deploy (dev)
 - ~~[2026-11-26-book-012-release-handoff](artifacts/2026-11-26-book-012-release-handoff.md)~~ — first attempt, blocked at the build → release-r2 (dev)
