@@ -1,0 +1,97 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-w4
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts (3 tests | 3 failed) 21ms
+     × beginRefund returns the payment ref and the attempt the refund needs 16ms
+     × finishRefund sends the attempt and maps the row 2ms
+     × keep and attach map the row; no row -> null 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts > bookingDepositStore: RPC rows -> BookingDeposit (mapped once) > beginRefund returns the payment ref and the attempt the refund needs
+AssertionError: expected { id: 'd-1', …(18) } to match object { id: 'd-1', …(5) }
+(13 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "amount": {
+-     "amountMinor": 40000,
+-     "currency": "HKD",
++     "amountMinor": undefined,
++     "currency": undefined,
+    },
+    "id": "d-1",
+-   "providerAccountId": "acct_1",
+-   "providerPaymentRef": "pi_1",
+-   "refundAttempts": 1,
++   "providerAccountId": undefined,
++   "providerPaymentRef": undefined,
++   "refundAttempts": undefined,
+    "status": "refund_pending",
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts:33:19
+     31|       depositId: 'd-1', restaurantId: 'r-a', from: 'paid', reason: 'de…
+     32|     })
+     33|     expect(begun).toMatchObject({ id: 'd-1', status: 'refund_pending',…
+       |                   ^
+     34|   })
+     35|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts > bookingDepositStore: RPC rows -> BookingDeposit (mapped once) > finishRefund sends the attempt and maps the row
+AssertionError: expected { id: 'd-1', …(18) } to match object { status: 'refunded', …(3) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "bookingId": "b-1",
+-   "refundReason": "declined",
+-   "refundRef": "re_1",
++   "bookingId": undefined,
++   "refundReason": undefined,
++   "refundRef": undefined,
+    "status": "refunded",
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts:40:18
+     38|     const done = await bookingDepositStore.finishRefund({ depositId: '…
+     39|     expect(rec.queries[0].calls[0][1]).toMatchObject({ p_attempt: 1 })
+     40|     expect(done).toMatchObject({ status: 'refunded', refundRef: 're_1'…
+       |                  ^
+     41|   })
+     42|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts > bookingDepositStore: RPC rows -> BookingDeposit (mapped once) > keep and attach map the row; no row -> null
+AssertionError: expected { id: 'd-1', …(18) } to match object { Object (status, decidedBy, ...) }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "bookingId": "b-1",
+-   "decidedBy": "u",
++   "bookingId": undefined,
++   "decidedBy": undefined,
+    "status": "kept",
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/booking-deposit-repository.test.ts:45:173
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  00:47:03
+   Duration  519ms (transform 141ms, setup 0ms, import 180ms, tests 21ms, environment 0ms)
+

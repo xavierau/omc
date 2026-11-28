@@ -88,10 +88,8 @@ export function depositInsertRow(hold: NewDepositHold) {
   }
 }
 
-const firstDeposit = (data: unknown): BookingDeposit | null => {
-  const row = ((data ?? []) as DepositRow[])[0]
-  return row ? toBookingDeposit(row) : null
-}
+/** The one deposit an RPC returned; `rpcDeposits` has mapped the rows already (mapping twice blanked every field, BOOK-014 W4). */
+const firstDeposit = (deposits: BookingDeposit[]): BookingDeposit | null => deposits[0] ?? null
 
 type QueryResult = PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>
 
