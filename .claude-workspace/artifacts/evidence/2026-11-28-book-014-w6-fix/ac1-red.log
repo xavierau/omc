@@ -1,0 +1,643 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts (14 tests | 13 failed) 39ms
+     × F1 pending refund + charge.refunded -> still refund_pending, then refund.updated failed -> refund_failed 14ms
+     × F1 a refund_failed deposit (an attempt of ours) is not marked refunded by charge.refunded; Retry finds it already refunded 3ms
+     × F2 late refund_failed re-driven with a new attempt and key, backoff NaN min xundefined, stops at the cap (undefined) 3ms
+     × F2 a retry that succeeds ends refunded with that attempt 1ms
+     × F2 a retry whose refund is pending stays refund_pending with its id; the refund event settles it 2ms
+     × F2 the last attempt failing by webhook is logged at the cap too 2ms
+     × F2 a staff-path refund_failed is NOT retried by the sweep (staff press Retry) 2ms
+     × F4 refund.updated before recordRefundRef -> 503 + claim released, then the redelivery settles it 2ms
+     × F7 dashboard refund of a paid deposit -> refunded/provider (provider_dashboard), and Keep -> conflict (409) 1ms
+     × F7 a paid deposit on a booking still going ahead also moves (the money is back) 2ms
+     × F7 a dashboard refund still pending, or only partial, is logged and changes nothing 1ms
+     × F7 the provider cannot confirm the refunds -> 500, claim released (the provider retries) 1ms
+     × F6 older account event skipped: an account.updated created before the last one applied changes nothing 1ms
+ ❯ src/app/p/[token]/__tests__/route-w6-fix.test.ts (9 tests | 6 failed) 38ms
+     × F3 /p awaiting past the hold -> checking state, never "will be refunded" 12ms
+     × F3 /p awaiting past the hold?return=success -> checking state, never "will be refunded" 1ms
+     × F3 /p awaiting past the hold?return=cancel -> checking state, never "will be refunded" 1ms
+     × G2 declined + paid -> "Your deposit will be refunded" (booking-pay-refund-due), never "Deposit paid" 7ms
+     × G3 details read throws -> "We couldn't load this payment" (booking-pay-unreadable), never "Deposit paid" 6ms
+     × G3 the details read finds no booking -> the same neutral state 5ms
+ ❯ src/application/payments/__tests__/agent-hold-lapsed.test.ts (8 tests | 2 failed) 33ms
+     × AI agent hold lapses -> one zh-HK text (default language) with the slot, G1 "if a payment went through, refunded in full automatically", reply to start again, the disclosure 11ms
+     × an English-speaking diner gets the English text 3ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/agent/__tests__/agent-booking-deposit.test.ts (20 tests | 4 failed) 64ms
+     × F5 plan changed (deposit -> none: account no longer chargeable) -> refusal + re-propose, no hold, no booking; the next create books without a deposit 8ms
+     × F5 plan changed (none -> deposit: the rule was switched on) -> refusal with the new amount, no plain booking; the next create holds it 3ms
+     × F5 plan changed (amount) -> refusal quoting the new amount; same plan -> books as before 2ms
+     × F5 a proposal stored before W6-fix (no planned deposit) is booked as today 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 25 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/agent/__tests__/agent-booking-deposit.test.ts > W6-fix F5: the deposit terms changed between propose and create > F5 plan changed (deposit -> none: account no longer chargeable) -> refusal + re-propose, no hold, no booking; the next create books without a deposit
+AssertionError: expected { booked: true, …(2) } to match object { Object (error, proposed, ...) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "booking": {
+-     "date": "2026-11-21",
+-     "partySize": 4,
+-     "time": "19:00",
+-   },
+-   "error": "deposit_terms_changed",
+-   "proposed": true,
++   "booked": true,
++   "note": "The request is sent. Tell the diner the restaurant will confirm it and they will get a WhatsApp message.",
++   "status": "pending",
+  }
+
+ ❯ src/application/agent/__tests__/agent-booking-deposit.test.ts:276:21
+    274|
+    275|     const refused = await (await job())('create_booking_request', {})
+    276|     expect(refused).toMatchObject({ error: 'deposit_terms_changed', pr…
+       |                     ^
+    277|     expect(refused).not.toHaveProperty('deposit')
+    278|     expect(String(refused.note)).toContain(CHANGED_NOTE)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/25]⎯
+
+ FAIL  src/application/agent/__tests__/agent-booking-deposit.test.ts > W6-fix F5: the deposit terms changed between propose and create > F5 plan changed (none -> deposit: the rule was switched on) -> refusal with the new amount, no plain booking; the next create holds it
+AssertionError: expected { booked: true, …(3) } to match object { Object (error, proposed, ...) }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "deposit": {
+      "amount": "HK$400",
+-     "payWithinMinutes": 30,
+    },
+-   "error": "deposit_terms_changed",
+-   "proposed": true,
+  }
+
+ ❯ src/application/agent/__tests__/agent-booking-deposit.test.ts:297:21
+    295|
+    296|     const refused = await (await job())('create_booking_request', {})
+    297|     expect(refused).toMatchObject({ error: 'deposit_terms_changed', pr…
+       |                     ^
+    298|     expect(String(refused.note)).toContain(CHANGED_NOTE)
+    299|     expect(world.requests.rows.filter((r) => r.source === 'agent')).to…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/25]⎯
+
+ FAIL  src/application/agent/__tests__/agent-booking-deposit.test.ts > W6-fix F5: the deposit terms changed between propose and create > F5 plan changed (amount) -> refusal quoting the new amount; same plan -> books as before
+AssertionError: expected { booked: true, …(3) } to match object { Object (error, deposit) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "deposit": {
+      "amount": "HK$600",
+    },
+-   "error": "deposit_terms_changed",
+  }
+
+ ❯ src/application/agent/__tests__/agent-booking-deposit.test.ts:312:21
+    310|     world.settings.setConfig(R, { mode: 'simple', maxPartySize: 8, dep…
+    311|     const refused = await (await job())('create_booking_request', {})
+    312|     expect(refused).toMatchObject({ error: 'deposit_terms_changed', de…
+       |                     ^
+    313|     expect(agentHolds()).toHaveLength(0)
+    314|     expect(await (await job())('create_booking_request', {})).toMatchO…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/25]⎯
+
+ FAIL  src/application/agent/__tests__/agent-booking-deposit.test.ts > W6-fix F5: the deposit terms changed between propose and create > F5 a proposal stored before W6-fix (no planned deposit) is booked as today
+AssertionError: expected { kind: 'create', …(3) } to match object { plannedDeposit: { …(2) } }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "plannedDeposit": {
+-     "amountMinor": 40000,
+-     "currency": "HKD",
++   "booking": {
++     "date": "2026-11-21",
++     "name": "陳生",
++     "notes": null,
++     "partySize": 4,
++     "time": "19:00",
+    },
++   "inboundCreatedAt": "2026-11-19T10:01:00.000Z",
++   "kind": "create",
++   "proposedAt": "2026-11-19T10:01:00.000Z",
+  }
+
+ ❯ src/application/agent/__tests__/agent-booking-deposit.test.ts:322:33
+    320|     const entries = [...world.proposals.entries.values()]
+    321|     expect(entries).toHaveLength(1)
+    322|     expect(entries[0].proposal).toMatchObject({ plannedDeposit: { amou…
+       |                                 ^
+    323|     delete (entries[0].proposal as { plannedDeposit?: unknown }).plann…
+    324|     expect(await (await job())('create_booking_request', {})).toMatchO…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/25]⎯
+
+ FAIL  src/application/payments/__tests__/agent-hold-lapsed.test.ts > W6a AI-agent hold lapse text > AI agent hold lapses -> one zh-HK text (default language) with the slot, G1 "if a payment went through, refunded in full automatically", reply to start again, the disclosure
+AssertionError: expected '你 2026-12-24 19:00（4 位）的訂座保留已過期，因為未有在…' to contain '如已付款，款項將會自動全數退回。'
+
+- Expected
++ Received
+
+- 如已付款，款項將會自動全數退回。
++ 你 2026-12-24 19:00（4 位）的訂座保留已過期，因為未有在時限內付訂金，所以未有收取任何款項。如想重新訂座，請回覆此訊息。
++
++ （AI 助理 AI assistant）
+
+ ❯ src/application/payments/__tests__/agent-hold-lapsed.test.ts:75:26
+     73|     expect(sent[0].text).toContain('2026-12-24 19:00')
+     74|     // W6-fix G1: a payment can land just before the lapse and be auto…
+     75|     expect(sent[0].text).toContain('如已付款，款項將會自動全數退回。')
+       |                          ^
+     76|     expect(sent[0].text).not.toContain('未有收取任何款項')
+     77|     expect(sent[0].text).toContain('回覆')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/25]⎯
+
+ FAIL  src/application/payments/__tests__/agent-hold-lapsed.test.ts > W6a AI-agent hold lapse text > an English-speaking diner gets the English text
+AssertionError: expected 'Your table hold for 2 on 2026-12-24 a…' to contain 'If a payment went through, it will be…'
+
+- Expected
++ Received
+
+- If a payment went through, it will be refunded in full automatically.
++ Your table hold for 2 on 2026-12-24 at 19:00 has lapsed because the deposit was not paid in time, so nothing was charged. Reply to this message to start again.
++
++ （AI 助理 AI assistant）
+
+ ❯ src/application/payments/__tests__/agent-hold-lapsed.test.ts:91:26
+     89|     expect(sent).toHaveLength(1)
+     90|     expect(sent[0].text).toContain('has lapsed')
+     91|     expect(sent[0].text).toContain('If a payment went through, it will…
+       |                          ^
+     92|     expect(sent[0].text).not.toContain('nothing was charged')
+     93|     expect(sent[0].text).toContain('Reply')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F1: a payment-level "refunded" event settles none of our refunds > F1 pending refund + charge.refunded -> still refund_pending, then refund.updated failed -> refund_failed
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     undefined,
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:72:25
+     70|     // Stripe sends charge.refunded when the refund is created (pendin…
+     71|     const charge = await w.deliver(w.gateway.paymentRefunded(paymentOf…
+     72|     expect(charge.body).toEqual({ received: true, outcomes: ['ignored'…
+       |                         ^
+     73|     expect(row(w, s.deposit.id).status).toBe('refund_pending')
+     74|     expect(w.lines.some((l) => l.event === 'payment.refund_event_not_o…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F1: a payment-level "refunded" event settles none of our refunds > F1 a refund_failed deposit (an attempt of ours) is not marked refunded by charge.refunded; Retry finds it already refunded
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     undefined,
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:89:92
+     87|     expect(row(w, s.deposit.id).status).toBe('refund_failed')
+     88|     // Someone refunds it in the dashboard meanwhile.
+     89|     expect((await w.deliver(w.gateway.refundExternally(paymentOf(w, s.…
+       |                                                                                            ^
+     90|     expect(row(w, s.deposit.id).status).toBe('refund_failed')
+     91|     // Staff Retry (a new attempt) gets the provider's "already refund…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F2: a late-payment refund that failed is retried by the sweep, capped > F2 late refund_failed re-driven with a new attempt and key, backoff NaN min xundefined, stops at the cap (undefined)
+AssertionError: expected { refundsRedriven: +0 } to deeply equal { refundsRedriven: +0, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "lateRefundsRetried": 0,
+    "refundsRedriven": 0,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:107:56
+    105|
+    106|     // Not due yet: nothing is retried right after the failure.
+    107|     expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refun…
+       |                                                        ^
+    108|     expect(keys).toEqual([])
+    109|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F2: a late-payment refund that failed is retried by the sweep, capped > F2 a retry that succeeds ends refunded with that attempt
+AssertionError: expected undefined to be 1 // Object.is equality
+
+- Expected:
+1
+
++ Received:
+undefined
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:137:77
+    135|     const s = await lateRefundFailed(w)
+    136|     w.advance(LATE_REFUND_BACKOFF_BASE_MS)
+    137|     expect((await redriveStalledRefunds(w.redriveDeps)).lateRefundsRet…
+       |                                                                             ^
+    138|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refunded', r…
+    139|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F2: a late-payment refund that failed is retried by the sweep, capped > F2 a retry whose refund is pending stays refund_pending with its id; the refund event settles it
+AssertionError: expected { …(20) } to match object { status: 'refund_pending', …(1) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "refundAttempts": 2,
+-   "status": "refund_pending",
++   "refundAttempts": 1,
++   "status": "refund_failed",
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:148:34
+    146|     await redriveStalledRefunds(w.redriveDeps)
+    147|     const ref = row(w, s.deposit.id).refundRef!
+    148|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refund_pendi…
+       |                                  ^
+    149|     expect((await w.deliver(w.gateway.settleRefund(ref, true))).body).…
+    150|     expect(row(w, s.deposit.id).status).toBe('refunded')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F2: a late-payment refund that failed is retried by the sweep, capped > F2 the last attempt failing by webhook is logged at the cap too
+AssertionError: expected { …(20) } to match object { status: 'refund_pending', …(1) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "refundAttempts": undefined,
+-   "status": "refund_pending",
++   "refundAttempts": 1,
++   "status": "refund_failed",
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:164:34
+    162|     w.gateway.refundOutcome = 'pending'
+    163|     await redriveStalledRefunds(w.redriveDeps)
+    164|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refund_pendi…
+       |                                  ^
+    165|     await w.deliver(w.gateway.settleRefund(row(w, s.deposit.id).refund…
+    166|     expect(row(w, s.deposit.id).status).toBe('refund_failed')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F2: a late-payment refund that failed is retried by the sweep, capped > F2 a staff-path refund_failed is NOT retried by the sweep (staff press Retry)
+AssertionError: expected undefined to be +0 // Object.is equality
+
+- Expected:
+0
+
++ Received:
+undefined
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:178:77
+    176|     const keys = refundKeys(w)
+    177|     w.advance(48 * 60 * 60_000)
+    178|     expect((await redriveStalledRefunds(w.redriveDeps)).lateRefundsRet…
+       |                                                                             ^
+    179|     expect(keys).toEqual([])
+    180|     expect(row(w, s.deposit.id).status).toBe('refund_failed')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F4: a refund event before its refund id is recorded is retryable > F4 refund.updated before recordRefundRef -> 503 + claim released, then the redelivery settles it
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:201:35
+    199|     expect(early).not.toBeNull()
+    200|     const first = early!
+    201|     expect(first.response.status).toBe(503)
+       |                                   ^
+    202|     expect(first.response.body).toEqual({ error: 'retry_later' })
+    203|     expect(w.claims.releases).toHaveLength(1)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F7: a refund made in the provider dashboard > F7 dashboard refund of a paid deposit -> refunded/provider (provider_dashboard), and Keep -> conflict (409)
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "refund_settled",
++     undefined,
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:240:46
+    238|     const s = await paidAndCancelled(w)
+    239|     const delivery = w.gateway.refundExternally(paymentOf(w, s.deposit…
+    240|     expect((await w.deliver(delivery)).body).toEqual({ received: true,…
+       |                                              ^
+    241|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refunded', r…
+    242|     expect(w.ledger.eventsOf(s.deposit.id)).toContain('refund_succeede…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F7: a refund made in the provider dashboard > F7 a paid deposit on a booking still going ahead also moves (the money is back)
+AssertionError: expected { …(20) } to match object { status: 'refunded', …(1) }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "refundReason": "provider_dashboard",
+-   "status": "refunded",
++   "refundReason": null,
++   "status": "paid",
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:256:34
+    254|     await w.deliver(w.gateway.completeSession(s.deposit.providerSessio…
+    255|     await w.deliver(w.gateway.refundExternally(paymentOf(w, s.deposit.…
+    256|     expect(row(w, s.deposit.id)).toMatchObject({ status: 'refunded', r…
+       |                                  ^
+    257|   })
+    258|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F7: a refund made in the provider dashboard > F7 a dashboard refund still pending, or only partial, is logged and changes nothing
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     undefined,
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:263:26
+    261|     const s = await paidAndCancelled(w)
+    262|     const pending = await w.deliver(w.gateway.refundExternally(payment…
+    263|     expect(pending.body).toEqual({ received: true, outcomes: ['ignored…
+       |                          ^
+    264|     expect(row(w, s.deposit.id).status).toBe('paid')
+    265|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F7: a refund made in the provider dashboard > F7 the provider cannot confirm the refunds -> 500, claim released (the provider retries)
+AssertionError: expected 200 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 200
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:280:24
+    278|     w.gateway.failNext('confirmFullyRefunded', 'unavailable')
+    279|     const res = await w.deliver(w.gateway.refundExternally(paymentOf(w…
+    280|     expect(res.status).toBe(500)
+       |                        ^
+    281|     expect(w.claims.releases).toHaveLength(1)
+    282|     expect(row(w, s.deposit.id).status).toBe('paid')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/25]⎯
+
+ FAIL  src/application/payments/__tests__/w6-fix-refund-states.test.ts > F6: account events apply in event-time order > F6 older account event skipped: an account.updated created before the last one applied changes nothing
+AssertionError: expected { received: true, …(1) } to deeply equal { received: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "outcomes": [
+-     "ignored",
++     "account_updated",
+    ],
+    "received": true,
+  }
+
+ ❯ src/application/payments/__tests__/w6-fix-refund-states.test.ts:297:69
+    295|     expect(w.accountStore.rows.get(account.id)).toMatchObject({ status…
+    296|     // An event Stripe created 10 s earlier arrives late: skipped.
+    297|     expect((await w.deliver(event('evt_old', t - 10, false))).body).to…
+       |                                                                     ^
+    298|     expect(w.accountStore.rows.get(account.id)).toMatchObject({ status…
+    299|     expect(w.lines.some((l) => l.event === 'payment_account.event_stal…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/25]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > F3: an awaiting deposit past its hold, before the lapse runs > F3 /p awaiting past the hold -> checking state, never "will be refunded"
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > F3: an awaiting deposit past its hold, before the lapse runs > F3 /p awaiting past the hold?return=success -> checking state, never "will be refunded"
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > F3: an awaiting deposit past its hold, before the lapse runs > F3 /p awaiting past the hold?return=cancel -> checking state, never "will be refunded"
+AssertionError: expected 410 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 410
+
+ ❯ src/app/p/[token]/__tests__/route-w6-fix.test.ts:58:24
+     56|     expect(w.ledger.deposits.get(s.deposit.id)!.status).toBe('awaiting…
+     57|     const res = await get(token, query)
+     58|     expect(res.status).toBe(200)
+       |                        ^
+     59|     const html = await res.text()
+     60|     expect(html).toContain('data-testid="booking-pay-checking"')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/25]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > G2: a declined booking whose paid deposit has not started its refund > G2 declined + paid -> "Your deposit will be refunded" (booking-pay-refund-due), never "Deposit paid"
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-refund-due"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-refund-due"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p class="details" data-testid="booking-pay-details">Café A · 2026-12-24 19:00 · 4 位 · 訂金 HK$400</p><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p class="details">Café A · 2026-12-24 19:00 · 4 guests · Deposit HK$400</p><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-w6-fix.test.ts:102:18
+    100|     expect(res.status).toBe(200)
+    101|     const html = await res.text()
+    102|     expect(html).toContain('data-testid="booking-pay-refund-due"')
+       |                  ^
+    103|     expect(html).toContain('Your deposit will be refunded')
+    104|     expect(html).toContain('你的訂金將會退回')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/25]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > G3: the details read fails on a paid deposit > G3 details read throws -> "We couldn't load this payment" (booking-pay-unreadable), never "Deposit paid"
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-unreadable"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-unreadable"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-w6-fix.test.ts:119:18
+    117|     const res = await get(token)
+    118|     const html = await res.text()
+    119|     expect(html).toContain('data-testid="booking-pay-unreadable"')
+       |                  ^
+    120|     expect(html).toContain("We couldn't load this payment, please mess…
+    121|     expect(html).toContain('未能載入此付款資料，請在 WhatsApp 聯絡我們。')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/25]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-w6-fix.test.ts > G3: the details read fails on a paid deposit > G3 the details read finds no booking -> the same neutral state
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-unreadable"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-unreadable"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-w6-fix.test.ts:130:45
+    128|     await w.deliver(w.gateway.completeSession(s.deposit.providerSessio…
+    129|     vi.spyOn((holder.deps as ResolvePaymentLinkDeps).details!, 'findFo…
+    130|     expect(await (await get(token)).text()).toContain('data-testid="bo…
+       |                                             ^
+    131|   })
+    132| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/25]⎯
+
+
+ Test Files  4 failed | 1 passed (5)
+      Tests  25 failed | 51 passed (76)
+   Start at  18:19:34
+   Duration  1.53s (transform 984ms, setup 0ms, import 1.91s, tests 1.22s, environment 0ms)
+

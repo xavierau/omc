@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+
+ Test Files  5 passed (5)
+      Tests  45 passed | 3 skipped (48)
+   Start at  18:32:57
+   Duration  9.51s (transform 635ms, setup 0ms, import 1.14s, tests 35.83s, environment 0ms)
+
