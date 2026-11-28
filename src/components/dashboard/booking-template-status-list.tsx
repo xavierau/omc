@@ -12,7 +12,7 @@
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TEMPLATE_KINDS, TEMPLATE_LANGUAGES, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import { EDITABLE_TEMPLATE_KINDS, TEMPLATE_KINDS, TEMPLATE_LANGUAGES, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
 import type { BookingTemplateStatus, BookingTemplateStatuses } from '@/domain/services/booking-templates'
 import type { BookingTemplateEditorAccess } from '@/hooks/use-booking-availability'
 import { BookingTemplateCandidateBadges, BookingTemplateCandidateNotes } from './booking-template-candidate-notes'
@@ -42,7 +42,8 @@ interface EditProps {
 
 function EditAction({ kind, editor, editingKind, onEdit }: EditProps & { kind: BookingTemplateKind }) {
   const t = useTranslations('bookingSettings.templates.editor')
-  if (!editor || !onEdit) return null
+  // BOOK-014 W4: the deposit request's copy and button are fixed (R21 exception), so it has no editor.
+  if (!editor || !onEdit || !EDITABLE_TEMPLATE_KINDS.includes(kind)) return null
   return (
     <Button type="button" variant="outline" size="xs" onClick={() => onEdit(kind)} aria-expanded={editingKind === kind}
       data-testid={`booking-template-editor-open-${kind}`}>

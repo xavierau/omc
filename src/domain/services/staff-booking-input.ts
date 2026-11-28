@@ -1,6 +1,7 @@
 /**
  * BOOK-013 (spec S1/S2; threat R4, R7): the staff booking form as the server
- * accepts it. An allow-list: only phone, name, partySize, date, time, notes,
+ * accepts it. Decision 9 (S8, R19): the phone is optional; without one Notify
+ * is always off. An allow-list: only phone, name, partySize, date, time, notes,
  * notify, override (and expectedVersion on an edit) are read; any other key
  * (status, source, member_id, restaurant_id …) is ignored, so
  * the server alone sets those. Field errors are never overridable: `override`
@@ -14,8 +15,8 @@ export const STAFF_NAME_MAX = 60
 export const STAFF_NOTES_MAX = 500
 
 export interface StaffBookingInput {
-  /** E.164, normalised by the repo's one phone normaliser. */
-  phone: string
+  /** E.164, normalised by the repo's one phone normaliser; null = none given (decision 9: staff bookings only). */
+  phone: string | null
   name: string
   partySize: number
   date: string
@@ -72,11 +73,13 @@ function parseParty(raw: unknown, max: number, errors: StaffBookingErrors): numb
   return typeof n === 'number' ? n : 0
 }
 
-function parsePhone(raw: unknown, ctx: StaffBookingContext, errors: StaffBookingErrors): string {
-  if (typeof raw !== 'string' || raw.trim() === '') return (errors.phone = 'required'), ''
+/** Decision 9 (R7 revised): optional; empty = none; when given, E.164 by the one normaliser or `invalid`. */
+function parsePhone(raw: unknown, ctx: StaffBookingContext, errors: StaffBookingErrors): string | null {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) return null
+  if (typeof raw !== 'string') return (errors.phone = 'invalid'), null
   const phone = raw.length <= 40 ? ctx.normalizePhone(raw) : null
   if (!phone) errors.phone = 'invalid'
-  return phone ?? ''
+  return phone
 }
 
 function optionalBool(raw: unknown, fallback: boolean, field: StaffBookingField, errors: StaffBookingErrors): boolean {
@@ -110,17 +113,28 @@ export function parseStaffBookingInput(body: unknown, ctx: StaffBookingContext):
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, errors: { form: 'invalid_body' } }
   const b = body as Record<string, unknown>
   const errors: StaffBookingErrors = {}
+  const phone = parsePhone(b.phone, ctx, errors)
   const input: StaffBookingInput = {
-    phone: parsePhone(b.phone, ctx, errors),
+    phone,
     name: parseName(b.name, errors),
     partySize: parseParty(b.partySize, ctx.maxPartySize, errors),
     date: typeof b.date === 'string' ? b.date : '',
     time: typeof b.time === 'string' ? b.time : '',
     notes: parseNotes(b.notes, errors),
-    notify: optionalBool(b.notify, true, 'notify', errors),
+    // R19: no phone, no WhatsApp: Notify is off whatever the body says.
+    notify: optionalBool(b.notify, true, 'notify', errors) && phone !== null,
     override: optionalBool(b.override, false, 'override', errors),
   }
   checkWhen(input.date, input.time, ctx, errors)
   const expectedVersion = parseExpected(b.expectedVersion, ctx, errors)
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, input, expectedVersion }
+}
+
+/**
+ * BOOK-014 W4 (spec AC-11): "Require deposit" is on by default; only an
+ * explicit `requireDeposit: false` waives it (recorded, R60). Read apart from
+ * the form so the allow-listed input above is unchanged.
+ */
+export function depositRequested(body: unknown): boolean {
+  return !(body && typeof body === 'object' && (body as Record<string, unknown>).requireDeposit === false)
 }

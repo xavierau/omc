@@ -67,7 +67,7 @@ describe('R48: signature first, idempotent by event id, claim released on failur
 })
 
 describe('R49: a payment is matched only by OUR stored session id, and only when account, amount, currency and paid all match', () => {
-  it('session id unknown -> no change (logged as a security event)', async () => {
+  it('session id unknown -> no change, ignored and logged at info as an unrelated session (not a security event; review finding 7)', async () => {
     const w = paymentWorld()
     const s = await started(w)
     w.gateway.completeSession(s.deposit.providerSessionId!)
@@ -75,9 +75,10 @@ describe('R49: a payment is matched only by OUR stored session id, and only when
       id: 'evt_forged', type: 'session.completed', livemode: false, account: s.deposit.providerAccountId, session: 'sess_unknown',
       payment: 'pay_x', amount: 40000, currency: 'HKD', paid: true,
     })
-    expect((await w.deliver(forged)).body).toEqual({ received: true, outcomes: ['rejected'] })
+    expect((await w.deliver(forged)).body).toEqual({ received: true, outcomes: ['ignored'] })
     expect(w.ledger.booking(s.booking.id)?.status).toBe('awaiting_deposit')
-    expect(w.lines).toContainEqual(expect.objectContaining({ event: 'payment.security_mismatch', data: expect.objectContaining({ reason: 'unknown_session' }) }))
+    expect(w.lines).toContainEqual({ level: 'info', event: 'payment.unrelated_session', data: { eventId: 'evt_forged', sessionRef: 'sess_unknown' } })
+    expect(w.lines.filter((l) => l.event === 'payment.security_mismatch')).toEqual([])
   })
 
   it.each([
@@ -215,16 +216,18 @@ describe('R56: refund state machine with CAS', () => {
     await w.deliver(w.gateway.settleRefund(second, true))
     expect(w.ledger.deposits.get(s.deposit.id)?.status).toBe('refunded')
   })
-  it('a refund call that errors marks refund_failed; the provider later confirming it ends refunded', async () => {
+  it('a refund call that errors marks refund_failed; the provider later confirming the payment fully refunded ends refunded', async () => {
     const w = paymentWorld()
     const s = await paidAndCancelled(w)
     w.gateway.failNext('refund', 'unavailable')
     expect(await refundDeposit(w.decisionDeps, { restaurantId: RESTAURANT, bookingId: s.booking.id, actorUserId: STAFF, reason: 'staff' })).toMatchObject({
       ok: true, deposit: { status: 'refund_failed' },
     })
+    // Review finding 2: a refund id we never recorded settles nothing (refund-redrive.test.ts); the
+    // payment-level "fully refunded" event carries no refund id and is the provider's word on money.
     const confirm = w.gateway.signedEvent({
       id: 'evt_refund_late', type: 'refund.settled', livemode: false, account: s.deposit.providerAccountId,
-      payment: w.ledger.deposits.get(s.deposit.id)!.providerPaymentRef!, refund: 'rf_unknown', ok: true,
+      payment: w.ledger.deposits.get(s.deposit.id)!.providerPaymentRef!, refund: null, ok: true,
     })
     await w.deliver(confirm)
     expect(w.ledger.deposits.get(s.deposit.id)?.status).toBe('refunded')

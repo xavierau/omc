@@ -4,10 +4,12 @@
  * anyway) and the diner message (owner decision 2: only with Notify on; R11:
  * at most one staff-triggered message per booking per 5 minutes).
  */
-import type { BookingRequest, DecisionMessageStatus } from '@/domain/entities/booking-request'
+import { hasPhone, type BookingRequest, type DecisionMessageStatus } from '@/domain/entities/booking-request'
 import type { BookingMemberLookup, BookingMessageSender, BookingRoomReader, BookingSettingsReader } from '@/domain/ports/booking'
 import type { StaffBookingStore } from '@/domain/ports/staff-booking'
-import type { BookingMessageKind } from '@/domain/services/booking-message'
+import type { BookingMessageDetails, BookingMessageKind } from '@/domain/services/booking-message'
+import type { MerchantPaymentAccountReader } from '@/domain/ports/booking-deposit'
+import type { StartDepositDeps } from '@/application/payments/start-deposit'
 import type { BookingClock } from '@/domain/services/booking-hours'
 import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import { activeSchedule } from '@/domain/value-objects/booking-hours'
@@ -30,6 +32,14 @@ export interface StaffBookingDeps {
   /** Stores whether the confirmation reached the diner (the row's BOOK-001 "not delivered" badge). */
   recordMessage(id: string, restaurantId: string, status: DecisionMessageStatus): Promise<void>
   now(): Date
+  /** BOOK-014 W4 (spec AC-11): the deposit side of staff create; absent = no deposits (create as before). */
+  deposit?: StaffDepositDeps
+}
+
+/** BOOK-014 W4: the restaurant's payment account and W1's startDeposit, the one money entry of every channel. */
+export interface StaffDepositDeps {
+  accounts: MerchantPaymentAccountReader
+  start: StartDepositDeps
 }
 
 /**
@@ -46,8 +56,13 @@ export type StaffRefusal =
   | { ok: false; reason: 'rules'; rules: BrokenRule[] }
   | { ok: false; reason: 'open_change' }
   | { ok: false; reason: 'changed'; status: BookingRequest['status'] | null }
+  /** R20: only a source 'staff' booking may have its phone cleared. */
+  | { ok: false; reason: 'phone_required' }
+  /** BOOK-014 W4 (R54): the provider failed at create; no booking remains. */
+  | { ok: false; reason: 'payment_unavailable' }
 
-export type StaffBookingResult = { ok: true; booking: BookingRequest; message: StaffMessageOutcome } | StaffRefusal
+/** BOOK-014 W4: `paymentUrl` = the /p link of a staff booking awaiting its deposit (Copy link). */
+export type StaffBookingResult = { ok: true; booking: BookingRequest; message: StaffMessageOutcome; paymentUrl?: string } | StaffRefusal
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -81,11 +96,21 @@ async function record(deps: StaffBookingDeps, booking: BookingRequest, delivered
  * confirmation's outcome is stored (decision_message_status is the BOOK-001
  * confirm/decline badge); a changed/cancelled outcome is only answered, so a
  * failed later message never marks a delivered confirmation "not delivered".
+ * Decision 9 (R19): a booking without a phone is never messaged and records
+ * no outcome, before the throttle claim and the sender.
  */
-export async function messageDiner(deps: StaffBookingDeps, booking: BookingRequest, kind: BookingMessageKind, notify: boolean): Promise<StaffMessageOutcome> {
-  if (!notify) return 'none'
+export async function messageDiner(
+  deps: StaffBookingDeps,
+  booking: BookingRequest,
+  kind: BookingMessageKind,
+  notify: boolean,
+  /** BOOK-014 W4: the deposit request's amount, hold end and link. */
+  extra: Partial<BookingMessageDetails> = {}
+): Promise<StaffMessageOutcome> {
+  if (!notify || !hasPhone(booking)) return 'none'
   if (!(await deps.store.claimStaffMessage(booking.id, booking.restaurantId, deps.now(), STAFF_MESSAGE_GAP_MS))) return 'throttled'
-  const result = await deps.sender.send(await bookingMessageFor(deps, booking, kind))
+  const message = await bookingMessageFor(deps, booking, kind)
+  const result = await deps.sender.send({ ...message, details: { ...message.details, ...extra } })
   if (kind === 'confirmed') await record(deps, booking, result.delivered)
   return result.delivered ? 'delivered' : 'not_delivered'
 }

@@ -24,6 +24,9 @@ const EXAMPLE_VALUES: Record<string, string> = {
   time: '19:30',
   party_size: '4',
   reason: 'Fully booked',
+  // BOOK-014 W4: the deposit request's amount and hold end.
+  amount: 'HK$400',
+  hold_until: '2026-11-21 19:00',
 }
 
 const NAMED_PARAM_RE = /\{\{(\w+)\}\}/g

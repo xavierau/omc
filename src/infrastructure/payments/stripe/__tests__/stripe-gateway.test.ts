@@ -9,6 +9,7 @@ import { createStripeGateway, sessionExpiry, stripeGatewayFromEnv } from '../str
 import { StripeConfigError, parseStripeSettings } from '../stripe-config'
 import { PaymentGatewayError, WebhookSignatureError } from '@/domain/ports/payment-gateway'
 import { money } from '@/domain/value-objects/money'
+import { STAFF_HOLD_MS } from '@/domain/entities/booking-deposit'
 import { processPaymentWebhook } from '@/application/payments/process-payment-webhook'
 import { FakeDepositLedger, FakeWebhookClaims, memoryLog } from '@/test-utils/fake-booking-deposit'
 import { createPaymentGatewayRegistry } from '@/infrastructure/payments/registry'
@@ -94,6 +95,15 @@ describe('createHostedPayment: Checkout Session on the connected account (direct
     expect(s(2 * 3_600_000)).toBe(2 * 3600)
   })
 
+  it('review finding 5: a staff hold never outlives its Checkout Session (hold <= Stripe maximum, rounded up to the second)', () => {
+    expect(STAFF_HOLD_MS).toBeLessThanOrEqual(24 * 3_600_000 - 2 * 60_000)
+    const t0 = Date.parse('2026-12-01T10:00:00.789Z')
+    const hold = new Date(t0 + STAFF_HOLD_MS)
+    for (const lag of [0, 250, 5_000, 59_000]) {
+      expect(sessionExpiry(hold, new Date(t0 + lag)) * 1000, `lag ${lag}`).toBeGreaterThanOrEqual(hold.getTime())
+    }
+  })
+
   it('R64: a Stripe error becomes a coded PaymentGatewayError without Stripe’s text (it can name accounts)', async () => {
     const { gateway } = stubbedStripe(() => stripeError(400, 'invalid_request_error', 'No such account: acct_1LEAKED', 'account_invalid'))
     const err = await gateway.createHostedPayment(hosted).catch((e) => e)
@@ -132,6 +142,17 @@ describe('expire, refund, accounts', () => {
     expect(Object.fromEntries(sent[0].body)).toEqual({ payment_intent: 'pi_1', amount: '40000' })
     expect(sent[0].headers.get('stripe-account')).toBe('acct_1R')
     expect(sent[0].headers.get('idempotency-key')).toBe('refund:d1:1')
+  })
+
+  it('review finding 1c: charge_already_refunded -> already_refunded (money is back), not an error; other refusals stay errors', async () => {
+    const done = stubbedStripe(() => stripeError(400, 'invalid_request_error', 'Charge ch_1 has already been refunded.', 'charge_already_refunded'))
+    expect(await done.gateway.refund({ accountRef: 'acct_1R', paymentRef: 'pi_1', amount: money(40000, 'HKD'), idempotencyKey: 'refund:d1:2' })).toEqual({
+      refundRef: null, status: 'already_refunded',
+    })
+    const tooMuch = stubbedStripe(() => stripeError(400, 'invalid_request_error', 'Refund amount is greater than unrefunded amount.', 'amount_too_large'))
+    const err = await tooMuch.gateway.refund({ accountRef: 'acct_1R', paymentRef: 'pi_1', amount: money(40000, 'HKD'), idempotencyKey: 'refund:d1:3' }).catch((e) => e)
+    expect(err).toBeInstanceOf(PaymentGatewayError)
+    expect(err.code).toBe('rejected')
   })
 
   it('Standard account created server side; onboarding link and status read from Stripe', async () => {
@@ -230,10 +251,11 @@ describe('R49 through the Stripe adapter: metadata is never a lookup key', () =>
       { gateway, claims: new FakeWebhookClaims(), deposits: ledger, registry, now: () => NOW, log },
       attack
     )
-    expect(out.body).toEqual({ received: true, outcomes: ['rejected'] })
+    // Review finding 7: a session we never stored is not ours: ignored with an info line, no change.
+    expect(out.body).toEqual({ received: true, outcomes: ['ignored'] })
     expect(ledger.booking(victim.booking.id)?.status).toBe('awaiting_deposit')
     expect(ledger.deposits.get('dep-victim')?.status).toBe('awaiting')
-    expect(lines.some((l) => l.data.reason === 'unknown_session')).toBe(true)
+    expect(lines).toContainEqual({ level: 'info', event: 'payment.unrelated_session', data: { eventId: 'evt_attack', sessionRef: 'cs_attackers_own' } })
   })
 })
 

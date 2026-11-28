@@ -36,6 +36,11 @@ Owner decisions (2026-11-26):
    entrance ... ask your booking info ... I say I have a reservation at what time and my surname
    ... they look up from their list." Check-in = Today list found by surname / time / phone + the
    Arrived tap. The code and QR (old S6) move to Future; the confirmation template is unchanged.
+9. **Revised 2026-11-27 (owner): name required, phone optional for staff.** Owner: "name is
+   required but phone is not". A staff booking may have no phone (a walk-in or a caller who won't
+   give a number). No phone → no WhatsApp message of any kind, no reminder, no member link. Only
+   staff-created bookings may lack a phone; every diner channel still requires one. Shipped as a
+   follow-up PR after #235 (merged 2026-11-27).
 
 POC learn-question: do restaurant staff move phone and walk-up bookings into OhMyClient so the
 Bookings calendar becomes their one book? From: pilot tenants' staff. Where: `/dashboard/bookings`.
@@ -49,7 +54,7 @@ Bookings page (BOOK-004 Calendar and Table, desktop and phone).
 > "we need a way that staff can manually create booking"
 
 A **新增訂座 New booking** button in the Bookings toolbar, and a **+** in the Calendar day panel
-(date pre-filled). Form: phone (required, HK or international, normalised to E.164), name
+(date pre-filled). Form: phone (optional since decision 9; when given, HK or international, normalised to E.164), name
 (required, 1–60), party size (required, 1–max party size setting), date (required), time
 (required), notes (optional, ≤500), **以 WhatsApp 通知客人 Notify diner on WhatsApp** (checked).
 The booking is saved `confirmed`, source `staff`, with the creating user recorded; it links to an
@@ -68,8 +73,9 @@ No per-phone caps apply (MAX_PENDING_PER_PHONE and the agent caps protect public
   stopped day/period/slot), when staff save, then nothing is saved yet and a prompt names each
   broken rule (e.g. "19:00 已有 24 位，上限 20"); **Book anyway** saves it, **Back** returns to the
   form with the values kept.
-- **AC-4** Given a missing or invalid field (phone not a number, party size 0 or above the max,
-  past date-time, name empty), when staff save, then nothing is saved and the field shows its error.
+- **AC-4** Given a missing or invalid field (a phone that is given but not a number, party size 0
+  or above the max, past date-time, name empty), when staff save, then nothing is saved and the
+  field shows its error. An empty phone is valid (decision 9, AC-26).
 - **AC-5** Given the phone belongs to an existing member of this restaurant, then the booking
   shows that member (BOOK-008 member chip); given it belongs to a member of another restaurant
   only, then the booking links to no member.
@@ -160,7 +166,32 @@ surname (owner decision 8). No code, no Scan button.
   reverses it. On desktop the column headers sort (`aria-sort` set); on a phone a "Sort" select
   above the list does the same. Sorting works together with the search filter, and the choice
   stays in the URL (`?view=today&sort=name`, `&dir=desc`) so a reload keeps it. Ties fall back to
-  time, then name.
+  time, then name; a booking without a name (diner channels allow it) sorts after named ones in
+  every sort, tie-breaks included (review N1, 2026-11-27).
+
+### S8. A staff booking without a phone (decision 9, 2026-11-27)
+> "name is required but phone is not" (owner)
+
+- **AC-26** Given staff leave the phone empty on create, when they save, then the booking is saved
+  `confirmed` with no phone and no member link, and **Notify** is unticked and disabled in the form
+  with the hint "沒有電話，不會發送 WhatsApp No phone, no WhatsApp message"; the server stores Notify
+  off whatever the body says. No `confirmed`, `changed`, `cancelled`, decision or reminder message
+  is ever attempted for a booking without a phone, and no "not delivered" warning is shown for it.
+  A booking without a phone cannot be linked to a member by hand either (owner default
+  2026-11-27): the BOOK-008 member chip's link action is not offered and the API refuses it
+  (`phone_required`); adding a phone (AC-28) is the way to link. A phone added later sends nothing
+  unless date, time or party changed (owner default 2026-11-27).
+- **AC-27** Given a booking without a phone, then its rows (Today, Calendar day panel, Table) show
+  "未有電話 No phone" where the number would be; Today search finds it by name; phone search skips
+  it; edit, cancel, Arrived/Undo, no-show and the rules prompt work as for any staff booking.
+- **AC-28** Given staff edit a booking and add a phone, then the member link is resolved (AC-9) and
+  Notify becomes available (checked by default as AC-6); a message is sent only under the AC-6 rule
+  (date, time or party changed). Given staff clear the phone, then the member link is removed and
+  Notify turns off. Only bookings with source `staff` may have their phone cleared; for any other
+  source the phone stays required.
+- **AC-29** A booking from any diner channel (booking page, WhatsApp AI, personal agent) still
+  requires a phone; the database refuses a phone-less row unless its source is `staff`, and refuses
+  a phone-less row with Notify on.
 
 ## UI Feedback States
 
@@ -184,7 +215,7 @@ role `columnheader` + name), `bookings-off`. (Removed with decision 8:
 
 ## Scope
 
-- **In:** S1–S5 and S7 above; Today view with search by name/phone;
+- **In:** S1–S5, S7 and S8 above; Today view with search by name/phone;
   Arrived/undo; mode-off hiding; source `staff` and its label; created_by / updated_by / cancelled-by-staff
   audit columns; a per-booking "no diner messages" flag honoured by the reminder cron; the two
   templates for new and existing tenants; zh-HK and en copy; desktop and phone layouts of the
@@ -192,13 +223,14 @@ role `columnheader` + name), `bookings-off`. (Removed with decision 8:
 - **Out:** hard delete; editing or cancelling declined/cancelled/no-show/unverified bookings;
   staff cancelling a pending booking (Decline covers it); creating members from the form.
 - **Future:** a phone-number lookup in the form that suggests the member's name; booking from the
-  member panel or the inbox conversation with phone pre-filled; walk-in entry without a phone;
-  check-in code and QR in the confirmation (old S6), only if staff report the door lookup is slow
+  member panel or the inbox conversation with phone pre-filled; check-in code and QR in the confirmation (old S6), only if staff report the door lookup is slow
   (and only after Meta's rule on per-send template images is confirmed).
 
 ## Explicitly Not Handled
 
-- A booking with no phone (walk-in without a number): phone stays required (DB NOT NULL).
+- ~~A booking with no phone~~ Now handled for staff bookings (decision 9, S8).
+- Sending the confirmation to a phone added later by an edit with no date/time/party change (AC-28
+  sends only under the AC-6 rule).
 - Edit/cancel by the diner through the booking link (only AI agent and staff paths exist).
 - Notifying the personal agent (PAP) of a staff edit/cancel; its GET status simply reads the row.
 - Telling the diner the reason for a cancel (the `cancelled` template carries no reason).

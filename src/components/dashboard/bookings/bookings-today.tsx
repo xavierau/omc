@@ -23,6 +23,7 @@ import { hongKongMoment } from '@/domain/services/booking-no-show'
 import { BookingsNow } from './bookings-clock'
 import { BookingGuestName } from './booking-member'
 import { ArrivedAction, ArrivedTime, CheckInRefusedLine, StaffSourceBadge } from './booking-staff-controls'
+import { DepositActions, DepositBadge } from './booking-deposit'
 import { TODAY_COLUMNS, TodaySortHeaderRow, TodaySortSelect } from './bookings-today-sort'
 import type { BookingsTodayState } from './use-bookings-today'
 
@@ -81,14 +82,16 @@ interface RowProps {
 
 /** The name, staff badge and phone: the column staff scan for a surname. A phone card adds the state chip beside the name. */
 function NameCell({ booking, chip }: { booking: BookingItem; chip?: ReactNode }) {
+  const t = useTranslations('bookings.staff')
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
         <BookingGuestName booking={booking} className="font-semibold break-words text-foreground" />
         {chip}
         <StaffSourceBadge booking={booking} />
+        <DepositBadge booking={booking} />
       </div>
-      <p className="text-sm tabular-nums text-muted-foreground">{booking.phone}</p>
+      <p className="text-sm tabular-nums text-muted-foreground">{booking.phone ?? t('noPhone')}</p>
       <CheckInRefusedLine booking={booking} />
     </div>
   )
@@ -106,6 +109,7 @@ function TodayTableRow({ booking, now, busy, onDecide }: RowProps) {
       <div role="cell" className="flex flex-wrap items-center justify-end gap-2">
         <RowActions booking={booking} busy={busy} onDecide={onDecide} />
         <ArrivedAction booking={booking} withTime={false} />
+        <DepositActions booking={booking} />
       </div>
     </div>
   )
@@ -129,6 +133,7 @@ function TodayCardRow({ booking, now, busy, onDecide }: RowProps) {
       <div className="flex items-center gap-2 empty:hidden [&>*]:flex-1">
         <RowActions booking={booking} busy={busy} onDecide={onDecide} />
         <ArrivedAction booking={booking} />
+        <DepositActions booking={booking} stretch />
       </div>
     </li>
   )

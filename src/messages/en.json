@@ -1492,7 +1492,9 @@
       "declined": "Declined",
       "cancelled": "Cancelled",
       "unverified": "Awaiting diner",
-      "no_show": "No-show"
+      "no_show": "No-show",
+      "awaiting_deposit": "Awaiting deposit",
+      "lapsed": "Lapsed"
     },
     "notDelivered": "Message not delivered, contact the diner",
     "nameRemoved": "(name removed)",
@@ -1625,6 +1627,8 @@
       "formEditHint": "{name} · {status} · {source}",
       "phone": "Phone",
       "phonePlaceholder": "Diner’s phone",
+      "phoneOptional": "Phone (optional)",
+      "noPhone": "No phone",
       "name": "Name",
       "namePlaceholder": "Enter the diner’s name",
       "guests": "Guests",
@@ -1642,6 +1646,7 @@
       "changed": "changed",
       "notifyCreate": "Send WhatsApp confirmation to the diner",
       "notifyCreateHint": "Also sends the reminder 3 hours before. Untick for landlines or diners who don’t want messages.",
+      "notifyNoPhone": "No phone, no WhatsApp message",
       "notifyEdit": "Send the change to the diner on WhatsApp",
       "notifyEditHint": "Only a new date, time or party size is sent. The reminder moves to the new time.",
       "save": "Add booking",
@@ -1755,7 +1760,41 @@
         }
       }
     },
-    "noShowCheckedIn": "Can’t mark no-show: the diner has arrived."
+    "noShowCheckedIn": "Can’t mark no-show: the diner has arrived.",
+    "deposit": {
+      "state": {
+        "awaiting": "Deposit due {amount}",
+        "paid": "Deposit paid {amount}",
+        "lapsed": "Deposit not paid",
+        "refund_pending": "Refund pending {amount}",
+        "refunded": "Refunded {amount}",
+        "refund_failed": "Refund failed {amount}",
+        "kept": "Deposit kept {amount}"
+      },
+      "held": "Deposit held {amount}",
+      "refund": "Refund",
+      "keep": "Keep",
+      "retry": "Retry refund",
+      "copyLink": "Copy link",
+      "linkCopied": "Payment link copied",
+      "linkCopyFailed": "Couldn't copy the link. Try again.",
+      "refunded": "Deposit refunded",
+      "refundStarted": "Refund sent to the payment provider",
+      "refundFailed": "The refund failed. Try Retry, or refund in your Stripe dashboard.",
+      "kept": "Deposit kept",
+      "conflict": "This deposit changed. Reload to see where it is now.",
+      "actionFailed": "Couldn't update the deposit. Try again.",
+      "requireLabel": "Require deposit {amount}",
+      "requireHint": "The diner gets a payment link on WhatsApp and has 24 hours to pay. Paying confirms the booking.",
+      "waiveHint": "No deposit for this booking. Turning it off is recorded with your name.",
+      "cancelChoiceTitle": "Deposit {amount}",
+      "cancelRefund": "Refund it in full",
+      "cancelKeep": "Keep it",
+      "cancelLater": "Decide later",
+      "toastSent": "Booking saved · Payment link sent",
+      "toastNotSent": "Booking saved · Link not sent, share it yourself",
+      "toastUnavailable": "Payment is unavailable right now. Nothing was saved."
+    }
   },
   "bookingSettings": {
     "title": "Booking",
@@ -1804,7 +1843,8 @@
         "declined": "Booking declined",
         "reminder": "Booking reminder",
         "changed": "Booking changed",
-        "cancelled": "Booking cancelled"
+        "cancelled": "Booking cancelled",
+        "deposit_request": "Deposit request"
       },
       "lang": {
         "en": "English",

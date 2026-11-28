@@ -28,11 +28,13 @@ export interface BookingsCalendarProps extends BookingActionProps {
   capacity?: ReactNode
   footer?: ReactNode
   badges?: CapacityBadges
+  /** BOOK-014 W4: guests per date in diners' deposit holds, added to the totals. */
+  holds?: Record<string, number>
 }
 
-export function BookingsCalendar({ bookings, monthEmpty, dayHidden = false, selected, today, isPhone, onSelect, capacity, footer, badges, ...actions }: BookingsCalendarProps) {
+export function BookingsCalendar({ bookings, monthEmpty, dayHidden = false, selected, today, isPhone, onSelect, capacity, footer, badges, holds, ...actions }: BookingsCalendarProps) {
   const days = { bookings, selected, today, onSelect }
-  const panel = { date: selected, bookings: bookingsOn(bookings, selected), monthEmpty, dayHidden, capacity, footer, ...actions }
+  const panel = { date: selected, bookings: bookingsOn(bookings, selected), monthEmpty, dayHidden, capacity, footer, heldGuests: holds?.[selected] ?? 0, ...actions }
   if (isPhone) {
     return (
       <div className="space-y-4">
@@ -43,7 +45,7 @@ export function BookingsCalendar({ bookings, monthEmpty, dayHidden = false, sele
   }
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <CalendarMonthGrid {...days} badges={badges} />
+      <CalendarMonthGrid {...days} badges={badges} holds={holds} />
       <CalendarDayPanel {...panel} className="lg:self-stretch" />
     </div>
   )

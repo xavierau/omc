@@ -48,6 +48,7 @@ import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
 import { isPhoneNormalizeError } from '@/domain/ports/phone-normalizer'
 import type { StaffBookingDeps } from './staff-booking-shared'
 import type { BookingCheckInDeps } from './booking-check-in'
+import { depositChannelPorts, depositDecisionDeps, startDepositDeps } from '@/application/payments/payment-deps'
 
 const now = () => new Date()
 
@@ -77,7 +78,9 @@ export function bookingMessageSender(): BookingMessageSender {
     getPhoneNumberId: getRestaurantPhoneNumberId,
     isWindowOpen: (restaurantId, phoneE164) => isWindowOpen({ restaurantId, phoneE164 }),
     getLanguage: async (restaurantId, phone) => languageOf(await findMemberByPhone(restaurantId, phone)),
-    sendTemplate: (args) => sendWhatsAppTemplateMessage(args),
+    // BOOK-014 W4: the deposit request's one button (`<app>/p/{{1}}`) is a dynamic URL button other
+    // than Book now, which sendWhatsAppTemplateMessage fills from its coupon-code slot; the /p token goes there.
+    sendTemplate: ({ linkToken, ...args }) => sendWhatsAppTemplateMessage(linkToken ? { ...args, couponCode: linkToken } : args),
     sendText: sendTextMessage,
   })
 }
@@ -99,6 +102,8 @@ export function staffBookingDeps(): StaffBookingDeps {
     normalizePhone,
     recordMessage: recordDecisionMessage,
     now,
+    // BOOK-014 W4 (spec AC-11): staff create with a deposit.
+    deposit: { accounts: depositChannelPorts.accounts, start: startDepositDeps() },
   }
 }
 
@@ -126,6 +131,8 @@ export function decideBookingDeps(): DecideBookingDeps {
     requests: bookingRequestStore, settings: bookingSettingsReader, sender: bookingMessageSender(), now,
     // BOOK-010 (spec AC-10): ask before a confirm goes over a guest limit.
     overLimit: { getConfig: bookingSettingsReader.getConfig, room: bookingRoomStore },
+    // BOOK-014 W4 (spec AC-12): decline refunds a paid deposit.
+    deposits: depositDecisionDeps(),
   }
 }
 

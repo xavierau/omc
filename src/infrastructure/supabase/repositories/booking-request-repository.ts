@@ -10,13 +10,14 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 import type {
   BookingCancelledBy,
   BookingDateRange,
+  BookingDepositView,
   BookingRequest,
   DecisionMessageStatus,
   DinerBooking,
   NewBookingRequest,
   OpenChangeSlot,
 } from '@/domain/entities/booking-request'
-import { PENDING_CAP_STATUSES, STAFF_HIDDEN_STATUS_FILTER, pendingNeedingReply } from '@/domain/entities/booking-request'
+import { PENDING_CAP_STATUSES, STAFF_HIDDEN_STATUS_FILTER, STAFF_HOLD_FILTER, pendingNeedingReply, staffStatusFilter } from '@/domain/entities/booking-request'
 import { REMINDER_LEAD_HOURS } from '@/domain/services/booking-reminder'
 import type {
   BookingReminderStore,
@@ -38,8 +39,9 @@ const BOOKING_COLUMNS =
  * webhook) do not depend on 085's columns. BOOK-013 (migration 095): plus the
  * staff audit, notify and arrival columns, dashboard only.
  */
+// BOOK-014 W4 (spec AC-14): plus the booking's deposit (1:1 by booking_id, migration 097), embedded so every staff answer carries it.
 export const STAFF_COLUMNS =
-  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, edit_version, created_by, notify_diner, checked_in_at'
+  'id, restaurant_id, member_id, phone, name, party_size, booking_date, booking_time, notes, status, decline_reason, decided_by, decided_at, source, campaign_id, created_at, decision_message_status, replaces_booking_id, cancelled_by, terms_accepted_at, terms_text, edit_version, created_by, notify_diner, checked_in_at, booking_deposits(status, amount_minor, currency, refund_reason, decided_at, hold_expires_at)'
 
 /** PostgREST `max_rows` (supabase/config.toml; the hosted default): no read returns more, whatever `limit` asks. */
 const POSTGREST_MAX_ROWS = 1000
@@ -61,7 +63,8 @@ interface BookingRow {
   id: string
   restaurant_id: string
   member_id: string | null
-  phone: string
+  /** 096: null only on a source 'staff' row. */
+  phone: string | null
   name: string | null
   party_size: number
   booking_date: string
@@ -83,6 +86,29 @@ interface BookingRow {
   created_by?: string | null
   notify_diner?: boolean
   checked_in_at?: string | null
+  /** BOOK-014 W4: the embedded deposit (STAFF_COLUMNS); PostgREST answers an object or null (or a one-row array). */
+  booking_deposits?: DepositEmbed | DepositEmbed[] | null
+}
+
+interface DepositEmbed {
+  status: BookingDepositView['status']
+  amount_minor: number
+  currency: string
+  refund_reason: BookingDepositView['refundReason']
+  decided_at: string | null
+  hold_expires_at: string
+}
+
+function depositView(raw: BookingRow['booking_deposits']): BookingDepositView | null {
+  const d = Array.isArray(raw) ? raw[0] : raw
+  if (!d) return null
+  return {
+    status: d.status,
+    amount: { amountMinor: d.amount_minor, currency: d.currency },
+    refundReason: d.refund_reason ?? null,
+    decidedAt: d.decided_at ?? null,
+    holdExpiresAt: d.hold_expires_at,
+  }
 }
 
 /** BOOK-013: the 095 columns, present only when the read selected them (STAFF_COLUMNS). */
@@ -93,6 +119,7 @@ function staffFields(row: BookingRow): Partial<BookingRequest> {
     createdBy: row.created_by ?? null,
     notifyDiner: row.notify_diner ?? true,
     checkedInAt: row.checked_in_at ?? null,
+    deposit: depositView(row.booking_deposits),
   }
 }
 
@@ -139,6 +166,8 @@ export function bookingInsertRow(request: NewBookingRequest) {
     ...(request.replacesBookingId ? { replaces_booking_id: request.replacesBookingId } : {}),
     // BOOK-009: only a booking with accepted terms writes 091's columns.
     ...(request.termsAcceptedAt ? { terms_accepted_at: request.termsAcceptedAt, terms_text: request.termsText } : {}),
+    // BOOK-014 (review finding 6): a staff deposit booking records its creator (mark_booking_deposit_paid decides by it).
+    ...(request.createdBy ? { created_by: request.createdBy } : {}),
   }
 }
 
@@ -178,7 +207,8 @@ export async function listBookingRequests(restaurantId: string, decidedLimit: nu
       .from('booking_requests')
       .select(STAFF_COLUMNS)
       .eq('restaurant_id', restaurantId)
-      .eq('status', 'pending')
+      // BOOK-014 W4 (spec AC-11): a staff-made deposit hold is listed with the open requests.
+      .or(staffStatusFilter(['pending']))
       .order('created_at', { ascending: false }),
     supabase
       .from('booking_requests')
@@ -282,7 +312,7 @@ export async function listBookingRequestsInRange(
     .from('booking_requests')
     .select(STAFF_COLUMNS)
     .eq('restaurant_id', restaurantId)
-    .in('status', ['pending', 'confirmed', 'declined', 'cancelled', 'no_show'])
+    .or(staffStatusFilter(['pending', 'confirmed', 'declined', 'cancelled', 'no_show']))
     .gte('booking_date', range.from)
     .lte('booking_date', range.to)
     .order('booking_date', { ascending: true })
@@ -290,6 +320,30 @@ export async function listBookingRequestsInRange(
     .limit(keep + 1)
   if (error) throw new Error(`listBookingRequestsInRange: ${error.message}`)
   return withReplacedSlotsIn(restaurantId, cappedList((data ?? []) as BookingRow[], keep))
+}
+
+/**
+ * BOOK-014 W4 (review finding 9): guests per date held by diners' deposit
+ * holds, which staff do not see as rows (spec AC-5) but which take seats in
+ * booking_room_refusal (097). The calendar adds them to its totals. Holds
+ * lapse within 30 minutes, so the read is small; one row per hold.
+ */
+export async function listDepositHoldGuests(restaurantId: string, range: BookingDateRange): Promise<Record<string, number>> {
+  const { data, error } = await createServerSupabaseClient()
+    .from('booking_requests')
+    .select('booking_date, party_size')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'awaiting_deposit')
+    .neq('source', 'staff')
+    .gte('booking_date', range.from)
+    .lte('booking_date', range.to)
+    .limit(POSTGREST_MAX_ROWS)
+  if (error) throw new Error(`listDepositHoldGuests: ${error.message}`)
+  const holds: Record<string, number> = {}
+  for (const row of (data ?? []) as Array<{ booking_date: string; party_size: number }>) {
+    holds[row.booking_date] = (holds[row.booking_date] ?? 0) + row.party_size
+  }
+  return holds
 }
 
 /**
@@ -341,8 +395,9 @@ export async function findBookingForRestaurant(id: string, restaurantId: string)
     .select(STAFF_COLUMNS)
     .eq('id', id)
     .eq('restaurant_id', restaurantId)
-    // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff; BOOK-014: nor does a deposit hold or a lapsed one.
+    // BOOK-003 (R41): an unconfirmed agent booking does not exist for staff; BOOK-014: nor does a lapsed one or a diner's deposit hold.
     .not('status', 'in', STAFF_HIDDEN_STATUS_FILTER)
+    .or(STAFF_HOLD_FILTER)
     .maybeSingle()
   if (error) throw new Error(`findBookingForRestaurant: ${error.message}`)
   return data ? toBookingRequest(data as BookingRow) : null

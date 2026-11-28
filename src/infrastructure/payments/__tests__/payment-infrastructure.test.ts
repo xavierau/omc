@@ -64,7 +64,11 @@ describe('AC-16: the test adapter signs and verifies its own webhooks', () => {
     const paymentRef = g.sessions.get(a.sessionRef)!.paymentRef!
     const r1 = await g.refund({ accountRef: 'acct_test_A', paymentRef, amount: money(1000, 'HKD'), idempotencyKey: 'refund:d1:1' })
     expect(await g.refund({ accountRef: 'acct_test_A', paymentRef, amount: money(1000, 'HKD'), idempotencyKey: 'refund:d1:1' })).toEqual(r1)
-    await expect(g.refund({ accountRef: 'acct_test_A', paymentRef, amount: money(1000, 'HKD'), idempotencyKey: 'refund:d1:2' })).rejects.toMatchObject({ code: 'rejected' })
+    // A new key on a fully refunded payment: "already refunded", no second refund (review finding 1c).
+    expect(await g.refund({ accountRef: 'acct_test_A', paymentRef, amount: money(1000, 'HKD'), idempotencyKey: 'refund:d1:2' })).toEqual({
+      refundRef: null, status: 'already_refunded',
+    })
+    expect(g.refunds.size).toBe(1)
   })
 })
 

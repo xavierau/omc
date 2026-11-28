@@ -13,7 +13,7 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { requireTenantAdmin } from '@/infrastructure/supabase/guards/require-tenant-admin'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { bookingTemplateOverviewFor, editBookingTemplateFor } from '@/application/booking/booking-template-deps'
-import { TEMPLATE_KINDS, TEMPLATE_LANGUAGES, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
+import { EDITABLE_TEMPLATE_KINDS, TEMPLATE_LANGUAGES, type BookingTemplateKind } from '@/domain/value-objects/booking-config'
 import type { LanguageCode } from '@/domain/value-objects/language'
 
 interface EditRequest {
@@ -28,7 +28,8 @@ function parseEditRequest(raw: unknown): EditRequest | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const r = raw as Record<string, unknown>
   if (Object.keys(r).some((k) => !FIELDS.includes(k))) return null
-  if (!TEMPLATE_KINDS.includes(r.kind as BookingTemplateKind)) return null
+  // BOOK-014 W4: the deposit request's copy is fixed (its link button would be lost by a body-only edit).
+  if (!EDITABLE_TEMPLATE_KINDS.includes(r.kind as BookingTemplateKind)) return null
   if (!TEMPLATE_LANGUAGES.includes(r.language as LanguageCode)) return null
   if (r.body !== null && typeof r.body !== 'string') return null
   return { kind: r.kind as BookingTemplateKind, language: r.language as LanguageCode, body: r.body }

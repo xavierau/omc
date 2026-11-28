@@ -26,4 +26,6 @@ Verify: route/domain tests per R-id, scratch-DB migration check, local app walk 
 
 Revision 2026-11-26 (spec decision 8 + AC-25): items 4 and the QR/code parts of 1, 2, 3, 5, 6 are withdrawn (no check-in code, QR, bucket, by-code route, scan UI, confirmed-template change). Added: Today list sort (Time default / Name / Guests / Status, reversible, in the URL), mockup frames 7–8 revised. Review fixes R1–R3, R7, R8, R10 landed in 2f6e3b82.
 
+Revision 2026-11-27 (spec decision 9, S8 AC-26–AC-29, threat R19–R20; follow-up PR after #235 merged as 2f922d5b): migration 096 (phone nullable for source staff only, notify-off check); domain/API phone optional with every send path skipping a null phone; form hint + disabled Notify; "No phone" on rows; Today sort puts unnamed rows last in tie-breaks too (review N1); commit the r3 review artifact.
+
 Risks: image-header `confirmed` may be rejected by Meta more often (spec Dependencies & Risks); existing-tenant template backfill mechanism to be found by the dev (where BOOK-002 resubmits), reported in the handoff if none exists.

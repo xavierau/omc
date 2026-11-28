@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto'
 import { createWhatsAppTemplate } from '@/application/create-whatsapp-template'
 import { updateWhatsAppTemplate } from '@/application/update-whatsapp-template'
 import { ensureWabaId } from '@/application/ensure-waba-id'
+import { appBaseUrl } from '@/infrastructure/config/app-url'
 import { findManyByIdsForRestaurant } from '@/infrastructure/supabase/repositories/whatsapp-template-repository'
 import {
   getBookingConfig,
@@ -32,6 +33,8 @@ export function provisionBookingTemplatesFor(restaurantId: string): Promise<Book
     saveProvisioned: saveProvisionedBookingTemplates,
     ensureWabaId,
     suffix,
+    // BOOK-014 W4: the deposit request's /p button.
+    appBaseUrl: appBaseUrl(),
   })
 }
 

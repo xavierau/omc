@@ -8,11 +8,13 @@
  * 已停止 Stopped when staff stopped the whole day.
  */
 import { useLocale, useTranslations } from 'next-intl'
+import { Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BookingItem } from '@/hooks/use-bookings'
 import { addDays, formatDate, monthGrid, monthKey } from './booking-dates'
 import { bookingsOn, chipName, covers } from './booking-groups'
 import type { CapacityBadges } from './use-booking-capacity'
+import { formatMoney } from '@/domain/value-objects/money'
 
 const MAX_CHIPS = 3
 
@@ -23,8 +25,8 @@ const CHIP_TONE: Record<BookingItem['status'], string> = {
   declined: 'bg-muted text-muted-foreground line-through',
   cancelled: 'bg-muted text-muted-foreground line-through',
   no_show: 'bg-muted text-muted-foreground',
-  // BOOK-014: hidden from staff in W1 (W4 gives them their tones).
-  awaiting_deposit: 'bg-muted text-muted-foreground',
+  // BOOK-014 W4: a staff booking waiting for its deposit (a lapsed one is never listed).
+  awaiting_deposit: 'bg-pending-soft/60 text-pending-foreground ring-1 ring-dashed ring-accent/40',
   lapsed: 'bg-muted text-muted-foreground',
 }
 
@@ -35,7 +37,7 @@ const DOT_TONE: Record<BookingItem['status'], string> = {
   declined: 'bg-muted-foreground',
   cancelled: 'bg-muted-foreground',
   no_show: 'bg-muted-foreground',
-  awaiting_deposit: 'bg-muted-foreground',
+  awaiting_deposit: 'bg-accent/60',
   lapsed: 'bg-muted-foreground',
 }
 
@@ -46,6 +48,8 @@ export interface CalendarDaysProps {
   onSelect: (date: string) => void
   /** BOOK-010: per-date full / stopped (absent = no badges). */
   badges?: CapacityBadges
+  /** BOOK-014 W4 (review finding 9): guests per date in diners' deposit holds, added to the day's guests. */
+  holds?: Record<string, number>
 }
 
 function DayChips({ bookings }: { bookings: BookingItem[] }) {
@@ -58,10 +62,25 @@ function DayChips({ bookings }: { bookings: BookingItem[] }) {
           <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', DOT_TONE[b.status])} />
           <span className="tabular-nums">{b.bookingTime}</span>
           <span className="truncate">{chipName(b.name)}</span>
+          {b.deposit ? <DepositChipMark booking={b} /> : null}
         </span>
       ))}
       {extra > 0 ? <span className="px-1.5 text-xs text-muted-foreground">{t('more', { count: extra })}</span> : null}
     </div>
+  )
+}
+
+/** BOOK-014 W4 (spec AC-14): the chip's deposit state, as an icon with its text for screen readers and on hover; it gives way first in a narrow chip. */
+function DepositChipMark({ booking }: { booking: BookingItem }) {
+  const t = useTranslations('bookings.deposit')
+  const d = booking.deposit
+  if (!d) return null
+  const label = t(`state.${d.status}`, { amount: formatMoney(d.amount) })
+  return (
+    <span className={cn('ml-auto min-w-0 overflow-hidden', d.status === 'refund_failed' && 'text-destructive')} title={label} data-testid={`booking-chip-${booking.id}-deposit`} data-state={d.status}>
+      <Wallet aria-hidden className="size-3" />
+      <span className="sr-only">{label}</span>
+    </span>
   )
 }
 
@@ -82,7 +101,7 @@ function DayCell({ date, inMonth, props }: { date: string; inMonth: boolean; pro
   const t = useTranslations('bookings.views')
   const locale = useLocale()
   const day = bookingsOn(props.bookings, date)
-  const guests = covers(day)
+  const guests = covers(day) + (props.holds?.[date] ?? 0)
   const isToday = date === props.today
   return (
     <button

@@ -79,7 +79,7 @@ describe('staff booking repository (095)', () => {
   it('R12 / R2: today reads only this restaurant\'s live rows', async () => {
     const rec = use((q) => (q.calls.some((c) => c[0] === 'limit') ? { data: [ROW, ROW] } : { data: null }))
     expect((await checkinStore.listForDate('r-a', '2026-11-26', 1)).truncated).toBe(true)
-    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:booking_date=2026-11-26', 'in:status=pending,confirmed,no_show'])
+    expect(filtersOf(rec.queries[0])).toEqual(['eq:restaurant_id=r-a', 'eq:booking_date=2026-11-26', 'or:status.in.(pending,confirmed,no_show),and(status.eq.awaiting_deposit,source.eq.staff)'])
     expect(rec.queries[0].calls).toContainEqual(['limit', 2])
   })
 

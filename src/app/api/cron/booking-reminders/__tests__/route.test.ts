@@ -14,11 +14,16 @@ vi.mock('@/application/booking/booking-deps', () => ({
   unverifiedBookingPurgeDeps: vi.fn(() => ({ marker: 'purge-deps' })),
 }))
 vi.mock('@/application/payments/expire-deposits', () => ({ expireDeposits: vi.fn() }))
-vi.mock('@/application/payments/payment-deps', () => ({ expireDepositsDeps: vi.fn(() => ({ marker: 'expiry-deps' })) }))
+vi.mock('@/application/payments/redrive-stalled-refunds', () => ({ redriveStalledRefunds: vi.fn() }))
+vi.mock('@/application/payments/payment-deps', () => ({
+  expireDepositsDeps: vi.fn(() => ({ marker: 'expiry-deps' })),
+  redriveRefundsDeps: vi.fn(() => ({ marker: 'redrive-deps' })),
+}))
 
 import { sendBookingReminders } from '@/application/booking/send-booking-reminders'
 import { purgeUnverifiedBookings } from '@/application/booking/purge-unverified-bookings'
 import { expireDeposits } from '@/application/payments/expire-deposits'
+import { redriveStalledRefunds } from '@/application/payments/redrive-stalled-refunds'
 import { GET, POST } from '../route'
 
 const SECRET = 'test-cron-secret'
@@ -31,6 +36,7 @@ beforeEach(() => {
   vi.mocked(sendBookingReminders).mockResolvedValue({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0 })
   vi.mocked(purgeUnverifiedBookings).mockResolvedValue({ unverifiedDeleted: 2 })
   vi.mocked(expireDeposits).mockResolvedValue({ depositsLapsed: 3, sessionsClosed: 2 })
+  vi.mocked(redriveStalledRefunds).mockResolvedValue({ refundsRedriven: 1 })
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -40,6 +46,7 @@ describe('/api/cron/booking-reminders', () => {
     expect(sendBookingReminders).not.toHaveBeenCalled()
     expect(purgeUnverifiedBookings).not.toHaveBeenCalled()
     expect(expireDeposits).not.toHaveBeenCalled()
+    expect(redriveStalledRefunds).not.toHaveBeenCalled()
   })
 
   it('401 when CRON_SECRET is unset, even for "Bearer undefined"', async () => {
@@ -52,11 +59,32 @@ describe('/api/cron/booking-reminders', () => {
   it.each([['GET', GET], ['POST', POST]] as const)('%s with the bearer runs one pass and returns its counts', async (_m, handler) => {
     const res = await handler(req(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2, depositsLapsed: 3, sessionsClosed: 2 })
+    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2, depositsLapsed: 3, sessionsClosed: 2, refundsRedriven: 1 })
     expect(sendBookingReminders).toHaveBeenCalledWith({ marker: 'deps' })
     expect(purgeUnverifiedBookings).toHaveBeenCalledTimes(1)
     expect(purgeUnverifiedBookings).toHaveBeenCalledWith({ marker: 'purge-deps' })
     expect(expireDeposits).toHaveBeenCalledWith({ marker: 'expiry-deps' })
+    expect(redriveStalledRefunds).toHaveBeenCalledWith({ marker: 'redrive-deps' })
+  })
+
+  it('BOOK-014 review finding 1b: the stalled-refund sweep runs when every other step throws; its own failure is a 500 naming it, without internals', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(sendBookingReminders).mockRejectedValue(new Error('x'))
+    vi.mocked(purgeUnverifiedBookings).mockRejectedValue(new Error('y'))
+    vi.mocked(expireDeposits).mockRejectedValue(new Error('z'))
+    const ran = await GET(req(`Bearer ${SECRET}`))
+    expect(redriveStalledRefunds).toHaveBeenCalledTimes(1)
+    expect(await ran.json()).toMatchObject({ refundsRedriven: 1 })
+
+    vi.mocked(sendBookingReminders).mockResolvedValue({ candidates: 0, due: 0, sent: 0, notDelivered: 0, claimLost: 0 })
+    vi.mocked(purgeUnverifiedBookings).mockResolvedValue({ unverifiedDeleted: 0 })
+    vi.mocked(expireDeposits).mockResolvedValue({ depositsLapsed: 0, sessionsClosed: 0 })
+    vi.mocked(redriveStalledRefunds).mockRejectedValue(new Error('rk_live_SECRET leaked'))
+    const res = await GET(req(`Bearer ${SECRET}`))
+    expect(res.status).toBe(500)
+    const body = JSON.stringify(await res.json())
+    expect(body).toContain('Failed to re-drive stalled deposit refunds')
+    expect(body).not.toContain('rk_live')
   })
 
   it('BOOK-014: the deposit expiry step runs when both other steps throw; its own failure is a 500 naming it, without internals', async () => {

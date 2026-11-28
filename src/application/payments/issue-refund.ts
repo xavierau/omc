@@ -1,11 +1,17 @@
 /**
- * BOOK-014 (threat R56): the provider refund for a deposit that WON the move
- * to refund_pending. Only the caller holding that row calls this, with the
- * idempotency key refund:<deposit id>:<attempt>, for the full paid amount.
+ * BOOK-014 (threat R56): the provider refund for a deposit in refund_pending.
+ * Called by the caller that WON the move to refund_pending, or by a re-drive
+ * of the same attempt (a redelivered late payment, the stalled-refund sweep;
+ * review finding 1), always with the idempotency key
+ * refund:<deposit id>:<attempt>, for the full paid amount, so a re-drive
+ * within the provider's key window returns the same refund.
  *
- * succeeded -> refunded; failed or any provider error -> refund_failed (staff
- * see Retry); pending -> stays refund_pending with the refund id stored, and
- * the refund webhook settles it.
+ * The refund id is recorded for its attempt as soon as the provider returns
+ * it, whatever its status (review finding 2), then:
+ * succeeded -> refunded; already fully refunded -> refunded (finding 1c);
+ * failed or any provider error -> refund_failed (staff see Retry); pending ->
+ * stays refund_pending with the refund id stored, and the refund webhook
+ * settles it.
  */
 import { refundIdempotencyKey, type BookingDeposit } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-deposit'
@@ -46,10 +52,15 @@ export async function issueRefund(deps: IssueRefundDeps, deposit: BookingDeposit
     return fail(err instanceof PaymentGatewayError ? err.code : 'internal')
   }
 
-  if (result.status === 'pending') {
-    await deps.deposits.recordRefundRef({ depositId: deposit.id, attempt, refundRef: result.refundRef })
-    return { ...deposit, refundRef: result.refundRef }
+  if (result.status === 'already_refunded') {
+    deps.log('info', 'deposit.refund_already_refunded', { depositId: deposit.id, attempt })
+    return (
+      (await deps.deposits.finishRefund({ depositId: deposit.id, attempt, outcome: 'refunded', refundRef: null, actor: 'provider' })) ?? deposit
+    )
   }
+
+  await deps.deposits.recordRefundRef({ depositId: deposit.id, attempt, refundRef: result.refundRef })
+  if (result.status === 'pending') return { ...deposit, refundRef: result.refundRef }
   const finished = await deps.deposits.finishRefund({
     depositId: deposit.id,
     attempt,

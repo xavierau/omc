@@ -25,6 +25,7 @@ import {
   BOOKING_TEMPLATE_LANGUAGES,
   bookingTemplateBody,
   bookingTemplateComponents,
+  depositRequestComponents,
   bookingTemplateStatus,
   metaLanguageCode,
   mintBookingTemplateName,
@@ -64,6 +65,11 @@ export interface ProvisionBookingTemplatesDeps {
   ensureWabaId(restaurantId: string): Promise<string | null>
   /** Short random [a-z0-9] suffix for a per-attempt template name. */
   suffix(): string
+  /**
+   * BOOK-014 W4: the public app URL the deposit request's button points at
+   * (`<app>/p/{{1}}`); without one that kind is not submitted (it reads not_submitted).
+   */
+  appBaseUrl?: string
 }
 
 interface Submission {
@@ -90,8 +96,11 @@ function slotDue(config: BookingConfig, rows: Rows, kind: BookingTemplateKind, l
   return [{ language, text, draftId: status === 'failed' ? slot.currentId : null, staleCandidateId }]
 }
 
+const hasAppUrl = (deps: ProvisionBookingTemplatesDeps) => /^https?:\/\/\S+/.test(deps.appBaseUrl?.trim() ?? '')
+
 function pendingSubmissions(config: BookingConfig, rows: Rows, deps: ProvisionBookingTemplatesDeps): Submission[] {
   return TEMPLATE_KINDS.flatMap((kind) => {
+    if (kind === 'deposit_request' && !hasAppUrl(deps)) return []
     const due = BOOKING_TEMPLATE_LANGUAGES.flatMap((language) => slotDue(config, rows, kind, language))
     if (due.length === 0) return []
     const name = mintBookingTemplateName(kind, deps.suffix())
@@ -99,8 +108,14 @@ function pendingSubmissions(config: BookingConfig, rows: Rows, deps: ProvisionBo
   })
 }
 
+/** R21: body only, except the owner-approved deposit request with its one /p button (BOOK-014 W4). */
+function componentsOf(s: Submission, deps: ProvisionBookingTemplatesDeps): TemplateComponent[] {
+  if (s.kind === 'deposit_request') return depositRequestComponents(s.text, s.language, deps.appBaseUrl ?? '')
+  return bookingTemplateComponents(s.text)
+}
+
 function send(restaurantId: string, s: Submission, deps: ProvisionBookingTemplatesDeps) {
-  const components = bookingTemplateComponents(s.text)
+  const components = componentsOf(s, deps)
   if (s.draftId) return deps.resubmitTemplate(s.draftId, restaurantId, components)
   return deps.createTemplate({ restaurantId, name: s.name, language: metaLanguageCode(s.language), category: 'UTILITY', components })
 }

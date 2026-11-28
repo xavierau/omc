@@ -1,0 +1,589 @@
+{
+  "tag": "en-1200",
+  "today": "2026-11-28",
+  "steps": [
+    {
+      "check": "today: staff hold shown, diner hold + lapsed hidden",
+      "ok": true,
+      "detail": "Wong Awaiting, Lee Paid, Ho Paid, Cheung Paid, Ng No-show, Chan No Deposit"
+    },
+    {
+      "check": "today: badges awaiting / paid / no-show paid",
+      "ok": true,
+      "detail": "awaiting paid paid"
+    },
+    {
+      "check": "today: no badge without a deposit",
+      "ok": true
+    },
+    {
+      "check": "today: no-show paid offers Refund + Keep",
+      "ok": true
+    },
+    {
+      "check": "today: staff hold offers Copy link",
+      "ok": true
+    },
+    {
+      "step": "01-today",
+      "note": "Today: awaiting (staff), paid, no-show with Deposit held + Refund/Keep",
+      "file": "01-today-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 5,
+        "info": 0
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "content-spill: span.hidden.sm:inline \"2 requests need a reply\" @660,23 80x60 | extends past its parent's bottom edge by 12px (parent: button[data-testid=\"bookings-needs-reply\"].inline-flex.h-9 \"2 req",
+        "content-spill: svg @875,45 16x16 | extends past its parent's left edge by 8px (parent: button[data-testid=\"bookings-view-calendar\"].inline-flex.h-8 \"Calend",
+        "inconsistent-spacing: div[data-testid=\"booking-row-74a5cefe-fc97-44ab-ab87-849398d8f58c\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 24px / center 5px / bottom 33px)",
+        "row-misaligned: div.flex.flex-wrap \"Bookings Today, Saturday, November 28. F\" @272,32 896x84 | children in one row are neither top-, bottom- nor center-aligned (spread top 8px / center 22px / bottom 35px)"
+      ]
+    },
+    {
+      "check": "table: awaiting, paid, kept, refunded, refund pending, refund failed",
+      "ok": true,
+      "detail": "{\"Wong Awaiting\":\"awaiting\",\"Lee Paid\":\"paid\",\"Tam Kept\":\"kept\",\"Yip Refunded\":\"refunded\",\"Kwok Pending\":\"refund_pending\",\"Lau Failed\":\"refund_failed\"}"
+    },
+    {
+      "check": "table: refund failed offers Retry",
+      "ok": true
+    },
+    {
+      "check": "table: diner hold and lapsed not listed",
+      "ok": true
+    },
+    {
+      "step": "02-table",
+      "note": "Table: one deposit state per row",
+      "file": "02-table-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=table",
+      "audit": {
+        "blocking": 0,
+        "warning": 4,
+        "info": 1
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "content-spill: span.hidden.sm:inline \"2 requests need a reply\" @664,23 78x60 | extends past its parent's bottom edge by 12px (parent: button[data-testid=\"bookings-needs-reply\"].inline-flex.h-9 \"2 req",
+        "content-spill: svg @877,45 16x16 | extends past its parent's left edge by 9px (parent: button[data-testid=\"bookings-view-calendar\"].inline-flex.h-8 \"Calend",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x1194 | children in one row are neither top-, bottom- nor center-aligned (spread top 24px / center 4px / bottom 32px)",
+        "row-misaligned: div.flex.flex-wrap \"Bookings Booking requests from your dine\" @272,32 896x84 | children in one row are neither top-, bottom- nor center-aligned (spread top 8px / center 22px / bottom 35px)"
+      ]
+    },
+    {
+      "check": "calendar: day total = listed guests (no-shows left out, BOOK-007) + diner hold (5), in the day panel and the month cell",
+      "ok": true,
+      "detail": "listed 16 + hold 5; panel \"Saturday, November 28  10 bookings · 21 guests · 2 need a reply\"; cell \"28 21 guests 12:00 Ng Deposit paid HK$300 12:30 Wong Deposit due HK$200 13:00 Lee Deposit paid HK$400 +7 more\""
+    },
+    {
+      "check": "calendar: chip deposit mark on the staff hold",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "03-calendar-day",
+      "note": "Calendar with the day panel; totals include held seats",
+      "file": "03-calendar-day-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 29,
+        "info": 5
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Ng No-show No-show Deposit paid HK$300 +\" @893,565 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting Awaiting deposit By staff \" @893,824 254x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid Pending Deposit paid HK$400 +85\" @893,1039 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid Pending via AI agent Deposit pai\" @893,1226 202x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid Confirmed Deposit paid HK$60\" @893,1441 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept Cancelled Cancelled by staff De\" @893,1628 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded Cancelled Cancelled by staf\" @893,1805 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending Cancelled via AI agent Canc\" @893,1982 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed Declined Refund failed HK$500\" @893,2159 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit Confirmed +85291000012 L\" @893,2346 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "content-spill: span.hidden.sm:inline \"2 requests need a reply\" @664,23 78x60 | extends past its parent's bottom edge by 12px (parent: button[data-testid=\"bookings-needs-reply\"].inline-flex.h-9 \"2 req",
+        "content-spill: svg @877,45 16x16 | extends past its parent's left edge by 9px (parent: button[data-testid=\"bookings-view-calendar\"].inline-flex.h-8 \"Calend",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x2549 | children in one row are neither top-, bottom- nor center-aligned (spread top 24px / center 4px / bottom 32px)",
+        "row-misaligned: div.flex.flex-wrap \"Bookings Booking requests from your dine\" @272,32 896x84 | children in one row are neither top-, bottom- nor center-aligned (spread top 8px / center 22px / bottom 35px)",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,638 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,638 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,662 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Deposit paid HK$400\" @720,686 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Saturday, November 28 10 bookings · 21 g\" @809,233 358x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+        "row-misaligned: li[data-testid=\"booking-row-cc59352c-c954-43a9-9262-fbd33573b787\"].flex.gap-4 \"13:00 4 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-f05fc255-ee86-4dab-90a0-8f747314f024\"].flex.gap-4 \"13:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-02f6810f-9bb1-41c6-b2af-63f9abd5ad6b\"].flex.gap-4 \"18:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-42ddf99e-eadb-4a7e-93c7-d40c0b01da34\"].flex.gap-4 \"21:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "text-truncated: span.truncate.text-xs \"4 guests\" @669,612 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"4 guests\"",
+        "text-truncated: span.truncate.text-xs \"21 guests\" @742,612 39x16 | ellipsis truncation, 15px hidden (no tooltip); full text: \"21 guests\""
+      ]
+    },
+    {
+      "check": "decline paid: declined + refunded (declined), one provider refund",
+      "ok": true,
+      "detail": "refunded|declined|1 stripe+1"
+    },
+    {
+      "check": "decline paid: the decline message (free text, open window, the diner's language: zh_hk by default, no member) says the deposit HK$400 will be refunded",
+      "ok": true,
+      "detail": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"+85291000002\",\"type\":\"text\",\"text\":{\"body\":\"很抱歉,餐廳未能接受你在2026-11-28 13:00的訂座要求。歡迎選擇其他時間再次提交訂座要求。 你的訂金 HK$400 將會退回。\"}}"
+    },
+    {
+      "step": "04-decline-refunded",
+      "note": "Declined paid booking: Refunded",
+      "file": "04-decline-refunded-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 28,
+        "info": 5
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Ng No-show No-show Deposit paid HK$300 +\" @893,605 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting Awaiting deposit By staff \" @893,864 254x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid Declined Refunded HK$400 +85291\" @893,1079 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid Pending via AI agent Deposit pai\" @893,1228 202x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid Confirmed Deposit paid HK$60\" @893,1443 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept Cancelled Cancelled by staff De\" @893,1630 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded Cancelled Cancelled by staf\" @893,1807 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending Cancelled via AI agent Canc\" @893,1984 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed Declined Refund failed HK$500\" @893,2161 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit Confirmed +85291000012 L\" @893,2348 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "content-spill: span.hidden.sm:inline \"1 request needs a reply\" @665,23 77x60 | extends past its parent's bottom edge by 12px (parent: button[data-testid=\"bookings-needs-reply\"].inline-flex.h-9 \"1 req",
+        "content-spill: svg @877,45 16x16 | extends past its parent's left edge by 9px (parent: button[data-testid=\"bookings-view-calendar\"].inline-flex.h-8 \"Calend",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x2551 | children in one row are neither top-, bottom- nor center-aligned (spread top 24px / center 4px / bottom 32px)",
+        "row-misaligned: div.flex.flex-wrap \"Bookings Booking requests from your dine\" @272,32 896x84 | children in one row are neither top-, bottom- nor center-aligned (spread top 8px / center 22px / bottom 35px)",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,678 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,678 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,702 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Refunded HK$400\" @720,726 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Saturday, November 28 10 bookings · 17 g\" @809,273 358x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+        "row-misaligned: li[data-testid=\"booking-row-f05fc255-ee86-4dab-90a0-8f747314f024\"].flex.gap-4 \"13:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 73px / bottom 156px)",
+        "row-misaligned: li[data-testid=\"booking-row-02f6810f-9bb1-41c6-b2af-63f9abd5ad6b\"].flex.gap-4 \"18:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-42ddf99e-eadb-4a7e-93c7-d40c0b01da34\"].flex.gap-4 \"21:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "text-truncated: span.truncate.text-xs \"4 guests\" @669,652 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"4 guests\"",
+        "text-truncated: span.truncate.text-xs \"17 guests\" @742,652 39x16 | ellipsis truncation, 14px hidden (no tooltip); full text: \"17 guests\""
+      ]
+    },
+    {
+      "check": "decline, provider refuses: declined stands, refund_failed",
+      "ok": true,
+      "detail": "refund_failed|declined|1"
+    },
+    {
+      "check": "decline, provider refuses: Retry shown",
+      "ok": true
+    },
+    {
+      "step": "05-decline-refund-failed",
+      "note": "Declined, the refund failed: Refund failed + Retry",
+      "file": "05-decline-refund-failed-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 24,
+        "info": 4
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Ng No-show No-show Deposit paid HK$300 +\" @893,585 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting Awaiting deposit By staff \" @893,844 254x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid Declined Refunded HK$400 +85291\" @893,1059 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid Declined via AI agent Refund fai\" @893,1208 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid Confirmed Deposit paid HK$60\" @893,1395 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept Cancelled Cancelled by staff De\" @893,1582 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded Cancelled Cancelled by staf\" @893,1759 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending Cancelled via AI agent Canc\" @893,1936 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed Declined Refund failed HK$500\" @893,2113 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit Confirmed +85291000012 L\" @893,2300 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "layout-shift: null | cumulative layout shift 0.134 (> 0.1) since load",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,678 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,678 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,702 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Refunded HK$400\" @720,726 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Saturday, November 28 10 bookings · 15 g\" @809,273 358x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-02f6810f-9bb1-41c6-b2af-63f9abd5ad6b\"].flex.gap-4 \"18:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-42ddf99e-eadb-4a7e-93c7-d40c0b01da34\"].flex.gap-4 \"21:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "text-truncated: span.truncate.text-xs \"4 guests\" @669,652 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"4 guests\"",
+        "text-truncated: span.truncate.text-xs \"15 guests\" @742,652 39x16 | ellipsis truncation, 14px hidden (no tooltip); full text: \"15 guests\""
+      ]
+    },
+    {
+      "check": "retry: refunded, attempt 2",
+      "ok": true,
+      "detail": "refunded|declined|2"
+    },
+    {
+      "check": "retry: toast refunded",
+      "ok": true,
+      "detail": "refunded"
+    },
+    {
+      "check": "cancel dialog: Refund / Keep / Decide later",
+      "ok": true
+    },
+    {
+      "step": "06-cancel-dialog",
+      "note": "Cancel dialog with the deposit choice (Keep picked)",
+      "file": "06-cancel-dialog-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 24,
+        "info": 4
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Ng No-show No-show Deposit paid HK$300 +\" @893,585 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting Awaiting deposit By staff \" @893,844 254x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid Declined Refunded HK$400 +85291\" @893,1059 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid Declined via AI agent Refunded H\" @893,1208 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid Confirmed Deposit paid HK$60\" @893,1357 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept Cancelled Cancelled by staff De\" @893,1544 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded Cancelled Cancelled by staf\" @893,1721 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending Cancelled via AI agent Canc\" @893,1898 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed Declined Refund failed HK$500\" @893,2075 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit Confirmed +85291000012 L\" @893,2262 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "layout-shift: null | cumulative layout shift 0.139 (> 0.1) since load",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,678 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,678 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,702 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Refunded HK$400\" @720,726 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Saturday, November 28 10 bookings · 15 g\" @809,273 358x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-02f6810f-9bb1-41c6-b2af-63f9abd5ad6b\"].flex.gap-4 \"18:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "row-misaligned: li[data-testid=\"booking-row-42ddf99e-eadb-4a7e-93c7-d40c0b01da34\"].flex.gap-4 \"21:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "text-truncated: span.truncate.text-xs \"4 guests\" @669,652 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"4 guests\"",
+        "text-truncated: span.truncate.text-xs \"15 guests\" @742,652 39x16 | ellipsis truncation, 14px hidden (no tooltip); full text: \"15 guests\""
+      ]
+    },
+    {
+      "check": "cancel + keep: cancelled, kept by the staff user",
+      "ok": true,
+      "detail": "kept|-|0"
+    },
+    {
+      "step": "07-cancel-kept",
+      "note": "Cancelled: Kept",
+      "file": "07-cancel-kept-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 23,
+        "info": 5
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Ng No-show No-show Deposit paid HK$300 +\" @893,585 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Wong Awaiting Awaiting deposit By staff \" @893,844 254x182 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lee Paid Declined Refunded HK$400 +85291\" @893,1059 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Ho Paid Declined via AI agent Refunded H\" @893,1208 254x116 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Cheung Paid Cancelled Cancelled by staff\" @893,1357 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Tam Kept Cancelled Cancelled by staff De\" @893,1534 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Yip Refunded Cancelled Cancelled by staf\" @893,1711 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Kwok Pending Cancelled via AI agent Canc\" @893,1888 254x144 | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Lau Failed Declined Refund failed HK$500\" @893,2065 254x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "column-indent: div.flex.min-w-0 \"Chan No Deposit Confirmed +85291000012 L\" @893,2252 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "layout-shift: null | cumulative layout shift 0.149 (> 0.1) since load",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,678 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,678 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,702 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Refunded HK$400\" @720,726 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Saturday, November 28 10 bookings · 9 gu\" @809,273 358x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "row-misaligned: li[data-testid=\"booking-row-42ddf99e-eadb-4a7e-93c7-d40c0b01da34\"].flex.gap-4 \"21:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+        "text-truncated: span.truncate.text-xs \"4 guests\" @669,652 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"4 guests\"",
+        "text-truncated: span.truncate.text-xs \"9 guests\" @743,652 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"9 guests\""
+      ]
+    },
+    {
+      "check": "no-show paid: Deposit held + Refund + Keep",
+      "ok": true
+    },
+    {
+      "step": "08-no-show-held",
+      "note": "Marked no-show: Deposit held HK$400 with Refund / Keep",
+      "file": "08-no-show-held-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=calendar",
+      "audit": {
+        "blocking": 0,
+        "warning": 12,
+        "info": 5
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "clipped-content: span[data-testid=\"booking-chip-0ae934d8-e020-4e29-a5db-31535563fc37-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-b48d6e06-1cc2-4901-a50e-2cc1fa4fc93d-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-74a5cefe-fc97-44ab-ab87-849398d8f58c-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "clipped-content: span[data-testid=\"booking-chip-cc59352c-c954-43a9-9262-fbd33573b787-deposit\"].ml-auto.min- | overflow hidden clips 12px horizontally",
+        "column-indent: div.flex.min-w-0 \"Fong Past No-show Deposit paid HK$400 +8\" @893,545 254x226 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 11px / bottom 54px)",
+        "row-misaligned: span.flex.min-w-0 \"19:00 Fong Deposit paid HK$400\" @646,638 60x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:00 Ng Deposit paid HK$300\" @720,638 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"12:30 Wong Deposit due HK$200\" @720,662 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: span.flex.min-w-0 \"13:00 Lee Refunded HK$400\" @720,686 61x20 | children in one row are neither top-, bottom- nor center-aligned (spread top 5px / center 8px / bottom 17px)",
+        "row-misaligned: header.flex.items-start \"Friday, November 27 1 booking · 0 guests\" @809,233 358x83 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 8px / bottom 24px)",
+        "text-truncated: span.truncate.text-xs \"9 guests\" @743,612 38x16 | ellipsis truncation, 11px hidden (no tooltip); full text: \"9 guests\""
+      ]
+    },
+    {
+      "check": "no-show + Refund: refunded (staff), a second Refund is not offered",
+      "ok": true,
+      "detail": "refunded|staff|1"
+    },
+    {
+      "check": "a second Refund and Keep after Refund from the page -> 409",
+      "ok": true,
+      "detail": "409 409"
+    },
+    {
+      "check": "create: no phone -> no Require deposit",
+      "ok": true
+    },
+    {
+      "step": "09-create-no-phone",
+      "note": "New booking without a phone: no deposit option",
+      "file": "09-create-no-phone-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 2,
+        "info": 0
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "inconsistent-spacing: div[data-testid=\"booking-row-74a5cefe-fc97-44ab-ab87-849398d8f58c\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 110px / bottom 252px)"
+      ]
+    },
+    {
+      "check": "create: phone -> \"Require deposit HK$400\", on",
+      "ok": true,
+      "detail": "{\"checked\":true,\"label\":\"Require deposit HK$400 The diner gets a payment link on WhatsApp and has 24 hours to pay. Paying confirms the booking.\"}"
+    },
+    {
+      "step": "10-create-require-deposit",
+      "note": "Require deposit HK$400, on by default",
+      "file": "10-create-require-deposit-en-1200.jpeg",
+      "focus": "[data-testid=booking-form-deposit]"
+    },
+    {
+      "check": "create: clearing the phone hides it again",
+      "ok": true
+    },
+    {
+      "check": "create: awaiting_deposit, staff, created_by, 24 h hold, one checkout session",
+      "ok": true,
+      "detail": "awaiting_deposit|awaiting"
+    },
+    {
+      "check": "create: toast \"Link not sent, share it yourself\" + Copy link (no approved template, window closed)",
+      "ok": true,
+      "detail": "deposit_not_sent"
+    },
+    {
+      "step": "11-create-awaiting-toast",
+      "note": "Saved: Awaiting deposit, toast with Copy link",
+      "file": "11-create-awaiting-toast-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 4,
+        "info": 0
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "inconsistent-spacing: div[data-testid=\"booking-row-74a5cefe-fc97-44ab-ab87-849398d8f58c\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "inconsistent-spacing: div[data-testid=\"booking-row-0fc11f9c-d634-4caf-8275-a0c5af5ffa11\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 4px / bottom 24px)",
+        "row-misaligned: div[data-testid=\"booking-toast\"].fixed.inset-x-4 \"Booking saved · Link not sent, share it  | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 12px / bottom 22px)"
+      ]
+    },
+    {
+      "check": "copy link: the /p link is on the clipboard",
+      "ok": true,
+      "detail": "http://localhost:3110/p/0jmSYQ3OxlO4zzyV… link_copied"
+    },
+    {
+      "check": "create: the row shows Awaiting deposit + Copy link",
+      "ok": true,
+      "detail": "awaiting"
+    },
+    {
+      "check": "row Copy link: the hosted checkout URL",
+      "ok": true,
+      "detail": "https://checkout.stripe.com/c/pay/cs_test_walkfake_179583081"
+    },
+    {
+      "step": "12-today-awaiting-row",
+      "note": "Today after save: the new row Awaiting deposit with Copy link",
+      "file": "12-today-awaiting-row-en-1200.jpeg",
+      "url": "/dashboard/bookings?view=today",
+      "audit": {
+        "blocking": 0,
+        "warning": 3,
+        "info": 0
+      },
+      "viewport": {
+        "w": 1200,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false,
+        "consistent": true,
+        "inner": [
+          1200,
+          900
+        ]
+      },
+      "blocking": [],
+      "warnings": [
+        "inconsistent-spacing: div[data-testid=\"booking-row-74a5cefe-fc97-44ab-ab87-849398d8f58c\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "inconsistent-spacing: div[data-testid=\"booking-row-0fc11f9c-d634-4caf-8275-a0c5af5ffa11\"].grid.grid-cols-[4.5rem | 4 sibling <div> items have uneven horizontal gaps: [12, 12, 176]px",
+        "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1200x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 4px / bottom 24px)"
+      ]
+    },
+    {
+      "check": "0 console errors (the 2 deliberate 409 probes excluded)",
+      "ok": true,
+      "detail": "{\"real\":[],\"probes\":2}"
+    }
+  ],
+  "consoleErrors": [
+    "log: Failed to load resource: the server responded with a status of 409 (Conflict) http://localhost:3110/api/dashboard/bookings/0ae934d8-e020-4e29-a5db-31535563fc37/deposit/refund",
+    "log: Failed to load resource: the server responded with a status of 409 (Conflict) http://localhost:3110/api/dashboard/bookings/0ae934d8-e020-4e29-a5db-31535563fc37/deposit/keep"
+  ]
+}

@@ -1,0 +1,13 @@
+# existing booking DB tests on the same scratch DB 001..097 (2026-11-27T15:44:00Z); PGPORT=55496 PGUSER=postgres PGDATABASE=postgres
+## booking.db
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+## booking-cron.db
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+## booking-room.db
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+## agent-booking.db
+ Test Files  1 passed (1)
+      Tests  13 passed (13)

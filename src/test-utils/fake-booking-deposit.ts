@@ -1,8 +1,10 @@
-// BOOK-014: in-memory deposit ports with the same rules as migration 096's
+// BOOK-014: in-memory deposit ports with the same rules as migration 097's
 // RPCs (booking-deposits.db.test.ts proves the SQL): every transition is a
 // check-and-write in one tick, so of two interleaved calls exactly one wins;
 // awaiting_deposit holds seats and counts toward the per-phone cap; the lapse
 // uses the "database" clock; each move appends one deposit event with its actor.
+// Refund ids are kept per attempt (booking_deposit_refund_attempts) and a refund
+// webhook settles only through the attempt that made its id (review finding 2).
 import { randomUUID } from 'crypto'
 import type { BookingRequest, BookingStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingDeposit, DepositActor, DepositStatus, NewDepositHold } from '@/domain/entities/booking-deposit'
@@ -45,8 +47,25 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
   defaultSlotLimit: number | null = null
   /** Throws on the next call of a method (a database error). */
   failNext: keyof BookingDepositStore | null = null
+  /** deposit id -> attempt -> the refund id the provider returned for it (null until known). */
+  readonly refundAttempts = new Map<string, Map<number, string | null>>()
+  /** deposit id -> last change, by the "database" clock (updated_at). */
+  private readonly updatedAt = new Map<string, number>()
 
   constructor(readonly dbNow: () => Date = () => new Date()) {}
+
+  private touch(d: StoredDeposit) {
+    this.updatedAt.set(d.id, this.dbNow().getTime())
+  }
+
+  private attemptsOf(depositId: string): Map<number, string | null> {
+    let refs = this.refundAttempts.get(depositId)
+    if (!refs) {
+      refs = new Map()
+      this.refundAttempts.set(depositId, refs)
+    }
+    return refs
+  }
 
   private maybeFail(op: keyof BookingDepositStore) {
     if (this.failNext === op) {
@@ -57,6 +76,7 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
 
   private event(d: StoredDeposit, type: string, actor: DepositActor['kind'], userId: string | null = null, ref: string | null = null) {
     this.events.push({ depositId: d.id, type, actor, userId, ref })
+    this.touch(d)
   }
 
   private copy(d: StoredDeposit): BookingDeposit {
@@ -84,6 +104,20 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
 
   eventsOf(depositId: string): string[] {
     return this.events.filter((e) => e.depositId === depositId).map((e) => `${e.type}:${e.actor}`)
+  }
+
+  /** BOOK-014 W4: a booking written elsewhere (097 staff_create_deposit_booking) and its awaiting deposit, 'created' by `userId`. */
+  adoptHold(booking: BookingRequest, hold: NewDepositHold, userId: string): BookingDeposit {
+    const deposit: StoredDeposit = {
+      id: hold.id, restaurantId: booking.restaurantId, bookingId: booking.id, providerCode: hold.providerCode, accountId: hold.accountId,
+      providerAccountId: hold.providerAccountId, amount: { ...hold.amount }, status: 'awaiting', holdExpiresAt: hold.holdExpiresAt,
+      providerSessionId: null, sessionUrl: null, providerPaymentRef: null, paidAt: null, refundRef: null, refundReason: null,
+      refundAttempts: 0, decidedBy: null, decidedAt: null, createdAt: new Date().toISOString(), linkTokenHash: hold.linkTokenHash,
+    }
+    this.bookings.set(booking.id, { ...booking })
+    this.deposits.set(deposit.id, deposit)
+    this.event(deposit, 'created', 'user', userId)
+    return this.copy(deposit)
   }
 
   // ---- DepositBookingWriter ------------------------------------------------
@@ -233,6 +267,7 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
       d.providerPaymentRef = args.paymentRef
       d.paidAt = args.at.toISOString()
       d.refundAttempts += 1
+      this.attemptsOf(d.id).set(d.refundAttempts, null)
       this.event(d, 'late_payment', 'provider', null, args.paymentRef)
       this.event(d, 'refund_requested', 'system')
       return { outcome: 'late', deposit: this.copy(d) }
@@ -255,6 +290,7 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
     d.status = 'refund_pending'
     d.refundAttempts += 1
     d.refundRef = null
+    this.attemptsOf(d.id).set(d.refundAttempts, null)
     this.event(d, 'refund_requested', args.actor.kind, args.actor.kind === 'user' ? args.actor.userId : null)
     return this.copy(d)
   }
@@ -264,10 +300,20 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
     await tick()
     const d = this.deposits.get(args.depositId)
     if (!d) return null
-    const fromOk = d.status === 'refund_pending' || (args.outcome === 'refunded' && args.attempt === null && d.status === 'refund_failed')
-    if (!fromOk) return null
-    if (args.attempt !== null && d.refundAttempts !== args.attempt) return null
-    if (args.refundRef !== null && d.refundRef !== null && d.refundRef !== args.refundRef) return null
+    const refs = this.attemptsOf(d.id)
+    const settleable = d.status === 'refund_pending' || d.status === 'refund_failed'
+    if (args.attempt !== null) {
+      // The refund call of that attempt: records its id, settles only while it is the current attempt.
+      if (args.refundRef !== null && !refs.get(args.attempt)) refs.set(args.attempt, args.refundRef)
+      if (d.status !== 'refund_pending' || d.refundAttempts !== args.attempt) return null
+    } else if (args.refundRef === null) {
+      // "The payment is fully refunded": the provider's word on money.
+      if (args.outcome !== 'refunded' || !settleable) return null
+    } else {
+      const attempt = [...refs].find(([, ref]) => ref === args.refundRef)?.[0]
+      if (attempt === undefined) return null
+      if (args.outcome === 'refunded' ? !settleable : d.status !== 'refund_pending' || attempt !== d.refundAttempts) return null
+    }
     d.status = args.outcome as DepositStatus
     d.refundRef = args.refundRef ?? d.refundRef
     this.event(d, args.outcome === 'refunded' ? 'refund_succeeded' : 'refund_failed', args.actor, null, args.refundRef)
@@ -275,9 +321,24 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
   }
 
   async recordRefundRef(args: { depositId: string; attempt: number; refundRef: string }) {
+    this.maybeFail('recordRefundRef')
     await tick()
     const d = this.deposits.get(args.depositId)
-    if (d && d.status === 'refund_pending' && d.refundAttempts === args.attempt && d.refundRef === null) d.refundRef = args.refundRef
+    if (!d) return
+    const refs = this.attemptsOf(d.id)
+    if (!refs.get(args.attempt)) refs.set(args.attempt, args.refundRef)
+    if (d.status === 'refund_pending' && d.refundAttempts === args.attempt && d.refundRef === null) d.refundRef = args.refundRef
+  }
+
+  async listStalledRefunds(limit: number, olderThanMs: number) {
+    this.maybeFail('listStalledRefunds')
+    await tick()
+    const cutoff = this.dbNow().getTime() - olderThanMs
+    return [...this.deposits.values()]
+      .filter((d) => d.status === 'refund_pending' && d.refundRef === null && (this.updatedAt.get(d.id) ?? 0) < cutoff)
+      .sort((a, b) => (this.updatedAt.get(a.id) ?? 0) - (this.updatedAt.get(b.id) ?? 0))
+      .slice(0, Math.max(limit, 0))
+      .map((d) => this.copy(d))
   }
 
   async keep(args: KeepDepositArgs) {

@@ -53,7 +53,10 @@ function chunksByFromCall(source: string): Array<{ table: string; chunk: string 
 }
 
 function splitColumnList(raw: string): string[] {
+  // An embedded resource (`booking_deposits(status, ...)`, BOOK-014 W4) names ANOTHER table's
+  // columns; it is checked against that table where it is used, not here.
   return raw
+    .replace(/\w+\([^)]*\)/g, '')
     .split(',')
     .map((c) => c.trim())
     .filter((c) => c.length > 0 && c !== '*')

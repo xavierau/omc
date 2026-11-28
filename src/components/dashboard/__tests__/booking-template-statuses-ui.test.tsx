@@ -22,6 +22,7 @@ const statuses: BookingTemplateStatuses = {
   reminder: { en: 'pending', zh_hk: 'pending' },
   changed: { en: 'pending', zh_hk: 'pending' },
   cancelled: { en: 'pending', zh_hk: 'pending' },
+  deposit_request: { en: 'not_submitted', zh_hk: 'not_submitted' },
 }
 
 describe('BookingTemplateStatusList', () => {

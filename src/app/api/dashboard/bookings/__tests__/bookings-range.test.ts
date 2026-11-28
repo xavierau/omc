@@ -13,6 +13,36 @@ type Row = Record<string, unknown>
 const MAX_ROWS = 1000
 const table: { rows: Row[]; queries: string[][] } = { rows: [], queries: [] }
 
+/** Top-level comma split, ignoring commas inside parentheses. */
+function splitTerms(expr: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let cur = ''
+  for (const ch of expr) {
+    if (ch === '(') depth += 1
+    if (ch === ')') depth -= 1
+    if (ch === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+    } else cur += ch
+  }
+  return cur ? [...out, cur] : out
+}
+
+/** BOOK-014 W4: the PostgREST `or` forms the repository sends (col.eq|neq|in.value, and(...)). */
+function orTerm(term: string): (r: Row) => boolean {
+  if (term.startsWith('and(')) {
+    const parts = splitTerms(term.slice(4, -1)).map(orTerm)
+    return (r) => parts.every((f) => f(r))
+  }
+  const [col, op, ...rest] = term.split('.')
+  const value = rest.join('.')
+  if (op === 'eq') return (r) => String(r[col]) === value
+  if (op === 'neq') return (r) => String(r[col]) !== value
+  if (op === 'in') return (r) => value.slice(1, -1).split(',').includes(String(r[col]))
+  throw new Error(`fake or: ${term}`)
+}
+
 function query() {
   const filters: Array<(r: Row) => boolean> = []
   const orders: Array<[string, boolean]> = []
@@ -25,6 +55,7 @@ function query() {
     eq(c: string, v: unknown) { log.push(`eq:${c}=${v}`); filters.push((r) => r[c] === v); return chain },
     neq(c: string, v: unknown) { log.push(`neq:${c}=${v}`); filters.push((r) => r[c] !== v); return chain },
     in(c: string, v: unknown[]) { log.push(`in:${c}=${v}`); filters.push((r) => v.includes(r[c])); return chain },
+    or(expr: string) { log.push(`or:${expr}`); const terms = splitTerms(expr).map(orTerm); filters.push((r) => terms.some((f) => f(r))); return chain },
     gte(c: string, v: string) { log.push(`gte:${c}=${v}`); filters.push((r) => String(r[c]) >= v); return chain },
     lte(c: string, v: string) { log.push(`lte:${c}=${v}`); filters.push((r) => String(r[c]) <= v); return chain },
     order(c: string, o?: { ascending?: boolean }) { orders.push([c, o?.ascending !== false]); return chain },
@@ -77,6 +108,22 @@ beforeEach(() => {
   table.queries = []
   seq = 0
   vi.mocked(getTenantContext).mockResolvedValue({ userId: 'u', restaurantId: A, role: 'staff', tenantStatus: 'active' })
+})
+
+describe('BOOK-014 W4: deposit holds in the range (spec AC-5, AC-11; review finding 9)', () => {
+  it("lists a staff booking awaiting its deposit, never a diner's hold or a lapsed one; `holds` carries the diners' held guests per date", async () => {
+    const staffHold = add(A, '2026-11-21', '19:00', 'awaiting_deposit')
+    table.rows.find((r) => r.id === staffHold)!.source = 'staff'
+    const dinerHold = add(A, '2026-11-21', '19:30', 'awaiting_deposit')
+    table.rows.find((r) => r.id === dinerHold)!.party_size = 5
+    add(A, '2026-11-21', '20:00', 'lapsed')
+    add(B, '2026-11-21', '20:00', 'awaiting_deposit')
+    const confirmed = add(A, '2026-11-21', '12:00', 'confirmed')
+    const res = await get('?from=2026-11-01&to=2026-11-30')
+    const body = await res.json()
+    expect(body.bookings.map((b: { id: string }) => b.id)).toEqual([confirmed, staffHold])
+    expect(body.holds).toEqual({ '2026-11-21': 5 })
+  })
 })
 
 describe('GET /api/dashboard/bookings with a date range (BOOK-004)', () => {

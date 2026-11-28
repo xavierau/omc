@@ -1,0 +1,41 @@
+PASS today: staff hold shown, diner hold + lapsed hidden Wong Awaiting, Lee Paid, Ho Paid, Cheung Paid, Ng No-show, Chan No Deposit
+PASS today: badges awaiting / paid / no-show paid awaiting paid paid
+PASS today: no badge without a deposit 
+PASS today: no-show paid offers Refund + Keep 
+PASS today: staff hold offers Copy link 
+01-today-en-390.jpeg  blocking=0 warning=0
+PASS table: awaiting, paid, kept, refunded, refund pending, refund failed {"Wong Awaiting":"awaiting","Lee Paid":"paid","Tam Kept":"kept","Yip Refunded":"refunded","Kwok Pending":"refund_pending","Lau Failed":"refund_failed"}
+PASS table: refund failed offers Retry 
+PASS table: diner hold and lapsed not listed 
+02-table-en-390.jpeg  blocking=0 warning=10
+PASS calendar: day total = listed guests (no-shows left out, BOOK-007) + diner hold (5), in the day panel listed 16 + hold 5; panel "Saturday, November 28  10 bookings · 21 guests · 2 need a reply"; cell "Sat 28"
+PASS calendar: chip deposit mark on the staff hold phone grid shows dots, not chips
+03-calendar-day-en-390.jpeg  blocking=0 warning=18
+PASS decline paid: declined + refunded (declined), one provider refund refunded|declined|1 stripe+1
+PASS decline paid: the decline message (free text, open window, the diner's language: zh_hk by default, no member) says the deposit HK$400 will be refunded {"messaging_product":"whatsapp","recipient_type":"individual","to":"+85291000002","type":"text","text":{"body":"很抱歉,餐廳未能接受你在2026-11-28 13:00的訂座要求。歡迎選擇其他時間再次提交訂座要求。 你的訂金 HK$400 將會退回。"}}
+04-decline-refunded-en-390.jpeg  blocking=0 warning=16
+PASS decline, provider refuses: declined stands, refund_failed refund_failed|declined|1
+PASS decline, provider refuses: Retry shown 
+05-decline-refund-failed-en-390.jpeg  blocking=0 warning=14
+PASS retry: refunded, attempt 2 refunded|declined|2
+PASS retry: toast refunded refunded
+PASS cancel dialog: Refund / Keep / Decide later 
+06-cancel-dialog-en-390.jpeg  blocking=0 warning=18
+PASS cancel + keep: cancelled, kept by the staff user kept|-|0
+07-cancel-kept-en-390.jpeg  blocking=0 warning=12
+PASS no-show paid: Deposit held + Refund + Keep 
+08-no-show-held-en-390.jpeg  blocking=0 warning=2
+PASS no-show + Refund: refunded (staff), a second Refund is not offered refunded|staff|1
+PASS a second Refund and Keep after Refund from the page -> 409 409 409
+PASS create: no phone -> no Require deposit 
+09-create-no-phone-en-390.jpeg  blocking=0 warning=1
+PASS create: phone -> "Require deposit HK$400", on {"checked":true,"label":"Require deposit HK$400 The diner gets a payment link on WhatsApp and has 24 hours to pay. Paying confirms the booking."}
+PASS create: clearing the phone hides it again 
+PASS create: awaiting_deposit, staff, created_by, 24 h hold, one checkout session awaiting_deposit|awaiting
+PASS create: toast "Link not sent, share it yourself" + Copy link (no approved template, window closed) deposit_not_sent
+11-create-awaiting-toast-en-390.jpeg  blocking=0 warning=1
+PASS copy link: the /p link is on the clipboard http://localhost:3110/p/SliAnLYaULtefOVT… link_copied
+PASS create: the row shows Awaiting deposit + Copy link awaiting
+PASS row Copy link: the hosted checkout URL https://checkout.stripe.com/c/pay/cs_test_walkfake_179583088
+12-today-awaiting-row-en-390.jpeg  blocking=0 warning=0
+PASS 0 console errors (the 2 deliberate 409 probes excluded) {"real":[],"probes":2}

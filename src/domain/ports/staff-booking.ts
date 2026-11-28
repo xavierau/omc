@@ -6,7 +6,9 @@
  * conditional statement with its events row (R3, R9).
  */
 import type { BookingRequest } from '@/domain/entities/booking-request'
+import type { BookingDeposit, NewDepositHold } from '@/domain/entities/booking-deposit'
 import type { StaffBookingInput } from '@/domain/services/staff-booking-input'
+import type { Money } from '@/domain/value-objects/money'
 
 export interface StaffCreateArgs {
   restaurantId: string
@@ -15,6 +17,12 @@ export interface StaffCreateArgs {
   actorUserId: string
   at: Date
   brokenRules: string[]
+  /**
+   * BOOK-014 W4 (spec AC-11, R60): staff turned off a deposit the rule asked
+   * for; the 'waived' deposit event (this amount, this user) is written with
+   * the booking, in one transaction (migration 097).
+   */
+  waivedDeposit?: Money
 }
 
 export interface StaffUpdateArgs {
@@ -43,6 +51,12 @@ export interface StaffBookingStore {
   /** The staff-visible booking (never unverified), with its open change if any. */
   find(id: string, restaurantId: string): Promise<BookingRequest | null>
   create(args: StaffCreateArgs): Promise<BookingRequest>
+  /**
+   * BOOK-014 W4 (spec AC-11): the booking as awaiting_deposit with its deposit
+   * row (awaiting, the 'created' event by the staff user), in one transaction.
+   * The phone is required (the link goes to it). Paid -> confirmed (097).
+   */
+  createAwaitingDeposit(args: StaffCreateArgs & { input: StaffBookingInput & { phone: string } }, hold: NewDepositHold): Promise<{ booking: BookingRequest; deposit: BookingDeposit }>
   /** Null when nothing changed (stale, wrong status, open change, other tenant). */
   update(args: StaffUpdateArgs): Promise<BookingRequest | null>
   cancel(args: StaffCancelArgs): Promise<BookingRequest | null>

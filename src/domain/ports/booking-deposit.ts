@@ -1,7 +1,7 @@
 /**
  * BOOK-014: ports the deposit use cases depend on. The Supabase adapter is
  * `src/infrastructure/supabase/repositories/booking-deposit-repository.ts`
- * (migration 096 RPCs); tests use `src/test-utils/fake-booking-deposit.ts`,
+ * (migration 097 RPCs); tests use `src/test-utils/fake-booking-deposit.ts`,
  * which keeps the same CAS rules (first transition wins, loser gets null).
  *
  * Every staff-facing read and write is scoped by restaurant in the query
@@ -34,6 +34,14 @@ export interface BeginRefundArgs {
   at: Date
 }
 
+/**
+ * Review finding 2: a refund settles only through the attempt that created it.
+ * - `attempt` set (the refund call of that attempt): settles only while that is the current attempt.
+ * - `attempt` null (a refund webhook): `refundRef` is matched to the attempt it was recorded for;
+ *   succeeded -> refunded from any attempt (the provider's word on money), failed -> refund_failed only
+ *   for the current attempt; an id never recorded changes nothing. A null `refundRef` + refunded is the
+ *   provider saying the payment is fully refunded, which ends refund_pending / refund_failed.
+ */
 export interface FinishRefundArgs {
   depositId: string
   /** The attempt the refund call made; null = a refund webhook. */
@@ -68,8 +76,17 @@ export interface BookingDepositStore {
   /** R56: CAS; the winner gets the row with refundAttempts + 1, every other caller null. */
   beginRefund(args: BeginRefundArgs): Promise<BookingDeposit | null>
   finishRefund(args: FinishRefundArgs): Promise<BookingDeposit | null>
-  /** A refund the provider accepted but has not settled: keep its id for the webhook. */
+  /**
+   * Review finding 2: the refund id the provider returned for `attempt`, recorded as soon as it is
+   * known (whatever its status), so a later webhook is matched to the attempt that made it. Also the
+   * deposit's current refund id while that attempt is current and pending.
+   */
   recordRefundRef(args: { depositId: string; attempt: number; refundRef: string }): Promise<void>
+  /**
+   * Review finding 1b: refund_pending deposits with no refund id whose last change is older than
+   * `olderThanMs` by the database clock (a refund that was never issued), oldest first, at most `limit`.
+   */
+  listStalledRefunds(limit: number, olderThanMs: number): Promise<BookingDeposit[]>
   keep(args: KeepDepositArgs): Promise<BookingDeposit | null>
 }
 
@@ -80,7 +97,7 @@ export type InsertWithDepositResult =
 /**
  * Spec AC-5 / R54 / R55: a diner channel's booking + its deposit, written in
  * one transaction with the seat check and (when `maxPending` is given) the
- * per-phone cap (insert_booking_request_if_room, migration 096).
+ * per-phone cap (insert_booking_request_if_room, migration 097).
  */
 export interface DepositBookingWriter {
   insertWithDeposit(request: NewBookingRequest, check: RoomCheck, hold: NewDepositHold, maxPending: number | null): Promise<InsertWithDepositResult>

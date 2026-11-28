@@ -69,6 +69,17 @@ export interface BookingsPayload {
   pendingCount: number
   /** The range held more rows than the API returns (BOOK-004 R4). */
   truncated: boolean
+  /** BOOK-014 W4 (review finding 9): guests per date in diners' deposit holds (seats taken, no rows). */
+  holds?: Record<string, number>
+}
+
+/** Only date -> whole-guest entries; anything else is dropped. */
+function parseHolds(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const entries = Object.entries(raw as Record<string, unknown>).filter(
+    (e): e is [string, number] => /^\d{4}-\d{2}-\d{2}$/.test(e[0]) && Number.isInteger(e[1]) && (e[1] as number) > 0
+  )
+  return Object.fromEntries(entries)
 }
 
 /** BOOK-004: a date range (inclusive), or r2: every pending booking of any date. */
@@ -86,7 +97,8 @@ async function fetchBookingsBySearch(search: string): Promise<BookingsPayload> {
   const res = await fetch(`/api/dashboard/bookings?${search}`)
   if (!res.ok) throw new Error('Failed to fetch bookings')
   const body = (await res.json()) as Partial<BookingsPayload> & { bookings: BookingItem[] }
-  return { bookings: body.bookings, pendingCount: body.pendingCount ?? 0, truncated: body.truncated === true }
+  const holds = parseHolds(body.holds)
+  return { bookings: body.bookings, pendingCount: body.pendingCount ?? 0, truncated: body.truncated === true, ...(holds ? { holds } : {}) }
 }
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Unknown error')

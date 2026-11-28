@@ -12,6 +12,7 @@ import { merchantPaymentAccountReader } from '@/infrastructure/supabase/reposito
 import { merchantPaymentAccountStore } from '@/infrastructure/supabase/repositories/merchant-payment-account-store'
 import { releaseIdempotencyKey, tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { appBaseUrl } from '@/infrastructure/config/app-url'
+import { findStaffBooking } from '@/infrastructure/supabase/repositories/staff-booking-repository'
 import { mintPaymentLinkToken } from '@/domain/services/payment-link-token'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { WebhookClaimStore } from '@/domain/ports/booking-deposit'
@@ -19,7 +20,8 @@ import type { StartDepositDeps } from './start-deposit'
 import type { ProcessPaymentWebhookDeps } from './process-payment-webhook'
 import type { DepositPaid } from './handle-payment-event'
 import type { ExpireDepositsDeps } from './expire-deposits'
-import type { DepositDecisionDeps } from './deposit-decisions'
+import type { RedriveRefundsDeps } from './redrive-stalled-refunds'
+import type { DepositDecisionDeps, StaffDepositLinkDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
 import type { PaymentAccountDeps } from './payment-account'
 
@@ -72,9 +74,19 @@ export function expireDepositsDeps(): ExpireDepositsDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog }
 }
 
-/** Refund / Retry / Keep (W4 adds the routes). */
+/** The stalled-refund step of /api/cron/booking-reminders (review finding 1b). */
+export function redriveRefundsDeps(): RedriveRefundsDeps {
+  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog }
+}
+
+/** Refund / Retry / Keep (W4's /deposit routes and the decline refund). */
 export function depositDecisionDeps(): DepositDecisionDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog, now }
+}
+
+/** W4: Copy link on a staff booking awaiting its deposit. */
+export function staffDepositLinkDeps(): StaffDepositLinkDeps {
+  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), findBooking: findStaffBooking }
 }
 
 /** GET /p/<token>. */
