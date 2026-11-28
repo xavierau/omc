@@ -33,10 +33,12 @@
 import type { AgentToolDeclaration, AgentToolOutput } from '@/domain/ports/agent-model'
 import type { AgentMode, AgentToolName } from '@/domain/value-objects/agent-config'
 import type { BookingMode } from '@/domain/value-objects/booking-config'
+import type { AgentProposalAction } from '@/domain/ports/agent-booking-proposal'
+import type { Money } from '@/domain/value-objects/money'
 import { notifyReceived } from '@/application/booking/submit-booking-request'
 import { atOpenCap, saveProposal, takeProposal, TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
 import { acceptedTerms, insertRequest, parseAgreed, parseProposal, proposalFull, termsForReadBack } from './agent-booking-rules'
-import { createWithDeposit, proposalDeposit, refusePaymentArgs } from './agent-booking-deposit'
+import { createWithDeposit, depositReadBack, proposalDeposit, refusePaymentArgs } from './agent-booking-deposit'
 import {
   CHANGE_TOOL_DECLARATIONS,
   CHANGE_TOOL_NAMES,
@@ -133,7 +135,8 @@ async function proposeBooking(call: BookingCall, args: Record<string, unknown>):
   if (await atOpenCap(call)) return TOO_MANY_PENDING
   const { terms, note } = termsForReadBack(call)
   const deposit = await proposalDeposit(call, parsed.submission.partySize)
-  if (!(await saveProposal(call, { kind: 'create', booking: parsed.submission, ...(terms ? { termsText: terms } : {}) }))) {
+  const action = { kind: 'create' as const, booking: parsed.submission, ...(terms ? { termsText: terms } : {}), plannedDeposit: deposit.plan }
+  if (!(await saveProposal(call, action))) {
     return { error: 'lookup_failed' }
   }
   return {
@@ -171,8 +174,9 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
     ...acceptedTerms(call, s),
   }
   // BOOK-014 W5 (spec AC-9): held awaiting its deposit; "received" waits for the paid event.
-  const held = await createWithDeposit(call, request)
-  if (held) return held
+  const held = await createWithDeposit(call, request, taken.proposal.plannedDeposit)
+  if (held.kind === 'output') return held.output
+  if (held.kind === 'terms_changed') return reproposeForNewDeposit(call, taken.proposal, held.plan)
   const inserted = await insertRequest(call, request)
   if (!inserted.ok) return inserted.output
   // R16: best effort; a failed "received" message never fails the booking.
@@ -181,6 +185,34 @@ async function createBookingRequest(call: BookingCall): Promise<AgentToolOutput>
     booked: true,
     status: 'pending',
     note: 'The request is sent. Tell the diner the restaurant will confirm it and they will get a WhatsApp message.',
+  }
+}
+
+const TERMS_CHANGED_NOTE =
+  'The deposit terms changed since the diner agreed, so nothing was booked. Nothing was charged. This is the new proposal: read it back to the diner and ask them to confirm. Call create_booking_request only after they agree in their next message.'
+
+/**
+ * BOOK-014 W6-fix F5: the deposit the diner agreed to is not the one that applies now. Nothing is
+ * written; the same booking is proposed again with the deposit that applies now (or none), so the
+ * diner agrees to what will really happen.
+ */
+async function reproposeForNewDeposit(
+  call: BookingCall,
+  proposal: Extract<AgentProposalAction, { kind: 'create' }>,
+  plan: Money | null
+): Promise<AgentToolOutput> {
+  const readBack = depositReadBack(call, plan)
+  const plannedDeposit = plan ? { amountMinor: plan.amountMinor, currency: plan.currency } : null
+  if (!(await saveProposal(call, { kind: 'create', booking: proposal.booking, ...(proposal.termsText ? { termsText: proposal.termsText } : {}), plannedDeposit }))) {
+    return { error: 'lookup_failed' }
+  }
+  return {
+    error: 'deposit_terms_changed',
+    proposed: true,
+    booking: proposal.booking,
+    ...(proposal.termsText ? { terms: proposal.termsText } : {}),
+    ...(readBack.deposit ? { deposit: readBack.deposit } : {}),
+    note: [TERMS_CHANGED_NOTE, readBack.note ?? 'no deposit is needed now: tell the diner.'].join(' '),
   }
 }
 

@@ -259,3 +259,69 @@ describe('Q5: diner cancel of a booking with a paid deposit', () => {
     expect(world.texts.at(-1)!.text).not.toContain('HK$400')
   })
 })
+
+// BOOK-014 W6-fix F5 (PR #237 /code-review): propose and create must agree on
+// the deposit. The proposal stores the planned deposit; create recomputes it
+// and, when it changed, books nothing, charges nothing and re-proposes.
+describe('W6-fix F5: the deposit terms changed between propose and create', () => {
+  const CHANGED_NOTE = 'The deposit terms changed since the diner agreed, so nothing was booked.'
+
+  it('F5 plan changed (deposit -> none: account no longer chargeable) -> refusal + re-propose, no hold, no booking; the next create books without a deposit', async () => {
+    const { world, pay, job, agentHolds } = setup()
+    const proposed = await (await job())('propose_booking', GOOD)
+    expect(proposed).toMatchObject({ deposit: { amount: 'HK$400' } })
+    pay.accounts.set({ restaurantId: R, chargesEnabled: false })
+
+    const refused = await (await job())('create_booking_request', {})
+    expect(refused).toMatchObject({ error: 'deposit_terms_changed', proposed: true, booking: { partySize: 4, date: DAY, time: '19:00' } })
+    expect(refused).not.toHaveProperty('deposit')
+    expect(String(refused.note)).toContain(CHANGED_NOTE)
+    expect(String(refused.note)).toContain('no deposit is needed now')
+    expect(agentHolds()).toHaveLength(0)
+    expect(world.requests.rows.filter((r) => r.source === 'agent')).toHaveLength(0)
+    expect(pay.gateway.calls.createHostedPayment).toBe(0)
+    expect(world.texts).toHaveLength(0)
+
+    // The diner agrees to the new proposal in a later message.
+    expect(await (await job())('create_booking_request', {})).toMatchObject({ booked: true, status: 'pending' })
+    expect(agentHolds()).toHaveLength(0)
+  })
+
+  it('F5 plan changed (none -> deposit: the rule was switched on) -> refusal with the new amount, no plain booking; the next create holds it', async () => {
+    const { world, pay, job, agentHolds } = setup({})
+    const proposed = await (await job())('propose_booking', GOOD)
+    expect(proposed).not.toHaveProperty('deposit')
+    world.settings.setConfig(R, { mode: 'simple', maxPartySize: 8, deposit: RULE })
+
+    const refused = await (await job())('create_booking_request', {})
+    expect(refused).toMatchObject({ error: 'deposit_terms_changed', proposed: true, deposit: { amount: 'HK$400', payWithinMinutes: 30 } })
+    expect(String(refused.note)).toContain(CHANGED_NOTE)
+    expect(world.requests.rows.filter((r) => r.source === 'agent')).toHaveLength(0)
+    expect(world.sender.sent.filter((m) => m.kind === 'received')).toHaveLength(0)
+    expect(pay.gateway.calls.createHostedPayment).toBe(0)
+
+    expect(await (await job())('create_booking_request', {})).toMatchObject({ booked: true, status: 'awaiting_deposit', deposit: { amount: 'HK$400' } })
+    expect(agentHolds()).toHaveLength(1)
+  })
+
+  it('F5 plan changed (amount) -> refusal quoting the new amount; same plan -> books as before', async () => {
+    const { world, job, agentHolds } = setup()
+    await (await job())('propose_booking', GOOD)
+    world.settings.setConfig(R, { mode: 'simple', maxPartySize: 8, deposit: { ...RULE, amount: 150 } })
+    const refused = await (await job())('create_booking_request', {})
+    expect(refused).toMatchObject({ error: 'deposit_terms_changed', deposit: { amount: 'HK$600' } })
+    expect(agentHolds()).toHaveLength(0)
+    expect(await (await job())('create_booking_request', {})).toMatchObject({ booked: true, deposit: { amount: 'HK$600' } })
+  })
+
+  it('F5 a proposal stored before W6-fix (no planned deposit) is booked as today', async () => {
+    const { world, job, agentHolds } = setup()
+    await (await job())('propose_booking', GOOD)
+    const entries = [...world.proposals.entries.values()]
+    expect(entries).toHaveLength(1)
+    expect(entries[0].proposal).toMatchObject({ plannedDeposit: { amountMinor: 40000, currency: 'HKD' } })
+    delete (entries[0].proposal as { plannedDeposit?: unknown }).plannedDeposit
+    expect(await (await job())('create_booking_request', {})).toMatchObject({ booked: true, status: 'awaiting_deposit' })
+    expect(agentHolds()).toHaveLength(1)
+  })
+})

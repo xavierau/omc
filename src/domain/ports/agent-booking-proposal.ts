@@ -27,9 +27,12 @@ export type AgentProposalKind = 'create' | 'change' | 'cancel'
  * create: a new booking · change: new values for `bookingId` · cancel: `bookingId`.
  * BOOK-009: `termsText` = the booking terms read back with the proposal
  * (absent when the restaurant had none); the diner's agreement accepts them.
+ * BOOK-014 W6-fix F5: `plannedDeposit` = the deposit read back with a create
+ * proposal (null = none). The diner agreed to exactly that; create refuses and
+ * re-proposes when it changed. Absent on a proposal stored before W6-fix.
  */
 export type AgentProposalAction =
-  | { kind: 'create'; booking: BookingSubmission; termsText?: string }
+  | { kind: 'create'; booking: BookingSubmission; termsText?: string; plannedDeposit?: { amountMinor: number; currency: string } | null }
   | { kind: 'change'; bookingId: string; booking: BookingSubmission; termsText?: string }
   | { kind: 'cancel'; bookingId: string }
 

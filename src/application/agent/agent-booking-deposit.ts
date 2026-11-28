@@ -18,6 +18,10 @@
  *   decides, quoting the admin's rule (Q5); staff then Refund / Keep (W4).
  * - R59: no tool takes a deposit, amount, waiver, refund or payment field;
  *   a call that sends one is refused before anything runs.
+ * - W6-fix F5: propose stores the deposit it read back (or none); create
+ *   recomputes it from the same account read startDeposit then uses and, if
+ *   it differs, books nothing, charges nothing and re-proposes
+ *   (`terms_changed`). A deposit is never charged or skipped silently.
  */
 import { MAX_PENDING_PER_PHONE, type NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingDeposit } from '@/domain/entities/booking-deposit'
@@ -28,7 +32,7 @@ import { withDisclosure } from '@/domain/services/agent-reply-text'
 import { depositTermsText } from '@/domain/value-objects/deposit-terms'
 import { DEPOSIT_RULE_OFF, type DepositRule } from '@/domain/value-objects/deposit-rule'
 import { depositDecisionText, depositLinkText } from '@/domain/value-objects/deposit-messages'
-import { formatMoney, type Money } from '@/domain/value-objects/money'
+import { formatMoney, sameMoney, type Money } from '@/domain/value-objects/money'
 import { DINER_HOLD_MS } from '@/domain/entities/booking-deposit'
 import { plannedDeposit, startDeposit } from '@/application/payments/start-deposit'
 import { TOO_MANY_PENDING, type BookingCall } from './agent-booking-gate'
@@ -74,9 +78,15 @@ async function planFor(call: BookingCall, partySize: number): Promise<Money | nu
   return plannedDeposit(rule, await deposit.accounts.findForRestaurant(call.key.restaurantId), partySize)
 }
 
-/** propose_booking's read-back: the amount and the rule, so the diner agrees knowing a deposit is needed. */
-export async function proposalDeposit(call: BookingCall, partySize: number): Promise<{ deposit?: AgentToolOutput; note?: string }> {
-  const amount = await planFor(call, partySize)
+/** What a proposal stores of its deposit (F5). */
+export type PlannedDeposit = { amountMinor: number; currency: string } | null
+
+export function samePlan(a: PlannedDeposit, b: Money | null): boolean {
+  return a === null || b === null ? a === b : sameMoney({ amountMinor: a.amountMinor, currency: a.currency }, b)
+}
+
+/** The read-back of one planned deposit: the amount and the rule, so the diner agrees knowing a deposit is needed. */
+export function depositReadBack(call: BookingCall, amount: Money | null): { deposit?: AgentToolOutput; note?: string } {
   if (!amount) return {}
   const terms = termsOf(ruleOf(call), amount)
   const minutes = DINER_HOLD_MS / 60_000
@@ -86,22 +96,46 @@ export async function proposalDeposit(call: BookingCall, partySize: number): Pro
   }
 }
 
+/** propose_booking's read-back plus the plan the proposal stores (F5). */
+export async function proposalDeposit(
+  call: BookingCall,
+  partySize: number
+): Promise<{ plan: PlannedDeposit; deposit?: AgentToolOutput; note?: string }> {
+  const amount = await planFor(call, partySize)
+  return { plan: amount ? { amountMinor: amount.amountMinor, currency: amount.currency } : null, ...depositReadBack(call, amount) }
+}
+
+/** create_booking_request: held with its deposit (`output`), booked the AGENT-003 way (`no_deposit`), or the plan changed (F5). */
+export type CreateWithDepositResult =
+  | { kind: 'output'; output: AgentToolOutput }
+  | { kind: 'no_deposit' }
+  | { kind: 'terms_changed'; plan: Money | null }
+
 /**
- * Spec AC-9: the agreed booking with its deposit, or null when no deposit
- * applies (the caller books the AGENT-003 way).
+ * Spec AC-9: the agreed booking with its deposit, or `no_deposit` when no
+ * deposit applies (the caller books the AGENT-003 way). F5: `agreed` is the
+ * plan the diner agreed to (undefined = a proposal from before W6-fix, not
+ * checked); a different plan now is `terms_changed` and nothing is written.
  */
-export async function createWithDeposit(call: BookingCall, request: NewBookingRequest): Promise<AgentToolOutput | null> {
+export async function createWithDeposit(
+  call: BookingCall,
+  request: NewBookingRequest,
+  agreed?: PlannedDeposit
+): Promise<CreateWithDepositResult> {
   const deposit = call.booking.deposit
   const rule = ruleOf(call)
-  if (!deposit || !mayApply(rule, request.partySize)) return null
+  const wired = deposit && mayApply(rule, request.partySize) ? deposit : null
   const { key, booking } = call
-  const [account, restaurant] = await Promise.all([
-    deposit.accounts.findForRestaurant(key.restaurantId),
-    booking.settings.getRestaurant(key.restaurantId),
-  ])
+  const [account, restaurant] = wired
+    ? await Promise.all([wired.accounts.findForRestaurant(key.restaurantId), booking.settings.getRestaurant(key.restaurantId)])
+    : [null, null]
+  // F5: the same account read startDeposit uses below, so the plan checked is the plan charged.
+  const plan = wired ? plannedDeposit(rule, account, request.partySize) : null
+  if (agreed !== undefined && !samePlan(agreed, plan)) return { kind: 'terms_changed', plan }
+  if (!wired) return { kind: 'no_deposit' }
   const insert = depositInsertCheck(call, request)
   const restaurantName = sanitizeTemplateParam(restaurant?.name)
-  const started = await startDeposit(deposit.start, {
+  const started = await startDeposit(wired.start, {
     restaurantId: key.restaurantId,
     rule,
     account,
@@ -111,15 +145,15 @@ export async function createWithDeposit(call: BookingCall, request: NewBookingRe
     bookingDate: request.bookingDate,
     bookingTime: request.bookingTime,
     // R55: the seat check and the per-phone cap in the same transaction as the hold.
-    insertBooking: (hold) => deposit.writer.insertWithDeposit(request, insert.check, hold, MAX_PENDING_PER_PHONE),
+    insertBooking: (hold) => wired.writer.insertWithDeposit(request, insert.check, hold, MAX_PENDING_PER_PHONE),
   })
   switch (started.kind) {
     case 'not_required':
-      return null
+      return { kind: 'no_deposit' }
     case 'payment_unavailable':
-      return PAYMENT_UNAVAILABLE
+      return { kind: 'output', output: PAYMENT_UNAVAILABLE }
     case 'refused':
-      return started.refusal.kind === 'pending_cap' ? TOO_MANY_PENDING : insert.full(started.refusal)
+      return { kind: 'output', output: started.refusal.kind === 'pending_cap' ? TOO_MANY_PENDING : await insert.full(started.refusal) }
     case 'started':
       break
   }
@@ -134,7 +168,7 @@ export async function createWithDeposit(call: BookingCall, request: NewBookingRe
   })
   // R11: an agent-sent text carries the tenant's disclosure; best effort, the model relays the link otherwise.
   const texted = await booking.notifyText(key.restaurantId, key.phone, withDisclosure(text, booking.disclosureText)).catch(() => false)
-  return {
+  const output: AgentToolOutput = {
     booked: true,
     status: 'awaiting_deposit',
     deposit: { amount: formatMoney(started.amount), payBy, paymentUrl: started.paymentUrl },
@@ -142,6 +176,7 @@ export async function createWithDeposit(call: BookingCall, request: NewBookingRe
       ? `The booking is held until ${payBy} and the diner already got the payment link in a text. Reply briefly: they must pay the ${formatMoney(started.amount)} deposit by ${payBy}, then the request goes to the restaurant, which confirms it by WhatsApp.`
       : `The booking is held until ${payBy}. Give the diner the paymentUrl exactly as it is and tell them to pay the ${formatMoney(started.amount)} deposit by ${payBy}; then the request goes to the restaurant, which confirms it by WhatsApp.`,
   }
+  return { kind: 'output', output }
 }
 
 /** The booking's deposit (scoped by restaurant), or null when deposits are not wired or there is none. */
