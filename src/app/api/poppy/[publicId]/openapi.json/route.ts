@@ -5,6 +5,8 @@
  * collection statement (R44). 404 when agent booking is off (R43).
  * BOOK-009 W4: with booking hours it also describes the rules, the terms and
  * GET /availability (spec AC-11, AC-13); without them it is unchanged.
+ * BOOK-014 W5 (spec AC-10): with an active deposit it states the deposit,
+ * its amount rule and the awaiting_deposit status fields.
  */
 import { resolveAgentBookingTenant } from '@/application/booking/resolve-agent-booking-tenant'
 import { agentOpenApiFor } from '@/application/booking/agent-booking-settings'
@@ -19,8 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pub
     const deps = agentOpenApiDeps()
     const tenant = await resolveAgentBookingTenant(deps.directory, publicId)
     if (!tenant) return notFound()
-    const { maxPartySize, bookingHours } = tenant.config
-    const document = await agentOpenApiFor(deps, { restaurantId: tenant.restaurantId, publicId, maxPartySize, bookingHours })
+    const { maxPartySize, bookingHours, deposit } = tenant.config
+    const document = await agentOpenApiFor(deps, { restaurantId: tenant.restaurantId, publicId, maxPartySize, bookingHours, deposit })
     return agentJson(document, 200)
   } catch (err) {
     console.error('[AgentBooking] openapi failed:', (err as Error).name)

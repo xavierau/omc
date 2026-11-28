@@ -17,7 +17,8 @@
 -- service_role.
 --
 -- Rollback (before any deposit exists): DROP the functions created below (incl. W4's
--- staff_create_deposit_booking and staff_create_booking_waiving_deposit),
+-- staff_create_deposit_booking and staff_create_booking_waiving_deposit, and W5's
+-- promote_agent_booking_to_deposit),
 -- DROP TABLE deposit_events, booking_deposit_refund_attempts, booking_deposits,
 -- merchant_payment_accounts;
 -- re-run 087's status/decision CHECKs, 092's booking_room_refusal,
@@ -1066,3 +1067,112 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.staff_create_booking_waiving_deposit(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, int, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.staff_create_booking_waiving_deposit(uuid, uuid, text, text, int, date, time, text, boolean, uuid, timestamptz, jsonb, int, text) TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 14. W5 (spec AC-10; threat R55): a personal agent's booking whose diner sent
+-- the confirm code, when the restaurant asks a deposit. The code step moves
+-- ONE candidate unverified -> awaiting_deposit (not pending) and inserts its
+-- deposit row ('awaiting') and 'created' event in the same transaction, so
+-- seats are held from the moment the code arrives and are released only by
+-- the lapse (or R54's abandon). The match is 084's: the row's id, restaurant,
+-- the sender's phone, status unverified, a code from the message and an
+-- unexpired window, so a replay, an expired code or another number changes
+-- nothing ({"ok": false, "refusal": {"kind": "not_promotable"}}).
+-- Same per-phone lock and cap (pending + awaiting_deposit) as
+-- promote_agent_booking ({"kind": "pending_cap"}, the row stays unverified),
+-- then, when p_room is given, the date lock and 092's seat check as
+-- promote_agent_booking_with_room: a slot that filled declines the row
+-- 'full' and returns {"ok": false, "refusal": <room refusal>, "row": row}.
+-- Lock order: phone, date, then the booking row (the deposit row is new).
+-- p_deposit keys as insert_booking_request_if_room's.
+-- Returns {"ok": true, "row": booking, "deposit": deposit}.
+CREATE OR REPLACE FUNCTION public.promote_agent_booking_to_deposit(
+  p_restaurant_id uuid,
+  p_phone text,
+  p_booking_id uuid,
+  p_codes text[],
+  p_wamid text,
+  p_at timestamptz,
+  p_max_pending int,
+  p_room jsonb,
+  p_deposit jsonb
+) RETURNS jsonb AS $$
+DECLARE
+  v_keys text[] := ARRAY[
+    'id', 'provider_code', 'account_id', 'provider_account_id', 'amount_minor', 'currency', 'hold_expires_at', 'link_token_hash'
+  ];
+  v_bad text;
+  v_held int;
+  v_candidate booking_requests;
+  v_refusal jsonb;
+  v_row booking_requests;
+  v_deposit booking_deposits;
+BEGIN
+  IF p_restaurant_id IS NULL OR p_phone IS NULL OR p_booking_id IS NULL OR p_deposit IS NULL OR p_max_pending IS NULL THEN
+    RAISE EXCEPTION 'promote_agent_booking_to_deposit: restaurant, phone, booking, cap and deposit are required' USING ERRCODE = '22023';
+  END IF;
+  SELECT k INTO v_bad FROM jsonb_object_keys(p_deposit) AS k WHERE k <> ALL (v_keys) LIMIT 1;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'promote_agent_booking_to_deposit: deposit key % is not allowed', v_bad USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('book003:promote:' || p_restaurant_id::text || ':' || p_phone, 0));
+
+  SELECT c.* INTO v_candidate
+  FROM booking_requests c
+  WHERE c.id = p_booking_id AND c.restaurant_id = p_restaurant_id AND c.phone = p_phone
+    AND c.status = 'unverified' AND c.confirm_code = ANY (p_codes) AND c.verify_expires_at > p_at;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', jsonb_build_object('kind', 'not_promotable'));
+  END IF;
+
+  SELECT count(*) INTO v_held
+  FROM booking_requests
+  WHERE restaurant_id = p_restaurant_id AND phone = p_phone AND status IN ('pending', 'awaiting_deposit');
+  IF v_held >= p_max_pending THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', jsonb_build_object('kind', 'pending_cap'));
+  END IF;
+
+  IF p_room IS NOT NULL THEN
+    PERFORM public.booking_room_lock(p_restaurant_id, v_candidate.booking_date);
+    v_refusal := public.booking_room_refusal(
+      p_restaurant_id, v_candidate.booking_date, v_candidate.booking_time, v_candidate.party_size,
+      p_room ->> 'period_key', (p_room ->> 'period_first')::time, (p_room ->> 'period_last')::time,
+      (p_room ->> 'slot_limit')::int, (p_room ->> 'meal_limit')::int
+    );
+    IF v_refusal IS NOT NULL THEN
+      UPDATE booking_requests
+         SET status = 'declined', decline_reason = 'full', decided_at = p_at, decided_by = NULL,
+             verified_at = p_at, verified_wamid = p_wamid, confirm_code = NULL
+       WHERE id = v_candidate.id AND status = 'unverified'
+      RETURNING * INTO v_row;
+      IF NOT FOUND THEN
+        RETURN jsonb_build_object('ok', false, 'refusal', jsonb_build_object('kind', 'not_promotable'));
+      END IF;
+      RETURN jsonb_build_object('ok', false, 'refusal', v_refusal, 'row', to_jsonb(v_row));
+    END IF;
+  END IF;
+
+  UPDATE booking_requests
+     SET status = 'awaiting_deposit', verified_at = p_at, verified_wamid = p_wamid, confirm_code = NULL
+   WHERE id = v_candidate.id AND status = 'unverified'
+  RETURNING * INTO v_row;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', jsonb_build_object('kind', 'not_promotable'));
+  END IF;
+
+  INSERT INTO booking_deposits (
+    id, restaurant_id, booking_id, account_id, provider_code, provider_account_id, amount_minor, currency,
+    status, hold_expires_at, link_token_hash
+  ) VALUES (
+    (p_deposit ->> 'id')::uuid, p_restaurant_id, v_row.id, (p_deposit ->> 'account_id')::uuid, p_deposit ->> 'provider_code',
+    p_deposit ->> 'provider_account_id', (p_deposit ->> 'amount_minor')::int, p_deposit ->> 'currency',
+    'awaiting', (p_deposit ->> 'hold_expires_at')::timestamptz, p_deposit ->> 'link_token_hash'
+  ) RETURNING * INTO v_deposit;
+  PERFORM public.booking_deposit_event(v_deposit, 'created', 'system', NULL, NULL);
+  RETURN jsonb_build_object('ok', true, 'row', to_jsonb(v_row), 'deposit', to_jsonb(v_deposit));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.promote_agent_booking_to_deposit(uuid, text, uuid, text[], text, timestamptz, int, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.promote_agent_booking_to_deposit(uuid, text, uuid, text[], text, timestamptz, int, jsonb, jsonb) TO service_role;

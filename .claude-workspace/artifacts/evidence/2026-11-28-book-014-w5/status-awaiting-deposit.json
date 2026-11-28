@@ -1,0 +1,13 @@
+{
+  "booking_id": "3650958a-7896-4b82-8721-0efefe5ccc0c",
+  "status": "awaiting_deposit",
+  "date": "2026-11-20",
+  "time": "19:30",
+  "party_size": 4,
+  "deposit": {
+    "amount": "400",
+    "currency": "HKD",
+    "expires_at": "2026-11-19T02:30:00.000Z"
+  },
+  "payment_url": "https://pay.test.invalid/s/sess_000001"
+}

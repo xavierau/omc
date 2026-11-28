@@ -1,0 +1,436 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cafe A table booking",
+    "version": "1.0.0",
+    "description": "Request a table at Cafe A. No sign-in.\n\nHow it works:\n1. POST /bookings with the diner's details. The answer has a `confirm_code` and a `confirm_url` (a WhatsApp link).\n2. The diner opens `confirm_url` and sends the prefilled message from THE SAME phone number as `phone`, within 30 minutes (`expires_at`).\n   Until then the request is not sent to the restaurant. A code sent from another number does nothing.\n3. The restaurant then accepts or declines it, and tells the diner on WhatsApp.\n   Poll GET /bookings/{booking_id} with the `X-Booking-Status-Token` header to follow it.\n\nAt most 3 open requests per phone number at a time (unconfirmed, or confirmed by the diner and waiting for the restaurant). Send an Idempotency-Key header to retry safely.\n\nDeposit: Deposit HK$100 per guest for 2 or more. Cancel 24 hours ahead for a refund.\nWhen a deposit applies, the diner's confirmation on WhatsApp does not send the request yet: the booking becomes `awaiting_deposit` and the diner gets a payment link in that WhatsApp chat.\nGET /bookings/{booking_id} then also returns `payment_url` and `deposit` {amount, currency, expires_at}. Once paid it becomes `pending`; unpaid at `deposit.expires_at` it becomes `expired`. The amount is set by the restaurant; no request field changes it.\n\nCollection statement: The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking. Privacy policy: https://ohmyclient.io/privacy-policy.html\n收集個人資料聲明: 你提交的資料(日期、時間、人數、姓名、電話號碼及備註)只會交給Cafe A,用作處理今次訂座。 私隱政策: https://ohmyclient.io/privacy-policy.html\nThe deposit is processed by Stripe for Cafe A; Stripe may process your payment details outside Hong Kong.\n訂金由 Stripe 代Cafe A處理，Stripe 或會在香港以外地方處理你的付款資料。"
+  },
+  "servers": [
+    {
+      "url": "https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/bookings": {
+      "post": {
+        "operationId": "createBooking",
+        "summary": "Request a table",
+        "description": "Creates a booking request that the diner must confirm on WhatsApp from the same phone number before the restaurant sees it.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Same key and same body within 24 hours returns the same booking (with a new status token).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Poppy-Session",
+            "in": "header",
+            "required": false,
+            "description": "Accepted and not used: this API is signed out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "date",
+                  "time",
+                  "party_size",
+                  "name",
+                  "phone"
+                ],
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "YYYY-MM-DD, today or later in Hong Kong time."
+                  },
+                  "time": {
+                    "type": "string",
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "description": "HH:MM, 24-hour, Hong Kong time."
+                  },
+                  "party_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9]\\d{7,14}$",
+                    "description": "The diner's WhatsApp number in E.164, e.g. +85291234567."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotency-Key replay of a booking that is no longer awaiting confirmation (expired, pending, confirmed or declined): its current status and a new status token. A replay while still awaiting confirmation answers 202 as above.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayedBooking"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Awaiting the diner's confirmation on WhatsApp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedBooking"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request: a field is missing or invalid, or an unknown field was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found: this restaurant does not take bookings through agents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "idempotency_conflict: the Idempotency-Key was used with another body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited: wait for Retry-After seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "server_error: try again later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings/{booking_id}": {
+      "get": {
+        "operationId": "getBooking",
+        "summary": "Follow a booking request",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Status-Token",
+            "in": "header",
+            "required": true,
+            "description": "The status_token from the create response.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Poppy-Session",
+            "in": "header",
+            "required": false,
+            "description": "Accepted and not used: this API is signed out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found: unknown booking or wrong token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "server_error: try again later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "rate_limited",
+              "not_found",
+              "idempotency_conflict",
+              "server_error"
+            ]
+          },
+          "error_description": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Per-field error codes (invalid_request only)."
+          }
+        }
+      },
+      "CollectionStatement": {
+        "type": "object",
+        "required": [
+          "en",
+          "zh-HK",
+          "privacy_url"
+        ],
+        "properties": {
+          "en": {
+            "type": "string"
+          },
+          "zh-HK": {
+            "type": "string"
+          },
+          "privacy_url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "CreatedBooking": {
+        "type": "object",
+        "required": [
+          "booking_id",
+          "status",
+          "confirm_url",
+          "confirm_code",
+          "expires_at",
+          "status_token",
+          "collection_statement"
+        ],
+        "properties": {
+          "booking_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "awaiting_confirmation",
+              "awaiting_deposit",
+              "expired",
+              "pending",
+              "confirmed",
+              "declined",
+              "cancelled"
+            ]
+          },
+          "confirm_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "WhatsApp link to the restaurant with the code prefilled. Give it to the diner."
+          },
+          "confirm_code": {
+            "type": "string",
+            "description": "The code the diner sends if they type the message themselves."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_token": {
+            "type": "string",
+            "description": "Send as X-Booking-Status-Token to read the status. Keep it secret."
+          },
+          "collection_statement": {
+            "$ref": "#/components/schemas/CollectionStatement"
+          }
+        }
+      },
+      "BookingStatus": {
+        "type": "object",
+        "required": [
+          "booking_id",
+          "status",
+          "date",
+          "time",
+          "party_size"
+        ],
+        "properties": {
+          "booking_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "awaiting_confirmation",
+              "awaiting_deposit",
+              "expired",
+              "pending",
+              "confirmed",
+              "declined",
+              "cancelled"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "time": {
+            "type": "string"
+          },
+          "party_size": {
+            "type": "integer"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Only while awaiting confirmation."
+          },
+          "payment_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Only while awaiting_deposit: the hosted payment page. Give it to the diner (they also got it on WhatsApp)."
+          },
+          "deposit": {
+            "type": "object",
+            "description": "Only while awaiting_deposit.",
+            "required": [
+              "amount",
+              "currency",
+              "expires_at"
+            ],
+            "properties": {
+              "amount": {
+                "type": "string",
+                "description": "Decimal amount in major currency units, e.g. \"400\"."
+              },
+              "currency": {
+                "type": "string",
+                "description": "ISO 4217 code, e.g. HKD."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "The hold ends here; unpaid, the booking becomes expired."
+              }
+            }
+          }
+        }
+      },
+      "ReplayedBooking": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          {
+            "type": "object",
+            "required": [
+              "status_token",
+              "collection_statement"
+            ],
+            "properties": {
+              "status_token": {
+                "type": "string",
+                "description": "A new token; the earlier one no longer works. Keep it secret."
+              },
+              "collection_statement": {
+                "$ref": "#/components/schemas/CollectionStatement"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

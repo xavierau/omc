@@ -8,6 +8,8 @@ import { randomUUID } from 'crypto'
 import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
 import type { AgentBooking, BookingRequest, NewAgentBooking } from '@/domain/entities/booking-request'
 import type { RoomCheck, RoomRefusal } from '@/domain/services/booking-room'
+import type { AgentDepositPromoter, PromoteToDepositArgs, PromoteToDepositResult } from '@/domain/services/agent-booking-deposit'
+import type { FakeDepositLedger } from '@/test-utils/fake-booking-deposit'
 import type {
   AgentBookingDirectory,
   AgentBookingStore,
@@ -23,6 +25,8 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
   /** Every call, by method name, so tests can prove what was (not) written (R42). */
   readonly calls: string[] = []
   createdAt: () => Date = () => new Date()
+  /** BOOK-014 W5: the deposit ledger's status wins on reads once a hold was adopted there (paid, lapsed). */
+  ledger?: FakeDepositLedger
   /** BOOK-010: the room check promote_agent_booking_with_room runs per candidate (set by tests that use room). */
   roomRefusal?: (restaurantId: string, slot: { date: string; time: string; partySize: number }, check: RoomCheck) => RoomRefusal | null
 
@@ -62,6 +66,39 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
     return this.rows.filter((r) => r.restaurantId === restaurantId && r.phone === phone && r.status === 'pending').length
   }
 
+  /**
+   * BOOK-014 W5: mirrors promote_agent_booking_to_deposit (097): 084's match for ONE row, the cap over pending +
+   * awaiting_deposit, the room check (full -> declined 'full'), then awaiting_deposit + its deposit in the ledger.
+   */
+  depositPromoter(ledger: FakeDepositLedger): AgentDepositPromoter {
+    this.ledger = ledger
+    return {
+      promoteToDeposit: async (args: PromoteToDepositArgs): Promise<PromoteToDepositResult> => {
+        this.calls.push('promoteToDeposit')
+        await tick()
+        const at = args.at.toISOString()
+        const row = this.rows.find(
+          (r) =>
+            r.id === args.bookingId && r.restaurantId === args.restaurantId && r.phone === args.phone && r.status === 'unverified' &&
+            r.confirmCode !== null && args.codes.includes(r.confirmCode) && Date.parse(r.verifyExpiresAt ?? '') > args.at.getTime()
+        )
+        if (!row) return { ok: false, refusal: { kind: 'not_promotable' } }
+        const held = this.rows.filter(
+          (r) => r.restaurantId === args.restaurantId && r.phone === args.phone && ['pending', 'awaiting_deposit'].includes(this.ledger?.booking(r.id)?.status ?? r.status)
+        ).length
+        if (held >= args.maxPending) return { ok: false, refusal: { kind: 'pending_cap' } }
+        const refusal = args.room ? this.roomRefusal?.(row.restaurantId, { date: row.bookingDate, time: row.bookingTime, partySize: row.partySize }, args.room) : null
+        if (refusal) {
+          Object.assign(row, { status: 'declined', declineReason: 'full', decidedAt: at, decidedBy: null, verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
+          return { ok: false, refusal, declined: { ...row } }
+        }
+        Object.assign(row, { status: 'awaiting_deposit', verifiedAt: at, verifiedWamid: args.wamid, confirmCode: null })
+        const deposit = ledger.adoptHold({ ...row }, args.hold, null)
+        return { ok: true, booking: { ...row }, deposit }
+      },
+    }
+  }
+
   /** Test setup, not a port call: a pending booking (any source) already in the table. */
   seedPending(restaurantId: string, phone: string, source: AgentBooking['source']) {
     this.rows.push({
@@ -91,7 +128,9 @@ export class FakeAgentBookingStore implements AgentBookingStore, UnverifiedBooki
   async find(id: string, restaurantId: string) {
     this.calls.push('find')
     const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.source === 'agent')
-    return row ? { ...row } : null
+    if (!row) return null
+    const held = this.ledger?.booking(id)
+    return held ? { ...row, status: held.status } : { ...row }
   }
 
   async replaceStatusToken(id: string, restaurantId: string, hash: string) {

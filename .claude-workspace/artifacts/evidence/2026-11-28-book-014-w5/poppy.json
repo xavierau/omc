@@ -1,0 +1,14 @@
+{
+  "protocol_version": "1.0",
+  "organization": {
+    "name": "Cafe A",
+    "domain": "www.cafe-a.hk"
+  },
+  "apis": [
+    {
+      "type": "openapi",
+      "url": "https://app.ohmyclient.io/api/poppy/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/openapi.json",
+      "description": "Request a table at Cafe A. The diner confirms the request on WhatsApp. A deposit is required: Deposit HK$100 per guest for 2 or more. Cancel 24 hours ahead for a refund. After the diner confirms on WhatsApp, they get a payment link there; the request goes to the restaurant once it is paid."
+    }
+  ]
+}
