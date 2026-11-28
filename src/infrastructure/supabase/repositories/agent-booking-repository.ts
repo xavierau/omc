@@ -22,6 +22,9 @@ import type {
   UnverifiedBookingPurgeStore,
 } from '@/domain/ports/booking'
 import { countPendingBookings, toBookingRequest } from './booking-request-repository'
+import { depositInsertRow, toBookingDeposit } from './booking-deposit-repository'
+import type { AgentDepositPromoter, PromoteToDepositArgs, PromoteToDepositResult } from '@/domain/services/agent-booking-deposit'
+import type { RoomRefusal } from '@/domain/services/booking-room'
 
 // BOOK-009: 091's terms columns, so the confirm reply can repeat the accepted text (spec AC-13).
 const AGENT_BOOKING_COLUMNS =
@@ -278,6 +281,47 @@ export const agentBookingStore: AgentBookingStore = {
   declineUnverified: declineUnverifiedAgentBooking,
   linkMember: linkAgentBookingMember,
 }
+
+interface PromoteToDepositRow {
+  ok: boolean
+  row?: AgentBookingRow
+  deposit?: Parameters<typeof toBookingDeposit>[0]
+  refusal?: { kind: 'not_promotable' } | { kind: 'pending_cap' } | RoomRefusal
+}
+
+/**
+ * BOOK-014 W5 (spec AC-10, R55): the code step for ONE candidate that needs a
+ * deposit: unverified -> awaiting_deposit + its deposit row, one transaction
+ * (promote_agent_booking_to_deposit, migration 097), under 084's match, the
+ * per-phone cap and, with `room`, 092's seat check (full -> declined 'full').
+ */
+export async function promoteAgentBookingToDeposit(args: PromoteToDepositArgs): Promise<PromoteToDepositResult> {
+  const room = args.room && {
+    period_key: args.room.periodKey, period_first: args.room.periodFirst, period_last: args.room.periodLast,
+    slot_limit: args.room.perSlot, meal_limit: args.room.perMeal,
+  }
+  const { data, error } = await createServerSupabaseClient().rpc('promote_agent_booking_to_deposit', {
+    p_restaurant_id: args.restaurantId,
+    p_phone: args.phone,
+    p_booking_id: args.bookingId,
+    p_codes: args.codes,
+    p_wamid: args.wamid,
+    p_at: args.at.toISOString(),
+    p_max_pending: args.maxPending,
+    p_room: room,
+    p_deposit: depositInsertRow(args.hold),
+  })
+  if (error || !data) throw new Error(`promoteAgentBookingToDeposit: ${error?.code ?? 'no result'}`)
+  const result = data as PromoteToDepositRow
+  if (result.ok && result.row && result.deposit) {
+    return { ok: true, booking: toBookingRequest(result.row), deposit: toBookingDeposit(result.deposit) }
+  }
+  const refusal = result.refusal ?? { kind: 'not_promotable' as const }
+  if ((refusal.kind === 'full' || refusal.kind === 'stopped') && result.row) return { ok: false, refusal, declined: toAgentBooking(result.row) }
+  return { ok: false, refusal: refusal.kind === 'pending_cap' ? { kind: 'pending_cap' } : { kind: 'not_promotable' } }
+}
+
+export const agentDepositPromoter: AgentDepositPromoter = { promoteToDeposit: promoteAgentBookingToDeposit }
 
 export const agentBookingDirectory: AgentBookingDirectory = { findByPublicId: findRestaurantByAgentPublicId }
 

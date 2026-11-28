@@ -19,6 +19,8 @@ import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/bo
 import { agentBookingStore } from '@/infrastructure/supabase/repositories/agent-booking-repository'
 import { bookingMessageSender, members } from '@/application/booking/booking-deps'
 import { bookingRoomStore } from '@/infrastructure/supabase/repositories/booking-room-repository'
+import { bookingDepositStore } from '@/infrastructure/supabase/repositories/booking-deposit-repository'
+import { depositChannelPorts, startDepositDeps } from '@/application/payments/payment-deps'
 import type { AdmitAgentDeps, AgentLogFn } from './admit-inbound-for-agent'
 import type { AgentBookingWorkerDeps, AgentWorkerDeps } from './process-agent-reply'
 import type { PurgeAgentDeps } from './purge-agent-messages'
@@ -55,6 +57,8 @@ function agentBookingWorkerDeps(): AgentBookingWorkerDeps {
     diner: dinerBookingStore,
     // BOOK-010: limits and stops bind the AI tools too (atomic insert, migration 092).
     room: bookingRoomStore,
+    // BOOK-014 W5 (spec AC-9): the deposit hold and link on create; deposit bookings are not changed by chat.
+    deposit: { ...depositChannelPorts, start: startDepositDeps(), deposits: bookingDepositStore },
     // R24: the diner just wrote, so the service window is open; a closed one is a failed send.
     notifyText: async (restaurantId, phone, text) => {
       const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)

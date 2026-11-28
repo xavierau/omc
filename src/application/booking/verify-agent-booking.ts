@@ -23,6 +23,11 @@
  * BOOK-010 (spec AC-6): promotion then checks room under the date lock (rules
  * first, then room); a booking whose slot filled comes back declined 'full'
  * and the diner gets the full reply instead (agent-booking-full-reply.ts).
+ * BOOK-014 W5 (spec AC-10): a candidate the restaurant's deposit rule applies
+ * to becomes awaiting_deposit instead of pending (agent-booking-deposit.ts)
+ * and the diner gets the payment link in this chat, not the "received"
+ * message (that follows the payment). Without a deposit nothing changes.
+ * A provider failure answers the fixed code `payment_unavailable` (R64).
  */
 import { extractConfirmCodeCandidates } from '@/domain/services/booking-confirm-code'
 import { buildCollectionStatement, collectionStatementText, termsReplyText } from '@/domain/services/poppy-documents'
@@ -30,6 +35,9 @@ import { hasPhone, MAX_PENDING_PER_PHONE, type BookingRequest, type BookingWithP
 import type { AgentBookingStore, BookingMemberLookup, BookingMessageSender, BookingSettingsReader } from '@/domain/ports/booking'
 import { promoteRoom, tellFull, type AgentBookingRoomDeps } from './agent-booking-full-reply'
 import { recheckAgentBookings, type RecheckAgentBookingsDeps } from './recheck-agent-bookings'
+import { holdForDeposit, splitByDeposit, type AgentCodeDepositDeps, type CodeStepMessage } from './agent-booking-deposit'
+import { PAYMENT_UNAVAILABLE_TEXT } from '@/domain/value-objects/deposit-messages'
+import type { BookingConfig } from '@/domain/value-objects/booking-config'
 
 export interface VerifyAgentBookingDeps extends Pick<RecheckAgentBookingsDeps, 'bookingLink'> {
   store: Pick<AgentBookingStore, 'promote' | 'linkMember' | 'findPromotable' | 'declineUnverified'>
@@ -42,6 +50,14 @@ export interface VerifyAgentBookingDeps extends Pick<RecheckAgentBookingsDeps, '
   now(): Date
   /** BOOK-010: room check at promotion and the full reply; absent = BOOK-009 promotion. */
   room?: AgentBookingRoomDeps
+  /** BOOK-014 W5: the deposit at the code step; absent = no deposits (BOOK-003 promotion). */
+  deposit?: AgentCodeDepositDeps
+}
+
+/** `error`: BOOK-014 R64's fixed code when a deposit could not start (the hold was released). */
+export interface VerifyAgentBookingResult {
+  handled: boolean
+  error?: 'payment_unavailable'
 }
 
 export interface InboundCodeMessage {
@@ -78,16 +94,7 @@ async function linkExistingMember(deps: VerifyAgentBookingDeps, booking: Booking
   return booking
 }
 
-export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<{ handled: boolean }> {
-  const codes = extractConfirmCodeCandidates(message.text)
-  if (codes.length === 0) return { handled: false }
-  const config = await deps.settings.getConfig(message.restaurantId)
-  if (!config.agentBooking.enabled || config.mode !== 'simple') return { handled: false }
-  const recheck = await recheckAgentBookings(deps, { ...message, codes }, config)
-  const promoted = await deps.store.promote({
-    restaurantId: message.restaurantId, phone: message.phone, codes: recheck.codes, wamid: message.wamid, at: deps.now(),
-    maxPending: MAX_PENDING_PER_PHONE, ...promoteRoom(deps.room, config),
-  })
+async function acknowledgePromoted(deps: VerifyAgentBookingDeps, promoted: BookingRequest[], config: BookingConfig): Promise<void> {
   for (const row of promoted) {
     // BOOK-013 R19: an agent booking always has its phone (DB check); without one nothing is sent.
     if (!hasPhone(row)) continue
@@ -102,5 +109,67 @@ export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: 
       console.error('[AgentBooking] acknowledge failed:', { error: (err as Error).name, bookingId: booking.id })
     }
   }
-  return { handled: promoted.length > 0 || recheck.refused > 0 }
+}
+
+interface HeldSummary {
+  /** Rows the deposit step changed (held or declined full). */
+  changed: number
+  /** Codes to promote the BOOK-003 way after all. */
+  plain: string[]
+  paymentUnavailable: boolean
+}
+
+/** BOOK-014 W5: each candidate that needs a deposit, one at a time (its own transaction). */
+async function holdDeposits(
+  deps: VerifyAgentBookingDeps & { deposit: AgentCodeDepositDeps },
+  message: CodeStepMessage,
+  config: BookingConfig,
+  split: Awaited<ReturnType<typeof splitByDeposit>>
+): Promise<HeldSummary> {
+  const summary: HeldSummary = { changed: 0, plain: [], paymentUnavailable: false }
+  if (split.held.length === 0) return summary
+  const restaurantName = (await deps.settings.getRestaurant(message.restaurantId))?.name ?? ''
+  const room = promoteRoom(deps.room, config).room
+  for (const row of split.held) {
+    const outcome = await holdForDeposit(deps, {
+      row, message, config, account: split.account, restaurantName,
+      room: room ? room({ date: row.bookingDate, time: row.bookingTime }) : null,
+    })
+    if (outcome.kind === 'held') {
+      summary.changed += 1
+      await linkExistingMember(deps, { ...outcome.booking, phone: row.phone })
+      await deps.sendText(row.restaurantId, row.phone, outcome.text)
+    } else if (outcome.kind === 'full') {
+      summary.changed += 1
+      await tellFull(deps, outcome.declined, config)
+    } else if (outcome.kind === 'payment_unavailable') {
+      summary.changed += 1
+      summary.paymentUnavailable = true
+      await deps.sendText(row.restaurantId, row.phone, PAYMENT_UNAVAILABLE_TEXT)
+    } else if (outcome.kind === 'not_required' && row.confirmCode) {
+      summary.plain.push(row.confirmCode)
+    }
+  }
+  return summary
+}
+
+export async function verifyAgentBooking(deps: VerifyAgentBookingDeps, message: InboundCodeMessage): Promise<VerifyAgentBookingResult> {
+  const codes = extractConfirmCodeCandidates(message.text)
+  if (codes.length === 0) return { handled: false }
+  const config = await deps.settings.getConfig(message.restaurantId)
+  if (!config.agentBooking.enabled || config.mode !== 'simple') return { handled: false }
+  const recheck = await recheckAgentBookings(deps, { ...message, codes }, config)
+  const at = deps.now()
+  const split = await splitByDeposit(deps.deposit, config, message.restaurantId, recheck.rows)
+  const held = deps.deposit
+    ? await holdDeposits({ ...deps, deposit: deps.deposit }, { ...message, codes, at }, config, split)
+    : { changed: 0, plain: [], paymentUnavailable: false }
+  const plain = [...split.plain, ...held.plain]
+  const promoted = await deps.store.promote({
+    restaurantId: message.restaurantId, phone: message.phone, codes: plain, wamid: message.wamid, at,
+    maxPending: MAX_PENDING_PER_PHONE, ...promoteRoom(deps.room, config),
+  })
+  await acknowledgePromoted(deps, promoted, config)
+  const handled = promoted.length > 0 || held.changed > 0 || recheck.refused > 0
+  return held.paymentUnavailable ? { handled, error: 'payment_unavailable' } : { handled }
 }

@@ -106,8 +106,11 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
     return this.events.filter((e) => e.depositId === depositId).map((e) => `${e.type}:${e.actor}`)
   }
 
-  /** BOOK-014 W4: a booking written elsewhere (097 staff_create_deposit_booking) and its awaiting deposit, 'created' by `userId`. */
-  adoptHold(booking: BookingRequest, hold: NewDepositHold, userId: string): BookingDeposit {
+  /**
+   * BOOK-014 W4: a booking written elsewhere (097 staff_create_deposit_booking) and its awaiting deposit, 'created' by `userId`.
+   * W5: `userId` null = 'created' by the system (097 promote_agent_booking_to_deposit).
+   */
+  adoptHold(booking: BookingRequest, hold: NewDepositHold, userId: string | null): BookingDeposit {
     const deposit: StoredDeposit = {
       id: hold.id, restaurantId: booking.restaurantId, bookingId: booking.id, providerCode: hold.providerCode, accountId: hold.accountId,
       providerAccountId: hold.providerAccountId, amount: { ...hold.amount }, status: 'awaiting', holdExpiresAt: hold.holdExpiresAt,
@@ -116,7 +119,8 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
     }
     this.bookings.set(booking.id, { ...booking })
     this.deposits.set(deposit.id, deposit)
-    this.event(deposit, 'created', 'user', userId)
+    if (userId === null) this.event(deposit, 'created', 'system')
+    else this.event(deposit, 'created', 'user', userId)
     return this.copy(deposit)
   }
 

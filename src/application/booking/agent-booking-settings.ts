@@ -5,6 +5,10 @@
  * Every write is a compare-and-swap on booking_config (BOOK-002 F1 C2) that
  * changes only `agentBooking`, so a concurrent settings or template write is
  * never lost.
+ *
+ * BOOK-014 W5 (spec AC-10): poppy.json and the OpenAPI document state the
+ * deposit and its amount rule while the restaurant takes deposits (rule on
+ * and an account that can take charges, as every channel decides, AC-4).
  */
 import {
   applyAgentBookingSettings,
@@ -18,6 +22,12 @@ import { hasConfirmableWhatsAppNumber } from '@/domain/services/agent-booking'
 import { hongKongToday } from '@/domain/services/booking-submission'
 import { bookingHoursInEffect, type BookingHours } from '@/domain/value-objects/booking-hours'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
+import type { MerchantPaymentAccountReader } from '@/domain/ports/booking-deposit'
+import { isChargeable } from '@/domain/entities/merchant-payment-account'
+import { sanitizeTemplateParam } from '@/domain/services/booking-message'
+import { depositTermsText } from '@/domain/value-objects/deposit-terms'
+import { depositProcessingSentence } from '@/domain/value-objects/deposit-messages'
+import type { DepositRule } from '@/domain/value-objects/deposit-rule'
 import type { AgentBookingSecrets } from './agent-booking-secrets'
 
 export type ConfigChange = (current: BookingConfig) => BookingConfig | null
@@ -29,6 +39,23 @@ export interface AgentBookingSettingsDeps {
   secrets: Pick<AgentBookingSecrets, 'publicId'>
   /** NEXT_PUBLIC_APP_URL, the host of the agent API, checked by resolveAgentAppUrl; null when unusable. */
   appUrl: string | null
+  /** BOOK-014 W5: the restaurant's payment account; absent = the documents never mention a deposit. */
+  accounts?: MerchantPaymentAccountReader
+}
+
+/** BOOK-014 W5: the deposit the documents state, or null (no reader, rule off, account not chargeable). */
+async function documentDeposit(
+  accounts: MerchantPaymentAccountReader | undefined,
+  restaurantId: string,
+  rule: DepositRule | undefined,
+  restaurantName: string
+) {
+  if (!accounts || !rule?.enabled) return null
+  const account = await accounts.findForRestaurant(restaurantId)
+  if (!isChargeable(account)) return null
+  const terms = depositTermsText(rule, account.currency, 'en')
+  if (!terms) return null
+  return { terms, processing: depositProcessingSentence(sanitizeTemplateParam(restaurantName) || 'the restaurant') }
 }
 
 export type SaveAgentBookingResult =
@@ -101,19 +128,21 @@ export type PoppyJsonResult =
  * (createAgentBooking's contextFor, review G2).
  */
 export async function generatePoppyJson(deps: AgentBookingSettingsDeps, restaurantId: string): Promise<PoppyJsonResult> {
-  const { mode, agentBooking } = await deps.getConfig(restaurantId)
+  const { mode, agentBooking, deposit: rule } = await deps.getConfig(restaurantId)
   if (mode !== 'simple' || !agentBooking.enabled || !agentBooking.publicId || !agentBooking.websiteHost) {
     return { ok: false, reason: 'not_enabled' }
   }
   const openApiUrl = `${agentApiBaseUrl(deps.appUrl, agentBooking.publicId)}/openapi.json`
   const restaurant = await deps.settings.getRestaurant(restaurantId)
   if (!restaurant || !hasConfirmableWhatsAppNumber(restaurant.whatsappNumber)) return { ok: false, reason: 'no_whatsapp_number' }
+  const deposit = await documentDeposit(deps.accounts, restaurantId, rule, restaurant.name)
   return {
     ok: true,
     document: buildPoppyJson({
       restaurantName: restaurant.name,
       websiteHost: agentBooking.websiteHost,
       openApiUrl,
+      ...(deposit ? { depositTerms: deposit.terms } : {}),
     }),
   }
 }
@@ -125,12 +154,14 @@ export interface AgentOpenApiDeps {
   privacyUrl: string
   /** BOOK-009: Hong Kong today bounds the special dates the description lists (read only when hours are set). */
   now(): Date
+  /** BOOK-014 W5: as AgentBookingSettingsDeps.accounts. */
+  accounts?: MerchantPaymentAccountReader
 }
 
 /** The OpenAPI 3.1 description for one tenant (the caller resolved the tenant). */
 export async function agentOpenApiFor(
   deps: AgentOpenApiDeps,
-  tenant: { restaurantId: string; publicId: string; maxPartySize: number; bookingHours?: BookingHours | null }
+  tenant: { restaurantId: string; publicId: string; maxPartySize: number; bookingHours?: BookingHours | null; deposit?: DepositRule }
 ) {
   const apiBaseUrl = agentApiBaseUrl(deps.appUrl, tenant.publicId)
   // F1 (P2-1, AC-5): hours with no effect (schedule off, no terms/info/table time) give the pre-BOOK-009 document.
@@ -142,5 +173,6 @@ export async function agentOpenApiFor(
     maxPartySize: tenant.maxPartySize,
     statement: buildCollectionStatement(name, deps.privacyUrl),
     booking: hours ? { hours, today: hongKongToday(deps.now()) } : null,
+    deposit: await documentDeposit(deps.accounts, tenant.restaurantId, tenant.deposit, name),
   })
 }

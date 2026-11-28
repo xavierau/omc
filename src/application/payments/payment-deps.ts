@@ -24,6 +24,9 @@ import type { RedriveRefundsDeps } from './redrive-stalled-refunds'
 import type { DepositDecisionDeps, StaffDepositLinkDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
 import type { PaymentAccountDeps } from './payment-account'
+import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { recordDecisionMessage } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { agentAndStaffPaidHook } from './notify-agent-deposit-paid'
 
 const now = () => new Date()
 
@@ -48,13 +51,24 @@ export function startDepositDeps(): StartDepositDeps {
 }
 
 /**
+ * W5 (spec AC-9, AC-10, AC-11): the agent channels' "received" message and the
+ * staff hold's "confirmed" message on the paid event. booking-deps imports
+ * this module, so its sender is loaded at call time.
+ */
+async function agentAndStaffPaid(paid: DepositPaid): Promise<void> {
+  const { bookingMessageSender } = await import('@/application/booking/booking-deps')
+  await agentAndStaffPaidHook({ settings: bookingSettingsReader, sender: bookingMessageSender(), recordMessage: recordDecisionMessage })(paid)
+}
+
+/**
  * The payment webhook of one provider. Throws when the provider is not
- * configured (the route answers 500, R47). `onDepositPaid` is the channel hook
- * (W3/W5 send the "received" message from it); none in W1.
+ * configured (the route answers 500, R47). `onDepositPaid` is the channel hook;
+ * the default sends the agent and staff channels' messages (W5; W3 adds the
+ * booking page's when the stack merges).
  */
 export function paymentWebhookDeps(
   code: PaymentProviderCode,
-  onDepositPaid?: (paid: DepositPaid) => Promise<void>
+  onDepositPaid: (paid: DepositPaid) => Promise<void> = agentAndStaffPaid
 ): ProcessPaymentWebhookDeps {
   const registry = productionPaymentRegistry()
   return {
@@ -65,7 +79,7 @@ export function paymentWebhookDeps(
     accounts: merchantPaymentAccountStore,
     now,
     log: paymentLog,
-    ...(onDepositPaid ? { onDepositPaid } : {}),
+    onDepositPaid,
   }
 }
 
