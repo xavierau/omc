@@ -53,9 +53,8 @@ export function buildBookingTemplateParams(details: BookingMessageDetails): Reco
     time: details.time,
     party_size: String(details.partySize),
     reason: sanitizeTemplateParam(details.declineReason) || '-',
-    // BOOK-014 W4: only the deposit request's body names these.
-    amount: details.depositRequest ? formatMoney(details.depositRequest.amount) : '',
-    hold_until: details.depositRequest?.holdUntil ?? '',
+    // BOOK-014 W4: only the deposit request's body names these; without one they cannot be filled.
+    ...(details.depositRequest ? { amount: formatMoney(details.depositRequest.amount), hold_until: details.depositRequest.holdUntil } : {}),
   }
 }
 

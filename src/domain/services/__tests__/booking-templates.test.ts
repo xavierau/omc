@@ -40,7 +40,9 @@ describe('booking template copy (R21)', () => {
   })
 
   it.each(ALL)('$kind/$lang uses only the parameters the sender fills, never notes', ({ kind, lang }) => {
-    const filled = Object.keys(buildBookingTemplateParams({ restaurantName: 'r', name: 'n', date: 'd', time: 't', partySize: 2 }))
+    // BOOK-014 W4: the deposit request's amount and hold end come with its deposit details.
+    const deposit = kind === 'deposit_request' ? { depositRequest: { amount: { amountMinor: 100, currency: 'HKD' }, holdUntil: 'h', linkUrl: 'u', linkToken: 't' } } : {}
+    const filled = Object.keys(buildBookingTemplateParams({ restaurantName: 'r', name: 'n', date: 'd', time: 't', partySize: 2, ...deposit }))
     const used = extractParameters(buildWhatsAppTemplate({ components: bookingTemplateComponents(bookingTemplateBody(kind, lang)) }))
     expect(used.length).toBeGreaterThan(0)
     for (const p of used) expect(filled).toContain(p)

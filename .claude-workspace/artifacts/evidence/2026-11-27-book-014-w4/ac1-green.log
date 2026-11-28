@@ -9,8 +9,8 @@
 <claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
 <claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
 
- Test Files  141 passed (141)
-      Tests  1853 passed (1853)
-   Start at  00:32:36
-   Duration  10.53s (transform 10.64s, setup 0ms, import 39.66s, tests 7.10s, environment 12ms)
+ Test Files  142 passed (142)
+      Tests  1857 passed (1857)
+   Start at  10:16:48
+   Duration  8.32s (transform 7.79s, setup 0ms, import 29.95s, tests 5.20s, environment 9ms)
 

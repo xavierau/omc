@@ -521,4 +521,68 @@ d('BOOK-014 migration 097 on real Postgres', () => {
     )
     expect(error(`UPDATE merchant_payment_accounts SET status = 'active' WHERE restaurant_id = '${a}'`)).toContain('merchant_payment_accounts_active_ready')
   })
+
+  // BOOK-014 W4 (spec AC-11, R60): the staff create RPCs.
+  const staffArgs = (rid: string, actor: string, phone: string | null = '+85291239999') =>
+    `'${rid}', NULL, ${phone === null ? 'NULL' : `'${phone}'`}, 'staff-made', 4, '${DAY}', '19:00', NULL, true, '${actor}', now(), '[]'::jsonb`
+
+  it('W4: staff_create_deposit_booking saves awaiting_deposit (source staff, created_by) with its awaiting deposit and the created event by the user', () => {
+    const rid = restaurant()
+    const actor = randomUUID()
+    const dep = deposit(rid, { hold_expires_at: new Date(Date.now() + 24 * 3_600_000).toISOString() })
+    const out = JSON.parse(psql(asService(`SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor)}, '${dep}'::jsonb)`))) as {
+      row: { id: string; status: string; source: string; created_by: string; notify_diner: boolean }
+      deposit: { id: string; status: string; booking_id: string }
+    }
+    expect(out.row).toMatchObject({ status: 'awaiting_deposit', source: 'staff', created_by: actor, notify_diner: true })
+    expect(out.deposit).toMatchObject({ status: 'awaiting', booking_id: out.row.id })
+    expect(events(out.deposit.id)).toBe('created:user')
+    expect(psql(`SELECT actor_user_id FROM deposit_events WHERE deposit_id = '${out.deposit.id}' AND event_type = 'created'`)).toBe(actor)
+    expect(psql(`SELECT data_json->>'deposit' FROM events WHERE type = 'booking.staff_created' AND data_json->>'bookingId' = '${out.row.id}'`)).toBe('required')
+    // The hold counts in the room (as booking_room_refusal sees it).
+    expect(guests(rid)).toEqual({ [DAY]: { '19:00': 4 } })
+    // Paid -> confirmed by its creator.
+    expect(paid(out.deposit.id).booking?.status).toBe('confirmed')
+    expect(psql(`SELECT decided_by FROM booking_requests WHERE id = '${out.row.id}'`)).toBe(actor)
+  })
+
+  it('W4: staff_create_deposit_booking refuses without a phone, a deposit or an actor, and an unknown deposit key', () => {
+    const rid = restaurant()
+    const actor = randomUUID()
+    const dep = deposit(rid)
+    expect(error(asService(`SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor, null)}, '${dep}'::jsonb)`))).not.toBe('')
+    expect(error(asService(`SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor)}, NULL)`))).not.toBe('')
+    expect(error(asService(`SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor).replace(`'${actor}'`, 'NULL')}, '${dep}'::jsonb)`))).not.toBe('')
+    const bad = JSON.stringify({ ...JSON.parse(dep), status: 'paid' })
+    expect(error(asService(`SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor)}, '${bad}'::jsonb)`))).not.toBe('')
+    expect(psql(`SELECT count(*) FROM booking_requests WHERE restaurant_id = '${rid}'`)).toBe('0')
+  })
+
+  it('W4: staff_create_booking_waiving_deposit creates the confirmed booking and one waived event (no deposit row) naming the booking, user and amount', () => {
+    const rid = restaurant()
+    const actor = randomUUID()
+    const id = psql(asService(`SELECT id FROM public.staff_create_booking_waiving_deposit(${staffArgs(rid, actor)}, 40000, 'HKD')`))
+    expect(statusOf(id)).toBe('confirmed')
+    expect(psql(`SELECT count(*) FROM booking_deposits WHERE booking_id = '${id}'`)).toBe('0')
+    expect(psql(`SELECT event_type || ':' || actor_kind || ':' || actor_user_id || ':' || coalesce(deposit_id::text, 'null') FROM deposit_events WHERE booking_id = '${id}'`)).toBe(
+      `waived:user:${actor}:null`
+    )
+    expect(psql(`SELECT amount_minor || ' ' || currency FROM deposit_events WHERE booking_id = '${id}'`)).toBe('40000 HKD')
+  })
+
+  it('W4: deposit_events needs a deposit, except a waived event that names its booking', () => {
+    const rid = restaurant()
+    const id = psql(asService(`SELECT id FROM public.staff_create_booking(${staffArgs(rid, randomUUID())})`))
+    expect(error(`INSERT INTO deposit_events (restaurant_id, event_type, actor_kind, actor_user_id, booking_id) VALUES ('${rid}', 'kept', 'user', '${rid}', '${id}')`)).toContain('deposit_events_subject')
+    expect(error(`INSERT INTO deposit_events (restaurant_id, event_type, actor_kind, actor_user_id) VALUES ('${rid}', 'waived', 'user', '${rid}')`)).toContain('deposit_events_subject')
+  })
+
+  it('W4 R58: anon and authenticated cannot execute the staff deposit create RPCs', () => {
+    const rid = restaurant()
+    const actor = randomUUID()
+    for (const role of ['anon', 'authenticated']) {
+      expect(error(`SET ROLE ${role}; SELECT public.staff_create_deposit_booking(${staffArgs(rid, actor)}, '${deposit(rid)}'::jsonb)`)).toContain('permission denied for function')
+      expect(error(`SET ROLE ${role}; SELECT * FROM public.staff_create_booking_waiving_deposit(${staffArgs(rid, actor)}, 1, 'HKD')`)).toContain('permission denied for function')
+    }
+  })
 })

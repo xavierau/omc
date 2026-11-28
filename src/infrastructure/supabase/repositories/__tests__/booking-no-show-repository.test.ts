@@ -83,7 +83,7 @@ describe('no_show in the other booking queries (R9, R7)', () => {
 
     const range = use([{ data: [ROW] }])
     const result = await listBookingRequestsInRange('r-a', { from: '2026-11-01', to: '2026-11-30' }, 10)
-    expect(filtersOf(range.queries[0])).toEqual(['eq:restaurant_id=r-a', 'in:status=pending,confirmed,declined,cancelled,no_show'])
+    expect(filtersOf(range.queries[0])).toEqual(['eq:restaurant_id=r-a', 'or:status.in.(pending,confirmed,declined,cancelled,no_show),and(status.eq.awaiting_deposit,source.eq.staff)'])
     expect(result.bookings.map((b) => b.status)).toEqual(['no_show'])
   })
 

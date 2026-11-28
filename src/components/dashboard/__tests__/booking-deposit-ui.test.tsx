@@ -230,6 +230,15 @@ describe('repository shape (migration 097)', () => {
     expect(filters).toContain('or:status.neq.awaiting_deposit,source.eq.staff')
   })
 
+  it('the embedded deposit names only columns booking_deposits has (the schema contract skips embeds)', () => {
+    const repo = fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/supabase/repositories/booking-request-repository.ts'), 'utf8')
+    const embed = /booking_deposits\(([^)]*)\)/.exec(repo)?.[1].split(',').map((c) => c.trim()) ?? []
+    const table = /CREATE TABLE booking_deposits \(([\s\S]*?)\n\);/.exec(MIGRATION)?.[1] ?? ''
+    const columns = new Set([...table.matchAll(/^\s{2}([a-z_]+)\s/gm)].map((m) => m[1]))
+    expect(embed.length).toBeGreaterThan(0)
+    expect(embed.filter((c) => !columns.has(c))).toEqual([])
+  })
+
   it('deposit_events: a waived event names the booking (deposit_id may be NULL only for it)', () => {
     expect(MIGRATION).toMatch(/deposit_id\s+UUID REFERENCES booking_deposits/)
     expect(MIGRATION).toMatch(/CHECK \(deposit_id IS NOT NULL OR \(event_type = 'waived' AND booking_id IS NOT NULL\)\)/)

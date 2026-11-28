@@ -35,9 +35,9 @@ export function DepositBadge({ booking, className }: { booking: BookingItem; cla
   const d = booking.deposit
   if (!d) return null
   return (
-    <Badge variant="outline" className={cn(TONE[d.status], className)} data-testid={`booking-deposit-badge-${booking.id}`} data-state={d.status}>
+    <Badge variant="outline" className={cn('max-w-full', TONE[d.status], className)} data-testid={`booking-deposit-badge-${booking.id}`} data-state={d.status}>
       <Wallet aria-hidden />
-      {t(`state.${d.status}`, { amount: formatMoney(d.amount) })}
+      <span className="truncate">{t(`state.${d.status}`, { amount: formatMoney(d.amount) })}</span>
     </Badge>
   )
 }

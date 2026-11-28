@@ -170,8 +170,8 @@ describe('templateBodies and templateCandidates (BOOK-002)', () => {
       templateBodies: { confirmed: { en: 'Custom {{date}} {{time}} ok.', zh_hk: 7 }, declined: 'flat', bogus: { en: 'x' } },
       templateCandidates: { confirmed: { en: 'tpl-new', zh_hk: '' } },
     })
-    expect(config.templateBodies).toEqual({ received: {}, confirmed: { en: 'Custom {{date}} {{time}} ok.' }, declined: {}, reminder: {}, changed: {}, cancelled: {} })
-    expect(config.templateCandidates).toEqual({ received: {}, confirmed: { en: 'tpl-new' }, declined: {}, reminder: {}, changed: {}, cancelled: {} })
+    expect(config.templateBodies).toEqual({ received: {}, confirmed: { en: 'Custom {{date}} {{time}} ok.' }, declined: {}, reminder: {}, changed: {}, cancelled: {}, deposit_request: {} })
+    expect(config.templateCandidates).toEqual({ received: {}, confirmed: { en: 'tpl-new' }, declined: {}, reminder: {}, changed: {}, cancelled: {}, deposit_request: {} })
   })
 
   it('a resolved default is a fresh copy (writing one never changes the default)', () => {

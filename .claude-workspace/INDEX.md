@@ -132,6 +132,7 @@ no artifact files were lost._
 **BOOK-014 — booking deposits (2026-11-27)**
 - [2026-11-27-book-014-w1-handoff](artifacts/2026-11-27-book-014-w1-handoff.md) — BOOK-014 W1 handoff: deposit core, mig 096, Stripe adapter, webhook, /p; PR #237; evidence in artifacts/evidence/2026-11-27-book-014-w1/ (dev)
 - [2026-11-27-book-014-w2-handoff](artifacts/2026-11-27-book-014-w2-handoff.md) — BOOK-014 W2 handoff: Stripe onboarding routes, account events, deposit rule settings + UI; evidence in artifacts/evidence/2026-11-27-book-014-w2/ (dev)
+- [2026-11-27-book-014-w4-handoff](artifacts/2026-11-27-book-014-w4-handoff.md) — BOOK-014 W4 handoff: staff deposit state, decline auto-refund, Refund/Keep/Retry, staff create with deposit + booking_deposit_request template, Copy link; W1 firstDeposit fix; evidence in artifacts/evidence/2026-11-27-book-014-w4/ (dev)
 - [2026-11-27-book-014-w1-fix-handoff](artifacts/2026-11-27-book-014-w1-fix-handoff.md) — BOOK-014 W1-fix handoff: develop merged, mig renumbered 097, PR #237 review findings 1+2 (refund re-drive, per-attempt refund matching) + nits; evidence in artifacts/evidence/2026-11-27-book-014-w1-fix/ (dev)
 - [2026-11-26-book-012-release-r2-handoff](artifacts/2026-11-26-book-012-release-r2-handoff.md) — BOOK-012 release resumed: #231, #232, deploy 84057118 (dev)
 - [2026-11-26-book-012-migration-094-handoff](artifacts/2026-11-26-book-012-migration-094-handoff.md) — BOOK-012: migration 094 applied ahead of the code deploy (dev)

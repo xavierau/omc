@@ -70,14 +70,14 @@ function DayChips({ bookings }: { bookings: BookingItem[] }) {
   )
 }
 
-/** BOOK-014 W4 (spec AC-14): the chip's deposit state, as an icon with its text for screen readers and on hover. */
+/** BOOK-014 W4 (spec AC-14): the chip's deposit state, as an icon with its text for screen readers and on hover; it gives way first in a narrow chip. */
 function DepositChipMark({ booking }: { booking: BookingItem }) {
   const t = useTranslations('bookings.deposit')
   const d = booking.deposit
   if (!d) return null
   const label = t(`state.${d.status}`, { amount: formatMoney(d.amount) })
   return (
-    <span className={cn('ml-auto shrink-0', d.status === 'refund_failed' && 'text-destructive')} title={label} data-testid={`booking-chip-${booking.id}-deposit`} data-state={d.status}>
+    <span className={cn('ml-auto min-w-0 overflow-hidden', d.status === 'refund_failed' && 'text-destructive')} title={label} data-testid={`booking-chip-${booking.id}-deposit`} data-state={d.status}>
       <Wallet aria-hidden className="size-3" />
       <span className="sr-only">{label}</span>
     </span>

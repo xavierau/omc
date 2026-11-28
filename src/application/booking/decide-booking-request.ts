@@ -92,7 +92,7 @@ async function notify(deps: DecideBookingDeps, booking: BookingWithPhone, deposi
       time: booking.bookingTime,
       partySize: booking.partySize,
       declineReason: booking.declineReason,
-      depositRefund,
+      ...(depositRefund ? { depositRefund } : {}),
     },
   })
   return result.delivered
