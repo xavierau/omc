@@ -1,0 +1,72 @@
+[
+  {
+    "n": 1,
+    "text": "login (real UI) as the fake tenant admin",
+    "result": "on /dashboard"
+  },
+  {
+    "n": 2,
+    "text": "Settings → 訂座: slot 70, meal 60, 儲存 (AC-2 slot above meal)",
+    "result": "error \"不能多於每餐最多的人數。\"; stored limits: none"
+  },
+  {
+    "n": 3,
+    "text": "slot 30, 儲存, reload (AC-1)",
+    "result": "fields 30/60; stored {\"perMeal\": 60, \"perSlot\": 30}; summary \"可訂座時間：星期一至星期五 午市 12:00–14:00 及 晚市 18:00–21:30，每 30 分鐘一節，最少提前 2 小時、最遠 30 日內預約，每枱最多 8 位。每個時段最多 30 位，每餐最多 60 位。\""
+  },
+  {
+    "n": 4,
+    "text": "nav 訂座 → calendar → day 24 Nov",
+    "result": "capacity block shown; 晚市 card \"晚市50 / 60 位客人18:006 / 3018:308 / 3019:0034 / 30已滿19:302 / 3020:000 / 3020:300 / 3021:000 / 3021:300 / 30\"; 19:00 full badge: true"
+  },
+  {
+    "n": 5,
+    "text": "stop 午市 with the stops API forced to 500 (route stub)",
+    "result": "switch aria-checked=true (reverted); error \"未能更新，請再試一次。\""
+  },
+  {
+    "n": 6,
+    "text": "stop 午市 on 24 Nov (real API)",
+    "result": "line \"walk-admin 已停止 · 11:26\"; error gone: true; DB row: period 午市 2026-11-24"
+  },
+  {
+    "n": 7,
+    "text": "26 Nov: stop 午市 (1 pending at 12:30), then the whole day",
+    "result": "note \"仍有 1 個要求待回覆\"; day line \"walk-admin 已停止 · 11:26\"; month badge 26 = stopped"
+  },
+  {
+    "n": 8,
+    "text": "back to 24 Nov: full 19:00, stopped 午市, month badges",
+    "result": "badge 25 = full (no slot fits 1), badge 26 = stopped"
+  },
+  {
+    "n": 9,
+    "text": "Confirm on Chan Tai Man (19:00, 4 pax) → prompt → Confirm anyway",
+    "result": "prompt \"超出上限確認後 19:00 會有 34 / 30 位客人。仍要確認？仍要確認取消\"; status pending → confirmed"
+  },
+  {
+    "n": 10,
+    "text": "staff console errors",
+    "result": "Failed to load resource: the server responded with a status of 400 (Bad Request) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 409 (Conflict)"
+  },
+  {
+    "n": 11,
+    "text": "diner /b/<token> (signed out), party 4",
+    "result": "days {\"2026-11-24\":\"open\",\"2026-11-25\":\"full\",\"2026-11-26\":\"full\",\"2026-11-28\":\"closed\"}; 24 Nov slots {\"1200\":\"full\",\"1330\":\"full\",\"1800\":\"open\",\"1900\":\"full\",\"1930\":\"open\"}; hint \"已滿的時段不夠 4 位入座，可試其他時間或減少人數。\""
+  },
+  {
+    "n": 12,
+    "text": "27 Nov (19:00 holds 28 / 30): party 2, pick 19:00, then party 4",
+    "result": "{\"at2\":\"open\",\"picked\":\"true\",\"after4\":\"full\",\"pressedAfter4\":\"false\"}"
+  },
+  {
+    "n": 13,
+    "text": "second token: party 2, 24 Nov 18:30, name, terms; 18:30 filled in the DB; submit (AC-13)",
+    "result": "notice \"這個時段剛剛滿了18:30 已滿，請選擇其他時間。你填寫的人數、姓名及備註已保留。\"; 18:30 now data-state=full; rows stored: 1; token consumed: f"
+  },
+  {
+    "n": 14,
+    "text": "diner console errors",
+    "result": "none"
+  }
+]

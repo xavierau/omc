@@ -1,0 +1,100 @@
+[
+ {
+  "name": "settings-profile-1440",
+  "blocking": 0,
+  "warning": 4,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-messages-1440",
+  "blocking": 0,
+  "warning": 3,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-bookings-1440",
+  "blocking": 0,
+  "warning": 4,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-welcome-1440",
+  "blocking": 0,
+  "warning": 4,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-receipts-1440",
+  "blocking": 0,
+  "warning": 4,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-campaigns-1440",
+  "blocking": 0,
+  "warning": 3,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-campaigns-lapsed-error-1440",
+  "blocking": 0,
+  "warning": 3,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-campaigns-saved-1440",
+  "blocking": 0,
+  "warning": 3,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "campaign-form-tags-lapsed-1440",
+  "blocking": 0,
+  "warning": 2,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "campaign-form-summary-1440",
+  "blocking": 0,
+  "warning": 2,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "campaign-form-zero-1440",
+  "blocking": 0,
+  "warning": 2,
+  "info": 0,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-index-390",
+  "blocking": 0,
+  "warning": 0,
+  "info": 1,
+  "blockingFindings": []
+ },
+ {
+  "name": "settings-campaigns-390",
+  "blocking": 0,
+  "warning": 1,
+  "info": 1,
+  "blockingFindings": []
+ },
+ {
+  "name": "campaign-form-summary-390",
+  "blocking": 0,
+  "warning": 6,
+  "info": 2,
+  "blockingFindings": []
+ }
+]

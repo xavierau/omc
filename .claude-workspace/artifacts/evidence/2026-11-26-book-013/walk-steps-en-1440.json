@@ -1,0 +1,310 @@
+[
+  {
+    "check": "today: Wu Siu Ming is late (18:30 booking)",
+    "ok": true
+  },
+  {
+    "check": "today: Au Ka Yan shows Arrived",
+    "ok": true
+  },
+  {
+    "check": "today: pending Kan Wai shows needs reply",
+    "ok": true
+  },
+  {
+    "step": "01-today",
+    "note": "Today view: counters, Late / Arrived / Waiting / Needs reply",
+    "file": "01-today-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 145px / bottom 321px)"
+    ]
+  },
+  {
+    "check": "search: code P4MX8T (Sat booking) found by the server lookup",
+    "ok": true
+  },
+  {
+    "step": "02-today-code-card",
+    "note": "whole code typed: result card for a booking on another day",
+    "file": "02-today-code-card-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 171px / bottom 374px)"
+    ]
+  },
+  {
+    "check": "search: phone digits 6555 matches Yeung Family only",
+    "ok": true
+  },
+  {
+    "check": "search: script string matches nothing, no lookup",
+    "ok": true
+  },
+  {
+    "check": "arrived: row shows Arrived HH:MM",
+    "ok": true,
+    "detail": "Arrived 19:51"
+  },
+  {
+    "check": "arrived: DB checked_in_at set, status confirmed",
+    "ok": true
+  },
+  {
+    "step": "03-today-arrived",
+    "note": "Wu Siu Ming marked Arrived (Undo shown)",
+    "file": "03-today-arrived-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 145px / bottom 321px)"
+    ]
+  },
+  {
+    "check": "undo: DB checked_in_at cleared",
+    "ok": true
+  },
+  {
+    "step": "04-scan-sheet",
+    "note": "Scan QR sheet (existing html5-qrcode scanner; headless has no camera)",
+    "file": "04-scan-sheet-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 145px / bottom 321px)"
+    ]
+  },
+  {
+    "check": "form: existing member line shown for the typed phone",
+    "ok": true,
+    "detail": "Member: Lam Chi Keung"
+  },
+  {
+    "check": "form: Notify diner ticked by default",
+    "ok": true
+  },
+  {
+    "step": "05-form-new",
+    "note": "New booking form filled (member line, slots with guests left, Notify on)",
+    "file": "05-form-new-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 145px / bottom 321px)"
+    ]
+  },
+  {
+    "check": "rules: prompt lists the slot limit",
+    "ok": true,
+    "detail": "This booking breaks a booking rule\nOver the 19:00 slot limit\n16 guests booked + 6 = 22, limit 20\n\nDiners can’t book this time. You can still add it if the restaurant has room.\n\nBack\nBook anyway"
+  },
+  {
+    "check": "rules: nothing written before Book anyway",
+    "ok": true
+  },
+  {
+    "step": "06-rules-prompt",
+    "note": "Rules prompt: slot over its guest limit, Book anyway",
+    "file": "06-rules-prompt-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 2,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 145px / bottom 321px)",
+      "row-misaligned: li.flex.gap-3 \"Over the 19:00 slot limit 16 guests book\" @457,173 526x66 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 10px / bottom 23px)"
+    ]
+  },
+  {
+    "check": "create: confirmed, source staff, code minted, created_by set, linked to existing member",
+    "ok": true,
+    "detail": "832a3ac9-0d10-4d4a-a968-de86ce29fcbc confirmed staff 3RN9R6 true f907819f-212a-480e-9e4d-46a584e8e9b7"
+  },
+  {
+    "check": "create: staff_created event carries the overridden rules",
+    "ok": true,
+    "detail": "[\"slot_full\"]"
+  },
+  {
+    "check": "create: no new member row",
+    "ok": true
+  },
+  {
+    "check": "confirm send: template with IMAGE header link to booking-checkin-qr and the code in the body",
+    "ok": true,
+    "detail": "{\"type\":\"header\",\"parameters\":[{\"type\":\"image\",\"image\":{\"link\":\"http://127.0.0.1:54321/storage/v1/object/public/booking-checkin-qr/<random>.png\"}}]}"
+  },
+  {
+    "check": "QR file path is random, not the code",
+    "ok": true,
+    "detail": "36 chars"
+  },
+  {
+    "step": "07-created-toast",
+    "note": "Toast after Book anyway",
+    "file": "07-created-toast-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 4px / bottom 24px)"
+    ]
+  },
+  {
+    "check": "table: By staff badge and code on the row",
+    "ok": true
+  },
+  {
+    "step": "08-table-staff-row",
+    "note": "Table view: By staff badge, check-in code, row menu",
+    "file": "08-table-staff-row-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "09-row-menu",
+    "note": "Row menu: Edit / Cancel booking",
+    "file": "09-row-menu-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "10-form-edit",
+    "note": "Edit form with the changed party marked",
+    "file": "10-form-edit-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "edit: party 4, status still confirmed, code kept",
+    "ok": true
+  },
+  {
+    "check": "stale: 409 changed shows the banner, notes unchanged in DB",
+    "ok": true
+  },
+  {
+    "step": "11-form-stale",
+    "note": "Stale edit: banner + Reload",
+    "file": "11-form-stale-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "12-cancel-dialog",
+    "note": "Cancel booking dialog with Notify diner",
+    "file": "12-cancel-dialog-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "cancel: status cancelled, cancelled_by staff + user",
+    "ok": true
+  },
+  {
+    "step": "13-cancelled-toast",
+    "note": "Cancelled toast; row shows Cancelled by staff",
+    "file": "13-cancelled-toast-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 3
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div[data-testid=\"booking-toast\"].fixed.inset-x-4 \"Saved. WhatsApp not delivered: contact t | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 12px / bottom 22px)"
+    ]
+  },
+  {
+    "check": "mode off: no Bookings link in the sidebar",
+    "ok": true
+  },
+  {
+    "check": "mode off: POST create answers 409 booking_off",
+    "ok": true,
+    "detail": "409 {\"error\":\"booking_off\"}"
+  },
+  {
+    "step": "14-mode-off",
+    "note": "Booking mode off: Bookings are off + Settings link",
+    "file": "14-mode-off-en-1440.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 256px / bottom 544px)"
+    ]
+  },
+  {
+    "consoleErrors": []
+  }
+]

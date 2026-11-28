@@ -1,0 +1,60 @@
+{
+ "url": "http://localhost:3040/dashboard/setup/messages",
+ "viewport": {
+  "w": 1440,
+  "h": 900,
+  "dpr": 1,
+  "mobile": false,
+  "consistent": true,
+  "inner": [
+   1440,
+   900
+  ]
+ },
+ "page": {
+  "scrollW": 1440,
+  "scrollH": 1803,
+  "scrollable": true,
+  "overlaysOpen": []
+ },
+ "scanned": {
+  "elements": 148,
+  "domNodes": 253,
+  "capped": false
+ },
+ "cls": 0,
+ "summary": {
+  "blocking": 0,
+  "warning": 3,
+  "info": 0
+ },
+ "truncated": false,
+ "findings": [
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-campaigns\"].flex.items-start \"推廣活動 新 受眾質素、喚回顧客\" @272,326 232x66",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 23px)",
+   "items": [
+    "span.min-w-0.flex-1 \"推廣活動 新 受眾質素、喚回顧客\" @317,337 174x44",
+    "svg @285,339 20x20"
+   ]
+  },
+  {
+   "check": "row-misaligned",
+   "sev": "warning",
+   "el": "a[data-testid=\"settings-nav-welcome\"].flex.items-start \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @272,396 232x66",
+   "detail": "children in one row are neither top-, bottom- nor center-aligned (spread top 4px / center 10px / bottom 24px)",
+   "items": [
+    "span.min-w-0.flex-1 \"加入 QR 碼及歡迎訊息 歡迎訊息、QR 碼\" @317,407 174x44",
+    "svg @285,409 20x20"
+   ]
+  },
+  {
+   "check": "text-truncated",
+   "sev": "warning",
+   "el": "div.px-3.py-2 \"Cafe Poppy (CAMP-016 local)\" @24,84 192x36",
+   "detail": "ellipsis truncation, 30px hidden (no tooltip); full text: \"Cafe Poppy (CAMP-016 local)\""
+  }
+ ]
+}

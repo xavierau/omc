@@ -1,0 +1,40 @@
+{
+  "url": "http://localhost:3022/dashboard/bookings",
+  "viewport": {
+    "w": 390,
+    "h": 844,
+    "dpr": 1,
+    "mobile": true,
+    "consistent": true,
+    "inner": [
+      390,
+      844
+    ]
+  },
+  "page": {
+    "scrollW": 390,
+    "scrollH": 844,
+    "scrollable": false,
+    "overlaysOpen": []
+  },
+  "scanned": {
+    "elements": 37,
+    "domNodes": 146,
+    "capped": false
+  },
+  "cls": 0,
+  "summary": {
+    "blocking": 0,
+    "warning": 0,
+    "info": 1
+  },
+  "truncated": false,
+  "findings": [
+    {
+      "check": "touch-target-under-44",
+      "sev": "info",
+      "el": null,
+      "detail": "1 interactive target(s) between 24 and 44px (below the 44px comfort size)"
+    }
+  ]
+}

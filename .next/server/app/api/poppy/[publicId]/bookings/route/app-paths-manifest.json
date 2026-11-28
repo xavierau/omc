@@ -1,0 +1,3 @@
+{
+  "/api/poppy/[publicId]/bookings/route": "app/api/poppy/[publicId]/bookings/route.js"
+}

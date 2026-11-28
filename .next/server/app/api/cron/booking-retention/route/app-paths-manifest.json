@@ -1,0 +1,3 @@
+{
+  "/api/cron/booking-retention/route": "app/api/cron/booking-retention/route.js"
+}

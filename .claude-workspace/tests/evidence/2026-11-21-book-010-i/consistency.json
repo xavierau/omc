@@ -1,0 +1,449 @@
+{
+  "staffApi": {
+    "date": "2026-11-30",
+    "full": false,
+    "periods": [
+      {
+        "key": "午市",
+        "label": "午市",
+        "first": "12:00",
+        "last": "14:00",
+        "guests": 80,
+        "limit": 80,
+        "full": true,
+        "slots": [
+          {
+            "time": "12:00",
+            "guests": 27,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "12:30",
+            "guests": 27,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "13:00",
+            "guests": 26,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "13:30",
+            "guests": 0,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "14:00",
+            "guests": 0,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          }
+        ],
+        "stopped": false,
+        "stoppedBy": null,
+        "stoppedAt": null
+      },
+      {
+        "key": "下午茶",
+        "label": "下午茶",
+        "first": "15:00",
+        "last": "16:00",
+        "guests": 2,
+        "limit": 80,
+        "full": false,
+        "slots": [
+          {
+            "time": "15:00",
+            "guests": 2,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "15:30",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "16:00",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          }
+        ],
+        "stopped": true,
+        "stoppedBy": "walk-admin",
+        "stoppedAt": "2026-11-21T03:43:42.916+00:00"
+      },
+      {
+        "key": "晚市",
+        "label": "晚市",
+        "first": "18:00",
+        "last": "21:30",
+        "guests": 57,
+        "limit": 80,
+        "full": false,
+        "slots": [
+          {
+            "time": "18:00",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "18:30",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "19:00",
+            "guests": 30,
+            "limit": 30,
+            "full": true,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "19:30",
+            "guests": 27,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "20:00",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "20:30",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "21:00",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          },
+          {
+            "time": "21:30",
+            "guests": 0,
+            "limit": 30,
+            "full": false,
+            "stopped": false,
+            "stoppedBy": null,
+            "stoppedAt": null
+          }
+        ],
+        "stopped": false,
+        "stoppedBy": null,
+        "stoppedAt": null
+      }
+    ],
+    "stopped": false,
+    "stoppedBy": null,
+    "stoppedAt": null,
+    "hoursSet": true
+  },
+  "pap": {
+    "av1": {
+      "dates": [
+        {
+          "date": "2026-11-30",
+          "open": true,
+          "times": [
+            "18:00",
+            "18:30",
+            "19:30",
+            "20:00",
+            "20:30",
+            "21:00",
+            "21:30"
+          ]
+        }
+      ],
+      "interval_minutes": 30,
+      "table_minutes": null,
+      "max_party_size": 8,
+      "terms": {
+        "zh-HK": "訂座保留 15 分鐘。每枝用餐時間大約 90 分鐘。",
+        "en": "Tables are held for 15 minutes. Each table has about 90 minutes."
+      }
+    },
+    "av4": {
+      "dates": [
+        {
+          "date": "2026-11-30",
+          "open": true,
+          "times": [
+            "18:00",
+            "18:30",
+            "20:00",
+            "20:30",
+            "21:00",
+            "21:30"
+          ]
+        }
+      ],
+      "interval_minutes": 30,
+      "table_minutes": null,
+      "max_party_size": 8,
+      "terms": {
+        "zh-HK": "訂座保留 15 分鐘。每枝用餐時間大約 90 分鐘。",
+        "en": "Tables are held for 15 minutes. Each table has about 90 minutes."
+      }
+    },
+    "full": {
+      "status": 400,
+      "body": {
+        "error": "invalid_request",
+        "error_description": "A field is missing or invalid.",
+        "fields": {
+          "time": "full"
+        },
+        "suggested_times": [
+          {
+            "date": "2026-11-30",
+            "time": "18:30"
+          },
+          {
+            "date": "2026-11-30",
+            "time": "18:00"
+          },
+          {
+            "date": "2026-11-30",
+            "time": "20:00"
+          }
+        ]
+      }
+    }
+  },
+  "table": [
+    {
+      "time": "12:00",
+      "period": "午市",
+      "staff": "27/30 · meal 80/80 · Meal full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "12:30",
+      "period": "午市",
+      "staff": "27/30 · meal 80/80 · Meal full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "13:00",
+      "period": "午市",
+      "staff": "26/30 · meal 80/80 · Meal full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "13:30",
+      "period": "午市",
+      "staff": "0/30 · meal 80/80 · Meal full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "14:00",
+      "period": "午市",
+      "staff": "0/30 · meal 80/80 · Meal full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "15:00",
+      "period": "下午茶",
+      "staff": "2/30 · meal 2/80 · period stopped",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "15:30",
+      "period": "下午茶",
+      "staff": "0/30 · meal 2/80 · period stopped",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "16:00",
+      "period": "下午茶",
+      "staff": "0/30 · meal 2/80 · period stopped",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "18:00",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    },
+    {
+      "time": "18:30",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    },
+    {
+      "time": "19:00",
+      "period": "晚市",
+      "staff": "30/30 · meal 57/80 · Full",
+      "staffOpen1": false,
+      "staffOpen4": false,
+      "diner1": "full",
+      "diner4": "full",
+      "avail1": false,
+      "avail4": false
+    },
+    {
+      "time": "19:30",
+      "period": "晚市",
+      "staff": "27/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": false,
+      "diner1": "open",
+      "diner4": "full",
+      "avail1": true,
+      "avail4": false
+    },
+    {
+      "time": "20:00",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    },
+    {
+      "time": "20:30",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    },
+    {
+      "time": "21:00",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    },
+    {
+      "time": "21:30",
+      "period": "晚市",
+      "staff": "0/30 · meal 57/80",
+      "staffOpen1": true,
+      "staffOpen4": true,
+      "diner1": "open",
+      "diner4": "open",
+      "avail1": true,
+      "avail4": true
+    }
+  ]
+}

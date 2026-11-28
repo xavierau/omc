@@ -1,0 +1,21 @@
+1:"$Sreact.fragment"
+2:I[132670,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js","/_next/static/chunks/3bhxovi-jv9sa.js","/_next/static/chunks/2riggjgg-1wjz.js"],"JoinForm"]
+3:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+8:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"ViewportBoundary"]
+9:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"MetadataBoundary"]
+a:I[27201,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"IconMark"]
+c:I[339756,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"default"]
+d:I[837457,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"default"]
+7:X
+f:X
+f:C
+0:{"buildId":"eFn2M8pzUEgL_DOiytD5C","data":[{"rsc":["$","$1","c",{"children":[["$","main",null,{"className":"flex min-h-screen flex-col items-center justify-center p-4","children":["$","$L2",null,{}]}],[["$","script","script-0",{"src":"/_next/static/chunks/3bhxovi-jv9sa.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/2riggjgg-1wjz.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":"$@6","staleTime":"$7","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$L8",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L9",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"OhMyClient"}],["$","meta","1",{"name":"description","content":"No App Required — WhatsApp-powered CRM & loyalty platform"}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$La","3",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":"$@b","staleTime":"$7","varyParams":null},{"rsc":["$","$1","c",{"children":[null,["$","$Lc",null,{"parallelRouterKey":"children","template":["$","$Ld",null,{}]}]]}],"isPartial":"$@e","staleTime":"$7","varyParams":"$f"}],"isUpgradeableISRFallback":false,"a":"$@10","rootVaryParams":null,"needsRuntimeRequest":"$@11"}
+5:null
+11:true
+7:300
+7:C
+10:0
+b:"$undefined"
+e:"$undefined"
+6:"$undefined"

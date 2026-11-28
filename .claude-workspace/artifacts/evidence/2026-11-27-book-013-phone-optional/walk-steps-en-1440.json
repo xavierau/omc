@@ -1,0 +1,474 @@
+[
+  {
+    "check": "form: phone label marked optional",
+    "ok": true,
+    "detail": "Phone (optional)"
+  },
+  {
+    "check": "form: empty phone → Notify unticked + disabled + hint",
+    "ok": true,
+    "detail": "{\"checked\":false,\"disabled\":true,\"hint\":\"Send WhatsApp confirmation to the diner No phone, no WhatsApp message\"}"
+  },
+  {
+    "check": "form: typing a phone makes Notify available, ticked",
+    "ok": true,
+    "detail": "{\"checked\":true,\"disabled\":false,\"hint\":\"Send WhatsApp confirmation to the diner Also sends the reminder 3 hours before. Untick for landlines or diners who don’t want messages.\"}"
+  },
+  {
+    "check": "form: clearing the phone disables Notify again",
+    "ok": true,
+    "detail": "{\"checked\":false,\"disabled\":true,\"hint\":\"Send WhatsApp confirmation to the diner No phone, no WhatsApp message\"}"
+  },
+  {
+    "step": "01-form-no-phone",
+    "note": "New booking with no phone: Notify off and disabled, hint shown",
+    "file": "01-form-no-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.105 (> 0.1) since load"
+    ]
+  },
+  {
+    "step": "01b-form-notify-focus",
+    "note": "Notify off + disabled with the no-phone hint",
+    "file": "01b-form-notify-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-form-notify]"
+  },
+  {
+    "check": "create: confirmed, source staff, phone NULL, no member, notify false",
+    "ok": true,
+    "detail": "NULL|NULL|f|confirmed|staff"
+  },
+  {
+    "check": "create: toast \"added\", no not-delivered warning",
+    "ok": true,
+    "detail": "added"
+  },
+  {
+    "check": "create: zero WhatsApp sends",
+    "ok": true,
+    "detail": "0"
+  },
+  {
+    "step": "02-created-toast",
+    "note": "Saved; toast without a WhatsApp warning",
+    "file": "02-created-toast-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 2
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.118 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "today: the row shows \"No phone\"",
+    "ok": true,
+    "detail": "18:30 Walk-in Ho By staff · walk-admin No phone 3 Waiting Arrived"
+  },
+  {
+    "step": "03-today-no-phone",
+    "note": "Today: the phone-less booking shows No phone",
+    "file": "03-today-no-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.105 (> 0.1) since load"
+    ]
+  },
+  {
+    "step": "03b-today-row-focus",
+    "note": "Today row / card: No phone",
+    "file": "03b-today-row-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-row-1434cd39-2f5c-49ea-9212-0cc524efbede]"
+  },
+  {
+    "check": "today search \"Walk-in\": only Walk-in Ho",
+    "ok": true,
+    "detail": "[\"Walk-in Ho\"]"
+  },
+  {
+    "step": "04-today-search-name",
+    "note": "Today search by name finds it",
+    "file": "04-today-search-name-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 2,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.105 (> 0.1) since load",
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient Powered by WhatsApp Walk Test\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 217px / bottom 466px)"
+    ]
+  },
+  {
+    "check": "today search \"9123\": Walk-in Ho skipped",
+    "ok": true,
+    "detail": "[\"Au Ka Yan\",\"陳生\"]"
+  },
+  {
+    "check": "arrived: checked_in_at set, still confirmed",
+    "ok": true
+  },
+  {
+    "step": "05-today-arrived",
+    "note": "Arrived on the phone-less booking (Undo shown)",
+    "file": "05-today-arrived-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.105 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "undo: checked_in_at cleared",
+    "ok": true
+  },
+  {
+    "check": "calendar day panel: the row shows \"No phone\"",
+    "ok": true
+  },
+  {
+    "step": "06-calendar-no-phone",
+    "note": "Calendar day panel row: No phone",
+    "file": "06-calendar-no-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=calendar",
+    "audit": {
+      "blocking": 0,
+      "warning": 19,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: div.flex.min-w-0 \"Au Ka Yan Confirmed +85291234401 Link me\" @1133,565 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Siu Fung Confirmed +85292223333 Lin\" @1133,724 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Lam Tai No-show +85295550001 Link member\" @1133,883 254x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Walk-in Ho Confirmed By staff · walk-adm\" @1133,1042 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Wing Yan Confirmed via AI agent +85\" @1133,1229 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Mr Chan Confirmed By staff · walk-admin \" @1133,1416 202x154 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Yeung Family Confirmed +85261116555 Link\" @1133,1603 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"Chan Ka Wai Pending +85290012233 Link me\" @1133,1762 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: div.flex.min-w-0 \"陳生 Confirmed +85291234402 Link member Ar\" @1133,1921 202x126 | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "layout-shift: null | cumulative layout shift 0.101 (> 0.1) since load",
+      "row-misaligned: header.flex.items-start \"Friday, November 27 9 bookings · 31 gues\" @1049,233 358x103 | children in one row are neither top-, bottom- nor center-aligned (spread top 9px / center 18px / bottom 44px)",
+      "row-misaligned: li[data-testid=\"booking-row-a12d4d43-e758-4c31-8d33-8647a4fffbd5\"].flex.gap-4 \"12:30 4 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-a21a28d3-9767-40a1-9e55-1beb494272b4\"].flex.gap-4 \"13:00 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-1434cd39-2f5c-49ea-9212-0cc524efbede\"].flex.gap-4 \"18:30 3 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-5e76f26b-09ab-48d1-9d53-0b18116d82f3\"].flex.gap-4 \"21:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-9abe0ebe-5a25-4030-a6ba-fcc1ce1684e5\"].flex.gap-4 \"22:30 6 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 59px / bottom 128px)",
+      "row-misaligned: li[data-testid=\"booking-row-5cc8e03c-89b2-49a8-936b-6ff2e2b51008\"].flex.gap-4 \"23:00 8 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-abc566ba-cc4c-4b03-b055-fb01eaa0d7ab\"].flex.gap-4 \"23:15 4 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)",
+      "row-misaligned: li[data-testid=\"booking-row-83e2b9fa-45b5-4212-8ee4-4998036c81a5\"].flex.gap-4 \"23:30 2 pax | children in one row are neither top-, bottom- nor center-aligned (spread top 10px / center 45px / bottom 100px)"
+    ]
+  },
+  {
+    "step": "06b-calendar-row-focus",
+    "note": "Calendar day panel row: No phone",
+    "file": "06b-calendar-row-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-row-1434cd39-2f5c-49ea-9212-0cc524efbede]"
+  },
+  {
+    "check": "table: the row shows \"No phone\", no tel: link",
+    "ok": true
+  },
+  {
+    "step": "07-table-no-phone",
+    "note": "Table row: No phone",
+    "file": "07-table-no-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "07b-table-row-focus",
+    "note": "Table row / card: No phone",
+    "file": "07b-table-row-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-row-1434cd39-2f5c-49ea-9212-0cc524efbede]"
+  },
+  {
+    "check": "edit (no phone yet): Notify disabled with hint",
+    "ok": true,
+    "detail": "{\"checked\":false,\"disabled\":true,\"hint\":\"Send the change to the diner on WhatsApp No phone, no WhatsApp message\"}"
+  },
+  {
+    "check": "edit add phone: member line shown, Notify available and ticked",
+    "ok": true,
+    "detail": "{\"checked\":true,\"disabled\":false,\"hint\":\"Send the change to the diner on WhatsApp Only a new date, time or party size is sent. The reminder moves to the new time.\"}"
+  },
+  {
+    "step": "08-form-add-phone",
+    "note": "Edit: phone added, member found, Notify available",
+    "file": "08-form-add-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "edit add phone: phone stored, member linked, notify true",
+    "ok": true,
+    "detail": "+85223456789|cbfdf51c-c0dc-433f-bc98-89f13a9c1585|t|confirmed|staff"
+  },
+  {
+    "check": "edit add phone: no message (no date/time/party change, AC-6 rule)",
+    "ok": true,
+    "detail": "0"
+  },
+  {
+    "check": "edit staff booking: phone label optional",
+    "ok": true,
+    "detail": "Phone (optional)"
+  },
+  {
+    "check": "edit clear phone: Notify unticked + disabled + hint",
+    "ok": true,
+    "detail": "{\"checked\":false,\"disabled\":true,\"hint\":\"Send the change to the diner on WhatsApp No phone, no WhatsApp message\"}"
+  },
+  {
+    "step": "09-form-clear-phone",
+    "note": "Edit a staff booking: phone cleared, Notify off",
+    "file": "09-form-clear-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "edit clear phone: phone NULL, member NULL, notify false",
+    "ok": true,
+    "detail": "NULL|NULL|f|confirmed|staff"
+  },
+  {
+    "check": "edit clear phone: no message",
+    "ok": true
+  },
+  {
+    "check": "edit chat booking: phone label plain (required)",
+    "ok": true,
+    "detail": "Phone"
+  },
+  {
+    "check": "edit chat booking clear phone: refused with a field error on Phone",
+    "ok": true,
+    "detail": "Required."
+  },
+  {
+    "check": "edit chat booking clear phone: row unchanged",
+    "ok": true,
+    "detail": "+85297770001|NULL|t|confirmed|chat"
+  },
+  {
+    "step": "10-clear-chat-refused",
+    "note": "Diner-channel booking: clearing the phone is refused",
+    "file": "10-clear-chat-refused-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "10b-clear-chat-error-focus",
+    "note": "Phone field error on a diner-channel booking",
+    "file": "10b-clear-chat-error-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-form-phone]"
+  },
+  {
+    "check": "cancel dialog (no phone): Notify unticked + disabled + hint; diner line says No phone",
+    "ok": true,
+    "detail": "{\"checked\":false,\"disabled\":true,\"hint\":\"Tell the diner on WhatsApp No phone, no WhatsApp message\"}"
+  },
+  {
+    "step": "11-cancel-no-phone",
+    "note": "Cancel dialog for a booking without a phone",
+    "file": "11-cancel-no-phone-en-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "11b-cancel-notify-focus",
+    "note": "Cancel dialog: Notify off + disabled",
+    "file": "11b-cancel-notify-focus-en-1440.jpeg",
+    "focus": "[data-testid=booking-cancel-notify]"
+  },
+  {
+    "check": "cancel: status cancelled by staff",
+    "ok": true
+  },
+  {
+    "check": "cancel: no message",
+    "ok": true
+  },
+  {
+    "check": "run: fake Kapso logged zero message sends for the phone-less bookings",
+    "ok": true,
+    "detail": "[]"
+  },
+  {
+    "consoleErrors": []
+  }
+]

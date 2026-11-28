@@ -1,0 +1,31 @@
+# Handoff Log
+
+| date | agent | item | status | artifact | next | blocker |
+|---|---|---|---|---|---|---|
+| 2026-11-27 | dev | BOOK-013 AC-26 manual link | done | artifacts/2026-11-27-book-013-phone-optional-r2-handoff · artifacts/evidence/2026-11-27-book-013-phone-optional-r2 | main: review PR #236 delta faa2314f..tip | none |
+| 2026-11-27 | dev | BOOK-013 decision 9 | done | artifacts/2026-11-27-book-013-phone-optional-handoff · artifacts/evidence/2026-11-27-book-013-phone-optional | main: review PR #236; release 096 after 095 | none |
+| 2026-11-26 | dev | BOOK-013 r3 | done | artifacts/2026-11-26-book-013-r3-handoff · artifacts/evidence/2026-11-26-book-013-r3 | main: re-review PR #235 (9c2e52ba..branch tip): decision 8 removal + AC-25 sort | none |
+| 2026-11-26 | dev | BOOK-013 r2 | done | artifacts/2026-11-26-book-013-r2-handoff · artifacts/evidence/2026-11-26-book-013-r2 | main: re-review PR #235 (review fixes R1 R2 R3 R7 R8 R10); QR items wait on owner | none |
+| 2026-11-26 | dev | BOOK-013 | done | artifacts/2026-11-26-book-013-handoff | main: review PR #235; release needs 095 first, template backfill is an owner step | none |
+| 2026-11-26 | dev | BOOK-012 release (resume) | done | artifacts/2026-11-26-book-012-release-r2-handoff | main: merge records PR, sync main into develop | none |
+| 2026-11-26 | dev | BOOK-012 migration 094 | done | artifacts/2026-11-26-book-012-migration-094-handoff | main: resume the code deploy after BUILD-FONT-001 | none |
+| 2026-11-26 | dev | BUILD-FONT-001 | done | artifacts/2026-11-26-build-font-001-handoff | main: review PR, merge, then resume the BOOK-012 release | none |
+| 2026-11-26 | dev | BOOK-012 r2 | done | artifacts/2026-11-26-book-012-r2-review-fixes-handoff | main: re-review PR #230, then release (094 first) | none |
+| 2026-11-26 | dev | BOOK-012 | done | artifacts/2026-11-26-book-012-classifier-default-on-handoff | main: review PR #230, then release (094 first) | none |
+| 2026-11-24 | dev | TPL-012 r2 | done | artifacts/2026-11-24-dev-tpl-012-r2-handoff · tests/evidence/2026-11-24-tpl-012-r2 | main: re-review PR #227 (afe1a41) | none |
+| 2026-11-24 | dev | TPL-012 | done | artifacts/2026-11-24-dev-tpl-012-handoff · tests/evidence/2026-11-24-tpl-012 | main: review PR #227 (/code-review, campaign send path) | none |
+| 2026-11-21 | dev | BOOK-010 F1 | done | artifacts/2026-11-21-book-010-f1-handoff · tests/evidence/2026-11-21-book-010-f1/red-run | main: re-review PR #223; 091 → 092 → 093 before deploy | none |
+| 2026-11-21 | dev | BOOK-010 I-010 | done | artifacts/2026-11-21-book-010-i-handoff · artifacts/2026-11-21-book-010-i-impl | main: review PR #223; merge #222 first, then retarget #223 to develop; 092 after 091 before deploy | none |
+| 2026-11-21 | dev | BOOK-010 W2 | done | artifacts/2026-11-21-book-010-w2-handoff · artifacts/2026-11-21-book-010-w2-impl | main: review W2, then I-010 | none |
+| 2026-11-21 | dev | BOOK-010 W1 | done | artifacts/2026-11-20-book-010-w1-handoff · artifacts/2026-11-20-book-010-w1-impl | main: review ea989937..74398f92, then W2 UI | none |
+| 2026-11-21 | dev | BOOK-009 F1 | done | artifacts/2026-11-20-book-009-f1-handoff · tests/evidence/2026-11-20-book-009-f1/red-run | main: re-review the 6 findings, then merge PR #222 | none |
+| 2026-11-20 | dev | BOOK-009 I-009 | done | artifacts/2026-11-20-book-009-i-handoff · tests/evidence/2026-11-20-book-009-i/walk-log | main: review PR #222; then W5 BOOK-010 from its head | none |
+| 2026-11-20 | dev | BOOK-009 W2+W3 | done | artifacts/2026-11-20-book-009-w23-impl · artifacts/2026-11-20-book-009-w23-handoff | main: W4, then I-009 DB walk + PR | none |
+| 2026-11-20 | dev | BOOK-009 W4 | blocked | artifacts/2026-11-20-book-009-w4-impl · artifacts/2026-11-20-book-009-w4-handoff | main: rule on 42949788; I-009 merge | NewAgentBooking terms fields outside files_allowed (own commit) — main |
+| 2026-11-20 | dev | BOOK-009 W1 | blocked | artifacts/2026-11-20-book-009-w1-impl · artifacts/2026-11-20-book-009-w1-handoff | main: rule on AI tool call sites (W4?); dispatch W2/W3 + W4 | AI tools still pass maxPartySize (outside files_allowed) — main |
+| 2026-11-20 | dev | WONB-020 release | done | deploys/2026-11-20-wonb-020-release-runbook | owner: real imported-member JOIN scan on prod | — |
+| 2026-11-20 | dev | AGENT-005 release | done | deploys/2026-11-20-agent-005-release-runbook · artifacts/2026-11-20-rel-agent005-handoff | main: merge records PR; owner fills omc 訂座規則 and live-checks an out-of-hours booking ask | — |
+| 2026-11-20 | dev | BOOK-008 release | done | deploys/2026-11-20-book-008-release-runbook · artifacts/2026-11-20-rel-book008-handoff | main: merge records PR; owner live member-panel / relink check | — |
+| 2026-11-20 | dev | BOOK-007 release | blocked | deploys/2026-11-20-book-007-release-runbook · artifacts/2026-11-20-rel-book007-handoff | main: rule on the Kapso warn line; merge records PR; owner live no-show check | AC-4 literal fail: pre-existing [Kapso] warn line — main |
+| 2026-11-20 | dev | BOOK-006 release | done | deploys/2026-11-20-book-006-release-runbook · artifacts/2026-11-20-rel-book006-handoff | main: merge records PR; owner live omc check | — |
+| 2026-11-20 | dev | AGENT-004 release | done | deploys/2026-11-20-agent-004-release-runbook · artifacts/2026-11-20-rel-agent004-handoff | owner live omc check | — |

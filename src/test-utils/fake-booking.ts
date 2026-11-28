@@ -1,0 +1,238 @@
+// In-memory booking ports with the same atomicity as the SQL: a token claim
+// and a pending -> decision move each succeed for exactly one caller, even
+// when two calls interleave (the check and the write happen in one tick, as
+// one conditional UPDATE does in Postgres; see booking.db.test.ts).
+import { randomUUID } from 'crypto'
+import { bookingTokenState, type BookingLinkSource } from '@/domain/services/booking-token'
+import { DEFAULT_BOOKING_CONFIG, type BookingConfig } from '@/domain/value-objects/booking-config'
+import type { BookingRequest, DecisionMessageStatus, DinerBooking, NewBookingRequest } from '@/domain/entities/booking-request'
+import type {
+  BookingMessageInput,
+  BookingMessageSender,
+  BookingNoShowStore,
+  BookingRequestStore,
+  BookingRestaurantContext,
+  BookingSendResult,
+  BookingSettingsReader,
+  BookingTokenStore,
+  CancelDinerBookingArgs,
+  DecideBookingArgs,
+  DinerBookingStore,
+  HongKongMoment,
+  MarkNoShowArgs,
+} from '@/domain/ports/booking'
+
+/** Mirrors the repository's upcomingFilter: a later date, or today at `from.time` or later. */
+const isUpcoming = (r: { bookingDate: string; bookingTime: string }, from: HongKongMoment) =>
+  r.bookingDate > from.date || (r.bookingDate === from.date && r.bookingTime >= from.time)
+
+export interface FakeTokenRow {
+  token: string
+  restaurantId: string
+  phone: string
+  source: BookingLinkSource
+  campaignId: string | null
+  expiresAt: string | null
+  consumedAt: string | null
+}
+
+const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
+
+export class FakeBookingTokens implements BookingTokenStore {
+  constructor(readonly rows: FakeTokenRow[] = []) {}
+
+  add(row: Partial<FakeTokenRow> & { token: string; restaurantId: string; phone: string }): void {
+    this.rows.push({ source: 'chat', campaignId: null, expiresAt: null, consumedAt: null, ...row })
+  }
+
+  private owner(row: FakeTokenRow) {
+    return { restaurantId: row.restaurantId, phone: row.phone, source: row.source, campaignId: row.campaignId }
+  }
+
+  async peek(token: string, now: Date) {
+    await tick()
+    const row = this.rows.find((r) => r.token === token)
+    return { state: bookingTokenState(row ?? null, now), owner: row ? this.owner(row) : null }
+  }
+
+  async claim(token: string, now: Date) {
+    await tick()
+    const row = this.rows.find((r) => r.token === token)
+    if (!row || bookingTokenState(row, now) !== 'valid') return null
+    row.consumedAt = now.toISOString()
+    return this.owner(row)
+  }
+
+  async release(token: string, claimedAt: Date) {
+    const row = this.rows.find((r) => r.token === token && r.consumedAt === claimedAt.toISOString())
+    if (row) row.consumedAt = null
+  }
+}
+
+type FakeBookingRow = BookingRequest & {
+  token: string | null
+  cancelledAt?: string | null
+  /** BOOK-007 (migration 087). */
+  noShowMarkedBy?: string | null
+  noShowMarkedAt?: string | null
+}
+
+export class FakeBookingRequests implements BookingRequestStore, DinerBookingStore, BookingNoShowStore {
+  readonly rows: FakeBookingRow[] = []
+  /** AGENT-003: queries the store received, as `where` strings (scoping assertions). */
+  readonly queries: string[] = []
+  failConfirmChangeCancel = false
+  failInsert = false
+  failRecordDecisionMessage = false
+
+  async insert(request: NewBookingRequest): Promise<BookingRequest> {
+    await tick()
+    if (this.failInsert) throw new Error('insert failed')
+    // UNIQUE token: NULLs never clash (AGENT-003 agent bookings carry none).
+    if (request.token !== null && this.rows.some((r) => r.token === request.token)) {
+      throw new Error('duplicate key booking_requests_token_key')
+    }
+    if (request.replacesBookingId && this.rows.some((r) => r.replacesBookingId === request.replacesBookingId && r.status === 'pending')) {
+      throw new Error('duplicate key booking_requests_one_pending_change_idx')
+    }
+    const { token, ...rest } = request
+    const row: BookingRequest & { token: string | null } = {
+      ...rest, token, id: randomUUID(), status: 'pending' as const, declineReason: null, decidedBy: null,
+      decidedAt: null, createdAt: new Date(Date.now() + this.rows.length).toISOString(), decisionMessageStatus: null,
+      replacesBookingId: request.replacesBookingId ?? null, cancelledBy: null,
+    }
+    this.rows.push(row)
+    return row
+  }
+
+  async countPending(restaurantId: string, phone: string) {
+    return this.rows.filter((r) => r.restaurantId === restaurantId && r.phone === phone && r.status === 'pending').length
+  }
+
+  /** Every pending row plus the newest `decidedLimit` decided ones, newest first (F10). */
+  async listForRestaurant(restaurantId: string, decidedLimit: number) {
+    const newestFirst = this.rows
+      .filter((r) => r.restaurantId === restaurantId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const decided = new Set(newestFirst.filter((r) => r.status !== 'pending').slice(0, decidedLimit))
+    return newestFirst.filter((r) => r.status === 'pending' || decided.has(r)).map((r) => ({ ...r }))
+  }
+
+  async recordDecisionMessage(id: string, restaurantId: string, status: DecisionMessageStatus) {
+    if (this.failRecordDecisionMessage) throw new Error('update failed')
+    const row = this.rows.find((r) => r.id === id && r.restaurantId === restaurantId)
+    if (row) row.decisionMessageStatus = status
+  }
+
+  /** Mirrors findBookingForRestaurant: an unverified agent booking does not exist for staff (R41). */
+  async findForRestaurant(id: string, restaurantId: string) {
+    return this.rows.find((r) => r.id === id && r.restaurantId === restaurantId && r.status !== 'unverified') ?? null
+  }
+
+  /** BOOK-007: mirrors mark_booking_no_show (confirmed + before `args.before` + no pending change in this restaurant, r1 F1). */
+  async markNoShow(args: MarkNoShowArgs) {
+    await tick()
+    const changeOpen = this.rows.some(
+      (c) => c.replacesBookingId === args.id && c.restaurantId === args.restaurantId && c.status === 'pending'
+    )
+    const row = this.rows.find(
+      (r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'confirmed' && !isUpcoming(r, args.before)
+    )
+    if (!row || changeOpen) return null
+    Object.assign(row, { status: 'no_show', noShowMarkedBy: args.markedBy, noShowMarkedAt: args.at.toISOString() })
+    return { ...row }
+  }
+
+  /** BOOK-007: mirrors undoBookingNoShow. */
+  async undoNoShow(args: { id: string; restaurantId: string }) {
+    await tick()
+    const row = this.rows.find((r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'no_show')
+    if (!row) return null
+    Object.assign(row, { status: 'confirmed', noShowMarkedBy: null, noShowMarkedAt: null })
+    return { ...row }
+  }
+
+  /** Mirrors RPC confirm_booking_change: both rows change or neither (failConfirmChangeCancel simulates a mid-way failure). */
+  async confirmChange(args: Omit<DecideBookingArgs, 'decision' | 'declineReason'>) {
+    await tick()
+    const row = this.rows.find(
+      (r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'pending' && r.replacesBookingId
+    )
+    if (!row) return null
+    const original = this.rows.find(
+      (r) => r.id === row.replacesBookingId && r.restaurantId === args.restaurantId && ['pending', 'confirmed'].includes(r.status)
+    )
+    if (this.failConfirmChangeCancel) throw new Error('confirm_booking_change failed')
+    Object.assign(row, { status: 'confirmed', decidedBy: args.decidedBy, decidedAt: args.decidedAt.toISOString(), declineReason: null })
+    if (original) Object.assign(original, { status: 'cancelled', cancelledBy: 'change', cancelledAt: args.decidedAt.toISOString() })
+    return { ...row }
+  }
+
+  async listUpcoming(restaurantId: string, phone: string, from: HongKongMoment): Promise<DinerBooking[]> {
+    this.queries.push(`listUpcoming restaurant_id=${restaurantId} phone=${phone} upcoming>=${from.date} ${from.time}`)
+    return this.rows
+      .filter((r) => r.restaurantId === restaurantId && r.phone === phone && ['pending', 'confirmed'].includes(r.status) && isUpcoming(r, from))
+      .sort((a, b) => `${a.bookingDate} ${a.bookingTime}`.localeCompare(`${b.bookingDate} ${b.bookingTime}`))
+      .map((r) => ({
+        id: r.id, bookingDate: r.bookingDate, bookingTime: r.bookingTime, partySize: r.partySize,
+        status: r.status as 'pending' | 'confirmed', name: r.name, notes: r.notes, memberId: r.memberId,
+        replacesBookingId: r.replacesBookingId ?? null,
+      }))
+  }
+
+  async cancelByDiner(args: CancelDinerBookingArgs): Promise<string[]> {
+    await tick()
+    this.queries.push(`cancelByDiner restaurant_id=${args.restaurantId} phone=${args.phone} id=${args.id}`)
+    const hit = this.rows.filter(
+      (r) =>
+        r.restaurantId === args.restaurantId && r.phone === args.phone && ['pending', 'confirmed'].includes(r.status) &&
+        ((r.id === args.id && isUpcoming(r, args.from)) || (r.replacesBookingId === args.id && r.status === 'pending'))
+    )
+    for (const r of hit) Object.assign(r, { status: 'cancelled', cancelledBy: 'diner_ai', cancelledAt: args.at.toISOString() })
+    return hit.map((r) => r.id)
+  }
+
+  async decide(args: DecideBookingArgs) {
+    await tick()
+    const row = this.rows.find((r) => r.id === args.id && r.restaurantId === args.restaurantId && r.status === 'pending')
+    if (!row) return null
+    Object.assign(row, {
+      status: args.decision, decidedBy: args.decidedBy, decidedAt: args.decidedAt.toISOString(),
+      declineReason: args.decision === 'declined' ? args.declineReason : null,
+    })
+    return { ...row }
+  }
+}
+
+export class FakeBookingSettings implements BookingSettingsReader {
+  configs = new Map<string, BookingConfig>()
+  restaurants = new Map<string, BookingRestaurantContext>()
+  campaignUrls = new Map<string, { restaurantId: string; url: string }>()
+
+  setConfig(restaurantId: string, patch: Partial<BookingConfig>): void {
+    this.configs.set(restaurantId, { ...DEFAULT_BOOKING_CONFIG, ...patch })
+  }
+
+  async getConfig(restaurantId: string) {
+    return this.configs.get(restaurantId) ?? { ...DEFAULT_BOOKING_CONFIG }
+  }
+
+  async getRestaurant(restaurantId: string) {
+    return this.restaurants.get(restaurantId) ?? null
+  }
+
+  async getCampaignBookingUrl(campaignId: string, restaurantId: string) {
+    const entry = this.campaignUrls.get(campaignId)
+    return entry && entry.restaurantId === restaurantId ? entry.url : null
+  }
+}
+
+export class FakeBookingSender implements BookingMessageSender {
+  readonly sent: BookingMessageInput[] = []
+  result: BookingSendResult = { delivered: true, via: 'text' }
+
+  async send(input: BookingMessageInput) {
+    this.sent.push(input)
+    return this.result
+  }
+}

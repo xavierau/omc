@@ -1,0 +1,27 @@
+1:"$Sreact.fragment"
+2:I[347257,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"ClientPageRoot"]
+3:I[954263,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js","/_next/static/chunks/0hvqgu_p827id.js","/_next/static/chunks/2riggjgg-1wjz.js","/_next/static/chunks/143vsds_nkkg4.js","/_next/static/chunks/14cfq3p_n9rxz.js"],"default"]
+6:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"OutletBoundary"]
+7:"$Sreact.suspense"
+b:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"ViewportBoundary"]
+c:I[897367,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"MetadataBoundary"]
+d:I[27201,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"IconMark"]
+f:I[339756,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"default"]
+10:I[837457,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js"],"default"]
+13:I[943750,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js","/_next/static/chunks/0hvqgu_p827id.js","/_next/static/chunks/2riggjgg-1wjz.js"],"TenantProvider"]
+14:I[153296,["/_next/static/chunks/2qo819h037_8k.js","/_next/static/chunks/0n7-t5vj4pah8.js","/_next/static/chunks/0hvqgu_p827id.js","/_next/static/chunks/2riggjgg-1wjz.js"],"Sidebar"]
+a:X
+12:X
+12:C
+0:{"buildId":"eFn2M8pzUEgL_DOiytD5C","data":[{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/143vsds_nkkg4.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/14cfq3p_n9rxz.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":"$@9","staleTime":"$a","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$Lb",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$Lc",null,{"children":["$","$7",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"OhMyClient"}],["$","meta","1",{"name":"description","content":"No App Required — WhatsApp-powered CRM & loyalty platform"}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$Ld","3",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":"$@e","staleTime":"$a","varyParams":null},{"rsc":["$","$1","c",{"children":[null,["$","$Lf",null,{"parallelRouterKey":"children","template":["$","$L10",null,{}]}]]}],"isPartial":"$@11","staleTime":"$a","varyParams":"$12"},{"rsc":["$","$1","c",{"children":[[["$","script","script-0",{"src":"/_next/static/chunks/0hvqgu_p827id.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/2riggjgg-1wjz.js","async":true}]],["$","$L13",null,{"children":["$","div",null,{"className":"flex min-h-screen","children":[["$","$L14",null,{}],["$","main",null,{"className":"flex-1 bg-background p-6 pl-16 lg:pl-8 lg:p-8 overflow-auto","children":["$","$Lf",null,{"parallelRouterKey":"children","template":["$","$L10",null,{}]}]}]]}]}]]}],"isPartial":"$@15","staleTime":"$a","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@16","rootVaryParams":null,"needsRuntimeRequest":"$@17"}
+4:{}
+5:"$0:data:0:rsc:props:children:0:props:serverProvidedParams:params"
+8:null
+17:true
+a:300
+a:C
+16:0
+e:"$undefined"
+11:"$undefined"
+15:"$undefined"
+9:"$undefined"

@@ -1,0 +1,14 @@
+{
+  "protocol_version": "1.0",
+  "organization": {
+    "name": "Cafe Poppy",
+    "domain": "www.cafepoppy.hk"
+  },
+  "apis": [
+    {
+      "type": "openapi",
+      "url": "https://app.ohmyclient.io/api/poppy/xJ3kPq7Rt2Vw9Yz4Ab6Cd8Ef/openapi.json",
+      "description": "Request a table at Cafe Poppy. The diner confirms the request on WhatsApp."
+    }
+  ]
+}

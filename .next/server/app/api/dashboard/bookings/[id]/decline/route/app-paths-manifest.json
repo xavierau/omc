@@ -1,0 +1,3 @@
+{
+  "/api/dashboard/bookings/[id]/decline/route": "app/api/dashboard/bookings/[id]/decline/route.js"
+}

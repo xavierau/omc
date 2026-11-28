@@ -1,0 +1,3 @@
+{
+  "/api/poppy/[publicId]/openapi.json/route": "app/api/poppy/[publicId]/openapi.json/route.js"
+}

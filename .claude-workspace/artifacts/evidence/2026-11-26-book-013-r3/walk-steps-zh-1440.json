@@ -1,0 +1,523 @@
+[
+  {
+    "check": "today: no Scan button, no code on any row (decision 8)",
+    "ok": true
+  },
+  {
+    "check": "today: default sort is time ascending",
+    "ok": true,
+    "detail": "time:asc"
+  },
+  {
+    "check": "today: rows by time",
+    "ok": true,
+    "detail": "[\"Au Ka Yan\",\"Chan Siu Fung\",\"Lam Tai\",\"Chan Wing Yan\",\"Mr Chan\",\"Yeung Family\",\"Chan Ka Wai\",\"陳生\"]"
+  },
+  {
+    "check": "today: Lunch and Dinner headings while sorted by time",
+    "ok": true
+  },
+  {
+    "check": "today: phone has the Sort select, desktop the column headers",
+    "ok": true
+  },
+  {
+    "step": "01-today-time",
+    "note": "Today, sorted by time (default) with Lunch / Dinner headings",
+    "file": "01-today-time-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "sort name: URL ?view=today&sort=name&dir=asc",
+    "ok": true,
+    "detail": "/dashboard/bookings?view=today&sort=name&dir=asc"
+  },
+  {
+    "check": "sort name: rows A–Z by the locale collation",
+    "ok": true,
+    "detail": "[\"陳生\",\"Au Ka Yan\",\"Chan Ka Wai\",\"Chan Siu Fung\",\"Chan Wing Yan\",\"Lam Tai\",\"Mr Chan\",\"Yeung Family\"]"
+  },
+  {
+    "check": "sort name: no meal headings",
+    "ok": true
+  },
+  {
+    "step": "02-today-name",
+    "note": "Sorted by name A–Z",
+    "file": "02-today-name-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "sort name again: reversed, dir=desc in the URL",
+    "ok": true,
+    "detail": "[\"Yeung Family\",\"Mr Chan\",\"Lam Tai\",\"Chan Wing Yan\",\"Chan Siu Fung\",\"Chan Ka Wai\",\"Au Ka Yan\",\"陳生\"]"
+  },
+  {
+    "step": "03-today-name-desc",
+    "note": "Name again: reversed (Z–A)",
+    "file": "03-today-name-desc-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "reload: sort kept (name desc)",
+    "ok": true,
+    "detail": "name:desc"
+  },
+  {
+    "check": "search Chan: only the Chan bookings, still name Z–A",
+    "ok": true,
+    "detail": "[\"Mr Chan\",\"Chan Wing Yan\",\"Chan Siu Fung\",\"Chan Ka Wai\"]"
+  },
+  {
+    "check": "search Chan: URL sort unchanged",
+    "ok": true
+  },
+  {
+    "step": "04-today-search-chan",
+    "note": "Search \"Chan\" with the name sort kept",
+    "file": "04-today-search-chan-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 Walk Test Kit\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 136px / bottom 304px)"
+    ]
+  },
+  {
+    "check": "search Chan + time sort: Chan bookings by time",
+    "ok": true,
+    "detail": "[\"Chan Siu Fung\",\"Chan Wing Yan\",\"Mr Chan\",\"Chan Ka Wai\"]"
+  },
+  {
+    "check": "search 6555: Yeung Family only",
+    "ok": true
+  },
+  {
+    "check": "search 陳: 陳生 only",
+    "ok": true
+  },
+  {
+    "check": "sort guests: largest first (Yeung Family 8)",
+    "ok": true,
+    "detail": "[\"Yeung Family\",\"Mr Chan\",\"Au Ka Yan\",\"Chan Ka Wai\",\"Lam Tai\",\"Chan Siu Fung\",\"Chan Wing Yan\",\"陳生\"]"
+  },
+  {
+    "step": "05-today-guests",
+    "note": "Sorted by guests, largest first",
+    "file": "05-today-guests-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=guests&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "sort status: Late, Waiting, Needs reply, Arrived, No-show",
+    "ok": true,
+    "detail": "[\"late\",\"late\",\"waiting\",\"waiting\",\"waiting\",\"needs_reply\",\"arrived\",\"no_show\"]"
+  },
+  {
+    "check": "arrived: row shows Arrived HH:MM",
+    "ok": true,
+    "detail": "22:40 已到"
+  },
+  {
+    "check": "arrived: DB checked_in_at set, status confirmed",
+    "ok": true
+  },
+  {
+    "step": "06-today-arrived",
+    "note": "Chan Wing Yan marked Arrived (Undo shown)",
+    "file": "06-today-arrived-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "undo: DB checked_in_at cleared",
+    "ok": true
+  },
+  {
+    "check": "form: existing member line shown for the typed phone",
+    "ok": true,
+    "detail": "會員：Lam Chi Keung"
+  },
+  {
+    "check": "form: Notify diner ticked by default",
+    "ok": true
+  },
+  {
+    "step": "07-form-new",
+    "note": "New booking form (member line, slots with guests left, Notify on)",
+    "file": "07-form-new-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "rules: prompt lists the slot limit",
+    "ok": true,
+    "detail": "此訂座不符合訂座規則 超出 19:00 時段上限 已有 16 位 + 6 = 22，上限 20 客人無法預訂此時間。如餐廳仍有位置，你仍可新增。 返回 仍然訂座"
+  },
+  {
+    "check": "rules: nothing written before Book anyway",
+    "ok": true
+  },
+  {
+    "step": "08-rules-prompt",
+    "note": "Rules prompt: slot over its guest limit, Book anyway",
+    "file": "08-rules-prompt-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: li.flex.gap-3 \"超出 19:00 時段上限 已有 16 位 + 6 = 22，上限 20\" @457,173 526x66 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 10px / bottom 23px)"
+    ]
+  },
+  {
+    "check": "create: confirmed, source staff, created_by set, linked to the existing member",
+    "ok": true,
+    "detail": "8f7cde70-9dd2-4fbd-92bd-9debb29ba81e confirmed staff true cb6fad6c-3f3f-49fb-8eef-0145a66bd068"
+  },
+  {
+    "check": "create: staff_created event carries the overridden rules",
+    "ok": true
+  },
+  {
+    "check": "create: no new member row",
+    "ok": true
+  },
+  {
+    "check": "confirm send: develop's confirmed template, one BODY component with restaurant/date/time/party_size only (no header, no image, no code)",
+    "ok": true,
+    "detail": "[{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"Walk Test Kitchen\",\"parameter_name\":\"restaurant\"},{\"type\":\"text\",\"text\":\"2026-11-28\",\"parameter_name\":\"date\"},{\"type\":\"text\",\"text\":\"19:00\",\"parameter_name\":\"time\"},{\"type\":\"text\",\"text\":\"6\",\"parameter_name\":\"party_size\"}]}]"
+  },
+  {
+    "step": "09-created-toast",
+    "note": "Toast after Book anyway",
+    "file": "09-created-toast-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 4
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "table: By staff badge on the row, no code",
+    "ok": true
+  },
+  {
+    "step": "10-row-menu",
+    "note": "Row menu: Edit / Cancel booking",
+    "file": "10-row-menu-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "11-form-edit",
+    "note": "Edit form with the changed party marked",
+    "file": "11-form-edit-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "edit: party 4, status still confirmed",
+    "ok": true
+  },
+  {
+    "check": "stale: 409 changed shows the banner, notes unchanged in DB",
+    "ok": true
+  },
+  {
+    "step": "12-form-stale",
+    "note": "Stale edit: banner + Reload",
+    "file": "12-form-stale-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "step": "13-cancel-dialog",
+    "note": "Cancel booking dialog with Notify diner",
+    "file": "13-cancel-dialog-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "cancel: status cancelled, cancelled_by staff + user",
+    "ok": true
+  },
+  {
+    "step": "14-cancelled-toast",
+    "note": "Cancelled toast; row shows Cancelled by staff",
+    "file": "14-cancelled-toast-zh-1440.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "mode off: no Bookings link in the sidebar",
+    "ok": true
+  },
+  {
+    "check": "mode off: POST create answers 409 booking_off",
+    "ok": true,
+    "detail": "409 {\"error\":\"booking_off\"}"
+  },
+  {
+    "step": "15-mode-off",
+    "note": "Booking mode off: Bookings are off + Settings link",
+    "file": "15-mode-off-zh-1440.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "mobile": false,
+      "consistent": true,
+      "inner": [
+        1440,
+        900
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: div.flex.min-h-screen \"OhMyClient WhatsApp 智能客戶管理 Walk Test Kit\" @0,0 1440x900 | children in one row are neither top-, bottom- nor center-aligned (spread top 32px / center 256px / bottom 544px)"
+    ]
+  },
+  {
+    "consoleErrors": []
+  }
+]
