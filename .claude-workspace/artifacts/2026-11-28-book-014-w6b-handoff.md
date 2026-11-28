@@ -31,7 +31,7 @@ ac:
     evidence: "no src change. Diff vs base: .claude-workspace (walk evidence, this handoff, testid registry 1 row), .claude/kanban.json (BOOK-014 entry)."
   AC-4:
     result: partial
-    evidence: "testid-registry.md: booking-pay-checking, booking-pay-refund-due, booking-pay-unreadable added (no other new id missing). The brief's git grep is NOT empty: it prints pre-existing fake fixtures only (payments tests from e7a7226e: sk_test_51FAKEkey…, sk_test_SECRET…, rk_live_SECRET, whsec_someone_else; docs/integrations/member-api.md whsec_5f1c… example from e2f9fc92). The real rk_test_ key and the listen whsec_ were checked with grep -F: absent from tracked files and from the evidence folder. Evidence scanned for home paths, LAN IPs, key/whsec patterns, /b and /p tokens and Checkout URL fragments: none."
+    evidence: "testid-registry.md: booking-pay-checking, booking-pay-refund-due, booking-pay-unreadable added (no other new id missing). The brief's git grep is NOT empty: it prints pre-existing fake fixtures only (fake key/secret strings in 4 payments test files, first added in e7a7226e, and the webhook-secret example in docs/integrations/member-api.md from e2f9fc92). The real rk_test_ key and the listen whsec_ were checked with grep -F: absent from tracked files and from the evidence folder. Evidence scanned for home paths, LAN IPs, key/whsec patterns, /b and /p tokens and Checkout URL fragments: none."
   AC-5:
     result: pass
     evidence: "rtk proxy git push; ls-remote == HEAD; PR #237 comment with step -> pass table and the walk log path; mergeable state in the comment check."
