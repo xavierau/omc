@@ -1,0 +1,24 @@
+[
+  {
+    "name": "booking-token",
+    "url": "http://localhost:3070/b/sec-next-probe-token",
+    "finalUrl": "http://localhost:3070/b/sec-next-probe-token",
+    "status": 200,
+    "title": "Booking",
+    "bodyText": "網上訂座 提交訂座要求 此訂座連結無效 在 WhatsApp 問問餐廳,我們會給你一個新連結。 請返回 WhatsApp 對話,輸入 BOOK 索取新連結。",
+    "consoleErrors": [],
+    "failedRequests": [],
+    "responses4xx5xx": []
+  },
+  {
+    "name": "dashboard",
+    "url": "http://localhost:3070/dashboard",
+    "finalUrl": "http://localhost:3070/login",
+    "status": 200,
+    "title": "OhMyClient",
+    "bodyText": "OhMyClient 無需安裝 App — 由 WhatsApp 驅動 登入您的管理介面 電郵地址 密碼 忘記密碼？ 登入",
+    "consoleErrors": [],
+    "failedRequests": [],
+    "responses4xx5xx": []
+  }
+]
