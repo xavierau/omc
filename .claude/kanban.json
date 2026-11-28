@@ -1882,6 +1882,26 @@
           "status": "review",
           "updated": "2026-11-26",
           "pr": "https://github.com/xavierau/omc/pull/235"
+        },
+        {
+          "id": "SEC-NEXT",
+          "title": "Patch next RCE advisories (16.3.4 -> 16.4.6)",
+          "description": "BOOK-014 W0, threat R66 release precondition: upgrade next and eslint-config-next 16.3.4 -> 16.4.6 (published 2026-11-09) to clear the unauthenticated RCE advisories GHSA-vcvr-r3jv-pc5j, GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr (npm audit --omit=dev no longer lists next). Next-only change; other audit findings (proxy-addr critical, undici, zod, ws...) are tracked outside this item. Ends at a PR into develop; the release must go out before any live Stripe key is put in Forge env, and the build runs off-box (prod VM too small).",
+          "priority": "critical",
+          "labels": [
+            "security",
+            "dependencies"
+          ],
+          "related": [
+            "kanban:BOOK-014"
+          ],
+          "workspace_artifacts": [
+            "threats/2026-11-27-book-014-booking-deposits",
+            "artifacts/2026-11-27-sec-next-handoff"
+          ],
+          "branch": "fix/sec-next-16-4-6",
+          "status": "review",
+          "updated": "2026-11-27"
         }
       ]
     },
