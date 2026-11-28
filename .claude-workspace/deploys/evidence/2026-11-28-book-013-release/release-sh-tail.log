@@ -1,0 +1,19 @@
+# release.sh (SOURCE_REF=release-book013, under resource-lock heavy): progress lines + tail
+start=01:36:14Z
+→ Preflight
+→   building release-book013 @ 875bdb9
+→   node v22.21.1
+→ Installing dependencies
+→ Building Next.js
+✓ Running next.config.ts took 5.7s
+✓ Compiled successfully in 14.7s
+✓ Generating static pages using 7 workers (101/101) in 1125ms
+→   BUILD_ID eFn2M8pzUEgL_DOiytD5C
+→ Staging release tree
+→ Scrubbing secrets from the bundle
+→ Scanning bundle for inlined credentials
+→   clean
+→ Publishing to origin/release
+ + b8976f99...655cd089 655cd0890dbe10fe3811e542af2517c36d724ff1 -> release (forced update)
+✓ Released release-book013 @ 875bdb9 → origin/release (655cd08)
+release.sh exit=0 01:38:43Z

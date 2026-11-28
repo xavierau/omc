@@ -1,0 +1,38 @@
+# First pre-flight (2026-11-27 16:32:56Z, site command 14735424, read-only)
+/home/forge/app.ohmyclient.io
+ffcf73aca0951fe742ed4f0998a40f0d7cb17107 zhPLsPnYAGCuNAHqgZBzJ release-book012
+zhPLsPnYAGCuNAHqgZBzJ
+daemon-746791:daemon-746791_00   RUNNING   pid 2511387, uptime 1 day, 10:53:21
+daemon-801730:daemon-801730_00   RUNNING   pid 2511460, uptime 1 day, 10:53:18
+/dev/root        58G   32G   26G  56% /
+               total        used        free      shared  buff/cache   available
+Mem:            3908        1853        1637          10         680        2054
+Swap:           1023        1021           2
+ 16:33:01 up 63 days, 11:14,  1 user,  load average: 0.03, 0.12, 0.15
+health 200
+release
+
+
+# Second pre-flight (2026-11-28, read-only), repeated because the first was ~9 h old
+# site command 14749377 (01:35:21Z)
+# status finished
+/home/forge/app.ohmyclient.io
+ffcf73aca0951fe742ed4f0998a40f0d7cb17107 zhPLsPnYAGCuNAHqgZBzJ release-book012
+zhPLsPnYAGCuNAHqgZBzJ
+daemon-746791:daemon-746791_00   RUNNING   pid 2511387, uptime 1 day, 19:55:45
+daemon-801730:daemon-801730_00   RUNNING   pid 2511460, uptime 1 day, 19:55:42
+/dev/root        58G   32G   26G  56% /
+               total        used        free      shared  buff/cache   available
+Mem:            3908        1899        1598          10         673        2008
+Swap:           1023        1023           0
+ 01:35:25 up 63 days, 20:17,  1 user,  load average: 0.18, 0.29, 0.26
+health 200
+
+
+# Pending-migration check from the Mac (01:35Z): Management API read_only ledger vs git ls-tree origin/main supabase/migrations
+repo(main) 96 files, ledger 94 rows, tail 094
+in repo not ledger: 095 096
+in ledger not repo: (none)
+
+# booking_requests aggregate before (01:36Z, read_only)
+[{"rows":7,"null_phone":0,"sources":2,"source_list":"agent,chat"}]
