@@ -1,0 +1,7 @@
+whatsapp-crm-scaffold@0.1.0 ~/Code/js/whatsapp-crm--sec-next
+└── next@16.4.6
+
+next None
+meta {'info': 0, 'low': 1, 'moderate': 8, 'high': 13, 'critical': 1, 'total': 23}
+BASE next critical ['https://github.com/advisories/GHSA-vcvr-r3jv-pc5j', 'https://github.com/advisories/GHSA-3w37-wq28-93x7', 'https://github.com/advisories/GHSA-4jqv-mc3x-m676', 'https://github.com/advisories/GHSA-39w2-rjm5-chcv', 'https://github.com/advisories/GHSA-f87g-xv8r-7p7x', 'https://github.com/advisories/GHSA-mcj8-r9mp-w47p', 'https://github.com/advisories/GHSA-cjq9-62q9-8jv4', 'https://github.com/advisories/GHSA-2464-fhr4-w9xw', 'https://github.com/advisories/GHSA-p3m5-59mp-jv5r', 'https://github.com/advisories/GHSA-h694-7cp9-m8p3', 'https://github.com/advisories/GHSA-673q-mjm6-r5xr', 'https://github.com/advisories/GHSA-mfr8-8qww-v76h', 'https://github.com/advisories/GHSA-vc7v-qv4w-wrv8', 'https://github.com/advisories/GHSA-7qx7-33qx-rqx2', 'https://github.com/advisories/GHSA-f3mh-rxg3-f5g2', 'https://github.com/advisories/GHSA-pc58-hwjq-p385', 'https://github.com/advisories/GHSA-rhh4-g77r-r9qj']
+proxy-addr critical

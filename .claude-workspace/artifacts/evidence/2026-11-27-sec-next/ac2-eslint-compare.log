@@ -1,0 +1,7 @@
+command: npx eslint src -f json (run 2026-11-28)
+base 2f922d5b: next 16.3.4, eslint-config-next 16.3.4: errors 36, warnings 13
+branch fix/sec-next-16-4-6: next 16.4.6, eslint-config-next 16.4.6: errors 36, warnings 13
+same (file, rule, line) error set: True
+only in base: []
+only in branch: []
+eslint-base.txt and eslint-branch.txt (file:line rule severity, sorted) are identical: diff exit 0
