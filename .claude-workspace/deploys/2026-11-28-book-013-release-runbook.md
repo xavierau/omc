@@ -132,5 +132,5 @@ pinned prod test tenant for bookings in this brief. That walk is the owner's pil
 | remote `release-book013` (`875bdb95`) | deleted after the deploy (`ls-remote` empty); local branch deleted |
 | `.env.local` / `.env.production.local` copies in this tree | removed after the build (the originals stay in the primary checkout) |
 | local ref `release-backup-b8976f9` | kept as the rollback reference |
-| docs PR into main (this runbook, kanban BOOK-013 → done, the two review records) | see the handoff `artifacts/2026-11-28-book-013-release-handoff` |
+| docs PR into main (this runbook, kanban BOOK-013 → done, the phone-optional review record) | **https://github.com/xavierau/omc/pull/241**, branch `docs/book-013-release-records`; records commit `086f072b` == `ls-remote` at push, and this line is in the commit after it. Docs and workspace only. Not merged by dev: it targets `main` (ask first) and touches `.claude/kanban.json` |
 | worktree `../whatsapp-crm--book-013` | kept: it holds the records branch until the docs PR merges |
