@@ -1,0 +1,254 @@
+
+ RUN  v4.1.5 /Users/xavierau/Code/js/whatsapp-crm--book-014-core
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts (4 tests | 2 failed) 10ms
+     × selects only booking_date, booking_time, party_size, status; no name, phone or notes (R62) 6ms
+     × maps the row; the time as HH:MM 1ms
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+ ❯ src/application/payments/__tests__/agent-hold-lapsed.test.ts (0 test)
+ ❯ src/application/booking/__tests__/agent-booking-create-statement.test.ts (4 tests | 2 failed) 45ms
+     × deposit active (rule on, account chargeable) -> both languages end with the Stripe sentence; privacy_url unchanged 27ms
+     × active even when this party is below N (the statement is about the restaurant taking deposits) 2ms
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts (15 tests | 2 failed) 90ms
+     × cancelled -> "Your deposit is held; the restaurant will decide on it" (booking-pay-held), zh-HK + en, with the details 9ms
+     × no_show -> "Your deposit is held; the restaurant will decide on it" (booking-pay-held), zh-HK + en, with the details 5ms
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts (5 tests | 1 failed) 24ms
+     × all four sources paid in one world: four messages, one each; replaying all sends none 3ms
+ ❯ src/components/booking/__tests__/booking-deposit-terms.test.tsx (4 tests | 4 failed) 32ms
+     × depositPlanOf carries depositTermsText for both languages 5ms
+     × DepositTerms shows both languages, zh-HK first, in booking-deposit-terms; no plan -> nothing 3ms
+     × the BOOK-001 form shows the deposit terms while a deposit applies, even before the party reaches N 17ms
+     × renders depositProcessingSentence(restaurantName) for both languages 5ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/payments/__tests__/agent-hold-lapsed.test.ts [ src/application/payments/__tests__/agent-hold-lapsed.test.ts ]
+Error: Cannot find module '../notify-agent-hold-lapsed' imported from /Users/xavierau/Code/js/whatsapp-crm--book-014-core/src/application/payments/__tests__/agent-hold-lapsed.test.ts
+ ❯ src/application/payments/__tests__/agent-hold-lapsed.test.ts:14:1
+     12| import { expireDeposits } from '../expire-deposits'
+     13| import { processPaymentWebhook } from '../process-payment-webhook'
+     14| import { agentHoldLapsedNotice } from '../notify-agent-hold-lapsed'
+       | ^
+     15|
+     16| const HOLD_MS = 31 * 60_000
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/booking/__tests__/booking-deposit-terms.test.tsx > W6a /b deposit terms (AC-3) > depositPlanOf carries depositTermsText for both languages
+AssertionError: expected undefined to deeply equal { …(2) }
+
+- Expected:
+{
+  "en": "Deposit HK$100 per guest for 6 or more. Cancel 24 hours ahead or the deposit is kept.",
+  "zh_hk": "訂金每位 HK$100（6位或以上）。取消須提前24小時，否則訂金不退。",
+}
+
++ Received:
+undefined
+
+ ❯ src/components/booking/__tests__/booking-deposit-terms.test.tsx:37:24
+     35|   it('depositPlanOf carries depositTermsText for both languages', () =…
+     36|     const plan = depositPlanOf(RULE, 'HKD')
+     37|     expect(plan.terms).toEqual({ zh_hk: depositTermsText(RULE, 'HKD', …
+       |                        ^
+     38|     expect(plan.terms?.en).toBe('Deposit HK$100 per guest for 6 or mor…
+     39|     expect(plan.terms?.zh_hk).toBe('訂金每位 HK$100（6位或以上）。取消須提前24小時，否則訂金不…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/components/booking/__tests__/booking-deposit-terms.test.tsx > W6a /b deposit terms (AC-3) > DepositTerms shows both languages, zh-HK first, in booking-deposit-terms; no plan -> nothing
+Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.
+ ❯ renderElement node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:6119:15
+ ❯ retryNode node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:6428:21
+ ❯ performWork node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:7435:17
+ ❯ startWork node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:8270:7
+ ❯ renderToStringImpl node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:8380:7
+ ❯ Proxy.process.env.NODE_ENV.exports.renderToStaticMarkup node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:9861:14
+ ❯ src/components/booking/__tests__/booking-deposit-terms.test.tsx:43:18
+     41|
+     42|   it('DepositTerms shows both languages, zh-HK first, in booking-depos…
+     43|     const html = renderToStaticMarkup(<DepositTerms plan={depositPlanO…
+       |                  ^
+     44|     expect(html).toContain('data-testid="booking-deposit-terms"')
+     45|     const zh = html.indexOf('訂金每位 HK$100（6位或以上）')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  src/components/booking/__tests__/booking-deposit-terms.test.tsx > W6a /b deposit terms (AC-3) > the BOOK-001 form shows the deposit terms while a deposit applies, even before the party reaches N
+AssertionError: expected '<form data-testid="booking-form" noVa…' to contain 'data-testid="booking-deposit-terms"'
+
+Expected: "data-testid="booking-deposit-terms""
+Received: "<form data-testid="booking-form" noValidate="" class="space-y-5"><p class="text-sm text-muted-foreground">booking.phoneLabel <span data-testid="booking-masked-phone" class="font-medium text-foreground tabular-nums">•••• 4567</span></p><div class="space-y-4"><div class="grid grid-cols-2 gap-3"><div class="space-y-1.5"><label for="booking-date" class="text-sm font-medium text-foreground">booking.date</label><input type="date" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-date" aria-invalid="false" min="2026-12-01" required="" data-testid="booking-date-input" name="date" value=""/></div><div class="space-y-1.5"><label for="booking-time" class="text-sm font-medium text-foreground">booking.time</label><input type="time" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-time" aria-invalid="false" required="" data-testid="booking-time-input" name="time" value=""/></div></div><div class="space-y-1.5"><label for="booking-partySize" class="text-sm font-medium text-foreground">booking.partySize</label><input type="number" data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-partySize" aria-invalid="false" inputMode="numeric" min="1" max="20" required="" data-testid="booking-party-size-input" name="partySize" value="2"/></div><div class="space-y-1.5"><label for="booking-name" class="text-sm font-medium text-foreground">booking.name</label><input data-slot="input" class="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 h-11" id="booking-name" aria-invalid="false" autoComplete="name" maxLength="60" required="" data-testid="booking-name-input" name="name" value=""/></div><div class="space-y-1.5"><label for="booking-notes" class="text-sm font-medium text-foreground">booking.notes</label><textarea id="booking-notes" name="notes" aria-invalid="false" class="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm" maxLength="500" rows="3" data-testid="booking-notes-input"></textarea></div></div><button data-slot="button" data-variant="default" data-size="default" class="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-primary text-primary-foreground [a]:hover:bg-primary/80 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 h-11 w-full" type="submit" data-testid="booking-submit">booking.submit</button></form>"
+
+ ❯ src/components/booking/__tests__/booking-deposit-terms.test.tsx:56:18
+     54|     const props = { token: 'tok', maskedPhone: '•••• 4567', today: '20…
+     55|     const html = renderToStaticMarkup(<BookingForm {...props} deposit=…
+     56|     expect(html).toContain('data-testid="booking-deposit-terms"')
+       |                  ^
+     57|     expect(html).toContain('Cancel 24 hours ahead or the deposit is ke…
+     58|     expect(renderToStaticMarkup(<BookingForm {...props} />)).not.toCon…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  src/components/booking/__tests__/booking-deposit-terms.test.tsx > W6a R61: the /b collection statement uses the shared processing sentence > renders depositProcessingSentence(restaurantName) for both languages
+AssertionError: expected '<section data-testid="booking-collect…' to contain 'SHARED-ZH:Café A'
+
+Expected: "SHARED-ZH:Café A"
+Received: "<section data-testid="booking-collection-statement" class="space-y-2 text-xs leading-relaxed text-muted-foreground"><p lang="zh-HK">你提交的資料(日期、時間、人數、姓名及備註)只會交給Café A,用作處理今次訂座。<a href="https://ohmyclient.io/privacy-policy.html" class="underline underline-offset-2" rel="noreferrer noopener" target="_blank">私隱政策</a></p><p lang="en">The details you submit (date, time, party size, name and notes) go only to Café A, to handle this booking. <a href="https://ohmyclient.io/privacy-policy.html" class="underline underline-offset-2" rel="noreferrer noopener" target="_blank">Privacy policy</a></p><div data-testid="booking-collection-deposit" class="space-y-2"><p lang="zh-HK">訂金由 Stripe 代Café A處理，Stripe 或會在香港以外地方處理你的付款資料。</p><p lang="en">The deposit is processed by Stripe for Café A; Stripe may process your payment details outside Hong Kong.</p></div></section>"
+
+ ❯ src/components/booking/__tests__/booking-deposit-terms.test.tsx:65:18
+     63|   it('renders depositProcessingSentence(restaurantName) for both langu…
+     64|     const html = renderToStaticMarkup(<CollectionStatement restaurantN…
+     65|     expect(html).toContain('SHARED-ZH:Café A')
+       |                  ^
+     66|     expect(html).toContain('SHARED-EN:Café A')
+     67|     expect(renderToStaticMarkup(<CollectionStatement restaurantName="C…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  src/application/booking/__tests__/agent-booking-create-statement.test.ts > W6a PAP create collection_statement (R61) > deposit active (rule on, account chargeable) -> both languages end with the Stripe sentence; privacy_url unchanged
+AssertionError: expected 'The details you submit (date, time, p…' to be 'The details you submit (date, time, p…' // Object.is equality
+
+Expected: "The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking. The deposit is processed by Stripe for Cafe A; Stripe may process your payment details outside Hong Kong."
+Received: "The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking."
+
+ ❯ src/application/booking/__tests__/agent-booking-create-statement.test.ts:57:18
+     55|     accounts.set({ restaurantId: R })
+     56|     const s = await statement()
+     57|     expect(s.en).toBe(`${BASE.en} ${STRIPE.en}`)
+       |                  ^
+     58|     expect(s['zh-HK']).toBe(`${BASE['zh-HK']}${STRIPE.zh_hk}`)
+     59|     expect(s.privacy_url).toBe('https://p')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  src/application/booking/__tests__/agent-booking-create-statement.test.ts > W6a PAP create collection_statement (R61) > active even when this party is below N (the statement is about the restaurant taking deposits)
+AssertionError: expected 'The details you submit (date, time, p…' to contain 'Stripe'
+
+Expected: "Stripe"
+Received: "The details you submit (date, time, party size, name, phone number and notes) go only to Cafe A, to handle this booking."
+
+ ❯ src/application/booking/__tests__/agent-booking-create-statement.test.ts:64:36
+     62|   it('active even when this party is below N (the statement is about t…
+     63|     accounts.set({ restaurantId: R })
+     64|     expect((await statement()).en).toContain('Stripe')
+       |                                    ^
+     65|   })
+     66|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  src/application/payments/__tests__/deposit-paid-hook.test.ts > W6a composed paid hook: one diner message per source, replay none > all four sources paid in one world: four messages, one each; replaying all sends none
+Error: not started
+ ❯ src/application/payments/__tests__/deposit-paid-hook.test.ts:87:99
+     85|     const campaign = await w.book({ source: 'campaign', phone: '+85291…
+     86|     const agent = await w.book({ source: 'agent', phone: '+85291000003…
+     87|     if (chat.kind !== 'started' || campaign.kind !== 'started' || agen…
+       |                                                                                                   ^
+     88|     const staff = await staffHold(w)
+     89|     const deliveries = [chat, campaign, agent].map((s) => w.gateway.co…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W6a: a cancelled or no-show booking with a paid deposit awaiting the staff decision > cancelled -> "Your deposit is held; the restaurant will decide on it" (booking-pay-held), zh-HK + en, with the details
+ FAIL  src/app/p/[token]/__tests__/route-details.test.ts > W6a: a cancelled or no-show booking with a paid deposit awaiting the staff decision > no_show -> "Your deposit is held; the restaurant will decide on it" (booking-pay-held), zh-HK + en, with the details
+AssertionError: expected '<!doctype html>\n<html lang="zh-HK">\…' to contain 'data-testid="booking-pay-held"'
+
+- Expected
++ Received
+
+- data-testid="booking-pay-held"
++ <!doctype html>
++ <html lang="zh-HK">
++ <head>
++ <meta charset="utf-8">
++ <meta name="viewport" content="width=device-width, initial-scale=1">
++ <meta name="robots" content="noindex, nofollow">
++ <meta name="referrer" content="no-referrer">
++ <title>已收到訂金 · Deposit paid</title>
++ <style>
++ body{margin:0;font-family:system-ui,-apple-system,"PingFang HK","Noto Sans HK",sans-serif;background:#faf8f5;color:#1f1d1a}
++ main{max-width:28rem;margin:0 auto;padding:3rem 1rem}
++ h1{font-size:1.25rem;margin:0 0 .5rem}
++ p{line-height:1.5;margin:0 0 1rem}
++ section+section{margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e7e2da}
++ .details{font-weight:600}
++ .btn{display:inline-block;padding:.75rem 1.25rem;border-radius:.5rem;background:#1f1d1a;color:#fff;text-decoration:none}
++ </style>
++ </head>
++ <body>
++ <main data-testid="booking-pay-paid">
++ <section lang="zh-HK"><h1>已收到訂金</h1><p class="details" data-testid="booking-pay-details">Café A · 2026-12-24 19:00 · 4 位 · 訂金 HK$400</p><p>訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。</p></section>
++ <section lang="en"><h1>Deposit paid</h1><p class="details">Café A · 2026-12-24 19:00 · 4 guests · Deposit HK$400</p><p>Deposit paid, request sent. The restaurant will reply on WhatsApp.</p></section>
++
++ </main>
++ </body>
++ </html>
+
+ ❯ src/app/p/[token]/__tests__/route-details.test.ts:172:18
+    170|     expect(res.status).toBe(200)
+    171|     const html = await res.text()
+    172|     expect(html).toContain('data-testid="booking-pay-held"')
+       |                  ^
+    173|     expect(html).toContain('Your deposit is held; the restaurant will …
+    174|     expect(html).toContain('你的訂金暫由餐廳保留，餐廳會決定如何處理。')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts > paymentLinkDetailsReader.findForDeposit > selects only booking_date, booking_time, party_size, status; no name, phone or notes (R62)
+AssertionError: expected [ Array(3) ] to deeply equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "booking_date",
+    "booking_time",
+    "party_size",
+-   "status",
+  ]
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts:29:59
+     27|     await paymentLinkDetailsReader.findForDeposit(REF)
+     28|     const select = rec.queries[0].calls.find(([m]) => m === 'select')?…
+     29|     expect(select.split(',').map((c) => c.trim()).sort()).toEqual(['bo…
+       |                                                           ^
+     30|     expect(PAYMENT_LINK_DETAIL_COLUMNS).toBe(select)
+     31|     const columns = select.split(',').map((c) => c.trim())
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL  src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts > paymentLinkDetailsReader.findForDeposit > maps the row; the time as HH:MM
+AssertionError: expected { bookingDate: '2026-12-24', …(2) } to deeply equal { bookingDate: '2026-12-24', …(3) }
+
+- Expected
++ Received
+
+  {
+    "bookingDate": "2026-12-24",
+-   "bookingStatus": "cancelled",
+    "bookingTime": "19:00",
+    "partySize": 4,
+  }
+
+ ❯ src/infrastructure/supabase/repositories/__tests__/payment-link-details-repository.test.ts:44:64
+     42|   it('maps the row; the time as HH:MM', async () => {
+     43|     use([{ data: { booking_date: '2026-12-24', booking_time: '19:00:00…
+     44|     expect(await paymentLinkDetailsReader.findForDeposit(REF)).toEqual…
+       |                                                                ^
+     45|   })
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  11 failed | 21 passed (32)
+   Start at  12:29:11
+   Duration  2.43s (transform 4.04s, setup 0ms, import 5.21s, tests 200ms, environment 0ms)
+

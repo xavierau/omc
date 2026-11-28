@@ -1,0 +1,9 @@
+HEAD 7d98e2eb570ba94157ec73cb22ceb062cbb50227
+67a77686 ancestor: yes
+710b46be ancestor: yes
+origin/develop ancestor: yes
+conflict markers: none
+096_booking_staff_phone_optional.sql
+097_booking_deposits.sql
+lock diff vs origin/develop (package lines):
++    "stripe": "23.1.0",
