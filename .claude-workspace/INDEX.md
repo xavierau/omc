@@ -40,6 +40,7 @@ no artifact files were lost._
 - [2026-06-07-stamp-collection-loop](threats/2026-06-07-stamp-collection-loop.md) — Threat model: staff-operated stamp collection loop (security-architect)
 
 ### Deploys
+- [2026-11-28-book-013-release-runbook](deploys/2026-11-28-book-013-release-runbook.md) — BOOK-013 to prod: main 875bdb9, mig 095+096 (dev)
 - [2026-11-26-book-012-release-runbook](deploys/2026-11-26-book-012-release-runbook.md) — BOOK-012+TPL-012+BUILD-FONT-001 to prod: main ffcf73a → release b8976f9, mig 094 (dev)
 - [2026-11-22-book-009-010-release-runbook](deploys/2026-11-22-book-009-010-release-runbook.md) — BOOK-009/010 to prod: #225 → main 0c41a4d → release f495266, mig 091-093 (dev)
 - [2026-11-20-wonb-020-release-runbook](deploys/2026-11-20-wonb-020-release-runbook.md) — WONB-020 to prod: #221 → main 660f82d → release c353dea, mig 089 + 090 (dev)
@@ -57,6 +58,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-27-book-013-phone-optional-review](reviews/2026-11-27-book-013-phone-optional-review.md) — PR #236 phone-optional review: APPROVED, 3 nits (verifier)
 - [2026-11-26-book-013-r3-re-review](reviews/2026-11-26-book-013-r3-re-review.md) — PR #235 r3 re-review: APPROVED, R1/R2/R3/R7/R8 hold, 1 nit (verifier)
 - [2026-11-21-book-010-f1-rereview](reviews/2026-11-21-book-010-f1-rereview.md) — PR #223 F1 re-review: APPROVED, 6/6 resolved, 1 new P3 (verifier)
 - ~~[2026-11-21-book-010-review](reviews/2026-11-21-book-010-review.md)~~ → superseded by 2026-11-21-book-010-f1-rereview
@@ -122,6 +124,7 @@ no artifact files were lost._
 - [2026-07-03-campaign-broadcast-qr-instead-of-claim](investigations/2026-07-03-campaign-broadcast-qr-instead-of-claim.md) — Campaign broadcast sends QR eagerly instead of the claim-button flow (bug-hunter) — _status: resolved_
 
 ### Artifacts
+- [2026-11-28-book-013-release-handoff](artifacts/2026-11-28-book-013-release-handoff.md) — BOOK-013 release: deploy 84247724 (dev)
 - [2026-11-27-book-013-phone-optional-impl](artifacts/2026-11-27-book-013-phone-optional-impl.md) — BOOK-013 decision 9: phone optional for staff bookings (096) + N1, PR #236 (dev)
 - [2026-11-27-book-013-phone-optional-handoff](artifacts/2026-11-27-book-013-phone-optional-handoff.md) — BOOK-013 decision 9 handoff: AC-1..AC-4 pass, PR #236 open (dev)
 - [2026-11-27-book-013-phone-optional-r2-handoff](artifacts/2026-11-27-book-013-phone-optional-r2-handoff.md) — BOOK-013 AC-26: no manual member link without a phone, PR #236 (dev)

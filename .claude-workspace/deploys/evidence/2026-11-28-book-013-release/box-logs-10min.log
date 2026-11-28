@@ -1,0 +1,17 @@
+# Forge site command 14749735 (01:50:08Z, read-only): ~10.5 min after the restarts. Lines since the last startup banner, counted (uuid/number masked).
+# app log /home/forge/.forge/daemon-746791.log; worker log /home/forge/.forge/daemon-801730.log
+# site command 14749735 (01:50:08Z)
+# status finished
+Sat Nov 28 01:50:11 UTC 2026
+daemon-746791:daemon-746791_00   RUNNING   pid 3456741, uptime 0:10:39
+daemon-801730:daemon-801730_00   RUNNING   pid 3456813, uptime 0:10:34
+health 200
+--- daemon-801730 log from line 55450 of 55452
+      2 [sweepIntegrationQueues] pruneOrphanIntegrationEvents failed { error: 'pruneOrphanIntegrationEvents (deliveries): Bad Request' }
+      1 Workers started: campaign, event-dispatch, receipt, email-send, integration-inbound, integration-outbound, agent-reply
+--- daemon-746791 log from line 24195 of 24199
+      2 [Kapso] Error listing templates: WhatsApp configuration not found
+      1 ✓ Running next.config.ts took 830ms
+      1 ✓ Ready in 530ms
+      1 ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+

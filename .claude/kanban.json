@@ -1,6 +1,6 @@
 {
   "project": "OhMyClient WhatsApp CRM",
-  "updated_at": "2026-11-26",
+  "updated_at": "2026-11-28",
   "columns": {
     "backlog": {
       "label": "Backlog",
@@ -1850,7 +1850,12 @@
             "ui-map/flows/int-001-integrations-dashboard"
           ],
           "github_pr": 155
-        },
+        }
+      ]
+    },
+    "done": {
+      "label": "Done",
+      "tasks": [
         {
           "id": "BOOK-013",
           "title": "Staff booking CRUD + Today check-in: staff create, edit, cancel and mark arrived; sortable Today list",
@@ -1880,18 +1885,18 @@
             "artifacts/2026-11-26-book-013-r2-handoff",
             "artifacts/2026-11-26-book-013-r3-handoff",
             "artifacts/2026-11-27-book-013-phone-optional-impl",
-            "artifacts/2026-11-27-book-013-phone-optional-handoff"
+            "artifacts/2026-11-27-book-013-phone-optional-handoff",
+            "reviews/2026-11-26-book-013-r3-re-review",
+            "reviews/2026-11-27-book-013-phone-optional-review",
+            "artifacts/2026-11-27-book-013-phone-optional-r2-handoff",
+            "deploys/2026-11-28-book-013-release-runbook"
           ],
           "branch": "feature/book-013-staff-booking-crud",
-          "status": "review",
-          "updated": "2026-11-26",
-          "pr": "https://github.com/xavierau/omc/pull/235"
-        }
-      ]
-    },
-    "done": {
-      "label": "Done",
-      "tasks": [
+          "status": "done",
+          "updated": "2026-11-28",
+          "pr": "https://github.com/xavierau/omc/pull/235",
+          "notes": "Released 2026-11-28: #235 2f922d5b + #236 28835faf on develop, #240 develop → main 875bdb95 → release 655cd089, BUILD_ID eFn2M8pzUEgL_DOiytD5C, Forge deploy 84247724 01:39:38Z; db push applied 095 then 096 before the restarts. Template backfill (scripts/ops/backfill-booking-templates.ts --apply) not run: owner step (deploys/2026-11-28-book-013-release-runbook)."
+        },
         {
           "id": "BOOK-012",
           "title": "Booking-intent classifier on by default (aiRoutingEnabled becomes an opt-out)",

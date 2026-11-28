@@ -1,0 +1,13 @@
+# read_only Management API, 01:40:39Z
+## ledger tail
+[{"version":"096","name":"booking_staff_phone_optional"},{"version":"095","name":"booking_staff_crud"},{"version":"094","name":"booking_ai_routing_default_on"}]
+## booking_requests columns
+[{"column_name":"cancelled_by_user","is_nullable":"YES","data_type":"uuid","column_default":null},{"column_name":"checked_in_at","is_nullable":"YES","data_type":"timestamp with time zone","column_default":null},{"column_name":"checked_in_by","is_nullable":"YES","data_type":"uuid","column_default":null},{"column_name":"created_by","is_nullable":"YES","data_type":"uuid","column_default":null},{"column_name":"edit_version","is_nullable":"NO","data_type":"integer","column_default":"0"},{"column_name":"last_staff_message_at","is_nullable":"YES","data_type":"timestamp with time zone","column_default":null},{"column_name":"notify_diner","is_nullable":"NO","data_type":"boolean","column_default":"true"},{"column_name":"phone","is_nullable":"YES","data_type":"text","column_default":null},{"column_name":"updated_by","is_nullable":"YES","data_type":"uuid","column_default":null}]
+## 096 CHECKs + 095 checks
+[{"conname":"booking_requests_cancelled_by_check","def":"CHECK (((cancelled_by IS NULL) OR (cancelled_by = ANY (ARRAY['diner_ai'::text, 'change'::text, 'staff'::text]))))"},{"conname":"booking_requests_checked_in_not_no_show","def":"CHECK (((status <> 'no_show'::text) OR (checked_in_at IS NULL)))"},{"conname":"booking_requests_no_phone_no_notify","def":"CHECK (((phone IS NOT NULL) OR (notify_diner = false)))"},{"conname":"booking_requests_phone_staff_only","def":"CHECK (((phone IS NOT NULL) OR (source = 'staff'::text)))"},{"conname":"booking_requests_source_check","def":"CHECK ((source = ANY (ARRAY['chat'::text, 'campaign'::text, 'agent'::text, 'staff'::text])))"}]
+## functions
+[{"proname":"booking_check_in"},{"proname":"booking_check_in_undo"},{"proname":"bump_booking_edit_version"},{"proname":"staff_cancel_booking"},{"proname":"staff_create_booking"},{"proname":"staff_update_booking"}]
+## rows (aggregate only)
+[{"rows":7,"null_phone":0,"min_ev":0,"max_ev":0,"all_notify":true}]
+## public health from Mac
+200

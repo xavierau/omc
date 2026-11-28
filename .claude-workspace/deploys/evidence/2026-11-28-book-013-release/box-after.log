@@ -1,0 +1,20 @@
+# site command 14749523 (01:40:15Z)
+# status finished
+875bdb95b5be4176dd94b2c1f970423d94f9440a eFn2M8pzUEgL_DOiytD5C release-book013
+eFn2M8pzUEgL_DOiytD5C
+655cd089
+daemon-746791:daemon-746791_00   RUNNING   pid 3456741, uptime 0:00:47
+daemon-801730:daemon-801730_00   RUNNING   pid 3456813, uptime 0:00:42
+health(public) 200
+static files with bookings-today-sort: 1
+.next/static/chunks/1gftfk8gz3nr9.js
+server files with phone_required: 10
+   095   | 095    | 095        
+   096   | 096    | 096        
+
+A new version of Supabase CLI is available: v3.4.0 (currently installed v2.98.2)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+Mem:            3908        1988        1100          11        1087        1919
+Swap:           1023         929          94
+ 01:40:24 up 63 days, 20:22,  1 user,  load average: 0.71, 0.40, 0.30
+
