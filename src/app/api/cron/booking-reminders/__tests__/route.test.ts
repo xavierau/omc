@@ -36,7 +36,7 @@ beforeEach(() => {
   vi.mocked(sendBookingReminders).mockResolvedValue({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0 })
   vi.mocked(purgeUnverifiedBookings).mockResolvedValue({ unverifiedDeleted: 2 })
   vi.mocked(expireDeposits).mockResolvedValue({ depositsLapsed: 3, sessionsClosed: 2 })
-  vi.mocked(redriveStalledRefunds).mockResolvedValue({ refundsRedriven: 1 })
+  vi.mocked(redriveStalledRefunds).mockResolvedValue({ refundsRedriven: 1, lateRefundsRetried: 0 })
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -59,7 +59,7 @@ describe('/api/cron/booking-reminders', () => {
   it.each([['GET', GET], ['POST', POST]] as const)('%s with the bearer runs one pass and returns its counts', async (_m, handler) => {
     const res = await handler(req(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2, depositsLapsed: 3, sessionsClosed: 2, refundsRedriven: 1 })
+    expect(await res.json()).toEqual({ candidates: 1, due: 1, sent: 1, notDelivered: 0, claimLost: 0, unverifiedDeleted: 2, depositsLapsed: 3, sessionsClosed: 2, refundsRedriven: 1, lateRefundsRetried: 0 })
     expect(sendBookingReminders).toHaveBeenCalledWith({ marker: 'deps' })
     expect(purgeUnverifiedBookings).toHaveBeenCalledTimes(1)
     expect(purgeUnverifiedBookings).toHaveBeenCalledWith({ marker: 'purge-deps' })

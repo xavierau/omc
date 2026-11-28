@@ -200,6 +200,32 @@ export async function listStalledDepositRefunds(limit: number, olderThanMs: numb
   return rpcDeposits('stalled_booking_deposit_refunds', { p_limit: limit, p_older_than_seconds: Math.ceil(olderThanMs / 1000) })
 }
 
+/** W6-fix F4: the attempt a refund id was recorded for (booking_deposit_refund_attempts), or null. */
+export async function findDepositRefundAttempt(args: { depositId: string; refundRef: string }): Promise<number | null> {
+  const { data, error } = await createServerSupabaseClient().rpc('booking_deposit_refund_attempt_of', {
+    p_deposit_id: args.depositId,
+    p_refund_ref: args.refundRef,
+  })
+  if (error?.code === '22P02') return null
+  if (error) throw new Error(`findDepositRefundAttempt: ${error.message}`)
+  return typeof data === 'number' ? data : null
+}
+
+/** W6-fix F7: a paid deposit refunded outside the app -> refunded (provider_dashboard). */
+export async function settleProviderRefundedDeposit(args: { depositId: string }) {
+  return firstDeposit(await rpcDeposits('settle_provider_refunded_booking_deposit', { p_deposit_id: args.depositId }))
+}
+
+/** W6-fix F2: late-payment refunds due for a new attempt, claimed under the row lock by the database clock. */
+export async function claimLateDepositRefundRetries(args: { limit: number; maxAttempts: number; baseMs: number; factor: number }) {
+  return rpcDeposits('claim_late_booking_deposit_refund_retries', {
+    p_limit: args.limit,
+    p_max_attempts: args.maxAttempts,
+    p_base_seconds: Math.ceil(args.baseMs / 1000),
+    p_factor: args.factor,
+  })
+}
+
 export async function keepDeposit(args: KeepDepositArgs) {
   return firstDeposit(
     await rpcDeposits('keep_booking_deposit', {
@@ -256,6 +282,9 @@ export const bookingDepositStore: BookingDepositStore = {
   finishRefund: finishDepositRefund,
   recordRefundRef: recordDepositRefundRef,
   listStalledRefunds: listStalledDepositRefunds,
+  refundAttemptOf: findDepositRefundAttempt,
+  settleProviderRefund: settleProviderRefundedDeposit,
+  claimLateRefundRetries: claimLateDepositRefundRetries,
   keep: keepDeposit,
 }
 

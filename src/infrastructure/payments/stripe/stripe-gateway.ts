@@ -165,6 +165,20 @@ export function createStripeGateway(options: StripeGatewayOptions): PaymentGatew
       return { refundRef: refund.id, status }
     },
 
+    /**
+     * W6-fix F7: the charge says it is fully refunded and every refund on the payment succeeded. A
+     * charge's refunds are not in its webhook payload (expandable only), so both are read here.
+     */
+    async confirmFullyRefunded({ accountRef, paymentRef }): Promise<boolean> {
+      const intent = await call('paymentIntents.retrieve', () =>
+        stripe.paymentIntents.retrieve(paymentRef, { expand: ['latest_charge'] }, { stripeAccount: accountRef })
+      )
+      const charge = typeof intent.latest_charge === 'object' ? intent.latest_charge : null
+      if (!charge?.refunded) return false
+      const refunds = await call('refunds.list', () => stripe.refunds.list({ payment_intent: paymentRef, limit: 100 }, { stripeAccount: accountRef }))
+      return refunds.data.length > 0 && !refunds.has_more && refunds.data.every((r) => r.status === 'succeeded')
+    },
+
     parseWebhook({ rawBody, headers }: WebhookRequest): NormalizedPaymentEvent[] {
       const signature = headers.get('stripe-signature')
       if (!signature) throw new WebhookSignatureError('missing stripe-signature')

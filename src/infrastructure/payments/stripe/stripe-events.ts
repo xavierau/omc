@@ -3,13 +3,15 @@
  * endpoint subscribes to exactly these (plan Integration Map):
  *   checkout.session.completed        -> payment_succeeded
  *   checkout.session.expired          -> payment_expired
- *   charge.refunded (fully refunded)  -> refund_succeeded
- *   refund.updated (succeeded/failed/canceled) -> refund_succeeded | refund_failed
+ *   charge.refunded                   -> payment_refunded (W6-fix F1/F7: Stripe sends it when a
+ *                                        refund is CREATED, pending or not, and names no refund;
+ *                                        it never settles one of our refunds)
+ *   refund.updated (succeeded/failed/canceled) -> refund_succeeded | refund_failed (by refund id)
  *   account.updated                   -> account_updated
  *   account.application.deauthorized  -> account_deauthorized
  * Any other type, or one of these in a state that settles nothing, maps to
  * nothing (the route answers 200, R51). Stripe lowercases currencies; ours
- * are upper case.
+ * are upper case. `occurredAt` is the event's `created` (W6-fix F6).
  */
 import type Stripe from 'stripe'
 import type { NormalizedPaymentEvent, ProviderAccountStatus } from '@/domain/ports/payment-gateway'
@@ -35,7 +37,12 @@ export function stripeAccountStatus(account: Stripe.Account): ProviderAccountSta
 }
 
 export function normalizeStripeEvent(event: Stripe.Event): NormalizedPaymentEvent[] {
-  const base = { eventId: event.id, livemode: event.livemode, accountRef: event.account ?? null }
+  const base = {
+    eventId: event.id,
+    livemode: event.livemode,
+    accountRef: event.account ?? null,
+    occurredAt: new Date(event.created * 1000).toISOString(),
+  }
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object
@@ -55,8 +62,8 @@ export function normalizeStripeEvent(event: Stripe.Event): NormalizedPaymentEven
     case 'charge.refunded': {
       const charge = event.data.object
       const paymentRef = idOf(charge.payment_intent)
-      if (!charge.refunded || !paymentRef) return []
-      return [{ ...base, type: 'refund_succeeded', paymentRef, refundRef: null }]
+      if (!paymentRef) return []
+      return [{ ...base, type: 'payment_refunded', paymentRef, fullyRefunded: charge.refunded === true }]
     }
     case 'refund.updated': {
       const refund = event.data.object

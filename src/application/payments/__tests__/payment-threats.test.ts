@@ -216,21 +216,24 @@ describe('R56: refund state machine with CAS', () => {
     await w.deliver(w.gateway.settleRefund(second, true))
     expect(w.ledger.deposits.get(s.deposit.id)?.status).toBe('refunded')
   })
-  it('a refund call that errors marks refund_failed; the provider later confirming the payment fully refunded ends refunded', async () => {
+  // W6-fix F1 (ruling): the payment-level "fully refunded" event no longer settles a deposit with an
+  // attempt of ours (Stripe sends charge.refunded while a refund is still pending). Retry then gets the
+  // provider's "already refunded" and ends refunded, with no second refund.
+  it('a refund call that errors marks refund_failed; a payment-level "refunded" event changes nothing, and Retry ends refunded (W6-fix F1)', async () => {
     const w = paymentWorld()
     const s = await paidAndCancelled(w)
     w.gateway.failNext('refund', 'unavailable')
     expect(await refundDeposit(w.decisionDeps, { restaurantId: RESTAURANT, bookingId: s.booking.id, actorUserId: STAFF, reason: 'staff' })).toMatchObject({
       ok: true, deposit: { status: 'refund_failed' },
     })
-    // Review finding 2: a refund id we never recorded settles nothing (refund-redrive.test.ts); the
-    // payment-level "fully refunded" event carries no refund id and is the provider's word on money.
-    const confirm = w.gateway.signedEvent({
-      id: 'evt_refund_late', type: 'refund.settled', livemode: false, account: s.deposit.providerAccountId,
-      payment: w.ledger.deposits.get(s.deposit.id)!.providerPaymentRef!, refund: null, ok: true,
+    const payment = w.ledger.deposits.get(s.deposit.id)!.providerPaymentRef!
+    await w.deliver(w.gateway.refundExternally(payment))
+    expect(w.ledger.deposits.get(s.deposit.id)?.status).toBe('refund_failed')
+    const refunds = w.gateway.refunds.size
+    expect(await retryDepositRefund(w.decisionDeps, { restaurantId: RESTAURANT, bookingId: s.booking.id, actorUserId: STAFF })).toMatchObject({
+      ok: true, deposit: { status: 'refunded' },
     })
-    await w.deliver(confirm)
-    expect(w.ledger.deposits.get(s.deposit.id)?.status).toBe('refunded')
+    expect(w.gateway.refunds.size).toBe(refunds)
   })
 })
 

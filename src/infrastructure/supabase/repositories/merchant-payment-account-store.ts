@@ -85,14 +85,19 @@ function statusColumns(update: MerchantAccountUpdate, at: Date) {
   }
 }
 
-async function applyStatus(input: { accountId: string; providerAccountId: string; update: MerchantAccountUpdate; at: Date }) {
-  const result = await createServerSupabaseClient()
+/**
+ * W6-fix F6: with `eventAt` (the provider event's time) the write lands only while last_webhook_at is
+ * unset or not newer, and stores it; an event older than the last one applied changes nothing (null).
+ */
+async function applyStatus(input: { accountId: string; providerAccountId: string; update: MerchantAccountUpdate; at: Date; eventAt?: Date }) {
+  const eventAt = input.eventAt?.toISOString()
+  let query = createServerSupabaseClient()
     .from('merchant_payment_accounts')
-    .update(statusColumns(input.update, input.at))
+    .update({ ...statusColumns(input.update, input.at), ...(eventAt ? { last_webhook_at: eventAt } : {}) })
     .eq('id', input.accountId)
     .eq('provider_account_id', input.providerAccountId)
-    .select(ACCOUNT_COLUMNS)
-    .maybeSingle()
+  if (eventAt) query = query.or(`last_webhook_at.is.null,last_webhook_at.lte.${eventAt}`)
+  const result = await query.select(ACCOUNT_COLUMNS).maybeSingle()
   return oneAccount('applyPaymentAccountStatus', result)
 }
 

@@ -49,3 +49,31 @@ describe('bookingDepositStore: RPC rows -> BookingDeposit (mapped once)', () => 
     expect(await bookingDepositStore.finishRefund({ depositId: 'd-1', attempt: 1, outcome: 'refunded', refundRef: null, actor: 'provider' })).toBeNull()
   })
 })
+
+describe('W6-fix store methods (F2, F4, F7)', () => {
+  it('F7 settleProviderRefund calls settle_provider_refunded_booking_deposit and maps the row', async () => {
+    const rec = store([{ ...ROW, status: 'refunded', refund_reason: 'provider_dashboard', refund_attempts: 0 }])
+    expect(await bookingDepositStore.settleProviderRefund({ depositId: 'd-1' })).toMatchObject({ status: 'refunded', refundReason: 'provider_dashboard', bookingId: 'b-1' })
+    expect(rec.queries[0].table).toBe('rpc:settle_provider_refunded_booking_deposit')
+    expect(rec.queries[0].calls[0]).toEqual(['rpc', { p_deposit_id: 'd-1' }])
+    store([])
+    expect(await bookingDepositStore.settleProviderRefund({ depositId: 'd-1' })).toBeNull()
+  })
+
+  it('F2 claimLateRefundRetries sends the cap, the backoff in seconds and the factor', async () => {
+    const rec = store([{ ...ROW, refund_reason: 'late_payment', refund_attempts: 2 }])
+    const claimed = await bookingDepositStore.claimLateRefundRetries({ limit: 50, maxAttempts: 5, baseMs: 15 * 60_000, factor: 4 })
+    expect(claimed).toEqual([expect.objectContaining({ refundReason: 'late_payment', refundAttempts: 2, providerPaymentRef: 'pi_1' })])
+    expect(rec.queries[0].table).toBe('rpc:claim_late_booking_deposit_refund_retries')
+    expect(rec.queries[0].calls[0]).toEqual(['rpc', { p_limit: 50, p_max_attempts: 5, p_base_seconds: 900, p_factor: 4 }])
+  })
+
+  it('F4 refundAttemptOf returns the attempt, or null when never recorded', async () => {
+    const rec = store(2)
+    expect(await bookingDepositStore.refundAttemptOf({ depositId: 'd-1', refundRef: 're_2' })).toBe(2)
+    expect(rec.queries[0].table).toBe('rpc:booking_deposit_refund_attempt_of')
+    expect(rec.queries[0].calls[0]).toEqual(['rpc', { p_deposit_id: 'd-1', p_refund_ref: 're_2' }])
+    store(null)
+    expect(await bookingDepositStore.refundAttemptOf({ depositId: 'd-1', refundRef: 're_x' })).toBeNull()
+  })
+})

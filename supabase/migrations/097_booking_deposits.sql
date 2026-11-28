@@ -99,7 +99,8 @@ CREATE TABLE booking_deposits (
   provider_payment_ref TEXT CHECK (provider_payment_ref IS NULL OR char_length(provider_payment_ref) BETWEEN 1 AND 255),
   paid_at              TIMESTAMPTZ,
   refund_ref           TEXT CHECK (refund_ref IS NULL OR char_length(refund_ref) BETWEEN 1 AND 255),
-  refund_reason        TEXT CHECK (refund_reason IS NULL OR refund_reason IN ('declined', 'late_payment', 'staff')),
+  -- W6-fix F7: provider_dashboard = refunded outside the app (the provider's dashboard), never a staff choice.
+  refund_reason        TEXT CHECK (refund_reason IS NULL OR refund_reason IN ('declined', 'late_payment', 'staff', 'provider_dashboard')),
   -- R56: each refund call carries the idempotency key refund:<id>:<attempt>.
   refund_attempts      INTEGER NOT NULL DEFAULT 0 CHECK (refund_attempts >= 0),
   decided_by           UUID,
@@ -125,6 +126,9 @@ CREATE INDEX IF NOT EXISTS booking_deposits_payment_ref_idx
 -- Review finding 1b: the stalled-refund sweep (refund claimed, no refund id yet).
 CREATE INDEX IF NOT EXISTS booking_deposits_refund_stalled_idx
   ON booking_deposits (updated_at) WHERE status = 'refund_pending' AND refund_ref IS NULL;
+-- W6-fix F2: the late-payment refunds the sweep retries (refund_failed, late_payment).
+CREATE INDEX IF NOT EXISTS booking_deposits_late_refund_failed_idx
+  ON booking_deposits (id) WHERE status = 'refund_failed' AND refund_reason = 'late_payment';
 
 ALTER TABLE booking_deposits ENABLE ROW LEVEL SECURITY;
 
@@ -805,9 +809,10 @@ GRANT EXECUTE ON FUNCTION public.record_booking_deposit_refund_ref(uuid, int, te
 --   provider's word on money; no further attempt can start from refunded);
 --   refund_failed -> only for the current attempt while refund_pending. An id
 --   never recorded changes nothing.
--- - p_attempt NULL, p_refund_ref NULL: the provider says the payment is fully
---   refunded (Stripe charge.refunded): refunded from refund_pending or
---   refund_failed; a failure without an id changes nothing.
+-- - p_attempt NULL, p_refund_ref NULL: changes nothing (W6-fix F1). Stripe's
+--   charge.refunded names no refund and fires while a refund is still
+--   pending, so it never settles one of our attempts; a refund made outside
+--   the app is settle_provider_refunded_booking_deposit's.
 CREATE OR REPLACE FUNCTION public.finish_booking_deposit_refund(
   p_deposit_id uuid,
   p_attempt int,
@@ -831,7 +836,7 @@ BEGIN
     PERFORM public.booking_deposit_note_refund_ref(v_deposit, p_attempt, p_refund_ref);
     IF v_deposit.status <> 'refund_pending' OR v_deposit.refund_attempts <> p_attempt THEN RETURN; END IF;
   ELSIF p_refund_ref IS NULL THEN
-    IF p_outcome <> 'refunded' OR NOT v_settleable THEN RETURN; END IF;
+    RETURN;
   ELSE
     SELECT a.attempt INTO v_attempt FROM booking_deposit_refund_attempts a
      WHERE a.deposit_id = p_deposit_id AND a.refund_ref = p_refund_ref;
@@ -876,6 +881,93 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.stalled_booking_deposit_refunds(int, int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.stalled_booking_deposit_refunds(int, int) TO service_role;
+
+-- W6-fix F2: a late-payment refund (the booking lapsed, so staff never see it)
+-- that ended refund_failed is retried by the sweep as a NEW attempt, so a new
+-- idempotency key: refund_failed -> refund_pending, refund_attempts + 1, actor
+-- cron, under the row lock (SKIP LOCKED: a concurrent sweep or webhook keeps
+-- its row). Due = fewer than p_max_attempts attempts and the current attempt
+-- was claimed at least p_base_seconds * p_factor ^ (attempts - 1) ago by the
+-- DATABASE clock. At the cap the row stays refund_failed (the app logs it).
+-- Oldest first, at most p_limit.
+CREATE OR REPLACE FUNCTION public.claim_late_booking_deposit_refund_retries(
+  p_limit int,
+  p_max_attempts int,
+  p_base_seconds int,
+  p_factor int
+) RETURNS SETOF booking_deposits AS $$
+DECLARE
+  v_id uuid;
+  v_deposit booking_deposits;
+BEGIN
+  FOR v_id IN
+    SELECT d.id
+      FROM booking_deposits d
+      LEFT JOIN booking_deposit_refund_attempts a ON a.deposit_id = d.id AND a.attempt = d.refund_attempts
+     WHERE d.status = 'refund_failed' AND d.refund_reason = 'late_payment'
+       AND d.refund_attempts BETWEEN 1 AND greatest(p_max_attempts, 0) - 1
+       AND coalesce(a.created_at, d.updated_at)
+           <= now() - make_interval(secs => greatest(p_base_seconds, 0) * power(greatest(p_factor, 1), d.refund_attempts - 1))
+     ORDER BY coalesce(a.created_at, d.updated_at), d.id
+     LIMIT greatest(p_limit, 0)
+       FOR UPDATE OF d SKIP LOCKED
+  LOOP
+    UPDATE booking_deposits
+       SET status = 'refund_pending', refund_attempts = refund_attempts + 1, refund_ref = NULL, updated_at = now()
+     WHERE id = v_id AND status = 'refund_failed' AND refund_reason = 'late_payment'
+    RETURNING * INTO v_deposit;
+    IF FOUND THEN
+      INSERT INTO booking_deposit_refund_attempts (deposit_id, attempt) VALUES (v_deposit.id, v_deposit.refund_attempts)
+        ON CONFLICT DO NOTHING;
+      PERFORM public.booking_deposit_event(v_deposit, 'refund_requested', 'cron', NULL, NULL);
+      RETURN NEXT v_deposit;
+    END IF;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.claim_late_booking_deposit_refund_retries(int, int, int, int) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_late_booking_deposit_refund_retries(int, int, int, int) TO service_role;
+
+-- W6-fix F4: the attempt a refund id was recorded for on this deposit (NULL =
+-- never recorded). A refund webhook for a refund_pending deposit whose id is
+-- not recorded yet beat the refund call's record write: the app answers 503 so
+-- the provider redelivers it.
+CREATE OR REPLACE FUNCTION public.booking_deposit_refund_attempt_of(
+  p_deposit_id uuid,
+  p_refund_ref text
+) RETURNS int AS $$
+  SELECT attempt FROM booking_deposit_refund_attempts WHERE deposit_id = p_deposit_id AND refund_ref = p_refund_ref;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.booking_deposit_refund_attempt_of(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_deposit_refund_attempt_of(uuid, text) TO service_role;
+
+-- W6-fix F7: the provider says a payment was fully refunded outside the app
+-- (e.g. in the Stripe dashboard) and the app confirmed every refund on it
+-- succeeded. Only a paid deposit with no refund attempt of ours moves: paid
+-- (also with its booking cancelled / no-show, staff decision open) ->
+-- refunded, reason provider_dashboard, actor provider; Keep can no longer
+-- run on it. Any other state changes nothing.
+CREATE OR REPLACE FUNCTION public.settle_provider_refunded_booking_deposit(
+  p_deposit_id uuid
+) RETURNS SETOF booking_deposits AS $$
+DECLARE
+  v_deposit booking_deposits;
+BEGIN
+  UPDATE booking_deposits
+     SET status = 'refunded', refund_reason = 'provider_dashboard', updated_at = now()
+   WHERE id = p_deposit_id AND status = 'paid' AND refund_attempts = 0
+  RETURNING * INTO v_deposit;
+  IF FOUND THEN
+    PERFORM public.booking_deposit_event(v_deposit, 'refund_succeeded', 'provider', NULL, NULL);
+    RETURN NEXT v_deposit;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.settle_provider_refunded_booking_deposit(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.settle_provider_refunded_booking_deposit(uuid) TO service_role;
 
 -- keep: paid -> kept (terminal), only while the booking is in one of
 -- p_booking_statuses (cancelled / no-show); who and when stored.

@@ -27,7 +27,7 @@ export interface BeginRefundArgs {
   restaurantId: string
   /** 'paid' = Refund / decline; 'refund_failed' = Retry. */
   from: 'paid' | 'refund_failed'
-  reason: Exclude<RefundReason, 'late_payment'>
+  reason: Exclude<RefundReason, 'late_payment' | 'provider_dashboard'>
   /** 'paid' only moves while the booking is in one of these. */
   bookingStatuses: readonly BookingStatus[]
   actor: DepositActor
@@ -39,8 +39,9 @@ export interface BeginRefundArgs {
  * - `attempt` set (the refund call of that attempt): settles only while that is the current attempt.
  * - `attempt` null (a refund webhook): `refundRef` is matched to the attempt it was recorded for;
  *   succeeded -> refunded from any attempt (the provider's word on money), failed -> refund_failed only
- *   for the current attempt; an id never recorded changes nothing. A null `refundRef` + refunded is the
- *   provider saying the payment is fully refunded, which ends refund_pending / refund_failed.
+ *   for the current attempt; an id never recorded changes nothing.
+ * W6-fix F1: `attempt` null with a null `refundRef` settles nothing (a payment-level "refunded" event,
+ * Stripe charge.refunded, fires while a refund is still pending); see `settleProviderRefund`.
  */
 export interface FinishRefundArgs {
   depositId: string
@@ -87,6 +88,21 @@ export interface BookingDepositStore {
    * `olderThanMs` by the database clock (a refund that was never issued), oldest first, at most `limit`.
    */
   listStalledRefunds(limit: number, olderThanMs: number): Promise<BookingDeposit[]>
+  /** W6-fix F4: the attempt `refundRef` was recorded for on this deposit, or null when it was never recorded. */
+  refundAttemptOf(args: { depositId: string; refundRef: string }): Promise<number | null>
+  /**
+   * W6-fix F7: the provider says the payment was fully refunded outside the app (every refund on it
+   * succeeded). Only a `paid` deposit with no refund attempt of ours moves, to refunded with reason
+   * provider_dashboard and actor provider; anything else is null.
+   */
+  settleProviderRefund(args: { depositId: string }): Promise<BookingDeposit | null>
+  /**
+   * W6-fix F2: late-payment refunds that ended refund_failed and are due again, claimed as a NEW
+   * attempt (refund_failed -> refund_pending, attempts + 1, actor cron) under the row lock. Due = fewer
+   * than `maxAttempts` attempts and the current attempt was claimed at least
+   * `baseMs * factor^(attempts - 1)` ago by the database clock. Oldest first, at most `limit`.
+   */
+  claimLateRefundRetries(args: { limit: number; maxAttempts: number; baseMs: number; factor: number }): Promise<BookingDeposit[]>
   keep(args: KeepDepositArgs): Promise<BookingDeposit | null>
 }
 
@@ -121,8 +137,18 @@ export interface MerchantPaymentAccountStore extends MerchantPaymentAccountReade
   link(input: { restaurantId: string; providerCode: PaymentProviderCode; providerAccountId: string }): Promise<MerchantPaymentAccount>
   /** A disconnected (or id-less) row gets a new provider account, back to pending; null when the row is no longer replaceable. */
   relink(input: { restaurantId: string; accountId: string; providerAccountId: string }): Promise<MerchantPaymentAccount | null>
-  /** Writes a status onto the row only while it still holds `providerAccountId`; null when it no longer does. */
-  applyStatus(input: { accountId: string; providerAccountId: string; update: MerchantAccountUpdate; at: Date }): Promise<MerchantPaymentAccount | null>
+  /**
+   * Writes a status onto the row only while it still holds `providerAccountId`; null when it no longer does.
+   * W6-fix F6: with `eventAt` (the provider event's time) the write also needs `last_webhook_at` to be
+   * unset or not newer than it, and stores it there; an older event than the stored one is null.
+   */
+  applyStatus(input: {
+    accountId: string
+    providerAccountId: string
+    update: MerchantAccountUpdate
+    at: Date
+    eventAt?: Date
+  }): Promise<MerchantPaymentAccount | null>
 }
 
 /**

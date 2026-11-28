@@ -64,6 +64,8 @@ interface EventBase {
   livemode: boolean
   /** The connected account the event came from (R49: must equal the deposit's). */
   accountRef: string | null
+  /** W6-fix F6: when the provider created the event (ISO 8601); events can arrive out of order. */
+  occurredAt: string
 }
 
 /** R51: every provider event an adapter understands, normalised. Unknown types never become one. */
@@ -77,8 +79,15 @@ export type NormalizedPaymentEvent =
       paid: boolean
     })
   | (EventBase & { type: 'payment_expired'; sessionRef: string })
-  | (EventBase & { type: 'refund_succeeded'; paymentRef: string; refundRef: string | null })
-  | (EventBase & { type: 'refund_failed'; paymentRef: string; refundRef: string | null })
+  /** One refund we can match by its id (W6-fix F1: only a recorded refund id settles a refund). */
+  | (EventBase & { type: 'refund_succeeded'; paymentRef: string; refundRef: string })
+  | (EventBase & { type: 'refund_failed'; paymentRef: string; refundRef: string })
+  /**
+   * W6-fix F1/F7: the payment was refunded, naming no refund (Stripe charge.refunded, which fires when a
+   * refund is created, pending or not). `fullyRefunded` = the provider marks the whole amount refunded.
+   * It settles none of OUR refunds; it only records a refund made outside the app (F7).
+   */
+  | (EventBase & { type: 'payment_refunded'; paymentRef: string; fullyRefunded: boolean })
   | (EventBase & { type: 'account_updated'; status: ProviderAccountStatus })
   | (EventBase & { type: 'account_deauthorized' })
 
@@ -127,6 +136,11 @@ export interface PaymentGatewayPort {
   /** Closes an open session. `expired: false` = it was already completed or closed (not an error, R57). */
   expireHostedPayment(input: { accountRef: string; sessionRef: string }): Promise<{ expired: boolean }>
   refund(request: RefundRequest): Promise<RefundResult>
+  /**
+   * W6-fix F7: true only when the provider says the payment is fully refunded AND every refund on it
+   * has succeeded (none pending, failed or canceled). Throws PaymentGatewayError when it cannot tell.
+   */
+  confirmFullyRefunded(input: { accountRef: string; paymentRef: string }): Promise<boolean>
 
   /** Verifies the signature on the raw body first (throws WebhookSignatureError), then normalises. */
   parseWebhook(request: WebhookRequest): NormalizedPaymentEvent[]

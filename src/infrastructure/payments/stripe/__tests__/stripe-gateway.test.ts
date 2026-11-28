@@ -176,13 +176,60 @@ describe('expire, refund, accounts', () => {
   })
 })
 
+describe('W6-fix F7 confirmFullyRefunded: the charge is fully refunded and every refund succeeded', () => {
+  const intent = (charge: Record<string, unknown>) => ({ id: 'pi_1', object: 'payment_intent', latest_charge: { id: 'ch_1', object: 'charge', ...charge } })
+  const list = (statuses: string[], hasMore = false) => ({
+    object: 'list', has_more: hasMore, url: '/v1/refunds',
+    data: statuses.map((status, i) => ({ id: `re_${i}`, object: 'refund', status, payment_intent: 'pi_1' })),
+  })
+  const stub = (charge: Record<string, unknown>, refunds: ReturnType<typeof list>) =>
+    stubbedStripe((req) => (req.path.startsWith('/v1/payment_intents/') ? { status: 200, json: intent(charge) } : { status: 200, json: refunds }))
+
+  it('reads the intent with latest_charge expanded and the refunds list on the connected account', async () => {
+    const { gateway, sent } = stub({ refunded: true }, list(['succeeded']))
+    expect(await gateway.confirmFullyRefunded({ accountRef: 'acct_1R', paymentRef: 'pi_1' })).toBe(true)
+    expect(sent[0].method).toBe('GET')
+    expect(sent[0].path).toBe('/v1/payment_intents/pi_1')
+    expect(sent[0].headers.get('stripe-account')).toBe('acct_1R')
+    expect(sent[1].path).toBe('/v1/refunds')
+    expect(sent[1].headers.get('stripe-account')).toBe('acct_1R')
+  })
+
+  it.each([
+    ['not fully refunded', { refunded: false }, list(['succeeded'])],
+    ['a refund still pending', { refunded: true }, list(['succeeded', 'pending'])],
+    ['a refund failed', { refunded: true }, list(['failed', 'succeeded'])],
+    ['a refund canceled', { refunded: true }, list(['canceled'])],
+    ['no refunds listed', { refunded: true }, list([])],
+    ['more refunds than one page', { refunded: true }, list(['succeeded'], true)],
+  ])('%s -> false', async (_label, charge, refunds) => {
+    expect(await stub(charge, refunds).gateway.confirmFullyRefunded({ accountRef: 'acct_1R', paymentRef: 'pi_1' })).toBe(false)
+  })
+
+  it('a Stripe failure is a PaymentGatewayError with no Stripe text', async () => {
+    const { gateway } = stubbedStripe(() => stripeError(500, 'api_error', 'Something about acct_1R went wrong'))
+    const err = await gateway.confirmFullyRefunded({ accountRef: 'acct_1R', paymentRef: 'pi_1' }).catch((e) => e)
+    expect(err).toBeInstanceOf(PaymentGatewayError)
+    expect(err.message).not.toContain('acct_1R')
+  })
+})
+
 const signed = (event: Record<string, unknown>, secret = WHSEC) => {
   const payload = JSON.stringify({ object: 'event', api_version: Stripe.API_VERSION, created: 1, livemode: false, ...event })
   return { rawBody: payload, headers: new Headers({ 'stripe-signature': Stripe.webhooks.generateTestHeaderString({ payload, secret }) }) }
 }
 
+/** `created: 1` in every signed() event. */
+const T1 = '1970-01-01T00:00:01.000Z'
+
 describe('parseWebhook: signature on the raw body, then normalised (R48, R51)', () => {
   const { gateway } = stubbedStripe(() => ({ status: 500, json: {} }))
+
+  it('W6-fix F6: occurredAt is the event\'s created time', () => {
+    expect(gateway.parseWebhook(signed({ id: 'evt_t', type: 'account.application.deauthorized', account: 'acct_1R', created: 1_764_583_200, data: { object: { id: 'ca_1', object: 'application' } } }))).toEqual([
+      { type: 'account_deauthorized', eventId: 'evt_t', livemode: false, accountRef: 'acct_1R', occurredAt: '2025-12-01T10:00:00.000Z' },
+    ])
+  })
 
   it('maps the six subscribed types', () => {
     const completed = signed({
@@ -190,20 +237,23 @@ describe('parseWebhook: signature on the raw body, then normalised (R48, R51)', 
       data: { object: { id: 'cs_1', object: 'checkout.session', amount_total: 40000, currency: 'hkd', payment_status: 'paid', payment_intent: 'pi_1', metadata: { booking_id: 'b' } } },
     })
     expect(gateway.parseWebhook(completed)).toEqual([
-      { type: 'payment_succeeded', eventId: 'evt_1', livemode: false, accountRef: 'acct_1R', sessionRef: 'cs_1', paymentRef: 'pi_1', amount: { amountMinor: 40000, currency: 'HKD' }, paid: true },
+      { type: 'payment_succeeded', eventId: 'evt_1', livemode: false, accountRef: 'acct_1R', occurredAt: T1, sessionRef: 'cs_1', paymentRef: 'pi_1', amount: { amountMinor: 40000, currency: 'HKD' }, paid: true },
     ])
     expect(gateway.parseWebhook(signed({ id: 'evt_2', type: 'checkout.session.expired', account: 'acct_1R', data: { object: { id: 'cs_1', object: 'checkout.session' } } }))).toEqual([
-      { type: 'payment_expired', eventId: 'evt_2', livemode: false, accountRef: 'acct_1R', sessionRef: 'cs_1' },
+      { type: 'payment_expired', eventId: 'evt_2', livemode: false, accountRef: 'acct_1R', occurredAt: T1, sessionRef: 'cs_1' },
     ])
+    // W6-fix F1/F7: charge.refunded names no refund and fires while one is still pending: payment_refunded, never refund_succeeded.
     expect(gateway.parseWebhook(signed({ id: 'evt_3', type: 'charge.refunded', account: 'acct_1R', data: { object: { id: 'ch_1', object: 'charge', refunded: true, payment_intent: 'pi_1' } } }))).toEqual([
-      { type: 'refund_succeeded', eventId: 'evt_3', livemode: false, accountRef: 'acct_1R', paymentRef: 'pi_1', refundRef: null },
+      { type: 'payment_refunded', eventId: 'evt_3', livemode: false, accountRef: 'acct_1R', occurredAt: T1, paymentRef: 'pi_1', fullyRefunded: true },
     ])
-    expect(gateway.parseWebhook(signed({ id: 'evt_3b', type: 'charge.refunded', account: 'acct_1R', data: { object: { id: 'ch_1', object: 'charge', refunded: false, payment_intent: 'pi_1' } } }))).toEqual([])
+    expect(gateway.parseWebhook(signed({ id: 'evt_3b', type: 'charge.refunded', account: 'acct_1R', data: { object: { id: 'ch_1', object: 'charge', refunded: false, payment_intent: 'pi_1' } } }))).toEqual([
+      { type: 'payment_refunded', eventId: 'evt_3b', livemode: false, accountRef: 'acct_1R', occurredAt: T1, paymentRef: 'pi_1', fullyRefunded: false },
+    ])
     expect(gateway.parseWebhook(signed({ id: 'evt_4', type: 'refund.updated', account: 'acct_1R', data: { object: { id: 're_1', object: 'refund', status: 'failed', payment_intent: 'pi_1' } } }))).toEqual([
-      { type: 'refund_failed', eventId: 'evt_4', livemode: false, accountRef: 'acct_1R', paymentRef: 'pi_1', refundRef: 're_1' },
+      { type: 'refund_failed', eventId: 'evt_4', livemode: false, accountRef: 'acct_1R', occurredAt: T1, paymentRef: 'pi_1', refundRef: 're_1' },
     ])
     expect(gateway.parseWebhook(signed({ id: 'evt_4b', type: 'refund.updated', account: 'acct_1R', data: { object: { id: 're_1', object: 'refund', status: 'succeeded', payment_intent: 'pi_1' } } }))).toEqual([
-      { type: 'refund_succeeded', eventId: 'evt_4b', livemode: false, accountRef: 'acct_1R', paymentRef: 'pi_1', refundRef: 're_1' },
+      { type: 'refund_succeeded', eventId: 'evt_4b', livemode: false, accountRef: 'acct_1R', occurredAt: T1, paymentRef: 'pi_1', refundRef: 're_1' },
     ])
     expect(
       gateway.parseWebhook(signed({
@@ -211,10 +261,10 @@ describe('parseWebhook: signature on the raw body, then normalised (R48, R51)', 
         data: { object: { id: 'acct_1R', object: 'account', charges_enabled: false, details_submitted: true, default_currency: 'hkd', requirements: { disabled_reason: 'requirements.past_due' } } },
       }))
     ).toEqual([
-      { type: 'account_updated', eventId: 'evt_5', livemode: false, accountRef: 'acct_1R', status: { chargesEnabled: false, detailsSubmitted: true, currency: 'HKD', disabledReason: 'requirements.past_due' } },
+      { type: 'account_updated', eventId: 'evt_5', livemode: false, accountRef: 'acct_1R', occurredAt: T1, status: { chargesEnabled: false, detailsSubmitted: true, currency: 'HKD', disabledReason: 'requirements.past_due' } },
     ])
     expect(gateway.parseWebhook(signed({ id: 'evt_6', type: 'account.application.deauthorized', account: 'acct_1R', data: { object: { id: 'ca_1', object: 'application' } } }))).toEqual([
-      { type: 'account_deauthorized', eventId: 'evt_6', livemode: false, accountRef: 'acct_1R' },
+      { type: 'account_deauthorized', eventId: 'evt_6', livemode: false, accountRef: 'acct_1R', occurredAt: T1 },
     ])
   })
 

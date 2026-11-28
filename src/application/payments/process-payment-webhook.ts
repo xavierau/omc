@@ -10,6 +10,8 @@
  *    after verification; a duplicate is a 200 with no change. If handling
  *    throws, the claim is released and the answer is 500, so the provider
  *    retries and the retry can succeed.
+ * 4. W6-fix F4: an event the handler cannot decide yet (`retry_later`) also
+ *    releases its claim, answered 503, so the provider redelivers it.
  */
 import type { PaymentLog, WebhookClaimStore } from '@/domain/ports/booking-deposit'
 import { WebhookSignatureError, type NormalizedPaymentEvent, type PaymentGatewayPort } from '@/domain/ports/payment-gateway'
@@ -21,7 +23,7 @@ export interface ProcessPaymentWebhookDeps extends HandlePaymentEventDeps {
 }
 
 export interface PaymentWebhookResponse {
-  status: 200 | 400 | 500
+  status: 200 | 400 | 500 | 503
   body: { received: true; outcomes: Array<PaymentEventOutcome | 'duplicate' | 'mode_mismatch'> } | { error: string }
 }
 
@@ -66,7 +68,12 @@ export async function processPaymentWebhook(
     }
     if (claim === 'error') return { status: 500, body: { error: 'idempotency_unavailable' } }
     try {
-      outcomes.push(await handlePaymentEvent(deps, gateway.code, event))
+      const outcome = await handlePaymentEvent(deps, gateway.code, event)
+      if (outcome === 'retry_later') {
+        await releaseQuietly(claims, key, log)
+        return { status: 503, body: { error: 'retry_later' } }
+      }
+      outcomes.push(outcome)
     } catch (err) {
       log('error', 'payment.event_failed', { key, type: event.type, error: (err as Error).message })
       await releaseQuietly(claims, key, log)

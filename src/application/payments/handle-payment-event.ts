@@ -18,7 +18,17 @@
  *   same connected account): info log, ignored (review finding 7). A mismatch
  *   on a deposit we know stays a security log line.
  * - session expired: lapse that hold now if its time is up (else the cron does).
- * - refund events: settle a refund_pending deposit found by the payment ref we stored.
+ * - refund events: settle a refund_pending deposit found by the payment ref we
+ *   stored, ONLY through a refund id we recorded (W6-fix F1). An id not
+ *   recorded yet on a refund_pending deposit (the webhook beat
+ *   recordRefundRef) is `retry_later`: the caller releases the claim and
+ *   answers 503 so the provider redelivers (F4).
+ * - payment refunded (Stripe charge.refunded, no refund named): settles none
+ *   of our refunds (F1). A paid deposit with no refund attempt of ours that
+ *   the provider confirms fully refunded, every refund succeeded, was refunded
+ *   outside the app: refunded, provider_dashboard (F7). Anything else is logged.
+ * - a late-payment refund that ends refund_failed at the attempt cap is logged
+ *   at error level (W6-fix F2; the sweep retries it until then).
  * - account events (W2, R52): the account row found by the provider account id
  *   we stored takes the provider's status; deauthorized = disabled, and new
  *   bookings then take no deposit (AC-4). See payment-account.ts.
@@ -29,6 +39,7 @@ import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-dep
 import type { NormalizedPaymentEvent, PaymentGatewayRegistry, PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import { sameMoney } from '@/domain/value-objects/money'
 import { issueRefund } from './issue-refund'
+import { noteLateRefundFailure } from './late-refund-retries'
 import { applyAccountEvent, type AccountEventDeps } from './payment-account'
 
 export interface DepositPaid {
@@ -37,7 +48,10 @@ export interface DepositPaid {
 }
 
 export interface HandlePaymentEventDeps {
-  deposits: Pick<BookingDepositStore, 'findBySession' | 'findByPaymentRef' | 'markPaid' | 'lapseExpired' | 'finishRefund' | 'recordRefundRef'>
+  deposits: Pick<
+    BookingDepositStore,
+    'findBySession' | 'findByPaymentRef' | 'markPaid' | 'lapseExpired' | 'finishRefund' | 'recordRefundRef' | 'refundAttemptOf' | 'settleProviderRefund'
+  >
   registry: PaymentGatewayRegistry
   now: () => Date
   log: PaymentLog
@@ -59,6 +73,8 @@ export type PaymentEventOutcome =
   | 'account_updated'
   | 'ignored'
   | 'rejected'
+  /** W6-fix F4: not decidable yet; the claim is released and the provider redelivers. */
+  | 'retry_later'
 
 function reject(deps: HandlePaymentEventDeps, reason: string, data: Record<string, unknown>): PaymentEventOutcome {
   deps.log('warn', 'payment.security_mismatch', { reason, ...data })
@@ -115,6 +131,7 @@ function lateRefundNeverIssued(deposit: BookingDeposit): boolean {
 
 async function lateRefund(deps: HandlePaymentEventDeps, deposit: BookingDeposit): Promise<PaymentEventOutcome> {
   const refunded = await issueRefund(deps, deposit)
+  noteLateRefundFailure(deps.log, refunded)
   return refunded.status === 'refund_failed' ? 'late_refund_failed' : 'late_refunded'
 }
 
@@ -143,6 +160,12 @@ async function onRefundEvent(
   const deposit = await deps.deposits.findByPaymentRef(code, event.paymentRef)
   if (!deposit) return 'ignored'
   if (event.accountRef !== deposit.providerAccountId) return reject(deps, 'account_mismatch', { eventId: event.eventId, depositId: deposit.id })
+  // F4: our refund call has not recorded this id yet (the webhook won the race): decide on a redelivery.
+  // Looked up BEFORE settling, so an id recorded in between is never read as "an earlier attempt".
+  if (deposit.status === 'refund_pending' && (await deps.deposits.refundAttemptOf({ depositId: deposit.id, refundRef: event.refundRef })) === null) {
+    deps.log('warn', 'payment.refund_ref_not_recorded_yet', { eventId: event.eventId, depositId: deposit.id, attempt: deposit.refundAttempts })
+    return 'retry_later'
+  }
   const finished = await deps.deposits.finishRefund({
     depositId: deposit.id,
     attempt: null,
@@ -150,7 +173,43 @@ async function onRefundEvent(
     refundRef: event.refundRef,
     actor: 'provider',
   })
-  return finished ? 'refund_settled' : 'duplicate'
+  if (!finished) return 'duplicate'
+  noteLateRefundFailure(deps.log, finished)
+  return 'refund_settled'
+}
+
+/**
+ * F1 / F7: the provider says the payment was refunded but names no refund (Stripe charge.refunded,
+ * sent when a refund is created, pending or not). It never settles one of our attempts. A paid
+ * deposit with no attempt of ours was refunded outside the app; it moves only once the provider
+ * confirms the whole amount is back and every refund on it succeeded.
+ */
+async function onPaymentRefunded(
+  deps: HandlePaymentEventDeps,
+  code: PaymentProviderCode,
+  event: Extract<NormalizedPaymentEvent, { type: 'payment_refunded' }>
+): Promise<PaymentEventOutcome> {
+  const deposit = await deps.deposits.findByPaymentRef(code, event.paymentRef)
+  if (!deposit) return 'ignored'
+  const at = { eventId: event.eventId, depositId: deposit.id }
+  if (event.accountRef !== deposit.providerAccountId) return reject(deps, 'account_mismatch', at)
+  if (deposit.status !== 'paid' || deposit.refundAttempts > 0) {
+    deps.log('info', 'payment.refund_event_not_ours', { ...at, status: deposit.status, attempts: deposit.refundAttempts })
+    return 'ignored'
+  }
+  if (!event.fullyRefunded) {
+    deps.log('info', 'payment.provider_refund_not_settled', { ...at, reason: 'partial' })
+    return 'ignored'
+  }
+  const confirmed = await deps.registry.get(code).confirmFullyRefunded({ accountRef: deposit.providerAccountId, paymentRef: event.paymentRef })
+  if (!confirmed) {
+    deps.log('info', 'payment.provider_refund_not_settled', { ...at, reason: 'not_all_succeeded' })
+    return 'ignored'
+  }
+  const settled = await deps.deposits.settleProviderRefund({ depositId: deposit.id })
+  if (!settled) return 'duplicate'
+  deps.log('warn', 'deposit.refunded_outside_app', at)
+  return 'refund_settled'
 }
 
 export async function handlePaymentEvent(
@@ -166,6 +225,8 @@ export async function handlePaymentEvent(
     case 'refund_succeeded':
     case 'refund_failed':
       return onRefundEvent(deps, code, event)
+    case 'payment_refunded':
+      return onPaymentRefunded(deps, code, event)
     case 'account_updated':
     case 'account_deauthorized':
       return applyAccountEvent({ accounts: deps.accounts, now: deps.now, log: deps.log }, code, event)

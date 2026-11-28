@@ -11,6 +11,9 @@
  *   find the row only by the provider account id we stored. A deauthorized
  *   account is terminal (disabled) and every channel then books without a
  *   deposit (startDeposit sees no chargeable account, AC-4).
+ *   W6-fix F6: events can arrive out of order, so an account_updated older
+ *   (by the provider's event time) than the last one applied is skipped. A
+ *   deauthorization always applies (it is terminal).
  *
  * The restaurant id always comes from the session (the routes); nothing here
  * takes a provider account id from a caller.
@@ -133,9 +136,17 @@ export async function applyAccountEvent(
     return 'ignored'
   }
   if (account.status === 'disabled') return 'ignored'
-  const update = event.type === 'account_deauthorized' ? DEAUTHORIZED_UPDATE : accountUpdateFrom(event.status)
-  const applied = await deps.accounts.applyStatus({ accountId: account.id, providerAccountId: event.accountRef, update, at: deps.now() })
-  if (!applied) return 'ignored'
+  const deauthorized = event.type === 'account_deauthorized'
+  const update = deauthorized ? DEAUTHORIZED_UPDATE : accountUpdateFrom(event.status)
+  const eventAt = new Date(event.occurredAt)
+  const ordered = !deauthorized && !Number.isNaN(eventAt.getTime())
+  const applied = await deps.accounts.applyStatus({
+    accountId: account.id, providerAccountId: event.accountRef, update, at: deps.now(), ...(ordered ? { eventAt } : {}),
+  })
+  if (!applied) {
+    if (ordered) deps.log('info', 'payment_account.event_stale', { accountId: account.id, eventId: event.eventId, occurredAt: event.occurredAt })
+    return 'ignored'
+  }
   deps.log('info', 'payment_account.status', { accountId: account.id, eventId: event.eventId, status: applied.status })
   return 'account_updated'
 }

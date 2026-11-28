@@ -421,7 +421,7 @@ d('BOOK-014 migration 097 on real Postgres', () => {
       expect(depositStatus(dep)).toBe('refunded')
     })
 
-    it('finding 2: ids are noted once per attempt and once per deposit; an unclaimed attempt is never created; "fully refunded" with no id ends refund_failed', () => {
+    it('finding 2: ids are noted once per attempt and once per deposit; an unclaimed attempt is never created; W6-fix F1: "fully refunded" with no id settles nothing', () => {
       const rid = restaurant()
       const held = paidCancelled(rid, 'note-once')
       const dep = held.deposit!.id
@@ -432,8 +432,131 @@ d('BOOK-014 migration 097 on real Postgres', () => {
       expect(attempts(dep)).toBe('1=re_1')
       expect(state(dep)).toBe('refund_pending,1,re_1')
       expect(finish(dep, 1, 'refund_failed', 're_1')).toBe('1')
-      expect(finish(dep, null, 'refunded', null)).toBe('1')
+      // W6-fix F1 (ruling): a payment-level "refunded" (Stripe charge.refunded) never settles one of our attempts.
+      expect(finish(dep, null, 'refunded', null)).toBe('0')
+      expect(depositStatus(dep)).toBe('refund_failed')
+    })
+
+    it('W6-fix F1: a pending refund is not settled by "fully refunded" with no id; the later failure for its id still lands', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'f1-pending')
+      const dep = held.deposit!.id
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      record(dep, 1, 're_p')
+      expect(finish(dep, null, 'refunded', null)).toBe('0')
+      expect(state(dep)).toBe('refund_pending,1,re_p')
+      expect(finish(dep, null, 'refund_failed', 're_p')).toBe('1')
+      expect(depositStatus(dep)).toBe('refund_failed')
+    })
+
+    const attemptOf = (dep: string, ref: string) =>
+      psql(asService(`SELECT coalesce(public.booking_deposit_refund_attempt_of('${dep}', '${ref}')::text, 'null')`))
+
+    it('W6-fix F4: booking_deposit_refund_attempt_of names the attempt a refund id was recorded for, NULL before it is', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'f4-attempt')
+      const dep = held.deposit!.id
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      expect(attemptOf(dep, 're_early')).toBe('null')
+      record(dep, 1, 're_early')
+      expect(attemptOf(dep, 're_early')).toBe('1')
+      expect(attemptOf(dep, 're_other')).toBe('null')
+    })
+
+    const settleProvider = (dep: string) => psql(asService(`SELECT count(*) FROM public.settle_provider_refunded_booking_deposit('${dep}')`))
+
+    it('W6-fix F7: a paid deposit refunded in the dashboard -> refunded (provider_dashboard, actor provider) once; Keep then changes nothing', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'f7-dashboard')
+      const dep = held.deposit!.id
+      expect(settleProvider(dep)).toBe('1')
+      expect(psql(`SELECT status || ',' || refund_reason || ',' || refund_attempts FROM booking_deposits WHERE id = '${dep}'`)).toBe('refunded,provider_dashboard,0')
+      expect(events(dep)).toBe('created:system,paid:provider,refund_succeeded:provider')
+      expect(settleProvider(dep)).toBe('0')
+      expect(keep(dep, rid)).toBe('0')
+      expect(begin(dep, rid, 'paid', "ARRAY['cancelled']")).toBe('')
       expect(depositStatus(dep)).toBe('refunded')
+    })
+
+    it('W6-fix F7: anything but a paid deposit with no attempt of ours is left alone (refund_pending, refund_failed, kept, awaiting)', () => {
+      const rid = restaurant()
+      const pending = paidCancelled(rid, 'f7-pending')
+      expect(begin(pending.deposit!.id, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      expect(settleProvider(pending.deposit!.id)).toBe('0')
+      expect(finish(pending.deposit!.id, 1, 'refund_failed', 're_f7')).toBe('1')
+      expect(settleProvider(pending.deposit!.id)).toBe('0')
+      expect(depositStatus(pending.deposit!.id)).toBe('refund_failed')
+      const kept = paidCancelled(rid, 'f7-kept')
+      expect(keep(kept.deposit!.id, rid)).toBe('1')
+      expect(settleProvider(kept.deposit!.id)).toBe('0')
+      const awaiting = insertAwaiting(rid, 'f7-awaiting', { phone: '+85291230077' })
+      expect(settleProvider(awaiting.deposit!.id)).toBe('0')
+    })
+
+    it('W6-fix F7: the refund_reason CHECK takes provider_dashboard and still refuses anything else', () => {
+      const rid = restaurant()
+      const held = paidCancelled(rid, 'f7-check')
+      expect(error(`UPDATE booking_deposits SET refund_reason = 'provider_dashboard' WHERE id = '${held.deposit!.id}'`)).toBe('')
+      expect(error(`UPDATE booking_deposits SET refund_reason = 'bogus' WHERE id = '${held.deposit!.id}'`)).toContain('booking_deposits_refund_reason_check')
+    })
+
+    const claimLate = (rid: string) =>
+      psql(
+        asService(
+          `SELECT coalesce(string_agg(id::text || '#' || refund_attempts, ','), '') FROM public.claim_late_booking_deposit_refund_retries(50, 5, 900, 4) WHERE restaurant_id = '${rid}'`
+        )
+      )
+    const claimedAgo = (dep: string, minutes: number) =>
+      psql(
+        `UPDATE booking_deposit_refund_attempts a SET created_at = now() - make_interval(mins => ${minutes})
+           FROM booking_deposits d WHERE d.id = '${dep}' AND a.deposit_id = d.id AND a.attempt = d.refund_attempts`
+      )
+
+    function lateFailed(rid: string, phone: string) {
+      const late = insertAwaiting(rid, 'late-failed', { phone })
+      expire(late.deposit!.id)
+      lapse(200, late.deposit!.id)
+      expect(paid(late.deposit!.id).outcome).toBe('late')
+      expect(finish(late.deposit!.id, 1, 'refund_failed', null)).toBe('1')
+      return late.deposit!.id
+    }
+
+    it('W6-fix F2: a late refund_failed is claimed as a new attempt after 15 min x4^(n-1), actor cron, and never past 5 attempts', () => {
+      const rid = restaurant()
+      const dep = lateFailed(rid, '+85291230101')
+      expect(state(dep)).toBe('refund_failed,1,-')
+      claimedAgo(dep, 14)
+      expect(claimLate(rid)).toBe('')
+      const waits = [15, 60, 240, 960]
+      for (let i = 0; i < waits.length; i++) {
+        const attempt = i + 2
+        claimedAgo(dep, waits[i] - 1)
+        expect(claimLate(rid), `attempt ${attempt} early`).toBe('')
+        claimedAgo(dep, waits[i])
+        expect(claimLate(rid)).toBe(`${dep}#${attempt}`)
+        expect(state(dep)).toBe(`refund_pending,${attempt},-`)
+        expect(finish(dep, attempt, 'refund_failed', null)).toBe('1')
+      }
+      expect(state(dep)).toBe('refund_failed,5,-')
+      claimedAgo(dep, 100_000)
+      expect(claimLate(rid)).toBe('')
+      expect(attempts(dep)).toBe('1=-,2=-,3=-,4=-,5=-')
+      expect(psql(`SELECT count(*) FROM deposit_events WHERE deposit_id = '${dep}' AND event_type = 'refund_requested' AND actor_kind = 'cron'`)).toBe('4')
+    })
+
+    it('W6-fix F2: staff-path refund_failed is never claimed; two concurrent sweeps claim a late row once', async () => {
+      const rid = restaurant()
+      const staff = paidCancelled(rid, 'f2-staff')
+      expect(begin(staff.deposit!.id, rid, 'paid', "ARRAY['cancelled']")).toBe('1')
+      expect(finish(staff.deposit!.id, 1, 'refund_failed', null)).toBe('1')
+      claimedAgo(staff.deposit!.id, 100_000)
+      const dep = lateFailed(rid, '+85291230102')
+      claimedAgo(dep, 16)
+      const sql = asService(`SELECT count(*) FROM public.claim_late_booking_deposit_refund_retries(50, 5, 900, 4) WHERE restaurant_id = '${rid}'`)
+      const results = await Promise.all([psqlAsync(sql), psqlAsync(sql), psqlAsync(sql)])
+      expect(results.sort()).toEqual(['0', '0', '1'])
+      expect(state(dep)).toBe('refund_pending,2,-')
+      expect(depositStatus(staff.deposit!.id)).toBe('refund_failed')
     })
 
     it('finding 1: the late-payment refund claims attempt 1; the stalled list returns only refund_pending rows with no id older than the cutoff', () => {
@@ -499,6 +622,10 @@ d('BOOK-014 migration 097 on real Postgres', () => {
       `SELECT public.record_booking_deposit_refund_ref('${id}', 1, 're_x')`,
       `SELECT * FROM public.stalled_booking_deposit_refunds(1, 600)`,
       `SELECT * FROM public.keep_booking_deposit('${id}', '${id}', ARRAY['cancelled'], '${id}', now())`,
+      // W6-fix
+      `SELECT * FROM public.claim_late_booking_deposit_refund_retries(1, 5, 900, 4)`,
+      `SELECT * FROM public.settle_provider_refunded_booking_deposit('${id}')`,
+      `SELECT public.booking_deposit_refund_attempt_of('${id}', 're_x')`,
     ]
     for (const role of ['anon', 'authenticated']) {
       for (const fn of fns) expect(error(`SET ROLE ${role}; ${fn}`), `${role}: ${fn}`).toContain('permission denied for function')

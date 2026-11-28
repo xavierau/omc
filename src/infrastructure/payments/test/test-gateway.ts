@@ -52,15 +52,20 @@ interface TestRefund {
 
 type TestRefundStatus = 'succeeded' | 'pending' | 'failed'
 
-/** The test provider's own wire format (deliberately not Stripe's). */
-type WireEvent =
+/**
+ * The test provider's own wire format (deliberately not Stripe's). `created` = unix seconds the
+ * provider created the event (W6-fix F6); the delivery time when a test leaves it out.
+ */
+type WireEvent = { created?: number } & (
   | { id: string; type: 'session.completed'; livemode: boolean; account: string; session: string; payment: string | null; amount: number; currency: string; paid: boolean }
   | { id: string; type: 'session.expired'; livemode: boolean; account: string; session: string }
-  /** `refund: null` = the provider says the payment is fully refunded, naming no refund (as Stripe's charge.refunded). */
-  | { id: string; type: 'refund.settled'; livemode: boolean; account: string; payment: string; refund: string | null; ok: boolean }
+  | { id: string; type: 'refund.settled'; livemode: boolean; account: string; payment: string; refund: string; ok: boolean }
+  /** W6-fix F1/F7: the payment was refunded, naming no refund (as Stripe's charge.refunded); `full` = whole amount. */
+  | { id: string; type: 'payment.refunded'; livemode: boolean; account: string; payment: string; full: boolean }
   | { id: string; type: 'account.updated'; livemode: boolean; account: string; charges: boolean; currency: string | null }
   | { id: string; type: 'account.deauthorized'; livemode: boolean; account: string }
   | { id: string; type: string; livemode: boolean; account: string }
+)
 
 export interface SignedDelivery {
   rawBody: string
@@ -73,7 +78,7 @@ export interface TestGatewayOptions {
   now?: () => Date
 }
 
-type FailableOp = 'createHostedPayment' | 'refund' | 'expireHostedPayment' | 'createAccount'
+type FailableOp = 'createHostedPayment' | 'refund' | 'expireHostedPayment' | 'createAccount' | 'confirmFullyRefunded'
 
 export class TestPaymentGateway implements PaymentGatewayPort {
   readonly code = 'test' as const
@@ -84,7 +89,7 @@ export class TestPaymentGateway implements PaymentGatewayPort {
   readonly sessions = new Map<string, TestSession>()
   readonly refunds = new Map<string, TestRefund>()
   readonly calls: Record<FailableOp | 'getAccountStatus', number> = {
-    createHostedPayment: 0, refund: 0, expireHostedPayment: 0, createAccount: 0, getAccountStatus: 0,
+    createHostedPayment: 0, refund: 0, expireHostedPayment: 0, createAccount: 0, getAccountStatus: 0, confirmFullyRefunded: 0,
   }
   /** The next refund settles as this (a real provider can answer pending, then settle by webhook). */
   refundOutcome: TestRefundStatus = 'succeeded'
@@ -193,6 +198,25 @@ export class TestPaymentGateway implements PaymentGatewayPort {
     return { refundRef: id, status: this.refundOutcome }
   }
 
+  private refundsOf(paymentRef: string): TestRefund[] {
+    return [...this.refunds.values()].filter((r) => r.paymentRef === paymentRef)
+  }
+
+  /** Every non-failed refund counts toward the refunded amount (as a provider's amount_refunded). */
+  private fullyRefunded(session: TestSession): boolean {
+    const refunded = this.refundsOf(session.paymentRef ?? '').filter((r) => r.status !== 'failed').reduce((sum, r) => sum + r.amount.amountMinor, 0)
+    return session.paymentRef !== null && refunded >= session.amount.amountMinor
+  }
+
+  /** W6-fix F7: fully refunded AND every refund on the payment succeeded. */
+  async confirmFullyRefunded({ accountRef, paymentRef }: { accountRef: string; paymentRef: string }): Promise<boolean> {
+    this.maybeFail('confirmFullyRefunded')
+    const session = [...this.sessions.values()].find((s) => s.paymentRef === paymentRef && s.accountRef === accountRef)
+    if (!session) throw new PaymentGatewayError('not_found', 'test payment not found')
+    const refunds = this.refundsOf(paymentRef)
+    return this.fullyRefunded(session) && refunds.length > 0 && refunds.every((r) => r.status === 'succeeded')
+  }
+
   // ---- webhooks -----------------------------------------------------------
 
   sign(rawBody: string, at: Date = this.now()): string {
@@ -202,7 +226,7 @@ export class TestPaymentGateway implements PaymentGatewayPort {
   }
 
   private deliver(event: WireEvent): SignedDelivery {
-    const rawBody = JSON.stringify(event)
+    const rawBody = JSON.stringify({ created: Math.floor(this.now().getTime() / 1000), ...event })
     return { rawBody, headers: new Headers({ 'x-test-signature': this.sign(rawBody), 'content-type': 'application/json' }) }
   }
 
@@ -219,7 +243,8 @@ export class TestPaymentGateway implements PaymentGatewayPort {
   parseWebhook({ rawBody, headers }: WebhookRequest): NormalizedPaymentEvent[] {
     this.verify(rawBody, headers.get('x-test-signature'))
     const e = JSON.parse(rawBody) as WireEvent
-    const base = { eventId: e.id, livemode: e.livemode, accountRef: e.account }
+    const created = Number.isSafeInteger(e.created) ? (e.created as number) : Math.floor(this.now().getTime() / 1000)
+    const base = { eventId: e.id, livemode: e.livemode, accountRef: e.account, occurredAt: new Date(created * 1000).toISOString() }
     switch (e.type) {
       case 'session.completed': {
         const w = e as Extract<WireEvent, { type: 'session.completed' }>
@@ -230,6 +255,10 @@ export class TestPaymentGateway implements PaymentGatewayPort {
       case 'refund.settled': {
         const w = e as Extract<WireEvent, { type: 'refund.settled' }>
         return [{ ...base, type: w.ok ? 'refund_succeeded' : 'refund_failed', paymentRef: w.payment, refundRef: w.refund }]
+      }
+      case 'payment.refunded': {
+        const w = e as Extract<WireEvent, { type: 'payment.refunded' }>
+        return [{ ...base, type: 'payment_refunded', paymentRef: w.payment, fullyRefunded: w.full }]
       }
       case 'account.updated': {
         const w = e as Extract<WireEvent, { type: 'account.updated' }>
@@ -283,6 +312,29 @@ export class TestPaymentGateway implements PaymentGatewayPort {
     if (!refund) throw new Error(`test refund ${refundRef} not found`)
     refund.status = ok ? 'succeeded' : 'failed'
     return this.deliver({ id: this.nextId('evt'), type: 'refund.settled', livemode: this.livemode, account: refund.accountRef, payment: refund.paymentRef, refund: refund.id, ok })
+  }
+
+  /**
+   * W6-fix F1/F7: the provider's payment-level "refunded" event for a payment, as it stands now
+   * (Stripe charge.refunded: sent when a refund is created, pending or not).
+   */
+  paymentRefunded(paymentRef: string): SignedDelivery {
+    const session = [...this.sessions.values()].find((s) => s.paymentRef === paymentRef)
+    if (!session) throw new Error(`test payment ${paymentRef} not found`)
+    return this.deliver({
+      id: this.nextId('evt'), type: 'payment.refunded', livemode: this.livemode, account: session.accountRef, payment: paymentRef,
+      full: this.fullyRefunded(session),
+    })
+  }
+
+  /** W6-fix F7: someone refunds the payment in the provider's dashboard (no idempotency key of ours). Returns the event. */
+  refundExternally(paymentRef: string, opts: { amountMinor?: number; status?: TestRefundStatus } = {}): SignedDelivery {
+    const session = [...this.sessions.values()].find((s) => s.paymentRef === paymentRef)
+    if (!session) throw new Error(`test payment ${paymentRef} not found`)
+    const id = this.nextId('rf')
+    const amount = money(opts.amountMinor ?? session.amount.amountMinor, session.amount.currency)
+    this.refunds.set(id, { id, accountRef: session.accountRef, paymentRef, amount, status: opts.status ?? 'succeeded' })
+    return this.paymentRefunded(paymentRef)
   }
 
   /** Any event, signed (e.g. an unknown type). */

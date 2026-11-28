@@ -10,20 +10,22 @@
  *   refund_pending -> refunded | refund_failed
  *   refund_failed -> refund_pending     (Retry)
  *   refund_failed -> refunded           (the provider confirms a refund we had marked failed)
+ *   paid -> refunded                    (W6-fix F7: refunded in the provider's dashboard; reason provider_dashboard)
  */
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { BookingDepositView, BookingStatus } from '@/domain/entities/booking-request'
 import type { Money } from '@/domain/value-objects/money'
 
 export type DepositStatus = 'awaiting' | 'paid' | 'lapsed' | 'refund_pending' | 'refunded' | 'refund_failed' | 'kept'
-export type RefundReason = 'declined' | 'late_payment' | 'staff'
+/** W6-fix F7: 'provider_dashboard' = refunded outside the app (Stripe dashboard); never a staff choice. */
+export type RefundReason = 'declined' | 'late_payment' | 'staff' | 'provider_dashboard'
 /** Who started the booking: a diner channel holds 30 minutes, staff 24 hours (spec Q3). */
 export type DepositHolder = 'diner' | 'staff'
 
 export const DEPOSIT_TRANSITIONS: Readonly<Record<DepositStatus, readonly DepositStatus[]>> = {
   awaiting: ['paid', 'lapsed'],
   lapsed: ['refund_pending'],
-  paid: ['refund_pending', 'kept'],
+  paid: ['refund_pending', 'kept', 'refunded'],
   refund_pending: ['refunded', 'refund_failed'],
   refund_failed: ['refund_pending', 'refunded'],
   refunded: [],

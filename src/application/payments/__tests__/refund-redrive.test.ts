@@ -102,7 +102,7 @@ describe('finding 1b: the cron sweep re-drives stalled refunds', () => {
     w.advance(2 * 60_000)
     const keys = refundKeys(w)
 
-    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 1 })
+    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 1, lateRefundsRetried: 0 })
     expect(keys).toEqual([`refund:${stale.deposit.id}:1`])
     expect(row(w, stale.deposit.id)).toMatchObject({ status: 'refunded', refundAttempts: 1 })
     expect(row(w, fresh.deposit.id)).toMatchObject({ status: 'refund_pending', refundRef: null })
@@ -115,9 +115,9 @@ describe('finding 1b: the cron sweep re-drives stalled refunds', () => {
     const stale = await stalledAt(w, '+85291000001')
     w.advance(STALLED_REFUND_AFTER_MS + 60_000)
     w.gateway.failNext('refund', 'unavailable')
-    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 1 })
+    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 1, lateRefundsRetried: 0 })
     expect(row(w, stale.deposit.id).status).toBe('refund_failed')
-    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 0 })
+    expect(await redriveStalledRefunds(w.redriveDeps)).toEqual({ refundsRedriven: 0, lateRefundsRetried: 0 })
   })
 })
 
@@ -178,20 +178,26 @@ describe('finding 2: refund webhooks settle through the attempt that created the
     expect(w.gateway.calls.refund).toBe(calls)
   })
 
-  it('a refund id we never recorded settles nothing; "the payment is fully refunded" (no refund id) is provider truth', async () => {
+  // W6-fix F1 (ruling): a payment-level "refunded" event (Stripe charge.refunded, no refund id) no longer
+  // settles a deposit with an attempt of ours; it fires while a refund is still pending. The money truth
+  // comes back on the next attempt instead: the provider answers "already refunded".
+  it('a refund id we never recorded settles nothing; a payment-level "refunded" event (no refund id) settles nothing either (W6-fix F1)', async () => {
     const w = paymentWorld()
     const s = await paidAndCancelled(w)
     w.gateway.failNext('refund', 'unavailable')
     await refundDeposit(w.decisionDeps, { restaurantId: RESTAURANT, bookingId: s.booking.id, actorUserId: STAFF, reason: 'staff' })
     expect(row(w, s.deposit.id).status).toBe('refund_failed')
-    const event = (id: string, refund: string | null) =>
+    const event = (id: string, refund: string) =>
       w.gateway.signedEvent({
         id, type: 'refund.settled', livemode: false, account: s.deposit.providerAccountId,
         payment: row(w, s.deposit.id).providerPaymentRef!, refund, ok: true,
       })
     expect((await w.deliver(event('evt_unknown_ref', 'rf_unknown'))).body).toEqual({ received: true, outcomes: ['duplicate'] })
     expect(row(w, s.deposit.id).status).toBe('refund_failed')
-    expect((await w.deliver(event('evt_charge_refunded', null))).body).toEqual({ received: true, outcomes: ['refund_settled'] })
-    expect(row(w, s.deposit.id).status).toBe('refunded')
+    expect((await w.deliver(w.gateway.refundExternally(row(w, s.deposit.id).providerPaymentRef!))).body).toEqual({ received: true, outcomes: ['ignored'] })
+    expect(row(w, s.deposit.id).status).toBe('refund_failed')
+    expect(await retryDepositRefund(w.decisionDeps, { restaurantId: RESTAURANT, bookingId: s.booking.id, actorUserId: STAFF })).toMatchObject({
+      ok: true, deposit: { status: 'refunded' },
+    })
   })
 })

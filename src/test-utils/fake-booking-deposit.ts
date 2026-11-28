@@ -5,6 +5,9 @@
 // uses the "database" clock; each move appends one deposit event with its actor.
 // Refund ids are kept per attempt (booking_deposit_refund_attempts) and a refund
 // webhook settles only through the attempt that made its id (review finding 2).
+// W6-fix: a webhook with no refund id settles nothing (F1); a provider-side full
+// refund settles only a paid deposit with no attempt (F7); late-payment refunds
+// that failed are claimed again with backoff and a cap (F2).
 import { randomUUID } from 'crypto'
 import type { BookingRequest, BookingStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingDeposit, DepositActor, DepositStatus, NewDepositHold } from '@/domain/entities/booking-deposit'
@@ -51,11 +54,18 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
   readonly refundAttempts = new Map<string, Map<number, string | null>>()
   /** deposit id -> last change, by the "database" clock (updated_at). */
   private readonly updatedAt = new Map<string, number>()
+  /** `${deposit id}:${attempt}` -> when the attempt was claimed (booking_deposit_refund_attempts.created_at). */
+  private readonly attemptClaimedAt = new Map<string, number>()
 
   constructor(readonly dbNow: () => Date = () => new Date()) {}
 
   private touch(d: StoredDeposit) {
     this.updatedAt.set(d.id, this.dbNow().getTime())
+  }
+
+  private claimAttempt(d: StoredDeposit) {
+    this.attemptsOf(d.id).set(d.refundAttempts, null)
+    this.attemptClaimedAt.set(`${d.id}:${d.refundAttempts}`, this.dbNow().getTime())
   }
 
   private attemptsOf(depositId: string): Map<number, string | null> {
@@ -271,7 +281,7 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
       d.providerPaymentRef = args.paymentRef
       d.paidAt = args.at.toISOString()
       d.refundAttempts += 1
-      this.attemptsOf(d.id).set(d.refundAttempts, null)
+      this.claimAttempt(d)
       this.event(d, 'late_payment', 'provider', null, args.paymentRef)
       this.event(d, 'refund_requested', 'system')
       return { outcome: 'late', deposit: this.copy(d) }
@@ -294,7 +304,7 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
     d.status = 'refund_pending'
     d.refundAttempts += 1
     d.refundRef = null
-    this.attemptsOf(d.id).set(d.refundAttempts, null)
+    this.claimAttempt(d)
     this.event(d, 'refund_requested', args.actor.kind, args.actor.kind === 'user' ? args.actor.userId : null)
     return this.copy(d)
   }
@@ -311,8 +321,8 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
       if (args.refundRef !== null && !refs.get(args.attempt)) refs.set(args.attempt, args.refundRef)
       if (d.status !== 'refund_pending' || d.refundAttempts !== args.attempt) return null
     } else if (args.refundRef === null) {
-      // "The payment is fully refunded": the provider's word on money.
-      if (args.outcome !== 'refunded' || !settleable) return null
+      // W6-fix F1: a webhook naming no refund settles none of ours.
+      return null
     } else {
       const attempt = [...refs].find(([, ref]) => ref === args.refundRef)?.[0]
       if (attempt === undefined) return null
@@ -343,6 +353,47 @@ export class FakeDepositLedger implements BookingDepositStore, DepositBookingWri
       .sort((a, b) => (this.updatedAt.get(a.id) ?? 0) - (this.updatedAt.get(b.id) ?? 0))
       .slice(0, Math.max(limit, 0))
       .map((d) => this.copy(d))
+  }
+
+  async refundAttemptOf(args: { depositId: string; refundRef: string }) {
+    this.maybeFail('refundAttemptOf')
+    await tick()
+    const found = [...this.attemptsOf(args.depositId)].find(([, ref]) => ref === args.refundRef)
+    return found ? found[0] : null
+  }
+
+  async settleProviderRefund(args: { depositId: string }) {
+    this.maybeFail('settleProviderRefund')
+    await tick()
+    const d = this.deposits.get(args.depositId)
+    if (!d || d.status !== 'paid' || d.refundAttempts !== 0) return null
+    d.status = 'refunded'
+    d.refundReason = 'provider_dashboard'
+    this.event(d, 'refund_succeeded', 'provider')
+    return this.copy(d)
+  }
+
+  async claimLateRefundRetries(args: { limit: number; maxAttempts: number; baseMs: number; factor: number }) {
+    this.maybeFail('claimLateRefundRetries')
+    await tick()
+    const now = this.dbNow().getTime()
+    const claimedAt = (d: StoredDeposit) => this.attemptClaimedAt.get(`${d.id}:${d.refundAttempts}`) ?? this.updatedAt.get(d.id) ?? 0
+    const due = [...this.deposits.values()]
+      .filter(
+        (d) =>
+          d.status === 'refund_failed' && d.refundReason === 'late_payment' && d.refundAttempts >= 1 && d.refundAttempts < args.maxAttempts &&
+          claimedAt(d) <= now - args.baseMs * args.factor ** (d.refundAttempts - 1)
+      )
+      .sort((a, b) => claimedAt(a) - claimedAt(b))
+      .slice(0, Math.max(args.limit, 0))
+    for (const d of due) {
+      d.status = 'refund_pending'
+      d.refundAttempts += 1
+      d.refundRef = null
+      this.claimAttempt(d)
+      this.event(d, 'refund_requested', 'cron')
+    }
+    return due.map((d) => this.copy(d))
   }
 
   async keep(args: KeepDepositArgs) {
