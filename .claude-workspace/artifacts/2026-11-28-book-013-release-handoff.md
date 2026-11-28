@@ -37,6 +37,7 @@ invariants:
   - "No push to main other than through PRs; no force-push by me (release.sh's orphan replace of `release` is its normal operation)."
 unverified:
   - "BOOK-013 flows on prod with a signed-in staff user (no walk)."
+review_focus: []
 scope_drift: []
 in_flight: []
 next_step: "Owner: go/no-go for the template backfill; pilot walk; merge the records PR."
