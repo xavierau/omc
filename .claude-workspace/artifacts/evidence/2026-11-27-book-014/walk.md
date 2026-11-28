@@ -1,4 +1,4 @@
-# BOOK-014 W6b: Stripe test-mode walk (status: BLOCKED at W1, 2026-11-28)
+# BOOK-014 W6b: Stripe test-mode walk (status: BLOCKED at W1 onboarding, 2026-11-28, r1)
 
 The walk could not start. Two Stripe dashboard settings on the platform account (test mode) are
 missing, and both are on the brief's escalate list. No step W1–W10 ran. Nothing in Stripe was
@@ -57,5 +57,25 @@ created or changed: every probe was read-only or failed with a 400 parameter err
 ## Steps
 | Step | Result |
 |---|---|
-| W1 | blocked at Connect (above) |
+| W1 | Connect → account created via the UI (r1); onboarding blocked by hCaptcha |
 | W2–W10 | not run: each needs a connected account and webhook delivery |
+
+## r1 (after the team-lead ruling): webhooks fixed, onboarding blocked by a CAPTCHA
+- The owner ran `stripe login`, so the CLI is now on `acct_1NvaUiBOrstacydg`. `STRIPE_WEBHOOK_SECRET` was
+  taken from `stripe listen --print-secret` and written into `.env.local` (replacing the interim value; never
+  printed). Listener: `stripe listen --forward-connect-to …/api/webhooks/payments/stripe --forward-to
+  …/api/webhooks/payments/stripe --events checkout.session.completed,checkout.session.expired,charge.refunded,
+  refund.updated,refund.created,refund.failed,account.updated,account.application.deauthorized`. Blocker 1 is resolved.
+- Blocker 2 is resolved too: Connect is now signed up on the platform. W1 → 連接 Stripe →
+  `POST /api/dashboard/settings/payments/connect` 200 (2.6 s). The app created the Standard test account
+  `acct_1UgkeeBsmWz9nN6A` through the UI, stored it in `merchant_payment_accounts` (status pending,
+  charges_enabled false, details_submitted false), and the browser was sent to connect.stripe.com onboarding
+  ("You're using a test account with test data").
+- New blocker 3: after the email step, Stripe's onboarding shows an hCaptcha image challenge
+  (`w6b-blocked-onboarding-captcha.png`). I don't solve CAPTCHAs, so per the brief ("can't be completed
+  headless → stop and return blocked with a screenshot") the walk stops here. The account stays pending; no
+  account.updated has arrived yet.
+- To unblock: a person completes the onboarding once in a real browser. Steps: log in to the local app as
+  the walk admin, Settings → Booking → 收款 → Continue setup, then fill Stripe's test data (test phone
+  000 000 0000 / SMS code 000000, test bank and ID values) and the CAPTCHA. Return lands on the settings page.
+  The rest of the walk (Checkout with test cards, refunds, cron, agents) continues headless after that.

@@ -15,15 +15,15 @@ pushed: true
 pr: https://github.com/xavierau/omc/pull/237   # not merged
 stage: poc
 gate: {result: n/a, note: "no src change (docs, evidence scripts and testid registry only)"}
-next: {owner: team-lead, action: "get the owner to (1) sign up for Connect in TEST mode on platform acct_1NvaUi… and (2) unblock webhook delivery (add stripecli_session_write to the restricted key, or stripe login into that account, or rule the /v1/events relay), then SendMessage book014-w6b-walk to resume"}
+next: {owner: team-lead, action: "have a person finish the Stripe test onboarding (CAPTCHA) for acct_1UgkeeBsmWz9nN6A from the local app's Settings → Booking → Continue setup, then SendMessage book014-w6b-walk to resume at W1 (Active chip)"}
 blockers:
-  - "Stripe Connect not activated on the platform (test mode). accounts.create → invalid_request_error: \"You can only create new accounts if you've signed up for Connect, which you can do at https://dashboard.stripe.com/connect.\" Connect Stripe in Settings → Booking answers 502 and shows 未能連接 Stripe，請再試一次。"
-  - "stripe listen: the CLI is logged in to acct_1TMlchRu0TnXZMES (another business), not the key's platform acct_1NvaUiBOrstacydg; `stripe listen --api-key <rk_test>` → 403 more_permissions_required: \"Enabling Debugging Tools Write ('stripecli_session_write') permissions on this key would allow this request to continue.\""
+  - "r1: Stripe Connect Standard onboarding (test mode) shows an hCaptcha image challenge after the email step (connect.stripe.com/setup, account acct_1UgkeeBsmWz9nN6A). It can't be completed headless without solving a CAPTCHA, which I won't do. A person must finish onboarding once in a real browser (Settings → Booking → Continue setup on the local app)."
+  - "Resolved in r1: Connect signed up on the platform; stripe listen on the CLI's own login (now acct_1NvaUiBOrstacydg), whsec_ from --print-secret."
 refs: [specs/2026-11-27-book-014-booking-deposits, plans/2026-11-27-book-014-booking-deposits, artifacts/2026-11-28-book-014-w6-fix-handoff, artifacts/2026-11-27-book-014-w4-handoff, kanban:BOOK-014]
 ---
 ac:
-  AC-1: {result: blocked, evidence: "evidence/2026-11-27-book-014/walk.md: W1 blocked at Connect (expected vs observed, exact Stripe messages, permission probe table); W2-W10 not run"}
-  AC-2: {result: blocked, evidence: "only w6b-blocked-connect-error-zh.png (the settings payments block with the connect error); no Checkout, /p, staff-row or refund screenshots possible"}
+  AC-1: {result: blocked, evidence: "evidence/2026-11-27-book-014/walk.md: r1 W1 reached Stripe onboarding (account created via the UI), blocked by hCaptcha; r0 W1 blocked at Connect (expected vs observed, exact Stripe messages, permission probe table); W2-W10 not run"}
+  AC-2: {result: blocked, evidence: "only w6b-blocked-connect-error-zh.png and w6b-blocked-onboarding-captcha.png (the settings payments block with the connect error); no Checkout, /p, staff-row or refund screenshots possible"}
   AC-3: {result: n/a, evidence: "no src change. Diff vs base: .claude-workspace/ui-map/testid-registry.md (1 row edited), this handoff, evidence/2026-11-27-book-014/ (walk.md, dev-run.sh, seed-w6b.sh, seed-w6b.sql, 1 png)"}
   AC-4:
     result: partial
@@ -34,7 +34,7 @@ decisions:
   - "Interim STRIPE_WEBHOOK_SECRET: a locally generated whsec_ in the tree's gitignored .env.local (the adapter refuses to build without one). Replace it with the stripe listen secret on resume."
   - "Permission probes sent invalid params (400 parameter_unknown means permitted), so nothing was created. The one real accounts.create repeat failed (Connect not signed up), so nothing was created either."
 invariants:
-  - "No real Stripe object was created or changed; GET /v1/accounts on the platform is still empty."
+  - "The only Stripe object created is the test connected account acct_1UgkeeBsmWz9nN6A, created by the app through the Connect button (r1); nothing was created through the API."
   - "The app failed closed on the provider error: 502 provider_unavailable, and the log names only the Stripe error type (R64)."
 unverified:
   - "Everything in W1-W10 (real Checkout, Connect onboarding, webhooks, refunds, the lapse/late-payment race)."
