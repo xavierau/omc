@@ -1,0 +1,261 @@
+[
+ {
+  "step": "b-form-deposit",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "depositLine": "Deposit HK$200. You pay it online next; your request is sent once it is paid.",
+  "submit": "Pay deposit HK$200 and send",
+  "stripeSentence": "訂金由 Stripe 代Walk Test Kitchen 步行測試廚房處理，Stripe 或會在香港以外地方處理你的付款資料。\n\nThe deposit is processed by Stripe for Walk Test Kitchen 步行測試廚房; Stripe may process your payment details outside Hong Kong.",
+  "audit": {
+   "blocking": 0,
+   "warning": 1,
+   "info": 0
+  },
+  "findings": [
+   "warning undefined: {\"check\":\"row-misaligned\",\"sev\":\"warning\",\"el\":\"p[data-testid=\\\"booking-deposit-line\\\"].flex.items-start \\\"Deposit HK$200. You pay it online next; \\\" @32,531 326x60\",\"detail\":\"children in one row are "
+  ],
+  "screenshot": "en-390-b-form-deposit.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "b-slots-deposit",
+  "width": 390,
+  "locale": "en",
+  "lineBeforeParty": null,
+  "depositLine": "Deposit HK$300. You pay it online next; your request is sent once it is paid.",
+  "submit": "Pay deposit HK$300 and send",
+  "audit": {
+   "blocking": 0,
+   "warning": 2,
+   "info": 1
+  },
+  "findings": [
+   "warning undefined: {\"check\":\"occluded\",\"sev\":\"warning\",\"el\":\"h2.text-base.font-semibold \\\"Time\\\" @32,799 39x24\",\"detail\":\"center point is covered by nextjs-portal @0,0 0x0 — not fully visible at page top\"}",
+   "warning undefined: {\"check\":\"row-misaligned\",\"sev\":\"warning\",\"el\":\"p[data-testid=\\\"booking-deposit-line\\\"].flex.items-start \\\"Deposit HK$300. You pay it online next; \\\" @32,1262 326x60\",\"detail\":\"children in one row are"
+  ],
+  "screenshot": "en-390-b-slots-deposit.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "b-503-payment-unavailable",
+  "width": 390,
+  "locale": "en",
+  "submitLabel": "Pay deposit HK$300 and send",
+  "apiStatus": 503,
+  "apiBody": "{\"error\":\"payment_unavailable\"}",
+  "error": "Payment is unavailable right now, please message us.",
+  "audit": {
+   "blocking": 0,
+   "warning": 1,
+   "info": 0
+  },
+  "findings": [
+   "warning undefined: {\"check\":\"layout-shift\",\"sev\":\"warning\",\"el\":null,\"detail\":\"cumulative layout shift 0.113 (> 0.1) since load\",\"sources\":[\"section[data-testid=\\\"booking-collection-statement\\\"].space-y-2.text-xs \\\"你提交的"
+  ],
+  "screenshot": "en-390-b-503-payment-unavailable.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ]
+ },
+ {
+  "step": "p-pending",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-pending",
+  "payNow": 1,
+  "body": "尚未完成付款\n\n付款尚未完成，你可在 17:29 前完成付款。\n\nPayment not finished\n\nPayment not finished. You have until 17:29 to pay.\n\n立即付款 · Pay now",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-pending.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-paid",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-paid",
+  "payNow": 0,
+  "body": "已收到訂金\n\n訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。\n\nDeposit paid\n\nDeposit paid, request sent. The restaurant will reply on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-paid.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-lapsed",
+  "width": 390,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-lapsed",
+  "payNow": 0,
+  "body": "訂座保留已過期\n\n此訂座保留已過期，請在 WhatsApp 聯絡我們取得新連結。如已付款，款項將會全數退回。\n\nThis hold has lapsed\n\nThis hold has lapsed, message us on WhatsApp for a new link. Any payment made will be refunded in full.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-lapsed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-unknown",
+  "width": 390,
+  "locale": "en",
+  "status": 404,
+  "testid": null,
+  "payNow": 0,
+  "body": "連結無效\n\n此付款連結無效。如需協助，請在 WhatsApp 聯絡餐廳。\n\nLink not valid\n\nThis payment link is not valid. Message the restaurant on WhatsApp for help.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-unknown.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ },
+ {
+  "step": "b-form-deposit",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "depositLine": "Deposit HK$200. You pay it online next; your request is sent once it is paid.",
+  "submit": "Pay deposit HK$200 and send",
+  "stripeSentence": "訂金由 Stripe 代Walk Test Kitchen 步行測試廚房處理，Stripe 或會在香港以外地方處理你的付款資料。\n\nThe deposit is processed by Stripe for Walk Test Kitchen 步行測試廚房; Stripe may process your payment details outside Hong Kong.",
+  "audit": {
+   "blocking": 0,
+   "warning": 1,
+   "info": 0
+  },
+  "findings": [
+   "warning undefined: {\"check\":\"row-misaligned\",\"sev\":\"warning\",\"el\":\"p[data-testid=\\\"booking-deposit-line\\\"].flex.items-start \\\"Deposit HK$200. You pay it online next; \\\" @392,522 416x60\",\"detail\":\"children in one row are"
+  ],
+  "screenshot": "en-1200-b-form-deposit.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "b-slots-deposit",
+  "width": 1200,
+  "locale": "en",
+  "lineBeforeParty": null,
+  "depositLine": "Deposit HK$300. You pay it online next; your request is sent once it is paid.",
+  "submit": "Pay deposit HK$300 and send",
+  "audit": {
+   "blocking": 0,
+   "warning": 1,
+   "info": 0
+  },
+  "findings": [
+   "warning undefined: {\"check\":\"row-misaligned\",\"sev\":\"warning\",\"el\":\"p[data-testid=\\\"booking-deposit-line\\\"].flex.items-start \\\"Deposit HK$300. You pay it online next; \\\" @392,1250 416x60\",\"detail\":\"children in one row ar"
+  ],
+  "screenshot": "en-1200-b-slots-deposit.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "b-503-payment-unavailable",
+  "width": 1200,
+  "locale": "en",
+  "submitLabel": "Pay deposit HK$300 and send",
+  "apiStatus": 503,
+  "apiBody": "{\"error\":\"payment_unavailable\"}",
+  "error": "Payment is unavailable right now, please message us.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-b-503-payment-unavailable.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ]
+ },
+ {
+  "step": "p-pending",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-pending",
+  "payNow": 1,
+  "body": "尚未完成付款\n\n付款尚未完成，你可在 17:29 前完成付款。\n\nPayment not finished\n\nPayment not finished. You have until 17:29 to pay.\n\n立即付款 · Pay now",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-pending.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-paid",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-paid",
+  "payNow": 0,
+  "body": "已收到訂金\n\n訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。\n\nDeposit paid\n\nDeposit paid, request sent. The restaurant will reply on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-paid.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-lapsed",
+  "width": 1200,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-lapsed",
+  "payNow": 0,
+  "body": "訂座保留已過期\n\n此訂座保留已過期，請在 WhatsApp 聯絡我們取得新連結。如已付款，款項將會全數退回。\n\nThis hold has lapsed\n\nThis hold has lapsed, message us on WhatsApp for a new link. Any payment made will be refunded in full.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-lapsed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-unknown",
+  "width": 1200,
+  "locale": "en",
+  "status": 404,
+  "testid": null,
+  "payNow": 0,
+  "body": "連結無效\n\n此付款連結無效。如需協助，請在 WhatsApp 聯絡餐廳。\n\nLink not valid\n\nThis payment link is not valid. Message the restaurant on WhatsApp for help.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-unknown.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ }
+]

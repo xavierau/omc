@@ -13,6 +13,9 @@ import { merchantPaymentAccountStore } from '@/infrastructure/supabase/repositor
 import { releaseIdempotencyKey, tryMarkProcessed } from '@/infrastructure/supabase/idempotency'
 import { appBaseUrl } from '@/infrastructure/config/app-url'
 import { findStaffBooking } from '@/infrastructure/supabase/repositories/staff-booking-repository'
+import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import { bookingTokenStore } from '@/infrastructure/supabase/repositories/booking-token-repository'
+import { paymentLinkDetailsReader } from '@/infrastructure/supabase/repositories/payment-link-details-repository'
 import { mintPaymentLinkToken } from '@/domain/services/payment-link-token'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
 import type { WebhookClaimStore } from '@/domain/ports/booking-deposit'
@@ -24,9 +27,9 @@ import type { RedriveRefundsDeps } from './redrive-stalled-refunds'
 import type { DepositDecisionDeps, StaffDepositLinkDeps } from './deposit-decisions'
 import type { ResolvePaymentLinkDeps } from './resolve-payment-link'
 import type { PaymentAccountDeps } from './payment-account'
-import { bookingSettingsReader } from '@/infrastructure/supabase/repositories/booking-config-repository'
+import type { BookingPageDepositDeps } from './booking-page-deposit'
 import { recordDecisionMessage } from '@/infrastructure/supabase/repositories/booking-request-repository'
-import { agentAndStaffPaidHook } from './notify-agent-deposit-paid'
+import { depositPaidHook } from './deposit-paid-hook'
 
 const now = () => new Date()
 
@@ -51,24 +54,25 @@ export function startDepositDeps(): StartDepositDeps {
 }
 
 /**
- * W5 (spec AC-9, AC-10, AC-11): the agent channels' "received" message and the
- * staff hold's "confirmed" message on the paid event. booking-deps imports
- * this module, so its sender is loaded at call time.
+ * The paid-event hook of every booking source (W6a, W5 merge note D1): the
+ * booking page's (chat, campaign: "received", W3), the agents' (AI agent and
+ * personal agents: "received", W5) and staff's ("confirmed", W5). Each source
+ * gets exactly one diner message. booking-deps imports this module, so its
+ * sender is loaded at call time.
  */
-async function agentAndStaffPaid(paid: DepositPaid): Promise<void> {
+async function depositPaid(paid: DepositPaid): Promise<void> {
   const { bookingMessageSender } = await import('@/application/booking/booking-deps')
-  await agentAndStaffPaidHook({ settings: bookingSettingsReader, sender: bookingMessageSender(), recordMessage: recordDecisionMessage })(paid)
+  await depositPaidHook({ settings: bookingSettingsReader, sender: bookingMessageSender(), recordMessage: recordDecisionMessage })(paid)
 }
 
 /**
  * The payment webhook of one provider. Throws when the provider is not
  * configured (the route answers 500, R47). `onDepositPaid` is the channel hook;
- * the default sends the agent and staff channels' messages (W5; W3 adds the
- * booking page's when the stack merges).
+ * the default sends each booking source's message (depositPaidHook).
  */
 export function paymentWebhookDeps(
   code: PaymentProviderCode,
-  onDepositPaid: (paid: DepositPaid) => Promise<void> = agentAndStaffPaid
+  onDepositPaid: (paid: DepositPaid) => Promise<void> = depositPaid
 ): ProcessPaymentWebhookDeps {
   const registry = productionPaymentRegistry()
   return {
@@ -103,9 +107,21 @@ export function staffDepositLinkDeps(): StaffDepositLinkDeps {
   return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), findBooking: findStaffBooking }
 }
 
-/** GET /p/<token>. */
+/** GET /p/<token>; W3: with the booking slot and restaurant name on the live-link pages. */
 export function paymentLinkDeps(): ResolvePaymentLinkDeps {
-  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), now, log: paymentLog }
+  return {
+    deposits: bookingDepositStore,
+    registry: productionPaymentRegistry(),
+    now,
+    log: paymentLog,
+    details: paymentLinkDetailsReader,
+    restaurants: bookingSettingsReader,
+  }
+}
+
+/** W3: the deposit line on the /b page. */
+export function bookingPageDepositDeps(): BookingPageDepositDeps {
+  return { tokens: bookingTokenStore, settings: bookingSettingsReader, accounts: merchantPaymentAccountReader, now }
 }
 
 /** W2: Settings → Booking → Payments (connect, status). New accounts open with Stripe. */

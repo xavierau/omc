@@ -18,8 +18,16 @@
  * BOOK-010: when room rules apply (`roomApplies`), step 2 also answers `full`
  * early (counts + stops), and step 5 writes through the atomic
  * check-and-insert; a refusal there gives the token back (spec AC-5, AC-13).
+ *
+ * BOOK-014 W3 (spec AC-5, AC-6; threat R53, R54, R64): when the restaurant's
+ * deposit rule applies to the party, step 5 goes through `startDeposit`
+ * instead: the booking is held `awaiting_deposit` with its seats, the diner is
+ * redirected to the /p link, and step 6 waits for the paid event
+ * (payments/notify-deposit-paid.ts). A provider failure leaves no booking in
+ * the seat counts and answers the fixed `payment_unavailable`; the token
+ * stays spent (spec Explicitly Not Handled: no retry from the same link).
  */
-import { hasPhone, MAX_PENDING_PER_PHONE, type BookingRequest } from '@/domain/entities/booking-request'
+import { hasPhone, MAX_PENDING_PER_PHONE, type BookingRequest, type NewBookingRequest } from '@/domain/entities/booking-request'
 import {
   hongKongTime,
   hongKongToday,
@@ -34,7 +42,11 @@ import type { BookingConfig } from '@/domain/value-objects/booking-config'
 import type { RateLimiterPort } from '@/domain/ports/rate-limiter'
 import { roomApplies } from '@/domain/services/booking-room'
 import type { SuggestedTime } from '@/domain/services/booking-hours'
-import { earlyFull, insertWithRoom, type FullRefusal, type RoomContext } from './booking-room-check'
+import { earlyFull, fittingSuggestions, insertWithRoom, type FullRefusal, type RoomContext } from './booking-room-check'
+import { startDeposit, type StartDepositDeps } from '@/application/payments/start-deposit'
+import { roomCheckFor, type RoomCheck, type RoomRefusal } from '@/domain/services/booking-room'
+import type { DepositBookingWriter, MerchantPaymentAccountReader } from '@/domain/ports/booking-deposit'
+import type { DepositRule } from '@/domain/value-objects/deposit-rule'
 import type {
   BookingMemberLookup,
   BookingMessageSender,
@@ -57,10 +69,22 @@ export interface SubmitBookingDeps {
   now(): Date
   /** BOOK-010: guest counts, stops and the atomic insert; absent = no room check (BOOK-001..009 callers). */
   room?: BookingRoomStore
+  /** BOOK-014 W3: the deposit path; absent = never a deposit (BOOK-001..013 callers). */
+  deposit?: SubmitDepositDeps
+}
+
+export interface SubmitDepositDeps {
+  accounts: MerchantPaymentAccountReader
+  writer: DepositBookingWriter
+  start: StartDepositDeps
 }
 
 export type SubmitBookingResult =
   | { ok: true; bookingId: string; delivered: boolean }
+  /** BOOK-014 W3: held awaiting_deposit; the diner goes to the /p link (spec AC-5). */
+  | { ok: true; bookingId: string; redirect: string }
+  /** BOOK-014 R54/R64: the provider failed; no booking holds seats. */
+  | { ok: false; reason: 'payment_unavailable' }
   | { ok: false; reason: 'rate_limited' }
   | { ok: false; reason: 'token_unusable'; state: BookingTokenState }
   | { ok: false; reason: 'booking_unavailable' }
@@ -105,29 +129,90 @@ const fullResult = (full: FullRefusal): SubmitBookingResult => ({
   ok: false, reason: 'invalid', errors: full.errors, suggestedTimes: full.suggestedTimes,
 })
 
-async function store(
-  deps: SubmitBookingDeps,
-  claim: { token: string; owner: BookingTokenOwner; claimedAt: Date; config: BookingConfig },
-  s: BookingSubmission
-): Promise<BookingRequest | FullRefusal | null> {
+type StoreOutcome =
+  | { kind: 'booked'; booking: BookingRequest }
+  | { kind: 'deposit'; booking: BookingRequest; redirect: string }
+  | { kind: 'full'; full: FullRefusal }
+  | { kind: 'too_many_pending' }
+  | { kind: 'payment_unavailable' }
+  | { kind: 'failed' }
+
+type StoreClaim = { token: string; owner: BookingTokenOwner; claimedAt: Date; config: BookingConfig }
+
+/** No guest limits: the atomic insert then checks only the per-phone cap (no booking hours set). */
+const NO_ROOM_LIMITS: RoomCheck = { periodKey: null, periodFirst: null, periodLast: null, perSlot: null, perMeal: null }
+
+/** BOOK-014: whether the rule could apply to this party at all (skips the account read when it cannot). */
+const depositMayApply = (rule: DepositRule, partySize: number) => rule.enabled && partySize >= rule.fromPartySize
+
+/** BOOK-010 refusal from the deposit insert, as `insertWithRoom` words it (suggestions only with room rules). */
+async function fullFromRefusal(room: (RoomContext & { store: BookingRoomStore }) | null, request: NewBookingRequest, refusal: RoomRefusal): Promise<FullRefusal> {
+  const req = { date: request.bookingDate, time: request.bookingTime, partySize: request.partySize }
+  return { errors: { time: 'full' }, suggestedTimes: room ? await fittingSuggestions(room.store, room, req) : [], refusal }
+}
+
+/** BOOK-014 W3: the deposit path, or null when no deposit applies (the caller books the BOOK-001 way). */
+async function storeWithDeposit(
+  deps: Pick<SubmitBookingDeps, 'settings'> & { deposit: SubmitDepositDeps },
+  claim: StoreClaim,
+  request: NewBookingRequest,
+  room: (RoomContext & { store: BookingRoomStore }) | null
+): Promise<StoreOutcome | null> {
+  const rule = claim.config.deposit
+  if (!depositMayApply(rule, request.partySize)) return null
+  const { accounts, writer, start } = deps.deposit
+  const [account, restaurant] = await Promise.all([accounts.findForRestaurant(request.restaurantId), deps.settings.getRestaurant(request.restaurantId)])
+  const check = room ? roomCheckFor(room.hours, request.bookingDate, request.bookingTime) : NO_ROOM_LIMITS
+  const started = await startDeposit(start, {
+    restaurantId: request.restaurantId,
+    rule,
+    account,
+    partySize: request.partySize,
+    holder: 'diner',
+    restaurantName: restaurant?.name ?? '',
+    bookingDate: request.bookingDate,
+    bookingTime: request.bookingTime,
+    // R55: the seat check and the per-phone cap in the same transaction as the hold.
+    insertBooking: (hold) => writer.insertWithDeposit(request, check, hold, MAX_PENDING_PER_PHONE),
+  })
+  switch (started.kind) {
+    case 'not_required':
+      return null
+    case 'started':
+      return { kind: 'deposit', booking: started.booking, redirect: started.paymentUrl }
+    case 'payment_unavailable':
+      return { kind: 'payment_unavailable' }
+    case 'refused':
+      return started.refusal.kind === 'pending_cap'
+        ? { kind: 'too_many_pending' }
+        : { kind: 'full', full: await fullFromRefusal(room, request, started.refusal) }
+  }
+}
+
+async function store(deps: SubmitBookingDeps, claim: StoreClaim, s: BookingSubmission): Promise<StoreOutcome> {
   const { token, owner, claimedAt } = claim
   try {
     const memberId = await deps.members.findMemberId(owner.restaurantId, owner.phone)
-    const request = {
+    const request: NewBookingRequest = {
       restaurantId: owner.restaurantId, memberId, phone: owner.phone, name: s.name, partySize: s.partySize,
       bookingDate: s.date, bookingTime: s.time, notes: s.notes, source: owner.source, campaignId: owner.campaignId, token,
       ...termsAcceptance(s, claim.config, claimedAt),
     }
     const room = roomContext(deps, owner.restaurantId, claim.config)
-    if (!room) return await deps.requests.insert(request)
+    const held = deps.deposit ? await storeWithDeposit({ settings: deps.settings, deposit: deps.deposit }, claim, request, room) : null
+    if (held) {
+      if (held.kind === 'full' || held.kind === 'too_many_pending') await deps.tokens.release(token, claimedAt)
+      return held
+    }
+    if (!room) return { kind: 'booked', booking: await deps.requests.insert(request) }
     const inserted = await insertWithRoom(room.store, room, request)
-    if (inserted.ok) return inserted.booking
+    if (inserted.ok) return { kind: 'booked', booking: inserted.booking }
     await deps.tokens.release(token, claimedAt)
-    return inserted.full
+    return { kind: 'full', full: inserted.full }
   } catch (err) {
     console.error('[Booking] insert failed:', { to: maskPhone(owner.phone), error: (err as Error).message })
     await deps.tokens.release(token, claimedAt)
-    return null
+    return { kind: 'failed' }
   }
 }
 
@@ -188,8 +273,18 @@ export async function submitBookingRequest(
   const claimedAt = deps.now()
   const claim = await claimOrState(deps, input.token, claimedAt)
   if (!claim.owner) return { ok: false, reason: 'token_unusable', state: claim.state }
-  const booking = await store(deps, { token: input.token, owner: claim.owner, claimedAt, config }, result.submission)
-  if (!booking) return { ok: false, reason: 'failed' }
-  if ('refusal' in booking) return fullResult(booking)
-  return { ok: true, bookingId: booking.id, delivered: await notifyReceived(deps, booking) }
+  const stored = await store(deps, { token: input.token, owner: claim.owner, claimedAt, config }, result.submission)
+  switch (stored.kind) {
+    case 'booked':
+      return { ok: true, bookingId: stored.booking.id, delivered: await notifyReceived(deps, stored.booking) }
+    case 'deposit':
+      // Spec AC-6: the "received" message waits for the paid event.
+      return { ok: true, bookingId: stored.booking.id, redirect: stored.redirect }
+    case 'full':
+      return fullResult(stored.full)
+    case 'too_many_pending':
+    case 'payment_unavailable':
+    case 'failed':
+      return { ok: false, reason: stored.kind }
+  }
 }

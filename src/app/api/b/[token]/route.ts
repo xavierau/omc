@@ -4,6 +4,9 @@
  * Unauthenticated by necessity: the diner is a WhatsApp user. The token in
  * the path is the whole authorisation; restaurant and phone come only from
  * its row (R2). Query parameters are never read.
+ *
+ * BOOK-014 W3: a deposit hold answers 200 {ok, redirect} (the /p link, built
+ * server side); a provider failure answers 503 with the fixed code only (R64).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { submitBookingRequest, type SubmitBookingResult } from '@/application/booking/submit-booking-request'
@@ -14,7 +17,7 @@ import { applyBookingHeaders } from '@/app/b/booking-security-headers'
 const json = (body: unknown, status: number) => applyBookingHeaders(NextResponse.json(body, { status }))
 
 function toResponse(result: SubmitBookingResult): NextResponse {
-  if (result.ok) return json({ ok: true, delivered: result.delivered }, 200)
+  if (result.ok) return json('redirect' in result ? { ok: true, redirect: result.redirect } : { ok: true, delivered: result.delivered }, 200)
   switch (result.reason) {
     case 'rate_limited':
       return applyBookingHeaders(NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '60' } }))
@@ -29,6 +32,8 @@ function toResponse(result: SubmitBookingResult): NextResponse {
       return json({ error: 'invalid', fields: result.errors, ...(result.suggestedTimes ? { suggestedTimes: result.suggestedTimes } : {}) }, 400)
     case 'too_many_pending':
       return json({ error: 'too_many_pending' }, 409)
+    case 'payment_unavailable':
+      return json({ error: 'payment_unavailable' }, 503)
     default:
       return json({ error: 'submission_failed' }, 500)
   }

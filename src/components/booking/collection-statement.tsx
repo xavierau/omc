@@ -3,10 +3,23 @@
  * privacy policy is. Always shown in both languages, whatever the app
  * locale, because the page is opened from a WhatsApp chat in either.
  * Copy is provisional until the owner approves diner copy (spec OQ7).
+ * BOOK-014 W3 (R61, PDPO DPP1): when the restaurant takes deposits, who
+ * processes the payment and that it may leave Hong Kong.
  */
 export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy-policy.html'
 
-export function CollectionStatement({ restaurantName }: { restaurantName: string }) {
+function DepositProcessing({ restaurantName }: { restaurantName: string }) {
+  return (
+    <div data-testid="booking-collection-deposit" className="space-y-2">
+      <p lang="zh-HK">訂金由 Stripe 代{restaurantName}處理，Stripe 或會在香港以外地方處理你的付款資料。</p>
+      <p lang="en">
+        The deposit is processed by Stripe for {restaurantName}; Stripe may process your payment details outside Hong Kong.
+      </p>
+    </div>
+  )
+}
+
+export function CollectionStatement({ restaurantName, deposit = false }: { restaurantName: string; deposit?: boolean }) {
   return (
     <section data-testid="booking-collection-statement" className="space-y-2 text-xs leading-relaxed text-muted-foreground">
       <p lang="zh-HK">
@@ -22,6 +35,7 @@ export function CollectionStatement({ restaurantName }: { restaurantName: string
           Privacy policy
         </a>
       </p>
+      {deposit ? <DepositProcessing restaurantName={restaurantName} /> : null}
     </section>
   )
 }

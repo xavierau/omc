@@ -7,27 +7,53 @@
  * `returned` is the provider sending the diner back (?return=success|cancel,
  * our own URLs): after success the webhook may not have landed yet, so the
  * page says the payment is being confirmed instead of redirecting again.
+ *
+ * W3 (spec AC-5..AC-7, R62): with a `details` reader, the paid / confirming /
+ * not-finished pages also show the restaurant, date, time, party and amount
+ * (never the diner's name, phone or notes). Lapsed, unknown and unavailable
+ * links stay neutral. A details read failure leaves the page neutral.
+ *
+ * W3 r2: a deposit that is being or has been refunded (declined or staff
+ * Refund) is `refunded`, and a kept one is `closed`: neither tells the diner
+ * the request was sent. A late-payment refund still reads as lapsed.
  */
+import type { BookingDeposit, DepositStatus } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-deposit'
+import type { BookingSettingsReader } from '@/domain/ports/booking'
+import type { PaymentLinkBookingSlot, PaymentLinkDetailsReader } from '@/domain/ports/payment-link-details'
+import type { Money } from '@/domain/value-objects/money'
 import type { PaymentGatewayRegistry } from '@/domain/ports/payment-gateway'
 import { hashPaymentLinkToken, isPaymentLinkTokenShape } from '@/domain/services/payment-link-token'
+
+/** What a live link's page shows: the restaurant, the slot and the amount; no name, phone or notes (R62). */
+export type PaymentLinkDetails = PaymentLinkBookingSlot & { restaurantName: string; amount: Money }
 
 export interface ResolvePaymentLinkDeps {
   deposits: Pick<BookingDepositStore, 'findByLinkTokenHash'>
   registry: PaymentGatewayRegistry
   now: () => Date
   log: PaymentLog
+  /** W3: the booking slot on the live-link pages; absent = neutral pages (W1). */
+  details?: PaymentLinkDetailsReader
+  /** W3: the restaurant name for those pages; absent = shown without it. */
+  restaurants?: Pick<BookingSettingsReader, 'getRestaurant'>
 }
 
 export type PaymentLinkState =
   | { kind: 'redirect'; url: string }
   | { kind: 'not_found' }
   | { kind: 'lapsed' }
-  | { kind: 'paid' }
-  | { kind: 'processing' }
+  | { kind: 'paid'; details?: PaymentLinkDetails }
+  | { kind: 'processing'; details?: PaymentLinkDetails }
   /** Back from the hosted page without paying, hold still open: "you have until HH:MM" + Pay now. */
-  | { kind: 'unfinished'; holdExpiresAt: string }
+  | { kind: 'unfinished'; holdExpiresAt: string; details?: PaymentLinkDetails }
   | { kind: 'unavailable' }
+  /** r2: declined or staff Refund; refund_failed reads the same (staff see the failure, W4). */
+  | { kind: 'refunded'; details?: PaymentLinkDetails }
+  /** r2: the restaurant kept the deposit; neutral. */
+  | { kind: 'closed' }
+
+const REFUNDING: readonly DepositStatus[] = ['refund_pending', 'refunded', 'refund_failed']
 
 export function isAllowedRedirect(url: string, hosts: readonly string[]): boolean {
   try {
@@ -35,6 +61,19 @@ export function isAllowedRedirect(url: string, hosts: readonly string[]): boolea
     return parsed.protocol === 'https:' && parsed.username === '' && parsed.password === '' && hosts.includes(parsed.hostname)
   } catch {
     return false
+  }
+}
+
+/** Best effort: a failure is logged with the deposit id only and the page stays neutral (R64). */
+async function detailsOf(deps: ResolvePaymentLinkDeps, deposit: BookingDeposit): Promise<{ details?: PaymentLinkDetails }> {
+  if (!deps.details) return {}
+  try {
+    const ref = { restaurantId: deposit.restaurantId, bookingId: deposit.bookingId }
+    const [slot, restaurant] = await Promise.all([deps.details.findForDeposit(ref), deps.restaurants?.getRestaurant(deposit.restaurantId) ?? null])
+    return slot ? { details: { ...slot, restaurantName: restaurant?.name ?? '', amount: deposit.amount } } : {}
+  } catch (err) {
+    deps.log('error', 'payment_link.details_failed', { depositId: deposit.id, error: (err as Error).name })
+    return {}
   }
 }
 
@@ -47,10 +86,12 @@ export async function resolvePaymentLink(
   if (!deposit) return { kind: 'not_found' }
 
   if (deposit.status === 'lapsed' || (deposit.status !== 'awaiting' && deposit.refundReason === 'late_payment')) return { kind: 'lapsed' }
-  if (deposit.status !== 'awaiting') return { kind: 'paid' }
+  if (REFUNDING.includes(deposit.status)) return { kind: 'refunded', ...(await detailsOf(deps, deposit)) }
+  if (deposit.status === 'kept') return { kind: 'closed' }
+  if (deposit.status !== 'awaiting') return { kind: 'paid', ...(await detailsOf(deps, deposit)) }
   if (Date.parse(deposit.holdExpiresAt) <= deps.now().getTime()) return { kind: 'lapsed' }
-  if (input.returned === 'success') return { kind: 'processing' }
-  if (input.returned === 'cancel') return { kind: 'unfinished', holdExpiresAt: deposit.holdExpiresAt }
+  if (input.returned === 'success') return { kind: 'processing', ...(await detailsOf(deps, deposit)) }
+  if (input.returned === 'cancel') return { kind: 'unfinished', holdExpiresAt: deposit.holdExpiresAt, ...(await detailsOf(deps, deposit)) }
 
   let hosts: readonly string[] = []
   try {

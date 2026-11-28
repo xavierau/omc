@@ -126,6 +126,8 @@ export function submitBookingDeps(): SubmitBookingDeps {
     now,
     // BOOK-010: guest limits and stops (atomic insert, migration 092).
     room: bookingRoomStore,
+    // BOOK-014 W3: the deposit hold + hosted payment when the restaurant's rule applies.
+    deposit: { ...depositChannelPorts, start: startDepositDeps() },
   }
 }
 

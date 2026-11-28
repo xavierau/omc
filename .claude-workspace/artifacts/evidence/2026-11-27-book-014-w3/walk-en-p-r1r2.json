@@ -1,0 +1,218 @@
+[
+ {
+  "step": "p-pending",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-pending",
+  "payNow": 1,
+  "body": "尚未完成付款\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n付款尚未完成，你可在 02:31 前完成付款。\n\nPayment not finished\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nPayment not finished. You have until 02:31 to pay.\n\n立即付款 · Pay now",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-pending.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-paid",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-paid",
+  "payNow": 0,
+  "body": "已收到訂金\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。\n\nDeposit paid\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nDeposit paid, request sent. The restaurant will reply on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-paid.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-lapsed",
+  "width": 390,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-lapsed",
+  "payNow": 0,
+  "body": "訂座保留已過期\n\n此訂座保留已過期，請在 WhatsApp 聯絡我們取得新連結。如已付款，款項將會全數退回。\n\nThis hold has lapsed\n\nThis hold has lapsed, message us on WhatsApp for a new link. Any payment made will be refunded in full.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-lapsed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-refunded",
+  "width": 390,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-refunded",
+  "payNow": 0,
+  "body": "訂金退款\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n你的訂金正在退款或已經退回。如有疑問，請在 WhatsApp 聯絡我們。\n\nDeposit refunded\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nYour deposit is being refunded or has been refunded. Message us on WhatsApp if you have questions.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-refunded.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-kept-closed",
+  "width": 390,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-closed",
+  "payNow": 0,
+  "body": "此訂座已結束\n\n此訂座已結束，請在 WhatsApp 聯絡我們。\n\nThis booking is closed\n\nThis booking is closed, message us on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-kept-closed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-unknown",
+  "width": 390,
+  "locale": "en",
+  "status": 404,
+  "testid": null,
+  "payNow": 0,
+  "body": "連結無效\n\n此付款連結無效。如需協助，請在 WhatsApp 聯絡餐廳。\n\nLink not valid\n\nThis payment link is not valid. Message the restaurant on WhatsApp for help.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-390-p-unknown.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ },
+ {
+  "step": "p-pending",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-pending",
+  "payNow": 1,
+  "body": "尚未完成付款\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n付款尚未完成，你可在 02:31 前完成付款。\n\nPayment not finished\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nPayment not finished. You have until 02:31 to pay.\n\n立即付款 · Pay now",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-pending.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-paid",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-paid",
+  "payNow": 0,
+  "body": "已收到訂金\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n訂金已付，訂座要求已送出。餐廳會在 WhatsApp 通知你。\n\nDeposit paid\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nDeposit paid, request sent. The restaurant will reply on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-paid.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-lapsed",
+  "width": 1200,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-lapsed",
+  "payNow": 0,
+  "body": "訂座保留已過期\n\n此訂座保留已過期，請在 WhatsApp 聯絡我們取得新連結。如已付款，款項將會全數退回。\n\nThis hold has lapsed\n\nThis hold has lapsed, message us on WhatsApp for a new link. Any payment made will be refunded in full.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-lapsed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-refunded",
+  "width": 1200,
+  "locale": "en",
+  "status": 200,
+  "testid": "booking-pay-refunded",
+  "payNow": 0,
+  "body": "訂金退款\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 位 · 訂金 HK$400\n\n你的訂金正在退款或已經退回。如有疑問，請在 WhatsApp 聯絡我們。\n\nDeposit refunded\n\nWalk Test Kitchen 步行測試廚房 · 2026-12-02 19:00 · 4 guests · Deposit HK$400\n\nYour deposit is being refunded or has been refunded. Message us on WhatsApp if you have questions.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-refunded.png",
+  "consoleErrors": []
+ },
+ {
+  "step": "p-kept-closed",
+  "width": 1200,
+  "locale": "en",
+  "status": 410,
+  "testid": "booking-pay-closed",
+  "payNow": 0,
+  "body": "此訂座已結束\n\n此訂座已結束，請在 WhatsApp 聯絡我們。\n\nThis booking is closed\n\nThis booking is closed, message us on WhatsApp.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-kept-closed.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ]
+ },
+ {
+  "step": "p-unknown",
+  "width": 1200,
+  "locale": "en",
+  "status": 404,
+  "testid": null,
+  "payNow": 0,
+  "body": "連結無效\n\n此付款連結無效。如需協助，請在 WhatsApp 聯絡餐廳。\n\nLink not valid\n\nThis payment link is not valid. Message the restaurant on WhatsApp for help.",
+  "audit": {
+   "blocking": 0,
+   "warning": 0,
+   "info": 0
+  },
+  "findings": [],
+  "screenshot": "en-1200-p-unknown.png",
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ }
+]

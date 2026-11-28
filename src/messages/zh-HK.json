@@ -1371,6 +1371,13 @@
     "offBody": "此餐廳暫不接受網上訂座。請在 WhatsApp 直接聯絡餐廳訂座。",
     "askOnWhatsapp": "在 WhatsApp 查詢",
     "askOnWhatsappManual": "請返回 WhatsApp 對話,輸入 BOOK 索取新連結。",
+    "deposit": {
+      "line": "訂金 {amount}。下一步於網上付款，付款後訂座要求才會送出。",
+      "submit": "支付訂金 {amount} 並送出",
+      "redirecting": "正在前往付款頁面...",
+      "continue": "前往付款",
+      "unavailable": "暫時未能付款，請在 WhatsApp 聯絡我們。"
+    },
     "errors": {
       "required": "請填寫此欄。",
       "invalid": "請檢查此欄。",

@@ -7,6 +7,8 @@
  * (S1.10) shows the admin's banner and keeps submit disabled.
  * F1 (P2-1): schedule off with terms/info/table time set → the BOOK-001 form
  * with the info header, table time and the terms tick.
+ * BOOK-014 W3: `deposit` (the restaurant's deposit terms, or null) reaches
+ * both forms and the collection statement's Stripe sentence (R61).
  */
 import { useTranslations } from 'next-intl'
 import { Eye } from 'lucide-react'
@@ -17,6 +19,7 @@ import { BookingUnavailable } from './booking-unavailable'
 import { CollectionStatement } from './collection-statement'
 import { RestaurantInfo } from './restaurant-info'
 import type { BookingLinkView, BookingPageRestaurant } from '@/application/booking/resolve-booking-link'
+import type { DepositPlan } from '@/domain/value-objects/deposit-plan'
 
 export type BookingPageViewModel = Exclude<BookingLinkView, { kind: 'redirect' }>
 type FormViewModel = Extract<BookingPageViewModel, { kind: 'form' }>
@@ -46,8 +49,8 @@ function PreviewBanner() {
   )
 }
 
-function FormContent({ view, token, preview }: { view: FormViewModel; token: string; preview: boolean }) {
-  const shared = { token, maskedPhone: view.maskedPhone, maxPartySize: view.maxPartySize, retryUrl: view.retryUrl, today: view.today, preview }
+function FormContent({ view, token, preview, deposit }: { view: FormViewModel; token: string; preview: boolean; deposit: DepositPlan | null }) {
+  const shared = { token, maskedPhone: view.maskedPhone, maxPartySize: view.maxPartySize, retryUrl: view.retryUrl, today: view.today, preview, deposit }
   if (!view.schedule) {
     return (
       <>
@@ -64,7 +67,17 @@ function FormContent({ view, token, preview }: { view: FormViewModel; token: str
   )
 }
 
-export function BookingPageView({ view, token, preview = false }: { view: BookingPageViewModel; token: string; preview?: boolean }) {
+export function BookingPageView({
+  view,
+  token,
+  preview = false,
+  deposit = null,
+}: {
+  view: BookingPageViewModel
+  token: string
+  preview?: boolean
+  deposit?: DepositPlan | null
+}) {
   // The preview renders inside the dashboard's <main>; only the diner page owns the landmark.
   const Shell = preview ? 'div' : 'main'
   const slots = view.kind === 'form' && Boolean(view.schedule)
@@ -76,8 +89,8 @@ export function BookingPageView({ view, token, preview = false }: { view: Bookin
         <CardContent className="space-y-6">
           {view.kind === 'form' ? (
             <>
-              <FormContent view={view} token={token} preview={preview} />
-              <CollectionStatement restaurantName={view.restaurant.name} />
+              <FormContent view={view} token={token} preview={preview} deposit={deposit} />
+              <CollectionStatement restaurantName={view.restaurant.name} deposit={deposit !== null} />
             </>
           ) : (
             <BookingUnavailable reason={view.reason} retryUrl={view.retryUrl} />

@@ -1371,6 +1371,13 @@
     "offBody": "Online booking isn't available for this restaurant. Please message the restaurant on WhatsApp to book.",
     "askOnWhatsapp": "Ask on WhatsApp",
     "askOnWhatsappManual": "Go back to the WhatsApp chat and send BOOK to get a new link.",
+    "deposit": {
+      "line": "Deposit {amount}. You pay it online next; your request is sent once it is paid.",
+      "submit": "Pay deposit {amount} and send",
+      "redirecting": "Taking you to the payment page...",
+      "continue": "Continue to payment",
+      "unavailable": "Payment is unavailable right now, please message us."
+    },
     "errors": {
       "required": "Please fill this in.",
       "invalid": "Please check this value.",
