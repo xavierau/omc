@@ -57,6 +57,7 @@ no artifact files were lost._
 - [2026-08-28-tag-001-release-runbook](deploys/2026-08-28-tag-001-release-runbook.md) — #138/#139 to prod: #142 → #143 → main 8b18af7 → release 1493ad7, deploy facts, on-box probe of 065–068, blast radius, no-browser-walk caveat (claude)
 
 ### Reviews
+- [2026-11-27-book-013-phone-optional-review](reviews/2026-11-27-book-013-phone-optional-review.md) — PR #236 phone-optional review: APPROVED, 3 nits (verifier)
 - [2026-11-26-book-013-r3-re-review](reviews/2026-11-26-book-013-r3-re-review.md) — PR #235 r3 re-review: APPROVED, R1/R2/R3/R7/R8 hold, 1 nit (verifier)
 - [2026-11-21-book-010-f1-rereview](reviews/2026-11-21-book-010-f1-rereview.md) — PR #223 F1 re-review: APPROVED, 6/6 resolved, 1 new P3 (verifier)
 - ~~[2026-11-21-book-010-review](reviews/2026-11-21-book-010-review.md)~~ → superseded by 2026-11-21-book-010-f1-rereview
