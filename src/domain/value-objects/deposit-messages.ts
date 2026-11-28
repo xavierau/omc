@@ -73,12 +73,14 @@ export function depositDecisionText(amount: Money, terms: { zh_hk: string | null
 }
 
 /**
- * W6a (spec UI table, AI agent "Lapsed"): the hold lapsed, nothing was
- * charged, and the diner can reply to start again. One language: the diner's.
+ * W6a (spec UI table, AI agent "Lapsed"): the hold lapsed and the diner can
+ * reply to start again. One language: the diner's. W6-fix G1: never "nothing
+ * was charged": a payment the provider took just before the lapse is refunded
+ * in full automatically (AC-8), so the text says so.
  */
 export function holdLapsedText(language: LanguageCode, booking: { date: string; time: string; partySize: number }): string {
   const { date, time, partySize } = booking
   return language === 'en'
-    ? `Your table hold for ${partySize} on ${date} at ${time} has lapsed because the deposit was not paid in time, so nothing was charged. Reply to this message to start again.`
-    : `你 ${date} ${time}（${partySize} 位）的訂座保留已過期，因為未有在時限內付訂金，所以未有收取任何款項。如想重新訂座，請回覆此訊息。`
+    ? `Your table hold for ${partySize} on ${date} at ${time} has lapsed because the deposit was not paid in time. If a payment went through, it will be refunded in full automatically. Reply to this message to start again.`
+    : `你 ${date} ${time}（${partySize} 位）的訂座保留已過期，因為未有在時限內付訂金。如已付款，款項將會自動全數退回。如想重新訂座，請回覆此訊息。`
 }

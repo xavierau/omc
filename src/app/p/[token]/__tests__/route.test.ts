@@ -58,6 +58,7 @@ describe('R62: /p/<token>', () => {
   it('an expired hold -> neutral 410 "lapsed" page', async () => {
     const { token } = await startedToken()
     w.advance(31 * 60_000)
+    await w.ledger.lapseExpired(200) // W6-fix F3: lapsed only once the lapse ran (before: checking)
     const html = await expectNeutral(await get(token), 410)
     expect(html).toContain('This hold has lapsed')
     expect(html).toContain('data-testid="booking-pay-lapsed"')

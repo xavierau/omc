@@ -324,7 +324,11 @@ describe('R62: /p/<token>', () => {
     await started(w)
     expect(await resolvePaymentLink(w.linkDeps, { token: 'short', returned: null })).toEqual({ kind: 'not_found' })
     expect(await resolvePaymentLink(w.linkDeps, { token: 'B'.repeat(43), returned: null })).toEqual({ kind: 'not_found' })
+    // W6-fix F3: past the hold but not lapsed yet -> checking; lapsed once the lapse ran.
     w.advance(30 * 60_000)
+    expect(await resolvePaymentLink(w.linkDeps, { token: w.tokens[0], returned: null })).toEqual({ kind: 'checking' })
+    w.advance(60_000)
+    await expireDeposits(w.expireDeps)
     expect(await resolvePaymentLink(w.linkDeps, { token: w.tokens[0], returned: null })).toEqual({ kind: 'lapsed' })
   })
   it('stored URL on another host (or not https) -> no redirect', async () => {

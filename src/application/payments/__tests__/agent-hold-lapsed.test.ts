@@ -2,7 +2,8 @@
 // hold lapsed and offers to start again"): when a hold lapses (the cron's
 // expireDeposits, or the provider's "session expired" event), a booking made
 // by the WhatsApp AI agent gets one fixed text in the diner's language: the
-// hold lapsed, nothing was charged, reply to start again, with the tenant's
+// hold lapsed, any payment that went through is refunded in full automatically
+// (W6-fix G1), reply to start again, with the tenant's
 // AI disclosure. Personal-agent (PAP) and booking page holds send nothing new.
 // A send failure is logged, never retried, and never stops the expiry batch.
 import { describe, it, expect } from 'vitest'
@@ -60,7 +61,7 @@ async function hold(w: ReturnType<typeof paymentWorld>, over: Parameters<typeof 
 }
 
 describe('W6a AI-agent hold lapse text', () => {
-  it('AI agent hold lapses -> one zh-HK text (default language) with the slot, "nothing charged", reply to start again, the disclosure', async () => {
+  it('AI agent hold lapses -> one zh-HK text (default language) with the slot, G1 "if a payment went through, refunded in full automatically", reply to start again, the disclosure', async () => {
     const { w, sent, expire } = setup()
     await hold(w, { source: 'agent', partySize: 4 })
     w.advance(HOLD_MS)
@@ -70,9 +71,12 @@ describe('W6a AI-agent hold lapse text', () => {
     expect(sent[0].restaurantId).toBe(RESTAURANT)
     expect(sent[0].phone).toBe('+85291234567')
     expect(sent[0].text).toContain('2026-12-24 19:00')
-    expect(sent[0].text).toContain('未有收取任何款項')
+    // W6-fix G1: a payment can land just before the lapse and be auto-refunded, so never "nothing charged".
+    expect(sent[0].text).toContain('如已付款，款項將會自動全數退回。')
+    expect(sent[0].text).not.toContain('未有收取任何款項')
     expect(sent[0].text).toContain('回覆')
     expect(sent[0].text).not.toContain('nothing was charged')
+    expect(sent[0].text).not.toContain('If a payment went through')
     expect(sent[0].text.endsWith(DISCLOSURE)).toBe(true)
   })
 
@@ -84,7 +88,8 @@ describe('W6a AI-agent hold lapse text', () => {
     await expire()
     expect(sent).toHaveLength(1)
     expect(sent[0].text).toContain('has lapsed')
-    expect(sent[0].text).toContain('nothing was charged')
+    expect(sent[0].text).toContain('If a payment went through, it will be refunded in full automatically.')
+    expect(sent[0].text).not.toContain('nothing was charged')
     expect(sent[0].text).toContain('Reply')
     expect(sent[0].text).toContain('2 on 2026-12-24 at 19:00')
     expect(sent[0].text).not.toContain('未有收取')

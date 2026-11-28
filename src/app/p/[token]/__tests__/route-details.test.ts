@@ -88,6 +88,7 @@ describe('W3 /p pages with booking details', () => {
   it('lapsed -> "This hold has lapsed, message us on WhatsApp", neutral (no details)', async () => {
     const { token } = await started()
     w.advance(31 * 60_000)
+    await w.ledger.lapseExpired(200) // W6-fix F3: lapsed only once the lapse ran (before: checking)
     const res = await get(token)
     expect(res.status).toBe(410)
     const html = await res.text()

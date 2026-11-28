@@ -8,6 +8,8 @@
  * them; never the diner's name, phone or notes.
  * W3 r2: refunded (being / has been refunded) and closed (kept, neutral).
  * W6a: held (paid, booking cancelled or no-show, the restaurant decides).
+ * W6-fix: checking (hold over, not lapsed yet: no refund promise, F3), refund
+ * due (paid, booking declined, G2), unreadable (the booking read failed, G3).
  */
 import type { PaymentLinkDetails, PaymentLinkState } from '@/application/payments/resolve-payment-link'
 import { formatMoney } from '@/domain/value-objects/money'
@@ -69,6 +71,24 @@ function copyFor(state: PageState): Copy {
         zh: { title: '訂金暫由餐廳保留', body: '你的訂金暫由餐廳保留，餐廳會決定如何處理。如有疑問，請在 WhatsApp 聯絡我們。' },
         en: { title: 'Deposit held', body: 'Your deposit is held; the restaurant will decide on it. Message us on WhatsApp if you have questions.' },
       }
+    case 'checking':
+      return {
+        status: 200,
+        zh: { title: '正在核對你的付款…', body: '我們正在核對你的付款，請稍後重新整理此頁，或留意我們的 WhatsApp 訊息。' },
+        en: { title: 'Checking your payment…', body: 'We are checking your payment. Refresh this page in a minute, or watch for our WhatsApp message.' },
+      }
+    case 'refund_due':
+      return {
+        status: 200,
+        zh: { title: '訂金將會退回', body: '你的訂金將會退回。如有疑問，請在 WhatsApp 聯絡我們。' },
+        en: { title: 'Deposit to be refunded', body: 'Your deposit will be refunded. Message us on WhatsApp if you have questions.' },
+      }
+    case 'unreadable':
+      return {
+        status: 200,
+        zh: { title: '未能載入付款資料', body: '未能載入此付款資料，請在 WhatsApp 聯絡我們。' },
+        en: { title: 'We couldn’t load this payment', body: 'We couldn’t load this payment, please message us on WhatsApp.' },
+      }
     case 'closed':
       return {
         status: 410,
@@ -91,6 +111,9 @@ const TEST_IDS: Partial<Record<PageState['kind'], string>> = {
   refunded: 'booking-pay-refunded',
   closed: 'booking-pay-closed',
   held: 'booking-pay-held',
+  checking: 'booking-pay-checking',
+  refund_due: 'booking-pay-refund-due',
+  unreadable: 'booking-pay-unreadable',
   unfinished: 'booking-pay-pending',
   lapsed: 'booking-pay-lapsed',
 }

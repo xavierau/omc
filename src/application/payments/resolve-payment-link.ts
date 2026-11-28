@@ -21,6 +21,16 @@
  * `held` (staff still decide Refund / Keep, AC-13): neutral "your deposit is
  * held; the restaurant will decide on it", never "request sent". It needs the
  * booking status from the details read; without it the page reads paid.
+ *
+ * W6-fix:
+ * - F3: an awaiting deposit past its hold is NOT lapsed yet (the lapse cron
+ *   runs every 5 minutes, and a payment the provider accepts meanwhile is
+ *   paid). It reads `checking` ("Checking your payment…", neutral, no
+ *   refund promise), whatever `returned` says; `lapsed` only once it IS.
+ * - G2: paid + booking declined (the decline refund has not started) reads
+ *   `refund_due` ("Your deposit will be refunded").
+ * - G3: a paid deposit whose details read fails (or finds no booking) reads
+ *   `unreadable` ("We couldn't load this payment"), never "Deposit paid".
  */
 import { KEEPABLE_BOOKING_STATUSES, type BookingDeposit, type DepositStatus } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-deposit'
@@ -59,6 +69,12 @@ export type PaymentLinkState =
   | { kind: 'closed' }
   /** W6a: paid, booking cancelled or no-show, the staff decision still open. */
   | { kind: 'held'; details?: PaymentLinkDetails }
+  /** W6-fix F3: awaiting, hold over, not lapsed yet: the payment may still land. Neutral. */
+  | { kind: 'checking' }
+  /** W6-fix G2: paid, booking declined, the refund not started yet. */
+  | { kind: 'refund_due'; details?: PaymentLinkDetails }
+  /** W6-fix G3: paid, but the booking could not be read, so its state is unknown. Neutral. */
+  | { kind: 'unreadable' }
 
 const REFUNDING: readonly DepositStatus[] = ['refund_pending', 'refunded', 'refund_failed']
 
@@ -71,17 +87,40 @@ export function isAllowedRedirect(url: string, hosts: readonly string[]): boolea
   }
 }
 
-/** Best effort: a failure is logged with the deposit id only and the page stays neutral (R64). */
-async function detailsOf(deps: ResolvePaymentLinkDeps, deposit: BookingDeposit): Promise<{ details?: PaymentLinkDetails }> {
-  if (!deps.details) return {}
+type DetailsRead = { kind: 'none' } | { kind: 'failed' } | { kind: 'found'; details: PaymentLinkDetails }
+
+/** A failure is logged with the deposit id only (R64); `none` = no details reader is wired (W1). */
+async function readDetails(deps: ResolvePaymentLinkDeps, deposit: BookingDeposit): Promise<DetailsRead> {
+  if (!deps.details) return { kind: 'none' }
   try {
     const ref = { restaurantId: deposit.restaurantId, bookingId: deposit.bookingId }
     const [slot, restaurant] = await Promise.all([deps.details.findForDeposit(ref), deps.restaurants?.getRestaurant(deposit.restaurantId) ?? null])
-    return slot ? { details: { ...slot, restaurantName: restaurant?.name ?? '', amount: deposit.amount } } : {}
+    if (!slot) {
+      deps.log('warn', 'payment_link.details_missing', { depositId: deposit.id })
+      return { kind: 'failed' }
+    }
+    return { kind: 'found', details: { ...slot, restaurantName: restaurant?.name ?? '', amount: deposit.amount } }
   } catch (err) {
     deps.log('error', 'payment_link.details_failed', { depositId: deposit.id, error: (err as Error).name })
-    return {}
+    return { kind: 'failed' }
   }
+}
+
+/** Best effort for the pages whose state does not depend on the booking: a failed read leaves them neutral. */
+async function detailsOf(deps: ResolvePaymentLinkDeps, deposit: BookingDeposit): Promise<{ details?: PaymentLinkDetails }> {
+  const read = await readDetails(deps, deposit)
+  return read.kind === 'found' ? { details: read.details } : {}
+}
+
+/** A paid deposit's page depends on its booking: held (cancelled / no-show), refund due (declined), else paid. */
+async function paidState(deps: ResolvePaymentLinkDeps, deposit: BookingDeposit): Promise<PaymentLinkState> {
+  const read = await readDetails(deps, deposit)
+  if (read.kind === 'none') return { kind: 'paid' }
+  if (read.kind === 'failed') return { kind: 'unreadable' }
+  const { details } = read
+  if (KEEPABLE_BOOKING_STATUSES.includes(details.bookingStatus)) return { kind: 'held', details }
+  if (details.bookingStatus === 'declined') return { kind: 'refund_due', details }
+  return { kind: 'paid', details }
 }
 
 export async function resolvePaymentLink(
@@ -95,12 +134,9 @@ export async function resolvePaymentLink(
   if (deposit.status === 'lapsed' || (deposit.status !== 'awaiting' && deposit.refundReason === 'late_payment')) return { kind: 'lapsed' }
   if (REFUNDING.includes(deposit.status)) return { kind: 'refunded', ...(await detailsOf(deps, deposit)) }
   if (deposit.status === 'kept') return { kind: 'closed' }
-  if (deposit.status !== 'awaiting') {
-    const read = await detailsOf(deps, deposit)
-    const held = deposit.status === 'paid' && read.details && KEEPABLE_BOOKING_STATUSES.includes(read.details.bookingStatus)
-    return { kind: held ? 'held' : 'paid', ...read }
-  }
-  if (Date.parse(deposit.holdExpiresAt) <= deps.now().getTime()) return { kind: 'lapsed' }
+  if (deposit.status !== 'awaiting') return paidState(deps, deposit)
+  // F3: hold over but not lapsed yet: a payment may still be accepted, so promise nothing.
+  if (Date.parse(deposit.holdExpiresAt) <= deps.now().getTime()) return { kind: 'checking' }
   if (input.returned === 'success') return { kind: 'processing', ...(await detailsOf(deps, deposit)) }
   if (input.returned === 'cancel') return { kind: 'unfinished', holdExpiresAt: deposit.holdExpiresAt, ...(await detailsOf(deps, deposit)) }
 
