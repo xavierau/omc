@@ -19,7 +19,7 @@ import { BookingUnavailable } from './booking-unavailable'
 import { postBooking, type BookingFormValues, type BookingSubmitOutcome } from './booking-form-client'
 import { TermsBlock } from './terms-block'
 import { TableTime } from './slot-list'
-import { DepositLine, DepositRedirect, DepositUnavailable, depositSubmitLabel } from './deposit-line'
+import { DepositLine, DepositRedirect, DepositTerms, DepositUnavailable, depositSubmitLabel } from './deposit-line'
 import type { DepositPlan } from '@/domain/value-objects/deposit-plan'
 import { termsRequired } from '@/domain/value-objects/booking-hours'
 import type { BookingPageDetails } from '@/application/booking/resolve-booking-link'
@@ -111,6 +111,7 @@ export function BookingForm({ token, maskedPhone, today, maxPartySize, retryUrl,
       <TableTime minutes={details?.tableMinutes ?? null} />
       {terms && details ? <TermsBlock terms={details.terms} accepted={accepted} onChange={setAccepted} error={errors.acceptTerms} /> : null}
       <BookingFormNotice outcome={outcome} placed={terms ? [...LEGACY_FIELDS, 'acceptTerms'] : LEGACY_FIELDS} />
+      <DepositTerms plan={deposit} />
       <DepositLine plan={deposit} partySize={party} />
       <Button type="submit" disabled={submitting || preview} className="h-11 w-full" data-testid="booking-submit">
         {submitting ? t('submitting') : (depositSubmitLabel(t, deposit, party) ?? t('submit'))}

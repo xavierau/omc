@@ -9,7 +9,7 @@
  * lookups use only references WE stored (R49): the session id, the payment
  * ref, the link token hash; never provider metadata.
  */
-import type { BookingRequest, BookingStatus, NewBookingRequest } from '@/domain/entities/booking-request'
+import type { BookingRequest, BookingSource, BookingStatus, NewBookingRequest } from '@/domain/entities/booking-request'
 import type { BookingDeposit, DepositActor, NewDepositHold, RefundReason } from '@/domain/entities/booking-deposit'
 import type { MerchantAccountUpdate, MerchantPaymentAccount } from '@/domain/entities/merchant-payment-account'
 import type { PaymentProviderCode } from '@/domain/ports/payment-gateway'
@@ -123,6 +123,28 @@ export interface MerchantPaymentAccountStore extends MerchantPaymentAccountReade
   relink(input: { restaurantId: string; accountId: string; providerAccountId: string }): Promise<MerchantPaymentAccount | null>
   /** Writes a status onto the row only while it still holds `providerAccountId`; null when it no longer does. */
   applyStatus(input: { accountId: string; providerAccountId: string; update: MerchantAccountUpdate; at: Date }): Promise<MerchantPaymentAccount | null>
+}
+
+/**
+ * BOOK-014 W6a (spec UI table, AI agent "Lapsed"): the bookings of holds that
+ * just lapsed, so the AI agent's diners can be told. `personalAgent` is a
+ * booking made through the PAP API (it carries a status token); source
+ * 'agent' without it is the WhatsApp AI agent. Scoped by restaurant id.
+ */
+export interface LapsedHoldBooking {
+  id: string
+  restaurantId: string
+  phone: string | null
+  source: BookingSource
+  personalAgent: boolean
+  bookingDate: string
+  /** HH:MM */
+  bookingTime: string
+  partySize: number
+}
+
+export interface LapsedHoldBookingReader {
+  findForDeposits(refs: ReadonlyArray<{ restaurantId: string; bookingId: string }>): Promise<LapsedHoldBooking[]>
 }
 
 /** The webhook idempotency claim (processed_webhooks, R48). */

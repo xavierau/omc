@@ -43,8 +43,12 @@ export interface AgentBookingSettingsDeps {
   accounts?: MerchantPaymentAccountReader
 }
 
-/** BOOK-014 W5: the deposit the documents state, or null (no reader, rule off, account not chargeable). */
-async function documentDeposit(
+/**
+ * BOOK-014 W5: the deposit the documents state, or null (no reader, rule off,
+ * account not chargeable). W6a: the PAP create response's collection
+ * statement asks the same question (createAgentBooking).
+ */
+export async function documentDeposit(
   accounts: MerchantPaymentAccountReader | undefined,
   restaurantId: string,
   rule: DepositRule | undefined,

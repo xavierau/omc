@@ -5,6 +5,8 @@
  * frees the seats. Then each lapsed hold's hosted session is closed so it can
  * no longer be paid: best effort, and a session that was already completed is
  * left to the payment webhook (a payment that raced the lapse is refunded there).
+ * W6a: then `onLapsed` (the AI agent's "hold lapsed" text); its failure is
+ * logged and never fails the batch.
  */
 import type { BookingDeposit } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-deposit'
@@ -18,6 +20,8 @@ export interface ExpireDepositsDeps {
   deposits: Pick<BookingDepositStore, 'lapseExpired'>
   registry: PaymentGatewayRegistry
   log: PaymentLog
+  /** W6a: told the deposits this run lapsed (each once); absent = nothing sent. */
+  onLapsed?: (lapsed: BookingDeposit[]) => Promise<void>
 }
 
 export interface ExpireDepositsResult {
@@ -47,5 +51,8 @@ export async function expireDeposits(deps: ExpireDepositsDeps): Promise<ExpireDe
     sessionsClosed += closed.filter(Boolean).length
   }
   if (lapsed.length > 0) deps.log('info', 'deposit.lapsed', { count: lapsed.length, sessionsClosed })
+  if (lapsed.length > 0 && deps.onLapsed) {
+    await deps.onLapsed(lapsed).catch((err: Error) => deps.log('warn', 'deposit.lapse_hook_failed', { count: lapsed.length, error: err.name }))
+  }
   return { depositsLapsed: lapsed.length, sessionsClosed }
 }

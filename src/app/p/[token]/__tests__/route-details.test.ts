@@ -7,6 +7,9 @@
 // r2: a refunded deposit (refund_pending / refunded / refund_failed) says it is
 // being / has been refunded (booking-pay-refunded), never "request sent"; a
 // kept one is a neutral closed page (booking-pay-closed).
+// W6a: a cancelled or no-show booking whose paid deposit still awaits the
+// staff decision reads "your deposit is held; the restaurant will decide on
+// it" (booking-pay-held), never "request sent".
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { paymentWorld } from '@/test-utils/payment-world'
@@ -26,7 +29,9 @@ beforeEach(() => {
     details: {
       async findForDeposit({ restaurantId, bookingId }) {
         const b = w.ledger.booking(bookingId)
-        return b && b.restaurantId === restaurantId ? { bookingDate: b.bookingDate, bookingTime: b.bookingTime, partySize: b.partySize } : null
+        return b && b.restaurantId === restaurantId
+          ? { bookingDate: b.bookingDate, bookingTime: b.bookingTime, partySize: b.partySize, bookingStatus: b.status }
+          : null
       },
     },
     restaurants: { getRestaurant: async (id) => (id === 'rest-a' ? { name: 'Café A', logoUrl: null, whatsappNumber: '+85220000001' } : null) },
@@ -148,5 +153,42 @@ describe('W3 r2: refunded and kept deposits never read "request sent"', () => {
     const { s, token } = await paid()
     Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status: 'refunded', refundReason: 'late_payment' })
     expect(await (await get(token)).text()).toContain('data-testid="booking-pay-lapsed"')
+  })
+})
+
+describe('W6a: a cancelled or no-show booking with a paid deposit awaiting the staff decision', () => {
+  async function paidThen(status: 'cancelled' | 'no_show' | 'declined' | 'confirmed') {
+    const { s, token } = await started()
+    await w.deliver(w.gateway.completeSession(s.deposit.providerSessionId!))
+    Object.assign(w.ledger.bookings.get(s.booking.id)!, { status })
+    return token
+  }
+
+  it.each(['cancelled', 'no_show'] as const)('%s -> "Your deposit is held; the restaurant will decide on it" (booking-pay-held), zh-HK + en, with the details', async (status) => {
+    const token = await paidThen(status)
+    const res = await get(token)
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    expect(html).toContain('data-testid="booking-pay-held"')
+    expect(html).toContain('Your deposit is held; the restaurant will decide on it.')
+    expect(html).toContain('你的訂金暫由餐廳保留，餐廳會決定如何處理。')
+    expect(html).not.toContain('request sent')
+    expect(html).not.toContain('訂座要求已送出')
+    expectDetails(html)
+  })
+
+  it('a confirmed booking with a paid deposit still reads "Deposit paid" (unchanged)', async () => {
+    const html = await (await get(await paidThen('confirmed'))).text()
+    expect(html).toContain('data-testid="booking-pay-paid"')
+  })
+
+  it('a refunded or kept deposit on a cancelled booking keeps its own state (W3)', async () => {
+    const { s, token } = await started()
+    await w.deliver(w.gateway.completeSession(s.deposit.providerSessionId!))
+    Object.assign(w.ledger.bookings.get(s.booking.id)!, { status: 'cancelled' })
+    Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status: 'refunded', refundReason: 'staff' })
+    expect(await (await get(token)).text()).toContain('data-testid="booking-pay-refunded"')
+    Object.assign(w.ledger.deposits.get(s.deposit.id)!, { status: 'kept' })
+    expect(await (await get(token)).text()).toContain('data-testid="booking-pay-closed"')
   })
 })

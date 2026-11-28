@@ -54,6 +54,16 @@ export function buildCollectionStatement(restaurantName: string, privacyUrl: str
   }
 }
 
+/**
+ * BOOK-014 W6a (R61): while the restaurant takes deposits, the statement an
+ * agent gets also says Stripe processes the deposit, possibly outside Hong
+ * Kong (depositProcessingSentence). Null = the statement unchanged.
+ */
+export function withDepositProcessing(statement: CollectionStatement, processing: DepositTexts | null): CollectionStatement {
+  if (!processing) return statement
+  return { ...statement, en: `${statement.en} ${processing.en}`, 'zh-HK': `${statement['zh-HK']}${processing.zh_hk}` }
+}
+
 /** The WhatsApp text after the diner confirms: both languages, then the privacy link. */
 export function collectionStatementText(statement: CollectionStatement): string {
   return `${statement['zh-HK']}\n${statement.en}\n私隱政策 Privacy policy: ${statement.privacy_url}`

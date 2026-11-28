@@ -10,8 +10,10 @@
  * - `depositLinkText`: the payment link message (AI agent create, PAP code step).
  * - `PAYMENT_UNAVAILABLE_TEXT`: the provider was down; no booking was kept (R64).
  * - `depositDecisionText`: a diner cancelled a booking with a paid deposit (Q5).
+ * - `holdLapsedText` (W6a): an AI agent hold lapsed unpaid; in the diner's language.
  */
 import { formatMoney, type Money } from './money'
+import type { LanguageCode } from './language'
 
 export interface DepositTexts {
   zh_hk: string
@@ -68,4 +70,15 @@ export function depositDecisionText(amount: Money, terms: { zh_hk: string | null
     `The restaurant will decide on your ${value} deposit.`,
     ...(terms.en ? [terms.en] : []),
   ].join('\n')
+}
+
+/**
+ * W6a (spec UI table, AI agent "Lapsed"): the hold lapsed, nothing was
+ * charged, and the diner can reply to start again. One language: the diner's.
+ */
+export function holdLapsedText(language: LanguageCode, booking: { date: string; time: string; partySize: number }): string {
+  const { date, time, partySize } = booking
+  return language === 'en'
+    ? `Your table hold for ${partySize} on ${date} at ${time} has lapsed because the deposit was not paid in time, so nothing was charged. Reply to this message to start again.`
+    : `你 ${date} ${time}（${partySize} 位）的訂座保留已過期，因為未有在時限內付訂金，所以未有收取任何款項。如想重新訂座，請回覆此訊息。`
 }

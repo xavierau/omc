@@ -5,6 +5,8 @@
  * - DepositLine: "Deposit HK$X" above the submit, only when the chosen party
  *   owes one (the same depositFor the server charges with, R53).
  * - depositSubmitLabel: "Pay deposit HK$X and send" for the submit button.
+ * - DepositTerms (W6a, AC-3): the restaurant's deposit terms (amount rule and
+ *   refund note, depositTermsText), zh-HK then en, while a deposit applies.
  * - DepositRedirect: the hold is made; the browser goes to our /p link,
  *   which sends the diner on to the provider's hosted page.
  * - DepositUnavailable: the provider failed at submit (503); no booking was
@@ -33,6 +35,20 @@ export function DepositLine({ plan, partySize }: { plan: DepositPlan | null | un
       <CreditCard className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span>{t('deposit.line', { amount: formatMoney(owed) })}</span>
     </p>
+  )
+}
+
+export function DepositTerms({ plan }: { plan: DepositPlan | null | undefined }) {
+  const lines = plan?.terms ? ([['zh-HK', plan.terms.zh_hk], ['en', plan.terms.en]] as const).filter(([, text]) => text) : []
+  if (lines.length === 0) return null
+  return (
+    <section data-testid="booking-deposit-terms" className="space-y-1.5 text-sm leading-relaxed text-foreground">
+      {lines.map(([lang, text]) => (
+        <p key={lang} lang={lang} className="whitespace-pre-line">
+          {text}
+        </p>
+      ))}
+    </section>
   )
 }
 

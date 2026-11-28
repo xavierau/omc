@@ -30,6 +30,13 @@ import type { PaymentAccountDeps } from './payment-account'
 import type { BookingPageDepositDeps } from './booking-page-deposit'
 import { recordDecisionMessage } from '@/infrastructure/supabase/repositories/booking-request-repository'
 import { depositPaidHook } from './deposit-paid-hook'
+import { agentHoldLapsedNotice } from './notify-agent-hold-lapsed'
+import { lapsedHoldBookingReader } from '@/infrastructure/supabase/repositories/lapsed-hold-booking-repository'
+import { findMemberByPhone } from '@/infrastructure/supabase/repositories/member-repository'
+import { getRestaurantPhoneNumberId } from '@/infrastructure/supabase/repositories/restaurant-repository'
+import { getAgentConfig } from '@/infrastructure/supabase/repositories/agent-config-repository'
+import { sendTextMessage } from '@/infrastructure/whatsapp/messaging'
+import { languageOf } from '@/application/booking/send-booking-message'
 
 const now = () => new Date()
 
@@ -66,6 +73,24 @@ async function depositPaid(paid: DepositPaid): Promise<void> {
 }
 
 /**
+ * W6a (spec UI table, AI agent "Lapsed"): the AI agent's "hold lapsed" text,
+ * in the diner's language with the tenant's AI disclosure, through the AI
+ * agent's own free-form sender (agent-deps notifyText). Both lapse paths
+ * (cron expiry, provider "session expired") call it.
+ */
+const agentHoldLapsed = agentHoldLapsedNotice({
+  bookings: lapsedHoldBookingReader,
+  language: async (restaurantId, phone) => languageOf(await findMemberByPhone(restaurantId, phone)),
+  disclosure: async (restaurantId) => (await getAgentConfig(restaurantId)).disclosureText,
+  sendText: async (restaurantId, phone, text) => {
+    const phoneNumberId = await getRestaurantPhoneNumberId(restaurantId)
+    if (!phoneNumberId) return false
+    return (await sendTextMessage(phoneNumberId, phone, text)).ok
+  },
+  log: paymentLog,
+})
+
+/**
  * The payment webhook of one provider. Throws when the provider is not
  * configured (the route answers 500, R47). `onDepositPaid` is the channel hook;
  * the default sends each booking source's message (depositPaidHook).
@@ -84,12 +109,13 @@ export function paymentWebhookDeps(
     now,
     log: paymentLog,
     onDepositPaid,
+    onLapsed: agentHoldLapsed,
   }
 }
 
-/** The expiry step of /api/cron/booking-reminders. */
+/** The expiry step of /api/cron/booking-reminders; W6a: with the AI agent's lapse text. */
 export function expireDepositsDeps(): ExpireDepositsDeps {
-  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog }
+  return { deposits: bookingDepositStore, registry: productionPaymentRegistry(), log: paymentLog, onLapsed: agentHoldLapsed }
 }
 
 /** The stalled-refund step of /api/cron/booking-reminders (review finding 1b). */

@@ -43,8 +43,10 @@ export interface HandlePaymentEventDeps {
   log: PaymentLog
   /** Channel hook after a booking moved out of awaiting_deposit. Its failure never undoes the payment. */
   onDepositPaid?: (paid: DepositPaid) => Promise<void>
-  /** W2: the account store for account events; without it they are logged and ignored. */
-  accounts?: AccountEventDeps['accounts']
+  /** W6a: told a hold the provider's "session expired" event lapsed (the AI agent's text); its failure is logged. */
+  onLapsed?: (lapsed: BookingDeposit[]) => Promise<void>
+  /** W2: the account store for account events (W6a: required, every composition passes it). */
+  accounts: AccountEventDeps['accounts']
 }
 
 export type PaymentEventOutcome =
@@ -126,7 +128,11 @@ async function onPaymentExpired(
   if (event.accountRef !== deposit.providerAccountId) return reject(deps, 'account_mismatch', { eventId: event.eventId, depositId: deposit.id })
   if (deposit.status !== 'awaiting') return 'ignored'
   const lapsed = await deps.deposits.lapseExpired(1, deposit.id)
-  return lapsed.length > 0 ? 'lapsed' : 'ignored'
+  if (lapsed.length === 0) return 'ignored'
+  if (deps.onLapsed) {
+    await deps.onLapsed(lapsed).catch((err: Error) => deps.log('warn', 'deposit.lapse_hook_failed', { depositId: deposit.id, error: err.name }))
+  }
+  return 'lapsed'
 }
 
 async function onRefundEvent(
@@ -162,10 +168,6 @@ export async function handlePaymentEvent(
       return onRefundEvent(deps, code, event)
     case 'account_updated':
     case 'account_deauthorized':
-      if (!deps.accounts) {
-        deps.log('info', 'payment.account_event_ignored', { eventId: event.eventId, type: event.type })
-        return 'ignored'
-      }
       return applyAccountEvent({ accounts: deps.accounts, now: deps.now, log: deps.log }, code, event)
   }
 }

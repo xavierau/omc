@@ -12,6 +12,7 @@ import { money } from '@/domain/value-objects/money'
 import { STAFF_HOLD_MS } from '@/domain/entities/booking-deposit'
 import { processPaymentWebhook } from '@/application/payments/process-payment-webhook'
 import { FakeDepositLedger, FakeWebhookClaims, memoryLog } from '@/test-utils/fake-booking-deposit'
+import { MemoryMerchantAccountStore } from '@/infrastructure/payments/test/memory-account-store'
 import { createPaymentGatewayRegistry } from '@/infrastructure/payments/registry'
 
 const KEY = 'sk_test_51FAKEkeyForUnitTestsOnly000000'
@@ -248,7 +249,7 @@ describe('R49 through the Stripe adapter: metadata is never a lookup key', () =>
     })
     const registry = createPaymentGatewayRegistry({ stripe: () => gateway })
     const out = await processPaymentWebhook(
-      { gateway, claims: new FakeWebhookClaims(), deposits: ledger, registry, now: () => NOW, log },
+      { gateway, claims: new FakeWebhookClaims(), deposits: ledger, registry, accounts: new MemoryMerchantAccountStore(), now: () => NOW, log },
       attack
     )
     // Review finding 7: a session we never stored is not ours: ignored with an info line, no change.

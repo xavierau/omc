@@ -196,6 +196,8 @@ export function createAgentBookingDeps(): CreateAgentBookingDeps {
     privacyUrl: PRIVACY_URL,
     now,
     room: bookingRoomStore,
+    // BOOK-014 W6a (R61): the collection statement names Stripe while the restaurant takes deposits.
+    accounts: depositChannelPorts.accounts,
   }
 }
 

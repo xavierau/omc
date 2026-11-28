@@ -16,8 +16,13 @@
  * W3 r2: a deposit that is being or has been refunded (declined or staff
  * Refund) is `refunded`, and a kept one is `closed`: neither tells the diner
  * the request was sent. A late-payment refund still reads as lapsed.
+ *
+ * W6a: a paid deposit whose booking was cancelled or marked no-show is
+ * `held` (staff still decide Refund / Keep, AC-13): neutral "your deposit is
+ * held; the restaurant will decide on it", never "request sent". It needs the
+ * booking status from the details read; without it the page reads paid.
  */
-import type { BookingDeposit, DepositStatus } from '@/domain/entities/booking-deposit'
+import { KEEPABLE_BOOKING_STATUSES, type BookingDeposit, type DepositStatus } from '@/domain/entities/booking-deposit'
 import type { BookingDepositStore, PaymentLog } from '@/domain/ports/booking-deposit'
 import type { BookingSettingsReader } from '@/domain/ports/booking'
 import type { PaymentLinkBookingSlot, PaymentLinkDetailsReader } from '@/domain/ports/payment-link-details'
@@ -52,6 +57,8 @@ export type PaymentLinkState =
   | { kind: 'refunded'; details?: PaymentLinkDetails }
   /** r2: the restaurant kept the deposit; neutral. */
   | { kind: 'closed' }
+  /** W6a: paid, booking cancelled or no-show, the staff decision still open. */
+  | { kind: 'held'; details?: PaymentLinkDetails }
 
 const REFUNDING: readonly DepositStatus[] = ['refund_pending', 'refunded', 'refund_failed']
 
@@ -88,7 +95,11 @@ export async function resolvePaymentLink(
   if (deposit.status === 'lapsed' || (deposit.status !== 'awaiting' && deposit.refundReason === 'late_payment')) return { kind: 'lapsed' }
   if (REFUNDING.includes(deposit.status)) return { kind: 'refunded', ...(await detailsOf(deps, deposit)) }
   if (deposit.status === 'kept') return { kind: 'closed' }
-  if (deposit.status !== 'awaiting') return { kind: 'paid', ...(await detailsOf(deps, deposit)) }
+  if (deposit.status !== 'awaiting') {
+    const read = await detailsOf(deps, deposit)
+    const held = deposit.status === 'paid' && read.details && KEEPABLE_BOOKING_STATUSES.includes(read.details.bookingStatus)
+    return { kind: held ? 'held' : 'paid', ...read }
+  }
   if (Date.parse(deposit.holdExpiresAt) <= deps.now().getTime()) return { kind: 'lapsed' }
   if (input.returned === 'success') return { kind: 'processing', ...(await detailsOf(deps, deposit)) }
   if (input.returned === 'cancel') return { kind: 'unfinished', holdExpiresAt: deposit.holdExpiresAt, ...(await detailsOf(deps, deposit)) }

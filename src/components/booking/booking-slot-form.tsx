@@ -29,7 +29,7 @@ import { SlotBookingSent } from './slot-booking-sent'
 import { SlotTextFields } from './slot-text-fields'
 import { dayLabel } from './booking-date-label'
 import { refitChoice, slotFits } from './slot-picker-model'
-import { DepositLine, DepositRedirect, DepositUnavailable } from './deposit-line'
+import { DepositLine, DepositRedirect, DepositTerms, DepositUnavailable } from './deposit-line'
 import type { DepositPlan } from '@/domain/value-objects/deposit-plan'
 import type { SlotRoom } from '@/application/booking/resolve-booking-link'
 
@@ -110,6 +110,7 @@ export function BookingSlotForm({ token, maskedPhone, maxPartySize, retryUrl, to
       <SlotTextFields name={values.name} notes={values.notes} errors={errors} onChange={(k, v) => set(k, v)} />
       {termsRequired ? <TermsBlock terms={hours.terms} accepted={values.accepted} onChange={(a) => set('accepted', a)} error={errors.acceptTerms} /> : null}
       <BookingFormNotice outcome={outcome} placed={termsRequired ? [...SLOT_FIELDS, 'acceptTerms'] : SLOT_FIELDS} />
+      <DepositTerms plan={deposit} />
       <DepositLine plan={deposit} partySize={values.partySize} />
       <SummaryBar values={values} missing={form.missing} submitting={form.submitting} preview={preview} deposit={deposit} />
     </form>

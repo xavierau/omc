@@ -7,6 +7,7 @@
  * shows the restaurant, date, time, party and amount when the resolver gave
  * them; never the diner's name, phone or notes.
  * W3 r2: refunded (being / has been refunded) and closed (kept, neutral).
+ * W6a: held (paid, booking cancelled or no-show, the restaurant decides).
  */
 import type { PaymentLinkDetails, PaymentLinkState } from '@/application/payments/resolve-payment-link'
 import { formatMoney } from '@/domain/value-objects/money'
@@ -62,6 +63,12 @@ function copyFor(state: PageState): Copy {
         zh: { title: '訂金退款', body: '你的訂金正在退款或已經退回。如有疑問，請在 WhatsApp 聯絡我們。' },
         en: { title: 'Deposit refunded', body: 'Your deposit is being refunded or has been refunded. Message us on WhatsApp if you have questions.' },
       }
+    case 'held':
+      return {
+        status: 200,
+        zh: { title: '訂金暫由餐廳保留', body: '你的訂金暫由餐廳保留，餐廳會決定如何處理。如有疑問，請在 WhatsApp 聯絡我們。' },
+        en: { title: 'Deposit held', body: 'Your deposit is held; the restaurant will decide on it. Message us on WhatsApp if you have questions.' },
+      }
     case 'closed':
       return {
         status: 410,
@@ -83,6 +90,7 @@ const TEST_IDS: Partial<Record<PageState['kind'], string>> = {
   paid: 'booking-pay-paid',
   refunded: 'booking-pay-refunded',
   closed: 'booking-pay-closed',
+  held: 'booking-pay-held',
   unfinished: 'booking-pay-pending',
   lapsed: 'booking-pay-lapsed',
 }

@@ -17,6 +17,7 @@ import type { DepositDecisionDeps } from '@/application/payments/deposit-decisio
 import type { ResolvePaymentLinkDeps } from '@/application/payments/resolve-payment-link'
 import type { RedriveRefundsDeps } from '@/application/payments/redrive-stalled-refunds'
 import { FakeAccounts, FakeDepositLedger, FakeWebhookClaims, memoryLog } from './fake-booking-deposit'
+import { MemoryMerchantAccountStore } from '@/infrastructure/payments/test/memory-account-store'
 
 export const RESTAURANT = 'rest-a'
 export const OTHER_RESTAURANT = 'rest-b'
@@ -50,8 +51,10 @@ export function paymentWorld(start = new Date('2026-12-01T10:00:00Z')) {
     },
     now, log,
   }
+  // W6a: account events always have a store (HandlePaymentEventDeps.accounts is required).
+  const accountStore = new MemoryMerchantAccountStore()
   const webhookDeps: ProcessPaymentWebhookDeps = {
-    gateway, claims, deposits: ledger, registry, now, log, onDepositPaid: async (p) => void paidHook.push(p),
+    gateway, claims, deposits: ledger, registry, accounts: accountStore, now, log, onDepositPaid: async (p) => void paidHook.push(p),
   }
   const expireDeps: ExpireDepositsDeps = { deposits: ledger, registry, log }
   const decisionDeps: DepositDecisionDeps = { deposits: ledger, registry, log, now }
@@ -76,7 +79,7 @@ export function paymentWorld(start = new Date('2026-12-01T10:00:00Z')) {
   const deliver = (delivery: SignedDelivery) => processPaymentWebhook(webhookDeps, delivery)
 
   return {
-    gateway, registry, ledger, accounts, account, claims, log, lines, paidHook, tokens, now, advance,
+    gateway, registry, ledger, accounts, accountStore, account, claims, log, lines, paidHook, tokens, now, advance,
     startDeps, webhookDeps, expireDeps, decisionDeps, linkDeps, redriveDeps, request, book, deliver,
   }
 }

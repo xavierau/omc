@@ -5,16 +5,19 @@
  * Copy is provisional until the owner approves diner copy (spec OQ7).
  * BOOK-014 W3 (R61, PDPO DPP1): when the restaurant takes deposits, who
  * processes the payment and that it may leave Hong Kong.
+ * W6a: that sentence is depositProcessingSentence, shared with the agent
+ * channels' texts and the PAP collection statement (one wording).
  */
+import { depositProcessingSentence } from '@/domain/value-objects/deposit-messages'
+
 export const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || 'https://ohmyclient.io/privacy-policy.html'
 
 function DepositProcessing({ restaurantName }: { restaurantName: string }) {
+  const sentence = depositProcessingSentence(restaurantName)
   return (
     <div data-testid="booking-collection-deposit" className="space-y-2">
-      <p lang="zh-HK">訂金由 Stripe 代{restaurantName}處理，Stripe 或會在香港以外地方處理你的付款資料。</p>
-      <p lang="en">
-        The deposit is processed by Stripe for {restaurantName}; Stripe may process your payment details outside Hong Kong.
-      </p>
+      <p lang="zh-HK">{sentence.zh_hk}</p>
+      <p lang="en">{sentence.en}</p>
     </div>
   )
 }

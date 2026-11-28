@@ -26,9 +26,10 @@ beforeEach(() => {
 })
 
 describe('bookingPageDepositPlan', () => {
-  it('rule on + chargeable account -> the rule and the account currency', async () => {
+  it('rule on + chargeable account -> the rule, the account currency and (W6a) the terms text', async () => {
     expect(await bookingPageDepositPlan(deps, TOKEN)).toEqual({
       mode: 'per_guest', amount: 100, fromPartySize: 3, currency: 'HKD',
+      terms: { zh_hk: '訂金每位 HK$100（3位或以上）', en: 'Deposit HK$100 per guest for 3 or more' },
     })
   })
 
