@@ -1,0 +1,78 @@
+applied 001..094
+== 095 applied ==
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+-------
+----+--------+------------------------------------------------------------------------+--------
+  1 | PASS   | create returns confirmed staff row with code                           | 
+  2 | PASS   | create wrote one booking.staff_created event without brokenRules       | 
+  3 | PASS   | code clash retried with the next code                                  | 
+  4 | PASS   | override create records brokenRules                                    | 
+  5 | PASS   | same code allowed at another restaurant                                | 
+  6 | PASS   | all codes clash -> raises 23505                                        | 
+  7 | PASS   | code alphabet check rejects O/0                                        | 
+  8 | PASS   | cancelled_by rejects unknown value                                     | 
+  9 | PASS   | checked_in and no_show exclude each other                              | 
+ 10 | PASS   | qr path must be >=22 random chars                                      | 
+ 11 | PASS   | edit with stale updated_at changes nothing                             | 
+ 12 | PASS   | edit from another restaurant changes nothing                           | 
+ 13 | PASS   | no edit event after refused edits                                      | 
+ 14 | PASS   | fresh edit: values, updated_by, reminder cleared, status and code kept | 
+ 15 | PASS   | edit event names fields only                                           | 
+ 16 | PASS   | edit refused with open change                                          | 
+ 17 | PASS   | cancel refused with open change                                        | 
+ 18 | PASS   | confirm change mints code (clash retried)                              | 
+ 19 | PASS   | original cancelled by change                                           | 
+ 20 | PASS   | 4-arg confirm_booking_change still exists                              | 
+ 21 | PASS   | cancel stale refused                                                   | 
+ 22 | PASS   | cancel -> cancelled by staff + user + time                             | 
+ 23 | PASS   | cancel again -> nothing                                                | 
+ 24 | PASS   | one cancel event                                                       | 
+ 25 | PASS   | check-in refused for another day                                       | 
+ 26 | PASS   | check-in refused for another restaurant                                | 
+ 27 | PASS   | check-in today sets at/by, status stays confirmed                      | 
+ 28 | PASS   | check-in twice -> nothing                                              | 
+ 29 | PASS   | no-show refused when checked in                                        | 
+ 30 | PASS   | member stats count arrived                                             | 
+ 31 | PASS   | undo clears checked_in only                                            | 
+ 32 | PASS   | no-show allowed after undo                                             | 
+ 33 | PASS   | check-in refused on no_show                                            | 
+ 34 | PASS   | events: 1 checked_in, 1 undone                                         | 
+ 35 | PASS   | reminder candidates skip notify off                                    | 
+ 36 | PASS   | qr bucket public png only                                              | 
+ 37 | PASS   | no storage.objects policy for anon (no list)                           | 
+ 38 | PASS   | new RPCs not executable by anon                                        | 
+ passed | failed 
+--------+--------
+     38 |      0
+dropped scratch_095

@@ -29,9 +29,11 @@ const slots = (confirmed: Partial<Record<'en' | 'zh_hk', Partial<BookingTemplate
   confirmed: { en: slot(confirmed.en), zh_hk: slot(confirmed.zh_hk) },
   declined: { en: slot(), zh_hk: slot() },
   reminder: { en: slot(), zh_hk: slot() },
+  changed: { en: slot(), zh_hk: slot() },
+  cancelled: { en: slot(), zh_hk: slot() },
 })
 const statuses = Object.fromEntries(
-  ['received', 'confirmed', 'declined', 'reminder'].map((k) => [k, { en: 'approved', zh_hk: 'approved' }])
+  ['received', 'confirmed', 'declined', 'reminder', 'changed', 'cancelled'].map((k) => [k, { en: 'approved', zh_hk: 'approved' }])
 ) as BookingTemplateStatuses
 
 const lang = (o: Partial<LanguageEditorProps> & { draft: string }): LanguageEditorProps => ({

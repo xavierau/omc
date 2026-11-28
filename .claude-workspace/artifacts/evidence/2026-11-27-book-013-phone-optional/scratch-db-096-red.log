@@ -1,0 +1,88 @@
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/024_require_webhook_secret.sql:2: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/025_commission_dual_revenue.sql:12: NOTICE:  constraint "referrers_commission_per_redemption_hkd_check" of relation "referrers" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/047_consent_records_v2.sql:45: NOTICE:  trigger "trg_consent_records_default_expires_at" for relation "consent_records" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/050_stamp_collection.sql:14: NOTICE:  extension "pgcrypto" already exists, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/078_tenant_campaign_settings_seed_on_create.sql:64: NOTICE:  trigger "trg_restaurant_seed_campaign_settings" for relation "restaurants" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/086_campaign_audience_quality.sql:170: NOTICE:  function public.campaign_audience_members(uuid,text,uuid[],uuid[],uuid,pg_catalog.int4,pg_catalog.bool,text,pg_catalog.int4,float8,float8,pg_catalog.int4,pg_catalog.int4) does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/087_booking_no_show.sql:34: NOTICE:  constraint "booking_requests_no_show_marker" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/088_booking_member_backfill.sql:157: NOTICE:  trigger "trg_members_link_bookings" for relation "members" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/091_booking_terms_acceptance.sql:14: NOTICE:  constraint "booking_requests_terms_acceptance" of relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:62: NOTICE:  trigger "booking_requests_edit_version" for relation "booking_requests" does not exist, skipping
+psql:/Users/xavierau/Code/js/whatsapp-crm--book-013/supabase/migrations/095_booking_staff_crud.sql:73: NOTICE:  constraint "booking_requests_checked_in_not_no_show" of relation "booking_requests" does not exist, skipping
+applied 001..095
+== migration applied ==
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ check 
+-------
+ 
+(1 row)
+
+ n  | result |                                          label                                          |                                             detail                                             
+----+--------+-----------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------
+  1 | FAIL   | booking_requests.phone is nullable                                                      | 
+  2 | FAIL   | CHECK phone IS NOT NULL OR source = staff exists                                        | 
+  3 | FAIL   | CHECK phone IS NOT NULL OR notify_diner = false exists                                  | 
+  4 | PASS   | existing rows unchanged (every column)                                                  | 
+  5 | FAIL   | staff create with no phone: saved confirmed staff, no member, notify forced false       | null value in column "phone" of relation "booking_requests" violates not-null constraint
+  6 | PASS   | staff create with a phone keeps Notify on                                               | 
+  7 | FAIL   | phone-less chat row refused                                                             | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+  8 | FAIL   | phone-less campaign row refused                                                         | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+  9 | FAIL   | phone-less agent row refused                                                            | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 10 | FAIL   | phone-less staff row with notify_diner true refused                                     | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 11 | FAIL   | a raw UPDATE clearing a chat row's phone is refused                                     | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 12 | FAIL   | clear phone on a staff row: phone null, member null, notify forced false, version moved | null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 13 | FAIL   | clear phone on a non-staff row: no row changed                                          | 23502 null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 14 | PASS   | non-staff rows still as before (phone, name, version)                                   | 
+ 15 | FAIL   | the refused clears wrote no staff_edited event                                          | 
+ 16 | PASS   | add a phone back: phone, member and Notify on stored                                    | 
+ 17 | FAIL   | reminder candidates: the phone-less booking is never selected                           | null value in column "phone" of relation "booking_requests" violates not-null constraint
+ 18 | PASS   | staff create/update: one each, 095 signatures                                           | 
+ 19 | PASS   | staff create/update not executable by anon or authenticated; executable by service_role | 
+ 20 | PASS   | search_path still pinned on both                                                        | 
+(20 rows)
+
+ passed | failed 
+--------+--------
+      7 |     13
+(1 row)
+
+dropped scratch_096

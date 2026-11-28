@@ -56,7 +56,12 @@ describe('member bookings list and stats (R8, R2)', () => {
     expect(rec.queries).toHaveLength(1)
     expect(rec.queries[0].table).toBe('rpc:member_booking_stats')
     expect(rec.queries[0].calls[0]).toEqual(['rpc', { p_member_id: 'm-1', p_restaurant_id: 'r-a', p_now_date: '2026-11-20', p_now_time: '11:00' }])
-    expect(stats).toEqual({ total: 3, confirmed: 1, cancelled: 0, declined: 0, noShow: 1, pending: 1, lastBookingDate: '2026-11-19', nextBookingDate: '2026-11-25' })
+    expect(stats).toEqual({ total: 3, confirmed: 1, cancelled: 0, declined: 0, noShow: 1, pending: 1, arrived: 0, lastBookingDate: '2026-11-19', nextBookingDate: '2026-11-25' })
+  })
+
+  it('BOOK-013 (AC-23): the 095 stats carry arrived', async () => {
+    use([{ data: [{ total: 3, confirmed: 2, cancelled: 0, declined: 0, no_show: 0, pending: 1, arrived: 2, last_booking_date: null, next_booking_date: null }] }])
+    expect((await memberBookingStats('m-1', 'r-a', { date: '2026-11-20', time: '11:00' })).arrived).toBe(2)
   })
 
   it('stats: an RPC error throws (the use case answers null), never zero counts', async () => {

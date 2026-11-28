@@ -3,7 +3,8 @@
  * restaurant ({ memberId: uuid }), or unlinks it ({ memberId: null }). Tenant
  * from the session, roles admin and staff (as the no-show route). 404 for a
  * missing, malformed or other-tenant booking or member; 409 when another tap
- * changed the link first; 400 for a body without a string or null memberId.
+ * changed the link first; 400 for a body without a string or null memberId,
+ * and 400 phone_required for a link on a booking without a phone (BOOK-013 AC-26).
  * The link is for staff only: nothing is sent to the diner.
  */
 import { NextResponse } from 'next/server'
@@ -11,10 +12,9 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { relinkBookingMemberDeps } from '@/application/booking/member-booking-deps'
 import { relinkBookingMember, type RelinkBookingMemberResult } from '@/application/booking/relink-booking-member'
+import { isStaffRole } from '@/domain/value-objects/tenant-role'
 
 type Params = { params: Promise<{ id: string }> }
-
-const STAFF_ROLES = ['admin', 'staff']
 
 /** The body's memberId: a string or null; anything else (missing, wrong type, not JSON) is undefined. */
 async function readMemberId(request: Request): Promise<string | null | undefined> {
@@ -30,13 +30,14 @@ async function readMemberId(request: Request): Promise<string | null | undefined
 function respond(result: RelinkBookingMemberResult): NextResponse {
   if (result.ok) return NextResponse.json({ booking: result.booking })
   if (result.reason === 'conflict') return NextResponse.json({ error: 'changed' }, { status: 409 })
+  if (result.reason === 'phone_required') return NextResponse.json({ error: 'phone_required' }, { status: 400 })
   return NextResponse.json({ error: 'not_found' }, { status: 404 })
 }
 
 export async function PATCH(request: Request, { params }: Params): Promise<NextResponse> {
   try {
     const { restaurantId, userId, role } = await getTenantContext()
-    if (!STAFF_ROLES.includes(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isStaffRole(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const memberId = await readMemberId(request)
     if (memberId === undefined) return NextResponse.json({ error: 'invalid_input' }, { status: 400 })
     const { id } = await params

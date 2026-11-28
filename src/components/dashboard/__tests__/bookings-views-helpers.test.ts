@@ -122,6 +122,13 @@ describe('booking groups', () => {
     expect(chipName(null)).toBe('')
     expect(chipName('  Chan Tai Man ')).toBe('Chan')
   })
+
+  it('BOOK-013 AC-27: a staff booking without a phone is found by name; a phone search skips it', () => {
+    const noPhone = b('np', '2026-11-21', '12:00', 'confirmed', 2, { phone: null, name: 'Walk-in Ho', source: 'staff' })
+    expect(matchesSearch(noPhone, 'ho')).toBe(true)
+    expect(matchesSearch(noPhone, '9123')).toBe(false)
+    expect(filterBookings([noPhone, ...list], 'all', '4455').map((x) => x.id)).not.toContain('np')
+  })
 })
 
 describe('bookingsPageLists: what the page lists, counts and calls empty (F3, F5)', () => {
@@ -177,6 +184,11 @@ describe('bookings view state', () => {
     expect(resolveView(null, 'table')).toBe('table')
     expect(resolveView('calendar', 'table')).toBe('calendar')
     expect(resolveView('week', 'nope')).toBe('calendar')
+    // BOOK-013 S7: Today is a view; with no choice yet a phone opens on it.
+    expect(resolveView('today', 'calendar')).toBe('today')
+    expect(resolveView(null, null, true)).toBe('today')
+    expect(resolveView(null, 'table', true)).toBe('table')
+    expect(fetchRange('today', '2026-11-21', 'upcoming', '2026-11-19')).toEqual({ from: '2026-11-19', to: '2026-11-19' })
   })
 
   it('table upcoming = today onward; past = the 90 days before today, newest first', () => {

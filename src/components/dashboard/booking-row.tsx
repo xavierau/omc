@@ -20,6 +20,8 @@
  * Link member / Change member / Unlink member.
  * BOOK-009 AC-10: a booking whose diner accepted the booking terms shows
  * "Terms accepted"; hovering shows the text, tapping expands it (plain text).
+ * BOOK-013: the ⋯ menu (Edit / Cancel), the "By staff · name" badge, and
+ * Arrived / Undo on today's confirmed bookings.
  */
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -32,6 +34,7 @@ import type { BookingItem } from '@/hooks/use-bookings'
 import { NoShowAction } from './bookings/booking-no-show-action'
 import type { NoShowFn } from './bookings/use-booking-no-show'
 import { BookingGuestName, MemberLinkControl } from './bookings/booking-member'
+import { ArrivedAction, BookingRowMenu, CheckInRefusedLine, StaffSourceBadge } from './bookings/booking-staff-controls'
 
 export type DecideFn = (id: string, decision: 'confirm' | 'decline', reason?: string) => void
 
@@ -93,14 +96,20 @@ export function NotDeliveredBadge({ booking, undelivered, short = false }: { boo
   )
 }
 
-/** AGENT-003 R24/R23: who cancelled it, the diner through the AI agent or a confirmed change. */
+const CANCELLED_BY = {
+  diner_ai: { id: 'diner', key: 'cancelledByDiner' },
+  change: { id: 'change', key: 'replacedByChange' },
+  staff: { id: 'staff', key: 'staff.cancelledByStaff' },
+} as const
+
+/** AGENT-003 R24/R23: who cancelled it, the diner through the AI agent or a confirmed change; BOOK-013: or staff. */
 export function CancelledByBadge({ booking }: { booking: BookingItem }) {
   const t = useTranslations('bookings')
   if (!booking.cancelledBy) return null
-  const byDiner = booking.cancelledBy === 'diner_ai'
+  const by = CANCELLED_BY[booking.cancelledBy] ?? CANCELLED_BY.change
   return (
-    <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-cancelled-by-${byDiner ? 'diner' : 'change'}`}>
-      {t(byDiner ? 'cancelledByDiner' : 'replacedByChange')}
+    <Badge variant="outline" className="text-muted-foreground" data-testid={`booking-row-${booking.id}-cancelled-by-${by.id}`}>
+      {t(by.key)}
     </Badge>
   )
 }
@@ -209,7 +218,10 @@ export function BookingNotes({ booking }: { booking: BookingItem }) {
   )
 }
 
-export function PhoneLink({ phone }: { phone: string }) {
+/** BOOK-013 decision 9 (AC-27): a staff booking may have no phone; "No phone" stands where the number goes. */
+export function PhoneLink({ phone }: { phone: string | null }) {
+  const t = useTranslations('bookings.staff')
+  if (!phone) return <span className="inline-flex min-h-6 items-center">{t('noPhone')}</span>
   return (
     <a href={`tel:${phone}`} className="inline-flex min-h-6 items-center tabular-nums underline-offset-2 hover:underline">
       {phone}
@@ -230,6 +242,7 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
           <BookingGuestName booking={booking} className={cn('font-semibold break-words text-foreground', cancelledText(booking))} />
           <BookingStatusBadge booking={booking} />
           <AgentBadge booking={booking} />
+          <StaffSourceBadge booking={booking} />
           <CancelledByBadge booking={booking} />
         </div>
         <ChangeFromLine booking={booking} />
@@ -241,11 +254,14 @@ export function BookingRow({ booking, busy, undelivered, onDecide, onNoShow }: B
         <BookingNotes booking={booking} />
         <TermsAccepted booking={booking} />
         <NotDeliveredBadge booking={booking} undelivered={undelivered} />
-        <div className="pt-1 empty:hidden max-md:[&>div]:w-full max-md:[&>div>button]:flex-1">
+        <CheckInRefusedLine booking={booking} />
+        <div className="flex flex-wrap gap-2 pt-1 empty:hidden max-md:[&>div]:w-full max-md:[&>div>button]:flex-1">
           <RowActions booking={booking} busy={busy} onDecide={onDecide} />
           <NoShowAction booking={booking} busy={busy} onNoShow={onNoShow} />
+          <ArrivedAction booking={booking} />
         </div>
       </div>
+      <BookingRowMenu booking={booking} />
     </li>
   )
 }

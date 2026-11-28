@@ -15,14 +15,20 @@
  * so the diner never reads "declined" about a booking that still stands.
  * Every other booking (BOOK-001, BOOK-003) takes the path it always took.
  *
+ * BOOK-013 (review R2): a booking whose staff unticked Notify (spec AC-2)
+ * gets no confirm or decline message and no message outcome; nor does one
+ * without a phone (decision 9, R19).
+ *
  * BOOK-010 (spec AC-10): a confirm that would take the slot or meal over a
  * guest limit answers `over_limit` with the facts and changes nothing,
  * unless `confirmAnyway` is set; limits never block staff.
  */
 import {
+  hasPhone,
   normalizeDeclineReason,
   type BookingDecision,
   type BookingRequest,
+  type BookingWithPhone,
   type DecisionMessageStatus,
 } from '@/domain/entities/booking-request'
 import type { BookingMessageSender, BookingRequestStore, BookingSettingsReader } from '@/domain/ports/booking'
@@ -60,7 +66,7 @@ export type DecideBookingResult =
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function notify(deps: DecideBookingDeps, booking: BookingRequest): Promise<boolean> {
+async function notify(deps: DecideBookingDeps, booking: BookingWithPhone): Promise<boolean> {
   const restaurant = await deps.settings.getRestaurant(booking.restaurantId)
   const result = await deps.sender.send({
     restaurantId: booking.restaurantId,
@@ -92,6 +98,9 @@ async function recordOutcome(deps: DecideBookingDeps, booking: BookingRequest, d
 async function decided(deps: DecideBookingDeps, booking: BookingRequest): Promise<DecideBookingResult> {
   // R23: a declined change request is not news about the diner's booking; nothing is sent (F8: nothing undelivered either).
   if (booking.replacesBookingId && booking.status === 'declined') return { ok: true, booking, delivered: null }
+  // BOOK-013 review R2: Notify off means no diner message from staff actions, a decision included.
+  // BOOK-013 decision 9 (R19): no phone, no message and no outcome (the DB keeps Notify off too).
+  if (booking.notifyDiner === false || !hasPhone(booking)) return { ok: true, booking, delivered: null }
   const delivered = await notify(deps, booking)
   return { ok: true, booking: await recordOutcome(deps, booking, delivered), delivered }
 }

@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { LayoutDashboard, Users, Tag, Radio, Megaphone, MessageSquare, Ticket, QrCode, Gift, Stamp, Settings, LogOut, Plug, CalendarCheck, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TenantSwitcher } from '@/components/dashboard/tenant-switcher'
+import { useBookingAvailability } from '@/hooks/use-booking-availability'
 
 function NavLink({ href, label, icon: Icon, isActive, onClick }: {
   href: string
@@ -48,6 +49,15 @@ export function bookingsNavItem(t: (key: string) => string) {
   return { label: t('bookings'), href: '/dashboard/bookings', icon: CalendarCheck }
 }
 
+/**
+ * BOOK-013 S5 (AC-15): no Bookings entry while the restaurant's booking mode
+ * is off. Until the mode is known the entry shows (most tenants book), so it
+ * never flickers in; a direct link still lands on "Bookings are off".
+ */
+export function bookingsNavFor(t: (key: string) => string, mode: string | null) {
+  return mode === 'off' ? [] : [bookingsNavItem(t)]
+}
+
 /** AGENT-001: the AI agent conversation log entry, exported so its wiring is unit-testable. */
 export function agentNavItem(t: (key: string) => string) {
   return { label: t('agent'), href: '/dashboard/agent', icon: Bot }
@@ -80,6 +90,7 @@ export function Sidebar() {
   const closeMobile = () => setMobileOpen(false)
   const t = useTranslations('nav')
   const tt = useTranslations('tags')
+  const bookingMode = useBookingAvailability()?.mode ?? null
 
   const navItems = [
     { label: t('overview'), href: '/dashboard', icon: LayoutDashboard },
@@ -87,7 +98,7 @@ export function Sidebar() {
     { label: tt('title'), href: '/dashboard/tags', icon: Tag },
     { label: t('liveFeed'), href: '/dashboard/feed', icon: Radio },
     { label: t('campaigns'), href: '/dashboard/campaigns', icon: Megaphone },
-    bookingsNavItem(t),
+    ...bookingsNavFor(t, bookingMode),
     agentNavItem(t),
     { label: t('stampCampaigns'), href: '/dashboard/campaigns/stamps', icon: Stamp },
     { label: t('waTemplates'), href: '/dashboard/wa-templates', icon: MessageSquare },

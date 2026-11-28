@@ -9,8 +9,11 @@
  * r1 F5: no row changed is re-checked: a target member gone by then (deleted
  * between the lookup and the write) is not_found, like one never there.
  * No change requested (same member, or already unlinked): ok, no events row.
+ * BOOK-013 AC-26: a booking without a phone cannot be linked (phone_required,
+ * nothing written); the next phone-less save would drop the link. Unlinking
+ * stays allowed.
  */
-import type { BookingRequest } from '@/domain/entities/booking-request'
+import { hasPhone, type BookingRequest } from '@/domain/entities/booking-request'
 import type { BookingMemberLinkStore } from '@/domain/ports/booking-member'
 
 export interface RelinkBookingMemberDeps {
@@ -27,7 +30,7 @@ export interface RelinkBookingMemberInput {
 
 export type RelinkBookingMemberResult =
   | { ok: true; booking: BookingRequest }
-  | { ok: false; reason: 'not_found' | 'conflict' }
+  | { ok: false; reason: 'not_found' | 'conflict' | 'phone_required' }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const NOT_FOUND = { ok: false, reason: 'not_found' } as const
@@ -43,7 +46,9 @@ export async function relinkBookingMember(
 ): Promise<RelinkBookingMemberResult> {
   if (!UUID.test(input.bookingId)) return NOT_FOUND
   const booking = await deps.store.findBooking(input.bookingId, input.restaurantId)
-  if (!booking || !(await targetExists(deps, input))) return NOT_FOUND
+  if (!booking) return NOT_FOUND
+  if (input.memberId !== null && !hasPhone(booking)) return { ok: false, reason: 'phone_required' }
+  if (!(await targetExists(deps, input))) return NOT_FOUND
   if (booking.memberId === input.memberId) return { ok: true, booking }
   const changed = await deps.store.relink({
     id: booking.id,

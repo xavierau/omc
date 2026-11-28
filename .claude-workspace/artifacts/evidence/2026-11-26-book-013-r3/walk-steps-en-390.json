@@ -1,0 +1,610 @@
+[
+  {
+    "check": "today: no Scan button, no code on any row (decision 8)",
+    "ok": true
+  },
+  {
+    "check": "today: default sort is time ascending",
+    "ok": true,
+    "detail": "time:asc"
+  },
+  {
+    "check": "today: rows by time",
+    "ok": true,
+    "detail": "[\"Au Ka Yan\",\"Chan Siu Fung\",\"Lam Tai\",\"Chan Wing Yan\",\"Mr Chan\",\"Yeung Family\",\"Chan Ka Wai\",\"陳生\"]"
+  },
+  {
+    "check": "today: Lunch and Dinner headings while sorted by time",
+    "ok": true
+  },
+  {
+    "check": "today: phone has the Sort select, desktop the column headers",
+    "ok": true
+  },
+  {
+    "step": "01-today-time",
+    "note": "Today, sorted by time (default) with Lunch / Dinner headings",
+    "file": "01-today-time-en-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.194 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "sort name: URL ?view=today&sort=name&dir=asc",
+    "ok": true,
+    "detail": "/dashboard/bookings?view=today&sort=name&dir=asc"
+  },
+  {
+    "check": "sort name: rows A–Z by the locale collation",
+    "ok": true,
+    "detail": "[\"Au Ka Yan\",\"Chan Ka Wai\",\"Chan Siu Fung\",\"Chan Wing Yan\",\"Lam Tai\",\"Mr Chan\",\"Yeung Family\",\"陳生\"]"
+  },
+  {
+    "check": "sort name: no meal headings",
+    "ok": true
+  },
+  {
+    "step": "02-today-name",
+    "note": "Sorted by name A–Z",
+    "file": "02-today-name-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.194 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "sort name again: reversed, dir=desc in the URL",
+    "ok": true,
+    "detail": "[\"陳生\",\"Yeung Family\",\"Mr Chan\",\"Lam Tai\",\"Chan Wing Yan\",\"Chan Siu Fung\",\"Chan Ka Wai\",\"Au Ka Yan\"]"
+  },
+  {
+    "step": "03-today-name-desc",
+    "note": "Name again: reversed (Z–A)",
+    "file": "03-today-name-desc-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.290 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "reload: sort kept (name desc)",
+    "ok": true,
+    "detail": "name:desc"
+  },
+  {
+    "check": "search Chan: only the Chan bookings, still name Z–A",
+    "ok": true,
+    "detail": "[\"Mr Chan\",\"Chan Wing Yan\",\"Chan Siu Fung\",\"Chan Ka Wai\"]"
+  },
+  {
+    "check": "search Chan: URL sort unchanged",
+    "ok": true
+  },
+  {
+    "step": "04-today-search-chan",
+    "note": "Search \"Chan\" with the name sort kept",
+    "file": "04-today-search-chan-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=name&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "search Chan + time sort: Chan bookings by time",
+    "ok": true,
+    "detail": "[\"Chan Siu Fung\",\"Chan Wing Yan\",\"Mr Chan\",\"Chan Ka Wai\"]"
+  },
+  {
+    "check": "search 6555: Yeung Family only",
+    "ok": true
+  },
+  {
+    "check": "search 陳: 陳生 only",
+    "ok": true
+  },
+  {
+    "check": "sort guests: largest first (Yeung Family 8)",
+    "ok": true,
+    "detail": "[\"Yeung Family\",\"Mr Chan\",\"Au Ka Yan\",\"Chan Ka Wai\",\"Lam Tai\",\"Chan Siu Fung\",\"Chan Wing Yan\",\"陳生\"]"
+  },
+  {
+    "step": "05-today-guests",
+    "note": "Sorted by guests, largest first",
+    "file": "05-today-guests-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=guests&dir=desc",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "sort status: Late, Waiting, Needs reply, Arrived, No-show",
+    "ok": true,
+    "detail": "[\"late\",\"late\",\"late\",\"waiting\",\"waiting\",\"needs_reply\",\"arrived\",\"no_show\"]"
+  },
+  {
+    "check": "arrived: row shows Arrived HH:MM",
+    "ok": true,
+    "detail": "Arrived 23:03"
+  },
+  {
+    "check": "arrived: DB checked_in_at set, status confirmed",
+    "ok": true
+  },
+  {
+    "step": "06-today-arrived",
+    "note": "Chan Wing Yan marked Arrived (Undo shown)",
+    "file": "06-today-arrived-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.227 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "undo: DB checked_in_at cleared",
+    "ok": true
+  },
+  {
+    "check": "form: existing member line shown for the typed phone",
+    "ok": true,
+    "detail": "Member: Lam Chi Keung"
+  },
+  {
+    "check": "form: Notify diner ticked by default",
+    "ok": true
+  },
+  {
+    "step": "07-form-new",
+    "note": "New booking form (member line, slots with guests left, Notify on)",
+    "file": "07-form-new-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 2,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.360 (> 0.1) since load",
+      "touch-target-small: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @29,630 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "check": "rules: prompt lists the slot limit",
+    "ok": true,
+    "detail": "This booking breaks a booking rule Over the 19:00 slot limit 16 guests booked + 6 = 22, limit 20 Diners can’t book this time. You can still add it if the restau"
+  },
+  {
+    "check": "rules: nothing written before Book anyway",
+    "ok": true
+  },
+  {
+    "step": "08-rules-prompt",
+    "note": "Rules prompt: slot over its guest limit, Book anyway",
+    "file": "08-rules-prompt-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 2,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.360 (> 0.1) since load",
+      "row-misaligned: li.flex.gap-3 \"Over the 19:00 slot limit 16 guests book\" @16,610 358x66 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 10px / bottom 23px)"
+    ]
+  },
+  {
+    "check": "create: confirmed, source staff, created_by set, linked to the existing member",
+    "ok": true,
+    "detail": "79e775ae-98d1-4aed-893c-7066f4cbaf19 confirmed staff true aa4f469c-5704-426f-8c32-bcb7605875a8"
+  },
+  {
+    "check": "create: staff_created event carries the overridden rules",
+    "ok": true
+  },
+  {
+    "check": "create: no new member row",
+    "ok": true
+  },
+  {
+    "check": "confirm send: develop's confirmed template, one BODY component with restaurant/date/time/party_size only (no header, no image, no code)",
+    "ok": true,
+    "detail": "[{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"Walk Test Kitchen\",\"parameter_name\":\"restaurant\"},{\"type\":\"text\",\"text\":\"2026-11-28\",\"parameter_name\":\"date\"},{\"type\":\"text\",\"text\":\"19:00\",\"parameter_name\":\"time\"},{\"type\":\"text\",\"text\":\"6\",\"parameter_name\":\"party_size\"}]}]"
+  },
+  {
+    "step": "09-created-toast",
+    "note": "Toast after Book anyway",
+    "file": "09-created-toast-en-390.jpeg",
+    "url": "/dashboard/bookings?view=today&sort=time&dir=asc",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 5
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "layout-shift: null | cumulative layout shift 0.360 (> 0.1) since load"
+    ]
+  },
+  {
+    "check": "table: By staff badge on the row, no code",
+    "ok": true
+  },
+  {
+    "step": "10-row-menu",
+    "note": "Row menu: Edit / Cancel booking",
+    "file": "10-row-menu-en-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 2,
+      "warning": 12,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [
+      {
+        "check": "occluded",
+        "sev": "blocking",
+        "el": "a.inline-flex.min-h-6 \"+85223456789\" @130,2660 109x24",
+        "detail": "center point is covered by div[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19-edit\"].flex.min-h-10 \"Edit booking\" @178,2667 166x40 (fixed/sticky) — not clickable at page bottom"
+      },
+      {
+        "check": "occluded",
+        "sev": "blocking",
+        "el": "button[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19-member-unlink\"].group/button.inline-flex \"Unlink member\" @201,2717 115x28",
+        "detail": "center point is covered by div[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19-cancel\"].flex.min-h-10 \"Cancel booking\" @178,2707 166x40 (fixed/sticky) — not clickable at page bottom"
+      }
+    ],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-133d8eeb-9101-4f44-ad1b-675a17c86b85\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-69d9a104-e4bc-4968-8403-999ec4428094\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-7df6a63d-9df7-4fe1-a3d5-79904418356d\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5d635ebf-d0fd-41cb-bb54-a6d4341e438b\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39bcb830-c9ff-4904-bd76-19fd18f4972a\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39792970-1045-49c9-920e-2549485a53bd\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87579c93-99af-4b54-a19f-9e0e8b492e05\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87fcdb0d-481c-4208-8cfa-e17020633239\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-83ce78c6-d41b-4f63-b48e-a643d9e9758e\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-6173b7ad-d730-40b3-9b5f-cc9233a3548e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "occluded: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | center point is covered by div[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19-edit\"].flex.min-h-10 \"Edit "
+    ]
+  },
+  {
+    "step": "11-form-edit",
+    "note": "Edit form with the changed party marked",
+    "file": "11-form-edit-en-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 11,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-133d8eeb-9101-4f44-ad1b-675a17c86b85\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-69d9a104-e4bc-4968-8403-999ec4428094\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-7df6a63d-9df7-4fe1-a3d5-79904418356d\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5d635ebf-d0fd-41cb-bb54-a6d4341e438b\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39bcb830-c9ff-4904-bd76-19fd18f4972a\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39792970-1045-49c9-920e-2549485a53bd\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87579c93-99af-4b54-a19f-9e0e8b492e05\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87fcdb0d-481c-4208-8cfa-e17020633239\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-83ce78c6-d41b-4f63-b48e-a643d9e9758e\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-6173b7ad-d730-40b3-9b5f-cc9233a3548e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+    ]
+  },
+  {
+    "check": "edit: party 4, status still confirmed",
+    "ok": true
+  },
+  {
+    "check": "stale: 409 changed shows the banner, notes unchanged in DB",
+    "ok": true
+  },
+  {
+    "step": "12-form-stale",
+    "note": "Stale edit: banner + Reload",
+    "file": "12-form-stale-en-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 12,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-133d8eeb-9101-4f44-ad1b-675a17c86b85\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-69d9a104-e4bc-4968-8403-999ec4428094\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-7df6a63d-9df7-4fe1-a3d5-79904418356d\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5d635ebf-d0fd-41cb-bb54-a6d4341e438b\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39bcb830-c9ff-4904-bd76-19fd18f4972a\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39792970-1045-49c9-920e-2549485a53bd\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87579c93-99af-4b54-a19f-9e0e8b492e05\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87fcdb0d-481c-4208-8cfa-e17020633239\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-83ce78c6-d41b-4f63-b48e-a643d9e9758e\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-6173b7ad-d730-40b3-9b5f-cc9233a3548e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "touch-target-small: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @29,2868 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "step": "13-cancel-dialog",
+    "note": "Cancel booking dialog with Notify diner",
+    "file": "13-cancel-dialog-en-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 12,
+      "info": 2
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-133d8eeb-9101-4f44-ad1b-675a17c86b85\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-69d9a104-e4bc-4968-8403-999ec4428094\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-7df6a63d-9df7-4fe1-a3d5-79904418356d\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5d635ebf-d0fd-41cb-bb54-a6d4341e438b\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39bcb830-c9ff-4904-bd76-19fd18f4972a\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39792970-1045-49c9-920e-2549485a53bd\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87579c93-99af-4b54-a19f-9e0e8b492e05\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87fcdb0d-481c-4208-8cfa-e17020633239\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-83ce78c6-d41b-4f63-b48e-a643d9e9758e\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-6173b7ad-d730-40b3-9b5f-cc9233a3548e\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "touch-target-small: input[data-testid=\"booking-cancel-notify\"].mt-0.5.size-5 \"on\" @29,2877 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "check": "cancel: status cancelled, cancelled_by staff + user",
+    "ok": true
+  },
+  {
+    "step": "14-cancelled-toast",
+    "note": "Cancelled toast; row shows Cancelled by staff",
+    "file": "14-cancelled-toast-en-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 12,
+      "info": 5
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-133d8eeb-9101-4f44-ad1b-675a17c86b85\"].flex.flex-col \"12:30Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-69d9a104-e4bc-4968-8403-999ec4428094\"].flex.flex-col \"13:00Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-7df6a63d-9df7-4fe1-a3d5-79904418356d\"].flex.flex-col \"18:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5d635ebf-d0fd-41cb-bb54-a6d4341e438b\"].flex.flex-col \"21:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39bcb830-c9ff-4904-bd76-19fd18f4972a\"].flex.flex-col \"22:30Mr  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-39792970-1045-49c9-920e-2549485a53bd\"].flex.flex-col \"23:00Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87579c93-99af-4b54-a19f-9e0e8b492e05\"].flex.flex-col \"23:15Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-87fcdb0d-481c-4208-8cfa-e17020633239\"].flex.flex-col \"23:30陳生  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-79e775ae-98d1-4aed-893c-7066f4cbaf19\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-83ce78c6-d41b-4f63-b48e-a643d9e9758e\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-6173b7ad-d730-40b3-9b5f-cc9233a3548e\"].flex.flex-col \"20:30Hui | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "row-misaligned: div[data-testid=\"booking-toast\"].fixed.inset-x-4 \"Saved. WhatsApp not delivered: contact t | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 12px / bottom 22px)"
+    ]
+  },
+  {
+    "check": "mode off: no Bookings link in the sidebar",
+    "ok": true
+  },
+  {
+    "check": "mode off: POST create answers 409 booking_off",
+    "ok": true,
+    "detail": "409 {\"error\":\"booking_off\"}"
+  },
+  {
+    "step": "15-mode-off",
+    "note": "Booking mode off: Bookings are off + Settings link",
+    "file": "15-mode-off-en-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "dpr": 2,
+      "mobile": true,
+      "consistent": true,
+      "inner": [
+        390,
+        844
+      ]
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "consoleErrors": []
+  }
+]

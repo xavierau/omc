@@ -10,11 +10,10 @@ import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import { noShowBookingDeps } from '@/application/booking/booking-deps'
 import { markBookingNoShow, undoBookingNoShow, type NoShowResult } from '@/application/booking/booking-no-show'
+import { isStaffRole } from '@/domain/value-objects/tenant-role'
 
 type Params = { params: Promise<{ id: string }> }
 type Move = typeof markBookingNoShow
-
-const STAFF_ROLES = ['admin', 'staff']
 
 function respond(result: NoShowResult): NextResponse {
   if (result.ok) return NextResponse.json({ booking: result.booking })
@@ -25,7 +24,7 @@ function respond(result: NoShowResult): NextResponse {
 async function handle(params: Params['params'], move: Move): Promise<NextResponse> {
   try {
     const { restaurantId, userId, role } = await getTenantContext()
-    if (!STAFF_ROLES.includes(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isStaffRole(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const { id } = await params
     return respond(await move(noShowBookingDeps(), { restaurantId, userId, bookingId: id }))
   } catch (error) {

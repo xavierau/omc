@@ -18,15 +18,16 @@ export type NoShowOutcome =
   | { kind: 'already_handled'; status: BookingItem['status'] }
   | { kind: 'not_past' }
   | { kind: 'change_pending' }
+  | { kind: 'checked_in' }
   | { kind: 'not_found' }
   | { kind: 'error' }
 
-const REFUSALS = new Set(['not_past', 'change_pending'])
+const REFUSALS = new Set(['not_past', 'change_pending', 'checked_in'])
 
 export function noShowOutcome(status: number, body: unknown): NoShowOutcome {
   const b = (body && typeof body === 'object' ? body : {}) as { booking?: unknown; error?: string; status?: BookingItem['status'] }
   if (status === 200 && b.booking) return { kind: 'done' }
-  if (status === 409 && b.error && REFUSALS.has(b.error)) return { kind: b.error as 'not_past' | 'change_pending' }
+  if (status === 409 && b.error && REFUSALS.has(b.error)) return { kind: b.error as 'not_past' | 'change_pending' | 'checked_in' }
   if (status === 409 && b.status) return { kind: 'already_handled', status: b.status }
   if (status === 404) return { kind: 'not_found' }
   return { kind: 'error' }
@@ -45,6 +46,7 @@ export type NoShowNotice =
   | { kind: 'already_handled'; status: BookingItem['status'] }
   | { kind: 'not_past' }
   | { kind: 'change_pending' }
+  | { kind: 'checked_in' }
   | { kind: 'error' }
   | null
 

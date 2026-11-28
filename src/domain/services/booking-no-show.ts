@@ -22,9 +22,11 @@ export interface NoShowCandidate {
   bookingDate: string
   bookingTime: string
   openChange?: unknown
+  /** BOOK-013 (R14): arrived and no-show are mutually exclusive. */
+  checkedInAt?: string | null
 }
 
 /** r1 F1: an original with an open change request is decided through its change row, never marked. */
 export function canMarkNoShow(b: NoShowCandidate, now: Date): boolean {
-  return b.status === 'confirmed' && !b.openChange && isPastBooking(b, hongKongMoment(now))
+  return b.status === 'confirmed' && !b.openChange && !b.checkedInAt && isPastBooking(b, hongKongMoment(now))
 }

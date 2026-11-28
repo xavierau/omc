@@ -15,10 +15,10 @@ import type { BookingLinkSource } from '@/domain/services/booking-token'
  * BOOK-007 (migration 087): `no_show`, set by staff on a past confirmed booking (and undone back to confirmed).
  */
 export type BookingStatus = 'unverified' | 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'no_show'
-/** AGENT-003 R24/R23: who cancelled a booking. */
-export type BookingCancelledBy = 'diner_ai' | 'change'
-/** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. */
-export type BookingSource = BookingLinkSource | 'agent'
+/** AGENT-003 R24/R23: who cancelled a booking. BOOK-013 (migration 095): 'staff' = a staff cancel. */
+export type BookingCancelledBy = 'diner_ai' | 'change' | 'staff'
+/** BOOK-003: chat and campaign bookings come from a link; agent ones from the agent API. BOOK-013: 'staff' = made by staff. */
+export type BookingSource = BookingLinkSource | 'agent' | 'staff'
 export type BookingDecision = 'confirmed' | 'declined'
 /** Whether the confirm/decline message reached the diner (F9); null = none yet. */
 export type DecisionMessageStatus = 'delivered' | 'not_delivered'
@@ -45,7 +45,8 @@ export interface BookingRequest {
   id: string
   restaurantId: string
   memberId: string | null
-  phone: string
+  /** E.164. BOOK-013 decision 9 (migration 096): null only on a source 'staff' booking, which then never messages the diner. */
+  phone: string | null
   name: string | null
   partySize: number
   bookingDate: string
@@ -81,6 +82,30 @@ export interface BookingRequest {
    */
   termsAcceptedAt?: string | null
   termsText?: string | null
+  /**
+   * BOOK-013 (migration 095). Read by the dashboard lists and staff paths
+   * only (undefined elsewhere). `editVersion` is what a staff edit/cancel
+   * sends back for its conditional write (R3); it moves only when status,
+   * slot, party, name, phone, notes or notify change (review R1).
+   */
+  editVersion?: number
+  createdBy?: string | null
+  /** The creating staff member's display name ("By staff · Mandy"); resolved by the list route. */
+  createdByName?: string | null
+  notifyDiner?: boolean
+  checkedInAt?: string | null
+}
+
+/** A booking that can be messaged: it has the diner's phone. */
+export type BookingWithPhone = BookingRequest & { phone: string }
+
+/**
+ * BOOK-013 decision 9 (R19): every diner message (confirmed, changed,
+ * cancelled, decision, reminder, received) goes only to a booking with a
+ * phone; a phone-less staff booking never reaches a sender.
+ */
+export function hasPhone<T extends BookingRequest>(b: T): b is T & { phone: string } {
+  return typeof b.phone === 'string' && b.phone !== ''
 }
 
 /** BOOK-006: the open (pending) change request that would replace a booking. */
@@ -93,6 +118,8 @@ export interface OpenChangeSlot {
 
 /** BOOK-003: an agent booking with its phone-proof and status-token columns. */
 export interface AgentBooking extends BookingRequest {
+  /** An agent booking always has the phone it must be confirmed from (R31). */
+  phone: string
   confirmCode: string | null
   verifyExpiresAt: string | null
   verifiedAt: string | null

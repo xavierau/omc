@@ -42,6 +42,12 @@ import type { VerifyAgentBookingDeps } from './verify-agent-booking'
 import type { AgentBookingSettingsDeps, AgentOpenApiDeps } from './agent-booking-settings'
 import type { BookingCapacityDeps } from './booking-capacity'
 import type { AgentBookingRoomDeps } from './agent-booking-full-reply'
+import { recordDecisionMessage } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { checkinStore, staffBookingStore } from '@/infrastructure/supabase/repositories/staff-booking-repository'
+import { parseE164Phone } from '@/infrastructure/phone/e164-parser'
+import { isPhoneNormalizeError } from '@/domain/ports/phone-normalizer'
+import type { StaffBookingDeps } from './staff-booking-shared'
+import type { BookingCheckInDeps } from './booking-check-in'
 
 const now = () => new Date()
 
@@ -74,6 +80,31 @@ export function bookingMessageSender(): BookingMessageSender {
     sendTemplate: (args) => sendWhatsAppTemplateMessage(args),
     sendText: sendTextMessage,
   })
+}
+
+/** BOOK-013 (R7): the repo's one E.164 normaliser (HK default region). */
+const normalizePhone = (raw: string): string | null => {
+  const parsed = parseE164Phone(raw)
+  return isPhoneNormalizeError(parsed) ? null : parsed.value
+}
+
+/** BOOK-013 S1–S3: staff create / edit / cancel. */
+export function staffBookingDeps(): StaffBookingDeps {
+  return {
+    store: staffBookingStore,
+    settings: bookingSettingsReader,
+    room: bookingRoomStore,
+    members,
+    sender: bookingMessageSender(),
+    normalizePhone,
+    recordMessage: recordDecisionMessage,
+    now,
+  }
+}
+
+/** BOOK-013 S7: the Today view, Arrived / Undo. */
+export function bookingCheckInDeps(): BookingCheckInDeps {
+  return { store: checkinStore, settings: bookingSettingsReader, now }
 }
 
 export function submitBookingDeps(): SubmitBookingDeps {

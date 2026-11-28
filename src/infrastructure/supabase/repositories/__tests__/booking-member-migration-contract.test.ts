@@ -123,14 +123,31 @@ describe('088 member insert links its bookings (r1 F3, R1)', () => {
   })
 })
 
-describe('088 events_type_check', () => {
-  it('equals the EventType union in src/domain/entities/event.ts', () => {
-    const check = ALL.slice(ALL.indexOf('CHECK (type IN ('), ALL.indexOf('));', ALL.indexOf('CHECK (type IN (')))
-    const inSql = [...check.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+/** The types one migration's events_type_check allows. */
+function checkTypes(sql: string): string[] {
+  const all = squash(sql)
+  const at = all.indexOf('CHECK (type IN (', all.indexOf('events_type_check'))
+  return [...all.slice(at, all.indexOf('));', at)).matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+}
+
+describe('events_type_check', () => {
+  const dir = path.join(process.cwd(), 'supabase/migrations')
+  // The newest migration that rewrites the check is the one in force (BOOK-013: 095).
+  const latest = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+    .filter((f) => /ADD CONSTRAINT events_type_check/.test(fs.readFileSync(path.join(dir, f), 'utf8'))).pop() as string
+
+  it('088 adds booking.member_relinked to 081\'s list', () => {
+    expect(checkTypes(SQL)).toContain('booking.member_relinked')
+    expect(checkTypes(SQL)).toHaveLength(21)
+  })
+
+  it('the check in force equals the EventType union in src/domain/entities/event.ts and keeps every 088 type', () => {
+    const inSql = checkTypes(fs.readFileSync(path.join(dir, latest), 'utf8'))
     const union = EVENT_TS.slice(EVENT_TS.indexOf('export type EventType'), EVENT_TS.indexOf('export interface CrmEvent'))
     const inTs = [...union.matchAll(/\| '([^']+)'/g)].map((m) => m[1]).sort()
-    expect(inSql).toContain('booking.member_relinked')
+    expect(latest).toBe('095_booking_staff_crud.sql')
     expect(inSql).toEqual(inTs)
-    expect(inSql).toHaveLength(21)
+    for (const t of checkTypes(SQL)) expect(inSql).toContain(t)
+    expect(inSql).toHaveLength(26)
   })
 })

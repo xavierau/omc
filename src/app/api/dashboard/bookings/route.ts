@@ -8,8 +8,10 @@
  * carry `pendingCount`, every pending request of the restaurant.
  * BOOK-004 r2: `?status=pending` (alone) lists every pending request, any
  * date, by date and time, capped: the rows behind `pendingCount`.
+ * BOOK-013: staff-made rows carry the creator's display name ("By staff ·
+ * Mandy"); POST adds a staff booking (admin/staff, R1; staff-response.ts).
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContext } from '@/infrastructure/supabase/guards/tenant-guard'
 import { AuthError } from '@/infrastructure/supabase/guards/auth-guard'
 import {
@@ -18,6 +20,12 @@ import {
   listBookingRequestsInRange,
   listPendingBookingRequests,
 } from '@/infrastructure/supabase/repositories/booking-request-repository'
+import { findStaffDisplayName } from '@/infrastructure/supabase/repositories/booking-room-repository'
+import { withCreatorNames } from '@/application/booking/booking-creator-names'
+import { createStaffBooking } from '@/application/booking/create-staff-booking'
+import { staffBookingDeps } from '@/application/booking/booking-deps'
+import { failure, staffContext } from './staff-access'
+import { readJson, staffBookingResponse } from './staff-response'
 import {
   BOOKINGS_RANGE_CAP,
   DECIDED_BOOKINGS_LIST_LIMIT,
@@ -45,14 +53,14 @@ async function listBody(restaurantId: string, query: ListQuery) {
   const pending = countRestaurantPendingBookings(restaurantId)
   if (query.kind === 'default') {
     const [bookings, pendingCount] = await Promise.all([listBookingRequests(restaurantId, DECIDED_BOOKINGS_LIST_LIMIT), pending])
-    return { bookings, pendingCount }
+    return { bookings: await withCreatorNames(bookings, findStaffDisplayName), pendingCount }
   }
   const list =
     query.kind === 'range'
       ? listBookingRequestsInRange(restaurantId, query.range, BOOKINGS_RANGE_CAP)
       : listPendingBookingRequests(restaurantId, BOOKINGS_RANGE_CAP)
   const [rows, pendingCount] = await Promise.all([list, pending])
-  return { ...rows, pendingCount }
+  return { ...rows, bookings: await withCreatorNames(rows.bookings, findStaffDisplayName), pendingCount }
 }
 
 export async function GET(request: Request) {
@@ -67,5 +75,18 @@ export async function GET(request: Request) {
     }
     console.error('[Bookings] list failed:', (error as Error).message)
     return NextResponse.json({ error: 'Failed to load bookings' }, { status: 500 })
+  }
+}
+
+/** BOOK-013 S1: staff add a booking (confirmed, source staff). */
+export async function POST(request: NextRequest) {
+  try {
+    const ctx = await staffContext()
+    if (ctx instanceof NextResponse) return ctx
+    const body = await readJson(request)
+    const result = await createStaffBooking(staffBookingDeps(), { restaurantId: ctx.restaurantId, userId: ctx.userId, body })
+    return staffBookingResponse(result, true)
+  } catch (error) {
+    return failure(error, 'add booking')
   }
 }

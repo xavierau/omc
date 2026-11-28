@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { secondaryNavItems } from '@/components/dashboard/sidebar'
+import { bookingsNavFor, secondaryNavItems } from '@/components/dashboard/sidebar'
 
 // INT-001 WI-9, Integration Map #17: sidebar entry -> /dashboard/integrations.
 // `Sidebar` itself owns real `useState`/`usePathname` and can't be exercised
@@ -19,5 +19,14 @@ describe('secondaryNavItems', () => {
   it('keeps the existing Settings entry untouched', () => {
     const items = secondaryNavItems(t)
     expect(items.find((item) => item.href === '/dashboard/setup')).toBeDefined()
+  })
+})
+
+// BOOK-013 S5 (AC-15): no Bookings entry while booking mode is off.
+describe('bookingsNavFor', () => {
+  const t = (key: string) => `t:${key}`
+  it('hides Bookings in mode off and shows it otherwise (and while the mode is unknown)', () => {
+    expect(bookingsNavFor(t, 'off')).toEqual([])
+    for (const mode of ['simple', 'external', null]) expect(bookingsNavFor(t, mode).map((i) => i.href)).toEqual(['/dashboard/bookings'])
   })
 })

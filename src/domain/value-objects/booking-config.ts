@@ -30,7 +30,8 @@ import { hongKongToday } from '@/domain/services/booking-submission'
 export { EXTERNAL_URL_MAX, isSafeHttpsUrl } from './safe-https-url'
 
 export type BookingMode = 'off' | 'simple' | 'external'
-export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder'
+/** BOOK-013: 'changed' and 'cancelled' tell the diner about a staff edit or cancel. */
+export type BookingTemplateKind = 'received' | 'confirmed' | 'declined' | 'reminder' | 'changed' | 'cancelled'
 /** W3: one template row per language (zh_HK and en) for each kind. */
 export type BookingTemplateIdsByLanguage = Record<LanguageCode, string | null>
 /** BOOK-002: a value per language, absent when unset. */
@@ -71,7 +72,7 @@ export interface BookingConfig {
 }
 
 export const BOOKING_MODES: readonly BookingMode[] = ['off', 'simple', 'external']
-export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'confirmed', 'declined', 'reminder']
+export const TEMPLATE_KINDS: readonly BookingTemplateKind[] = ['received', 'confirmed', 'declined', 'reminder', 'changed', 'cancelled']
 export const TEMPLATE_LANGUAGES: readonly LanguageCode[] = ['zh_hk', 'en']
 export const MAX_TTL_HOURS = 8760
 export const MAX_PARTY_SIZE_LIMIT = 100
@@ -89,9 +90,11 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
     confirmed: { en: null, zh_hk: null },
     declined: { en: null, zh_hk: null },
     reminder: { en: null, zh_hk: null },
+    changed: { en: null, zh_hk: null },
+    cancelled: { en: null, zh_hk: null },
   },
-  templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {} },
-  templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {} },
+  templateBodies: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {} },
+  templateCandidates: { received: {}, confirmed: {}, declined: {}, reminder: {}, changed: {}, cancelled: {} },
   agentBooking: { enabled: false, publicId: null, websiteHost: null },
   bookingRules: '',
   bookingHours: null,

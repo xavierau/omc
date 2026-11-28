@@ -1,0 +1,367 @@
+[
+  {
+    "check": "today: Wu Siu Ming is late (18:30 booking)",
+    "ok": true
+  },
+  {
+    "check": "today: Au Ka Yan shows Arrived",
+    "ok": true
+  },
+  {
+    "check": "today: pending Kan Wai shows needs reply",
+    "ok": true
+  },
+  {
+    "step": "01-today",
+    "note": "Today view: counters, Late / Arrived / Waiting / Needs reply",
+    "file": "01-today-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "search: code P4MX8T (Sat booking) found by the server lookup",
+    "ok": true
+  },
+  {
+    "step": "02-today-code-card",
+    "note": "whole code typed: result card for a booking on another day",
+    "file": "02-today-code-card-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "search: phone digits 6555 matches Yeung Family only",
+    "ok": true
+  },
+  {
+    "check": "search: script string matches nothing, no lookup",
+    "ok": true
+  },
+  {
+    "check": "arrived: row shows Arrived HH:MM",
+    "ok": true,
+    "detail": "19:55 已到"
+  },
+  {
+    "check": "arrived: DB checked_in_at set, status confirmed",
+    "ok": true
+  },
+  {
+    "step": "03-today-arrived",
+    "note": "Wu Siu Ming marked Arrived (Undo shown)",
+    "file": "03-today-arrived-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "undo: DB checked_in_at cleared",
+    "ok": true
+  },
+  {
+    "step": "04-scan-sheet",
+    "note": "Scan QR sheet (existing html5-qrcode scanner; headless has no camera)",
+    "file": "04-scan-sheet-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "form: existing member line shown for the typed phone",
+    "ok": true,
+    "detail": "會員：Lam Chi Keung"
+  },
+  {
+    "check": "form: Notify diner ticked by default",
+    "ok": true
+  },
+  {
+    "step": "05-form-new",
+    "note": "New booking form filled (member line, slots with guests left, Notify on)",
+    "file": "05-form-new-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 2
+    },
+    "blocking": [],
+    "warnings": [
+      "touch-target-small: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @29,650 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "check": "rules: prompt lists the slot limit",
+    "ok": true,
+    "detail": "此訂座不符合訂座規則\n超出 19:00 時段上限\n已有 16 位 + 6 = 22，上限 20\n\n客人無法預訂此時間。如餐廳仍有位置，你仍可新增。\n\n返回\n仍然訂座"
+  },
+  {
+    "check": "rules: nothing written before Book anyway",
+    "ok": true
+  },
+  {
+    "step": "06-rules-prompt",
+    "note": "Rules prompt: slot over its guest limit, Book anyway",
+    "file": "06-rules-prompt-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 1,
+      "info": 2
+    },
+    "blocking": [],
+    "warnings": [
+      "row-misaligned: li.flex.gap-3 \"超出 19:00 時段上限 已有 16 位 + 6 = 22，上限 20\" @16,630 358x66 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 10px / bottom 23px)"
+    ]
+  },
+  {
+    "check": "create: confirmed, source staff, code minted, created_by set, linked to existing member",
+    "ok": true,
+    "detail": "c5e7c693-6155-4674-9441-a1e6146d364d confirmed staff ZX46UD true 05a97cdf-d373-418f-8ad7-6bedc3be0e43"
+  },
+  {
+    "check": "create: staff_created event carries the overridden rules",
+    "ok": true,
+    "detail": "[\"slot_full\"]"
+  },
+  {
+    "check": "create: no new member row",
+    "ok": true
+  },
+  {
+    "check": "confirm send: template with IMAGE header link to booking-checkin-qr and the code in the body",
+    "ok": true,
+    "detail": "{\"type\":\"header\",\"parameters\":[{\"type\":\"image\",\"image\":{\"link\":\"http://127.0.0.1:54321/storage/v1/object/public/booking-checkin-qr/<random>.png\"}}]}"
+  },
+  {
+    "check": "QR file path is random, not the code",
+    "ok": true,
+    "detail": "36 chars"
+  },
+  {
+    "step": "07-created-toast",
+    "note": "Toast after Book anyway",
+    "file": "07-created-toast-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 6
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "check": "table: By staff badge and code on the row",
+    "ok": true
+  },
+  {
+    "step": "08-table-staff-row",
+    "note": "Table view: By staff badge, check-in code, row menu",
+    "file": "08-table-staff-row-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 8,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+    ]
+  },
+  {
+    "step": "09-row-menu",
+    "note": "Row menu: Edit / Cancel booking",
+    "file": "09-row-menu-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 2,
+      "warning": 10,
+      "info": 1
+    },
+    "blocking": [
+      {
+        "check": "occluded",
+        "sev": "blocking",
+        "el": "a.inline-flex.min-h-6 \"+85223456789\" @120,1797 109x24",
+        "detail": "center point is covered by div#radix-_r_m_.z-50.min-w-44 \"修改訂座 取消訂座\" @173,1799 176x90 (fixed/sticky) — not clickable at page bottom"
+      },
+      {
+        "check": "occluded",
+        "sev": "blocking",
+        "el": "button[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-member-unlink\"].group/button.inline-flex \"取消連結\" @150,1854 73x28",
+        "detail": "center point is covered by div[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-cancel\"].flex.min-h-10 \"取消訂座\" @178,1844 166x40 (fixed/sticky) — not clickable at page bottom"
+      }
+    ],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "occluded: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | center point is covered by div[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-edit\"].flex.min-h-10 \"修改訂座\"",
+      "occluded: span[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-code\"].font-mono.text-x | center point is covered by div[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d-edit\"].flex.min-h-10 \"修改訂座\""
+    ]
+  },
+  {
+    "step": "10-form-edit",
+    "note": "Edit form with the changed party marked",
+    "file": "10-form-edit-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 8,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)"
+    ]
+  },
+  {
+    "check": "edit: party 4, status still confirmed, code kept",
+    "ok": true
+  },
+  {
+    "check": "stale: 409 changed shows the banner, notes unchanged in DB",
+    "ok": true
+  },
+  {
+    "step": "11-form-stale",
+    "note": "Stale edit: banner + Reload",
+    "file": "11-form-stale-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 9,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "touch-target-small: input[data-testid=\"booking-form-notify\"].mt-0.5.size-5 \"on\" @29,2005 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "step": "12-cancel-dialog",
+    "note": "Cancel booking dialog with Notify diner",
+    "file": "12-cancel-dialog-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 9,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "touch-target-small: input[data-testid=\"booking-cancel-notify\"].mt-0.5.size-5 \"on\" @29,2014 20x20 | interactive target below 24x24px (WCAG 2.5.8 minimum)"
+    ]
+  },
+  {
+    "check": "cancel: status cancelled, cancelled_by staff + user",
+    "ok": true
+  },
+  {
+    "step": "13-cancelled-toast",
+    "note": "Cancelled toast; row shows Cancelled by staff",
+    "file": "13-cancelled-toast-zh-390.jpeg",
+    "url": "/dashboard/bookings?view=table",
+    "audit": {
+      "blocking": 0,
+      "warning": 9,
+      "info": 3
+    },
+    "blocking": [],
+    "warnings": [
+      "column-indent: li[data-testid=\"booking-row-b0f331b5-0283-4786-aad5-2698657eb5ac\"].flex.flex-col \"13:00Au  | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-cbc8d8c3-fa71-480f-ac3c-d44201ee6fc2\"].flex.flex-col \"18:30Wu  | 1 of 5 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-52a8fb52-f208-48c9-bf40-eb050d57ed0e\"].flex.flex-col \"20:30Yeu | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-9d44dda6-e3b6-46ad-bace-0ab2571abebd\"].flex.flex-col \"21:00Kan | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-ae581fea-005b-4252-83e4-36825d8a92d4\"].flex.flex-col \"12:30Cha | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-c5e7c693-6155-4674-9441-a1e6146d364d\"].flex.flex-col \"19:00Lam | 1 of 4 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-indent: li[data-testid=\"booking-row-0ceaac3d-b88b-4f44-b9af-4d09cce92af4\"].flex.flex-col \"19:00Tsa | 1 of 3 stacked children start 8px off the others' left edge (right edges match → stray margin/padding)",
+      "column-misaligned: li[data-testid=\"booking-row-5418c091-d74a-4947-8c83-37858e3b7e98\"].flex.flex-col \"20:30Hui | stacked children share no common left/right/center edge (spread left 8px / center 57px / right 114px)",
+      "row-misaligned: div[data-testid=\"booking-toast\"].fixed.inset-x-4 \"已儲存。WhatsApp 未送達，請以其他方式聯絡客人。\" @16,762 35 | children in one row are neither top-, bottom- nor center-aligned (spread top 3px / center 12px / bottom 22px)"
+    ]
+  },
+  {
+    "check": "mode off: no Bookings link in the sidebar",
+    "ok": true
+  },
+  {
+    "check": "mode off: POST create answers 409 booking_off",
+    "ok": true,
+    "detail": "409 {\"error\":\"booking_off\"}"
+  },
+  {
+    "step": "14-mode-off",
+    "note": "Booking mode off: Bookings are off + Settings link",
+    "file": "14-mode-off-zh-390.jpeg",
+    "url": "/dashboard/bookings",
+    "audit": {
+      "blocking": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "blocking": [],
+    "warnings": []
+  },
+  {
+    "consoleErrors": []
+  }
+]

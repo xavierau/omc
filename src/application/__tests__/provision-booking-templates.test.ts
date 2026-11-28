@@ -1,5 +1,5 @@
-// BOOK-001 W3-05 (AC-1 templates): turning on Simple booking submits the four
-// booking UTILITY templates in zh_HK and en with per-attempt names, stores
+// BOOK-001 W3-05 (AC-1 templates): turning on Simple booking submits the
+// booking UTILITY templates (six kinds since BOOK-013) in zh_HK and en with per-attempt names, stores
 // their ids, and is idempotent: re-saving submits nothing new, a rejected or
 // failed one is resubmitted.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -44,20 +44,20 @@ beforeEach(() => {
 const provision = () => provisionBookingTemplates(RID, deps as unknown as ProvisionBookingTemplatesDeps)
 
 describe('provisionBookingTemplates', () => {
-  it('submits 4 kinds × 2 languages as UTILITY with minted unique names and stores their ids', async () => {
+  it('submits 6 kinds × 2 languages as UTILITY with minted unique names and stores their ids', async () => {
     const statuses = await provision()
-    expect(deps.createTemplate).toHaveBeenCalledTimes(8)
+    expect(deps.createTemplate).toHaveBeenCalledTimes(12)
     const calls = deps.createTemplate.mock.calls.map((c) => c[0])
     expect(new Set(calls.map((c) => c.category))).toEqual(new Set(['UTILITY']))
     expect(new Set(calls.map((c) => c.restaurantId))).toEqual(new Set([RID]))
-    expect(new Set(calls.map((c) => `${c.name}/${c.language}`)).size).toBe(8)
+    expect(new Set(calls.map((c) => `${c.name}/${c.language}`)).size).toBe(12)
     expect(new Set(calls.map((c) => c.language))).toEqual(new Set(['en', 'zh_HK']))
-    for (const kind of ['received', 'confirmed', 'declined', 'reminder']) {
+    for (const kind of ['received', 'confirmed', 'declined', 'reminder', 'changed', 'cancelled']) {
       expect(calls.filter((c) => c.name.startsWith(`booking_${kind}_`))).toHaveLength(2)
     }
     expect(deps.saveProvisioned).toHaveBeenCalledTimes(1)
     const slots = deps.saveProvisioned.mock.calls[0][1] as Array<{ id: string | null }>
-    expect(slots).toHaveLength(8)
+    expect(slots).toHaveLength(12)
     expect(slots.every((slot) => typeof slot.id === 'string')).toBe(true)
     expect(statuses.received).toEqual({ en: 'pending', zh_hk: 'pending' })
   })
@@ -102,12 +102,12 @@ describe('provisionBookingTemplates', () => {
     })
     expect((await provision()).confirmed).toEqual({ en: 'pending', zh_hk: 'pending' })
     expect(deps.createTemplate).not.toHaveBeenCalled()
-    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(8)
+    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(12)
   })
 
   // F12 (review S-5): with the provider down, each Simple save used to leave
-  // 8 more draft rows in the restaurant's template list.
-  it('three saves with the provider failing leave 8 rows, not 24: a failed draft is resubmitted in place', async () => {
+  // more draft rows in the restaurant's template list (12 per save since BOOK-013).
+  it('three saves with the provider failing leave 12 rows, not 36: a failed draft is resubmitted in place', async () => {
     deps.createTemplate.mockImplementation(async (p) => {
       const t = buildWhatsAppTemplate({ id: `t${++seq}`, restaurantId: RID, name: p.name, language: p.language, status: 'draft' })
       rows.set(t.id, t)
@@ -116,9 +116,9 @@ describe('provisionBookingTemplates', () => {
     await provision()
     await provision()
     const statuses = await provision()
-    expect(rows.size).toBe(8)
-    expect(deps.createTemplate).toHaveBeenCalledTimes(8)
-    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(16)
+    expect(rows.size).toBe(12)
+    expect(deps.createTemplate).toHaveBeenCalledTimes(12)
+    expect(deps.resubmitTemplate).toHaveBeenCalledTimes(24)
     expect(new Set(deps.resubmitTemplate.mock.calls.map((c) => c[1]))).toEqual(new Set([RID]))
     expect(statuses.reminder).toEqual({ en: 'failed', zh_hk: 'failed' })
   })
@@ -139,7 +139,7 @@ describe('provisionBookingTemplates', () => {
     const statuses = await provision()
     expect(config.templateIds.received.en).toBe(draftId)
     expect(statuses.received.en).toBe('pending')
-    expect(rows.size).toBe(8)
+    expect(rows.size).toBe(12)
   })
 
   it('a create that throws records not_submitted for that template and still saves the others', async () => {
@@ -269,5 +269,44 @@ describe('applyProvisionedTemplates', () => {
     expect(next.templateIds.declined.en).toBe('live-2')
     expect(next.templateCandidates.declined.en).toBe('newer-edit')
     expect(base.templateIds.declined.en).toBeNull()
+  })
+})
+
+// BOOK-013 (spec AC-14; decision 8): an existing tenant whose four BOOK-001
+// kinds are live gets only the two new kinds submitted; `confirmed` is left as
+// it is (no header, develop's body). This is what the backfill script runs.
+describe('provisionBookingTemplates for an existing tenant (BOOK-013)', () => {
+  function liveOldKinds() {
+    config = structuredClone(config)
+    for (const kind of ['received', 'confirmed', 'declined', 'reminder'] as const) {
+      for (const lang of ['en', 'zh_hk'] as const) {
+        const id = `old-${kind}-${lang}`
+        rows.set(id, buildWhatsAppTemplate({ id, restaurantId: RID, status: 'approved', components: [{ type: 'BODY', text: `Old ${kind} {{date}} {{time}}.` }] }))
+        config.templateIds[kind][lang] = id
+      }
+    }
+  }
+
+  it('submits only changed + cancelled (both languages), BODY only, and leaves every live kind and its candidates alone', async () => {
+    liveOldKinds()
+    await provision()
+    const calls = deps.createTemplate.mock.calls.map((c) => c[0])
+    expect(calls.map((c) => c.name.replace(/_[^_]+$/, '')).sort()).toEqual([
+      'booking_cancelled', 'booking_cancelled', 'booking_changed', 'booking_changed',
+    ])
+    expect(calls.every((c) => c.components.length === 1 && c.components[0].type === 'BODY')).toBe(true)
+    expect(deps.resubmitTemplate).not.toHaveBeenCalled()
+    expect(config.templateIds.confirmed).toEqual({ en: 'old-confirmed-en', zh_hk: 'old-confirmed-zh_hk' })
+    expect(config.templateCandidates.confirmed).toEqual({})
+    expect(config.templateIds.changed.en).toBeTruthy()
+    expect(config.templateIds.cancelled.zh_hk).toBeTruthy()
+  })
+
+  it('a second run submits nothing', async () => {
+    liveOldKinds()
+    await provision()
+    deps.createTemplate.mockClear()
+    await provision()
+    expect(deps.createTemplate).not.toHaveBeenCalled()
   })
 })
