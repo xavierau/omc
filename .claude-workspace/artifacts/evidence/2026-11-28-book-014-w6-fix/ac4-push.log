@@ -1,0 +1,14 @@
+## push
+remote: 
+remote: GitHub found 130 vulnerabilities on xavierau/omc's default branch (4 critical, 36 high, 79 moderate, 11 low). To find out more, visit:        
+remote:      https://github.com/xavierau/omc/security/dependabot        
+remote: 
+To https://github.com/xavierau/omc.git
+   7defecb0..1ebfa58a  feature/book-014-core -> feature/book-014-core
+push exit 0
+## HEAD
+1ebfa58a9189ee100d6c91d221dcbdbae2f080e2
+## ls-remote
+1ebfa58a9189ee100d6c91d221dcbdbae2f080e2	refs/heads/feature/book-014-core
+{"headRefOid":"1ebfa58a9189ee100d6c91d221dcbdbae2f080e2","mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","state":"OPEN"}
+PR comment: https://github.com/xavierau/omc/pull/237#issuecomment-7238988247
